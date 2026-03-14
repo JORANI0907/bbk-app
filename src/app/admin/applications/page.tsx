@@ -443,7 +443,7 @@ export default function ServiceManagementPage() {
         token = await requestGoogleToken()
         setDriveToken(token)
       }
-      const { folderId, folderUrl, folderName } = await createWorkFolderStructure(
+      const { folderUrl, folderName } = await createWorkFolderStructure(
         savedDriveFolder.id, selected.business_name, constructionDate, token
       )
       // DB에 폴더 URL 저장
