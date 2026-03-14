@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
     } else {
       const { data: newCustomer, error: customerError } = await supabase
         .from('customers')
-        .insert({ business_name, address, contact_name, contact_phone, status: 'active' })
+        .insert({ business_name, address, contact_name: contact_name || '담당자', contact_phone: contact_phone || '', pipeline_status: 'contracted' })
         .select('id')
         .single()
       if (customerError) return NextResponse.json({ error: customerError.message }, { status: 500 })
