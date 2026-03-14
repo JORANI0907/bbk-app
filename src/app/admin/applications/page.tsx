@@ -577,64 +577,47 @@ export default function ServiceManagementPage() {
           </div>
 
           {/* 필터 + 정렬 컨트롤 */}
-          <div className="space-y-2 mb-3">
-            {/* 필터 */}
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-xs text-gray-400 shrink-0">필터:</span>
-              {/* 계약상태 필터 */}
-              <div className="flex gap-1 flex-wrap">
-                <button onClick={() => setStatusFilter('')}
-                  className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${statusFilter === '' ? 'bg-gray-700 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}>
-                  전체
-                </button>
+          <div className="flex items-center gap-2 mb-3 flex-wrap">
+            {/* 계약상태 필터 */}
+            <div className="flex items-center gap-1.5">
+              {statusFilter && <span className={`w-2 h-2 rounded-full ${STATUS_CONFIG[statusFilter as ApplicationStatus]?.dot}`} />}
+              <select value={statusFilter} onChange={e => setStatusFilter(e.target.value as ApplicationStatus | '')}
+                className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 pr-6">
+                <option value="">계약상태 전체</option>
                 {(Object.keys(STATUS_CONFIG) as ApplicationStatus[]).map(s => (
-                  <button key={s} onClick={() => setStatusFilter(statusFilter === s ? '' : s)}
-                    className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors flex items-center gap-1 ${
-                      statusFilter === s ? STATUS_CONFIG[s].color : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
-                    }`}>
-                    <span className={`w-1.5 h-1.5 rounded-full ${STATUS_CONFIG[s].dot}`} />
-                    {s}
-                  </button>
+                  <option key={s} value={s}>{s}</option>
                 ))}
-              </div>
+              </select>
             </div>
             {/* 최근알림 필터 */}
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-xs text-gray-400 shrink-0">알림:</span>
-              <div className="flex gap-1 flex-wrap">
-                <button onClick={() => setNotifyFilter('')}
-                  className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${notifyFilter === '' ? 'bg-gray-700 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}>
-                  전체
-                </button>
-                {NOTIFICATION_TYPES.map(t => {
-                  const cfg = NOTIFY_TYPE_CONFIG[t]
-                  return (
-                    <button key={t} onClick={() => setNotifyFilter(notifyFilter === t ? '' : t)}
-                      className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors flex items-center gap-1 ${
-                        notifyFilter === t ? `${cfg.badge} ring-1 ring-current` : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
-                      }`}>
-                      <span className={`w-1.5 h-1.5 rounded-full ${cfg.dot}`} />
-                      {t}
-                    </button>
-                  )
-                })}
-              </div>
+            <div className="flex items-center gap-1.5">
+              {notifyFilter && <span className={`w-2 h-2 rounded-full ${NOTIFY_TYPE_CONFIG[notifyFilter]?.dot}`} />}
+              <select value={notifyFilter} onChange={e => setNotifyFilter(e.target.value)}
+                className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 pr-6">
+                <option value="">최근알림 전체</option>
+                {NOTIFICATION_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+              </select>
             </div>
             {/* 정렬 */}
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-gray-400 shrink-0">정렬:</span>
-              <div className="flex gap-1 flex-wrap">
-                {(Object.entries(SORT_LABELS) as [SortField, string][]).map(([field, label]) => (
-                  <button key={field} onClick={() => toggleSort(field)}
-                    className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors flex items-center gap-1 ${
-                      sortField === field ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                    }`}>
-                    {label}
-                    {sortField === field && <span>{sortDir === 'desc' ? '↓' : '↑'}</span>}
-                  </button>
-                ))}
-              </div>
-            </div>
+            <select value={`${sortField}:${sortDir}`}
+              onChange={e => {
+                const [f, d] = e.target.value.split(':')
+                setSortField(f as SortField)
+                setSortDir(d as SortDir)
+              }}
+              className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 pr-6 ml-auto">
+              {(Object.entries(SORT_LABELS) as [SortField, string][]).flatMap(([f, l]) => [
+                <option key={`${f}:desc`} value={`${f}:desc`}>{l} ↓</option>,
+                <option key={`${f}:asc`} value={`${f}:asc`}>{l} ↑</option>,
+              ])}
+            </select>
+            {/* 필터 초기화 */}
+            {(statusFilter || notifyFilter) && (
+              <button onClick={() => { setStatusFilter(''); setNotifyFilter('') }}
+                className="text-xs text-blue-500 hover:text-blue-700 underline whitespace-nowrap">
+                초기화
+              </button>
+            )}
           </div>
 
           {/* 목록 테이블 */}
@@ -823,16 +806,21 @@ export default function ServiceManagementPage() {
                     </div>
                   </div>
 
-                  {/* 결제방법 (신청서 폼과 동일 옵션) */}
+                  {/* 결제방법 */}
                   <div className="flex items-start gap-2">
-                    <span className="text-xs text-gray-500 w-20 shrink-0 pt-1">결제방법</span>
-                    <div className="flex gap-1.5 flex-wrap flex-1">
-                      {PAYMENT_METHODS.map(m => (
-                        <button key={m} type="button" onClick={() => handlePaymentMethodChange(m)}
-                          className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${paymentMethod === m ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
-                          {m}
-                        </button>
-                      ))}
+                    <span className="text-xs text-gray-500 w-20 shrink-0 pt-1.5">결제방법</span>
+                    <div className="flex-1 space-y-1.5">
+                      <select value={PAYMENT_METHODS.includes(paymentMethod) ? paymentMethod : '직접입력'}
+                        onChange={e => e.target.value === '직접입력' ? handlePaymentMethodChange('') : handlePaymentMethodChange(e.target.value)}
+                        className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+                        {PAYMENT_METHODS.map(m => <option key={m} value={m}>{m}</option>)}
+                        <option value="직접입력">직접입력</option>
+                      </select>
+                      {!PAYMENT_METHODS.includes(paymentMethod) && (
+                        <input value={paymentMethod} onChange={e => handlePaymentMethodChange(e.target.value)}
+                          placeholder="결제방법 직접 입력"
+                          className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                      )}
                     </div>
                   </div>
 
@@ -848,42 +836,57 @@ export default function ServiceManagementPage() {
                     </div>
                   </div>
 
-                  {/* 엘리베이터 (신청서 폼과 동일 옵션) */}
+                  {/* 엘리베이터 */}
                   <div className="flex items-start gap-2">
-                    <span className="text-xs text-gray-500 w-20 shrink-0 pt-1">엘리베이터</span>
-                    <div className="flex gap-1.5 flex-wrap flex-1">
-                      {ELEVATOR_OPTIONS.map(o => (
-                        <button key={o} type="button" onClick={() => setElevator(o)}
-                          className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${elevator === o ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
-                          {o}
-                        </button>
-                      ))}
+                    <span className="text-xs text-gray-500 w-20 shrink-0 pt-1.5">엘리베이터</span>
+                    <div className="flex-1 space-y-1.5">
+                      <select value={ELEVATOR_OPTIONS.includes(elevator) ? elevator : '직접입력'}
+                        onChange={e => e.target.value === '직접입력' ? setElevator('') : setElevator(e.target.value)}
+                        className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+                        {ELEVATOR_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
+                        <option value="직접입력">직접입력</option>
+                      </select>
+                      {!ELEVATOR_OPTIONS.includes(elevator) && (
+                        <input value={elevator} onChange={e => setElevator(e.target.value)}
+                          placeholder="엘리베이터 상태 직접 입력"
+                          className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                      )}
                     </div>
                   </div>
 
-                  {/* 건물출입 (신청서 폼과 동일 옵션) */}
+                  {/* 건물출입 */}
                   <div className="flex items-start gap-2">
-                    <span className="text-xs text-gray-500 w-20 shrink-0 pt-1">건물출입</span>
-                    <div className="flex gap-1.5 flex-wrap flex-1">
-                      {BUILDING_ACCESS_OPTIONS.map(o => (
-                        <button key={o} type="button" onClick={() => setBuildingAccess(o)}
-                          className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${buildingAccess === o ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
-                          {o}
-                        </button>
-                      ))}
+                    <span className="text-xs text-gray-500 w-20 shrink-0 pt-1.5">건물출입</span>
+                    <div className="flex-1 space-y-1.5">
+                      <select value={BUILDING_ACCESS_OPTIONS.includes(buildingAccess) ? buildingAccess : '직접입력'}
+                        onChange={e => e.target.value === '직접입력' ? setBuildingAccess('') : setBuildingAccess(e.target.value)}
+                        className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+                        {BUILDING_ACCESS_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
+                        <option value="직접입력">직접입력</option>
+                      </select>
+                      {!BUILDING_ACCESS_OPTIONS.includes(buildingAccess) && (
+                        <input value={buildingAccess} onChange={e => setBuildingAccess(e.target.value)}
+                          placeholder="건물출입 방법 직접 입력"
+                          className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                      )}
                     </div>
                   </div>
 
-                  {/* 주차 (신청서 폼과 동일 옵션) */}
+                  {/* 주차 */}
                   <div className="flex items-start gap-2">
-                    <span className="text-xs text-gray-500 w-20 shrink-0 pt-1">주차</span>
-                    <div className="flex gap-1.5 flex-wrap flex-1">
-                      {PARKING_OPTIONS.map(o => (
-                        <button key={o} type="button" onClick={() => setParking(o)}
-                          className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${parking === o ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
-                          {o}
-                        </button>
-                      ))}
+                    <span className="text-xs text-gray-500 w-20 shrink-0 pt-1.5">주차</span>
+                    <div className="flex-1 space-y-1.5">
+                      <select value={PARKING_OPTIONS.includes(parking) ? parking : '직접입력'}
+                        onChange={e => e.target.value === '직접입력' ? setParking('') : setParking(e.target.value)}
+                        className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+                        {PARKING_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
+                        <option value="직접입력">직접입력</option>
+                      </select>
+                      {!PARKING_OPTIONS.includes(parking) && (
+                        <input value={parking} onChange={e => setParking(e.target.value)}
+                          placeholder="주차 정보 직접 입력"
+                          className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                      )}
                     </div>
                   </div>
 
