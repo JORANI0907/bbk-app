@@ -4,7 +4,6 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import toast from 'react-hot-toast'
 import type { DriveFolder } from '@/lib/googleDrive'
 
-// Google Drive 모듈 동적 로드 (SSR 방지 - Netlify 빌드 호환)
 const getDriveLib = () => import('@/lib/googleDrive')
 
 type ServiceType = '1회성케어' | '정기딥케어' | '정기엔드케어'
@@ -41,9 +40,13 @@ interface Application {
   vat: number | null
   balance: number | null
   drive_folder_url: string | null
+  construction_date: string | null
 }
 
 interface NotifyLog { type: string; sentAt: string }
+
+type SortField = 'construction_date' | 'created_at' | 'business_name' | 'owner_name' | 'payment_method' | 'status'
+type SortDir = 'asc' | 'desc'
 
 // ─── 상수 ────────────────────────────────────────────────────
 const SERVICE_TYPES: ServiceType[] = ['1회성케어', '정기딥케어', '정기엔드케어']
@@ -59,10 +62,19 @@ const NOTIFICATION_TYPES = [
   '결제알림', '결제완료알림', '계산서발행완료알림', '예약금환급완료알림',
   '예약취소알림', 'A/S방문알림', '방문견적알림',
 ]
+// 신청서 폼과 동일한 옵션
 const PAYMENT_METHODS = ['현금', '카드', '계좌이체', '현금(부가세 X)']
 const ELEVATOR_OPTIONS = ['있음', '없음', '해당없음']
 const BUILDING_ACCESS_OPTIONS = ['신청필요', '신청불필요', '해당없음']
 const PARKING_OPTIONS = ['가능', '불가능', '주차없음']
+const SORT_LABELS: Record<SortField, string> = {
+  construction_date: '시공일자',
+  created_at: '신청일',
+  business_name: '업체명',
+  owner_name: '대표자',
+  payment_method: '결제방법',
+  status: '상태',
+}
 
 // ─── 알림 이력 (localStorage) ────────────────────────────────
 const LOG_KEY = 'bbk_notify_logs'
@@ -83,9 +95,29 @@ const fmt = (n: number | null | undefined) => (n == null ? '0' : n.toLocaleStrin
 const copyText = (text: string, label: string) =>
   navigator.clipboard.writeText(text).then(() => toast.success(`${label} 복사됨`))
 const today = () => new Date().toISOString().slice(0, 10)
+const fmtDate = (d: string | null) => d ? d.slice(0, 10).replace(/-/g, '.') : '-'
 
 function isMigrationError(msg: string) {
   return msg.includes('does not exist') || msg.includes('column') || msg.includes('no such column')
+}
+
+function sortApplications(apps: Application[], field: SortField, dir: SortDir): Application[] {
+  return [...apps].sort((a, b) => {
+    let va: string | null = null
+    let vb: string | null = null
+    if (field === 'construction_date') { va = a.construction_date; vb = b.construction_date }
+    else if (field === 'created_at') { va = a.created_at; vb = b.created_at }
+    else if (field === 'business_name') { va = a.business_name; vb = b.business_name }
+    else if (field === 'owner_name') { va = a.owner_name; vb = b.owner_name }
+    else if (field === 'payment_method') { va = a.payment_method; vb = b.payment_method }
+    else if (field === 'status') { va = a.status; vb = b.status }
+    // null값 항상 마지막
+    if (va == null && vb == null) return 0
+    if (va == null) return 1
+    if (vb == null) return -1
+    const cmp = va < vb ? -1 : va > vb ? 1 : 0
+    return dir === 'desc' ? -cmp : cmp
+  })
 }
 
 // ─── 소형 UI 컴포넌트 ────────────────────────────────────────
@@ -135,32 +167,30 @@ function AmountInput({ label, value, onChange, hint, disabled }: {
 
 // ─── Google Drive 폴더 생성 모달 ─────────────────────────────
 function DriveFolderModal({
-  businessName, onClose,
+  businessName, initialDate, onClose,
   onSelectFolder, onConfirm,
   savedFolder, creating,
 }: {
   businessName: string
+  initialDate: string
   onClose: () => void
   onSelectFolder: () => void
   onConfirm: (date: string) => void
   savedFolder: DriveFolder | null
   creating: boolean
 }) {
-  const [constructionDate, setConstructionDate] = useState(today())
+  const [constructionDate, setConstructionDate] = useState(initialDate || today())
   const dateStr = constructionDate.replace(/-/g, '')
   const folderName = `${dateStr} ${businessName}`
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
-        {/* 헤더 */}
         <div className="p-5 border-b border-gray-100 flex justify-between items-center">
           <h2 className="font-bold text-gray-900">📁 Google Drive 폴더 생성</h2>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-lg">✕</button>
         </div>
-
         <div className="p-5 space-y-4">
-          {/* 폴더 구조 미리보기 */}
           <div className="bg-gray-50 rounded-xl p-4">
             <p className="text-xs font-semibold text-gray-500 mb-3">생성될 폴더 구조</p>
             <div className="space-y-1.5">
@@ -169,25 +199,17 @@ function DriveFolderModal({
                 <span className="text-sm font-semibold text-gray-800">{folderName}</span>
               </div>
               <div className="ml-7 space-y-1">
-                <div className="flex items-center gap-2 text-sm text-gray-600">
-                  <span>📁</span><span>작업 전</span>
-                </div>
-                <div className="flex items-center gap-2 text-sm text-gray-600">
-                  <span>📁</span><span>작업 후</span>
-                </div>
+                <div className="flex items-center gap-2 text-sm text-gray-600"><span>📁</span><span>작업 전</span></div>
+                <div className="flex items-center gap-2 text-sm text-gray-600"><span>📁</span><span>작업 후</span></div>
               </div>
             </div>
           </div>
-
-          {/* 시공일자 */}
           <div>
             <label className="text-xs font-semibold text-gray-500 block mb-2">시공일자</label>
             <input type="date" value={constructionDate}
               onChange={e => setConstructionDate(e.target.value)}
               className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
           </div>
-
-          {/* 저장 위치 */}
           <div>
             <p className="text-xs font-semibold text-gray-500 mb-2">저장 위치 (Google Drive)</p>
             {savedFolder ? (
@@ -196,33 +218,20 @@ function DriveFolderModal({
                   <span className="text-lg">📂</span>
                   <span className="text-sm font-medium text-blue-700 truncate">{savedFolder.name}</span>
                 </div>
-                <button onClick={onSelectFolder}
-                  className="text-xs text-blue-500 hover:text-blue-700 underline ml-2 shrink-0">
-                  변경
-                </button>
+                <button onClick={onSelectFolder} className="text-xs text-blue-500 hover:text-blue-700 underline ml-2 shrink-0">변경</button>
               </div>
             ) : (
               <button onClick={onSelectFolder}
                 className="w-full py-4 border-2 border-dashed border-gray-200 rounded-xl text-sm text-gray-500 hover:border-blue-300 hover:text-blue-600 hover:bg-blue-50 transition-colors flex items-center justify-center gap-2">
-                <span className="text-lg">🗂️</span>
-                <span>Google Drive에서 위치 선택</span>
+                <span className="text-lg">🗂️</span><span>Google Drive에서 위치 선택</span>
               </button>
             )}
-            {!savedFolder && (
-              <p className="text-xs text-gray-400 mt-1.5">선택한 위치는 다음에도 기억됩니다.</p>
-            )}
+            {!savedFolder && <p className="text-xs text-gray-400 mt-1.5">선택한 위치는 다음에도 기억됩니다.</p>}
           </div>
         </div>
-
-        {/* 버튼 */}
         <div className="p-4 border-t border-gray-100 flex gap-2">
-          <button onClick={onClose}
-            className="flex-1 py-2.5 bg-gray-100 text-gray-700 text-sm font-semibold rounded-lg hover:bg-gray-200 transition-colors">
-            취소
-          </button>
-          <button
-            onClick={() => onConfirm(constructionDate)}
-            disabled={!savedFolder || creating}
+          <button onClick={onClose} className="flex-1 py-2.5 bg-gray-100 text-gray-700 text-sm font-semibold rounded-lg hover:bg-gray-200 transition-colors">취소</button>
+          <button onClick={() => onConfirm(constructionDate)} disabled={!savedFolder || creating}
             className="flex-1 py-2.5 bg-green-600 text-white text-sm font-semibold rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors">
             {creating ? '⏳ 생성 중...' : '📁 폴더 생성'}
           </button>
@@ -242,6 +251,10 @@ export default function ServiceManagementPage() {
   const [saving, setSaving] = useState(false)
   const [sending, setSending] = useState(false)
 
+  // 정렬
+  const [sortField, setSortField] = useState<SortField>('construction_date')
+  const [sortDir, setSortDir] = useState<SortDir>('desc')
+
   // 알림
   const [notifyType, setNotifyType] = useState('')
   const [notifyLogs, setNotifyLogs] = useState<NotifyLog[]>([])
@@ -255,6 +268,7 @@ export default function ServiceManagementPage() {
   // 편집 필드
   const [adminNotes, setAdminNotes] = useState('')
   const [assignedTo, setAssignedTo] = useState('')
+  const [constructionDate, setConstructionDate] = useState('')
   const [deposit, setDeposit] = useState('')
   const [supplyAmount, setSupplyAmount] = useState('')
   const [vat, setVat] = useState('')
@@ -269,10 +283,11 @@ export default function ServiceManagementPage() {
   const [parking, setParking] = useState('')
   const [accessMethod, setAccessMethod] = useState('')
   const [requestNotes, setRequestNotes] = useState('')
+  const [businessHoursStart, setBusinessHoursStart] = useState('')
+  const [businessHoursEnd, setBusinessHoursEnd] = useState('')
 
   const vatManual = useRef(false)
 
-  // 파생값
   const isCashNoVat = paymentMethod === '현금(부가세 X)'
   const effectiveVat = isCashNoVat ? 0 : (Number(vat) || 0)
   const totalAmount = (Number(supplyAmount) || 0) + effectiveVat
@@ -299,8 +314,10 @@ export default function ServiceManagementPage() {
 
   const handleSelect = (app: Application) => {
     setSelected(app)
+    // 신청서 제출 값 우선 반영 (null이면 빈 문자열)
     setAdminNotes(app.admin_notes ?? '')
     setAssignedTo(app.assigned_to ?? '')
+    setConstructionDate(app.construction_date ?? '')
     setDeposit(String(app.deposit ?? ''))
     setSupplyAmount(String(app.supply_amount ?? ''))
     setVat(String(app.vat ?? ''))
@@ -315,12 +332,13 @@ export default function ServiceManagementPage() {
     setParking(app.parking ?? '')
     setAccessMethod(app.access_method ?? '')
     setRequestNotes(app.request_notes ?? '')
+    setBusinessHoursStart(app.business_hours_start ?? '')
+    setBusinessHoursEnd(app.business_hours_end ?? '')
     setNotifyType('')
     setNotifyLogs(loadLogs(app.id))
     vatManual.current = false
   }
 
-  // 상태/유형 단독 저장 (누락 컬럼 오류 분리)
   const quickSave = async (fields: Partial<Application>) => {
     if (!selected) return
     setSaving(true)
@@ -338,14 +356,11 @@ export default function ServiceManagementPage() {
     } catch (e) {
       const msg = e instanceof Error ? e.message : '저장 실패'
       if (isMigrationError(msg)) {
-        toast.error('⚠️ Supabase SQL 마이그레이션을 먼저 실행해주세요.\n(supabase/service_applications_v2.sql)', { duration: 6000 })
-      } else {
-        toast.error(msg)
-      }
+        toast.error('⚠️ Supabase SQL 마이그레이션을 먼저 실행해주세요.', { duration: 6000 })
+      } else { toast.error(msg) }
     } finally { setSaving(false) }
   }
 
-  // 전체 저장
   const handleSave = async () => {
     if (!selected) return
     setSaving(true)
@@ -357,6 +372,7 @@ export default function ServiceManagementPage() {
           id: selected.id,
           admin_notes: adminNotes,
           assigned_to: assignedTo || null,
+          construction_date: constructionDate || null,
           deposit: Number(deposit) || 0,
           supply_amount: Number(supplyAmount) || 0,
           vat: effectiveVat,
@@ -372,6 +388,8 @@ export default function ServiceManagementPage() {
           access_method: accessMethod || null,
           parking: parking || null,
           request_notes: requestNotes || null,
+          business_hours_start: businessHoursStart || null,
+          business_hours_end: businessHoursEnd || null,
         }),
       })
       const data = await res.json()
@@ -381,10 +399,8 @@ export default function ServiceManagementPage() {
     } catch (e) {
       const msg = e instanceof Error ? e.message : '저장 실패'
       if (isMigrationError(msg)) {
-        toast.error('⚠️ Supabase SQL 마이그레이션을 먼저 실행해주세요.\n(supabase/service_applications_v2.sql)', { duration: 6000 })
-      } else {
-        toast.error(msg)
-      }
+        toast.error('⚠️ Supabase SQL 마이그레이션을 먼저 실행해주세요.', { duration: 6000 })
+      } else { toast.error(msg) }
     } finally { setSaving(false) }
   }
 
@@ -401,7 +417,6 @@ export default function ServiceManagementPage() {
     else { vatManual.current = false; if (supplyAmount) setVat(String(Math.round((Number(supplyAmount) || 0) * 0.1))) }
   }
 
-  // 알림 발송
   const handleNotify = async () => {
     if (!selected || !notifyType) { toast.error('알림 유형을 선택해주세요.'); return }
     setSending(true)
@@ -422,7 +437,6 @@ export default function ServiceManagementPage() {
     finally { setSending(false) }
   }
 
-  // Google Drive 폴더 선택
   const handleSelectDriveFolder = async () => {
     try {
       const lib = await getDriveLib()
@@ -434,8 +448,7 @@ export default function ServiceManagementPage() {
     } catch (e) { toast.error(e instanceof Error ? e.message : 'Google Drive 연결 실패') }
   }
 
-  // Google Drive 폴더 생성 실행
-  const handleConfirmDriveCreate = async (constructionDate: string) => {
+  const handleConfirmDriveCreate = async (date: string) => {
     if (!selected || !savedDriveFolder) return
     setDriveCreating(true)
     try {
@@ -447,31 +460,56 @@ export default function ServiceManagementPage() {
         setDriveToken(token)
       }
       const { folderUrl, folderName } = await lib.createWorkFolderStructure(
-        savedDriveFolder.id, selected.business_name, constructionDate, token
+        savedDriveFolder.id, selected.business_name, date, token
       )
-      // DB에 폴더 URL 저장
       await fetch('/api/admin/applications', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: selected.id, drive_folder_url: folderUrl }),
+        body: JSON.stringify({ id: selected.id, drive_folder_url: folderUrl, construction_date: date }),
       })
+      // construction_date도 로컬 상태 업데이트
+      setConstructionDate(date)
+      setSelected(prev => prev ? { ...prev, drive_folder_url: folderUrl, construction_date: date } : prev)
+      setApplications(prev => prev.map(a => a.id === selected.id ? { ...a, drive_folder_url: folderUrl, construction_date: date } : a))
       setDriveModalOpen(false)
       toast.success(`✅ "${folderName}" 폴더 생성 완료!`, { duration: 5000 })
       window.open(folderUrl, '_blank')
-      await fetchAll()
-    } catch (e) { toast.error(e instanceof Error ? e.message : '폴더 생성 실패') }
-    finally { setDriveCreating(false) }
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : '폴더 생성 실패'
+      // File not found: 저장된 폴더가 Drive에서 삭제된 경우
+      if (msg.includes('File not found') || msg.includes('not found')) {
+        toast.error('저장된 Drive 폴더를 찾을 수 없습니다. 위치를 다시 선택해주세요.', { duration: 5000 })
+        setSavedDriveFolder(null)
+        // 쿠키 초기화
+        getDriveLib().then(lib => {
+          document.cookie = 'bbk_drive_folder=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/'
+        })
+      } else {
+        toast.error(msg)
+      }
+    } finally { setDriveCreating(false) }
   }
 
-  const byType = (type: ServiceType) =>
-    applications.filter(a => (a.service_type ?? '1회성케어') === type)
+  const toggleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortDir(d => d === 'asc' ? 'desc' : 'asc')
+    } else {
+      setSortField(field)
+      setSortDir(field === 'construction_date' ? 'desc' : 'asc')
+    }
+  }
+
+  const byType = (type: ServiceType) => {
+    const filtered = applications.filter(a => (a.service_type ?? '1회성케어') === type)
+    return sortApplications(filtered, sortField, sortDir)
+  }
 
   return (
     <>
-      {/* Drive 모달 */}
       {driveModalOpen && selected && (
         <DriveFolderModal
           businessName={selected.business_name}
+          initialDate={constructionDate || today()}
           onClose={() => setDriveModalOpen(false)}
           onSelectFolder={handleSelectDriveFolder}
           onConfirm={handleConfirmDriveCreate}
@@ -488,7 +526,8 @@ export default function ServiceManagementPage() {
             <button onClick={fetchAll} className="px-3 py-1.5 text-sm bg-white border border-gray-200 rounded-lg hover:bg-gray-50">새로고침</button>
           </div>
 
-          <div className="flex border-b border-gray-200 mb-4">
+          {/* 서비스 유형 탭 */}
+          <div className="flex border-b border-gray-200 mb-3">
             {SERVICE_TYPES.map(type => (
               <button key={type}
                 onClick={() => { setActiveType(type); setSelected(null) }}
@@ -502,6 +541,23 @@ export default function ServiceManagementPage() {
             ))}
           </div>
 
+          {/* 정렬 컨트롤 */}
+          <div className="flex items-center gap-2 mb-3 px-1">
+            <span className="text-xs text-gray-400">정렬:</span>
+            <div className="flex gap-1 flex-wrap">
+              {(Object.entries(SORT_LABELS) as [SortField, string][]).map(([field, label]) => (
+                <button key={field} onClick={() => toggleSort(field)}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors flex items-center gap-1 ${
+                    sortField === field ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  }`}>
+                  {label}
+                  {sortField === field && <span>{sortDir === 'desc' ? '↓' : '↑'}</span>}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* 목록 테이블 */}
           <div className="bg-white rounded-xl border border-gray-200 overflow-auto flex-1">
             {loading ? (
               <div className="py-20 text-center text-gray-400 text-sm">불러오는 중...</div>
@@ -511,22 +567,34 @@ export default function ServiceManagementPage() {
               <table className="w-full text-sm">
                 <thead className="bg-gray-50 border-b border-gray-200 sticky top-0">
                   <tr>
-                    <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500">신청일</th>
-                    <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500">업체명</th>
-                    <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500">대표자</th>
-                    <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500">담당자</th>
-                    <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500">상태</th>
+                    {[
+                      { label: '시공일자', field: 'construction_date' as SortField },
+                      { label: '업체명', field: 'business_name' as SortField },
+                      { label: '대표자', field: 'owner_name' as SortField },
+                      { label: '담당자', field: null },
+                      { label: '결제방법', field: 'payment_method' as SortField },
+                      { label: '상태', field: 'status' as SortField },
+                    ].map(({ label, field }) => (
+                      <th key={label}
+                        onClick={field ? () => toggleSort(field) : undefined}
+                        className={`text-left px-4 py-3 text-xs font-semibold text-gray-500 whitespace-nowrap ${field ? 'cursor-pointer hover:text-gray-700 select-none' : ''}`}>
+                        {label}
+                        {field && sortField === field && <span className="ml-1">{sortDir === 'desc' ? '↓' : '↑'}</span>}
+                      </th>
+                    ))}
                   </tr>
                 </thead>
                 <tbody>
                   {byType(activeType).map(app => (
                     <tr key={app.id} onClick={() => handleSelect(app)}
-                      className={`border-b border-gray-100 last:border-0 cursor-pointer hover:bg-blue-50 transition-colors ${selected?.id === app.id ? 'bg-blue-50' : ''}`}
-                    >
-                      <td className="px-4 py-3 text-gray-500 whitespace-nowrap">{new Date(app.created_at).toLocaleDateString('ko-KR')}</td>
+                      className={`border-b border-gray-100 last:border-0 cursor-pointer hover:bg-blue-50 transition-colors ${selected?.id === app.id ? 'bg-blue-50' : ''}`}>
+                      <td className="px-4 py-3 text-gray-500 whitespace-nowrap font-mono text-xs">
+                        {app.construction_date ? fmtDate(app.construction_date) : <span className="text-gray-300">미설정</span>}
+                      </td>
                       <td className="px-4 py-3 font-medium text-gray-900">{app.business_name}</td>
                       <td className="px-4 py-3 text-gray-700">{app.owner_name}</td>
                       <td className="px-4 py-3 text-gray-500">{users.find(u => u.id === app.assigned_to)?.name ?? '미배정'}</td>
+                      <td className="px-4 py-3 text-gray-500 text-xs">{app.payment_method ?? '-'}</td>
                       <td className="px-4 py-3">
                         <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_CONFIG[app.status]?.color ?? 'bg-gray-100 text-gray-600'}`}>
                           {app.status}
@@ -548,7 +616,7 @@ export default function ServiceManagementPage() {
             <div className="p-4 border-b border-gray-100 flex items-start justify-between gap-2 sticky top-0 bg-white z-10">
               <div>
                 <h2 className="font-bold text-gray-900">{selected.business_name}</h2>
-                <p className="text-xs text-gray-400 mt-0.5">{new Date(selected.created_at).toLocaleString('ko-KR')}</p>
+                <p className="text-xs text-gray-400 mt-0.5">신청일: {new Date(selected.created_at).toLocaleString('ko-KR')}</p>
               </div>
               <button onClick={() => setSelected(null)} className="text-gray-400 hover:text-gray-600 text-lg">✕</button>
             </div>
@@ -564,8 +632,7 @@ export default function ServiceManagementPage() {
                         selected.status === s
                           ? STATUS_CONFIG[s].color + ' ring-2 ring-offset-1 ring-current'
                           : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                      }`}
-                    >{s}</button>
+                      }`}>{s}</button>
                   ))}
                 </div>
               </Section>
@@ -577,13 +644,16 @@ export default function ServiceManagementPage() {
                     <button key={t} disabled={saving}
                       onClick={() => quickSave({ service_type: t })}
                       className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
-                        (selected.service_type ?? '1회성케어') === t
-                          ? 'bg-blue-600 text-white'
-                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                      }`}
-                    >{t}</button>
+                        (selected.service_type ?? '1회성케어') === t ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                      }`}>{t}</button>
                   ))}
                 </div>
+              </Section>
+
+              {/* 시공일자 */}
+              <Section title="시공일자">
+                <input type="date" value={constructionDate} onChange={e => setConstructionDate(e.target.value)}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
               </Section>
 
               {/* 담당자 */}
@@ -600,7 +670,6 @@ export default function ServiceManagementPage() {
               {/* 고객 정보 */}
               <Section title="고객 정보">
                 <div className="space-y-2">
-                  {/* 연락처 */}
                   <div className="flex items-center gap-2">
                     <span className="text-xs text-gray-500 w-20 shrink-0">연락처</span>
                     <div className="flex flex-1 gap-1">
@@ -610,10 +679,7 @@ export default function ServiceManagementPage() {
                       <button onClick={() => copyText(phone, '연락처')} className="px-2 py-1.5 text-xs bg-gray-50 rounded-lg hover:bg-gray-100">📋</button>
                     </div>
                   </div>
-
                   <EditRow label="이메일" value={email} onChange={setEmail} />
-
-                  {/* 주소 */}
                   <div className="flex items-center gap-2">
                     <span className="text-xs text-gray-500 w-20 shrink-0">주소</span>
                     <div className="flex flex-1 gap-1">
@@ -623,8 +689,6 @@ export default function ServiceManagementPage() {
                         className="px-2 py-1.5 text-xs bg-yellow-50 text-yellow-700 rounded-lg hover:bg-yellow-100 shrink-0">🗺️</button>
                     </div>
                   </div>
-
-                  {/* 사업자번호 */}
                   <div className="flex items-center gap-2">
                     <span className="text-xs text-gray-500 w-20 shrink-0">사업자번호</span>
                     <div className="flex flex-1 gap-1">
@@ -633,8 +697,6 @@ export default function ServiceManagementPage() {
                       <button onClick={() => copyText(businessNumber, '사업자번호')} className="px-2 py-1.5 text-xs bg-gray-50 rounded-lg hover:bg-gray-100">📋</button>
                     </div>
                   </div>
-
-                  {/* 계좌번호 */}
                   <div className="flex items-center gap-2">
                     <span className="text-xs text-gray-500 w-20 shrink-0">계좌번호</span>
                     <div className="flex flex-1 gap-1">
@@ -644,18 +706,70 @@ export default function ServiceManagementPage() {
                     </div>
                   </div>
 
-                  <SelectRow label="결제방법" value={paymentMethod} options={PAYMENT_METHODS} onChange={handlePaymentMethodChange} />
-
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-gray-500 w-20 shrink-0">영업시간</span>
-                    <span className="text-xs text-gray-700">
-                      {selected.business_hours_start ? `${selected.business_hours_start} ~ ${selected.business_hours_end}` : '-'}
-                    </span>
+                  {/* 결제방법 (신청서 폼과 동일 옵션) */}
+                  <div className="flex items-start gap-2">
+                    <span className="text-xs text-gray-500 w-20 shrink-0 pt-1">결제방법</span>
+                    <div className="flex gap-1.5 flex-wrap flex-1">
+                      {PAYMENT_METHODS.map(m => (
+                        <button key={m} type="button" onClick={() => handlePaymentMethodChange(m)}
+                          className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${paymentMethod === m ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
+                          {m}
+                        </button>
+                      ))}
+                    </div>
                   </div>
 
-                  <SelectRow label="엘리베이터" value={elevator} options={ELEVATOR_OPTIONS} onChange={setElevator} />
-                  <SelectRow label="건물출입" value={buildingAccess} options={BUILDING_ACCESS_OPTIONS} onChange={setBuildingAccess} />
-                  <SelectRow label="주차" value={parking} options={PARKING_OPTIONS} onChange={setParking} />
+                  {/* 영업시간 (수정 가능) */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-gray-500 w-20 shrink-0">영업시간</span>
+                    <div className="flex items-center gap-1 flex-1">
+                      <input type="time" value={businessHoursStart} onChange={e => setBusinessHoursStart(e.target.value)}
+                        className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                      <span className="text-gray-400 text-xs">~</span>
+                      <input type="time" value={businessHoursEnd} onChange={e => setBusinessHoursEnd(e.target.value)}
+                        className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                    </div>
+                  </div>
+
+                  {/* 엘리베이터 (신청서 폼과 동일 옵션) */}
+                  <div className="flex items-start gap-2">
+                    <span className="text-xs text-gray-500 w-20 shrink-0 pt-1">엘리베이터</span>
+                    <div className="flex gap-1.5 flex-wrap flex-1">
+                      {ELEVATOR_OPTIONS.map(o => (
+                        <button key={o} type="button" onClick={() => setElevator(o)}
+                          className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${elevator === o ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
+                          {o}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* 건물출입 (신청서 폼과 동일 옵션) */}
+                  <div className="flex items-start gap-2">
+                    <span className="text-xs text-gray-500 w-20 shrink-0 pt-1">건물출입</span>
+                    <div className="flex gap-1.5 flex-wrap flex-1">
+                      {BUILDING_ACCESS_OPTIONS.map(o => (
+                        <button key={o} type="button" onClick={() => setBuildingAccess(o)}
+                          className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${buildingAccess === o ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
+                          {o}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* 주차 (신청서 폼과 동일 옵션) */}
+                  <div className="flex items-start gap-2">
+                    <span className="text-xs text-gray-500 w-20 shrink-0 pt-1">주차</span>
+                    <div className="flex gap-1.5 flex-wrap flex-1">
+                      {PARKING_OPTIONS.map(o => (
+                        <button key={o} type="button" onClick={() => setParking(o)}
+                          className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${parking === o ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
+                          {o}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
                   <EditRow label="출입방법" value={accessMethod} onChange={setAccessMethod} />
 
                   <div className="flex items-start gap-2">
@@ -688,9 +802,7 @@ export default function ServiceManagementPage() {
                       <label className="text-xs text-gray-500 mb-1 block">잔금 <span className="text-green-500">(자동계산)</span></label>
                       <div className={`w-full border rounded-lg px-3 py-2 text-sm font-semibold ${
                         computedBalance < 0 ? 'border-red-200 bg-red-50 text-red-600' : 'border-gray-100 bg-gray-50 text-gray-700'
-                      }`}>
-                        {fmt(computedBalance)}원
-                      </div>
+                      }`}>{fmt(computedBalance)}원</div>
                     </div>
                   </div>
                   <div className="pt-2 border-t border-gray-100 flex justify-between text-xs">
@@ -740,14 +852,12 @@ export default function ServiceManagementPage() {
                 <div className="space-y-2">
                   <button onClick={() => setDriveModalOpen(true)}
                     className="w-full py-2.5 bg-green-600 text-white text-sm font-semibold rounded-lg hover:bg-green-700 transition-colors flex items-center justify-center gap-2">
-                    <span>📁</span>
-                    <span>폴더 생성</span>
+                    <span>📁</span><span>폴더 생성</span>
                   </button>
                   {selected.drive_folder_url && (
                     <a href={selected.drive_folder_url} target="_blank" rel="noopener noreferrer"
                       className="flex items-center gap-2 text-xs text-green-600 hover:text-green-700">
-                      <span>🔗</span>
-                      <span className="truncate">Drive 폴더 열기</span>
+                      <span>🔗</span><span className="truncate">Drive 폴더 열기</span>
                     </a>
                   )}
                   {savedDriveFolder && (

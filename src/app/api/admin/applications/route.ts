@@ -38,6 +38,7 @@ export async function PATCH(request: NextRequest) {
     'deposit', 'supply_amount', 'vat', 'balance', 'drive_folder_url',
     'phone', 'email', 'address', 'business_number', 'account_number',
     'payment_method', 'elevator', 'building_access', 'access_method', 'parking', 'request_notes',
+    'construction_date', 'business_hours_start', 'business_hours_end',
   ]
   const updates: Record<string, unknown> = {}
   for (const key of ALLOWED) {
