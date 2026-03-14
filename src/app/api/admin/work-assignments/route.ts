@@ -7,8 +7,10 @@ export async function GET(request: NextRequest) {
   const worker_id = searchParams.get('worker_id')
   const application_id = searchParams.get('application_id')
 
-  if (!worker_id && !application_id) {
-    return NextResponse.json({ error: 'worker_id 또는 application_id가 필요합니다.' }, { status: 400 })
+  const month = searchParams.get('month') // YYYY-MM
+
+  if (!worker_id && !application_id && !month) {
+    return NextResponse.json({ error: 'worker_id, application_id 또는 month가 필요합니다.' }, { status: 400 })
   }
 
   let query = supabase
@@ -18,6 +20,11 @@ export async function GET(request: NextRequest) {
 
   if (worker_id) query = query.eq('worker_id', worker_id)
   if (application_id) query = query.eq('application_id', application_id)
+  if (month) {
+    query = query
+      .gte('construction_date', `${month}-01`)
+      .lte('construction_date', `${month}-31`)
+  }
 
   const { data, error } = await query
 

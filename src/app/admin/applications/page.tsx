@@ -396,17 +396,25 @@ export default function ServiceManagementPage() {
     if (isSelected) {
       // 제거: 해당 assignment 삭제
       const asgn = savedAssignments.find(a => a.worker_id === workerId)
-      if (asgn) {
-        try {
-          await fetch('/api/admin/work-assignments', {
-            method: 'DELETE',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id: asgn.id }),
-          })
-          setSavedAssignments(prev => prev.filter(a => a.id !== asgn.id))
-        } catch { /* ignore */ }
+      if (!asgn) {
+        toast.error('배정 데이터를 찾을 수 없습니다. 페이지를 새로고침 후 다시 시도하세요.')
+        return
       }
-      setSelectedWorkerIds(prev => prev.filter(id => id !== workerId))
+      try {
+        const res = await fetch('/api/admin/work-assignments', {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: asgn.id }),
+        })
+        if (!res.ok) {
+          const d = await res.json()
+          throw new Error(d.error || '작업자 제거 실패')
+        }
+        setSavedAssignments(prev => prev.filter(a => a.id !== asgn.id))
+        setSelectedWorkerIds(prev => prev.filter(id => id !== workerId))
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : '작업자 제거 실패')
+      }
     } else {
       // 추가: 새 assignment 생성
       try {
@@ -421,9 +429,27 @@ export default function ServiceManagementPage() {
           }),
         })
         const d = await res.json()
+        if (!res.ok) throw new Error(d.error || '작업자 추가 실패')
         if (d.assignment) setSavedAssignments(prev => [...prev, d.assignment])
-      } catch { /* ignore if workers table not yet created */ }
-      setSelectedWorkerIds(prev => [...prev, workerId])
+        setSelectedWorkerIds(prev => [...prev, workerId])
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : '작업자 추가 실패')
+      }
+    }
+  }
+
+  const handleDeleteApplication = async () => {
+    if (!selected) return
+    if (!confirm(`"${selected.business_name}" 신청서를 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.`)) return
+    try {
+      const res = await fetch(`/api/admin/applications?id=${selected.id}`, { method: 'DELETE' })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || '삭제 실패')
+      toast.success('삭제되었습니다.')
+      setApplications(prev => prev.filter(a => a.id !== selected.id))
+      setSelected(null)
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : '삭제 실패')
     }
   }
 
@@ -818,7 +844,15 @@ export default function ServiceManagementPage() {
                 <h2 className="font-bold text-gray-900">{selected.business_name}</h2>
                 <p className="text-xs text-gray-400 mt-0.5">신청일: {new Date(selected.created_at).toLocaleString('ko-KR')}</p>
               </div>
-              <button onClick={() => setSelected(null)} className="text-gray-400 hover:text-gray-600 text-lg">✕</button>
+              <div className="flex items-center gap-1.5 shrink-0">
+                <button
+                  onClick={handleDeleteApplication}
+                  className="text-xs text-red-500 hover:text-red-700 border border-red-200 hover:border-red-400 px-2 py-1 rounded-lg transition-colors"
+                >
+                  삭제
+                </button>
+                <button onClick={() => setSelected(null)} className="text-gray-400 hover:text-gray-600 text-lg leading-none">✕</button>
+              </div>
             </div>
 
             <div className="p-4 space-y-5">

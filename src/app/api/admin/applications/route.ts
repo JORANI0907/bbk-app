@@ -56,3 +56,24 @@ export async function PATCH(request: NextRequest) {
 
   return NextResponse.json({ success: true })
 }
+
+export async function DELETE(request: NextRequest) {
+  const supabase = createServiceClient()
+  const { searchParams } = new URL(request.url)
+  const id = searchParams.get('id')
+
+  if (!id) {
+    return NextResponse.json({ error: 'id가 필요합니다.' }, { status: 400 })
+  }
+
+  const { error } = await supabase
+    .from('service_applications')
+    .delete()
+    .eq('id', id)
+
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+
+  return NextResponse.json({ success: true })
+}
