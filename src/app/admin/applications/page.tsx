@@ -438,6 +438,35 @@ export default function ServiceManagementPage() {
     }
   }
 
+  const handleSaveToCustomer = async () => {
+    if (!selected) return
+    const customerType =
+      selected.service_type === '정기딥케어' ? '정기딥케어' :
+      selected.service_type === '정기엔드케어' ? '정기엔드케어' : '1회성케어'
+    try {
+      const res = await fetch('/api/admin/customers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          business_name: selected.business_name,
+          contact_name: selected.owner_name,
+          contact_phone: selected.phone,
+          email: selected.email,
+          address: selected.address,
+          business_number: selected.business_number,
+          account_number: selected.account_number,
+          customer_type: customerType,
+          pipeline_status: 'inquiry',
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || '저장 실패')
+      toast.success('고객 DB에 저장되었습니다. 고객 관리 탭에서 확인하세요.')
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : '저장 실패')
+    }
+  }
+
   const handleDeleteApplication = async () => {
     if (!selected) return
     if (!confirm(`"${selected.business_name}" 신청서를 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.`)) return
@@ -845,6 +874,12 @@ export default function ServiceManagementPage() {
                 <p className="text-xs text-gray-400 mt-0.5">신청일: {new Date(selected.created_at).toLocaleString('ko-KR')}</p>
               </div>
               <div className="flex items-center gap-1.5 shrink-0">
+                <button
+                  onClick={handleSaveToCustomer}
+                  className="text-xs text-green-600 hover:text-green-800 border border-green-200 hover:border-green-400 px-2 py-1 rounded-lg transition-colors whitespace-nowrap"
+                >
+                  고객 DB 저장
+                </button>
                 <button
                   onClick={handleDeleteApplication}
                   className="text-xs text-red-500 hover:text-red-700 border border-red-200 hover:border-red-400 px-2 py-1 rounded-lg transition-colors"

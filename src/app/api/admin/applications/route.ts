@@ -24,6 +24,34 @@ export async function GET(request: NextRequest) {
   return NextResponse.json({ applications: data })
 }
 
+export async function POST(request: NextRequest) {
+  const supabase = createServiceClient()
+  const body = await request.json()
+
+  if (!body.business_name || !body.owner_name || !body.phone || !body.address) {
+    return NextResponse.json({ error: '업체명, 대표자명, 연락처, 주소는 필수입니다.' }, { status: 400 })
+  }
+
+  const ALLOWED_POST = [
+    'owner_name', 'business_name', 'phone', 'email', 'address',
+    'business_number', 'account_number', 'service_type', 'admin_notes',
+    'payment_method', 'request_notes', 'platform_nickname',
+  ]
+  const insert: Record<string, unknown> = { status: '신규' }
+  for (const key of ALLOWED_POST) {
+    if (key in body) insert[key] = body[key]
+  }
+
+  const { data, error } = await supabase
+    .from('service_applications')
+    .insert(insert)
+    .select()
+    .single()
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  return NextResponse.json({ application: data }, { status: 201 })
+}
+
 export async function PATCH(request: NextRequest) {
   const supabase = createServiceClient()
   const body = await request.json()
