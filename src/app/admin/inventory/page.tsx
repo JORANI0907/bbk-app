@@ -13,6 +13,7 @@ import {
 import type { DriveFolder } from '@/lib/googleDrive'
 
 type InventoryCategory = 'chemical' | 'equipment' | 'consumable' | 'other'
+type TxType = 'receive' | 'return' | 'use' | 'adjust'
 
 interface InventoryItem {
   id: string
@@ -22,9 +23,6 @@ interface InventoryItem {
   unit: string
   min_qty: number
   last_updated: string
-  description?: string | null
-  storage_location?: string | null
-  notes?: string | null
   created_at?: string | null
 }
 
@@ -32,7 +30,7 @@ interface InventoryLog {
   id: string
   inventory_id: string
   worker_id: string | null
-  change_type: 'use' | 'receive' | 'return' | 'adjust'
+  change_type: TxType
   quantity: number
   note: string | null
   created_at: string
@@ -41,26 +39,41 @@ interface InventoryLog {
 }
 
 const CATEGORY_CONFIG: Record<InventoryCategory, { label: string; dot: string; badge: string }> = {
-  chemical: { label: '약품', dot: 'bg-purple-500', badge: 'bg-purple-100 text-purple-700' },
-  equipment: { label: '장비', dot: 'bg-blue-500', badge: 'bg-blue-100 text-blue-700' },
-  consumable: { label: '소모품', dot: 'bg-green-500', badge: 'bg-green-100 text-green-700' },
-  other: { label: '기타', dot: 'bg-gray-400', badge: 'bg-gray-100 text-gray-600' },
+  chemical:   { label: '약품',  dot: 'bg-purple-500', badge: 'bg-purple-100 text-purple-700' },
+  equipment:  { label: '장비',  dot: 'bg-blue-500',   badge: 'bg-blue-100 text-blue-700' },
+  consumable: { label: '소모품', dot: 'bg-green-500',  badge: 'bg-green-100 text-green-700' },
+  other:      { label: '기타',  dot: 'bg-gray-400',   badge: 'bg-gray-100 text-gray-600' },
 }
 
-const CHANGE_TYPE_LABELS: Record<string, string> = {
-  receive: '수령',
-  return: '반납',
-  use: '사용',
-  adjust: '조정',
+// change_type → UI 표시명
+const TX_LABELS: Record<TxType, string> = {
+  receive: '입고',
+  use:     '수령',
+  return:  '반납',
+  adjust:  '조정',
 }
 
-const MIGRATION_SQL = `-- Supabase Dashboard SQL Editor에서 실행하세요
-ALTER TABLE inventory ADD COLUMN IF NOT EXISTS description TEXT;
-ALTER TABLE inventory ADD COLUMN IF NOT EXISTS storage_location TEXT;
-ALTER TABLE inventory ADD COLUMN IF NOT EXISTS notes TEXT;
-ALTER TABLE inventory ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT NOW();
-ALTER TABLE inventory_logs ADD COLUMN IF NOT EXISTS photo_url TEXT;
-ALTER TABLE inventory_logs ADD COLUMN IF NOT EXISTS worker_name TEXT;`
+// 각 타입별 안내 문구
+const TX_DESCRIPTIONS: Record<TxType, string> = {
+  receive: '물품이 창고에 들어올 때 관리자가 입력합니다. 재고가 증가합니다.',
+  use:     '관리자 또는 직원이 창고에서 물품을 가져갈 때 입력합니다. 재고가 감소합니다.',
+  return:  '관리자 또는 직원이 물품을 창고에 반납할 때 입력합니다. 재고가 증가합니다.',
+  adjust:  '재고 조사 후 관리자가 실제 수량으로 맞출 때 사용합니다. 입력값이 새 재고량이 됩니다.',
+}
+
+const TX_BUTTON_STYLE: Record<TxType, string> = {
+  receive: 'bg-green-50 text-green-700 hover:bg-green-100 border-green-200',
+  use:     'bg-orange-50 text-orange-700 hover:bg-orange-100 border-orange-200',
+  return:  'bg-blue-50 text-blue-700 hover:bg-blue-100 border-blue-200',
+  adjust:  'bg-gray-50 text-gray-700 hover:bg-gray-100 border-gray-200',
+}
+
+const TX_EFFECT: Record<TxType, string> = {
+  receive: '+ 증가',
+  use:     '− 감소',
+  return:  '+ 증가',
+  adjust:  '= 절대값',
+}
 
 function parseNote(note: string | null): { text?: string; photo?: string; worker?: string } {
   if (!note) return {}
@@ -81,29 +94,26 @@ export default function AdminInventoryPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [categoryFilter, setCategoryFilter] = useState<InventoryCategory | 'all'>('all')
 
-  // Edit form state
-  const [editForm, setEditForm] = useState<Partial<InventoryItem>>({})
+  const [editForm, setEditForm] = useState<{ item_name: string; category: InventoryCategory; unit: string }>({
+    item_name: '', category: 'chemical', unit: '',
+  })
   const [editLoading, setEditLoading] = useState(false)
 
-  // Add modal state
   const [showAddModal, setShowAddModal] = useState(false)
-  const [addForm, setAddForm] = useState<Partial<InventoryItem>>({
-    category: 'chemical', current_qty: 0, min_qty: 0,
+  const [addForm, setAddForm] = useState<{ item_name: string; category: InventoryCategory; unit: string; current_qty: number }>({
+    item_name: '', category: 'chemical', unit: '', current_qty: 0,
   })
   const [addLoading, setAddLoading] = useState(false)
 
-  // Transaction modal state
   const [showTxModal, setShowTxModal] = useState(false)
-  const [txType, setTxType] = useState<'receive' | 'return' | 'use' | 'adjust'>('receive')
+  const [txType, setTxType] = useState<TxType>('receive')
   const [txQty, setTxQty] = useState('')
   const [txNote, setTxNote] = useState('')
   const [txPhoto, setTxPhoto] = useState<File | null>(null)
   const [txPhotoPreview, setTxPhotoPreview] = useState<string | null>(null)
   const [txLoading, setTxLoading] = useState(false)
 
-  // Drive
   const [inventoryFolder, setInventoryFolder] = useState<DriveFolder | null>(null)
-  const [showMigration, setShowMigration] = useState(false)
   const [logsLoading, setLogsLoading] = useState(false)
 
   useEffect(() => {
@@ -129,10 +139,7 @@ export default function AdminInventoryPage() {
     setLogsLoading(true)
     try {
       const res = await fetch(`/api/admin/inventory/logs?inventory_id=${itemId}`)
-      if (!res.ok) {
-        setLogs([])
-        return
-      }
+      if (!res.ok) { setLogs([]); return }
       const json = await res.json()
       setLogs(json.logs ?? [])
     } catch {
@@ -144,15 +151,7 @@ export default function AdminInventoryPage() {
 
   const handleSelectItem = (item: InventoryItem) => {
     setSelectedItem(item)
-    setEditForm({
-      item_name: item.item_name,
-      category: item.category,
-      unit: item.unit,
-      min_qty: item.min_qty,
-      description: item.description ?? '',
-      storage_location: item.storage_location ?? '',
-      notes: item.notes ?? '',
-    })
+    setEditForm({ item_name: item.item_name, category: item.category, unit: item.unit })
     fetchLogs(item.id)
   }
 
@@ -208,7 +207,7 @@ export default function AdminInventoryPage() {
       const res = await fetch('/api/admin/inventory', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(addForm),
+        body: JSON.stringify({ ...addForm, min_qty: 0 }),
       })
       if (!res.ok) {
         const json = await res.json()
@@ -217,7 +216,7 @@ export default function AdminInventoryPage() {
       const json = await res.json()
       setItems(prev => [...prev, json.item])
       setShowAddModal(false)
-      setAddForm({ category: 'chemical', current_qty: 0, min_qty: 0 })
+      setAddForm({ item_name: '', category: 'chemical', unit: '', current_qty: 0 })
       toast.success('아이템이 추가되었습니다')
     } catch (err) {
       toast.error(err instanceof Error ? err.message : '추가 실패')
@@ -226,7 +225,7 @@ export default function AdminInventoryPage() {
     }
   }
 
-  const openTxModal = (type: 'receive' | 'return' | 'use' | 'adjust') => {
+  const openTxModal = (type: TxType) => {
     setTxType(type)
     setTxQty('')
     setTxNote('')
@@ -239,15 +238,14 @@ export default function AdminInventoryPage() {
     const file = e.target.files?.[0]
     if (!file) return
     setTxPhoto(file)
-    const url = URL.createObjectURL(file)
-    setTxPhotoPreview(url)
+    setTxPhotoPreview(URL.createObjectURL(file))
   }
 
   const handleTransaction = async () => {
     if (!selectedItem) return
     const qty = Number(txQty)
     if (!txQty || isNaN(qty) || qty <= 0) {
-      toast.error('수량을 올바르게 입력해주세요')
+      toast.error('수량을 0보다 크게 입력해주세요')
       return
     }
     setTxLoading(true)
@@ -258,10 +256,12 @@ export default function AdminInventoryPage() {
           await loadGoogleAPIs()
           const token = await requestGoogleToken()
           const ext = txPhoto.name.split('.').pop() ?? 'jpg'
-          const fileName = `재고_${selectedItem.item_name}_${Date.now()}.${ext}`
-          const result = await uploadFileToDrive(txPhoto, inventoryFolder.id, fileName, token)
+          const result = await uploadFileToDrive(
+            txPhoto, inventoryFolder.id,
+            `재고_${selectedItem.item_name}_${Date.now()}.${ext}`, token
+          )
           photoUrl = result.fileUrl
-        } catch (uploadErr) {
+        } catch {
           toast.error('사진 업로드 실패 - 메모만 저장됩니다')
         }
       }
@@ -282,10 +282,10 @@ export default function AdminInventoryPage() {
         throw new Error(json.error ?? '처리 실패')
       }
       const json = await res.json()
-
-      // Update item qty in local state
       setItems(prev => prev.map(it =>
-        it.id === selectedItem.id ? { ...it, current_qty: json.new_qty, last_updated: new Date().toISOString() } : it
+        it.id === selectedItem.id
+          ? { ...it, current_qty: json.new_qty, last_updated: new Date().toISOString() }
+          : it
       ))
       setSelectedItem(prev => prev ? { ...prev, current_qty: json.new_qty } : prev)
       setShowTxModal(false)
@@ -319,8 +319,6 @@ export default function AdminInventoryPage() {
     return matchCategory && matchSearch
   })
 
-  const lowStockItems = items.filter(it => it.current_qty <= it.min_qty)
-
   return (
     <div className="flex h-screen bg-gray-50 overflow-hidden">
       {/* Left Panel */}
@@ -341,7 +339,7 @@ export default function AdminInventoryPage() {
                 onClick={() => setShowAddModal(true)}
                 className="text-xs px-3 py-1 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors font-medium"
               >
-                + 아이템 추가
+                + 추가
               </button>
             </div>
           </div>
@@ -350,7 +348,6 @@ export default function AdminInventoryPage() {
             <div className="text-xs text-green-600 mb-2">📁 {inventoryFolder.name}</div>
           )}
 
-          {/* Search */}
           <input
             type="text"
             placeholder="아이템 검색..."
@@ -359,7 +356,6 @@ export default function AdminInventoryPage() {
             className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 mb-2"
           />
 
-          {/* Category filter */}
           <div className="flex gap-1 flex-wrap">
             {(['all', 'chemical', 'equipment', 'consumable', 'other'] as const).map(cat => (
               <button
@@ -377,19 +373,6 @@ export default function AdminInventoryPage() {
           </div>
         </div>
 
-        {/* Low stock warning */}
-        {lowStockItems.length > 0 && (
-          <div className="mx-3 mt-3 p-3 rounded-xl bg-red-50 border border-red-200">
-            <p className="text-xs font-semibold text-red-700 mb-1">⚠️ 재고 부족 {lowStockItems.length}건</p>
-            <ul className="text-xs text-red-600 space-y-0.5">
-              {lowStockItems.slice(0, 3).map(it => (
-                <li key={it.id}>{it.item_name}: {it.current_qty}/{it.min_qty}{it.unit}</li>
-              ))}
-              {lowStockItems.length > 3 && <li>...외 {lowStockItems.length - 3}건</li>}
-            </ul>
-          </div>
-        )}
-
         {/* Item list */}
         <div className="flex-1 overflow-y-auto p-3 space-y-1">
           {loading ? (
@@ -399,7 +382,6 @@ export default function AdminInventoryPage() {
           ) : (
             filteredItems.map(item => {
               const cfg = CATEGORY_CONFIG[item.category]
-              const isLow = item.current_qty <= item.min_qty
               const isSelected = selectedItem?.id === item.id
               return (
                 <button
@@ -414,47 +396,16 @@ export default function AdminInventoryPage() {
                   <div className="flex items-center gap-2">
                     <span className={`w-2 h-2 rounded-full shrink-0 ${cfg.dot}`} />
                     <span className="flex-1 text-sm font-medium text-gray-900 truncate">{item.item_name}</span>
-                    {isLow && (
-                      <span className="text-xs px-1.5 py-0.5 rounded bg-red-100 text-red-600 font-medium shrink-0">
-                        ▼부족
-                      </span>
-                    )}
                   </div>
                   <div className="ml-4 flex items-center justify-between mt-0.5">
                     <span className="text-xs text-gray-400">{cfg.label}</span>
-                    <span className={`text-xs font-semibold ${isLow ? 'text-red-600' : 'text-gray-700'}`}>
+                    <span className="text-xs font-semibold text-gray-700">
                       {item.current_qty} {item.unit}
                     </span>
                   </div>
-                  {item.storage_location && (
-                    <div className="ml-4 text-xs text-gray-400 truncate">{item.storage_location}</div>
-                  )}
                 </button>
               )
             })
-          )}
-        </div>
-
-        {/* Migration SQL notice */}
-        <div className="p-3 border-t border-gray-100">
-          <button
-            onClick={() => setShowMigration(v => !v)}
-            className="text-xs text-gray-400 hover:text-gray-600 flex items-center gap-1"
-          >
-            🔧 DB 마이그레이션 SQL {showMigration ? '▲' : '▼'}
-          </button>
-          {showMigration && (
-            <div className="mt-2">
-              <pre className="text-xs bg-gray-900 text-green-400 p-2 rounded-lg overflow-x-auto whitespace-pre-wrap break-all">
-                {MIGRATION_SQL}
-              </pre>
-              <button
-                onClick={() => { navigator.clipboard.writeText(MIGRATION_SQL); toast.success('복사됨') }}
-                className="mt-1 text-xs text-blue-600 hover:underline"
-              >
-                복사
-              </button>
-            </div>
           )}
         </div>
       </div>
@@ -477,9 +428,6 @@ export default function AdminInventoryPage() {
               <span className={`text-xs px-2 py-0.5 rounded-full ${CATEGORY_CONFIG[selectedItem.category].badge}`}>
                 {CATEGORY_CONFIG[selectedItem.category].label}
               </span>
-              {selectedItem.current_qty <= selectedItem.min_qty && (
-                <span className="text-xs px-2 py-0.5 rounded-full bg-red-100 text-red-600 font-medium">▼재고부족</span>
-              )}
             </div>
 
             {/* Edit form */}
@@ -489,7 +437,7 @@ export default function AdminInventoryPage() {
                 <div>
                   <label className="block text-xs font-medium text-gray-500 mb-1">아이템명</label>
                   <input
-                    value={editForm.item_name ?? ''}
+                    value={editForm.item_name}
                     onChange={e => setEditForm(f => ({ ...f, item_name: e.target.value }))}
                     className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
@@ -497,7 +445,7 @@ export default function AdminInventoryPage() {
                 <div>
                   <label className="block text-xs font-medium text-gray-500 mb-1">카테고리</label>
                   <select
-                    value={editForm.category ?? 'other'}
+                    value={editForm.category}
                     onChange={e => setEditForm(f => ({ ...f, category: e.target.value as InventoryCategory }))}
                     className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
@@ -510,49 +458,11 @@ export default function AdminInventoryPage() {
                 <div>
                   <label className="block text-xs font-medium text-gray-500 mb-1">단위</label>
                   <input
-                    value={editForm.unit ?? ''}
+                    value={editForm.unit}
                     onChange={e => setEditForm(f => ({ ...f, unit: e.target.value }))}
                     className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-1">최소 수량</label>
-                  <input
-                    type="number"
-                    min={0}
-                    value={editForm.min_qty ?? 0}
-                    onChange={e => setEditForm(f => ({ ...f, min_qty: Number(e.target.value) }))}
-                    className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1">설명</label>
-                <input
-                  value={editForm.description ?? ''}
-                  onChange={e => setEditForm(f => ({ ...f, description: e.target.value }))}
-                  placeholder="(선택)"
-                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1">보관 위치</label>
-                <input
-                  value={editForm.storage_location ?? ''}
-                  onChange={e => setEditForm(f => ({ ...f, storage_location: e.target.value }))}
-                  placeholder="(선택)"
-                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1">메모</label>
-                <textarea
-                  value={editForm.notes ?? ''}
-                  onChange={e => setEditForm(f => ({ ...f, notes: e.target.value }))}
-                  placeholder="(선택)"
-                  rows={2}
-                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
-                />
               </div>
               <div className="flex gap-2 justify-between">
                 <button
@@ -573,51 +483,50 @@ export default function AdminInventoryPage() {
 
             {/* Current stock & transactions */}
             <div className="bg-white rounded-xl shadow-sm p-5">
-              <div className="flex items-center justify-between mb-4">
-                <div>
-                  <h3 className="font-semibold text-gray-800">현재 재고</h3>
-                  <p className={`text-3xl font-bold mt-1 ${selectedItem.current_qty <= selectedItem.min_qty ? 'text-red-600' : 'text-gray-900'}`}>
-                    {selectedItem.current_qty}
-                    <span className="text-base font-normal text-gray-500 ml-1">{selectedItem.unit}</span>
-                  </p>
-                  <p className="text-xs text-gray-400 mt-0.5">최소 {selectedItem.min_qty}{selectedItem.unit}</p>
-                </div>
+              <div className="mb-4">
+                <h3 className="font-semibold text-gray-800">현재 재고</h3>
+                <p className="text-3xl font-bold mt-1 text-gray-900">
+                  {selectedItem.current_qty}
+                  <span className="text-base font-normal text-gray-500 ml-1">{selectedItem.unit}</span>
+                </p>
+                <p className="text-xs text-gray-400 mt-0.5">
+                  수량은 0.1 단위로 입력할 수 있습니다
+                </p>
               </div>
-              <div className="grid grid-cols-4 gap-2">
-                <button
-                  onClick={() => openTxModal('receive')}
-                  className="py-2 rounded-lg bg-green-50 text-green-700 hover:bg-green-100 text-sm font-medium transition-colors border border-green-200"
-                >
-                  수령 +
-                </button>
-                <button
-                  onClick={() => openTxModal('return')}
-                  className="py-2 rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 text-sm font-medium transition-colors border border-blue-200"
-                >
-                  반납 +
-                </button>
-                <button
-                  onClick={() => openTxModal('use')}
-                  className="py-2 rounded-lg bg-orange-50 text-orange-700 hover:bg-orange-100 text-sm font-medium transition-colors border border-orange-200"
-                >
-                  사용 -
-                </button>
-                <button
-                  onClick={() => openTxModal('adjust')}
-                  className="py-2 rounded-lg bg-gray-50 text-gray-700 hover:bg-gray-100 text-sm font-medium transition-colors border border-gray-200"
-                >
-                  조정 =
-                </button>
+
+              {/* Transaction buttons */}
+              <div className="grid grid-cols-4 gap-2 mb-3">
+                {(['receive', 'use', 'return', 'adjust'] as const).map(type => (
+                  <button
+                    key={type}
+                    onClick={() => openTxModal(type)}
+                    className={`py-2.5 rounded-lg text-sm font-medium transition-colors border ${TX_BUTTON_STYLE[type]}`}
+                  >
+                    <div>{TX_LABELS[type]}</div>
+                    <div className="text-xs opacity-60 mt-0.5">{TX_EFFECT[type]}</div>
+                  </button>
+                ))}
+              </div>
+
+              {/* Guide descriptions */}
+              <div className="grid grid-cols-2 gap-2">
+                {(['receive', 'use', 'return', 'adjust'] as const).map(type => (
+                  <div key={type} className="text-xs text-gray-500 bg-gray-50 rounded-lg px-3 py-2">
+                    <span className="font-medium text-gray-700">{TX_LABELS[type]}</span>
+                    <span className="mx-1">·</span>
+                    {TX_DESCRIPTIONS[type]}
+                  </div>
+                ))}
               </div>
             </div>
 
             {/* Transaction history */}
             <div className="bg-white rounded-xl shadow-sm p-5">
-              <h3 className="font-semibold text-gray-800 mb-3">거래 내역 (최근 20건)</h3>
+              <h3 className="font-semibold text-gray-800 mb-3">변동 내역 (최근 20건)</h3>
               {logsLoading ? (
                 <div className="text-center text-gray-400 text-sm py-4">불러오는 중...</div>
               ) : logs.length === 0 ? (
-                <div className="text-center text-gray-400 text-sm py-4">거래 내역이 없습니다</div>
+                <div className="text-center text-gray-400 text-sm py-4">변동 내역이 없습니다</div>
               ) : (
                 <div className="space-y-2">
                   {logs.map(log => {
@@ -629,15 +538,18 @@ export default function AdminInventoryPage() {
                       <div key={log.id} className="flex items-start gap-3 text-sm border-b border-gray-50 pb-2 last:border-0">
                         <span className={`shrink-0 text-xs px-2 py-0.5 rounded font-medium ${
                           log.change_type === 'receive' ? 'bg-green-100 text-green-700' :
-                          log.change_type === 'return' ? 'bg-blue-100 text-blue-700' :
-                          log.change_type === 'use' ? 'bg-orange-100 text-orange-700' :
+                          log.change_type === 'use'     ? 'bg-orange-100 text-orange-700' :
+                          log.change_type === 'return'  ? 'bg-blue-100 text-blue-700' :
                           'bg-gray-100 text-gray-600'
                         }`}>
-                          {CHANGE_TYPE_LABELS[log.change_type]}
+                          {TX_LABELS[log.change_type]}
                         </span>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2">
-                            <span className="font-medium text-gray-800">{log.quantity}</span>
+                            <span className="font-medium text-gray-800">
+                              {log.change_type === 'receive' || log.change_type === 'return' ? '+' :
+                               log.change_type === 'use' ? '−' : '='}{log.quantity}
+                            </span>
                             {workerName && <span className="text-xs text-gray-400">{workerName}</span>}
                           </div>
                           {noteText && <p className="text-xs text-gray-500 truncate">{noteText}</p>}
@@ -649,7 +561,9 @@ export default function AdminInventoryPage() {
                           )}
                         </div>
                         <span className="shrink-0 text-xs text-gray-400 whitespace-nowrap">
-                          {new Date(log.created_at).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                          {new Date(log.created_at).toLocaleDateString('ko-KR', {
+                            month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
+                          })}
                         </span>
                       </div>
                     )
@@ -670,7 +584,7 @@ export default function AdminInventoryPage() {
               <div>
                 <label className="block text-xs font-medium text-gray-500 mb-1">아이템명 *</label>
                 <input
-                  value={addForm.item_name ?? ''}
+                  value={addForm.item_name}
                   onChange={e => setAddForm(f => ({ ...f, item_name: e.target.value }))}
                   className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   placeholder="예: 에탄올 70%"
@@ -680,7 +594,7 @@ export default function AdminInventoryPage() {
                 <div>
                   <label className="block text-xs font-medium text-gray-500 mb-1">카테고리 *</label>
                   <select
-                    value={addForm.category ?? 'other'}
+                    value={addForm.category}
                     onChange={e => setAddForm(f => ({ ...f, category: e.target.value as InventoryCategory }))}
                     className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
@@ -693,57 +607,29 @@ export default function AdminInventoryPage() {
                 <div>
                   <label className="block text-xs font-medium text-gray-500 mb-1">단위 *</label>
                   <input
-                    value={addForm.unit ?? ''}
+                    value={addForm.unit}
                     onChange={e => setAddForm(f => ({ ...f, unit: e.target.value }))}
                     placeholder="예: L, 개, kg"
                     className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-1">현재 수량 *</label>
-                  <input
-                    type="number"
-                    min={0}
-                    value={addForm.current_qty ?? 0}
-                    onChange={e => setAddForm(f => ({ ...f, current_qty: Number(e.target.value) }))}
-                    className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-1">최소 수량 *</label>
-                  <input
-                    type="number"
-                    min={0}
-                    value={addForm.min_qty ?? 0}
-                    onChange={e => setAddForm(f => ({ ...f, min_qty: Number(e.target.value) }))}
-                    className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-              </div>
               <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1">보관 위치</label>
+                <label className="block text-xs font-medium text-gray-500 mb-1">초기 수량</label>
                 <input
-                  value={addForm.storage_location ?? ''}
-                  onChange={e => setAddForm(f => ({ ...f, storage_location: e.target.value }))}
-                  placeholder="(선택)"
+                  type="number"
+                  min={0}
+                  step={0.1}
+                  value={addForm.current_qty}
+                  onChange={e => setAddForm(f => ({ ...f, current_qty: Number(e.target.value) }))}
                   className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1">설명</label>
-                <input
-                  value={addForm.description ?? ''}
-                  onChange={e => setAddForm(f => ({ ...f, description: e.target.value }))}
-                  placeholder="(선택)"
-                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
+                <p className="text-xs text-gray-400 mt-1">0.1 단위로 입력 가능합니다</p>
               </div>
             </div>
             <div className="flex gap-3 mt-5">
               <button
-                onClick={() => setShowAddModal(false)}
+                onClick={() => { setShowAddModal(false); setAddForm({ item_name: '', category: 'chemical', unit: '', current_qty: 0 }) }}
                 className="flex-1 py-2 rounded-xl border border-gray-200 text-gray-600 text-sm font-medium hover:bg-gray-50 transition-colors"
               >
                 취소
@@ -765,20 +651,32 @@ export default function AdminInventoryPage() {
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6">
             <h2 className="text-lg font-bold text-gray-900 mb-1">
-              {CHANGE_TYPE_LABELS[txType]}
+              {TX_LABELS[txType]}
             </h2>
-            <p className="text-sm text-gray-500 mb-4">{selectedItem.item_name} (현재: {selectedItem.current_qty}{selectedItem.unit})</p>
+            <p className="text-sm text-gray-500 mb-1">{selectedItem.item_name} · 현재 {selectedItem.current_qty}{selectedItem.unit}</p>
+
+            {/* 안내 문구 */}
+            <div className={`text-xs rounded-lg px-3 py-2 mb-4 ${
+              txType === 'receive' ? 'bg-green-50 text-green-700' :
+              txType === 'use'     ? 'bg-orange-50 text-orange-700' :
+              txType === 'return'  ? 'bg-blue-50 text-blue-700' :
+              'bg-gray-50 text-gray-600'
+            }`}>
+              {TX_DESCRIPTIONS[txType]}
+            </div>
+
             <div className="space-y-3">
               <div>
                 <label className="block text-xs font-medium text-gray-500 mb-1">
-                  {txType === 'adjust' ? '조정 수량 (절대값)' : '수량'}
+                  {txType === 'adjust' ? '새 재고 수량 (절대값)' : '수량'} · 0.1 단위 입력 가능
                 </label>
                 <input
                   type="number"
-                  min={0}
+                  min={0.1}
+                  step={0.1}
                   value={txQty}
                   onChange={e => setTxQty(e.target.value)}
-                  placeholder="0"
+                  placeholder="0.0"
                   className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-center text-lg font-bold"
                   autoFocus
                 />
@@ -812,10 +710,11 @@ export default function AdminInventoryPage() {
                   <img src={txPhotoPreview} alt="미리보기" className="mt-2 w-full h-32 object-cover rounded-lg" />
                 )}
                 {!inventoryFolder && txPhoto && (
-                  <p className="text-xs text-orange-500 mt-1">Drive 폴더가 설정되지 않아 사진이 업로드되지 않습니다</p>
+                  <p className="text-xs text-orange-500 mt-1">Drive 폴더 미설정 시 사진이 업로드되지 않습니다</p>
                 )}
               </div>
             </div>
+
             <div className="flex gap-3 mt-5">
               <button
                 onClick={() => setShowTxModal(false)}
@@ -826,7 +725,12 @@ export default function AdminInventoryPage() {
               <button
                 onClick={handleTransaction}
                 disabled={txLoading}
-                className="flex-1 py-2 rounded-xl bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 transition-colors disabled:opacity-50"
+                className={`flex-1 py-2 rounded-xl text-white text-sm font-medium transition-colors disabled:opacity-50 ${
+                  txType === 'receive' ? 'bg-green-600 hover:bg-green-700' :
+                  txType === 'use'     ? 'bg-orange-500 hover:bg-orange-600' :
+                  txType === 'return'  ? 'bg-blue-600 hover:bg-blue-700' :
+                  'bg-gray-600 hover:bg-gray-700'
+                }`}
               >
                 {txLoading ? '처리 중...' : '확인'}
               </button>

@@ -30,7 +30,7 @@ export async function POST(request: NextRequest) {
 
   const qty = Number(quantity)
   if (isNaN(qty) || qty < 0) {
-    return NextResponse.json({ error: '수량은 0 이상의 숫자여야 합니다' }, { status: 400 })
+    return NextResponse.json({ error: '수량은 0 이상의 숫자여야 합니다 (0.1 단위)' }, { status: 400 })
   }
 
   const supabase = createServiceClient()

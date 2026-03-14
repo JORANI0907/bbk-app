@@ -10,6 +10,8 @@ type ServiceType = '1회성케어' | '정기딥케어' | '정기엔드케어'
 type ApplicationStatus = '신규' | '검토중' | '계약완료' | '보류' | '거절'
 
 interface User { id: string; name: string; role: string }
+interface Worker { id: string; name: string; employment_type: string | null; phone: string | null; account_number: string | null }
+interface WorkAssignment { id: string; worker_id: string; construction_date: string | null; business_name: string | null; salary: number | null }
 interface Application {
   id: string
   created_at: string
@@ -268,6 +270,10 @@ function DriveFolderModal({
 export default function ServiceManagementPage() {
   const [applications, setApplications] = useState<Application[]>([])
   const [users, setUsers] = useState<User[]>([])
+  const [workers, setWorkers] = useState<Worker[]>([])
+  const [selectedWorkerIds, setSelectedWorkerIds] = useState<string[]>([])
+  const [savedAssignments, setSavedAssignments] = useState<WorkAssignment[]>([])
+  const [workerDropdownOpen, setWorkerDropdownOpen] = useState(false)
   const [loading, setLoading] = useState(true)
   const [activeType, setActiveType] = useState<ServiceType>('1회성케어')
   const [selected, setSelected] = useState<Application | null>(null)
@@ -281,6 +287,7 @@ export default function ServiceManagementPage() {
   // 필터
   const [statusFilter, setStatusFilter] = useState<ApplicationStatus | ''>('')
   const [notifyFilter, setNotifyFilter] = useState('')
+  const [searchQuery, setSearchQuery] = useState('')
 
   // 알림
   const [notifyType, setNotifyType] = useState('')
@@ -328,14 +335,17 @@ export default function ServiceManagementPage() {
 
   const fetchAll = useCallback(async () => {
     setLoading(true)
-    const [appRes, userRes] = await Promise.all([
+    const [appRes, userRes, workerRes] = await Promise.all([
       fetch('/api/admin/applications'),
       fetch('/api/admin/users'),
+      fetch('/api/admin/workers'),
     ])
     const appData = await appRes.json()
     const userData = await userRes.json()
+    const workerData = await workerRes.json()
     setApplications(appData.applications ?? [])
     setUsers((userData.users ?? []).filter((u: User) => u.role !== 'customer'))
+    setWorkers(workerData.workers ?? [])
     setLoading(false)
   }, [])
 
@@ -365,7 +375,56 @@ export default function ServiceManagementPage() {
     setBusinessHoursEnd(app.business_hours_end ?? '')
     setNotifyType('')
     setNotifyLogs(loadLogs(app.id))
+    setSelectedWorkerIds([])
+    setSavedAssignments([])
+    setWorkerDropdownOpen(false)
     vatManual.current = false
+    // 작업자 배정 이력 로드
+    fetch(`/api/admin/work-assignments?application_id=${app.id}`)
+      .then(r => r.json())
+      .then(d => {
+        const asgns: WorkAssignment[] = d.assignments ?? []
+        setSavedAssignments(asgns)
+        setSelectedWorkerIds(asgns.map((a: WorkAssignment) => a.worker_id))
+      })
+      .catch(() => { /* workers table 미생성 시 무시 */ })
+  }
+
+  const handleWorkerToggle = async (workerId: string) => {
+    if (!selected) return
+    const isSelected = selectedWorkerIds.includes(workerId)
+    if (isSelected) {
+      // 제거: 해당 assignment 삭제
+      const asgn = savedAssignments.find(a => a.worker_id === workerId)
+      if (asgn) {
+        try {
+          await fetch('/api/admin/work-assignments', {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: asgn.id }),
+          })
+          setSavedAssignments(prev => prev.filter(a => a.id !== asgn.id))
+        } catch { /* ignore */ }
+      }
+      setSelectedWorkerIds(prev => prev.filter(id => id !== workerId))
+    } else {
+      // 추가: 새 assignment 생성
+      try {
+        const res = await fetch('/api/admin/work-assignments', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            worker_id: workerId,
+            application_id: selected.id,
+            construction_date: selected.construction_date ?? null,
+            business_name: selected.business_name,
+          }),
+        })
+        const d = await res.json()
+        if (d.assignment) setSavedAssignments(prev => [...prev, d.assignment])
+      } catch { /* ignore if workers table not yet created */ }
+      setSelectedWorkerIds(prev => [...prev, workerId])
+    }
   }
 
   const quickSave = async (fields: Partial<Application>) => {
@@ -536,6 +595,18 @@ export default function ServiceManagementPage() {
       const last = (allNotifyLogs[a.id] || [])[0]
       return last?.type === notifyFilter
     })
+    if (searchQuery.trim()) {
+      const q = searchQuery.trim().toLowerCase()
+      filtered = filtered.filter(a =>
+        a.business_name.toLowerCase().includes(q) ||
+        a.owner_name.toLowerCase().includes(q) ||
+        a.phone.toLowerCase().includes(q) ||
+        (a.address ?? '').toLowerCase().includes(q) ||
+        (a.email ?? '').toLowerCase().includes(q) ||
+        (a.platform_nickname ?? '').toLowerCase().includes(q) ||
+        (a.business_number ?? '').toLowerCase().includes(q)
+      )
+    }
     return sortApplications(filtered, sortField, sortDir)
   }
 
@@ -574,6 +645,23 @@ export default function ServiceManagementPage() {
                 </span>
               </button>
             ))}
+          </div>
+
+          {/* 검색 */}
+          <div className="relative mb-2">
+            <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" />
+            </svg>
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              placeholder="업체명, 대표자, 연락처, 주소 검색..."
+              className="w-full pl-8 pr-8 py-1.5 text-xs border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            {searchQuery && (
+              <button onClick={() => setSearchQuery('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-sm leading-none">✕</button>
+            )}
           </div>
 
           {/* 필터 + 정렬 컨트롤 */}
@@ -618,6 +706,9 @@ export default function ServiceManagementPage() {
                 초기화
               </button>
             )}
+            {searchQuery && (
+              <span className="text-xs text-gray-400 ml-1">"{searchQuery}" 검색 중</span>
+            )}
           </div>
 
           {/* 목록 테이블 */}
@@ -638,6 +729,7 @@ export default function ServiceManagementPage() {
                         { label: '업체명', field: 'business_name' as SortField },
                         { label: '대표자', field: 'owner_name' as SortField },
                         { label: '담당자', field: null },
+                        { label: '작업자', field: null },
                         { label: '결제방법', field: 'payment_method' as SortField },
                         { label: '총액', field: 'total_amount' as SortField },
                         { label: '최근알림', field: null },
@@ -666,6 +758,17 @@ export default function ServiceManagementPage() {
                           <td className="px-3 py-3 font-medium text-gray-900 max-w-[120px] truncate">{app.business_name}</td>
                           <td className="px-3 py-3 text-gray-700 text-xs">{app.owner_name}</td>
                           <td className="px-3 py-3 text-gray-500 text-xs">{users.find(u => u.id === app.assigned_to)?.name ?? <span className="text-gray-300">미배정</span>}</td>
+                          <td className="px-3 py-3 text-xs">
+                            {selected?.id === app.id && selectedWorkerIds.length > 0 ? (
+                              <div className="flex flex-wrap gap-0.5">
+                                {selectedWorkerIds.slice(0, 2).map(wid => {
+                                  const w = workers.find(x => x.id === wid)
+                                  return w ? <span key={wid} className="px-1.5 py-0.5 bg-indigo-100 text-indigo-700 rounded text-xs">{w.name}</span> : null
+                                })}
+                                {selectedWorkerIds.length > 2 && <span className="text-gray-400">+{selectedWorkerIds.length - 2}</span>}
+                              </div>
+                            ) : <span className="text-gray-300">-</span>}
+                          </td>
                           <td className="px-3 py-3 text-gray-500 text-xs whitespace-nowrap">{app.payment_method ?? '-'}</td>
                           <td className="px-3 py-3 text-xs font-mono font-semibold text-gray-700 whitespace-nowrap">
                             {total > 0 ? <>{fmt(total)}<span className="text-gray-400 font-normal">원</span></> : <span className="text-gray-300">-</span>}
@@ -756,15 +859,60 @@ export default function ServiceManagementPage() {
                   className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
               </Section>
 
-              {/* 담당자 */}
-              <Section title="담당자">
+              {/* 담당자 + 작업자 */}
+              <Section title="담당자 / 작업자">
                 <select value={assignedTo} onChange={e => setAssignedTo(e.target.value)}
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
-                  <option value="">미배정</option>
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white mb-2">
+                  <option value="">담당자 미배정</option>
                   {users.map(u => (
                     <option key={u.id} value={u.id}>{u.name} ({u.role === 'admin' ? '관리자' : '직원'})</option>
                   ))}
                 </select>
+                {/* 작업자 다중선택 */}
+                <div className="relative">
+                  <button type="button"
+                    onClick={() => setWorkerDropdownOpen(o => !o)}
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-left bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 flex items-center justify-between">
+                    <span className="flex flex-wrap gap-1">
+                      {selectedWorkerIds.length === 0
+                        ? <span className="text-gray-400">작업자 선택 (복수 가능)</span>
+                        : selectedWorkerIds.map(wid => {
+                            const w = workers.find(x => x.id === wid)
+                            return w ? (
+                              <span key={wid} className="inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-indigo-100 text-indigo-700 rounded text-xs">
+                                {w.name}
+                                <button type="button" onClick={e => { e.stopPropagation(); handleWorkerToggle(wid) }} className="text-indigo-400 hover:text-indigo-700 leading-none">×</button>
+                              </span>
+                            ) : null
+                          })}
+                    </span>
+                    <span className="text-gray-400 text-xs ml-1 shrink-0">{workerDropdownOpen ? '▲' : '▼'}</span>
+                  </button>
+                  {workerDropdownOpen && (
+                    <div className="absolute z-20 mt-1 w-full bg-white border border-gray-200 rounded-xl shadow-lg max-h-52 overflow-y-auto">
+                      {workers.length === 0
+                        ? <p className="px-3 py-4 text-xs text-gray-400 text-center">직원 관리에서 작업자를 먼저 추가하세요</p>
+                        : workers.map(w => {
+                          const checked = selectedWorkerIds.includes(w.id)
+                          const EMP_COLOR: Record<string, string> = { '정직원': 'bg-green-100 text-green-700', '인턴': 'bg-red-100 text-red-700', '일용직': 'bg-yellow-100 text-yellow-700' }
+                          return (
+                            <button key={w.id} type="button"
+                              onClick={() => handleWorkerToggle(w.id)}
+                              className={`w-full flex items-center gap-2 px-3 py-2 text-sm text-left hover:bg-gray-50 transition-colors ${checked ? 'bg-indigo-50' : ''}`}>
+                              <span className={`w-4 h-4 rounded border flex items-center justify-center text-xs shrink-0 ${checked ? 'bg-indigo-600 border-indigo-600 text-white' : 'border-gray-300'}`}>
+                                {checked && '✓'}
+                              </span>
+                              <span className="font-medium text-gray-900 flex-1">{w.name}</span>
+                              {w.employment_type && (
+                                <span className={`text-xs px-1.5 py-0.5 rounded ${EMP_COLOR[w.employment_type] ?? 'bg-gray-100 text-gray-600'}`}>{w.employment_type}</span>
+                              )}
+                              {w.phone && <span className="text-xs text-gray-400">{w.phone}</span>}
+                            </button>
+                          )
+                        })}
+                    </div>
+                  )}
+                </div>
               </Section>
 
               {/* 고객 정보 */}
