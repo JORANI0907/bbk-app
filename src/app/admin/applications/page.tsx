@@ -45,23 +45,36 @@ interface Application {
 
 interface NotifyLog { type: string; sentAt: string }
 
-type SortField = 'construction_date' | 'created_at' | 'business_name' | 'owner_name' | 'payment_method' | 'status'
+type SortField = 'construction_date' | 'created_at' | 'business_name' | 'owner_name' | 'payment_method' | 'status' | 'total_amount'
 type SortDir = 'asc' | 'desc'
 
 // ─── 상수 ────────────────────────────────────────────────────
 const SERVICE_TYPES: ServiceType[] = ['1회성케어', '정기딥케어', '정기엔드케어']
-const STATUS_CONFIG: Record<ApplicationStatus, { color: string }> = {
-  '신규':    { color: 'bg-blue-100 text-blue-700' },
-  '검토중':  { color: 'bg-yellow-100 text-yellow-700' },
-  '계약완료': { color: 'bg-green-100 text-green-700' },
-  '보류':    { color: 'bg-gray-100 text-gray-600' },
-  '거절':    { color: 'bg-red-100 text-red-600' },
+const STATUS_CONFIG: Record<ApplicationStatus, { color: string; badge: string; dot: string }> = {
+  '신규':    { color: 'bg-blue-500 text-white',    badge: 'bg-blue-100 text-blue-700 ring-blue-300',   dot: 'bg-blue-500' },
+  '검토중':  { color: 'bg-amber-500 text-white',   badge: 'bg-amber-100 text-amber-700 ring-amber-300', dot: 'bg-amber-500' },
+  '계약완료': { color: 'bg-emerald-500 text-white', badge: 'bg-emerald-100 text-emerald-700 ring-emerald-300', dot: 'bg-emerald-500' },
+  '보류':    { color: 'bg-gray-400 text-white',    badge: 'bg-gray-100 text-gray-600 ring-gray-300',   dot: 'bg-gray-400' },
+  '거절':    { color: 'bg-red-500 text-white',     badge: 'bg-red-100 text-red-700 ring-red-300',     dot: 'bg-red-500' },
 }
 const NOTIFICATION_TYPES = [
   '예약확정알림', '예약1일전알림', '예약당일알림', '작업완료알림',
   '결제알림', '결제완료알림', '계산서발행완료알림', '예약금환급완료알림',
   '예약취소알림', 'A/S방문알림', '방문견적알림',
 ]
+const NOTIFY_TYPE_CONFIG: Record<string, { badge: string; dot: string }> = {
+  '예약확정알림':      { badge: 'bg-blue-100 text-blue-700',    dot: 'bg-blue-500' },
+  '예약1일전알림':     { badge: 'bg-sky-100 text-sky-700',     dot: 'bg-sky-400' },
+  '예약당일알림':      { badge: 'bg-violet-100 text-violet-700', dot: 'bg-violet-500' },
+  '작업완료알림':      { badge: 'bg-green-100 text-green-700',  dot: 'bg-green-500' },
+  '결제알림':         { badge: 'bg-orange-100 text-orange-700', dot: 'bg-orange-500' },
+  '결제완료알림':      { badge: 'bg-emerald-100 text-emerald-700', dot: 'bg-emerald-500' },
+  '계산서발행완료알림': { badge: 'bg-teal-100 text-teal-700',   dot: 'bg-teal-500' },
+  '예약금환급완료알림': { badge: 'bg-cyan-100 text-cyan-700',   dot: 'bg-cyan-500' },
+  '예약취소알림':      { badge: 'bg-red-100 text-red-700',     dot: 'bg-red-500' },
+  'A/S방문알림':      { badge: 'bg-yellow-100 text-yellow-700', dot: 'bg-yellow-500' },
+  '방문견적알림':      { badge: 'bg-indigo-100 text-indigo-700', dot: 'bg-indigo-500' },
+}
 // 신청서 폼과 동일한 옵션
 const PAYMENT_METHODS = ['현금', '카드', '계좌이체', '현금(부가세 X)']
 const ELEVATOR_OPTIONS = ['있음', '없음', '해당없음']
@@ -73,7 +86,8 @@ const SORT_LABELS: Record<SortField, string> = {
   business_name: '업체명',
   owner_name: '대표자',
   payment_method: '결제방법',
-  status: '상태',
+  status: '계약상태',
+  total_amount: '총액',
 }
 
 // ─── 알림 이력 (localStorage) ────────────────────────────────
@@ -81,6 +95,10 @@ const LOG_KEY = 'bbk_notify_logs'
 function loadLogs(appId: string): NotifyLog[] {
   try { return JSON.parse(localStorage.getItem(LOG_KEY) || '{}')[appId] || [] }
   catch { return [] }
+}
+function loadAllLogs(): Record<string, NotifyLog[]> {
+  try { return JSON.parse(localStorage.getItem(LOG_KEY) || '{}') }
+  catch { return {} }
 }
 function appendLog(appId: string, log: NotifyLog) {
   try {
@@ -96,6 +114,10 @@ const copyText = (text: string, label: string) =>
   navigator.clipboard.writeText(text).then(() => toast.success(`${label} 복사됨`))
 const today = () => new Date().toISOString().slice(0, 10)
 const fmtDate = (d: string | null) => d ? d.slice(0, 10).replace(/-/g, '.') : '-'
+const rowTotal = (app: Application) => {
+  const noVat = app.payment_method === '현금(부가세 X)'
+  return (app.supply_amount ?? 0) + (noVat ? 0 : (app.vat ?? 0))
+}
 
 function isMigrationError(msg: string) {
   return msg.includes('does not exist') || msg.includes('column') || msg.includes('no such column')
@@ -111,6 +133,7 @@ function sortApplications(apps: Application[], field: SortField, dir: SortDir): 
     else if (field === 'owner_name') { va = a.owner_name; vb = b.owner_name }
     else if (field === 'payment_method') { va = a.payment_method; vb = b.payment_method }
     else if (field === 'status') { va = a.status; vb = b.status }
+    else if (field === 'total_amount') { va = String(rowTotal(a)).padStart(15, '0'); vb = String(rowTotal(b)).padStart(15, '0') }
     // null값 항상 마지막
     if (va == null && vb == null) return 0
     if (va == null) return 1
@@ -255,9 +278,14 @@ export default function ServiceManagementPage() {
   const [sortField, setSortField] = useState<SortField>('construction_date')
   const [sortDir, setSortDir] = useState<SortDir>('desc')
 
+  // 필터
+  const [statusFilter, setStatusFilter] = useState<ApplicationStatus | ''>('')
+  const [notifyFilter, setNotifyFilter] = useState('')
+
   // 알림
   const [notifyType, setNotifyType] = useState('')
   const [notifyLogs, setNotifyLogs] = useState<NotifyLog[]>([])
+  const [allNotifyLogs, setAllNotifyLogs] = useState<Record<string, NotifyLog[]>>({})
 
   // Google Drive
   const [driveModalOpen, setDriveModalOpen] = useState(false)
@@ -295,6 +323,7 @@ export default function ServiceManagementPage() {
 
   useEffect(() => {
     getDriveLib().then(lib => setSavedDriveFolder(lib.getSavedDriveFolder()))
+    setAllNotifyLogs(loadAllLogs())
   }, [])
 
   const fetchAll = useCallback(async () => {
@@ -431,6 +460,7 @@ export default function ServiceManagementPage() {
       const log: NotifyLog = { type: notifyType, sentAt: new Date().toISOString() }
       appendLog(selected.id, log)
       setNotifyLogs(prev => [log, ...prev])
+      setAllNotifyLogs(prev => ({ ...prev, [selected.id]: [log, ...(prev[selected.id] || [])].slice(0, 50) }))
       toast.success(`${notifyType} 발송 완료`)
       setNotifyType('')
     } catch (e) { toast.error(e instanceof Error ? e.message : '발송 실패') }
@@ -500,7 +530,12 @@ export default function ServiceManagementPage() {
   }
 
   const byType = (type: ServiceType) => {
-    const filtered = applications.filter(a => (a.service_type ?? '1회성케어') === type)
+    let filtered = applications.filter(a => (a.service_type ?? '1회성케어') === type)
+    if (statusFilter) filtered = filtered.filter(a => a.status === statusFilter)
+    if (notifyFilter) filtered = filtered.filter(a => {
+      const last = (allNotifyLogs[a.id] || [])[0]
+      return last?.type === notifyFilter
+    })
     return sortApplications(filtered, sortField, sortDir)
   }
 
@@ -541,70 +576,149 @@ export default function ServiceManagementPage() {
             ))}
           </div>
 
-          {/* 정렬 컨트롤 */}
-          <div className="flex items-center gap-2 mb-3 px-1">
-            <span className="text-xs text-gray-400">정렬:</span>
-            <div className="flex gap-1 flex-wrap">
-              {(Object.entries(SORT_LABELS) as [SortField, string][]).map(([field, label]) => (
-                <button key={field} onClick={() => toggleSort(field)}
-                  className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors flex items-center gap-1 ${
-                    sortField === field ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                  }`}>
-                  {label}
-                  {sortField === field && <span>{sortDir === 'desc' ? '↓' : '↑'}</span>}
+          {/* 필터 + 정렬 컨트롤 */}
+          <div className="space-y-2 mb-3">
+            {/* 필터 */}
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-xs text-gray-400 shrink-0">필터:</span>
+              {/* 계약상태 필터 */}
+              <div className="flex gap-1 flex-wrap">
+                <button onClick={() => setStatusFilter('')}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${statusFilter === '' ? 'bg-gray-700 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}>
+                  전체
                 </button>
-              ))}
+                {(Object.keys(STATUS_CONFIG) as ApplicationStatus[]).map(s => (
+                  <button key={s} onClick={() => setStatusFilter(statusFilter === s ? '' : s)}
+                    className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors flex items-center gap-1 ${
+                      statusFilter === s ? STATUS_CONFIG[s].color : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                    }`}>
+                    <span className={`w-1.5 h-1.5 rounded-full ${STATUS_CONFIG[s].dot}`} />
+                    {s}
+                  </button>
+                ))}
+              </div>
+            </div>
+            {/* 최근알림 필터 */}
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-xs text-gray-400 shrink-0">알림:</span>
+              <div className="flex gap-1 flex-wrap">
+                <button onClick={() => setNotifyFilter('')}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${notifyFilter === '' ? 'bg-gray-700 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}>
+                  전체
+                </button>
+                {NOTIFICATION_TYPES.map(t => {
+                  const cfg = NOTIFY_TYPE_CONFIG[t]
+                  return (
+                    <button key={t} onClick={() => setNotifyFilter(notifyFilter === t ? '' : t)}
+                      className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors flex items-center gap-1 ${
+                        notifyFilter === t ? `${cfg.badge} ring-1 ring-current` : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                      }`}>
+                      <span className={`w-1.5 h-1.5 rounded-full ${cfg.dot}`} />
+                      {t}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+            {/* 정렬 */}
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-gray-400 shrink-0">정렬:</span>
+              <div className="flex gap-1 flex-wrap">
+                {(Object.entries(SORT_LABELS) as [SortField, string][]).map(([field, label]) => (
+                  <button key={field} onClick={() => toggleSort(field)}
+                    className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors flex items-center gap-1 ${
+                      sortField === field ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    }`}>
+                    {label}
+                    {sortField === field && <span>{sortDir === 'desc' ? '↓' : '↑'}</span>}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
 
           {/* 목록 테이블 */}
-          <div className="bg-white rounded-xl border border-gray-200 overflow-auto flex-1">
+          <div className="bg-white rounded-xl border border-gray-200 overflow-auto flex-1 flex flex-col">
             {loading ? (
               <div className="py-20 text-center text-gray-400 text-sm">불러오는 중...</div>
             ) : byType(activeType).length === 0 ? (
               <div className="py-20 text-center text-gray-400 text-sm">신청서가 없습니다.</div>
-            ) : (
-              <table className="w-full text-sm">
-                <thead className="bg-gray-50 border-b border-gray-200 sticky top-0">
-                  <tr>
-                    {[
-                      { label: '시공일자', field: 'construction_date' as SortField },
-                      { label: '업체명', field: 'business_name' as SortField },
-                      { label: '대표자', field: 'owner_name' as SortField },
-                      { label: '담당자', field: null },
-                      { label: '결제방법', field: 'payment_method' as SortField },
-                      { label: '상태', field: 'status' as SortField },
-                    ].map(({ label, field }) => (
-                      <th key={label}
-                        onClick={field ? () => toggleSort(field) : undefined}
-                        className={`text-left px-4 py-3 text-xs font-semibold text-gray-500 whitespace-nowrap ${field ? 'cursor-pointer hover:text-gray-700 select-none' : ''}`}>
-                        {label}
-                        {field && sortField === field && <span className="ml-1">{sortDir === 'desc' ? '↓' : '↑'}</span>}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {byType(activeType).map(app => (
-                    <tr key={app.id} onClick={() => handleSelect(app)}
-                      className={`border-b border-gray-100 last:border-0 cursor-pointer hover:bg-blue-50 transition-colors ${selected?.id === app.id ? 'bg-blue-50' : ''}`}>
-                      <td className="px-4 py-3 text-gray-500 whitespace-nowrap font-mono text-xs">
-                        {app.construction_date ? fmtDate(app.construction_date) : <span className="text-gray-300">미설정</span>}
-                      </td>
-                      <td className="px-4 py-3 font-medium text-gray-900">{app.business_name}</td>
-                      <td className="px-4 py-3 text-gray-700">{app.owner_name}</td>
-                      <td className="px-4 py-3 text-gray-500">{users.find(u => u.id === app.assigned_to)?.name ?? '미배정'}</td>
-                      <td className="px-4 py-3 text-gray-500 text-xs">{app.payment_method ?? '-'}</td>
-                      <td className="px-4 py-3">
-                        <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_CONFIG[app.status]?.color ?? 'bg-gray-100 text-gray-600'}`}>
-                          {app.status}
-                        </span>
-                      </td>
+            ) : (() => {
+              const rows = byType(activeType)
+              const totalSum = rows.reduce((s, a) => s + rowTotal(a), 0)
+              return (
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-50 border-b border-gray-200 sticky top-0">
+                    <tr>
+                      {[
+                        { label: '시공일자', field: 'construction_date' as SortField },
+                        { label: '업체명', field: 'business_name' as SortField },
+                        { label: '대표자', field: 'owner_name' as SortField },
+                        { label: '담당자', field: null },
+                        { label: '결제방법', field: 'payment_method' as SortField },
+                        { label: '총액', field: 'total_amount' as SortField },
+                        { label: '최근알림', field: null },
+                        { label: '계약상태', field: 'status' as SortField },
+                      ].map(({ label, field }) => (
+                        <th key={label}
+                          onClick={field ? () => toggleSort(field) : undefined}
+                          className={`text-left px-3 py-3 text-xs font-semibold text-gray-500 whitespace-nowrap ${field ? 'cursor-pointer hover:text-gray-700 select-none' : ''}`}>
+                          {label}
+                          {field && sortField === field && <span className="ml-1">{sortDir === 'desc' ? '↓' : '↑'}</span>}
+                        </th>
+                      ))}
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
+                  </thead>
+                  <tbody>
+                    {rows.map(app => {
+                      const lastLog = (allNotifyLogs[app.id] || [])[0]
+                      const notifyCfg = lastLog ? NOTIFY_TYPE_CONFIG[lastLog.type] : null
+                      const total = rowTotal(app)
+                      return (
+                        <tr key={app.id} onClick={() => handleSelect(app)}
+                          className={`border-b border-gray-100 last:border-0 cursor-pointer hover:bg-blue-50 transition-colors ${selected?.id === app.id ? 'bg-blue-50' : ''}`}>
+                          <td className="px-3 py-3 text-gray-500 whitespace-nowrap font-mono text-xs">
+                            {app.construction_date ? fmtDate(app.construction_date) : <span className="text-gray-300">미설정</span>}
+                          </td>
+                          <td className="px-3 py-3 font-medium text-gray-900 max-w-[120px] truncate">{app.business_name}</td>
+                          <td className="px-3 py-3 text-gray-700 text-xs">{app.owner_name}</td>
+                          <td className="px-3 py-3 text-gray-500 text-xs">{users.find(u => u.id === app.assigned_to)?.name ?? <span className="text-gray-300">미배정</span>}</td>
+                          <td className="px-3 py-3 text-gray-500 text-xs whitespace-nowrap">{app.payment_method ?? '-'}</td>
+                          <td className="px-3 py-3 text-xs font-mono font-semibold text-gray-700 whitespace-nowrap">
+                            {total > 0 ? <>{fmt(total)}<span className="text-gray-400 font-normal">원</span></> : <span className="text-gray-300">-</span>}
+                          </td>
+                          <td className="px-3 py-3">
+                            {lastLog && notifyCfg ? (
+                              <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${notifyCfg.badge}`}>
+                                <span className={`w-1.5 h-1.5 rounded-full ${notifyCfg.dot} shrink-0`} />
+                                <span className="truncate max-w-[80px]">{lastLog.type.replace('알림', '')}</span>
+                              </span>
+                            ) : <span className="text-gray-300 text-xs">-</span>}
+                          </td>
+                          <td className="px-3 py-3">
+                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_CONFIG[app.status]?.badge ?? 'bg-gray-100 text-gray-600'}`}>
+                              <span className={`w-1.5 h-1.5 rounded-full ${STATUS_CONFIG[app.status]?.dot ?? 'bg-gray-400'} shrink-0`} />
+                              {app.status}
+                            </span>
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                  <tfoot className="bg-gray-50 border-t-2 border-gray-200 sticky bottom-0">
+                    <tr>
+                      <td colSpan={5} className="px-3 py-2.5 text-xs font-semibold text-gray-500">
+                        합계 <span className="font-normal text-gray-400">({rows.length}건)</span>
+                      </td>
+                      <td className="px-3 py-2.5 text-xs font-bold text-gray-800 whitespace-nowrap font-mono">
+                        {fmt(totalSum)}<span className="text-gray-500 font-normal">원</span>
+                      </td>
+                      <td colSpan={2} />
+                    </tr>
+                  </tfoot>
+                </table>
+              )
+            })()}
           </div>
         </div>
 
@@ -622,17 +736,20 @@ export default function ServiceManagementPage() {
             </div>
 
             <div className="p-4 space-y-5">
-              {/* 상태 */}
-              <Section title="상태">
+              {/* 계약상태 */}
+              <Section title="계약상태">
                 <div className="flex gap-1.5 flex-wrap">
                   {(Object.keys(STATUS_CONFIG) as ApplicationStatus[]).map(s => (
                     <button key={s} disabled={saving}
                       onClick={() => quickSave({ status: s })}
-                      className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+                      className={`px-3 py-1 rounded-full text-xs font-medium transition-colors flex items-center gap-1.5 ${
                         selected.status === s
                           ? STATUS_CONFIG[s].color + ' ring-2 ring-offset-1 ring-current'
                           : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                      }`}>{s}</button>
+                      }`}>
+                      <span className={`w-2 h-2 rounded-full ${STATUS_CONFIG[s].dot}`} />
+                      {s}
+                    </button>
                   ))}
                 </div>
               </Section>
@@ -836,12 +953,18 @@ export default function ServiceManagementPage() {
                     <p className="text-xs text-gray-400 text-center py-4">발송 이력이 없습니다.</p>
                   ) : (
                     <div className="max-h-44 overflow-y-auto divide-y divide-gray-50">
-                      {notifyLogs.map((log, i) => (
-                        <div key={i} className="flex items-center justify-between px-3 py-2">
-                          <span className="text-xs font-medium text-gray-700">{log.type}</span>
-                          <span className="text-xs text-gray-400">{new Date(log.sentAt).toLocaleString('ko-KR')}</span>
-                        </div>
-                      ))}
+                      {notifyLogs.map((log, i) => {
+                        const cfg = NOTIFY_TYPE_CONFIG[log.type]
+                        return (
+                          <div key={i} className="flex items-center justify-between px-3 py-2 gap-2">
+                            <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium ${cfg?.badge ?? 'bg-gray-100 text-gray-600'}`}>
+                              <span className={`w-1.5 h-1.5 rounded-full ${cfg?.dot ?? 'bg-gray-400'} shrink-0`} />
+                              {log.type}
+                            </span>
+                            <span className="text-xs text-gray-400 shrink-0">{new Date(log.sentAt).toLocaleString('ko-KR')}</span>
+                          </div>
+                        )
+                      })}
                     </div>
                   )}
                 </div>
