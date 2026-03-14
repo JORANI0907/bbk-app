@@ -158,3 +158,53 @@ export function saveDriveFolderCookie(folder: DriveFolder) {
   exp.setFullYear(exp.getFullYear() + 1)
   document.cookie = `${COOKIE_KEY}=${encodeURIComponent(JSON.stringify(folder))};expires=${exp.toUTCString()};path=/`
 }
+
+// ─── 재고 사진 폴더 쿠키 ──────────────────────────────────────
+const INVENTORY_FOLDER_COOKIE_KEY = 'bbk_inventory_folder'
+
+export function getSavedInventoryFolder(): DriveFolder | null {
+  if (typeof document === 'undefined') return null
+  try {
+    const m = document.cookie.match(new RegExp(`(?:^|; )${INVENTORY_FOLDER_COOKIE_KEY}=([^;]+)`))
+    return m ? JSON.parse(decodeURIComponent(m[1])) : null
+  } catch { return null }
+}
+
+export function saveInventoryFolderCookie(folder: DriveFolder): void {
+  const exp = new Date()
+  exp.setFullYear(exp.getFullYear() + 1)
+  document.cookie = `${INVENTORY_FOLDER_COOKIE_KEY}=${encodeURIComponent(JSON.stringify(folder))};expires=${exp.toUTCString()};path=/`
+}
+
+// ─── Drive 파일 업로드 (multipart) ────────────────────────────
+export async function uploadFileToDrive(
+  file: File,
+  folderId: string,
+  fileName: string,
+  accessToken: string
+): Promise<{ fileId: string; fileUrl: string }> {
+  const metadata = { name: fileName, parents: [folderId] }
+  const form = new FormData()
+  form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }))
+  form.append('file', file)
+
+  const res = await fetch(
+    'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id',
+    {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${accessToken}` },
+      body: form,
+    }
+  )
+
+  if (!res.ok) {
+    const err = await res.json()
+    throw new Error(err.error?.message ?? `업로드 실패 (${res.status})`)
+  }
+
+  const data = await res.json()
+  return {
+    fileId: data.id as string,
+    fileUrl: `https://drive.google.com/file/d/${data.id}/view`,
+  }
+}

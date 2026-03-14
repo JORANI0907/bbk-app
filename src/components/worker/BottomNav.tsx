@@ -17,6 +17,12 @@ const NAV_ITEMS = [
     exact: false,
   },
   {
+    href: '/worker/inventory',
+    label: '재고',
+    icon: '📦',
+    exact: false,
+  },
+  {
     href: '/worker/profile',
     label: '내 정보',
     icon: '👤',
