@@ -1,0 +1,1421 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BBK 공간케어 신청서</title>
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+  
+  <style>
+    :root {
+      --primary: #2AABE2;
+      --primary-dark: #1E8FC0;
+      --primary-light: #E8F6FC;
+      --primary-glow: rgba(42, 171, 226, 0.15);
+      --dark: #1A1A2E;
+      --dark-soft: #2D2D44;
+      --text: #2C3E50;
+      --text-light: #6B7B8D;
+      --text-muted: #95A5B5;
+      --bg: #F5F7FA;
+      --white: #FFFFFF;
+      --border: #E2E8F0;
+      --border-focus: var(--primary);
+      --success: #27AE60;
+      --success-light: #E8F8F0;
+      --error: #E74C3C;
+      --error-light: #FDF0EF;
+      --warning: #F39C12;
+      --shadow-sm: 0 1px 3px rgba(0,0,0,0.06);
+      --shadow-md: 0 4px 12px rgba(0,0,0,0.08);
+      --shadow-lg: 0 8px 30px rgba(0,0,0,0.12);
+      --shadow-glow: 0 0 20px rgba(42, 171, 226, 0.2);
+      --radius-sm: 8px;
+      --radius-md: 12px;
+      --radius-lg: 16px;
+      --radius-xl: 20px;
+      --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'Noto Sans KR', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.7;
+      -webkit-font-smoothing: antialiased;
+      min-height: 100vh;
+    }
+
+    /* ═══════ Hero ═══════ */
+    .hero {
+      background: linear-gradient(135deg, var(--dark) 0%, #16213E 50%, var(--dark-soft) 100%);
+      padding: 48px 20px 56px;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+    .hero::before {
+      content: '';
+      position: absolute;
+      top: -50%; left: -50%;
+      width: 200%; height: 200%;
+      background: radial-gradient(ellipse at 30% 50%, rgba(42,171,226,0.08) 0%, transparent 60%),
+                  radial-gradient(ellipse at 70% 50%, rgba(42,171,226,0.05) 0%, transparent 60%);
+      animation: heroShimmer 12s ease-in-out infinite alternate;
+    }
+    @keyframes heroShimmer {
+      0% { transform: translateX(-5%) translateY(-2%); }
+      100% { transform: translateX(5%) translateY(2%); }
+    }
+    .hero::after {
+      content: '';
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      height: 4px;
+      background: linear-gradient(90deg, transparent, var(--primary), transparent);
+    }
+    .hero-content {
+      position: relative; z-index: 1;
+      max-width: 600px; margin: 0 auto;
+    }
+    .logo-container {
+      margin-bottom: 20px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 12px;
+      animation: logoFloat 4s ease-in-out infinite;
+    }
+    @keyframes logoFloat {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-6px); }
+    }
+    .logo-container img.logo-img {
+      height: 72px;
+      filter: drop-shadow(0 4px 12px rgba(42,171,226,0.3));
+    }
+    .person-icon {
+      height: 85px;
+      filter: drop-shadow(0 2px 8px rgba(255,255,255,0.2));
+    }
+    .hero h1 {
+      font-size: 26px;
+      font-weight: 800;
+      color: var(--white);
+      letter-spacing: -0.5px;
+      margin-bottom: 10px;
+    }
+    .hero h1 span {
+      background: linear-gradient(135deg, var(--primary), #5BC0EB);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .hero-subtitle {
+      color: rgba(255,255,255,0.55);
+      font-size: 14px; font-weight: 400;
+      letter-spacing: 0.3px;
+    }
+
+    /* ═══════ Form Container ═══════ */
+    .form-wrapper {
+      max-width: 640px;
+      margin: -28px auto 40px;
+      padding: 0 16px;
+      position: relative; z-index: 2;
+    }
+
+    /* ═══════ Section Cards ═══════ */
+    .section-card {
+      background: var(--white);
+      border-radius: var(--radius-lg);
+      padding: 28px 24px;
+      margin-bottom: 16px;
+      box-shadow: var(--shadow-sm);
+      border: 1px solid var(--border);
+      transition: var(--transition);
+      opacity: 0;
+      transform: none;
+      animation: cardFadeIn 0.5s ease forwards;
+      overflow: visible;
+    }
+    .section-card:hover {
+      box-shadow: var(--shadow-md);
+      border-color: rgba(42,171,226,0.15);
+    }
+    @keyframes cardFadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+    .section-card:nth-child(1) { animation-delay: 0.05s; }
+    .section-card:nth-child(2) { animation-delay: 0.1s; }
+    .section-card:nth-child(3) { animation-delay: 0.15s; }
+    .section-card:nth-child(4) { animation-delay: 0.2s; }
+    .section-card:nth-child(5) { animation-delay: 0.25s; }
+
+    .section-header {
+      display: flex; align-items: center; gap: 10px;
+      margin-bottom: 22px; padding-bottom: 14px;
+      border-bottom: 2px solid var(--bg);
+    }
+    .section-icon {
+      width: 38px; height: 38px; border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px; flex-shrink: 0;
+    }
+    .section-icon.blue { background: var(--primary-light); }
+    .section-icon.green { background: var(--success-light); }
+    .section-icon.purple { background: #F3E5F5; }
+    .section-icon.teal { background: #E0F2F1; }
+    .section-icon.red { background: var(--error-light); }
+
+    .section-title { font-size: 16px; font-weight: 700; color: var(--dark); letter-spacing: -0.3px; }
+    .section-desc { font-size: 12.5px; color: var(--text-muted); margin-top: 2px; }
+
+    /* ═══════ Form Fields ═══════ */
+    .form-group { margin-bottom: 20px; }
+    .form-group:last-child { margin-bottom: 0; }
+    .form-label {
+      display: flex; align-items: center; gap: 6px;
+      font-size: 13.5px; font-weight: 600; color: var(--text);
+      margin-bottom: 7px;
+    }
+    .form-label .required { color: var(--error); font-weight: 700; font-size: 14px; }
+    .form-label .emoji { font-size: 15px; }
+    .form-hint {
+      font-size: 12px; color: var(--text-muted);
+      margin-bottom: 7px; padding-left: 2px; line-height: 1.5;
+    }
+    .form-hint.important {
+      color: var(--primary-dark); font-weight: 500;
+      background: var(--primary-light);
+      padding: 8px 12px; border-radius: var(--radius-sm);
+      border-left: 3px solid var(--primary);
+    }
+    .form-hint.warning-hint {
+      color: #E67E22; font-weight: 500;
+      background: #FFF8E1;
+      padding: 8px 12px; border-radius: var(--radius-sm);
+      border-left: 3px solid #F39C12;
+      margin-top: 8px;
+    }
+
+    .form-input, .form-select, .form-textarea {
+      width: 100%;
+      padding: 12px 14px;
+      font-size: 14px;
+      font-family: 'Noto Sans KR', sans-serif;
+      color: var(--text);
+      background: var(--white);
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-sm);
+      transition: var(--transition);
+      outline: none;
+    }
+    .form-input:hover, .form-select:hover, .form-textarea:hover { border-color: #CBD5E0; }
+    .form-input:focus, .form-select:focus, .form-textarea:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px var(--primary-glow);
+    }
+    .form-input::placeholder, .form-textarea::placeholder { color: var(--text-muted); font-weight: 300; }
+    .form-input.error, .form-select.error, .form-textarea.error {
+      border-color: var(--error);
+      box-shadow: 0 0 0 3px rgba(231,76,60,0.1);
+    }
+    .form-textarea { min-height: 100px; resize: vertical; line-height: 1.6; }
+    .form-select {
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M6 8L1 3h10z' fill='%236B7B8D'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 14px center;
+      padding-right: 36px;
+      cursor: pointer;
+    }
+
+    /* Time Row with custom picker */
+    .time-row {
+      display: flex; align-items: center; gap: 10px;
+    }
+    .time-row .time-field { flex: 1; }
+    .time-separator { font-size: 18px; font-weight: 700; color: var(--text-muted); }
+
+    .time-input-wrapper {
+      position: relative;
+    }
+    .time-input-wrapper .form-input {
+      padding-right: 40px;
+    }
+    .time-dropdown-btn {
+      position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
+      background: var(--primary-light); border: none; border-radius: 6px;
+      width: 28px; height: 28px; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: var(--transition);
+      font-size: 14px;
+    }
+    .time-dropdown-btn:hover { background: var(--primary); color: white; }
+
+    .time-dropdown {
+      position: absolute;
+      bottom: calc(100% + 4px);
+      left: 0;
+      right: 0;
+      background: var(--white);
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-sm);
+      box-shadow: var(--shadow-lg);
+      max-height: 200px; overflow-y: auto;
+      z-index: 99999;
+      display: none;
+    }
+    .time-dropdown.open { display: block; }
+    .time-dropdown-item {
+      padding: 8px 14px; font-size: 13px; cursor: pointer;
+      transition: var(--transition);
+    }
+    .time-dropdown-item:hover {
+      background: var(--primary-light); color: var(--primary-dark);
+    }
+
+    /* Email Row */
+    .email-row { display: flex; align-items: center; gap: 8px; }
+    .email-row .form-input { flex: 1; }
+    .email-at { font-size: 16px; font-weight: 600; color: var(--text-muted); flex-shrink: 0; }
+    .email-row .form-select { flex: 1; }
+
+    /* Radio & Checkbox */
+    .radio-group { display: flex; flex-wrap: wrap; gap: 8px; }
+    .radio-option { position: relative; }
+    .radio-option input { display: none; }
+    .radio-option label {
+      display: inline-flex; align-items: center; gap: 7px;
+      padding: 10px 16px;
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-sm);
+      cursor: pointer; font-size: 13.5px; font-weight: 500;
+      transition: var(--transition);
+      background: var(--white); user-select: none;
+    }
+    .radio-option label:hover { border-color: var(--primary); background: var(--primary-light); }
+    .radio-option input:checked + label {
+      background: var(--primary); border-color: var(--primary);
+      color: var(--white);
+      box-shadow: 0 2px 8px rgba(42,171,226,0.3);
+    }
+    .radio-dot {
+      width: 16px; height: 16px;
+      border: 2px solid var(--border);
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      transition: var(--transition); flex-shrink: 0;
+    }
+    .radio-dot::after {
+      content: ''; width: 7px; height: 7px; border-radius: 50%;
+      background: transparent; transition: var(--transition);
+    }
+    .radio-option input:checked + label .radio-dot { border-color: var(--white); }
+    .radio-option input:checked + label .radio-dot::after { background: var(--white); }
+
+    /* Custom input for "직접입력" */
+    .custom-input-wrapper {
+      margin-top: 8px;
+      display: none;
+    }
+    .custom-input-wrapper.visible { display: block; }
+
+    /* Consent */
+    .consent-box {
+      background: var(--bg);
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 16px 18px; margin-bottom: 12px;
+      transition: var(--transition);
+    }
+    .consent-box:last-child { margin-bottom: 0; }
+    .consent-box:hover { border-color: var(--primary); }
+    .consent-box.error { border-color: var(--error); background: var(--error-light); }
+    .consent-link { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+    .consent-link a {
+      color: var(--primary); text-decoration: none;
+      font-size: 13px; font-weight: 600;
+      display: inline-flex; align-items: center; gap: 4px;
+      transition: var(--transition);
+    }
+    .consent-link a:hover { color: var(--primary-dark); text-decoration: underline; }
+    .consent-link a svg { width: 14px; height: 14px; }
+    .checkbox-wrapper {
+      display: flex; align-items: center; gap: 10px;
+      cursor: pointer; user-select: none;
+    }
+    .checkbox-wrapper input { display: none; }
+    .custom-checkbox {
+      width: 20px; height: 20px;
+      border: 2px solid var(--border); border-radius: 5px;
+      display: flex; align-items: center; justify-content: center;
+      transition: var(--transition); flex-shrink: 0;
+    }
+    .custom-checkbox svg {
+      width: 12px; height: 12px; stroke: var(--white); stroke-width: 3;
+      fill: none; opacity: 0; transition: var(--transition);
+    }
+    .checkbox-wrapper input:checked ~ .custom-checkbox { background: var(--primary); border-color: var(--primary); }
+    .checkbox-wrapper input:checked ~ .custom-checkbox svg { opacity: 1; }
+    .checkbox-text { font-size: 13px; font-weight: 500; color: var(--text); }
+    .checkbox-text .warning { color: var(--error); font-size: 11.5px; font-weight: 400; }
+
+    .error-msg {
+      font-size: 12px; color: var(--error); margin-top: 5px;
+      display: none; align-items: center; gap: 4px;
+    }
+    .error-msg.visible { display: flex; }
+
+    /* ═══════ Submit ═══════ */
+    .submit-section { padding: 0 0 12px; }
+    .privacy-note {
+      text-align: center; font-size: 12px; color: var(--text-muted);
+      margin-bottom: 18px;
+      display: flex; align-items: center; justify-content: center; gap: 6px;
+    }
+    .privacy-note svg { width: 14px; height: 14px; stroke: var(--text-muted); flex-shrink: 0; }
+    .submit-btn {
+      width: 100%; padding: 16px; font-size: 16px; font-weight: 700;
+      font-family: 'Noto Sans KR', sans-serif; color: var(--white);
+      background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+      border: none; border-radius: var(--radius-md); cursor: pointer;
+      transition: var(--transition); position: relative; overflow: hidden; letter-spacing: 0.5px;
+    }
+    .submit-btn:hover { transform: translateY(-2px); box-shadow: var(--shadow-glow), var(--shadow-md); }
+    .submit-btn:active { transform: translateY(0); }
+    .submit-btn:disabled { opacity: 0.7; cursor: not-allowed; transform: none; }
+    .submit-btn .btn-text {
+      display: flex; align-items: center; justify-content: center;
+      gap: 8px; transition: var(--transition);
+    }
+    .submit-btn.loading .btn-text { opacity: 0; }
+    .submit-btn .spinner {
+      position: absolute; top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      width: 24px; height: 24px;
+      border: 3px solid rgba(255,255,255,0.3);
+      border-top-color: var(--white); border-radius: 50%;
+      opacity: 0; transition: var(--transition);
+    }
+    .submit-btn.loading .spinner { opacity: 1; animation: spin 0.8s linear infinite; }
+    @keyframes spin { to { transform: translate(-50%, -50%) rotate(360deg); } }
+
+    /* ═══════ Modal ═══════ */
+    .modal-overlay {
+      position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.5); backdrop-filter: blur(6px);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 1000; opacity: 0; visibility: hidden;
+      transition: var(--transition); padding: 20px;
+    }
+    .modal-overlay.active { opacity: 1; visibility: visible; }
+    .modal-content {
+      background: var(--white); border-radius: var(--radius-xl);
+      padding: 40px 32px; max-width: 400px; width: 100%; text-align: center;
+      transform: scale(0.9) translateY(20px); transition: var(--transition);
+      box-shadow: var(--shadow-lg);
+    }
+    .modal-overlay.active .modal-content { transform: scale(1) translateY(0); }
+    .modal-icon {
+      width: 72px; height: 72px; border-radius: 50%;
+      background: var(--success-light);
+      display: flex; align-items: center; justify-content: center;
+      margin: 0 auto 20px;
+    }
+    .modal-icon svg { width: 36px; height: 36px; stroke: var(--success); stroke-width: 3; fill: none; }
+    .modal-title { font-size: 20px; font-weight: 800; color: var(--dark); margin-bottom: 10px; }
+    .modal-message { font-size: 14px; color: var(--text-light); line-height: 1.6; margin-bottom: 24px; }
+    .modal-btn {
+      display: inline-flex; align-items: center; justify-content: center;
+      padding: 12px 32px; background: var(--success); color: var(--white);
+      border: none; border-radius: var(--radius-sm);
+      font-size: 14px; font-weight: 600; font-family: 'Noto Sans KR', sans-serif;
+      cursor: pointer; transition: var(--transition);
+    }
+    .modal-btn:hover { background: #219A52; transform: translateY(-1px); }
+
+    /* ═══════ Progress ═══════ */
+    .progress-container {
+      position: sticky; top: 0; z-index: 100;
+      background: var(--white); border-bottom: 1px solid var(--border);
+      padding: 10px 20px;
+      display: flex; align-items: center; gap: 12px;
+      box-shadow: var(--shadow-sm);
+    }
+    .progress-bar { flex: 1; height: 5px; background: var(--bg); border-radius: 10px; overflow: hidden; }
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--primary), #5BC0EB);
+      border-radius: 10px; transition: width 0.4s ease; width: 0%;
+    }
+    .progress-text { font-size: 12px; font-weight: 600; color: var(--primary); white-space: nowrap; min-width: 32px; text-align: right; }
+
+    .footer {
+      text-align: center; padding: 24px 20px 32px;
+      color: var(--text-muted); font-size: 11.5px;
+    }
+
+    /* No-biz toggle button */
+    .no-biz-toggle {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 7px 14px; font-size: 13px; font-weight: 500;
+      font-family: 'Noto Sans KR', sans-serif;
+      color: var(--text-secondary); background: var(--bg-secondary);
+      border: 1.5px solid var(--border); border-radius: 20px;
+      cursor: pointer; transition: var(--transition);
+    }
+    .no-biz-toggle:hover { border-color: var(--primary); color: var(--primary); }
+    .no-biz-toggle.active {
+      background: var(--primary); color: var(--white);
+      border-color: var(--primary);
+    }
+    .no-biz-check { font-size: 15px; }
+
+    /* Verification buttons */
+    .verify-btn {
+      padding: 10px 16px; font-size: 13px; font-weight: 600;
+      font-family: 'Noto Sans KR', sans-serif;
+      color: var(--white); background: var(--primary);
+      border: none; border-radius: var(--radius-sm);
+      cursor: pointer; transition: var(--transition);
+      white-space: nowrap; flex-shrink: 0;
+    }
+    .verify-btn:hover { background: var(--primary-dark); }
+    .verify-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .verify-btn.verify-confirm { background: var(--success); }
+    .verify-btn.verify-confirm:hover { background: #219A52; }
+
+    @media (max-width: 480px) {
+      .hero { padding: 36px 16px 44px; }
+      .hero h1 { font-size: 22px; }
+      .section-card { padding: 22px 18px; }
+      .radio-group { flex-direction: column; }
+      .radio-option label { width: 100%; justify-content: center; }
+      .email-row { flex-direction: column; gap: 8px; }
+      .email-at { display: none; }
+      .time-row { gap: 6px; }
+      .section-card:nth-child(2) { z-index: 10; }
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- ═══════ Hero ═══════ -->
+  <div class="hero">
+    <div class="hero-content">
+      <div class="logo-container">
+        <img class="person-icon" src="data:image/png;base64,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AwNDWJbDJz7xb8Xs7CynT59WFy5cYGNjg3q93uuSu/mWN2Hbdq96/GJYWrtyYXBpGD6dLyp7GWbbMdm9Z5IgbDE4WGL/9B6GhoZEHIcsbK6rIAh46KGHcV03LWI2TaIwIZfLqUOHDrF371727z/AoUOHxO5dUyRJQrVaRdd1HMcjTcr1rzm45uMcl6P7w+86kZDWOmw3qd3UdxiGvb/vJvGCIKBQKBCGYa/MLw1TG73imit7Pr33fKnwVOfZ0tvEyZMnefzxx9TKykpvpbluCPL5PMPDw/zQD/2QKBUHOkNobHTNpN6oY5qpr9Wot3riCYIAIdJGckjjJd/paLnuxbGd7ovZvWl0X2jLsnpRVrhYKNPdttDtre3+IJVSPcty5eV42iXWDbpOL71nbDRrnRZOrRPhTHrh74tCVp02TJ16o47n5dKwea6I7/s951zTjF5B9OUKgq57cXTfkd1GI6CXqOom6bqC6R4Z2wuFlVL4vo/neWnnWqewqFsicKV0v+b2ouTuC6Zp9Gacep5HEKaRUdd1O/+N6n0/mpY6ya1WK53SbDoda5GKv2sJoyi52HEnJd8plncd+Ryvz/bs5PbYxPZmpG4ouhud7OYgILUivcWBnWxsV0DAFVuO7TNSu/9mb+aXTI+Pbl4kChN03Uqjp2FHpCq1AratI0gFYFsutVotnRCARhAEvTeEZTnYtomU3WkDP8DHyvYXcbt16NIdC9W1JNubkPTOTI/uKvOLfoF4Q1LiwCV+S/frd5+z++zd4p000OcA4Pt+x3e6WKDc/b5cN7fNwl38Ot2C6yiK0DUTxzWJorD/s13v4uhmJrtOZ9dXuNg7Evd+v73fdbtl6SapukP1uy/Ed5PZvBwX61zVJc8BF6Ox3drYVsvv3UrCMOxkhsOOJUj/H8OwOo5np8KsU4/SPa66foqSgigO0PX+R+N1L47vf7rWp9/h/6o/V9t+LyT9cyPfbfC7v/W75sPnGTvHde+Qfv9zuffnqyyL+G79nCv3hzLLcc2w/Qh5/WjwG01mOa4prkQUf3vfJBPHNYF8nV9fzpG9cjJxfN/yOu/0V/sb6vWE8cYdNZnPca3RFcTrCuONJbMc37e8zouvOn+u+vx9v//vjXuCjO9ftFd9/t58tYyM15CJI6MvmTgy+pKJI6MvmTgy+pKJI6MvmTgy+pKJI6MvmTgy+pKJI6MvmTgy+pKJI6MvmTgy+pKJI6MvmTgy+pKJI6MvmTgy+pKJI6MvmTgy+pKJI6MvmTgy+pKJI6MvmTgy+pKJI6MvmTgy+pKJI6MvmTgy+pKJI6MvmTgy+pKJI6MvmTgy+pKJI6MvmTgy+pKJI6MvmTgy+pKJI6MvmTgy+pKJI6MvmTgy+pKJI6MvmTgy+pKJI6MvmTgy+pKJI6MvmTgy+pKJI6MvmTgy+pKJI6MvmTgy+pKJI6MvmTgy+pKJI6MvmTgy+pKJI6MvmTgy+pKJI6MvmTgy+pKJI6MvmTgy+pKJI6MvmTgy+pKJI6MvmTgy+pKJI6MvmTgy+pKJI6MvmTgy+pKJI6MvmTgy+pKJI6MvmTgy+pKJI6MvmTgy+pKJI6MvmTgy+pKJI6Mv/z+a12WNttXIfQAAAABJRU5ErkJggg==" alt="BBK Worker">
+        <div style="display:flex; align-items:center; gap:4px; flex-wrap:wrap; justify-content:center;">
+           <span style="font-size:32px; font-weight:900; color:#2AABE2; font-family:'Noto Sans KR',sans-serif;">BUMBUILD</span><span style="font-size:32px; font-weight:900; color:#fff; font-family:'Noto Sans KR',sans-serif;"></span>
+           <span style="font-size:32px; font-weight:900; color:#2AABE2; font-family:'Noto Sans KR',sans-serif;"></span><span style="font-size:32px; font-weight:900; color:#fff; font-family:'Noto Sans KR',sans-serif;">KOREA</span>
+          </div>
+      </div>
+      <h1><span>공간케어</span> 신청서</h1>
+      <p class="hero-subtitle">깨끗한 공간, 범빌드코리아가 만들어 드립니다</p>
+    </div>
+  </div>
+
+  <!-- ═══════ Progress ═══════ -->
+  <div class="progress-container">
+    <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+    <div class="progress-text" id="progressText">0%</div>
+  </div>
+
+  <!-- ═══════ Form ═══════ -->
+  <div class="form-wrapper">
+    <form id="bbkForm" onsubmit="return false;">
+
+      <!-- ══════ Section 2: 사업장 정보 (영업시간 포함) ══════ -->
+      <div class="section-card">
+        <div class="section-header">
+          <div class="section-icon green">🏢</div>
+          <div>
+            <div class="section-title">사업장 정보</div>
+            <div class="section-desc">서비스를 제공할 사업장 정보를 입력해주세요</div>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label"><span class="emoji">📍</span>상호명<span class="required">*</span></label>
+          <input type="text" class="form-input" id="businessName" placeholder="상호명을 입력해주세요" required>
+          <div class="error-msg" id="businessNameError">⚠ 상호명을 입력해주세요</div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label"><span class="emoji">🗺️</span>주소<span class="required">*</span></label>
+          <input type="text" class="form-input" id="address" placeholder="사업장 주소를 입력해주세요" required>
+          <div class="error-msg" id="addressError">⚠ 주소를 입력해주세요</div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label"><span class="emoji">🏬</span>사업자등록번호 (계산서 발행용)<span id="bizRequiredMark" class="required">*</span></label>
+          <div style="margin-bottom:10px;">
+            <button type="button" id="noBizToggleBtn" class="no-biz-toggle" onclick="toggleBizNumberBtn()">
+              <span id="noBizCheckIcon" class="no-biz-check">☐</span> 사업자 등록 전(번호 없음)
+            </button>
+            <input type="hidden" id="noBizNumber" value="false">
+          </div>
+          <div class="form-hint">※ 숫자 10자리만 입력 (하이픈 제외)</div>
+          <div style="display:flex; gap:8px; align-items:center;">
+            <input type="text" class="form-input" id="businessNumber" placeholder="0000000000" maxlength="10" oninput="this.value=this.value.replace(/[^0-9]/g,'')" required style="flex:1;">
+            <button type="button" class="verify-btn" id="checkBizBtn" onclick="checkBusinessNumber()">확인</button>
+          </div>
+          <div id="bizResult" style="font-size:13px; margin-top:6px;"></div>
+          <div id="noBizNotice" style="display:none; margin-top:8px; padding:10px 12px; background:#FFF3E0; border-left:3px solid #FF9800; border-radius:4px; font-size:12px; color:#E65100; line-height:1.6;">
+            ⚠️ 사업자등록번호가 없는 경우 <b>세금계산서 발행이 불가</b>합니다.<br>
+            ⚠️ <b>선입금 후 서비스 진행</b>이 원칙이며, 상담 시 안내드리겠습니다.
+          </div>
+          <div class="error-msg" id="businessNumberError">⚠ 사업자등록번호를 입력해주세요</div>
+        </div>
+
+        <!-- 영업시간 (사업장 정보 섹션으로 이동) -->
+        <div class="form-group">
+          <label class="form-label"><span class="emoji">🌃</span>영업시간 (서비스 방문 시간 접수용)<span class="required">*</span></label>
+          <div class="form-hint">시간을 직접 입력하거나 🕐 버튼을 눌러 선택할 수 있습니다 (30분 단위)</div>
+          <div class="time-row">
+            <div class="time-field">
+              <div class="time-input-wrapper">
+                <input type="text" class="form-input" id="businessHoursStart" placeholder="예: 09:00" required>
+                <button type="button" class="time-dropdown-btn" onclick="toggleTimeDropdown('startTimeDropdown')">🕐</button>
+                <div class="time-dropdown" id="startTimeDropdown"></div>
+              </div>
+            </div>
+            <span class="time-separator">~</span>
+            <div class="time-field">
+              <div class="time-input-wrapper">
+                <input type="text" class="form-input" id="businessHoursEnd" placeholder="예: 22:00" required>
+                <button type="button" class="time-dropdown-btn" onclick="toggleTimeDropdown('endTimeDropdown')">🕐</button>
+                <div class="time-dropdown" id="endTimeDropdown"></div>
+              </div>
+            </div>
+          </div>
+          <div class="error-msg" id="businessHoursError">⚠ 영업시간을 입력해주세요</div>
+        </div>
+      </div>
+
+      <!-- ══════ Section 1: 기본 정보 (이메일 포함) ══════ -->
+      <div class="section-card">
+        <div class="section-header">
+          <div class="section-icon blue">👤</div>
+          <div>
+            <div class="section-title">기본 정보</div>
+            <div class="section-desc">대표자 및 연락처 정보를 입력해주세요</div>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label"><span class="emoji">🎈</span>담당자 성함<span class="required">*</span></label>
+          <div class="form-hint">현장 소통 담당자의 성함을 작성해주세요</div>
+          <input type="text" class="form-input" id="ownerName" placeholder="예) 홍길동" required>
+          <div class="error-msg" id="ownerNameError">⚠ 대표자 성함을 입력해주세요</div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label"><span class="emoji">🎈</span>입금자명<span class="required">*</span></label>
+          <div class="form-hint">입금 시 표시될 이름을 8글자 이내로 작성해주세요</div>
+          <input type="text" class="form-input" id="platformNickname" placeholder="예) 김철수" maxlength="8" required>
+          <div class="error-msg" id="platformNicknameError">⚠ 입금자명을 입력해주세요</div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label"><span class="emoji">📱</span>연락처<span class="required">*</span></label>
+          <div class="form-hint">고객사 시공 담당자(소통) 번호 입력</div>
+          <div style="display:flex; gap:8px; align-items:center;">
+            <input type="tel" class="form-input" id="phone" placeholder="010-0000-0000" required style="flex:1;">
+            <button type="button" class="verify-btn" id="sendSmsBtn" onclick="sendVerificationSMS()">인증번호 받기</button>
+          </div>
+          <div class="error-msg" id="phoneError">⚠ 연락처를 입력해주세요</div>
+          <!-- SMS 인증 입력 영역 -->
+          <div id="smsVerifySection" style="display:none; margin-top:10px;">
+            <div style="display:flex; gap:8px; align-items:center;">
+              <input type="text" class="form-input" id="smsCode" placeholder="인증번호 6자리 입력" maxlength="6" style="flex:1;">
+              <button type="button" class="verify-btn verify-confirm" id="verifySmsBtn" onclick="verifySMSCode()">확인</button>
+            </div>
+            <div id="smsTimer" style="font-size:12px; color:var(--primary); margin-top:5px;"></div>
+            <div id="smsResult" style="font-size:12px; margin-top:5px;"></div>
+          </div>
+          <div id="phoneVerified" style="display:none; margin-top:8px; font-size:13px; color:var(--success); font-weight:600;">✅ 연락처 인증 완료</div>
+        </div>
+
+        <!-- 이메일 (기본정보 섹션으로 이동) -->
+        <div class="form-group">
+          <label class="form-label"><span class="emoji">✉️</span>이메일 (계산서 발행용)<span class="required">*</span></label>
+          <div class="email-row">
+            <input type="text" class="form-input" id="emailId" placeholder="아이디만 입력 (@제외)" oninput="this.value=this.value.replace(/@/g,'')" required>
+            <span class="email-at">@</span>
+            <select class="form-select" id="emailDomain" required>
+              <option value="" disabled selected>이메일 주소 선택</option>
+              <option value="naver.com">naver.com</option>
+              <option value="gmail.com">gmail.com</option>
+              <option value="daum.net">daum.net</option>
+              <option value="hanmail.net">hanmail.net</option>
+              <option value="kakao.com">kakao.com</option>
+              <option value="nate.com">nate.com</option>
+              <option value="custom">직접입력</option>
+            </select>
+          </div>
+          <input type="text" class="form-input" id="emailCustom" placeholder="이메일 도메인 직접 입력" style="display:none; margin-top:8px;">
+          <div class="error-msg" id="emailError">⚠ 이메일을 입력해주세요</div>
+        </div>
+      </div>
+
+      <!-- ══════ Section 3: 출입 · 주차 정보 (주차 먼저, 출입 나중) ══════ -->
+      <div class="section-card">
+        <div class="section-header">
+          <div class="section-icon purple">🔐</div>
+          <div>
+            <div class="section-title">출입 · 주차 정보</div>
+            <div class="section-desc">원활한 서비스를 위한 출입 및 주차 정보</div>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label"><span class="emoji">📦</span>엘리베이터 사용 가능 여부<span class="required">*</span></label>
+          <div class="radio-group">
+            <div class="radio-option">
+              <input type="radio" name="elevator" id="elevatorYes" value="가능" required>
+              <label for="elevatorYes"><span class="radio-dot"></span>사용 가능</label>
+            </div>
+            <div class="radio-option">
+              <input type="radio" name="elevator" id="elevatorNo" value="불가">
+              <label for="elevatorNo"><span class="radio-dot"></span>사용 불가</label>
+            </div>
+            <div class="radio-option">
+              <input type="radio" name="elevator" id="elevatorNA" value="해당없음">
+              <label for="elevatorNA"><span class="radio-dot"></span>해당 없음</label>
+            </div>
+          </div>
+          <div class="error-msg" id="elevatorError">⚠ 엘리베이터 사용 가능 여부를 선택해주세요</div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label"><span class="emoji">🪪</span>건물 출입 신청 필요 여부<span class="required">*</span></label>
+          <div class="form-hint">백화점, 아울렛 등 건물에서 출입을 통제하는 경우 작성</div>
+          <div class="radio-group">
+            <div class="radio-option">
+              <input type="radio" name="buildingAccess" id="accessYes" value="필요" required>
+              <label for="accessYes"><span class="radio-dot"></span>신청 필요</label>
+            </div>
+            <div class="radio-option">
+              <input type="radio" name="buildingAccess" id="accessNo" value="불필요">
+              <label for="accessNo"><span class="radio-dot"></span>신청 불필요</label>
+            </div>
+          </div>
+          <div class="error-msg" id="buildingAccessError">⚠ 건물 출입 신청 필요 여부를 선택해주세요</div>
+        </div>
+
+        <!-- 🚙 주차 방법 (출입 방법보다 위로 이동, 라디오 선택 + 직접입력) -->
+        <div class="form-group">
+          <label class="form-label"><span class="emoji">🚙</span>주차 방법<span class="required">*</span></label>
+          <div class="radio-group">
+            <div class="radio-option">
+              <input type="radio" name="parking" id="parkingBuilding" value="건물 전용주차장" required>
+              <label for="parkingBuilding"><span class="radio-dot"></span>건물 전용주차장</label>
+            </div>
+            <div class="radio-option">
+              <input type="radio" name="parking" id="parkingNearby" value="건물 주변 주차가능">
+              <label for="parkingNearby"><span class="radio-dot"></span>건물 주변 주차가능</label>
+            </div>
+            <div class="radio-option">
+              <input type="radio" name="parking" id="parkingNone" value="주차공간 없음">
+              <label for="parkingNone"><span class="radio-dot"></span>주차공간 없음</label>
+            </div>
+            <div class="radio-option">
+              <input type="radio" name="parking" id="parkingCustom" value="직접입력">
+              <label for="parkingCustom"><span class="radio-dot"></span>직접입력</label>
+            </div>
+          </div>
+          <div class="custom-input-wrapper" id="parkingCustomWrapper">
+            <input type="text" class="form-input" id="parkingCustomInput" placeholder="주차 방법을 직접 입력해주세요">
+          </div>
+          <div class="form-hint warning-hint">
+            🅿️ 주차등록이 불가한 경우 일부 주차요금이 발생할 수 있으니, 사전에 주차 가능 여부를 확인해주시면 감사하겠습니다.
+          </div>
+          <div class="error-msg" id="parkingError">⚠ 주차 방법을 선택해주세요</div>
+        </div>
+
+        <!-- 🔏 출입 방법 (주차 방법 아래로 이동) -->
+        <div class="form-group">
+          <label class="form-label"><span class="emoji">🔏</span>출입 방법 (비밀번호)<span class="required">*</span></label>
+          <div class="form-hint important">
+            ⚠ 요청 주신 공간의 출입 방법을 작성해주세요! (매우 중요)<br>
+            화장실이 외부에 있는 경우 함께 작성해주세요! (매우 중요)
+          </div>
+          <textarea class="form-textarea" id="accessMethod" placeholder="예: 현관 비밀번호 1234#, 화장실 외부 2층 공용화장실 이용" required></textarea>
+          <div class="error-msg" id="accessMethodError">⚠ 출입 방법을 입력해주세요</div>
+        </div>
+      </div>
+
+      <!-- ══════ Section 4: 결제 정보 ══════ -->
+      <div class="section-card">
+        <div class="section-header">
+          <div class="section-icon teal">💳</div>
+          <div>
+            <div class="section-title">결제 정보</div>
+            <div class="section-desc">결제 방법 및 계좌 정보를 입력해주세요</div>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label"><span class="emoji">💳</span>결제 방법 선택<span class="required">*</span></label>
+          <div class="radio-group">
+            <div class="radio-option">
+              <input type="radio" name="paymentMethod" id="payTransfer" value="현금(계산서 희망)" required>
+              <label for="payTransfer"><span class="radio-dot"></span>현금(계산서 희망)</label>
+            </div>
+            <div class="radio-option">
+              <input type="radio" name="paymentMethod" id="payCard" value="카드(온라인 간편결제)">
+              <label for="payCard"><span class="radio-dot"></span>카드(온라인 간편결제)</label>
+            </div>
+            <div class="radio-option">
+              <input type="radio" name="paymentMethod" id="payPlatform" value="플랫폼">
+              <label for="payPlatform"><span class="radio-dot"></span>플랫폼</label>
+            </div>
+          </div>
+          <div class="error-msg" id="paymentMethodError">⚠ 결제 방법을 선택해주세요</div>
+          <div id="prepayNotice" style="display:none; margin-top:8px; padding:10px 12px; background:#FFEBEE; border-left:3px solid #F44336; border-radius:4px; font-size:12px; color:#C62828; line-height:1.6; font-weight:600;">
+            📌 사업자등록 전 고객님은 <b>선입금 후 서비스 진행</b>이 원칙입니다.<br>
+            상세 안내는 상담 시 별도로 드리겠습니다.
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label"><span class="emoji">📥</span>계좌번호 (카드, 플랫폼 결제 시 페이백)<span class="required">*</span></label>
+          <div class="form-hint">카드 or 플랫폼 결제 시 예약금 페이백을 위해 작성 바랍니다.</div>
+          <input type="text" class="form-input" id="accountNumber" placeholder="은행명 + 계좌번호 (예: 국민은행 000-000-000000)" required>
+          <div class="error-msg" id="accountNumberError">⚠ 계좌번호를 입력해주세요</div>
+        </div>
+      </div>
+
+      <!-- ══════ Section 5: 동의 & 요청사항 ══════ -->
+      <div class="section-card">
+        <div class="section-header">
+          <div class="section-icon red">📋</div>
+          <div>
+            <div class="section-title">동의 · 요청사항</div>
+            <div class="section-desc">서비스 이용을 위한 필수 동의 및 요청사항</div>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <div class="consent-box" id="privacyConsentBox">
+            <div class="consent-link">
+              <span>📢</span>
+              <a href="https://www.notion.so/240fc2d565d78031a026d99b716cd138?v=2b1fc2d565d78003b813000ca83d1815" target="_blank">
+                개인정보 제공 및 마케팅 이용 동의 링크 확인
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+              </a>
+            </div>
+            <label class="checkbox-wrapper">
+              <input type="checkbox" id="privacyConsent">
+              <div class="custom-checkbox"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></div>
+              <span class="checkbox-text">동의합니다 <span class="warning">(미동의 시 서비스 이용 제한)</span></span>
+            </label>
+          </div>
+          <div class="error-msg" id="privacyConsentError">⚠ 개인정보 제공 동의가 필요합니다</div>
+        </div>
+
+        <div class="form-group">
+          <div class="consent-box" id="serviceConsentBox">
+            <div class="consent-link">
+              <span>🔔</span>
+              <a href="https://www.notion.so/255fc2d565d780ad807ed13533001e17?v=2b1fc2d565d78003b813000ca83d1815" target="_blank">
+                기본 안내사항 링크 확인
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+              </a>
+            </div>
+            <label class="checkbox-wrapper">
+              <input type="checkbox" id="serviceConsent">
+              <div class="custom-checkbox"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></div>
+              <span class="checkbox-text">동의합니다 <span class="warning">(미동의 시 서비스 이용 제한)</span></span>
+            </label>
+          </div>
+          <div class="error-msg" id="serviceConsentError">⚠ 기본 안내사항 동의가 필요합니다</div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label"><span class="emoji">🖋️</span>요청/안내 사항 작성</label>
+          <textarea class="form-textarea" id="requestNotes" placeholder="추가 요청사항이나 안내 사항이 있으시면 자유롭게 작성해주세요"></textarea>
+        </div>
+      </div>
+
+      <!-- ══════ Submit ══════ -->
+      <div class="submit-section">
+        <div class="privacy-note">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          고객님의 소중한 정보는 서비스 목적으로만 사용되며 서비스 직후 영구 파기됩니다.
+        </div>
+        <button type="button" class="submit-btn" id="submitBtn" onclick="handleSubmit()">
+          <span class="btn-text">🔒 신청서 보안 발송하기</span>
+          <div class="spinner"></div>
+        </button>
+      </div>
+    </form>
+  </div>
+
+  <div class="footer">© BUMBUILD KOREA · 범빌드코리아<br>문의사항은 언제든 연락 주세요</div>
+
+  <!-- ═══════ Modal ═══════ -->
+  <div class="modal-overlay" id="successModal">
+    <div class="modal-content">
+      <div class="modal-icon"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></div>
+      <div class="modal-title">신청 완료! 🎉</div>
+      <div class="modal-message">공간케어 신청서가 성공적으로 접수되었습니다.<br>빠른 시일 내에 연락드리겠습니다.</div>
+      <button class="modal-btn" onclick="closeModal()">확인</button>
+    </div>
+  </div>
+
+  <script>
+    // ═══════ Time Dropdown (30분 단위) ═══════
+    function generateTimeOptions() {
+      var times = [];
+      for (var h = 0; h < 24; h++) {
+        for (var m = 0; m < 60; m += 30) {
+          var hh = h.toString().padStart(2, '0');
+          var mm = m.toString().padStart(2, '0');
+          times.push(hh + ':' + mm);
+        }
+      }
+      return times;
+    }
+
+    function buildTimeDropdown(dropdownId, inputId) {
+      var dropdown = document.getElementById(dropdownId);
+      var times = generateTimeOptions();
+      dropdown.innerHTML = '';
+      times.forEach(function(t) {
+        var div = document.createElement('div');
+        div.className = 'time-dropdown-item';
+        div.textContent = t;
+        div.addEventListener('click', function() {
+          document.getElementById(inputId).value = t;
+          dropdown.classList.remove('open');
+          updateProgress();
+        });
+        dropdown.appendChild(div);
+      });
+    }
+
+    buildTimeDropdown('startTimeDropdown', 'businessHoursStart');
+    buildTimeDropdown('endTimeDropdown', 'businessHoursEnd');
+
+    function toggleTimeDropdown(id) {
+      var dd = document.getElementById(id);
+      var isOpen = dd.classList.contains('open');
+      // Close all
+      document.querySelectorAll('.time-dropdown').forEach(function(el) { el.classList.remove('open'); });
+      if (!isOpen) dd.classList.add('open');
+    }
+
+    // Close dropdown on outside click
+    document.addEventListener('click', function(e) {
+      if (!e.target.closest('.time-input-wrapper')) {
+        document.querySelectorAll('.time-dropdown').forEach(function(el) { el.classList.remove('open'); });
+      }
+    });
+
+    // ═══════ Parking custom input toggle ═══════
+    document.querySelectorAll('input[name="parking"]').forEach(function(radio) {
+      radio.addEventListener('change', function() {
+        var wrapper = document.getElementById('parkingCustomWrapper');
+        if (this.value === '직접입력') {
+          wrapper.classList.add('visible');
+          document.getElementById('parkingCustomInput').focus();
+        } else {
+          wrapper.classList.remove('visible');
+          document.getElementById('parkingCustomInput').value = '';
+        }
+      });
+    });
+
+    // ═══════ Progress ═══════
+    var requiredFields = [
+      'ownerName', 'platformNickname', 'phone', 'emailId', 'emailDomain',
+      'address', 'businessName', 'businessNumber',
+      'businessHoursStart', 'businessHoursEnd',
+      'accessMethod', 'accountNumber'
+    ];
+    var requiredRadios = ['elevator', 'buildingAccess', 'parking', 'paymentMethod'];
+    var requiredChecks = ['privacyConsent', 'serviceConsent'];
+
+    function updateProgress() {
+      var filled = 0;
+      var total = requiredFields.length + requiredRadios.length + requiredChecks.length;
+      requiredFields.forEach(function(id) { if (document.getElementById(id).value.trim()) filled++; });
+      requiredRadios.forEach(function(name) { if (document.querySelector('input[name="' + name + '"]:checked')) filled++; });
+      requiredChecks.forEach(function(id) { if (document.getElementById(id).checked) filled++; });
+      var pct = Math.round((filled / total) * 100);
+      document.getElementById('progressFill').style.width = pct + '%';
+      document.getElementById('progressText').textContent = pct + '%';
+    }
+
+    document.querySelectorAll('.form-input, .form-select, .form-textarea').forEach(function(el) {
+      el.addEventListener('input', updateProgress);
+      el.addEventListener('change', updateProgress);
+    });
+    document.querySelectorAll('input[type="radio"], input[type="checkbox"]').forEach(function(el) {
+      el.addEventListener('change', updateProgress);
+    });
+
+    // ═══════ Email domain toggle ═══════
+    document.getElementById('emailDomain').addEventListener('change', function() {
+      var custom = document.getElementById('emailCustom');
+      if (this.value === 'custom') {
+        custom.style.display = 'block';
+        custom.required = true;
+        custom.focus();
+      } else {
+        custom.style.display = 'none';
+        custom.required = false;
+        custom.value = '';
+      }
+    });
+
+    // ═══════ Phone auto-format ═══════
+    document.getElementById('phone').addEventListener('input', function() {
+      var val = this.value.replace(/[^0-9]/g, '');
+      if (val.length > 11) val = val.slice(0, 11);
+      if (val.length >= 8) this.value = val.slice(0,3) + '-' + val.slice(3,7) + '-' + val.slice(7);
+      else if (val.length >= 4) this.value = val.slice(0,3) + '-' + val.slice(3);
+      else this.value = val;
+    });
+
+    // ═══════ Business number auto-format ═══════
+    // 사업자등록번호: 숫자만 허용 (oninput에서 처리)
+    // 사업자번호 변경 시 인증 리셋
+    document.getElementById('businessNumber').addEventListener('input', function() {
+      bizVerified = false;
+      document.getElementById('bizResult').innerHTML = '';
+    });
+    // 연락처 변경 시 인증 리셋 (readOnly가 아닌 경우)
+    document.getElementById('phone').addEventListener('input', function() {
+      if (!this.readOnly) {
+        phoneVerified = false;
+        document.getElementById('phoneVerified').style.display = 'none';
+        document.getElementById('sendSmsBtn').style.display = '';
+      }
+    });
+
+    // ═══════ Clear errors ═══════
+    document.querySelectorAll('.form-input, .form-select, .form-textarea').forEach(function(el) {
+      el.addEventListener('focus', function() {
+        this.classList.remove('error');
+        var errEl = document.getElementById(this.id + 'Error');
+        if (errEl) errEl.classList.remove('visible');
+      });
+    });
+    document.querySelectorAll('input[type="radio"]').forEach(function(el) {
+      el.addEventListener('change', function() {
+        var errEl = document.getElementById(this.name + 'Error');
+        if (errEl) errEl.classList.remove('visible');
+      });
+    });
+    document.querySelectorAll('input[type="checkbox"]').forEach(function(el) {
+      el.addEventListener('change', function() {
+        var errEl = document.getElementById(this.id + 'Error');
+        if (errEl) errEl.classList.remove('visible');
+        var box = document.getElementById(this.id + 'Box');
+        if (box) box.classList.remove('error');
+      });
+    });
+
+    // ═══════ Validation & Submit ═══════
+    function showError(fieldId, errorId) {
+      var field = document.getElementById(fieldId);
+      var error = document.getElementById(errorId);
+      if (field) field.classList.add('error');
+      if (error) error.classList.add('visible');
+    }
+
+    function validateForm() {
+      var isValid = true;
+      var firstError = null;
+
+      var textFields = [
+        {id:'ownerName', err:'ownerNameError'}, {id:'platformNickname', err:'platformNicknameError'},
+        {id:'phone', err:'phoneError'}, {id:'emailId', err:'emailError'},
+        {id:'address', err:'addressError'}, {id:'businessName', err:'businessNameError'},
+        {id:'businessNumber', err:'businessNumberError'},
+        {id:'accessMethod', err:'accessMethodError'}, {id:'accountNumber', err:'accountNumberError'}
+      ];
+
+      textFields.forEach(function(f) {
+        var el = document.getElementById(f.id);
+        // 사업자등록 전 체크 시 사업자번호 검증 스킵
+        if (f.id === 'businessNumber' && document.getElementById('noBizNumber').value === 'true') return;
+        if (!el.value.trim()) {
+          showError(f.id, f.err);
+          isValid = false;
+          if (!firstError) firstError = el;
+        }
+      });
+
+      var emailDomain = document.getElementById('emailDomain');
+      if (!emailDomain.value) {
+        showError('emailDomain', 'emailError');
+        isValid = false;
+        if (!firstError) firstError = emailDomain;
+      }
+      if (emailDomain.value === 'custom' && !document.getElementById('emailCustom').value.trim()) {
+        showError('emailCustom', 'emailError');
+        isValid = false;
+      }
+
+      var start = document.getElementById('businessHoursStart');
+      var end = document.getElementById('businessHoursEnd');
+      if (!start.value || !end.value) {
+        document.getElementById('businessHoursError').classList.add('visible');
+        isValid = false;
+        if (!firstError) firstError = start;
+      }
+
+      requiredRadios.forEach(function(name) {
+        if (!document.querySelector('input[name="' + name + '"]:checked')) {
+          var errEl = document.getElementById(name + 'Error');
+          if (errEl) errEl.classList.add('visible');
+          isValid = false;
+          if (!firstError) firstError = document.querySelector('input[name="' + name + '"]');
+        }
+      });
+
+      // 주차 직접입력 검증
+      var parkingChecked = document.querySelector('input[name="parking"]:checked');
+      if (parkingChecked && parkingChecked.value === '직접입력') {
+        if (!document.getElementById('parkingCustomInput').value.trim()) {
+          showError('parkingCustomInput', 'parkingError');
+          isValid = false;
+          if (!firstError) firstError = document.getElementById('parkingCustomInput');
+        }
+      }
+
+      requiredChecks.forEach(function(id) {
+        if (!document.getElementById(id).checked) {
+          var errEl = document.getElementById(id + 'Error');
+          if (errEl) errEl.classList.add('visible');
+          var box = document.getElementById(id + 'Box');
+          if (box) box.classList.add('error');
+          isValid = false;
+          if (!firstError) firstError = document.getElementById(id);
+        }
+      });
+
+      // ═══ 연락처 SMS 인증 필수 검증 ═══
+      if (!phoneVerified) {
+        var phoneEl = document.getElementById('phone');
+        var phoneVerifyMsg = document.getElementById('phoneError');
+        phoneVerifyMsg.textContent = '⚠ 연락처 인증을 완료해주세요';
+        phoneVerifyMsg.classList.add('visible');
+        phoneEl.classList.add('error');
+        isValid = false;
+        if (!firstError) firstError = phoneEl;
+      }
+
+      // ═══ 사업자등록번호 인증 필수 검증 (사업자등록 전 제외) ═══
+      if (document.getElementById('noBizNumber').value !== 'true' && !bizVerified) {
+        var bizEl = document.getElementById('businessNumber');
+        var bizVerifyMsg = document.getElementById('businessNumberError');
+        bizVerifyMsg.textContent = '⚠ 사업자등록번호 확인을 완료해주세요';
+        bizVerifyMsg.classList.add('visible');
+        bizEl.classList.add('error');
+        isValid = false;
+        if (!firstError) firstError = bizEl;
+      }
+
+      if (!isValid && firstError) firstError.scrollIntoView({behavior:'smooth', block:'center'});
+      return isValid;
+    }
+
+    function handleSubmit() {
+      if (!validateForm()) return;
+
+      var btn = document.getElementById('submitBtn');
+      btn.classList.add('loading');
+      btn.disabled = true;
+
+      var emailDomainEl = document.getElementById('emailDomain');
+      var emailDomain = emailDomainEl.value === 'custom'
+        ? document.getElementById('emailCustom').value.trim()
+        : emailDomainEl.value;
+
+      // 주차 값 처리
+      var parkingChecked = document.querySelector('input[name="parking"]:checked');
+      var parkingValue = parkingChecked.value;
+      if (parkingValue === '직접입력') {
+        parkingValue = document.getElementById('parkingCustomInput').value.trim();
+      }
+
+      // 타임스탬프 생성
+      var now = new Date();
+      var kst = new Date(now.getTime() + (9 * 60 * 60 * 1000));
+      var timestamp = kst.getFullYear() + '-' +
+        String(kst.getMonth() + 1).padStart(2, '0') + '-' +
+        String(kst.getDate()).padStart(2, '0') + ' ' +
+        String(kst.getHours()).padStart(2, '0') + ':' +
+        String(kst.getMinutes()).padStart(2, '0') + ':' +
+        String(kst.getSeconds()).padStart(2, '0');
+
+      var formData = {
+        timestamp: timestamp,
+        ownerName: document.getElementById('ownerName').value.trim(),
+        platformNickname: document.getElementById('platformNickname').value.trim(),
+        phone: document.getElementById('phone').value.trim(),
+        address: document.getElementById('address').value.trim(),
+        businessName: document.getElementById('businessName').value.trim(),
+        businessNumber: document.getElementById('noBizNumber').value === 'true' ? '사업자등록 전' : document.getElementById('businessNumber').value.trim().replace(/-/g,''),
+        emailId: document.getElementById('emailId').value.trim(),
+        emailDomain: emailDomain,
+        email: document.getElementById('emailId').value.trim() + '@' + emailDomain,
+        businessHoursStart: document.getElementById('businessHoursStart').value,
+        businessHoursEnd: document.getElementById('businessHoursEnd').value,
+        elevator: document.querySelector('input[name="elevator"]:checked').value,
+        buildingAccess: document.querySelector('input[name="buildingAccess"]:checked').value,
+        accessMethod: document.getElementById('accessMethod').value.trim(),
+        parking: parkingValue,
+        paymentMethod: document.querySelector('input[name="paymentMethod"]:checked').value,
+        accountNumber: document.getElementById('accountNumber').value.trim(),
+        privacyConsent: document.getElementById('privacyConsent').checked ? '동의' : '미동의',
+        serviceConsent: document.getElementById('serviceConsent').checked ? '동의' : '미동의',
+        requestNotes: document.getElementById('requestNotes').value.trim()
+      };
+
+      // Make 웹훅으로 직접 전송
+      var webhookUrl = 'https://hook.eu2.make.com/d6rjjszhes75r9wwhngqhhseevo8qttc';
+
+      fetch(webhookUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData)
+      })
+      .then(function(response) {
+        btn.classList.remove('loading');
+        btn.disabled = false;
+        if (response.ok) {
+          document.getElementById('successModal').classList.add('active');
+        } else {
+          alert('전송 중 오류가 발생했습니다. 다시 시도해주세요.');
+        }
+      })
+      .catch(function(error) {
+        btn.classList.remove('loading');
+        btn.disabled = false;
+        alert('네트워크 오류가 발생했습니다. 인터넷 연결을 확인해주세요.');
+      });
+    }
+
+    function closeModal() {
+      document.getElementById('successModal').classList.remove('active');
+      document.getElementById('bbkForm').reset();
+      document.querySelectorAll('.form-input, .form-select, .form-textarea').forEach(function(el) { el.classList.remove('error'); });
+      document.querySelectorAll('.error-msg').forEach(function(el) { el.classList.remove('visible'); });
+      document.getElementById('emailCustom').style.display = 'none';
+      document.getElementById('parkingCustomWrapper').classList.remove('visible');
+      updateProgress();
+      window.scrollTo({top:0, behavior:'smooth'});
+    }
+
+    updateProgress();
+
+    // ═══════ SMS 본인인증 ═══════
+    var smsToken = '';
+    var smsTimerInterval = null;
+    var phoneVerified = false;
+
+    function sendVerificationSMS() {
+      var phone = document.getElementById('phone').value.trim();
+      if (!phone || !/^01[016789]-?\d{3,4}-?\d{4}$/.test(phone.replace(/-/g, ''))) {
+        alert('유효한 연락처를 입력해주세요.');
+        return;
+      }
+
+      var btn = document.getElementById('sendSmsBtn');
+      btn.disabled = true;
+      btn.textContent = '발송 중...';
+
+      fetch('/.netlify/functions/send-sms', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: phone, action: 'send' })
+      })
+      .then(function(res) { return res.json(); })
+      .then(function(data) {
+        if (data.success) {
+          smsToken = data.token;
+          document.getElementById('smsVerifySection').style.display = 'block';
+          document.getElementById('smsCode').value = '';
+          document.getElementById('smsCode').focus();
+          document.getElementById('smsResult').textContent = '';
+          document.getElementById('smsTimer').style.color = 'var(--primary)';
+
+          var remaining = 180;
+          clearInterval(smsTimerInterval);
+          smsTimerInterval = setInterval(function() {
+            remaining--;
+            var m = Math.floor(remaining / 60);
+            var s = remaining % 60;
+            document.getElementById('smsTimer').textContent = '남은 시간: ' + m + ':' + (s < 10 ? '0' : '') + s;
+            if (remaining <= 0) {
+              clearInterval(smsTimerInterval);
+              document.getElementById('smsTimer').textContent = '시간이 만료되었습니다. 다시 요청해주세요.';
+              document.getElementById('smsTimer').style.color = 'var(--error)';
+              smsToken = '';
+            }
+          }, 1000);
+
+          btn.textContent = '재발송';
+          btn.disabled = false;
+          document.getElementById('phone').readOnly = true;
+        } else {
+          alert(data.message || 'SMS 발송에 실패했습니다.');
+          btn.textContent = '인증번호 받기';
+          btn.disabled = false;
+        }
+      })
+      .catch(function() {
+        alert('네트워크 오류가 발생했습니다.');
+        btn.textContent = '인증번호 받기';
+        btn.disabled = false;
+      });
+    }
+
+    function verifySMSCode() {
+      var code = document.getElementById('smsCode').value.trim();
+      var phone = document.getElementById('phone').value.trim();
+      if (!code || code.length !== 6) {
+        document.getElementById('smsResult').innerHTML = '<span style="color:var(--error);">6자리 인증번호를 입력해주세요.</span>';
+        return;
+      }
+      if (!smsToken) {
+        document.getElementById('smsResult').innerHTML = '<span style="color:var(--error);">인증 시간이 만료되었습니다. 다시 요청해주세요.</span>';
+        return;
+      }
+
+      fetch('/.netlify/functions/send-sms', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: phone, action: 'verify', code: code, token: smsToken })
+      })
+      .then(function(res) { return res.json(); })
+      .then(function(data) {
+        if (data.verified) {
+          phoneVerified = true;
+          clearInterval(smsTimerInterval);
+          document.getElementById('smsVerifySection').style.display = 'none';
+          document.getElementById('phoneVerified').style.display = 'block';
+          document.getElementById('sendSmsBtn').style.display = 'none';
+          document.getElementById('phone').readOnly = true;
+          updateProgress();
+        } else {
+          document.getElementById('smsResult').innerHTML = '<span style="color:var(--error);">인증번호가 일치하지 않습니다.</span>';
+        }
+      })
+      .catch(function() {
+        document.getElementById('smsResult').innerHTML = '<span style="color:var(--error);">오류가 발생했습니다.</span>';
+      });
+    }
+
+    // ═══════ 사업자등록 전 토글 ═══════
+    function toggleBizNumberBtn() {
+      var hiddenInput = document.getElementById('noBizNumber');
+      var btn = document.getElementById('noBizToggleBtn');
+      var icon = document.getElementById('noBizCheckIcon');
+      var isActive = hiddenInput.value === 'true';
+
+      // 토글
+      var checked = !isActive;
+      hiddenInput.value = checked ? 'true' : 'false';
+
+      var bizInput = document.getElementById('businessNumber');
+      var checkBtn = document.getElementById('checkBizBtn');
+      var bizResult = document.getElementById('bizResult');
+      var noBizNotice = document.getElementById('noBizNotice');
+      var prepayNotice = document.getElementById('prepayNotice');
+      var bizRequiredMark = document.getElementById('bizRequiredMark');
+
+      if (checked) {
+        btn.classList.add('active');
+        icon.textContent = '☑';
+        bizInput.value = '';
+        bizInput.disabled = true;
+        bizInput.required = false;
+        bizInput.placeholder = '사업자등록 전 - 입력 불필요';
+        bizInput.style.background = '#f0f0f0';
+        checkBtn.disabled = true;
+        checkBtn.style.opacity = '0.4';
+        bizResult.innerHTML = '';
+        noBizNotice.style.display = 'block';
+        prepayNotice.style.display = 'block';
+        bizRequiredMark.style.display = 'none';
+        bizVerified = true;
+      } else {
+        btn.classList.remove('active');
+        icon.textContent = '☐';
+        bizInput.disabled = false;
+        bizInput.required = true;
+        bizInput.placeholder = '0000000000';
+        bizInput.style.background = '';
+        checkBtn.disabled = false;
+        checkBtn.style.opacity = '1';
+        noBizNotice.style.display = 'none';
+        prepayNotice.style.display = 'none';
+        bizRequiredMark.style.display = 'inline';
+        bizVerified = false;
+      }
+    }
+
+    // ═══════ 사업자등록번호 확인 ═══════
+    var bizVerified = false;
+
+    function checkBusinessNumber() {
+      var bizNum = document.getElementById('businessNumber').value.trim();
+      if (!bizNum) {
+        alert('사업자등록번호를 입력해주세요.');
+        return;
+      }
+
+      var btn = document.getElementById('checkBizBtn');
+      var resultDiv = document.getElementById('bizResult');
+      btn.disabled = true;
+      btn.textContent = '조회 중...';
+      resultDiv.innerHTML = '';
+
+      fetch('/.netlify/functions/check-biz', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ businessNumber: bizNum })
+      })
+      .then(function(res) { return res.json(); })
+      .then(function(data) {
+        btn.disabled = false;
+        btn.textContent = '확인';
+
+        if (data.success) {
+          if (data.valid) {
+            bizVerified = true;
+            resultDiv.innerHTML = '<span style="color:var(--success); font-weight:600;">✅ ' + data.message + '</span>';
+          } else {
+            bizVerified = false;
+            resultDiv.innerHTML = '<span style="color:var(--error); font-weight:600;">❌ ' + data.message + '</span>';
+          }
+        } else {
+          resultDiv.innerHTML = '<span style="color:var(--error);">' + (data.message || '조회에 실패했습니다.') + '</span>';
+        }
+      })
+      .catch(function() {
+        btn.disabled = false;
+        btn.textContent = '확인';
+        resultDiv.innerHTML = '<span style="color:var(--error);">네트워크 오류가 발생했습니다.</span>';
+      });
+    }
+  </script>
+</body>
+</html>
