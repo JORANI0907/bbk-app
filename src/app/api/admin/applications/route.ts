@@ -27,15 +27,17 @@ export async function GET(request: NextRequest) {
 export async function PATCH(request: NextRequest) {
   const supabase = createServiceClient()
   const body = await request.json()
-  const { id, status, admin_notes } = body
+  const { id, ...rest } = body
 
   if (!id) {
     return NextResponse.json({ error: 'id가 필요합니다.' }, { status: 400 })
   }
 
-  const updates: Record<string, string> = {}
-  if (status !== undefined) updates.status = status
-  if (admin_notes !== undefined) updates.admin_notes = admin_notes
+  const ALLOWED = ['status', 'admin_notes', 'service_type', 'assigned_to', 'deposit', 'supply_amount', 'vat', 'balance', 'drive_folder_url']
+  const updates: Record<string, unknown> = {}
+  for (const key of ALLOWED) {
+    if (key in rest) updates[key] = rest[key]
+  }
 
   const { error } = await supabase
     .from('service_applications')

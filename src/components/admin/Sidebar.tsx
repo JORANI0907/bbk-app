@@ -15,7 +15,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: '/admin/calendar', label: '일정 관리', icon: '📅' },
   { href: '/admin/customers', label: '고객 관리', icon: '👥' },
   { href: '/admin/workers', label: '직원 관리', icon: '👷' },
-  { href: '/admin/applications', label: '서비스 신청', icon: '📋' },
+  { href: '/admin/applications', label: '서비스 관리', icon: '📋' },
   { href: '/admin/members', label: '회원 등록', icon: '🔑' },
   { href: '/admin/inventory', label: '재고 관리', icon: '📦' },
   { href: '/admin/monitoring', label: '실시간 모니터링', icon: '📡' },

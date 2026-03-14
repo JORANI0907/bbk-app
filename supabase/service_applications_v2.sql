@@ -1,0 +1,9 @@
+-- service_applications 테이블 컬럼 추가
+ALTER TABLE service_applications
+  ADD COLUMN IF NOT EXISTS service_type TEXT DEFAULT '1회성케어',
+  ADD COLUMN IF NOT EXISTS assigned_to UUID REFERENCES users(id),
+  ADD COLUMN IF NOT EXISTS deposit INTEGER DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS supply_amount INTEGER DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS vat INTEGER DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS balance INTEGER DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS drive_folder_url TEXT;
