@@ -2,6 +2,11 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import toast from 'react-hot-toast'
+import {
+  loadGoogleAPIs, requestGoogleToken, openFolderPicker,
+  createWorkFolderStructure, getSavedDriveFolder, saveDriveFolderCookie,
+  type DriveFolder,
+} from '@/lib/googleDrive'
 
 type ServiceType = '1회성케어' | '정기딥케어' | '정기엔드케어'
 type ApplicationStatus = '신규' | '검토중' | '계약완료' | '보류' | '거절'
@@ -41,8 +46,8 @@ interface Application {
 
 interface NotifyLog { type: string; sentAt: string }
 
+// ─── 상수 ────────────────────────────────────────────────────
 const SERVICE_TYPES: ServiceType[] = ['1회성케어', '정기딥케어', '정기엔드케어']
-
 const STATUS_CONFIG: Record<ApplicationStatus, { color: string }> = {
   '신규':    { color: 'bg-blue-100 text-blue-700' },
   '검토중':  { color: 'bg-yellow-100 text-yellow-700' },
@@ -50,59 +55,41 @@ const STATUS_CONFIG: Record<ApplicationStatus, { color: string }> = {
   '보류':    { color: 'bg-gray-100 text-gray-600' },
   '거절':    { color: 'bg-red-100 text-red-600' },
 }
-
 const NOTIFICATION_TYPES = [
   '예약확정알림', '예약1일전알림', '예약당일알림', '작업완료알림',
   '결제알림', '결제완료알림', '계산서발행완료알림', '예약금환급완료알림',
   '예약취소알림', 'A/S방문알림', '방문견적알림',
 ]
-
 const PAYMENT_METHODS = ['현금', '카드', '계좌이체', '현금(부가세 X)']
 const ELEVATOR_OPTIONS = ['있음', '없음', '해당없음']
 const BUILDING_ACCESS_OPTIONS = ['신청필요', '신청불필요', '해당없음']
 const PARKING_OPTIONS = ['가능', '불가능', '주차없음']
 
-// ─── 알림 이력 (localStorage) ───────────────────────────
+// ─── 알림 이력 (localStorage) ────────────────────────────────
 const LOG_KEY = 'bbk_notify_logs'
 function loadLogs(appId: string): NotifyLog[] {
-  try {
-    const all = JSON.parse(localStorage.getItem(LOG_KEY) || '{}')
-    return all[appId] || []
-  } catch { return [] }
+  try { return JSON.parse(localStorage.getItem(LOG_KEY) || '{}')[appId] || [] }
+  catch { return [] }
 }
 function appendLog(appId: string, log: NotifyLog) {
   try {
     const all = JSON.parse(localStorage.getItem(LOG_KEY) || '{}')
-    if (!all[appId]) all[appId] = []
-    all[appId].unshift(log)
-    if (all[appId].length > 50) all[appId].length = 50
+    all[appId] = [log, ...(all[appId] || [])].slice(0, 50)
     localStorage.setItem(LOG_KEY, JSON.stringify(all))
   } catch { /* ignore */ }
 }
 
-// ─── Google Drive 폴더 URL (cookie) ─────────────────────
-const DRIVE_COOKIE = 'bbk_drive_url'
-function readDriveCookie(): string {
-  if (typeof document === 'undefined') return ''
-  const m = document.cookie.match(new RegExp(`(?:^|; )${DRIVE_COOKIE}=([^;]+)`))
-  return m ? decodeURIComponent(m[1]) : ''
-}
-function writeDriveCookie(url: string) {
-  const exp = new Date()
-  exp.setFullYear(exp.getFullYear() + 1)
-  document.cookie = `${DRIVE_COOKIE}=${encodeURIComponent(url)};expires=${exp.toUTCString()};path=/`
-}
-
-// ─── Helpers ─────────────────────────────────────────────
-function fmt(n: number | null | undefined): string {
-  if (n == null) return '0'
-  return n.toLocaleString('ko-KR')
-}
-function copyText(text: string, label: string) {
+// ─── 헬퍼 ────────────────────────────────────────────────────
+const fmt = (n: number | null | undefined) => (n == null ? '0' : n.toLocaleString('ko-KR'))
+const copyText = (text: string, label: string) =>
   navigator.clipboard.writeText(text).then(() => toast.success(`${label} 복사됨`))
+const today = () => new Date().toISOString().slice(0, 10)
+
+function isMigrationError(msg: string) {
+  return msg.includes('does not exist') || msg.includes('column') || msg.includes('no such column')
 }
 
-// ─── Sub-components ──────────────────────────────────────
+// ─── 소형 UI 컴포넌트 ────────────────────────────────────────
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div>
@@ -111,7 +98,6 @@ function Section({ title, children }: { title: string; children: React.ReactNode
     </div>
   )
 }
-
 function EditRow({ label, value, onChange, mono }: { label: string; value: string; onChange: (v: string) => void; mono?: boolean }) {
   return (
     <div className="flex items-center gap-2">
@@ -121,7 +107,6 @@ function EditRow({ label, value, onChange, mono }: { label: string; value: strin
     </div>
   )
 }
-
 function SelectRow({ label, value, options, onChange }: { label: string; value: string; options: string[]; onChange: (v: string) => void }) {
   return (
     <div className="flex items-center gap-2">
@@ -134,7 +119,6 @@ function SelectRow({ label, value, options, onChange }: { label: string; value: 
     </div>
   )
 }
-
 function AmountInput({ label, value, onChange, hint, disabled }: {
   label: string; value: string; onChange: (v: string) => void; hint?: string; disabled?: boolean
 }) {
@@ -143,13 +127,113 @@ function AmountInput({ label, value, onChange, hint, disabled }: {
       <label className="text-xs text-gray-500 mb-1 block">
         {label}{hint && <span className="ml-1 text-blue-500">{hint}</span>}
       </label>
-      <input type="number" value={value} onChange={e => onChange(e.target.value)} placeholder="0" disabled={disabled}
+      <input type="number" value={value} onChange={e => onChange(e.target.value)}
+        placeholder="0" disabled={disabled}
         className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50 disabled:text-gray-400" />
     </div>
   )
 }
 
-// ─── Main Page ───────────────────────────────────────────
+// ─── Google Drive 폴더 생성 모달 ─────────────────────────────
+function DriveFolderModal({
+  businessName, onClose,
+  onSelectFolder, onConfirm,
+  savedFolder, creating,
+}: {
+  businessName: string
+  onClose: () => void
+  onSelectFolder: () => void
+  onConfirm: (date: string) => void
+  savedFolder: DriveFolder | null
+  creating: boolean
+}) {
+  const [constructionDate, setConstructionDate] = useState(today())
+  const dateStr = constructionDate.replace(/-/g, '')
+  const folderName = `${dateStr} ${businessName}`
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
+        {/* 헤더 */}
+        <div className="p-5 border-b border-gray-100 flex justify-between items-center">
+          <h2 className="font-bold text-gray-900">📁 Google Drive 폴더 생성</h2>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-lg">✕</button>
+        </div>
+
+        <div className="p-5 space-y-4">
+          {/* 폴더 구조 미리보기 */}
+          <div className="bg-gray-50 rounded-xl p-4">
+            <p className="text-xs font-semibold text-gray-500 mb-3">생성될 폴더 구조</p>
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-2">
+                <span className="text-base">📁</span>
+                <span className="text-sm font-semibold text-gray-800">{folderName}</span>
+              </div>
+              <div className="ml-7 space-y-1">
+                <div className="flex items-center gap-2 text-sm text-gray-600">
+                  <span>📁</span><span>작업 전</span>
+                </div>
+                <div className="flex items-center gap-2 text-sm text-gray-600">
+                  <span>📁</span><span>작업 후</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* 시공일자 */}
+          <div>
+            <label className="text-xs font-semibold text-gray-500 block mb-2">시공일자</label>
+            <input type="date" value={constructionDate}
+              onChange={e => setConstructionDate(e.target.value)}
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+          </div>
+
+          {/* 저장 위치 */}
+          <div>
+            <p className="text-xs font-semibold text-gray-500 mb-2">저장 위치 (Google Drive)</p>
+            {savedFolder ? (
+              <div className="flex items-center justify-between bg-blue-50 border border-blue-200 rounded-xl p-3">
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="text-lg">📂</span>
+                  <span className="text-sm font-medium text-blue-700 truncate">{savedFolder.name}</span>
+                </div>
+                <button onClick={onSelectFolder}
+                  className="text-xs text-blue-500 hover:text-blue-700 underline ml-2 shrink-0">
+                  변경
+                </button>
+              </div>
+            ) : (
+              <button onClick={onSelectFolder}
+                className="w-full py-4 border-2 border-dashed border-gray-200 rounded-xl text-sm text-gray-500 hover:border-blue-300 hover:text-blue-600 hover:bg-blue-50 transition-colors flex items-center justify-center gap-2">
+                <span className="text-lg">🗂️</span>
+                <span>Google Drive에서 위치 선택</span>
+              </button>
+            )}
+            {!savedFolder && (
+              <p className="text-xs text-gray-400 mt-1.5">선택한 위치는 다음에도 기억됩니다.</p>
+            )}
+          </div>
+        </div>
+
+        {/* 버튼 */}
+        <div className="p-4 border-t border-gray-100 flex gap-2">
+          <button onClick={onClose}
+            className="flex-1 py-2.5 bg-gray-100 text-gray-700 text-sm font-semibold rounded-lg hover:bg-gray-200 transition-colors">
+            취소
+          </button>
+          <button
+            onClick={() => onConfirm(constructionDate)}
+            disabled={!savedFolder || creating}
+            className="flex-1 py-2.5 bg-green-600 text-white text-sm font-semibold rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors">
+            {creating ? '⏳ 생성 중...' : '📁 폴더 생성'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── 메인 페이지 ─────────────────────────────────────────────
 export default function ServiceManagementPage() {
   const [applications, setApplications] = useState<Application[]>([])
   const [users, setUsers] = useState<User[]>([])
@@ -159,14 +243,15 @@ export default function ServiceManagementPage() {
   const [saving, setSaving] = useState(false)
   const [sending, setSending] = useState(false)
 
-  // 알림 발송
+  // 알림
   const [notifyType, setNotifyType] = useState('')
   const [notifyLogs, setNotifyLogs] = useState<NotifyLog[]>([])
 
-  // Google Drive 설정
-  const [driveBaseUrl, setDriveBaseUrl] = useState('')
-  const [driveSettingsOpen, setDriveSettingsOpen] = useState(false)
-  const [driveUrlInput, setDriveUrlInput] = useState('')
+  // Google Drive
+  const [driveModalOpen, setDriveModalOpen] = useState(false)
+  const [savedDriveFolder, setSavedDriveFolder] = useState<DriveFolder | null>(null)
+  const [driveToken, setDriveToken] = useState<string | null>(null)
+  const [driveCreating, setDriveCreating] = useState(false)
 
   // 편집 필드
   const [adminNotes, setAdminNotes] = useState('')
@@ -186,14 +271,15 @@ export default function ServiceManagementPage() {
   const [accessMethod, setAccessMethod] = useState('')
   const [requestNotes, setRequestNotes] = useState('')
 
-  const vatManual = useRef(false) // 사용자가 부가세를 수동 입력했는지
+  const vatManual = useRef(false)
 
   // 파생값
   const isCashNoVat = paymentMethod === '현금(부가세 X)'
-  const totalAmount = (Number(supplyAmount) || 0) + (isCashNoVat ? 0 : (Number(vat) || 0))
+  const effectiveVat = isCashNoVat ? 0 : (Number(vat) || 0)
+  const totalAmount = (Number(supplyAmount) || 0) + effectiveVat
   const computedBalance = totalAmount - (Number(deposit) || 0)
 
-  useEffect(() => { setDriveBaseUrl(readDriveCookie()) }, [])
+  useEffect(() => { setSavedDriveFolder(getSavedDriveFolder()) }, [])
 
   const fetchAll = useCallback(async () => {
     setLoading(true)
@@ -233,7 +319,7 @@ export default function ServiceManagementPage() {
     vatManual.current = false
   }
 
-  // 상태/유형만 빠르게 저장 (오류 원인 분리)
+  // 상태/유형 단독 저장 (누락 컬럼 오류 분리)
   const quickSave = async (fields: Partial<Application>) => {
     if (!selected) return
     setSaving(true)
@@ -247,10 +333,15 @@ export default function ServiceManagementPage() {
       if (!res.ok) throw new Error(data.error || '저장 실패')
       toast.success('변경되었습니다.')
       setSelected(prev => prev ? { ...prev, ...fields } : prev)
-      // 목록에서도 갱신
       setApplications(prev => prev.map(a => a.id === selected.id ? { ...a, ...fields } : a))
-    } catch (e) { toast.error(e instanceof Error ? e.message : '저장 실패') }
-    finally { setSaving(false) }
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : '저장 실패'
+      if (isMigrationError(msg)) {
+        toast.error('⚠️ Supabase SQL 마이그레이션을 먼저 실행해주세요.\n(supabase/service_applications_v2.sql)', { duration: 6000 })
+      } else {
+        toast.error(msg)
+      }
+    } finally { setSaving(false) }
   }
 
   // 전체 저장
@@ -258,7 +349,6 @@ export default function ServiceManagementPage() {
     if (!selected) return
     setSaving(true)
     try {
-      const effectiveVat = isCashNoVat ? 0 : (Number(vat) || 0)
       const res = await fetch('/api/admin/applications', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -287,34 +377,27 @@ export default function ServiceManagementPage() {
       if (!res.ok) throw new Error(data.error || '저장 실패')
       toast.success('저장되었습니다.')
       await fetchAll()
-    } catch (e) { toast.error(e instanceof Error ? e.message : '저장 실패') }
-    finally { setSaving(false) }
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : '저장 실패'
+      if (isMigrationError(msg)) {
+        toast.error('⚠️ Supabase SQL 마이그레이션을 먼저 실행해주세요.\n(supabase/service_applications_v2.sql)', { duration: 6000 })
+      } else {
+        toast.error(msg)
+      }
+    } finally { setSaving(false) }
   }
 
-  // 공급가액 변경 → 부가세 자동계산
   const handleSupplyChange = (val: string) => {
     setSupplyAmount(val)
     if (!isCashNoVat && !vatManual.current) {
       setVat(String(Math.round((Number(val) || 0) * 0.1)))
     }
   }
-
-  // 부가세 수동 입력
-  const handleVatChange = (val: string) => {
-    vatManual.current = true
-    setVat(val)
-  }
-
-  // 결제방법 변경
+  const handleVatChange = (val: string) => { vatManual.current = true; setVat(val) }
   const handlePaymentMethodChange = (val: string) => {
     setPaymentMethod(val)
-    if (val === '현금(부가세 X)') {
-      setVat('0')
-      vatManual.current = true
-    } else {
-      vatManual.current = false
-      if (supplyAmount) setVat(String(Math.round((Number(supplyAmount) || 0) * 0.1)))
-    }
+    if (val === '현금(부가세 X)') { setVat('0'); vatManual.current = true }
+    else { vatManual.current = false; if (supplyAmount) setVat(String(Math.round((Number(supplyAmount) || 0) * 0.1))) }
   }
 
   // 알림 발송
@@ -338,361 +421,363 @@ export default function ServiceManagementPage() {
     finally { setSending(false) }
   }
 
-  // Google Drive 폴더 생성
-  const handleDriveFolder = () => {
-    if (!selected) return
-    const date = new Date().toISOString().slice(0, 10).replace(/-/g, '')
-    const folderName = `${date} ${selected.business_name}`
-    copyText(folderName, '폴더명')
-    if (driveBaseUrl) {
-      window.open(driveBaseUrl, '_blank')
-      toast('📁 폴더명이 복사됐습니다. Drive에서 새 폴더를 만들어주세요.', { duration: 4000 })
-    } else {
-      setDriveUrlInput('')
-      setDriveSettingsOpen(true)
-    }
+  // Google Drive 폴더 선택
+  const handleSelectDriveFolder = async () => {
+    try {
+      await loadGoogleAPIs()
+      const token = driveToken || await requestGoogleToken()
+      setDriveToken(token)
+      const folder = await openFolderPicker(token)
+      if (folder) { setSavedDriveFolder(folder); saveDriveFolderCookie(folder) }
+    } catch (e) { toast.error(e instanceof Error ? e.message : 'Google Drive 연결 실패') }
   }
 
-  const handleSaveDriveUrl = () => {
-    writeDriveCookie(driveUrlInput)
-    setDriveBaseUrl(driveUrlInput)
-    setDriveSettingsOpen(false)
-    toast.success('Google Drive 폴더 위치가 저장되었습니다.')
+  // Google Drive 폴더 생성 실행
+  const handleConfirmDriveCreate = async (constructionDate: string) => {
+    if (!selected || !savedDriveFolder) return
+    setDriveCreating(true)
+    try {
+      let token = driveToken
+      if (!token) {
+        await loadGoogleAPIs()
+        token = await requestGoogleToken()
+        setDriveToken(token)
+      }
+      const { folderId, folderUrl, folderName } = await createWorkFolderStructure(
+        savedDriveFolder.id, selected.business_name, constructionDate, token
+      )
+      // DB에 폴더 URL 저장
+      await fetch('/api/admin/applications', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: selected.id, drive_folder_url: folderUrl }),
+      })
+      setDriveModalOpen(false)
+      toast.success(`✅ "${folderName}" 폴더 생성 완료!`, { duration: 5000 })
+      window.open(folderUrl, '_blank')
+      await fetchAll()
+    } catch (e) { toast.error(e instanceof Error ? e.message : '폴더 생성 실패') }
+    finally { setDriveCreating(false) }
   }
 
-  const byType = (type: ServiceType) => applications.filter(a => (a.service_type ?? '1회성케어') === type)
+  const byType = (type: ServiceType) =>
+    applications.filter(a => (a.service_type ?? '1회성케어') === type)
 
   return (
-    <div className="flex h-full gap-0 min-h-0">
-      {/* ── 좌측: 목록 ── */}
-      <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
-        <div className="flex items-center justify-between mb-4">
-          <h1 className="text-2xl font-bold text-gray-900">서비스 관리</h1>
-          <button onClick={fetchAll} className="px-3 py-1.5 text-sm bg-white border border-gray-200 rounded-lg hover:bg-gray-50">새로고침</button>
-        </div>
+    <>
+      {/* Drive 모달 */}
+      {driveModalOpen && selected && (
+        <DriveFolderModal
+          businessName={selected.business_name}
+          onClose={() => setDriveModalOpen(false)}
+          onSelectFolder={handleSelectDriveFolder}
+          onConfirm={handleConfirmDriveCreate}
+          savedFolder={savedDriveFolder}
+          creating={driveCreating}
+        />
+      )}
 
-        {/* 서비스 타입 탭 */}
-        <div className="flex border-b border-gray-200 mb-4">
-          {SERVICE_TYPES.map(type => (
-            <button key={type}
-              onClick={() => { setActiveType(type); setSelected(null) }}
-              className={`px-4 py-2.5 text-sm font-semibold transition-colors relative ${activeType === type ? 'text-blue-600 border-b-2 border-blue-600 -mb-px' : 'text-gray-500 hover:text-gray-700'}`}
-            >
-              {type}
-              <span className={`ml-1.5 text-xs px-1.5 py-0.5 rounded-full ${activeType === type ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-500'}`}>
-                {byType(type).length}
-              </span>
-            </button>
-          ))}
-        </div>
-
-        {/* 목록 테이블 */}
-        <div className="bg-white rounded-xl border border-gray-200 overflow-auto flex-1">
-          {loading ? (
-            <div className="py-20 text-center text-gray-400 text-sm">불러오는 중...</div>
-          ) : byType(activeType).length === 0 ? (
-            <div className="py-20 text-center text-gray-400 text-sm">신청서가 없습니다.</div>
-          ) : (
-            <table className="w-full text-sm">
-              <thead className="bg-gray-50 border-b border-gray-200 sticky top-0">
-                <tr>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500">신청일</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500">업체명</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500">대표자</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500">담당자</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500">상태</th>
-                </tr>
-              </thead>
-              <tbody>
-                {byType(activeType).map(app => (
-                  <tr key={app.id}
-                    onClick={() => handleSelect(app)}
-                    className={`border-b border-gray-100 last:border-0 cursor-pointer hover:bg-blue-50 transition-colors ${selected?.id === app.id ? 'bg-blue-50' : ''}`}
-                  >
-                    <td className="px-4 py-3 text-gray-500 whitespace-nowrap">{new Date(app.created_at).toLocaleDateString('ko-KR')}</td>
-                    <td className="px-4 py-3 font-medium text-gray-900">{app.business_name}</td>
-                    <td className="px-4 py-3 text-gray-700">{app.owner_name}</td>
-                    <td className="px-4 py-3 text-gray-500">{users.find(u => u.id === app.assigned_to)?.name ?? '미배정'}</td>
-                    <td className="px-4 py-3">
-                      <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_CONFIG[app.status]?.color ?? 'bg-gray-100 text-gray-600'}`}>
-                        {app.status}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
-      </div>
-
-      {/* ── 우측: 상세 패널 ── */}
-      {selected && (
-        <div className="w-[460px] ml-5 flex-shrink-0 bg-white rounded-xl border border-gray-200 overflow-y-auto" style={{ maxHeight: 'calc(100vh - 6rem)' }}>
-          {/* 헤더 */}
-          <div className="p-4 border-b border-gray-100 flex items-start justify-between gap-2 sticky top-0 bg-white z-10">
-            <div>
-              <h2 className="font-bold text-gray-900">{selected.business_name}</h2>
-              <p className="text-xs text-gray-400 mt-0.5">{new Date(selected.created_at).toLocaleString('ko-KR')}</p>
-            </div>
-            <button onClick={() => setSelected(null)} className="text-gray-400 hover:text-gray-600 text-lg">✕</button>
+      <div className="flex h-full gap-0 min-h-0">
+        {/* ── 좌측: 목록 ── */}
+        <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
+          <div className="flex items-center justify-between mb-4">
+            <h1 className="text-2xl font-bold text-gray-900">서비스 관리</h1>
+            <button onClick={fetchAll} className="px-3 py-1.5 text-sm bg-white border border-gray-200 rounded-lg hover:bg-gray-50">새로고침</button>
           </div>
 
-          <div className="p-4 space-y-5">
-            {/* ── 상태 ── */}
-            <Section title="상태">
-              <div className="flex gap-1.5 flex-wrap">
-                {(Object.keys(STATUS_CONFIG) as ApplicationStatus[]).map(s => (
-                  <button key={s} disabled={saving}
-                    onClick={() => quickSave({ status: s })}
-                    className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
-                      selected.status === s
-                        ? STATUS_CONFIG[s].color + ' ring-2 ring-offset-1 ring-current'
-                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                    }`}
-                  >{s}</button>
-                ))}
+          <div className="flex border-b border-gray-200 mb-4">
+            {SERVICE_TYPES.map(type => (
+              <button key={type}
+                onClick={() => { setActiveType(type); setSelected(null) }}
+                className={`px-4 py-2.5 text-sm font-semibold transition-colors relative ${activeType === type ? 'text-blue-600 border-b-2 border-blue-600 -mb-px' : 'text-gray-500 hover:text-gray-700'}`}
+              >
+                {type}
+                <span className={`ml-1.5 text-xs px-1.5 py-0.5 rounded-full ${activeType === type ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-500'}`}>
+                  {byType(type).length}
+                </span>
+              </button>
+            ))}
+          </div>
+
+          <div className="bg-white rounded-xl border border-gray-200 overflow-auto flex-1">
+            {loading ? (
+              <div className="py-20 text-center text-gray-400 text-sm">불러오는 중...</div>
+            ) : byType(activeType).length === 0 ? (
+              <div className="py-20 text-center text-gray-400 text-sm">신청서가 없습니다.</div>
+            ) : (
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50 border-b border-gray-200 sticky top-0">
+                  <tr>
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500">신청일</th>
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500">업체명</th>
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500">대표자</th>
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500">담당자</th>
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500">상태</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {byType(activeType).map(app => (
+                    <tr key={app.id} onClick={() => handleSelect(app)}
+                      className={`border-b border-gray-100 last:border-0 cursor-pointer hover:bg-blue-50 transition-colors ${selected?.id === app.id ? 'bg-blue-50' : ''}`}
+                    >
+                      <td className="px-4 py-3 text-gray-500 whitespace-nowrap">{new Date(app.created_at).toLocaleDateString('ko-KR')}</td>
+                      <td className="px-4 py-3 font-medium text-gray-900">{app.business_name}</td>
+                      <td className="px-4 py-3 text-gray-700">{app.owner_name}</td>
+                      <td className="px-4 py-3 text-gray-500">{users.find(u => u.id === app.assigned_to)?.name ?? '미배정'}</td>
+                      <td className="px-4 py-3">
+                        <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_CONFIG[app.status]?.color ?? 'bg-gray-100 text-gray-600'}`}>
+                          {app.status}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </div>
+
+        {/* ── 우측: 상세 패널 ── */}
+        {selected && (
+          <div className="w-[460px] ml-5 flex-shrink-0 bg-white rounded-xl border border-gray-200 overflow-y-auto"
+            style={{ maxHeight: 'calc(100vh - 6rem)' }}>
+            {/* 헤더 */}
+            <div className="p-4 border-b border-gray-100 flex items-start justify-between gap-2 sticky top-0 bg-white z-10">
+              <div>
+                <h2 className="font-bold text-gray-900">{selected.business_name}</h2>
+                <p className="text-xs text-gray-400 mt-0.5">{new Date(selected.created_at).toLocaleString('ko-KR')}</p>
               </div>
-            </Section>
+              <button onClick={() => setSelected(null)} className="text-gray-400 hover:text-gray-600 text-lg">✕</button>
+            </div>
 
-            {/* ── 서비스 유형 ── */}
-            <Section title="서비스 유형">
-              <div className="flex gap-1.5 flex-wrap">
-                {SERVICE_TYPES.map(t => (
-                  <button key={t} disabled={saving}
-                    onClick={() => quickSave({ service_type: t })}
-                    className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
-                      (selected.service_type ?? '1회성케어') === t
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                    }`}
-                  >{t}</button>
-                ))}
-              </div>
-            </Section>
-
-            {/* ── 담당자 ── */}
-            <Section title="담당자">
-              <select value={assignedTo} onChange={e => setAssignedTo(e.target.value)}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
-                <option value="">미배정</option>
-                {users.map(u => (
-                  <option key={u.id} value={u.id}>{u.name} ({u.role === 'admin' ? '관리자' : '직원'})</option>
-                ))}
-              </select>
-            </Section>
-
-            {/* ── 고객 정보 ── */}
-            <Section title="고객 정보">
-              <div className="space-y-2">
-                {/* 연락처 */}
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-gray-500 w-20 shrink-0">연락처</span>
-                  <div className="flex flex-1 gap-1">
-                    <input value={phone} onChange={e => setPhone(e.target.value)}
-                      className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                    <a href={`tel:${phone}`} className="px-2 py-1.5 text-xs bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100">📞</a>
-                    <button onClick={() => copyText(phone, '연락처')} className="px-2 py-1.5 text-xs bg-gray-50 rounded-lg hover:bg-gray-100">📋</button>
-                  </div>
+            <div className="p-4 space-y-5">
+              {/* 상태 */}
+              <Section title="상태">
+                <div className="flex gap-1.5 flex-wrap">
+                  {(Object.keys(STATUS_CONFIG) as ApplicationStatus[]).map(s => (
+                    <button key={s} disabled={saving}
+                      onClick={() => quickSave({ status: s })}
+                      className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+                        selected.status === s
+                          ? STATUS_CONFIG[s].color + ' ring-2 ring-offset-1 ring-current'
+                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                      }`}
+                    >{s}</button>
+                  ))}
                 </div>
+              </Section>
 
-                {/* 이메일 */}
-                <EditRow label="이메일" value={email} onChange={setEmail} />
-
-                {/* 주소 */}
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-gray-500 w-20 shrink-0">주소</span>
-                  <div className="flex flex-1 gap-1">
-                    <input value={address} onChange={e => setAddress(e.target.value)}
-                      className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                    <button
-                      onClick={() => window.open(`https://map.kakao.com/link/search/${encodeURIComponent(address)}`, '_blank')}
-                      className="px-2 py-1.5 text-xs bg-yellow-50 text-yellow-700 rounded-lg hover:bg-yellow-100 shrink-0">🗺️</button>
-                  </div>
+              {/* 서비스 유형 */}
+              <Section title="서비스 유형">
+                <div className="flex gap-1.5 flex-wrap">
+                  {SERVICE_TYPES.map(t => (
+                    <button key={t} disabled={saving}
+                      onClick={() => quickSave({ service_type: t })}
+                      className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+                        (selected.service_type ?? '1회성케어') === t
+                          ? 'bg-blue-600 text-white'
+                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                      }`}
+                    >{t}</button>
+                  ))}
                 </div>
+              </Section>
 
-                {/* 사업자번호 */}
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-gray-500 w-20 shrink-0">사업자번호</span>
-                  <div className="flex flex-1 gap-1">
-                    <input value={businessNumber} onChange={e => setBusinessNumber(e.target.value)}
-                      className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono" />
-                    <button onClick={() => copyText(businessNumber, '사업자번호')} className="px-2 py-1.5 text-xs bg-gray-50 rounded-lg hover:bg-gray-100">📋</button>
-                  </div>
-                </div>
+              {/* 담당자 */}
+              <Section title="담당자">
+                <select value={assignedTo} onChange={e => setAssignedTo(e.target.value)}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+                  <option value="">미배정</option>
+                  {users.map(u => (
+                    <option key={u.id} value={u.id}>{u.name} ({u.role === 'admin' ? '관리자' : '직원'})</option>
+                  ))}
+                </select>
+              </Section>
 
-                {/* 계좌번호 */}
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-gray-500 w-20 shrink-0">계좌번호</span>
-                  <div className="flex flex-1 gap-1">
-                    <input value={accountNumber} onChange={e => setAccountNumber(e.target.value)}
-                      className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono" />
-                    <button onClick={() => copyText(accountNumber, '계좌번호')} className="px-2 py-1.5 text-xs bg-gray-50 rounded-lg hover:bg-gray-100">📋</button>
-                  </div>
-                </div>
-
-                {/* 결제방법 */}
-                <SelectRow label="결제방법" value={paymentMethod} options={PAYMENT_METHODS} onChange={handlePaymentMethodChange} />
-
-                {/* 영업시간 (읽기 전용) */}
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-gray-500 w-20 shrink-0">영업시간</span>
-                  <span className="text-xs text-gray-700">
-                    {selected.business_hours_start ? `${selected.business_hours_start} ~ ${selected.business_hours_end}` : '-'}
-                  </span>
-                </div>
-
-                {/* 엘리베이터 */}
-                <SelectRow label="엘리베이터" value={elevator} options={ELEVATOR_OPTIONS} onChange={setElevator} />
-
-                {/* 건물출입 */}
-                <SelectRow label="건물출입" value={buildingAccess} options={BUILDING_ACCESS_OPTIONS} onChange={setBuildingAccess} />
-
-                {/* 주차 */}
-                <SelectRow label="주차" value={parking} options={PARKING_OPTIONS} onChange={setParking} />
-
-                {/* 출입방법 */}
-                <EditRow label="출입방법" value={accessMethod} onChange={setAccessMethod} />
-
-                {/* 요청사항 */}
-                <div className="flex items-start gap-2">
-                  <span className="text-xs text-gray-500 w-20 shrink-0 pt-1.5">요청사항</span>
-                  <textarea value={requestNotes} onChange={e => setRequestNotes(e.target.value)} rows={2}
-                    className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none" />
-                </div>
-              </div>
-            </Section>
-
-            {/* ── 금액 정보 ── */}
-            <Section title="금액 정보">
-              {isCashNoVat && (
-                <div className="mb-3 px-3 py-2 bg-amber-50 border border-amber-200 rounded-lg">
-                  <p className="text-xs text-amber-700 font-semibold">💵 현금 결제 — 부가세 미적용</p>
-                </div>
-              )}
-              <div className="space-y-2">
-                <div className="grid grid-cols-2 gap-2">
-                  <AmountInput label="예약금" value={deposit} onChange={setDeposit} />
-                  <AmountInput label="공급가액" value={supplyAmount} onChange={handleSupplyChange} />
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <AmountInput
-                    label="부가세"
-                    hint={isCashNoVat ? '(비적용)' : '(자동 10%)'}
-                    value={isCashNoVat ? '0' : vat}
-                    onChange={handleVatChange}
-                    disabled={isCashNoVat}
-                  />
-                  <div>
-                    <label className="text-xs text-gray-500 mb-1 block">잔금 <span className="text-green-500">(자동계산)</span></label>
-                    <div className={`w-full border rounded-lg px-3 py-2 text-sm font-semibold ${
-                      computedBalance < 0 ? 'border-red-200 bg-red-50 text-red-600' : 'border-gray-100 bg-gray-50 text-gray-700'
-                    }`}>
-                      {fmt(computedBalance)}원
+              {/* 고객 정보 */}
+              <Section title="고객 정보">
+                <div className="space-y-2">
+                  {/* 연락처 */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-gray-500 w-20 shrink-0">연락처</span>
+                    <div className="flex flex-1 gap-1">
+                      <input value={phone} onChange={e => setPhone(e.target.value)}
+                        className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                      <a href={`tel:${phone}`} className="px-2 py-1.5 text-xs bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100">📞</a>
+                      <button onClick={() => copyText(phone, '연락처')} className="px-2 py-1.5 text-xs bg-gray-50 rounded-lg hover:bg-gray-100">📋</button>
                     </div>
                   </div>
-                </div>
-                <div className="pt-2 border-t border-gray-100 flex justify-between text-xs">
-                  <span className="text-gray-500">총액 (공급가액 + 부가세)</span>
-                  <span className="font-bold text-gray-800">{fmt(totalAmount)}원</span>
-                </div>
-              </div>
-            </Section>
 
-            {/* ── 알림 발송 ── */}
-            <Section title="알림 발송">
-              <div className="flex gap-2 mb-3">
-                <select value={notifyType} onChange={e => setNotifyType(e.target.value)}
-                  className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400 bg-white">
-                  <option value="">알림 유형 선택...</option>
-                  {NOTIFICATION_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-                </select>
-                <button onClick={handleNotify} disabled={sending || !notifyType}
-                  className="px-4 py-2 bg-orange-500 text-white text-sm font-semibold rounded-lg hover:bg-orange-600 disabled:opacity-50 transition-colors whitespace-nowrap">
-                  {sending ? '발송 중...' : '📣 발송'}
-                </button>
-              </div>
-              {notifyType && (
-                <div className="mb-3 px-3 py-2 bg-orange-50 border border-orange-200 rounded-lg text-xs text-orange-700">
-                  선택됨: <span className="font-semibold">{notifyType}</span> → {selected.phone}
+                  <EditRow label="이메일" value={email} onChange={setEmail} />
+
+                  {/* 주소 */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-gray-500 w-20 shrink-0">주소</span>
+                    <div className="flex flex-1 gap-1">
+                      <input value={address} onChange={e => setAddress(e.target.value)}
+                        className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                      <button onClick={() => window.open(`https://map.kakao.com/link/search/${encodeURIComponent(address)}`, '_blank')}
+                        className="px-2 py-1.5 text-xs bg-yellow-50 text-yellow-700 rounded-lg hover:bg-yellow-100 shrink-0">🗺️</button>
+                    </div>
+                  </div>
+
+                  {/* 사업자번호 */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-gray-500 w-20 shrink-0">사업자번호</span>
+                    <div className="flex flex-1 gap-1">
+                      <input value={businessNumber} onChange={e => setBusinessNumber(e.target.value)}
+                        className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono" />
+                      <button onClick={() => copyText(businessNumber, '사업자번호')} className="px-2 py-1.5 text-xs bg-gray-50 rounded-lg hover:bg-gray-100">📋</button>
+                    </div>
+                  </div>
+
+                  {/* 계좌번호 */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-gray-500 w-20 shrink-0">계좌번호</span>
+                    <div className="flex flex-1 gap-1">
+                      <input value={accountNumber} onChange={e => setAccountNumber(e.target.value)}
+                        className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono" />
+                      <button onClick={() => copyText(accountNumber, '계좌번호')} className="px-2 py-1.5 text-xs bg-gray-50 rounded-lg hover:bg-gray-100">📋</button>
+                    </div>
+                  </div>
+
+                  <SelectRow label="결제방법" value={paymentMethod} options={PAYMENT_METHODS} onChange={handlePaymentMethodChange} />
+
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-gray-500 w-20 shrink-0">영업시간</span>
+                    <span className="text-xs text-gray-700">
+                      {selected.business_hours_start ? `${selected.business_hours_start} ~ ${selected.business_hours_end}` : '-'}
+                    </span>
+                  </div>
+
+                  <SelectRow label="엘리베이터" value={elevator} options={ELEVATOR_OPTIONS} onChange={setElevator} />
+                  <SelectRow label="건물출입" value={buildingAccess} options={BUILDING_ACCESS_OPTIONS} onChange={setBuildingAccess} />
+                  <SelectRow label="주차" value={parking} options={PARKING_OPTIONS} onChange={setParking} />
+                  <EditRow label="출입방법" value={accessMethod} onChange={setAccessMethod} />
+
+                  <div className="flex items-start gap-2">
+                    <span className="text-xs text-gray-500 w-20 shrink-0 pt-1.5">요청사항</span>
+                    <textarea value={requestNotes} onChange={e => setRequestNotes(e.target.value)} rows={2}
+                      className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none" />
+                  </div>
                 </div>
-              )}
-              {/* 발송 이력 */}
-              <div className="border border-gray-100 rounded-lg overflow-hidden">
-                <p className="text-xs font-semibold text-gray-500 px-3 py-2 bg-gray-50 border-b border-gray-100">발송 이력</p>
-                {notifyLogs.length === 0 ? (
-                  <p className="text-xs text-gray-400 text-center py-4">발송 이력이 없습니다.</p>
-                ) : (
-                  <div className="max-h-44 overflow-y-auto divide-y divide-gray-50">
-                    {notifyLogs.map((log, i) => (
-                      <div key={i} className="flex items-center justify-between px-3 py-2">
-                        <span className="text-xs font-medium text-gray-700">{log.type}</span>
-                        <span className="text-xs text-gray-400">{new Date(log.sentAt).toLocaleString('ko-KR')}</span>
-                      </div>
-                    ))}
+              </Section>
+
+              {/* 금액 정보 */}
+              <Section title="금액 정보">
+                {isCashNoVat && (
+                  <div className="mb-3 px-3 py-2 bg-amber-50 border border-amber-200 rounded-lg">
+                    <p className="text-xs text-amber-700 font-semibold">💵 현금 결제 — 부가세 미적용</p>
                   </div>
                 )}
-              </div>
-            </Section>
-
-            {/* ── Google Drive 폴더 ── */}
-            <Section title="Google Drive 폴더">
-              <div className="flex gap-2">
-                <button onClick={handleDriveFolder}
-                  className="flex-1 py-2 bg-green-600 text-white text-sm font-semibold rounded-lg hover:bg-green-700 transition-colors">
-                  📁 폴더 생성
-                </button>
-                <button
-                  onClick={() => { setDriveUrlInput(driveBaseUrl); setDriveSettingsOpen(v => !v) }}
-                  title="저장 위치 설정"
-                  className="px-3 py-2 bg-gray-100 text-gray-600 text-sm rounded-lg hover:bg-gray-200 transition-colors">
-                  ⚙️
-                </button>
-              </div>
-              {!driveSettingsOpen && driveBaseUrl && (
-                <p className="text-xs text-gray-400 mt-1.5 truncate">📂 {driveBaseUrl}</p>
-              )}
-              {driveSettingsOpen && (
-                <div className="mt-2 p-3 bg-gray-50 rounded-lg border border-gray-200 space-y-2">
-                  <p className="text-xs font-semibold text-gray-600">저장 위치 (Google Drive 폴더 URL)</p>
-                  <input value={driveUrlInput} onChange={e => setDriveUrlInput(e.target.value)}
-                    placeholder="https://drive.google.com/drive/folders/..."
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                  <p className="text-xs text-gray-400">폴더 생성 시 해당 위치가 자동으로 열립니다. 설정은 브라우저에 저장됩니다.</p>
-                  <div className="flex gap-2">
-                    <button onClick={handleSaveDriveUrl}
-                      className="flex-1 py-1.5 bg-blue-600 text-white text-xs font-semibold rounded-lg hover:bg-blue-700">저장</button>
-                    <button onClick={() => setDriveSettingsOpen(false)}
-                      className="flex-1 py-1.5 bg-gray-200 text-gray-600 text-xs font-semibold rounded-lg hover:bg-gray-300">취소</button>
+                <div className="space-y-2">
+                  <div className="grid grid-cols-2 gap-2">
+                    <AmountInput label="예약금" value={deposit} onChange={setDeposit} />
+                    <AmountInput label="공급가액" value={supplyAmount} onChange={handleSupplyChange} />
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <AmountInput
+                      label="부가세" hint={isCashNoVat ? '(비적용)' : '(자동 10%)'}
+                      value={isCashNoVat ? '0' : vat}
+                      onChange={handleVatChange} disabled={isCashNoVat}
+                    />
+                    <div>
+                      <label className="text-xs text-gray-500 mb-1 block">잔금 <span className="text-green-500">(자동계산)</span></label>
+                      <div className={`w-full border rounded-lg px-3 py-2 text-sm font-semibold ${
+                        computedBalance < 0 ? 'border-red-200 bg-red-50 text-red-600' : 'border-gray-100 bg-gray-50 text-gray-700'
+                      }`}>
+                        {fmt(computedBalance)}원
+                      </div>
+                    </div>
+                  </div>
+                  <div className="pt-2 border-t border-gray-100 flex justify-between text-xs">
+                    <span className="text-gray-500">총액 (공급가액 + 부가세)</span>
+                    <span className="font-bold text-gray-800">{fmt(totalAmount)}원</span>
                   </div>
                 </div>
+              </Section>
+
+              {/* 알림 발송 */}
+              <Section title="알림 발송">
+                <div className="flex gap-2 mb-3">
+                  <select value={notifyType} onChange={e => setNotifyType(e.target.value)}
+                    className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400 bg-white">
+                    <option value="">알림 유형 선택...</option>
+                    {NOTIFICATION_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                  </select>
+                  <button onClick={handleNotify} disabled={sending || !notifyType}
+                    className="px-4 py-2 bg-orange-500 text-white text-sm font-semibold rounded-lg hover:bg-orange-600 disabled:opacity-50 transition-colors whitespace-nowrap">
+                    {sending ? '발송 중...' : '📣 발송'}
+                  </button>
+                </div>
+                {notifyType && (
+                  <div className="mb-3 px-3 py-2 bg-orange-50 border border-orange-200 rounded-lg text-xs text-orange-700">
+                    선택: <span className="font-semibold">{notifyType}</span> → {phone}
+                  </div>
+                )}
+                <div className="border border-gray-100 rounded-lg overflow-hidden">
+                  <p className="text-xs font-semibold text-gray-500 px-3 py-2 bg-gray-50 border-b border-gray-100">발송 이력</p>
+                  {notifyLogs.length === 0 ? (
+                    <p className="text-xs text-gray-400 text-center py-4">발송 이력이 없습니다.</p>
+                  ) : (
+                    <div className="max-h-44 overflow-y-auto divide-y divide-gray-50">
+                      {notifyLogs.map((log, i) => (
+                        <div key={i} className="flex items-center justify-between px-3 py-2">
+                          <span className="text-xs font-medium text-gray-700">{log.type}</span>
+                          <span className="text-xs text-gray-400">{new Date(log.sentAt).toLocaleString('ko-KR')}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </Section>
+
+              {/* Google Drive 폴더 */}
+              <Section title="Google Drive 폴더">
+                <div className="space-y-2">
+                  <button onClick={() => setDriveModalOpen(true)}
+                    className="w-full py-2.5 bg-green-600 text-white text-sm font-semibold rounded-lg hover:bg-green-700 transition-colors flex items-center justify-center gap-2">
+                    <span>📁</span>
+                    <span>폴더 생성</span>
+                  </button>
+                  {selected.drive_folder_url && (
+                    <a href={selected.drive_folder_url} target="_blank" rel="noopener noreferrer"
+                      className="flex items-center gap-2 text-xs text-green-600 hover:text-green-700">
+                      <span>🔗</span>
+                      <span className="truncate">Drive 폴더 열기</span>
+                    </a>
+                  )}
+                  {savedDriveFolder && (
+                    <p className="text-xs text-gray-400">기본 위치: 📂 {savedDriveFolder.name}</p>
+                  )}
+                </div>
+              </Section>
+
+              {/* Notion 링크 */}
+              {selected.notion_page_id && (
+                <a href={`https://notion.so/${selected.notion_page_id.replace(/-/g, '')}`}
+                  target="_blank" rel="noopener noreferrer"
+                  className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-800">
+                  <span>📝</span> Notion에서 보기
+                </a>
               )}
-            </Section>
 
-            {/* Notion 링크 */}
-            {selected.notion_page_id && (
-              <a href={`https://notion.so/${selected.notion_page_id.replace(/-/g, '')}`}
-                target="_blank" rel="noopener noreferrer"
-                className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-800">
-                <span>📝</span> Notion에서 보기
-              </a>
-            )}
+              {/* 관리자 메모 */}
+              <Section title="관리자 메모">
+                <textarea value={adminNotes} onChange={e => setAdminNotes(e.target.value)}
+                  rows={3} placeholder="내부 메모를 입력하세요..."
+                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none" />
+              </Section>
 
-            {/* ── 관리자 메모 ── */}
-            <Section title="관리자 메모">
-              <textarea value={adminNotes} onChange={e => setAdminNotes(e.target.value)}
-                rows={3} placeholder="내부 메모를 입력하세요..."
-                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none" />
-            </Section>
-
-            {/* 저장 버튼 */}
-            <button onClick={handleSave} disabled={saving}
-              className="w-full py-3 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 disabled:opacity-60 transition-colors">
-              {saving ? '저장 중...' : '💾 전체 저장'}
-            </button>
+              {/* 전체 저장 */}
+              <button onClick={handleSave} disabled={saving}
+                className="w-full py-3 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 disabled:opacity-60 transition-colors">
+                {saving ? '저장 중...' : '💾 전체 저장'}
+              </button>
+            </div>
           </div>
-        </div>
-      )}
-    </div>
+        )}
+      </div>
+    </>
   )
 }
