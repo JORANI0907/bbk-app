@@ -1,15 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 
-// GET: 전체 사용자 목록
-export async function GET() {
+// GET: 전체 사용자 목록 (role 필터 지원)
+export async function GET(request: NextRequest) {
   const supabase = createServiceClient()
-  const { data, error } = await supabase
-    .from('users')
-    .select('*')
-    .order('role')
-    .order('name')
+  const { searchParams } = new URL(request.url)
+  const role = searchParams.get('role')
 
+  let query = supabase.from('users').select('*').order('role').order('name')
+  if (role) query = query.eq('role', role)
+
+  const { data, error } = await query
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ users: data })
 }

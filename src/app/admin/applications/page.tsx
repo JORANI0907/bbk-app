@@ -3,6 +3,8 @@
 import { useState, useEffect, useCallback } from 'react'
 import toast from 'react-hot-toast'
 
+interface Worker { id: string; name: string }
+
 type ApplicationStatus = '신규' | '검토중' | '계약완료' | '보류' | '거절'
 
 interface Application {
@@ -47,6 +49,44 @@ export default function ApplicationsPage() {
   const [selected, setSelected] = useState<Application | null>(null)
   const [adminNotes, setAdminNotes] = useState('')
   const [saving, setSaving] = useState(false)
+  const [workers, setWorkers] = useState<Worker[]>([])
+  const [scheduleModal, setScheduleModal] = useState(false)
+  const [scheduleForm, setScheduleForm] = useState({ worker_id: '', scheduled_date: '', scheduled_time_start: '09:00', scheduled_time_end: '12:00' })
+
+  useEffect(() => {
+    fetch('/api/admin/users?role=worker').then(r => r.json()).then(d => setWorkers(d.users ?? []))
+  }, [])
+
+  const handleCreateSchedule = async () => {
+    if (!selected || !scheduleForm.scheduled_date) { toast.error('날짜를 선택해주세요.'); return }
+    setSaving(true)
+    try {
+      const res = await fetch('/api/admin/schedules', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          application_id: selected.id,
+          business_name: selected.business_name,
+          address: selected.address,
+          contact_name: selected.owner_name,
+          contact_phone: selected.phone,
+          worker_id: scheduleForm.worker_id || null,
+          scheduled_date: scheduleForm.scheduled_date,
+          scheduled_time_start: scheduleForm.scheduled_time_start,
+          scheduled_time_end: scheduleForm.scheduled_time_end,
+        }),
+      })
+      if (!res.ok) throw new Error('생성 실패')
+      toast.success('일정이 생성되었습니다.')
+      setScheduleModal(false)
+      setSelected(prev => prev ? { ...prev, status: '계약완료' } : prev)
+      setApplications(prev => prev.map(a => a.id === selected.id ? { ...a, status: '계약완료' } : a))
+    } catch {
+      toast.error('일정 생성에 실패했습니다.')
+    } finally {
+      setSaving(false)
+    }
+  }
 
   const fetchApplications = useCallback(async () => {
     setLoading(true)
@@ -258,6 +298,14 @@ export default function ApplicationsPage() {
               </InfoSection>
             )}
 
+            {/* 일정 생성 버튼 */}
+            <button
+              onClick={() => { setScheduleForm({ worker_id: '', scheduled_date: '', scheduled_time_start: '09:00', scheduled_time_end: '12:00' }); setScheduleModal(true) }}
+              className="w-full py-2.5 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              📅 일정 생성
+            </button>
+
             {/* Notion 링크 */}
             {selected.notion_page_id && (
               <a
@@ -286,6 +334,57 @@ export default function ApplicationsPage() {
                 className="mt-2 w-full py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-60 transition-colors"
               >
                 {saving ? '저장 중...' : '메모 저장'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 일정 생성 모달 */}
+      {scheduleModal && selected && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setScheduleModal(false)}>
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6 space-y-4" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between">
+              <h2 className="text-base font-bold text-gray-900">일정 생성</h2>
+              <button onClick={() => setScheduleModal(false)} className="text-gray-400 hover:text-gray-600">✕</button>
+            </div>
+            <p className="text-sm text-gray-500">{selected.business_name}</p>
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs font-medium text-gray-600 mb-1 block">날짜 *</label>
+                <input type="date" value={scheduleForm.scheduled_date}
+                  onChange={e => setScheduleForm(f => ({ ...f, scheduled_date: e.target.value }))}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              </div>
+              <div className="flex gap-2">
+                <div className="flex-1">
+                  <label className="text-xs font-medium text-gray-600 mb-1 block">시작</label>
+                  <input type="time" value={scheduleForm.scheduled_time_start}
+                    onChange={e => setScheduleForm(f => ({ ...f, scheduled_time_start: e.target.value }))}
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+                <div className="flex-1">
+                  <label className="text-xs font-medium text-gray-600 mb-1 block">종료</label>
+                  <input type="time" value={scheduleForm.scheduled_time_end}
+                    onChange={e => setScheduleForm(f => ({ ...f, scheduled_time_end: e.target.value }))}
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+              </div>
+              <div>
+                <label className="text-xs font-medium text-gray-600 mb-1 block">담당 직원</label>
+                <select value={scheduleForm.worker_id}
+                  onChange={e => setScheduleForm(f => ({ ...f, worker_id: e.target.value }))}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                  <option value="">미배정</option>
+                  {workers.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
+                </select>
+              </div>
+            </div>
+            <div className="flex gap-2 pt-1">
+              <button onClick={() => setScheduleModal(false)} className="flex-1 py-2 text-sm border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">취소</button>
+              <button onClick={handleCreateSchedule} disabled={saving}
+                className="flex-1 py-2 text-sm bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 disabled:opacity-60 transition-colors">
+                {saving ? '생성 중...' : '일정 생성'}
               </button>
             </div>
           </div>
