@@ -1,6 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 
+const CORS_HEADERS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type',
+}
+
+export async function OPTIONS() {
+  return new NextResponse(null, { status: 204, headers: CORS_HEADERS })
+}
+
 const NOTION_TOKEN = process.env.NOTION_TOKEN
 const NOTION_APPLICATIONS_DB_ID = process.env.NOTION_APPLICATIONS_DB_ID
 
@@ -61,7 +71,7 @@ export async function POST(request: NextRequest) {
     } = body
 
     if (!ownerName || !phone || !businessName || !address) {
-      return NextResponse.json({ error: '필수 항목이 누락되었습니다.' }, { status: 400 })
+      return NextResponse.json({ error: '필수 항목이 누락되었습니다.' }, { status: 400, headers: CORS_HEADERS })
     }
 
     const supabase = createServiceClient()
@@ -108,10 +118,10 @@ export async function POST(request: NextRequest) {
         .eq('id', inserted.id)
     }
 
-    return NextResponse.json({ success: true, id: inserted?.id })
+    return NextResponse.json({ success: true, id: inserted?.id }, { headers: CORS_HEADERS })
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
     console.error('Webhook error:', msg)
-    return NextResponse.json({ error: msg }, { status: 500 })
+    return NextResponse.json({ error: msg }, { status: 500, headers: CORS_HEADERS })
   }
 }
