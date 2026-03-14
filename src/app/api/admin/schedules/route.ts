@@ -47,14 +47,23 @@ export async function POST(request: NextRequest) {
     }
   }
 
+  const toTime = (t: string | undefined) => {
+    if (!t) return '09:00:00'
+    return t.length === 5 ? `${t}:00` : t
+  }
+
+  if (!finalCustomerId) {
+    return NextResponse.json({ error: '고객 정보를 찾을 수 없습니다.' }, { status: 400 })
+  }
+
   const { data, error } = await supabase
     .from('service_schedules')
     .insert({
       customer_id: finalCustomerId,
       worker_id: worker_id || null,
       scheduled_date,
-      scheduled_time_start: scheduled_time_start || '09:00:00',
-      scheduled_time_end: scheduled_time_end || '12:00:00',
+      scheduled_time_start: toTime(scheduled_time_start),
+      scheduled_time_end: toTime(scheduled_time_end),
       status: status || 'scheduled',
       notes: notes || null,
     })
