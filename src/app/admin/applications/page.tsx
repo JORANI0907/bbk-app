@@ -2,11 +2,10 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import toast from 'react-hot-toast'
-import {
-  loadGoogleAPIs, requestGoogleToken, openFolderPicker,
-  createWorkFolderStructure, getSavedDriveFolder, saveDriveFolderCookie,
-  type DriveFolder,
-} from '@/lib/googleDrive'
+import type { DriveFolder } from '@/lib/googleDrive'
+
+// Google Drive 모듈 동적 로드 (SSR 방지 - Netlify 빌드 호환)
+const getDriveLib = () => import('@/lib/googleDrive')
 
 type ServiceType = '1회성케어' | '정기딥케어' | '정기엔드케어'
 type ApplicationStatus = '신규' | '검토중' | '계약완료' | '보류' | '거절'
@@ -279,7 +278,9 @@ export default function ServiceManagementPage() {
   const totalAmount = (Number(supplyAmount) || 0) + effectiveVat
   const computedBalance = totalAmount - (Number(deposit) || 0)
 
-  useEffect(() => { setSavedDriveFolder(getSavedDriveFolder()) }, [])
+  useEffect(() => {
+    getDriveLib().then(lib => setSavedDriveFolder(lib.getSavedDriveFolder()))
+  }, [])
 
   const fetchAll = useCallback(async () => {
     setLoading(true)
@@ -424,11 +425,12 @@ export default function ServiceManagementPage() {
   // Google Drive 폴더 선택
   const handleSelectDriveFolder = async () => {
     try {
-      await loadGoogleAPIs()
-      const token = driveToken || await requestGoogleToken()
+      const lib = await getDriveLib()
+      await lib.loadGoogleAPIs()
+      const token = driveToken || await lib.requestGoogleToken()
       setDriveToken(token)
-      const folder = await openFolderPicker(token)
-      if (folder) { setSavedDriveFolder(folder); saveDriveFolderCookie(folder) }
+      const folder = await lib.openFolderPicker(token)
+      if (folder) { setSavedDriveFolder(folder); lib.saveDriveFolderCookie(folder) }
     } catch (e) { toast.error(e instanceof Error ? e.message : 'Google Drive 연결 실패') }
   }
 
@@ -437,13 +439,14 @@ export default function ServiceManagementPage() {
     if (!selected || !savedDriveFolder) return
     setDriveCreating(true)
     try {
+      const lib = await getDriveLib()
       let token = driveToken
       if (!token) {
-        await loadGoogleAPIs()
-        token = await requestGoogleToken()
+        await lib.loadGoogleAPIs()
+        token = await lib.requestGoogleToken()
         setDriveToken(token)
       }
-      const { folderUrl, folderName } = await createWorkFolderStructure(
+      const { folderUrl, folderName } = await lib.createWorkFolderStructure(
         savedDriveFolder.id, selected.business_name, constructionDate, token
       )
       // DB에 폴더 URL 저장
