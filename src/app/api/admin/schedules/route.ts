@@ -65,7 +65,7 @@ export async function POST(request: NextRequest) {
       scheduled_time_start: toTime(scheduled_time_start),
       scheduled_time_end: toTime(scheduled_time_end),
       status: status || 'scheduled',
-      notes: notes || null,
+      worker_memo: notes || null,
     })
     .select()
     .single()
@@ -89,6 +89,12 @@ export async function PATCH(request: NextRequest) {
   const { id, ...updates } = body
 
   if (!id) return NextResponse.json({ error: 'id가 필요합니다.' }, { status: 400 })
+
+  // notes → worker_memo로 매핑
+  if ('notes' in updates) {
+    updates.worker_memo = updates.notes
+    delete updates.notes
+  }
 
   const { error } = await supabase
     .from('service_schedules')
