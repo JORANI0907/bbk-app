@@ -275,7 +275,7 @@ export default function ServiceManagementPage() {
   const [savedAssignments, setSavedAssignments] = useState<WorkAssignment[]>([])
   const [workerDropdownOpen, setWorkerDropdownOpen] = useState(false)
   const [loading, setLoading] = useState(true)
-  const [activeType, setActiveType] = useState<ServiceType>('1회성케어')
+  const [activeType, setActiveType] = useState<ServiceType | '전체'>('전체')
   const [selected, setSelected] = useState<Application | null>(null)
   const [saving, setSaving] = useState(false)
   const [sending, setSending] = useState(false)
@@ -455,6 +455,15 @@ export default function ServiceManagementPage() {
           address: selected.address,
           business_number: selected.business_number,
           account_number: selected.account_number,
+          platform_nickname: selected.platform_nickname,
+          payment_method: selected.payment_method,
+          business_hours_start: selected.business_hours_start,
+          business_hours_end: selected.business_hours_end,
+          elevator: selected.elevator,
+          building_access: selected.building_access,
+          parking_info: selected.parking,
+          access_method: selected.access_method,
+          special_notes: selected.request_notes,
           customer_type: customerType,
           pipeline_status: 'inquiry',
         }),
@@ -643,8 +652,8 @@ export default function ServiceManagementPage() {
     }
   }
 
-  const byType = (type: ServiceType) => {
-    let filtered = applications.filter(a => (a.service_type ?? '1회성케어') === type)
+  const byType = (type: ServiceType | '전체') => {
+    let filtered = type === '전체' ? [...applications] : applications.filter(a => (a.service_type ?? '1회성케어') === type)
     if (statusFilter) filtered = filtered.filter(a => a.status === statusFilter)
     if (notifyFilter) filtered = filtered.filter(a => {
       const last = (allNotifyLogs[a.id] || [])[0]
@@ -689,10 +698,10 @@ export default function ServiceManagementPage() {
 
           {/* 서비스 유형 탭 */}
           <div className="flex border-b border-gray-200 mb-3">
-            {SERVICE_TYPES.map(type => (
+            {(['전체', ...SERVICE_TYPES] as const).map(type => (
               <button key={type}
                 onClick={() => { setActiveType(type); setSelected(null) }}
-                className={`px-4 py-2.5 text-sm font-semibold transition-colors relative ${activeType === type ? 'text-blue-600 border-b-2 border-blue-600 -mb-px' : 'text-gray-500 hover:text-gray-700'}`}
+                className={`px-4 py-2.5 text-sm font-semibold transition-colors relative whitespace-nowrap ${activeType === type ? 'text-blue-600 border-b-2 border-blue-600 -mb-px' : 'text-gray-500 hover:text-gray-700'}`}
               >
                 {type}
                 <span className={`ml-1.5 text-xs px-1.5 py-0.5 rounded-full ${activeType === type ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-500'}`}>

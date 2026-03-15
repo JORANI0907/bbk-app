@@ -52,6 +52,16 @@ export default function WorkersPage() {
         list = list.filter(w => w.specialties?.toLowerCase().includes(kw))
       }
 
+      // 필터 없을 때 정직원 → 인턴 → 일용직 → 기타 순 정렬
+      if (!filterType) {
+        const ORDER: Record<string, number> = { '정직원': 0, '인턴': 1, '일용직': 2 }
+        list = [...list].sort((a, b) => {
+          const oa = ORDER[a.employment_type ?? ''] ?? 3
+          const ob = ORDER[b.employment_type ?? ''] ?? 3
+          return oa !== ob ? oa - ob : a.name.localeCompare(b.name, 'ko')
+        })
+      }
+
       setWorkers(list)
     } catch {
       toast.error('네트워크 오류가 발생했습니다.')

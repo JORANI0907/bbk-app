@@ -18,6 +18,13 @@ interface Customer {
   address_detail: string | null
   business_number: string | null
   account_number: string | null
+  platform_nickname: string | null
+  payment_method: string | null
+  elevator: string | null
+  building_access: string | null
+  access_method: string | null
+  business_hours_start: string | null
+  business_hours_end: string | null
   door_password: string | null
   parking_info: string | null
   special_notes: string | null
@@ -30,7 +37,7 @@ interface Customer {
   billing_next_date: string | null
   contract_start_date: string | null
   contract_end_date: string | null
-  unit_price: number | null          // 정기엔드케어 작업자 건당 급여
+  unit_price: number | null
   visit_interval_days: number | null
   next_visit_date: string | null
   notes: string | null
@@ -40,6 +47,10 @@ interface Customer {
 
 // ─── 상수 ─────────────────────────────────────────────────────
 const CUSTOMER_TYPES: CustomerType[] = ['1회성케어', '정기딥케어', '정기엔드케어']
+const PAYMENT_METHODS = ['현금', '카드', '계좌이체', '현금(부가세 X)']
+const ELEVATOR_OPTIONS = ['있음', '없음', '해당없음']
+const BUILDING_ACCESS_OPTIONS = ['신청필요', '신청불필요', '해당없음']
+const PARKING_OPTIONS = ['가능', '불가능', '주차없음']
 
 const NOTIFY_TYPES: Record<CustomerType, string[]> = {
   '1회성케어':    ['방문견적알림', '작업완료알림'],
@@ -62,6 +73,9 @@ const STATUS_STYLE: Record<CustomerStatus, { badge: string; label: string }> = {
 const EMPTY_FORM = {
   business_name: '', contact_name: '', contact_phone: '', email: '',
   address: '', address_detail: '', business_number: '', account_number: '',
+  platform_nickname: '', payment_method: '',
+  elevator: '', building_access: '', access_method: '',
+  business_hours_start: '', business_hours_end: '',
   door_password: '', parking_info: '', special_notes: '',
   customer_type: '1회성케어' as CustomerType,
   status: 'active' as CustomerStatus,
@@ -134,6 +148,33 @@ function Field({ label, value, onChange, type = 'text', mono, placeholder, hint 
   )
 }
 
+function SelectField({ label, value, options, onChange }: {
+  label: string; value: string; options: string[]; onChange: (v: string) => void
+}) {
+  const isCustom = value !== '' && !options.includes(value)
+  return (
+    <div className="flex items-start gap-2">
+      <span className="text-xs text-gray-500 w-24 shrink-0 pt-1.5">{label}</span>
+      <div className="flex-1 space-y-1.5">
+        <select
+          value={isCustom ? '직접입력' : value}
+          onChange={e => e.target.value === '직접입력' ? onChange('') : onChange(e.target.value)}
+          className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+        >
+          <option value="">선택</option>
+          {options.map(o => <option key={o} value={o}>{o}</option>)}
+          <option value="직접입력">직접입력</option>
+        </select>
+        {isCustom && (
+          <input value={value} onChange={e => onChange(e.target.value)}
+            placeholder="직접 입력"
+            className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        )}
+      </div>
+    </div>
+  )
+}
+
 // ─── 메인 페이지 ──────────────────────────────────────────────
 export default function AdminCustomersPage() {
   const [customers, setCustomers] = useState<Customer[]>([])
@@ -166,6 +207,13 @@ export default function AdminCustomersPage() {
     address_detail: c.address_detail ?? '',
     business_number: c.business_number ?? '',
     account_number: c.account_number ?? '',
+    platform_nickname: c.platform_nickname ?? '',
+    payment_method: c.payment_method ?? '',
+    elevator: c.elevator ?? '',
+    building_access: c.building_access ?? '',
+    access_method: c.access_method ?? '',
+    business_hours_start: c.business_hours_start ?? '',
+    business_hours_end: c.business_hours_end ?? '',
     door_password: c.door_password ?? '',
     parking_info: c.parking_info ?? '',
     special_notes: c.special_notes ?? '',
@@ -216,6 +264,13 @@ export default function AdminCustomersPage() {
     address_detail: form.address_detail || null,
     business_number: form.business_number || null,
     account_number: form.account_number || null,
+    platform_nickname: form.platform_nickname || null,
+    payment_method: form.payment_method || null,
+    elevator: form.elevator || null,
+    building_access: form.building_access || null,
+    access_method: form.access_method || null,
+    business_hours_start: form.business_hours_start || null,
+    business_hours_end: form.business_hours_end || null,
     door_password: form.door_password || null,
     parking_info: form.parking_info || null,
     special_notes: form.special_notes || null,
@@ -294,11 +349,20 @@ export default function AdminCustomersPage() {
         body: JSON.stringify({
           business_name: selected.business_name,
           owner_name: selected.contact_name || selected.business_name,
+          platform_nickname: selected.platform_nickname,
           phone: selected.contact_phone,
-          address: selected.address,
           email: selected.email,
+          address: selected.address,
           business_number: selected.business_number,
           account_number: selected.account_number,
+          payment_method: selected.payment_method,
+          business_hours_start: selected.business_hours_start,
+          business_hours_end: selected.business_hours_end,
+          elevator: selected.elevator,
+          building_access: selected.building_access,
+          parking: selected.parking_info,
+          access_method: selected.access_method,
+          request_notes: selected.special_notes,
           service_type: serviceType,
           admin_notes: `고객 DB에서 생성 (${new Date().toLocaleDateString('ko-KR')})`,
         }),
@@ -502,15 +566,52 @@ export default function AdminCustomersPage() {
             <div className="bg-gray-50 rounded-xl p-4 flex flex-col gap-3">
               <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">기본 정보</p>
               <Field label="업체명 *" value={form.business_name} onChange={set('business_name')} />
-              <Field label="담당자명" value={form.contact_name} onChange={set('contact_name')} />
-              <Field label="연락처" value={form.contact_phone} onChange={set('contact_phone')} />
+              <Field label="대표자명" value={form.contact_name} onChange={set('contact_name')} />
+              <Field label="플랫폼 닉네임" value={form.platform_nickname} onChange={set('platform_nickname')} placeholder="네이버, 카카오 등" />
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-gray-500 w-24 shrink-0">연락처</span>
+                <div className="flex flex-1 gap-1">
+                  <input value={form.contact_phone} onChange={e => set('contact_phone')(e.target.value)}
+                    className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                  <a href={`tel:${form.contact_phone}`} className="px-2 py-1.5 text-xs bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100">📞</a>
+                </div>
+              </div>
               <Field label="이메일" value={form.email} onChange={set('email')} />
-              <Field label="주소" value={form.address} onChange={set('address')} />
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-gray-500 w-24 shrink-0">주소</span>
+                <div className="flex flex-1 gap-1">
+                  <input value={form.address} onChange={e => set('address')(e.target.value)}
+                    className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                  <button onClick={() => window.open(`https://map.kakao.com/link/search/${encodeURIComponent(form.address)}`, '_blank')}
+                    className="px-2 py-1.5 text-xs bg-yellow-50 text-yellow-700 rounded-lg hover:bg-yellow-100 shrink-0">🗺️</button>
+                </div>
+              </div>
               <Field label="상세주소" value={form.address_detail} onChange={set('address_detail')} />
               <Field label="사업자번호" value={form.business_number} onChange={set('business_number')} mono />
               <Field label="계좌번호" value={form.account_number} onChange={set('account_number')} mono />
+              <SelectField label="결제방법" value={form.payment_method} options={PAYMENT_METHODS} onChange={set('payment_method')} />
+              {/* 영업시간 */}
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-gray-500 w-24 shrink-0">영업시간</span>
+                <div className="flex items-center gap-1 flex-1">
+                  <input type="time" value={form.business_hours_start} onChange={e => set('business_hours_start')(e.target.value)}
+                    className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                  <span className="text-gray-400 text-xs">~</span>
+                  <input type="time" value={form.business_hours_end} onChange={e => set('business_hours_end')(e.target.value)}
+                    className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+              </div>
+              <SelectField label="엘리베이터" value={form.elevator} options={ELEVATOR_OPTIONS} onChange={set('elevator')} />
+              <SelectField label="건물출입" value={form.building_access} options={BUILDING_ACCESS_OPTIONS} onChange={set('building_access')} />
+              <SelectField label="주차" value={form.parking_info} options={PARKING_OPTIONS} onChange={set('parking_info')} />
+              <Field label="출입방법" value={form.access_method} onChange={set('access_method')} placeholder="출입 방법 메모" />
               <Field label="출입번호" value={form.door_password} onChange={set('door_password')} placeholder="도어락 비밀번호" />
-              <Field label="주차정보" value={form.parking_info} onChange={set('parking_info')} />
+              {/* 요청사항 */}
+              <div className="flex items-start gap-2">
+                <span className="text-xs text-gray-500 w-24 shrink-0 pt-1.5">요청사항</span>
+                <textarea value={form.special_notes} onChange={e => set('special_notes')(e.target.value)} rows={2}
+                  className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none" />
+              </div>
             </div>
 
             {/* ── 정기엔드케어 계약 ── */}
