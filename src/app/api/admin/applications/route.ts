@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
   const ALLOWED_POST = [
     'owner_name', 'business_name', 'phone', 'email', 'address',
     'business_number', 'account_number', 'service_type', 'admin_notes',
-    'payment_method', 'request_notes', 'platform_nickname',
+    'payment_method', 'request_notes', 'platform_nickname', 'care_scope',
   ]
   const insert: Record<string, unknown> = { status: '신규' }
   for (const key of ALLOWED_POST) {
@@ -66,7 +66,7 @@ export async function PATCH(request: NextRequest) {
     'deposit', 'supply_amount', 'vat', 'balance', 'drive_folder_url',
     'phone', 'email', 'address', 'business_number', 'account_number',
     'payment_method', 'elevator', 'building_access', 'access_method', 'parking', 'request_notes',
-    'construction_date', 'business_hours_start', 'business_hours_end',
+    'construction_date', 'business_hours_start', 'business_hours_end', 'care_scope',
   ]
   const updates: Record<string, unknown> = {}
   for (const key of ALLOWED) {

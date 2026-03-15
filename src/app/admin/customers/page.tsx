@@ -28,6 +28,7 @@ interface Customer {
   door_password: string | null
   parking_info: string | null
   special_notes: string | null
+  care_scope: string | null
   pipeline_status: string
   customer_type: CustomerType | null
   status: CustomerStatus | null
@@ -76,7 +77,7 @@ const EMPTY_FORM = {
   platform_nickname: '', payment_method: '',
   elevator: '', building_access: '', access_method: '',
   business_hours_start: '', business_hours_end: '',
-  door_password: '', parking_info: '', special_notes: '',
+  door_password: '', parking_info: '', special_notes: '', care_scope: '',
   customer_type: '1회성케어' as CustomerType,
   status: 'active' as CustomerStatus,
   pipeline_status: 'inquiry',
@@ -217,6 +218,7 @@ export default function AdminCustomersPage() {
     door_password: c.door_password ?? '',
     parking_info: c.parking_info ?? '',
     special_notes: c.special_notes ?? '',
+    care_scope: c.care_scope ?? '',
     customer_type: c.customer_type ?? '1회성케어',
     status: c.status ?? 'active',
     pipeline_status: c.pipeline_status ?? 'inquiry',
@@ -274,6 +276,7 @@ export default function AdminCustomersPage() {
     door_password: form.door_password || null,
     parking_info: form.parking_info || null,
     special_notes: form.special_notes || null,
+    care_scope: form.care_scope || null,
     customer_type: form.customer_type,
     status: form.status,
     pipeline_status: form.pipeline_status || 'inquiry',
@@ -609,6 +612,13 @@ export default function AdminCustomersPage() {
               <div className="flex items-start gap-2">
                 <span className="text-xs text-gray-500 w-24 shrink-0 pt-1.5">요청사항</span>
                 <textarea value={form.special_notes} onChange={e => set('special_notes')(e.target.value)} rows={2}
+                  className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none" />
+              </div>
+              {/* 케어범위 */}
+              <div className="flex items-start gap-2">
+                <span className="text-xs text-gray-500 w-24 shrink-0 pt-1.5">케어범위</span>
+                <textarea value={form.care_scope} onChange={e => set('care_scope')(e.target.value)} rows={3}
+                  placeholder="케어 범위를 입력하세요&#10;예) 주방, 화장실 2개, 사무실 전체"
                   className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none" />
               </div>
             </div>

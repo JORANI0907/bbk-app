@@ -17,6 +17,7 @@ interface Application {
   supply_amount: number | null
   vat: number | null
   payment_method: string | null
+  care_scope: string | null
 }
 
 interface User { id: string; name: string; role: string }
@@ -328,6 +329,12 @@ export default function AdminCalendarPage() {
                   <span className="text-gray-700 text-right truncate max-w-[220px]">{val}</span>
                 </div>
               ))}
+              {selected.care_scope && (
+                <div className="pt-1 border-t border-gray-100">
+                  <span className="text-gray-400 block mb-1">케어범위</span>
+                  <p className="text-gray-700 whitespace-pre-wrap leading-relaxed">{selected.care_scope}</p>
+                </div>
+              )}
               {selected.supply_amount != null && (
                 <div className="flex justify-between font-semibold pt-1 border-t border-gray-100">
                   <span className="text-gray-400">총액</span>

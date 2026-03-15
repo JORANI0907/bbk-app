@@ -43,6 +43,7 @@ interface Application {
   balance: number | null
   drive_folder_url: string | null
   construction_date: string | null
+  care_scope: string | null
 }
 
 interface NotifyLog { type: string; sentAt: string }
@@ -318,6 +319,7 @@ export default function ServiceManagementPage() {
   const [parking, setParking] = useState('')
   const [accessMethod, setAccessMethod] = useState('')
   const [requestNotes, setRequestNotes] = useState('')
+  const [careScope, setCareScope] = useState('')
   const [businessHoursStart, setBusinessHoursStart] = useState('')
   const [businessHoursEnd, setBusinessHoursEnd] = useState('')
 
@@ -371,6 +373,7 @@ export default function ServiceManagementPage() {
     setParking(app.parking ?? '')
     setAccessMethod(app.access_method ?? '')
     setRequestNotes(app.request_notes ?? '')
+    setCareScope(app.care_scope ?? '')
     setBusinessHoursStart(app.business_hours_start ?? '')
     setBusinessHoursEnd(app.business_hours_end ?? '')
     setNotifyType('')
@@ -540,6 +543,7 @@ export default function ServiceManagementPage() {
           access_method: accessMethod || null,
           parking: parking || null,
           request_notes: requestNotes || null,
+          care_scope: careScope || null,
           business_hours_start: businessHoursStart || null,
           business_hours_end: businessHoursEnd || null,
         }),
@@ -1120,6 +1124,12 @@ export default function ServiceManagementPage() {
                   <div className="flex items-start gap-2">
                     <span className="text-xs text-gray-500 w-20 shrink-0 pt-1.5">요청사항</span>
                     <textarea value={requestNotes} onChange={e => setRequestNotes(e.target.value)} rows={2}
+                      className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none" />
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <span className="text-xs text-gray-500 w-20 shrink-0 pt-1.5">케어범위</span>
+                    <textarea value={careScope} onChange={e => setCareScope(e.target.value)} rows={3}
+                      placeholder="케어 범위를 입력하세요&#10;예) 주방, 화장실 2개, 사무실 전체"
                       className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none" />
                   </div>
                 </div>
