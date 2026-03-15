@@ -8,6 +8,7 @@ interface Application {
   business_name: string
   owner_name: string
   phone: string
+  email: string | null
   address: string
   status: string
   service_type: string | null
@@ -17,7 +18,16 @@ interface Application {
   supply_amount: number | null
   vat: number | null
   payment_method: string | null
+  business_hours_start: string | null
+  business_hours_end: string | null
+  elevator: string | null
+  building_access: string | null
+  parking: string | null
+  access_method: string | null
+  request_notes: string | null
   care_scope: string | null
+  admin_notes: string | null
+  drive_folder_url: string | null
 }
 
 interface User { id: string; name: string; role: string }
@@ -274,7 +284,12 @@ export default function AdminCalendarPage() {
                       <tr key={app.id} onClick={() => setSelected(app)}
                         className={`border-b border-gray-100 last:border-0 cursor-pointer hover:bg-blue-50 transition-colors ${selected?.id === app.id ? 'bg-blue-50' : ''}`}>
                         <td className="px-3 py-3 text-gray-500 whitespace-nowrap font-mono text-xs">{fmtDate(app.construction_date)}</td>
-                        <td className="px-3 py-3 font-medium text-gray-900 max-w-[120px] truncate">{app.business_name}</td>
+                        <td className="px-3 py-3 font-medium text-gray-900 max-w-[120px] truncate">
+                          <div className="flex items-center gap-1">
+                            {app.business_name}
+                            {app.drive_folder_url && <span className="text-blue-400 text-xs shrink-0">📷</span>}
+                          </div>
+                        </td>
                         <td className="px-3 py-3 text-gray-700 text-xs">{app.owner_name}</td>
                         <td className="px-3 py-3 text-gray-500 text-xs">{users.find(u => u.id === app.assigned_to)?.name ?? <span className="text-gray-300">미배정</span>}</td>
                         <td className="px-3 py-3 text-gray-500 text-xs">{app.service_type ?? '-'}</td>
@@ -309,45 +324,127 @@ export default function AdminCalendarPage() {
         {/* 선택된 일정 상세 */}
         {selected && (
           <div className="bg-white rounded-xl border border-gray-200 flex-shrink-0">
+            {/* 헤더 */}
             <div className="p-4 border-b border-gray-100 flex items-start justify-between gap-2">
               <div>
                 <h2 className="font-bold text-gray-900">{selected.business_name}</h2>
-                <p className="text-xs text-gray-400 mt-0.5">{fmtDate(selected.construction_date)} · {selected.service_type ?? '-'}</p>
+                <div className="flex items-center gap-2 mt-0.5">
+                  <p className="text-xs text-gray-400">{fmtDate(selected.construction_date)} · {selected.service_type ?? '-'}</p>
+                  <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-xs font-medium ${STATUS_CONFIG[selected.status]?.badge ?? 'bg-gray-100 text-gray-600'}`}>
+                    <span className={`w-1.5 h-1.5 rounded-full ${STATUS_CONFIG[selected.status]?.dot ?? 'bg-gray-400'} shrink-0`} />
+                    {selected.status}
+                  </span>
+                </div>
               </div>
               <button onClick={() => setSelected(null)} className="text-gray-400 hover:text-gray-600 text-lg shrink-0">✕</button>
             </div>
-            <div className="p-4 space-y-2 text-xs">
+
+            {/* 사진 보기 버튼 (드라이브 폴더) */}
+            {selected.drive_folder_url && (
+              <div className="px-4 py-3 border-b border-gray-100 bg-blue-50">
+                <a href={selected.drive_folder_url} target="_blank" rel="noreferrer"
+                  className="flex items-center justify-center gap-2 w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg transition-colors">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                  📷 사진 보기 (Google Drive)
+                </a>
+              </div>
+            )}
+
+            {/* 기본정보 */}
+            <div className="p-4 space-y-2.5 text-xs">
+              {/* 연락처 */}
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-gray-400 shrink-0 w-16">연락처</span>
+                <div className="flex items-center gap-1 flex-1 justify-end">
+                  <span className="text-gray-700">{selected.phone || '-'}</span>
+                  {selected.phone && (
+                    <a href={`tel:${selected.phone}`} className="px-1.5 py-0.5 bg-blue-50 text-blue-600 rounded text-xs hover:bg-blue-100">📞</a>
+                  )}
+                </div>
+              </div>
+
+              {/* 이메일 */}
+              {selected.email && (
+                <div className="flex justify-between gap-2">
+                  <span className="text-gray-400 shrink-0 w-16">이메일</span>
+                  <span className="text-gray-700 text-right truncate">{selected.email}</span>
+                </div>
+              )}
+
+              {/* 주소 */}
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-gray-400 shrink-0 w-16">주소</span>
+                <div className="flex items-center gap-1 flex-1 justify-end min-w-0">
+                  <span className="text-gray-700 text-right truncate">{selected.address || '-'}</span>
+                  {selected.address && (
+                    <button onClick={() => window.open(`https://map.kakao.com/link/search/${encodeURIComponent(selected.address)}`, '_blank')}
+                      className="px-1.5 py-0.5 bg-yellow-50 text-yellow-700 rounded text-xs hover:bg-yellow-100 shrink-0">🗺️</button>
+                  )}
+                </div>
+              </div>
+
+              {/* 영업시간 */}
+              {(selected.business_hours_start || selected.business_hours_end) && (
+                <div className="flex justify-between gap-2">
+                  <span className="text-gray-400 shrink-0 w-16">영업시간</span>
+                  <span className="text-gray-700">{selected.business_hours_start ?? '-'} ~ {selected.business_hours_end ?? '-'}</span>
+                </div>
+              )}
+
+              {/* 엘리베이터 / 건물출입 / 주차 */}
               {[
-                ['대표자', selected.owner_name],
-                ['연락처', selected.phone],
-                ['주소', selected.address],
-                ['담당자', users.find(u => u.id === selected.assigned_to)?.name ?? '미배정'],
-                ['결제방법', selected.payment_method ?? '-'],
-              ].map(([label, val]) => (
-                <div key={label} className="flex justify-between gap-2">
-                  <span className="text-gray-400 shrink-0">{label}</span>
-                  <span className="text-gray-700 text-right truncate max-w-[220px]">{val}</span>
+                ['엘리베이터', selected.elevator],
+                ['건물출입', selected.building_access],
+                ['주차', selected.parking],
+                ['출입방법', selected.access_method],
+              ].filter(([, v]) => v).map(([label, val]) => (
+                <div key={label as string} className="flex justify-between gap-2">
+                  <span className="text-gray-400 shrink-0 w-16">{label}</span>
+                  <span className="text-gray-700 text-right">{val}</span>
                 </div>
               ))}
-              {selected.care_scope && (
-                <div className="pt-1 border-t border-gray-100">
-                  <span className="text-gray-400 block mb-1">케어범위</span>
-                  <p className="text-gray-700 whitespace-pre-wrap leading-relaxed">{selected.care_scope}</p>
+
+              {/* 구분선 */}
+              {(selected.request_notes || selected.care_scope || selected.admin_notes) && (
+                <div className="border-t border-gray-100 pt-2 space-y-2.5">
+                  {selected.request_notes && (
+                    <div>
+                      <span className="text-gray-400 block mb-1">요청사항</span>
+                      <p className="text-gray-700 whitespace-pre-wrap leading-relaxed bg-gray-50 rounded-lg p-2">{selected.request_notes}</p>
+                    </div>
+                  )}
+                  {selected.care_scope && (
+                    <div>
+                      <span className="text-gray-400 block mb-1">케어범위</span>
+                      <p className="text-gray-700 whitespace-pre-wrap leading-relaxed bg-indigo-50 rounded-lg p-2 font-medium">{selected.care_scope}</p>
+                    </div>
+                  )}
+                  {isAdmin && selected.admin_notes && (
+                    <div>
+                      <span className="text-gray-400 block mb-1">관리자메모</span>
+                      <p className="text-gray-700 whitespace-pre-wrap leading-relaxed bg-amber-50 rounded-lg p-2">{selected.admin_notes}</p>
+                    </div>
+                  )}
                 </div>
               )}
-              {selected.supply_amount != null && (
-                <div className="flex justify-between font-semibold pt-1 border-t border-gray-100">
-                  <span className="text-gray-400">총액</span>
-                  <span className="text-gray-800">{fmt((selected.supply_amount ?? 0) + (selected.vat ?? 0))}원</span>
+
+              {/* 담당자 + 금액 (관리자만) */}
+              {isAdmin && (
+                <div className="border-t border-gray-100 pt-2 space-y-1.5">
+                  <div className="flex justify-between gap-2">
+                    <span className="text-gray-400 shrink-0 w-16">담당자</span>
+                    <span className="text-gray-700">{users.find(u => u.id === selected.assigned_to)?.name ?? '미배정'}</span>
+                  </div>
+                  {selected.supply_amount != null && (
+                    <div className="flex justify-between font-semibold">
+                      <span className="text-gray-400 w-16">총액</span>
+                      <span className="text-gray-800">{fmt((selected.supply_amount ?? 0) + (selected.vat ?? 0))}원</span>
+                    </div>
+                  )}
                 </div>
               )}
-              <div className="flex justify-between items-center pt-1 border-t border-gray-100">
-                <span className="text-gray-400">상태</span>
-                <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_CONFIG[selected.status]?.badge ?? 'bg-gray-100 text-gray-600'}`}>
-                  <span className={`w-1.5 h-1.5 rounded-full ${STATUS_CONFIG[selected.status]?.dot ?? 'bg-gray-400'} shrink-0`} />
-                  {selected.status}
-                </span>
-              </div>
             </div>
           </div>
         )}
