@@ -419,7 +419,7 @@ export default function AdminCustomersPage() {
   const notifyOptions = form.customer_type ? NOTIFY_TYPES[form.customer_type] : []
 
   return (
-    <div className="flex h-full gap-0 min-h-0">
+    <div className="relative flex h-full gap-0 min-h-0">
       {/* ── 좌측: 목록 ── */}
       <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
         <div className="flex items-center justify-between mb-4">
@@ -509,10 +509,9 @@ export default function AdminCustomersPage() {
         </div>
       </div>
 
-      {/* ── 우측: 상세 패널 ── */}
+      {/* ── 우측: 상세 패널 (오버레이) ── */}
       {(selected || isNew) && (
-        <div className="w-[460px] ml-5 flex-shrink-0 bg-white rounded-xl border border-gray-200 overflow-y-auto"
-          style={{ maxHeight: 'calc(100vh - 6rem)' }}>
+        <div className="absolute right-0 top-0 bottom-0 w-[480px] bg-white rounded-xl border border-gray-200 shadow-2xl overflow-y-auto z-20">
 
           {/* 헤더 */}
           <div className="p-4 border-b border-gray-100 flex items-center justify-between sticky top-0 bg-white z-10">

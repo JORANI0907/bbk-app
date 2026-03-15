@@ -213,7 +213,7 @@ export default function AdminCalendarPage() {
   const workerSalaryTotal = workerAssignments.reduce((s, a) => s + (a.salary ?? 0), 0)
 
   return (
-    <div className="flex h-full gap-0 min-h-0">
+    <div className="relative flex h-full gap-0 min-h-0">
       {/* ── 좌측: 목록/캘린더 ── */}
       <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
         <div className="flex items-center justify-between mb-4">
@@ -302,8 +302,8 @@ export default function AdminCalendarPage() {
         )}
       </div>
 
-      {/* ── 우측: 상세 + 출력현황 ── */}
-      <div className="w-[400px] ml-5 flex-shrink-0 flex flex-col gap-3 overflow-y-auto pb-4" style={{ maxHeight: 'calc(100vh - 6rem)' }}>
+      {/* ── 우측: 상세 + 출력현황 (오버레이) ── */}
+      <div className="absolute right-0 top-0 bottom-0 w-[420px] flex flex-col gap-3 overflow-y-auto pb-4 z-20 bg-gray-50 rounded-xl border border-gray-200 shadow-2xl px-3 pt-3">
 
         {/* 선택된 일정 상세 */}
         {selected && (
