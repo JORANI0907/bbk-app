@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
+import { createAuthUser, updateAuthUserEmailAndPassword, customerEmail } from '@/lib/auth-helpers'
+import crypto from 'crypto'
 
 const ALLOWED = [
   'business_name', 'contact_name', 'contact_phone', 'email',
@@ -11,6 +13,58 @@ const ALLOWED = [
   'billing_start_date', 'billing_next_date', 'contract_start_date',
   'contract_end_date', 'unit_price', 'visit_interval_days', 'next_visit_date', 'notes',
 ]
+
+// 읽기 쉬운 8자리 난수 비밀번호 (혼동하기 쉬운 I, O, 0, 1 제외)
+function generateRandomPassword(): string {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
+  let pw = ''
+  for (let i = 0; i < 8; i++) {
+    pw += chars[crypto.randomInt(chars.length)]
+  }
+  return pw
+}
+
+async function createPortalAccount(
+  supabase: ReturnType<typeof createServiceClient>,
+  customerId: string,
+  phone: string,
+  name: string,
+): Promise<string> {
+  const normalizedPhone = phone.replace(/-/g, '')
+  const email = customerEmail(normalizedPhone)
+  const password = generateRandomPassword()
+
+  const { data: existingUser } = await supabase
+    .from('users')
+    .select('id, auth_id')
+    .eq('phone', normalizedPhone)
+    .eq('role', 'customer')
+    .single()
+
+  let userId: string
+
+  if (existingUser) {
+    userId = existingUser.id
+    if (existingUser.auth_id) {
+      await updateAuthUserEmailAndPassword(existingUser.auth_id, email, password)
+    } else {
+      const authUser = await createAuthUser(email, password, { role: 'customer', name })
+      await supabase.from('users').update({ auth_id: authUser.id }).eq('id', existingUser.id)
+    }
+  } else {
+    const authUser = await createAuthUser(email, password, { role: 'customer', name })
+    const { data: newUser, error: insertError } = await supabase
+      .from('users')
+      .insert({ auth_id: authUser.id, role: 'customer', name, phone: normalizedPhone, is_active: true })
+      .select('id')
+      .single()
+    if (insertError) throw new Error(insertError.message)
+    userId = newUser!.id
+  }
+
+  await supabase.from('customers').update({ user_id: userId }).eq('id', customerId)
+  return password
+}
 
 export async function GET() {
   const supabase = createServiceClient()
@@ -43,7 +97,20 @@ export async function POST(request: NextRequest) {
     .single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json({ customer: data }, { status: 201 })
+
+  // 연락처가 있으면 포털 계정 자동 생성
+  let generatedPassword: string | null = null
+  if (body.contact_phone) {
+    try {
+      const name = (body.contact_name || body.business_name || '').trim()
+      generatedPassword = await createPortalAccount(supabase, data.id, body.contact_phone, name)
+    } catch (e) {
+      // 포털 계정 생성 실패해도 고객 등록은 성공 처리
+      console.error('포털 계정 자동 생성 실패:', e instanceof Error ? e.message : e)
+    }
+  }
+
+  return NextResponse.json({ customer: data, generatedPassword }, { status: 201 })
 }
 
 export async function PATCH(request: NextRequest) {
