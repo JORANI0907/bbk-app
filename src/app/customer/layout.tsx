@@ -1,19 +1,12 @@
 import Link from 'next/link'
-import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
+import { cookies } from 'next/headers'
 
 export default async function CustomerLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
-  const supabase = createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) redirect('/login')
-
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
       <header className="sticky top-0 z-40 bg-white border-b border-gray-100 safe-area-pt">
@@ -26,8 +19,10 @@ export default async function CustomerLayout({
           <form
             action={async () => {
               'use server'
-              const serverClient = createClient()
-              await serverClient.auth.signOut()
+              const cookieStore = cookies()
+              cookieStore.delete('bbk_session')
+              cookieStore.delete('bbk_access_token')
+              cookieStore.delete('bbk_refresh_token')
               redirect('/login')
             }}
           >

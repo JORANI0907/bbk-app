@@ -1,4 +1,5 @@
-import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/server'
+import { getServerSession } from '@/lib/session'
 import { redirect } from 'next/navigation'
 import { format, isPast, isToday } from 'date-fns'
 import { ko } from 'date-fns/locale'
@@ -61,17 +62,15 @@ function ScheduleCard({ schedule }: { schedule: ServiceSchedule }) {
 }
 
 export default async function CustomerSchedulePage() {
-  const supabase = createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const session = getServerSession()
+  if (!session || session.role !== 'customer') redirect('/login')
 
-  if (!user) redirect('/login')
+  const supabase = createServiceClient()
 
   const { data: userProfile } = await supabase
     .from('users')
     .select('*, customer:customers(id)')
-    .eq('auth_id', user.id)
+    .eq('id', session.userId)
     .single()
 
   if (!userProfile?.customer) redirect('/customer')

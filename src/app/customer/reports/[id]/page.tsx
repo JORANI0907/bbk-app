@@ -1,4 +1,5 @@
-import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/server'
+import { getServerSession } from '@/lib/session'
 import { redirect, notFound } from 'next/navigation'
 import { format } from 'date-fns'
 import { ko } from 'date-fns/locale'
@@ -12,12 +13,10 @@ interface PageProps {
 
 export default async function CustomerReportDetailPage({ params }: PageProps) {
   const { id: scheduleId } = params
-  const supabase = createClient()
+  const session = getServerSession()
+  if (!session || session.role !== 'customer') redirect('/login')
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
+  const supabase = createServiceClient()
 
   const { data: schedule } = await supabase
     .from('service_schedules')

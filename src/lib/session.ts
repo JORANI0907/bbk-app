@@ -1,4 +1,5 @@
 import crypto from 'crypto'
+import { cookies } from 'next/headers'
 
 const SECRET = process.env.SUPABASE_SERVICE_ROLE_KEY ?? 'bbk-secret'
 
@@ -17,4 +18,13 @@ export function verifySession(token: string): Record<string, string> | null {
   } catch {
     return null
   }
+}
+
+export function getServerSession(): { userId: string; role: string; name: string } | null {
+  const cookieStore = cookies()
+  const token = cookieStore.get('bbk_session')?.value
+  if (!token) return null
+  const payload = verifySession(token)
+  if (!payload) return null
+  return payload as { userId: string; role: string; name: string }
 }

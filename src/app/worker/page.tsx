@@ -1,4 +1,5 @@
-import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/server'
+import { getServerSession } from '@/lib/session'
 import { ScheduleCard } from '@/components/worker/ScheduleCard'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
@@ -6,21 +7,10 @@ import { format } from 'date-fns'
 import { ServiceSchedule } from '@/types/database'
 
 export default async function WorkerHomePage() {
-  const supabase = createClient()
+  const session = getServerSession()
+  if (!session || session.role !== 'worker') redirect('/login')
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) redirect('/login')
-
-  const { data: workerProfile } = await supabase
-    .from('users')
-    .select('id')
-    .eq('auth_id', user.id)
-    .single()
-
-  if (!workerProfile) redirect('/login')
+  const supabase = createServiceClient()
 
   const today = format(new Date(), 'yyyy-MM-dd')
 
@@ -32,7 +22,7 @@ export default async function WorkerHomePage() {
       customer:customers(*)
     `,
     )
-    .eq('worker_id', workerProfile.id)
+    .eq('worker_id', session.userId)
     .eq('scheduled_date', today)
     .order('scheduled_time_start', { ascending: true })
 

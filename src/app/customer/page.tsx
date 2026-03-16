@@ -1,4 +1,5 @@
-import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/server'
+import { getServerSession } from '@/lib/session'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { DdayCounter } from '@/components/customer/DdayCounter'
@@ -8,17 +9,15 @@ import { ServiceSchedule, Contract } from '@/types/database'
 import { SCHEDULE_STATUS_LABELS, SCHEDULE_STATUS_COLORS } from '@/lib/constants'
 
 export default async function CustomerHomePage() {
-  const supabase = createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const session = getServerSession()
+  if (!session || session.role !== 'customer') redirect('/login')
 
-  if (!user) redirect('/login')
+  const supabase = createServiceClient()
 
   const { data: userProfile } = await supabase
     .from('users')
     .select('*, customer:customers(*)')
-    .eq('auth_id', user.id)
+    .eq('id', session.userId)
     .single()
 
   if (!userProfile || !userProfile.customer) {
