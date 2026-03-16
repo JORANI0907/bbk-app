@@ -30,7 +30,7 @@ export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname
 
   // 공개 경로
-  const publicPaths = ['/login', '/api/auth', '/api/sms', '/api/admin', '/api/webhooks']
+  const publicPaths = ['/login', '/signup', '/api/auth', '/api/sms', '/api/admin', '/api/webhooks']
   const isPublic = publicPaths.some(p => pathname.startsWith(p))
 
   const sessionToken = request.cookies.get('bbk_session')?.value

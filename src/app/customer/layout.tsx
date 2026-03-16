@@ -48,6 +48,12 @@ export default async function CustomerLayout({
             홈
           </Link>
           <Link
+            href="/customer/schedule"
+            className="flex-1 text-center py-2.5 text-xs font-medium text-gray-600 hover:text-blue-600 transition-colors"
+          >
+            서비스 일정
+          </Link>
+          <Link
             href="/customer/reports"
             className="flex-1 text-center py-2.5 text-xs font-medium text-gray-600 hover:text-blue-600 transition-colors"
           >

@@ -1,107 +1,90 @@
 'use client'
 
 import { useState } from 'react'
-import { createClient } from '@/lib/supabase/client'
+import Link from 'next/link'
 import toast from 'react-hot-toast'
 
-type LoginTab = 'worker' | 'customer'
-type OtpStep = 'phone' | 'otp'
+type LoginTab = 'employee' | 'customer'
+
+async function setSession(user: { id: string; role: string; name: string }, session: { access_token: string; refresh_token: string }) {
+  const res = await fetch('/api/auth/session', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      userId: user.id,
+      role: user.role,
+      name: user.name,
+      accessToken: session.access_token,
+      refreshToken: session.refresh_token,
+    }),
+  })
+  if (!res.ok) throw new Error('세션 설정 실패')
+}
+
+function redirectByRole(role: string) {
+  if (role === 'admin') window.location.href = '/admin'
+  else if (role === 'worker') window.location.href = '/worker'
+  else if (role === 'customer') window.location.href = '/customer'
+  else toast.error('접근 권한이 없습니다.')
+}
 
 export default function LoginPage() {
-  const [activeTab, setActiveTab] = useState<LoginTab>('worker')
+  const [activeTab, setActiveTab] = useState<LoginTab>('employee')
 
-  const [step, setStep] = useState<OtpStep>('phone')
-  const [phone, setPhone] = useState('')
-  const [otp, setOtp] = useState('')
+  // 직원 로그인 상태
+  const [empEmail, setEmpEmail] = useState('')
+  const [empPassword, setEmpPassword] = useState('')
+
+  // 고객 로그인 상태
+  const [custPhone, setCustPhone] = useState('')
+  const [custPassword, setCustPassword] = useState('')
+
   const [loading, setLoading] = useState(false)
 
-  // 전화번호 정규화 (하이픈 제거)
-  const normalizePhone = (raw: string) => raw.replace(/-/g, '').trim()
-
-  // ① 인증번호 발송 (커스텀 Solapi API 호출)
-  const handleSendOtp = async () => {
-    if (!phone.trim()) {
-      toast.error('전화번호를 입력해주세요.')
+  const handleEmployeeLogin = async () => {
+    if (!empEmail.trim() || !empPassword.trim()) {
+      toast.error('이메일과 비밀번호를 입력해주세요.')
       return
     }
     setLoading(true)
     try {
-      const res = await fetch('/api/auth/otp/send', {
+      const res = await fetch('/api/auth/employee/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: normalizePhone(phone) }),
+        body: JSON.stringify({ email: empEmail.trim(), password: empPassword }),
       })
       const data = await res.json()
-      if (!res.ok) throw new Error(data.error ?? '발송 실패')
-      setStep('otp')
-      toast.success('인증번호가 발송되었습니다.')
+      if (!res.ok) throw new Error(data.error ?? '로그인 실패')
+
+      await setSession(data.user, data.session)
+      redirectByRole(data.user.role)
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : '인증번호 발송에 실패했습니다.')
+      toast.error(err instanceof Error ? err.message : '로그인에 실패했습니다.')
     } finally {
       setLoading(false)
     }
   }
 
-  // ② 인증번호 검증 + 로그인
-  const handleVerifyOtp = async () => {
-    if (!otp.trim() || otp.length < 6) {
-      toast.error('6자리 인증번호를 입력해주세요.')
+  const handleCustomerLogin = async () => {
+    if (!custPhone.trim() || !custPassword.trim()) {
+      toast.error('연락처와 비밀번호를 입력해주세요.')
       return
     }
     setLoading(true)
     try {
-      const res = await fetch('/api/auth/otp/verify', {
+      const res = await fetch('/api/auth/customer/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: normalizePhone(phone), otp }),
+        body: JSON.stringify({ phone: custPhone.trim(), password: custPassword }),
       })
       const data = await res.json()
-      if (!res.ok) throw new Error(data.error ?? '인증 실패')
+      if (!res.ok) throw new Error(data.error ?? '로그인 실패')
 
-      // 서버에서 세션 쿠키 설정
-      if (data.session) {
-        const sessionRes = await fetch('/api/auth/session', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            userId: data.user.id,
-            role: data.user.role,
-            name: data.user.name,
-            accessToken: data.session.access_token,
-            refreshToken: data.session.refresh_token,
-          }),
-        })
-        if (!sessionRes.ok) throw new Error('세션 설정 실패')
-      }
-
-      const role = data.user?.role
-      if (role === 'admin') {
-        window.location.href = '/admin'
-      } else if (role === 'worker') {
-        window.location.href = '/worker'
-      } else if (role === 'customer') {
-        window.location.href = '/customer'
-      } else {
-        toast.error('접근 권한이 없습니다.')
-      }
+      await setSession(data.user, data.session)
+      redirectByRole(data.user.role)
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : '인증에 실패했습니다.')
+      toast.error(err instanceof Error ? err.message : '로그인에 실패했습니다.')
     } finally {
-      setLoading(false)
-    }
-  }
-
-  const handleKakaoLogin = async () => {
-    setLoading(true)
-    try {
-      const supabase = createClient()
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'kakao',
-        options: { redirectTo: `${window.location.origin}/` },
-      })
-      if (error) throw error
-    } catch {
-      toast.error('카카오 로그인에 실패했습니다.')
       setLoading(false)
     }
   }
@@ -123,17 +106,20 @@ export default function LoginPage() {
 
           {/* 탭 */}
           <div className="flex border-b border-gray-100">
-            {(['worker', 'customer'] as LoginTab[]).map((tab) => (
+            {([
+              { key: 'employee', label: '직원 / 관리자' },
+              { key: 'customer', label: '고객' },
+            ] as { key: LoginTab; label: string }[]).map(({ key, label }) => (
               <button
-                key={tab}
-                onClick={() => { setActiveTab(tab); setStep('phone'); setOtp('') }}
+                key={key}
+                onClick={() => setActiveTab(key)}
                 className={`flex-1 py-3.5 text-sm font-semibold transition-colors ${
-                  activeTab === tab
+                  activeTab === key
                     ? 'text-blue-600 border-b-2 border-blue-600'
                     : 'text-gray-400'
                 }`}
               >
-                {tab === 'worker' ? '직원 / 관리자' : '고객'}
+                {label}
               </button>
             ))}
           </div>
@@ -141,66 +127,53 @@ export default function LoginPage() {
           <div className="p-6">
 
             {/* 직원/관리자 탭 */}
-            {activeTab === 'worker' && (
+            {activeTab === 'employee' && (
               <div className="flex flex-col gap-4">
                 <div className="text-center mb-2">
                   <p className="text-base font-semibold text-gray-800">직원 / 관리자 로그인</p>
-                  <p className="text-xs text-gray-400 mt-1">등록된 전화번호로 OTP 인증</p>
+                  <p className="text-xs text-gray-400 mt-1">이메일과 비밀번호로 로그인하세요</p>
                 </div>
 
-                {step === 'phone' ? (
-                  <>
-                    <div className="flex flex-col gap-1.5">
-                      <label className="text-xs font-medium text-gray-600">전화번호</label>
-                      <input
-                        type="tel"
-                        value={phone}
-                        onChange={(e) => setPhone(e.target.value)}
-                        placeholder="01012345678"
-                        className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        onKeyDown={(e) => e.key === 'Enter' && handleSendOtp()}
-                      />
-                    </div>
-                    <button
-                      onClick={handleSendOtp}
-                      disabled={loading}
-                      className="w-full py-3.5 bg-blue-600 text-white font-semibold rounded-xl transition-all disabled:opacity-60"
-                    >
-                      {loading ? '발송 중...' : '인증번호 받기'}
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    <div className="flex flex-col gap-1.5">
-                      <label className="text-xs font-medium text-gray-600">인증번호</label>
-                      <input
-                        type="text"
-                        inputMode="numeric"
-                        value={otp}
-                        onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                        placeholder="6자리 입력"
-                        className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-center text-xl tracking-widest font-mono"
-                        onKeyDown={(e) => e.key === 'Enter' && handleVerifyOtp()}
-                      />
-                      <p className="text-xs text-gray-400 text-center">
-                        {phone}으로 발송된 6자리 번호를 입력해주세요 (5분 유효)
-                      </p>
-                    </div>
-                    <button
-                      onClick={handleVerifyOtp}
-                      disabled={loading}
-                      className="w-full py-3.5 bg-blue-600 text-white font-semibold rounded-xl transition-all disabled:opacity-60"
-                    >
-                      {loading ? '확인 중...' : '로그인'}
-                    </button>
-                    <button
-                      onClick={() => { setStep('phone'); setOtp('') }}
-                      className="text-sm text-gray-400 text-center w-full"
-                    >
-                      ← 전화번호 다시 입력
-                    </button>
-                  </>
-                )}
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs font-medium text-gray-600">이메일</label>
+                  <input
+                    type="email"
+                    value={empEmail}
+                    onChange={(e) => setEmpEmail(e.target.value)}
+                    placeholder="example@email.com"
+                    autoComplete="email"
+                    className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    onKeyDown={(e) => e.key === 'Enter' && handleEmployeeLogin()}
+                  />
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs font-medium text-gray-600">비밀번호</label>
+                  <input
+                    type="password"
+                    value={empPassword}
+                    onChange={(e) => setEmpPassword(e.target.value)}
+                    placeholder="비밀번호 입력"
+                    autoComplete="current-password"
+                    className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    onKeyDown={(e) => e.key === 'Enter' && handleEmployeeLogin()}
+                  />
+                </div>
+
+                <button
+                  onClick={handleEmployeeLogin}
+                  disabled={loading}
+                  className="w-full py-3.5 bg-blue-600 text-white font-semibold rounded-xl transition-all disabled:opacity-60 hover:bg-blue-700 active:scale-[0.98]"
+                >
+                  {loading ? '로그인 중...' : '로그인'}
+                </button>
+
+                <div className="text-center pt-1">
+                  <span className="text-xs text-gray-400">계정이 없으신가요? </span>
+                  <Link href="/signup" className="text-xs text-blue-600 font-medium hover:underline">
+                    직원 회원가입
+                  </Link>
+                </div>
               </div>
             )}
 
@@ -209,67 +182,46 @@ export default function LoginPage() {
               <div className="flex flex-col gap-4">
                 <div className="text-center mb-2">
                   <p className="text-base font-semibold text-gray-800">고객 로그인</p>
+                  <p className="text-xs text-gray-400 mt-1">등록된 연락처와 비밀번호로 로그인하세요</p>
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs font-medium text-gray-600">연락처</label>
+                  <input
+                    type="tel"
+                    value={custPhone}
+                    onChange={(e) => setCustPhone(e.target.value)}
+                    placeholder="01012345678"
+                    autoComplete="tel"
+                    className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    onKeyDown={(e) => e.key === 'Enter' && handleCustomerLogin()}
+                  />
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs font-medium text-gray-600">비밀번호</label>
+                  <input
+                    type="password"
+                    value={custPassword}
+                    onChange={(e) => setCustPassword(e.target.value)}
+                    placeholder="비밀번호 입력"
+                    autoComplete="current-password"
+                    className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    onKeyDown={(e) => e.key === 'Enter' && handleCustomerLogin()}
+                  />
                 </div>
 
                 <button
-                  onClick={handleKakaoLogin}
+                  onClick={handleCustomerLogin}
                   disabled={loading}
-                  className="w-full py-3.5 bg-yellow-400 text-yellow-900 font-semibold rounded-xl flex items-center justify-center gap-2 transition-all disabled:opacity-60"
+                  className="w-full py-3.5 bg-blue-600 text-white font-semibold rounded-xl transition-all disabled:opacity-60 hover:bg-blue-700 active:scale-[0.98]"
                 >
-                  <span className="text-lg">💬</span>
-                  카카오로 로그인
+                  {loading ? '로그인 중...' : '로그인'}
                 </button>
 
-                <div className="flex items-center gap-3">
-                  <div className="flex-1 h-px bg-gray-200" />
-                  <span className="text-xs text-gray-400">또는 전화번호</span>
-                  <div className="flex-1 h-px bg-gray-200" />
-                </div>
-
-                {step === 'phone' ? (
-                  <>
-                    <input
-                      type="tel"
-                      value={phone}
-                      onChange={(e) => setPhone(e.target.value)}
-                      placeholder="01012345678"
-                      className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      onKeyDown={(e) => e.key === 'Enter' && handleSendOtp()}
-                    />
-                    <button
-                      onClick={handleSendOtp}
-                      disabled={loading}
-                      className="w-full py-3.5 bg-blue-600 text-white font-semibold rounded-xl transition-all disabled:opacity-60"
-                    >
-                      {loading ? '발송 중...' : '인증번호 받기'}
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      value={otp}
-                      onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                      placeholder="6자리 인증번호"
-                      className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-center text-xl tracking-widest font-mono"
-                      onKeyDown={(e) => e.key === 'Enter' && handleVerifyOtp()}
-                    />
-                    <button
-                      onClick={handleVerifyOtp}
-                      disabled={loading}
-                      className="w-full py-3.5 bg-blue-600 text-white font-semibold rounded-xl transition-all disabled:opacity-60"
-                    >
-                      {loading ? '확인 중...' : '로그인'}
-                    </button>
-                    <button
-                      onClick={() => { setStep('phone'); setOtp('') }}
-                      className="text-sm text-gray-400 text-center w-full"
-                    >
-                      ← 전화번호 다시 입력
-                    </button>
-                  </>
-                )}
+                <p className="text-center text-xs text-gray-400">
+                  로그인 정보는 담당자에게 문의하세요
+                </p>
               </div>
             )}
 
