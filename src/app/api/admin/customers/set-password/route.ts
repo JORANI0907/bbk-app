@@ -5,7 +5,7 @@
  */
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
-import { createAuthUser, updateAuthUserPassword, customerEmail } from '@/lib/auth-helpers'
+import { createAuthUser, updateAuthUserEmailAndPassword, customerEmail } from '@/lib/auth-helpers'
 
 export async function POST(request: NextRequest) {
   try {
@@ -36,9 +36,9 @@ export async function POST(request: NextRequest) {
     if (existingUser) {
       userId = existingUser.id
 
-      // Auth 계정이 있으면 비밀번호만 변경
+      // Auth 계정이 있으면 이메일+비밀번호 모두 업데이트 (기존 OTP 계정에 이메일 없을 수 있음)
       if (existingUser.auth_id) {
-        await updateAuthUserPassword(existingUser.auth_id, password)
+        await updateAuthUserEmailAndPassword(existingUser.auth_id, email, password)
       } else {
         // Auth 계정이 없으면 새로 생성
         const authUser = await createAuthUser(email, password, {
