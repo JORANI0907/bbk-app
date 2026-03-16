@@ -1,5 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
+import { updateAuthUserPassword } from '@/lib/auth-helpers'
+
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!
+const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!
+
+async function deleteAuthUser(authId: string) {
+  const res = await fetch(`${SUPABASE_URL}/auth/v1/admin/users/${authId}`, {
+    method: 'DELETE',
+    headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}` },
+  })
+  if (!res.ok && res.status !== 404) {
+    const data = await res.json().catch(() => ({}))
+    throw new Error(data.message ?? 'Auth 계정 삭제 실패')
+  }
+}
 
 // GET: 전체 사용자 목록 (role 필터 지원)
 export async function GET(request: NextRequest) {
@@ -50,12 +65,37 @@ export async function POST(request: NextRequest) {
   return NextResponse.json({ user: data }, { status: 201 })
 }
 
-// PATCH: 사용자 정보 수정
+// PATCH: 사용자 정보 수정 또는 비밀번호 초기화
 export async function PATCH(request: NextRequest) {
   const supabase = createServiceClient()
-  const { id, ...updates } = await request.json()
+  const body = await request.json()
+  const { id, reset_password, new_password, ...updates } = body
 
   if (!id) return NextResponse.json({ error: 'id가 필요합니다.' }, { status: 400 })
+
+  // 비밀번호 초기화
+  if (reset_password && new_password) {
+    if (new_password.length < 8) {
+      return NextResponse.json({ error: '비밀번호는 8자 이상이어야 합니다.' }, { status: 400 })
+    }
+    const { data: user } = await supabase
+      .from('users')
+      .select('auth_id')
+      .eq('id', id)
+      .single()
+
+    if (!user?.auth_id) {
+      return NextResponse.json({ error: '연결된 Auth 계정이 없습니다.' }, { status: 404 })
+    }
+
+    try {
+      await updateAuthUserPassword(user.auth_id, new_password)
+      return NextResponse.json({ success: true })
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : '비밀번호 변경 실패'
+      return NextResponse.json({ error: msg }, { status: 500 })
+    }
+  }
 
   if (updates.phone) {
     updates.phone = updates.phone.replace(/-/g, '')
@@ -70,4 +110,36 @@ export async function PATCH(request: NextRequest) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ user: data })
+}
+
+// DELETE: 사용자 삭제 (Auth 계정 포함)
+export async function DELETE(request: NextRequest) {
+  const supabase = createServiceClient()
+  const { id } = await request.json()
+
+  if (!id) return NextResponse.json({ error: 'id가 필요합니다.' }, { status: 400 })
+
+  const { data: user } = await supabase
+    .from('users')
+    .select('auth_id, role, name')
+    .eq('id', id)
+    .single()
+
+  if (!user) return NextResponse.json({ error: '사용자를 찾을 수 없습니다.' }, { status: 404 })
+
+  // Auth 계정 삭제
+  if (user.auth_id) {
+    try {
+      await deleteAuthUser(user.auth_id)
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Auth 삭제 실패'
+      return NextResponse.json({ error: msg }, { status: 500 })
+    }
+  }
+
+  // users 테이블에서 삭제
+  const { error } = await supabase.from('users').delete().eq('id', id)
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  return NextResponse.json({ success: true })
 }
