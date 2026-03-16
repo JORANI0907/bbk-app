@@ -308,8 +308,8 @@ export default function AdminCustomersPage() {
         setCustomers(prev => [newCustomer, ...prev])
         handleSelect(newCustomer)
         setIsNew(false)
-        if (data.generatedPassword && body.contact_phone) {
-          setPortalInfo({ phone: body.contact_phone, password: data.generatedPassword })
+        if (data.generatedPassword && form.contact_phone) {
+          setPortalInfo({ phone: form.contact_phone, password: data.generatedPassword })
         } else {
           toast.success('고객이 추가되었습니다.')
         }
