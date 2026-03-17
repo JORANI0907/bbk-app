@@ -64,6 +64,28 @@ export function requestGoogleToken(): Promise<string> {
   })
 }
 
+/**
+ * 폴더 ID가 바로가기(Shortcut)인 경우 실제 폴더 ID로 resolve
+ * 실패하면 Picker가 반환한 원래 값 그대로 사용
+ */
+export async function resolveFolder(picked: DriveFolder, accessToken: string): Promise<DriveFolder> {
+  try {
+    const res = await fetch(
+      `https://www.googleapis.com/drive/v3/files/${picked.id}?fields=id,name,shortcutDetails&supportsAllDrives=true&includeItemsFromAllDrives=true`,
+      { headers: { Authorization: `Bearer ${accessToken}` } }
+    )
+    if (!res.ok) return picked // 접근 불가면 Picker 결과 그대로 사용
+    const data = await res.json()
+    if (data.shortcutDetails?.targetId) {
+      // 바로가기 → 실제 폴더로 재귀 resolve
+      return resolveFolder({ id: data.shortcutDetails.targetId, name: data.name as string }, accessToken)
+    }
+    return { id: data.id as string, name: data.name as string }
+  } catch {
+    return picked // 예외 시에도 Picker 결과 그대로
+  }
+}
+
 /** Google Picker로 폴더 선택 */
 export function openFolderPicker(accessToken: string): Promise<DriveFolder | null> {
   return new Promise((resolve) => {
@@ -73,9 +95,11 @@ export function openFolderPicker(accessToken: string): Promise<DriveFolder | nul
       .setSelectFolderEnabled(true)
       .setIncludeFolders(true)
       .setMimeTypes('application/vnd.google-apps.folder')
+      .setEnableDrives(true)
 
     const builder = new g.picker.PickerBuilder()
       .addView(view)
+      .enableFeature(g.picker.Feature.SUPPORT_DRIVES)
       .setOAuthToken(accessToken)
       .setTitle('저장할 Google Drive 폴더 선택')
       .setCallback((data: { action: string; docs?: Array<{ id: string; name: string }> }) => {
@@ -91,20 +115,23 @@ export function openFolderPicker(accessToken: string): Promise<DriveFolder | nul
   })
 }
 
-/** Drive REST API로 폴더 생성 */
+/** Drive REST API로 폴더 생성 (공유 드라이브 포함) */
 async function createFolder(name: string, parentId: string, accessToken: string): Promise<string> {
-  const res = await fetch('https://www.googleapis.com/drive/v3/files', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      name,
-      mimeType: 'application/vnd.google-apps.folder',
-      parents: [parentId],
-    }),
-  })
+  const res = await fetch(
+    'https://www.googleapis.com/drive/v3/files?supportsAllDrives=true',
+    {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        name,
+        mimeType: 'application/vnd.google-apps.folder',
+        parents: [parentId],
+      }),
+    }
+  )
   if (!res.ok) {
     const err = await res.json()
     throw new Error(err.error?.message ?? `폴더 생성 실패 (${res.status})`)
