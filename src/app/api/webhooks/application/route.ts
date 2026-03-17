@@ -13,6 +13,7 @@ export async function OPTIONS() {
 
 const NOTION_TOKEN = process.env.NOTION_TOKEN
 const NOTION_APPLICATIONS_DB_ID = process.env.NOTION_APPLICATIONS_DB_ID
+const MAKE_WEBHOOK_URL = process.env.MAKE_APPLICATION_WEBHOOK_URL
 
 async function syncToNotion(application: Record<string, string>) {
   if (!NOTION_TOKEN || !NOTION_APPLICATIONS_DB_ID) return null
@@ -116,6 +117,33 @@ export async function POST(request: NextRequest) {
         .from('service_applications')
         .update({ notion_page_id: notionPageId })
         .eq('id', inserted.id)
+    }
+
+    // Make 웹훅 (카카오 알림 + Gmail)
+    if (MAKE_WEBHOOK_URL) {
+      fetch(MAKE_WEBHOOK_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          businessName,
+          ownerName,
+          phone,
+          email,
+          emailId: email ? email.split('@')[0] : '',
+          address,
+          businessNumber,
+          businessHoursStart,
+          businessHoursEnd,
+          elevator,
+          buildingAccess,
+          accessMethod,
+          parking,
+          paymentMethod,
+          accountNumber,
+          platformNickname,
+          requestNotes,
+        }),
+      }).catch(err => console.error('Make webhook error:', err))
     }
 
     return NextResponse.json({ success: true, id: inserted?.id }, { headers: CORS_HEADERS })

@@ -43,16 +43,29 @@ export default function ApplicationForm() {
     }
     setLoading(true)
     try {
-      const res = await fetch('/api/webhooks/application', {
+      const res = await fetch('https://hook.eu2.make.com/d6rjjszhes75r9wwhngqhhseevo8qttc', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          ...form,
-          timestamp: new Date().toISOString(),
+          businessName: form.businessName,
+          ownerName: form.ownerName,
+          phone: form.phone,
+          email: form.email,
+          address: form.address,
+          accountNumber: form.accountNumber,
+          elevator: form.elevator,
+          accessMethod: form.accessMethod,
+          buildingAccess: form.buildingAccess,
+          businessHoursStart: form.businessHoursStart,
+          businessHoursEnd: form.businessHoursEnd,
+          parking: form.parking,
+          platformNickname: form.platformNickname,
+          businessNumber: form.businessNumber,
+          paymentMethod: form.paymentMethod,
+          requestNotes: form.requestNotes,
         }),
       })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || '신청 실패')
+      if (!res.ok) throw new Error('신청 실패')
       setSubmitted(true)
     } catch (e) {
       toast.error(e instanceof Error ? e.message : '신청 중 오류가 발생했습니다.')

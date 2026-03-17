@@ -191,7 +191,7 @@ function AmountInput({ label, value, onChange, hint, disabled }: {
   )
 }
 
-// ─── Google Drive 폴더 생성 모달 ─────────────────────────────
+// ─── Google Drive 폴더 생성/변경 모달 ────────────────────────
 function DriveFolderModal({
   businessName, initialDate, onClose,
   onSelectFolder, onConfirm,
@@ -201,11 +201,12 @@ function DriveFolderModal({
   initialDate: string
   onClose: () => void
   onSelectFolder: () => void
-  onConfirm: (date: string) => void
+  onConfirm: (date: string, mode: 'create' | 'link') => void
   savedFolder: DriveFolder | null
   creating: boolean
 }) {
   const [constructionDate, setConstructionDate] = useState(initialDate || today())
+  const [mode, setMode] = useState<'create' | 'link'>('create')
   const dateStr = constructionDate.replace(/-/g, '')
   const folderName = `${dateStr} ${businessName}`
 
@@ -213,53 +214,98 @@ function DriveFolderModal({
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
         <div className="p-5 border-b border-gray-100 flex justify-between items-center">
-          <h2 className="font-bold text-gray-900">📁 Google Drive 폴더 생성</h2>
+          <h2 className="font-bold text-gray-900">📁 Google Drive 폴더 생성/변경</h2>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-lg">✕</button>
         </div>
         <div className="p-5 space-y-4">
-          <div className="bg-gray-50 rounded-xl p-4">
-            <p className="text-xs font-semibold text-gray-500 mb-3">생성될 폴더 구조</p>
-            <div className="space-y-1.5">
-              <div className="flex items-center gap-2">
-                <span className="text-base">📁</span>
-                <span className="text-sm font-semibold text-gray-800">{folderName}</span>
-              </div>
-              <div className="ml-7 space-y-1">
-                <div className="flex items-center gap-2 text-sm text-gray-600"><span>📁</span><span>작업 전</span></div>
-                <div className="flex items-center gap-2 text-sm text-gray-600"><span>📁</span><span>작업 후</span></div>
-              </div>
-            </div>
+          {/* 모드 토글 */}
+          <div className="flex bg-gray-100 rounded-xl p-1 gap-1">
+            <button
+              onClick={() => setMode('create')}
+              className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-colors ${mode === 'create' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'}`}
+            >
+              📁 새 폴더 생성
+            </button>
+            <button
+              onClick={() => setMode('link')}
+              className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-colors ${mode === 'link' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'}`}
+            >
+              🔗 기존 폴더 연결
+            </button>
           </div>
-          <div>
-            <label className="text-xs font-semibold text-gray-500 block mb-2">시공일자</label>
-            <input type="date" value={constructionDate}
-              onChange={e => setConstructionDate(e.target.value)}
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-          </div>
-          <div>
-            <p className="text-xs font-semibold text-gray-500 mb-2">저장 위치 (Google Drive)</p>
-            {savedFolder ? (
-              <div className="flex items-center justify-between bg-blue-50 border border-blue-200 rounded-xl p-3">
-                <div className="flex items-center gap-2 min-w-0">
-                  <span className="text-lg">📂</span>
-                  <span className="text-sm font-medium text-blue-700 truncate">{savedFolder.name}</span>
+
+          {mode === 'create' && (
+            <>
+              <div className="bg-gray-50 rounded-xl p-4">
+                <p className="text-xs font-semibold text-gray-500 mb-3">생성될 폴더 구조</p>
+                <div className="space-y-1.5">
+                  <div className="flex items-center gap-2">
+                    <span className="text-base">📁</span>
+                    <span className="text-sm font-semibold text-gray-800">{folderName}</span>
+                  </div>
+                  <div className="ml-7 space-y-1">
+                    <div className="flex items-center gap-2 text-sm text-gray-600"><span>📁</span><span>작업 전</span></div>
+                    <div className="flex items-center gap-2 text-sm text-gray-600"><span>📁</span><span>작업 후</span></div>
+                  </div>
                 </div>
-                <button onClick={onSelectFolder} className="text-xs text-blue-500 hover:text-blue-700 underline ml-2 shrink-0">변경</button>
               </div>
-            ) : (
-              <button onClick={onSelectFolder}
-                className="w-full py-4 border-2 border-dashed border-gray-200 rounded-xl text-sm text-gray-500 hover:border-blue-300 hover:text-blue-600 hover:bg-blue-50 transition-colors flex items-center justify-center gap-2">
-                <span className="text-lg">🗂️</span><span>Google Drive에서 위치 선택</span>
-              </button>
-            )}
-            {!savedFolder && <p className="text-xs text-gray-400 mt-1.5">선택한 위치는 다음에도 기억됩니다.</p>}
-          </div>
+              <div>
+                <label className="text-xs font-semibold text-gray-500 block mb-2">시공일자</label>
+                <input type="date" value={constructionDate}
+                  onChange={e => setConstructionDate(e.target.value)}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              </div>
+              <div>
+                <p className="text-xs font-semibold text-gray-500 mb-2">저장 위치 (상위 폴더)</p>
+                {savedFolder ? (
+                  <div className="flex items-center justify-between bg-blue-50 border border-blue-200 rounded-xl p-3">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="text-lg">📂</span>
+                      <span className="text-sm font-medium text-blue-700 truncate">{savedFolder.name}</span>
+                    </div>
+                    <button onClick={onSelectFolder} className="text-xs text-blue-500 hover:text-blue-700 underline ml-2 shrink-0">변경</button>
+                  </div>
+                ) : (
+                  <button onClick={onSelectFolder}
+                    className="w-full py-4 border-2 border-dashed border-gray-200 rounded-xl text-sm text-gray-500 hover:border-blue-300 hover:text-blue-600 hover:bg-blue-50 transition-colors flex items-center justify-center gap-2">
+                    <span className="text-lg">🗂️</span><span>Google Drive에서 위치 선택</span>
+                  </button>
+                )}
+                {!savedFolder && <p className="text-xs text-gray-400 mt-1.5">선택한 위치 안에 새 폴더가 생성됩니다.</p>}
+              </div>
+            </>
+          )}
+
+          {mode === 'link' && (
+            <>
+              <p className="text-sm text-gray-500 bg-blue-50 rounded-xl p-3">
+                새 폴더를 만들지 않고, 기존 Drive 폴더를 직접 연결합니다. Picker에서 연결할 폴더를 선택하세요.
+              </p>
+              <div>
+                <p className="text-xs font-semibold text-gray-500 mb-2">연결할 폴더</p>
+                {savedFolder ? (
+                  <div className="flex items-center justify-between bg-blue-50 border border-blue-200 rounded-xl p-3">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="text-lg">📂</span>
+                      <span className="text-sm font-medium text-blue-700 truncate">{savedFolder.name}</span>
+                    </div>
+                    <button onClick={onSelectFolder} className="text-xs text-blue-500 hover:text-blue-700 underline ml-2 shrink-0">다시 선택</button>
+                  </div>
+                ) : (
+                  <button onClick={onSelectFolder}
+                    className="w-full py-4 border-2 border-dashed border-gray-200 rounded-xl text-sm text-gray-500 hover:border-blue-300 hover:text-blue-600 hover:bg-blue-50 transition-colors flex items-center justify-center gap-2">
+                    <span className="text-lg">🗂️</span><span>연결할 폴더 선택</span>
+                  </button>
+                )}
+              </div>
+            </>
+          )}
         </div>
         <div className="p-4 border-t border-gray-100 flex gap-2">
           <button onClick={onClose} className="flex-1 py-2.5 bg-gray-100 text-gray-700 text-sm font-semibold rounded-lg hover:bg-gray-200 transition-colors">취소</button>
-          <button onClick={() => onConfirm(constructionDate)} disabled={!savedFolder || creating}
+          <button onClick={() => onConfirm(constructionDate, mode)} disabled={!savedFolder || creating}
             className="flex-1 py-2.5 bg-green-600 text-white text-sm font-semibold rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors">
-            {creating ? '⏳ 생성 중...' : '📁 폴더 생성'}
+            {creating ? '⏳ 처리 중...' : mode === 'create' ? '📁 폴더 생성' : '🔗 폴더 연결'}
           </button>
         </div>
       </div>
@@ -598,51 +644,64 @@ export default function ServiceManagementPage() {
     try {
       const lib = await getDriveLib()
       await lib.loadGoogleAPIs()
-      const token = driveToken || await lib.requestGoogleToken()
+      // 항상 새 토큰 — 같은 계정으로 Picker와 폴더 생성 모두 처리
+      const token = await lib.requestGoogleToken()
       setDriveToken(token)
-      const folder = await lib.openFolderPicker(token)
-      if (folder) { setSavedDriveFolder(folder); lib.saveDriveFolderCookie(folder) }
+      const picked = await lib.openFolderPicker(token)
+      if (picked) {
+        // 바로가기(Shortcut)인 경우 실제 폴더 ID로 resolve (실패 시 picked 그대로)
+        const folder = await lib.resolveFolder(picked, token)
+        setSavedDriveFolder(folder)
+        lib.saveDriveFolderCookie(folder)
+      }
     } catch (e) { toast.error(e instanceof Error ? e.message : 'Google Drive 연결 실패') }
   }
 
-  const handleConfirmDriveCreate = async (date: string) => {
+  const handleConfirmDriveCreate = async (date: string, mode: 'create' | 'link') => {
     if (!selected || !savedDriveFolder) return
     setDriveCreating(true)
     try {
       const lib = await getDriveLib()
-      let token = driveToken
-      if (!token) {
-        await lib.loadGoogleAPIs()
-        token = await lib.requestGoogleToken()
+      await lib.loadGoogleAPIs()
+
+      let folderUrl: string
+      let successMsg: string
+
+      if (mode === 'link') {
+        // 기존 폴더 연결 — 새 폴더 생성 없이 선택한 폴더 URL 저장
+        folderUrl = `https://drive.google.com/drive/folders/${savedDriveFolder.id}`
+        successMsg = `✅ "${savedDriveFolder.name}" 폴더 연결 완료!`
+      } else {
+        // 새 폴더 구조 생성
+        const token = driveToken || await lib.requestGoogleToken()
         setDriveToken(token)
+        const result = await lib.createWorkFolderStructure(
+          savedDriveFolder.id, selected.business_name, date, token
+        )
+        folderUrl = result.folderUrl
+        successMsg = `✅ "${result.folderName}" 폴더 생성 완료!`
       }
-      const { folderUrl, folderName } = await lib.createWorkFolderStructure(
-        savedDriveFolder.id, selected.business_name, date, token
-      )
+
       await fetch('/api/admin/applications', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: selected.id, drive_folder_url: folderUrl, construction_date: date }),
       })
-      // construction_date도 로컬 상태 업데이트
       setConstructionDate(date)
       setSelected(prev => prev ? { ...prev, drive_folder_url: folderUrl, construction_date: date } : prev)
       setApplications(prev => prev.map(a => a.id === selected.id ? { ...a, drive_folder_url: folderUrl, construction_date: date } : a))
       setDriveModalOpen(false)
-      toast.success(`✅ "${folderName}" 폴더 생성 완료!`, { duration: 5000 })
+      toast.success(successMsg, { duration: 5000 })
       window.open(folderUrl, '_blank')
     } catch (e) {
-      const msg = e instanceof Error ? e.message : '폴더 생성 실패'
-      // File not found: 저장된 폴더가 Drive에서 삭제된 경우
-      if (msg.includes('File not found') || msg.includes('not found')) {
-        toast.error('저장된 Drive 폴더를 찾을 수 없습니다. 위치를 다시 선택해주세요.', { duration: 5000 })
+      const msg = e instanceof Error ? e.message : '처리 실패'
+      const isTrulyMissing = msg.includes('File not found') && !msg.toLowerCase().includes('permission')
+      if (isTrulyMissing) {
+        toast.error('저장된 Drive 폴더가 삭제되었습니다. 위치를 다시 선택해주세요.', { duration: 5000 })
         setSavedDriveFolder(null)
-        // 쿠키 초기화
-        getDriveLib().then(lib => {
-          document.cookie = 'bbk_drive_folder=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/'
-        })
+        document.cookie = 'bbk_drive_folder=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/'
       } else {
-        toast.error(msg)
+        toast.error(`처리 실패: ${msg}`, { duration: 8000 })
       }
     } finally { setDriveCreating(false) }
   }
@@ -1213,7 +1272,7 @@ export default function ServiceManagementPage() {
                 <div className="space-y-2">
                   <button onClick={() => setDriveModalOpen(true)}
                     className="w-full py-2.5 bg-green-600 text-white text-sm font-semibold rounded-lg hover:bg-green-700 transition-colors flex items-center justify-center gap-2">
-                    <span>📁</span><span>폴더 생성</span>
+                    <span>📁</span><span>폴더 생성/변경</span>
                   </button>
                   {selected.drive_folder_url && (
                     <a href={selected.drive_folder_url} target="_blank" rel="noopener noreferrer"

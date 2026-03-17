@@ -48,6 +48,7 @@ export interface Customer {
   power_location: string | null
   parking_info: string | null
   special_notes: string | null
+  drive_folder_url: string | null
   pipeline_status: PipelineStatus
   created_at: string
   updated_at: string
