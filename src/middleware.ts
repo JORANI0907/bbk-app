@@ -27,54 +27,57 @@ async function verifySession(token: string): Promise<Record<string, string> | nu
 }
 
 export async function middleware(request: NextRequest) {
-  const pathname = request.nextUrl.pathname
+  try {
+    const pathname = request.nextUrl.pathname
 
-  // 공개 경로
-  const publicPaths = ['/login', '/signup', '/forgot-password', '/reset-password', '/api/auth', '/api/sms', '/api/admin', '/api/webhooks']
-  const isPublic = publicPaths.some(p => pathname.startsWith(p))
+    // 공개 경로
+    const publicPaths = ['/login', '/signup', '/forgot-password', '/reset-password', '/api/auth', '/api/sms', '/api/admin', '/api/webhooks']
+    const isPublic = publicPaths.some(p => pathname.startsWith(p))
 
-  const sessionToken = request.cookies.get('bbk_session')?.value
-  const session = sessionToken ? await verifySession(sessionToken) : null
+    const sessionToken = request.cookies.get('bbk_session')?.value
+    const session = sessionToken ? await verifySession(sessionToken) : null
 
-  if (!session && !isPublic) {
-    return NextResponse.redirect(new URL('/login', request.url))
-  }
-
-  if (session) {
-    const role = session.role
-
-    // 루트 경로 리디렉션
-    if (pathname === '/') {
-      if (role === 'admin') return NextResponse.redirect(new URL('/admin', request.url))
-      if (role === 'worker') return NextResponse.redirect(new URL('/admin', request.url))
-      if (role === 'customer') return NextResponse.redirect(new URL('/customer', request.url))
-    }
-
-    // 어드민 경로: admin과 worker 모두 허용
-    if (pathname.startsWith('/admin') && role !== 'admin' && role !== 'worker') {
+    if (!session && !isPublic) {
       return NextResponse.redirect(new URL('/login', request.url))
     }
 
-    // 워커 경로: worker가 /worker 방문 시 /admin으로 리디렉션
-    if (pathname.startsWith('/worker') && role === 'worker') {
-      // /worker/schedule/[id] → /admin/schedule/[id]
-      if (pathname.startsWith('/worker/schedule/')) {
-        const id = pathname.replace('/worker/schedule/', '')
-        return NextResponse.redirect(new URL(`/admin/schedule/${id}`, request.url))
+    if (session) {
+      const role = session.role
+
+      // 루트 경로 리디렉션
+      if (pathname === '/') {
+        if (role === 'admin') return NextResponse.redirect(new URL('/admin', request.url))
+        if (role === 'worker') return NextResponse.redirect(new URL('/admin', request.url))
+        if (role === 'customer') return NextResponse.redirect(new URL('/customer', request.url))
       }
-      // /worker → /admin
-      return NextResponse.redirect(new URL('/admin', request.url))
+
+      // 어드민 경로: admin과 worker 모두 허용
+      if (pathname.startsWith('/admin') && role !== 'admin' && role !== 'worker') {
+        return NextResponse.redirect(new URL('/login', request.url))
+      }
+
+      // 워커 경로: worker가 /worker 방문 시 /admin으로 리디렉션
+      if (pathname.startsWith('/worker') && role === 'worker') {
+        if (pathname.startsWith('/worker/schedule/')) {
+          const id = pathname.replace('/worker/schedule/', '')
+          return NextResponse.redirect(new URL(`/admin/schedule/${id}`, request.url))
+        }
+        return NextResponse.redirect(new URL('/admin', request.url))
+      }
+
+      if (pathname.startsWith('/worker') && role !== 'worker' && role !== 'admin') {
+        return NextResponse.redirect(new URL('/login', request.url))
+      }
+      if (pathname.startsWith('/customer') && role !== 'customer') {
+        return NextResponse.redirect(new URL('/login', request.url))
+      }
     }
 
-    if (pathname.startsWith('/worker') && role !== 'worker' && role !== 'admin') {
-      return NextResponse.redirect(new URL('/login', request.url))
-    }
-    if (pathname.startsWith('/customer') && role !== 'customer') {
-      return NextResponse.redirect(new URL('/login', request.url))
-    }
+    return NextResponse.next()
+  } catch {
+    // 엣지 함수 크래시 방지: 오류 발생 시 요청 통과
+    return NextResponse.next()
   }
-
-  return NextResponse.next()
 }
 
 export const config = {
