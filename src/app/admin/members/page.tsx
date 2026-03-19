@@ -190,8 +190,6 @@ export default function MembersPage() {
       {/* 탭 네비게이션 */}
       <div className="flex gap-1.5 mb-4">
         <a href="/admin/workers" className="px-4 py-2 text-gray-600 hover:bg-gray-100 text-sm font-medium rounded-xl transition-colors">👷 직원정보</a>
-        <a href="/admin/payroll" className="px-4 py-2 text-gray-600 hover:bg-gray-100 text-sm font-medium rounded-xl transition-colors">💰 급여정산</a>
-        <a href="/admin/finance" className="px-4 py-2 text-gray-600 hover:bg-gray-100 text-sm font-medium rounded-xl transition-colors">📈 매출매입</a>
         <span className="px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-xl">🔑 계정관리</span>
       </div>
 
