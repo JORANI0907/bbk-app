@@ -127,15 +127,28 @@ export async function PATCH(request: NextRequest) {
 
         const normalizedPhone = (app.phone ?? '').replace(/-/g, '')
         if (normalizedPhone) {
-          const { data: existingCustomer } = await supabase
+          // 전화번호는 대시 유무 두 형식 모두 시도, 없으면 업체명으로 fallback
+          const { data: byPhone } = await supabase
             .from('customers')
             .select('id, unit_price, customer_type')
-            .eq('contact_phone', normalizedPhone)
+            .or(`contact_phone.eq.${normalizedPhone},contact_phone.eq.${app.phone ?? ''}`)
+            .limit(1)
             .single()
+
+          const { data: byName } = !byPhone && app.business_name
+            ? await supabase
+                .from('customers')
+                .select('id, unit_price, customer_type')
+                .eq('business_name', app.business_name)
+                .limit(1)
+                .single()
+            : { data: null }
+
+          const existingCustomer = byPhone ?? byName
 
           if (existingCustomer) {
             customerId = existingCustomer.id
-            // 정기엔드케어이고 고객 건당급여가 있으면 application에 자동 반영
+            // 정기엔드케어이고 고객 건당급여가 있으면 application에 자동 반영 (unit_price_per_visit 미설정 시)
             if (
               app.service_type === '정기엔드케어' &&
               existingCustomer.unit_price &&

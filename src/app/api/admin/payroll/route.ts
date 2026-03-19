@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'month 파라미터가 필요합니다. (YYYY-MM)' }, { status: 400 })
   }
 
-  const [appsRes, assignmentsRes, usersRes, workersRes, recordsRes] = await Promise.all([
+  const [appsRes, assignmentsRes, usersRes, workersRes, recordsRes, customersRes] = await Promise.all([
     // 담당자 배정 서비스
     supabase
       .from('service_applications')
@@ -49,6 +49,12 @@ export async function GET(request: NextRequest) {
       .from('payroll_records')
       .select('*')
       .eq('year_month', month),
+
+    // 고객 건당급여 (unit_price_per_visit 폴백용)
+    supabase
+      .from('customers')
+      .select('business_name, unit_price')
+      .not('unit_price', 'is', null),
   ])
 
   if (appsRes.error) return NextResponse.json({ error: appsRes.error.message }, { status: 500 })
@@ -62,6 +68,12 @@ export async function GET(request: NextRequest) {
   const users = usersRes.data ?? []
   const workers = workersRes.data ?? []
   const records = recordsRes.data ?? []
+  // 업체명 → 고객 건당급여 맵 (unit_price_per_visit 미설정 시 폴백)
+  const customerUnitPriceMap = new Map<string, number>(
+    (customersRes.data ?? [])
+      .filter(c => c.unit_price != null)
+      .map(c => [c.business_name, c.unit_price as number])
+  )
 
   const recordMap = new Map(records.map(r => [`${r.person_type}:${r.person_id}`, r]))
 
@@ -89,9 +101,13 @@ export async function GET(request: NextRequest) {
     const entry = managerMap.get(app.assigned_to)!
     entry.jobs.push(app)
 
-    // 건당 급여: manager_pay 우선, 없으면 unit_price_per_visit (정기엔드케어만)
+    // 건당 급여: manager_pay > unit_price_per_visit > 고객DB unit_price(폴백) 순
+    const fallbackUnitPrice = app.service_type === '정기엔드케어'
+      ? (customerUnitPriceMap.get(app.business_name) ?? 0)
+      : 0
     const payPerJob = app.manager_pay
-      ?? (app.service_type === '정기엔드케어' ? (app.unit_price_per_visit ?? 0) : 0)
+      ?? app.unit_price_per_visit
+      ?? fallbackUnitPrice
     entry.auto_amount += payPerJob
   }
 
