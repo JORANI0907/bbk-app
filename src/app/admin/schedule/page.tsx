@@ -52,13 +52,11 @@ const STATUS_CONFIG: Record<string, { badge: string; dot: string }> = {
   '거절':     { badge: 'bg-red-100 text-red-700',         dot: 'bg-red-500' },
 }
 
-function getSession(): SessionUser | null {
+async function fetchSession(): Promise<SessionUser | null> {
   try {
-    const cookie = document.cookie.split('; ').find(r => r.startsWith('bbk_session='))
-    if (!cookie) return null
-    const token = decodeURIComponent(cookie.split('=')[1])
-    const [payloadB64] = token.split('.')
-    return JSON.parse(atob(payloadB64.replace(/-/g, '+').replace(/_/g, '/')))
+    const res = await fetch('/api/auth/me')
+    const data = await res.json()
+    return data.user ?? null
   } catch { return null }
 }
 
@@ -363,11 +361,12 @@ export default function SchedulePage() {
 
   // 세션 초기화
   useEffect(() => {
-    const session = getSession()
-    setCurrentUser(session)
-    if (session && session.role !== 'admin') {
-      setPersonFilter(session.userId)
-    }
+    fetchSession().then(session => {
+      setCurrentUser(session)
+      if (session && session.role !== 'admin') {
+        setPersonFilter(session.userId)
+      }
+    })
   }, [])
 
   // 참조 데이터 (users, workers) 최초 1회만 로드

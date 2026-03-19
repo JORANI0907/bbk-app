@@ -21,13 +21,11 @@ interface SessionUser { userId: string; name: string; role: string }
 
 // ─── 유틸 ──────────────────────────────────────────────────────────
 
-function getSession(): SessionUser | null {
+async function fetchSession(): Promise<SessionUser | null> {
   try {
-    const cookie = document.cookie.split('; ').find(r => r.startsWith('bbk_session='))
-    if (!cookie) return null
-    const token = decodeURIComponent(cookie.split('=')[1])
-    const [payloadB64] = token.split('.')
-    return JSON.parse(atob(payloadB64.replace(/-/g, '+').replace(/_/g, '/')))
+    const res = await fetch('/api/auth/me')
+    const data = await res.json()
+    return data.user ?? null
   } catch { return null }
 }
 
@@ -278,7 +276,7 @@ export default function AdminHomePage() {
   const [now, setNow] = useState(new Date())
 
   useEffect(() => {
-    setCurrentUser(getSession())
+    fetchSession().then(setCurrentUser)
     const t = setInterval(() => setNow(new Date()), 60000)
     return () => clearInterval(t)
   }, [])
