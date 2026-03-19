@@ -77,10 +77,12 @@ export async function GET(request: NextRequest) {
 
   const recordMap = new Map(records.map(r => [`${r.person_type}:${r.person_id}`, r]))
 
+  type AppWithResolved = typeof apps[number] & { resolved_pay: number }
+
   // 담당자 급여 집계
   const managerMap = new Map<string, {
     person: typeof users[number],
-    jobs: typeof apps,
+    jobs: AppWithResolved[],
     auto_amount: number,
     record: typeof records[number] | undefined,
   }>()
@@ -99,7 +101,6 @@ export async function GET(request: NextRequest) {
       })
     }
     const entry = managerMap.get(app.assigned_to)!
-    entry.jobs.push(app)
 
     // 건당 급여: manager_pay > unit_price_per_visit > 고객DB unit_price(폴백) 순
     const fallbackUnitPrice = app.service_type === '정기엔드케어'
@@ -108,6 +109,9 @@ export async function GET(request: NextRequest) {
     const payPerJob = app.manager_pay
       ?? app.unit_price_per_visit
       ?? fallbackUnitPrice
+
+    // resolved_pay를 job에 포함시켜 프론트에서 "미설정" 없이 표시
+    entry.jobs.push({ ...app, resolved_pay: payPerJob })
     entry.auto_amount += payPerJob
   }
 

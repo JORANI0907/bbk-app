@@ -13,6 +13,7 @@ interface ManagerJob {
   construction_date: string
   manager_pay: number | null
   unit_price_per_visit: number | null
+  resolved_pay: number  // 서버에서 계산된 실제 건당급여 (manager_pay → unit_price_per_visit → 고객DB 순)
 }
 
 interface WorkerJob {
@@ -277,7 +278,6 @@ function ManagerCard({
             <div className="divide-y divide-gray-50">
               {entry.jobs.map(job => {
                 const editVal = jobPayEdits[job.id]
-                const currentPay = job.manager_pay ?? (job.service_type === '정기엔드케어' ? (job.unit_price_per_visit ?? 0) : 0)
                 const isEditing = editVal !== undefined
                 return (
                   <div key={job.id} className="px-4 py-2.5 flex items-center gap-2">
@@ -316,11 +316,11 @@ function ManagerCard({
                         </>
                       ) : (
                         <>
-                          <span className={`text-sm font-semibold ${currentPay > 0 ? 'text-orange-600' : 'text-gray-300'}`}>
-                            {currentPay > 0 ? currentPay.toLocaleString('ko-KR') + '원' : '미설정'}
+                          <span className={`text-sm font-semibold ${job.resolved_pay > 0 ? 'text-orange-600' : 'text-gray-300'}`}>
+                            {job.resolved_pay > 0 ? job.resolved_pay.toLocaleString('ko-KR') + '원' : '미설정'}
                           </span>
                           <button
-                            onClick={() => setJobPayEdits(prev => ({ ...prev, [job.id]: String(job.manager_pay ?? '') }))}
+                            onClick={() => setJobPayEdits(prev => ({ ...prev, [job.id]: String(job.manager_pay ?? job.unit_price_per_visit ?? '') }))}
                             className="text-xs text-gray-400 hover:text-blue-600 px-1"
                           >
                             ✏️

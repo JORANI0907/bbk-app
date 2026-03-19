@@ -44,6 +44,7 @@ interface Application {
   drive_folder_url: string | null
   construction_date: string | null
   care_scope: string | null
+  unit_price_per_visit: number | null
 }
 
 interface NotifyLog { type: string; sentAt: string }
@@ -357,6 +358,7 @@ export default function ServiceManagementPage() {
   const [adminNotes, setAdminNotes] = useState('')
   const [assignedTo, setAssignedTo] = useState('')
   const [constructionDate, setConstructionDate] = useState('')
+  const [unitPricePerVisit, setUnitPricePerVisit] = useState('')
   const [deposit, setDeposit] = useState('')
   const [supplyAmount, setSupplyAmount] = useState('')
   const [vat, setVat] = useState('')
@@ -428,6 +430,7 @@ export default function ServiceManagementPage() {
     setCareScope(app.care_scope ?? '')
     setBusinessHoursStart(app.business_hours_start ?? '')
     setBusinessHoursEnd(app.business_hours_end ?? '')
+    setUnitPricePerVisit(app.unit_price_per_visit != null ? String(app.unit_price_per_visit) : '')
     setNotifyType('')
     setNotifyLogs(loadLogs(app.id))
     setSelectedWorkerIds([])
@@ -598,6 +601,7 @@ export default function ServiceManagementPage() {
           care_scope: careScope || null,
           business_hours_start: businessHoursStart || null,
           business_hours_end: businessHoursEnd || null,
+          unit_price_per_visit: unitPricePerVisit !== '' ? Number(unitPricePerVisit) : null,
         }),
       })
       const data = await res.json()
@@ -1096,6 +1100,25 @@ export default function ServiceManagementPage() {
                     </div>
                   )}
                 </div>
+              </Section>
+
+              {/* 건당급여 */}
+              <Section title="건당급여 (급여정산 반영)">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    value={unitPricePerVisit}
+                    onChange={e => setUnitPricePerVisit(e.target.value)}
+                    placeholder="고객관리 단가 또는 직접 입력"
+                    className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  <span className="text-xs text-gray-400 shrink-0">원/건</span>
+                </div>
+                {unitPricePerVisit && (
+                  <p className="text-xs text-indigo-600 mt-1">
+                    💰 저장 시 급여정산에 {Number(unitPricePerVisit).toLocaleString('ko-KR')}원/건으로 반영됩니다
+                  </p>
+                )}
               </Section>
 
               {/* 고객 정보 */}
