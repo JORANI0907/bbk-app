@@ -322,7 +322,7 @@ export default function ServiceManagementPage() {
   const [savedAssignments, setSavedAssignments] = useState<WorkAssignment[]>([])
   const [workerDropdownOpen, setWorkerDropdownOpen] = useState(false)
   const [loading, setLoading] = useState(true)
-  const [activeType, setActiveType] = useState<ServiceType | '전체'>('전체')
+  const [activeType, setActiveType] = useState<ServiceType | '전체' | '미배정'>('전체')
   const [selected, setSelected] = useState<Application | null>(null)
   const [saving, setSaving] = useState(false)
   const [sending, setSending] = useState(false)
@@ -331,8 +331,8 @@ export default function ServiceManagementPage() {
   const [sortField, setSortField] = useState<SortField>('construction_date')
   const [sortDir, setSortDir] = useState<SortDir>('desc')
 
-  // 뷰 모드: 전체 | 미배정
-  const [viewMode, setViewMode] = useState<'all' | 'unassigned'>('all')
+  // 뷰 모드 (미배정 탭은 activeType으로 통합)
+  const viewMode = activeType === '미배정' ? 'unassigned' : 'all'
 
   // 월 필터 (서비스통합관리 뷰)
   const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7))
@@ -723,10 +723,13 @@ export default function ServiceManagementPage() {
 
   const unassignedCount = applications.filter(a => !a.assigned_to).length
 
-  const byType = (type: ServiceType | '전체') => {
-    let filtered = type === '전체' ? [...applications] : applications.filter(a => (a.service_type ?? '1회성케어') === type)
-    if (viewMode === 'unassigned') filtered = filtered.filter(a => !a.assigned_to)
-    if (viewMode === 'all') filtered = filtered.filter(a => a.assigned_to && a.construction_date?.startsWith(selectedMonth))
+  const byType = (type: ServiceType | '전체' | '미배정') => {
+    let filtered = (type === '전체' || type === '미배정') ? [...applications] : applications.filter(a => (a.service_type ?? '1회성케어') === type)
+    if (type === '미배정') {
+      filtered = filtered.filter(a => !a.assigned_to)
+    } else {
+      filtered = filtered.filter(a => a.assigned_to && a.construction_date?.startsWith(selectedMonth))
+    }
     if (statusFilter) filtered = filtered.filter(a => a.status === statusFilter)
     if (notifyFilter) filtered = filtered.filter(a => {
       const last = (allNotifyLogs[a.id] || [])[0]
@@ -763,23 +766,7 @@ export default function ServiceManagementPage() {
 
       {/* 탭 네비게이션 */}
       <div className="flex gap-1.5 px-1 mb-4 flex-wrap">
-        <button
-          onClick={() => { setViewMode('all'); setSelected(null) }}
-          className={`px-4 py-2 text-sm font-semibold rounded-xl transition-colors ${viewMode === 'all' ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-100'}`}
-        >
-          📋 서비스통합관리
-        </button>
-        <button
-          onClick={() => { setViewMode('unassigned'); setSelected(null) }}
-          className={`px-4 py-2 text-sm font-semibold rounded-xl transition-colors flex items-center gap-1.5 ${viewMode === 'unassigned' ? 'bg-orange-500 text-white' : 'text-gray-600 hover:bg-gray-100'}`}
-        >
-          ⚠️ 미배정
-          {unassignedCount > 0 && (
-            <span className={`text-xs px-1.5 py-0.5 rounded-full font-bold ${viewMode === 'unassigned' ? 'bg-white text-orange-500' : 'bg-orange-100 text-orange-600'}`}>
-              {unassignedCount}
-            </span>
-          )}
-        </button>
+        <span className="px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-xl">📋 서비스통합관리</span>
         <a href="/admin/customers" className="px-4 py-2 text-gray-600 hover:bg-gray-100 text-sm font-medium rounded-xl transition-colors">👥 고객관리</a>
       </div>
 
@@ -788,10 +775,8 @@ export default function ServiceManagementPage() {
         <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">
-                {viewMode === 'unassigned' ? '미배정 일정' : '서비스통합관리'}
-              </h1>
-              {viewMode === 'unassigned' && (
+              <h1 className="text-2xl font-bold text-gray-900">서비스통합관리</h1>
+              {activeType === '미배정' && (
                 <p className="text-sm text-orange-600 mt-0.5">담당자가 배정되지 않은 일정입니다. 클릭하여 담당자를 지정하세요.</p>
               )}
             </div>
@@ -799,18 +784,32 @@ export default function ServiceManagementPage() {
           </div>
 
           {/* 서비스 유형 탭 */}
-          <div className="flex border-b border-gray-200 mb-3">
-            {(['전체', ...SERVICE_TYPES] as const).map(type => (
-              <button key={type}
-                onClick={() => { setActiveType(type); setSelected(null) }}
-                className={`px-4 py-2.5 text-sm font-semibold transition-colors relative whitespace-nowrap ${activeType === type ? 'text-blue-600 border-b-2 border-blue-600 -mb-px' : 'text-gray-500 hover:text-gray-700'}`}
-              >
-                {type}
-                <span className={`ml-1.5 text-xs px-1.5 py-0.5 rounded-full ${activeType === type ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-500'}`}>
-                  {byType(type).length}
-                </span>
-              </button>
-            ))}
+          <div className="flex border-b border-gray-200 mb-3 overflow-x-auto">
+            {(['전체', ...SERVICE_TYPES, '미배정'] as const).map(type => {
+              const isUnassigned = type === '미배정'
+              const isActive = activeType === type
+              return (
+                <button key={type}
+                  onClick={() => { setActiveType(type); setSelected(null) }}
+                  className={`px-4 py-2.5 text-sm font-semibold transition-colors relative whitespace-nowrap shrink-0 ${
+                    isActive
+                      ? isUnassigned
+                        ? 'text-orange-500 border-b-2 border-orange-500 -mb-px'
+                        : 'text-blue-600 border-b-2 border-blue-600 -mb-px'
+                      : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  {isUnassigned ? '⚠️ 미배정' : type}
+                  <span className={`ml-1.5 text-xs px-1.5 py-0.5 rounded-full ${
+                    isActive
+                      ? isUnassigned ? 'bg-orange-100 text-orange-600' : 'bg-blue-100 text-blue-600'
+                      : isUnassigned && unassignedCount > 0 ? 'bg-orange-100 text-orange-500' : 'bg-gray-100 text-gray-500'
+                  }`}>
+                    {byType(type).length}
+                  </span>
+                </button>
+              )
+            })}
           </div>
 
           {/* 검색 */}
@@ -852,8 +851,8 @@ export default function ServiceManagementPage() {
                 {NOTIFICATION_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
               </select>
             </div>
-            {/* 월 필터 (서비스통합관리 뷰에서만) */}
-            {viewMode === 'all' && (
+            {/* 월 필터 (미배정 탭 제외) */}
+            {activeType !== '미배정' && (
               <input type="month" value={selectedMonth} onChange={e => setSelectedMonth(e.target.value)}
                 className="border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500" />
             )}

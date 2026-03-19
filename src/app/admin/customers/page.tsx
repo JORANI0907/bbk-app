@@ -649,14 +649,14 @@ export default function AdminCustomersPage() {
                       placeholder="0" hint="고객이 매월 범빌드코리아에 지불하는 금액" />
                   </div>
 
-                  {/* 범빌드코리아 → 작업자 */}
+                  {/* 건당 급여 */}
                   <div className="bg-white border border-indigo-100 rounded-lg p-3 flex flex-col gap-2">
-                    <p className="text-xs font-semibold text-gray-700">작업자 건당 급여</p>
+                    <p className="text-xs font-semibold text-gray-700">건당 급여</p>
                     <Field label="건당 급여" value={form.unit_price} onChange={set('unit_price')} type="number"
-                      placeholder="0" hint="작업자가 1건당 받는 금액 (일정관리에서 자동 적용)" />
-                    {form.unit_price && form.billing_amount && (
+                      placeholder="0" hint="담당자·작업자가 1건당 받는 금액 (저장 시 급여정산에 자동 반영)" />
+                    {form.unit_price && (
                       <div className="text-xs text-indigo-600 bg-indigo-50 rounded p-2">
-                        예) 이번 달 3건 작업 시 작업자 급여: {(Number(form.unit_price) * 3).toLocaleString('ko-KR')}원
+                        예) 이번 달 5건 → 급여 자동산정: {(Number(form.unit_price) * 5).toLocaleString('ko-KR')}원
                       </div>
                     )}
                   </div>

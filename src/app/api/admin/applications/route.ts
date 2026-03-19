@@ -129,12 +129,23 @@ export async function PATCH(request: NextRequest) {
         if (normalizedPhone) {
           const { data: existingCustomer } = await supabase
             .from('customers')
-            .select('id')
+            .select('id, unit_price, customer_type')
             .eq('contact_phone', normalizedPhone)
             .single()
 
           if (existingCustomer) {
             customerId = existingCustomer.id
+            // 정기엔드케어이고 고객 건당급여가 있으면 application에 자동 반영
+            if (
+              app.service_type === '정기엔드케어' &&
+              existingCustomer.unit_price &&
+              !app.unit_price_per_visit
+            ) {
+              await supabase
+                .from('service_applications')
+                .update({ unit_price_per_visit: existingCustomer.unit_price })
+                .eq('id', id)
+            }
           } else {
             const { data: newCustomer } = await supabase
               .from('customers')

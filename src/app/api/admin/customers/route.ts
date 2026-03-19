@@ -127,6 +127,29 @@ export async function PATCH(request: NextRequest) {
 
   const { error } = await supabase.from('customers').update(updates).eq('id', id)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  // unit_price 변경 시 → 정기엔드케어 service_applications에 자동 전파
+  if ('unit_price' in rest) {
+    try {
+      const { data: cust } = await supabase
+        .from('customers')
+        .select('business_name')
+        .eq('id', id)
+        .single()
+
+      if (cust?.business_name) {
+        const newUnitPrice = rest.unit_price ? Number(rest.unit_price) : null
+        await supabase
+          .from('service_applications')
+          .update({ unit_price_per_visit: newUnitPrice })
+          .eq('business_name', cust.business_name)
+          .eq('service_type', '정기엔드케어')
+      }
+    } catch {
+      // 전파 실패는 무시 (고객 저장 자체는 성공)
+    }
+  }
+
   return NextResponse.json({ success: true })
 }
 
