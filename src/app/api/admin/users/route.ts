@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
-import { updateAuthUserPassword } from '@/lib/auth-helpers'
+import { createAuthUser, updateAuthUserPassword } from '@/lib/auth-helpers'
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -73,23 +73,33 @@ export async function PATCH(request: NextRequest) {
 
   if (!id) return NextResponse.json({ error: 'id가 필요합니다.' }, { status: 400 })
 
-  // 비밀번호 초기화
+  // 비밀번호 설정 또는 변경
   if (reset_password && new_password) {
     if (new_password.length < 8) {
       return NextResponse.json({ error: '비밀번호는 8자 이상이어야 합니다.' }, { status: 400 })
     }
     const { data: user } = await supabase
       .from('users')
-      .select('auth_id')
+      .select('auth_id, email, phone, role, name')
       .eq('id', id)
       .single()
 
-    if (!user?.auth_id) {
-      return NextResponse.json({ error: '연결된 Auth 계정이 없습니다.' }, { status: 404 })
-    }
+    if (!user) return NextResponse.json({ error: '사용자를 찾을 수 없습니다.' }, { status: 404 })
 
     try {
-      await updateAuthUserPassword(user.auth_id, new_password)
+      if (user.auth_id) {
+        // 기존 Auth 계정 비밀번호 변경
+        await updateAuthUserPassword(user.auth_id, new_password)
+      } else {
+        // Auth 계정 없음 → 신규 생성
+        const email = user.email ?? `${(user.phone ?? '').replace(/-/g, '')}@bbkorea.app`
+        const newAuthUser = await createAuthUser(email, new_password, { role: user.role, name: user.name })
+        // users 테이블에 auth_id + email 연결
+        await supabase
+          .from('users')
+          .update({ auth_id: newAuthUser.id, email })
+          .eq('id', id)
+      }
       return NextResponse.json({ success: true })
     } catch (e) {
       const msg = e instanceof Error ? e.message : '비밀번호 변경 실패'

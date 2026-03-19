@@ -331,6 +331,12 @@ export default function ServiceManagementPage() {
   const [sortField, setSortField] = useState<SortField>('construction_date')
   const [sortDir, setSortDir] = useState<SortDir>('desc')
 
+  // 뷰 모드: 전체 | 미배정
+  const [viewMode, setViewMode] = useState<'all' | 'unassigned'>('all')
+
+  // 월 필터 (서비스통합관리 뷰)
+  const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7))
+
   // 필터
   const [statusFilter, setStatusFilter] = useState<ApplicationStatus | ''>('')
   const [notifyFilter, setNotifyFilter] = useState('')
@@ -715,8 +721,12 @@ export default function ServiceManagementPage() {
     }
   }
 
+  const unassignedCount = applications.filter(a => !a.assigned_to).length
+
   const byType = (type: ServiceType | '전체') => {
     let filtered = type === '전체' ? [...applications] : applications.filter(a => (a.service_type ?? '1회성케어') === type)
+    if (viewMode === 'unassigned') filtered = filtered.filter(a => !a.assigned_to)
+    if (viewMode === 'all') filtered = filtered.filter(a => a.assigned_to && a.construction_date?.startsWith(selectedMonth))
     if (statusFilter) filtered = filtered.filter(a => a.status === statusFilter)
     if (notifyFilter) filtered = filtered.filter(a => {
       const last = (allNotifyLogs[a.id] || [])[0]
@@ -751,11 +761,40 @@ export default function ServiceManagementPage() {
         />
       )}
 
+      {/* 탭 네비게이션 */}
+      <div className="flex gap-1.5 px-1 mb-4 flex-wrap">
+        <button
+          onClick={() => { setViewMode('all'); setSelected(null) }}
+          className={`px-4 py-2 text-sm font-semibold rounded-xl transition-colors ${viewMode === 'all' ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-100'}`}
+        >
+          📋 서비스통합관리
+        </button>
+        <button
+          onClick={() => { setViewMode('unassigned'); setSelected(null) }}
+          className={`px-4 py-2 text-sm font-semibold rounded-xl transition-colors flex items-center gap-1.5 ${viewMode === 'unassigned' ? 'bg-orange-500 text-white' : 'text-gray-600 hover:bg-gray-100'}`}
+        >
+          ⚠️ 미배정
+          {unassignedCount > 0 && (
+            <span className={`text-xs px-1.5 py-0.5 rounded-full font-bold ${viewMode === 'unassigned' ? 'bg-white text-orange-500' : 'bg-orange-100 text-orange-600'}`}>
+              {unassignedCount}
+            </span>
+          )}
+        </button>
+        <a href="/admin/customers" className="px-4 py-2 text-gray-600 hover:bg-gray-100 text-sm font-medium rounded-xl transition-colors">👥 고객관리</a>
+      </div>
+
       <div className="relative flex h-full gap-0 min-h-0">
         {/* ── 좌측: 목록 ── */}
         <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
           <div className="flex items-center justify-between mb-4">
-            <h1 className="text-2xl font-bold text-gray-900">서비스 관리</h1>
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">
+                {viewMode === 'unassigned' ? '미배정 일정' : '서비스통합관리'}
+              </h1>
+              {viewMode === 'unassigned' && (
+                <p className="text-sm text-orange-600 mt-0.5">담당자가 배정되지 않은 일정입니다. 클릭하여 담당자를 지정하세요.</p>
+              )}
+            </div>
             <button onClick={fetchAll} className="px-3 py-1.5 text-sm bg-white border border-gray-200 rounded-lg hover:bg-gray-50">새로고침</button>
           </div>
 
@@ -813,6 +852,11 @@ export default function ServiceManagementPage() {
                 {NOTIFICATION_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
               </select>
             </div>
+            {/* 월 필터 (서비스통합관리 뷰에서만) */}
+            {viewMode === 'all' && (
+              <input type="month" value={selectedMonth} onChange={e => setSelectedMonth(e.target.value)}
+                className="border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            )}
             {/* 정렬 */}
             <select value={`${sortField}:${sortDir}`}
               onChange={e => {

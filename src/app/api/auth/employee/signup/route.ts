@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
-import { createAuthUser, signInWithPassword } from '@/lib/auth-helpers'
+import { createAuthUser } from '@/lib/auth-helpers'
 
 export async function POST(request: NextRequest) {
   try {
@@ -48,8 +48,8 @@ export async function POST(request: NextRequest) {
       name: name.trim(),
     })
 
-    // BBK users 테이블에 등록
-    const { data: user, error: insertError } = await adminSupabase
+    // BBK users 테이블에 등록 (승인 대기 상태)
+    const { error: insertError } = await adminSupabase
       .from('users')
       .insert({
         auth_id: authUser.id,
@@ -57,27 +57,15 @@ export async function POST(request: NextRequest) {
         name: name.trim(),
         phone: normalizedPhone,
         email: normalizedEmail,
-        is_active: true,
+        is_active: false, // 관리자 승인 후 활성화
       })
-      .select('id, role, name')
-      .single()
 
     if (insertError) {
       return NextResponse.json({ error: insertError.message }, { status: 500 })
     }
 
-    // 자동 로그인
-    const session = await signInWithPassword(normalizedEmail, password)
-
     return NextResponse.json(
-      {
-        success: true,
-        user: { id: user!.id, role: user!.role, name: user!.name },
-        session: {
-          access_token: session.access_token,
-          refresh_token: session.refresh_token,
-        },
-      },
+      { success: true, pending: true },
       { status: 201 },
     )
   } catch (error) {

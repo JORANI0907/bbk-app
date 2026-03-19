@@ -2,7 +2,6 @@
 
 import { useRef, useState } from 'react'
 import imageCompression from 'browser-image-compression'
-import { createClient } from '@/lib/supabase/client'
 import toast from 'react-hot-toast'
 
 interface Props {
@@ -14,7 +13,6 @@ interface Props {
 export function PhotoUploader({ scheduleId, photoType, onUploadComplete }: Props) {
   const inputRef = useRef<HTMLInputElement>(null)
   const [uploadedUrl, setUploadedUrl] = useState<string | null>(null)
-  const [progress, setProgress] = useState<number>(0)
   const [isUploading, setIsUploading] = useState(false)
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -22,52 +20,38 @@ export function PhotoUploader({ scheduleId, photoType, onUploadComplete }: Props
     if (!file) return
 
     setIsUploading(true)
-    setProgress(10)
 
     try {
       const compressed = await imageCompression(file, {
         maxSizeMB: 1,
         maxWidthOrHeight: 1920,
         useWebWorker: true,
-        onProgress: (p) => setProgress(10 + Math.floor(p * 0.4)),
       })
 
-      setProgress(50)
+      const formData = new FormData()
+      formData.append('file', compressed, compressed.name)
+      formData.append('scheduleId', scheduleId)
+      formData.append('photoType', photoType)
 
-      const supabase = createClient()
-      const ext = compressed.name.split('.').pop() ?? 'jpg'
-      const path = `${scheduleId}/${photoType}_${Date.now()}.${ext}`
-
-      const { error } = await supabase.storage
-        .from('work-photos')
-        .upload(path, compressed, { upsert: false })
-
-      if (error) throw error
-
-      setProgress(90)
-
-      const {
-        data: { publicUrl },
-      } = supabase.storage.from('work-photos').getPublicUrl(path)
-
-      await supabase.from('work_photos').insert({
-        schedule_id: scheduleId,
-        photo_type: photoType,
-        storage_path: path,
-        photo_url: publicUrl,
-        taken_at: new Date().toISOString(),
+      const res = await fetch('/api/worker/photos', {
+        method: 'POST',
+        body: formData,
       })
 
-      setProgress(100)
-      setUploadedUrl(publicUrl)
-      onUploadComplete(publicUrl)
+      if (!res.ok) {
+        const data = await res.json()
+        throw new Error(data.error ?? '업로드 실패')
+      }
+
+      const { photoUrl } = await res.json()
+      setUploadedUrl(photoUrl)
+      onUploadComplete(photoUrl)
       toast.success('사진이 업로드되었습니다.')
     } catch (err) {
       console.error('사진 업로드 실패:', err)
-      toast.error('사진 업로드에 실패했습니다. 다시 시도해주세요.')
+      toast.error(err instanceof Error ? err.message : '사진 업로드에 실패했습니다.')
     } finally {
       setIsUploading(false)
-      setProgress(0)
       if (inputRef.current) inputRef.current.value = ''
     }
   }
@@ -108,33 +92,27 @@ export function PhotoUploader({ scheduleId, photoType, onUploadComplete }: Props
           disabled={isUploading}
           className="w-full max-w-sm aspect-video bg-gray-100 rounded-2xl border-2 border-dashed border-gray-300 flex flex-col items-center justify-center gap-3 hover:bg-gray-50 active:scale-[0.98] transition-all disabled:opacity-60"
         >
-          <span className="text-4xl">
-            {photoType === 'before' ? '📷' : '✨'}
-          </span>
-          <div className="text-center">
-            <p className="text-sm font-semibold text-gray-700">
-              {photoType === 'before' ? '작업 전 사진 촬영' : '작업 후 사진 촬영'}
-            </p>
-            <p className="text-xs text-gray-400 mt-1">
-              카메라 또는 갤러리에서 선택
-            </p>
-          </div>
+          {isUploading ? (
+            <div className="flex flex-col items-center gap-2">
+              <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+              <p className="text-sm text-gray-500">업로드 중...</p>
+            </div>
+          ) : (
+            <>
+              <span className="text-4xl">
+                {photoType === 'before' ? '📷' : '✨'}
+              </span>
+              <div className="text-center">
+                <p className="text-sm font-semibold text-gray-700">
+                  {photoType === 'before' ? '작업 전 사진 촬영' : '작업 후 사진 촬영'}
+                </p>
+                <p className="text-xs text-gray-400 mt-1">
+                  카메라 또는 갤러리에서 선택
+                </p>
+              </div>
+            </>
+          )}
         </button>
-      )}
-
-      {isUploading && (
-        <div className="w-full max-w-sm">
-          <div className="flex justify-between text-xs text-gray-500 mb-1">
-            <span>업로드 중...</span>
-            <span>{progress}%</span>
-          </div>
-          <div className="w-full bg-gray-200 rounded-full h-2">
-            <div
-              className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-              style={{ width: `${progress}%` }}
-            />
-          </div>
-        </div>
       )}
     </div>
   )

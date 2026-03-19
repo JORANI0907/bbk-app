@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
-import { createClient } from '@/lib/supabase/client'
 import { Attendance } from '@/types/database'
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay } from 'date-fns'
 import { ko } from 'date-fns/locale'
@@ -10,7 +9,6 @@ import toast from 'react-hot-toast'
 export default function AttendancePage() {
   const [todayRecord, setTodayRecord] = useState<Attendance | null>(null)
   const [monthRecords, setMonthRecords] = useState<Attendance[]>([])
-  const [workerId, setWorkerId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
@@ -21,38 +19,19 @@ export default function AttendancePage() {
   const daysInMonth = eachDayOfInterval({ start: monthStart, end: monthEnd })
 
   const loadData = useCallback(async () => {
-    const supabase = createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
-
-    const { data: profile } = await supabase
-      .from('users')
-      .select('id')
-      .eq('auth_id', user.id)
-      .single()
-
-    if (!profile) return
-    setWorkerId(profile.id)
-
-    const { data: todayData } = await supabase
-      .from('attendances')
-      .select('*')
-      .eq('worker_id', profile.id)
-      .eq('work_date', today)
-      .single()
-
-    setTodayRecord(todayData ?? null)
-
-    const { data: monthData } = await supabase
-      .from('attendances')
-      .select('*')
-      .eq('worker_id', profile.id)
-      .gte('work_date', format(monthStart, 'yyyy-MM-dd'))
-      .lte('work_date', format(monthEnd, 'yyyy-MM-dd'))
-
-    setMonthRecords(monthData ?? [])
-    setLoading(false)
-  }, [today, monthStart, monthEnd])
+    try {
+      const res = await fetch('/api/worker/attendance')
+      if (!res.ok) throw new Error('데이터를 불러올 수 없습니다.')
+      const data = await res.json()
+      setTodayRecord(data.today)
+      setMonthRecords(data.month ?? [])
+    } catch (err) {
+      console.error(err)
+      toast.error('데이터를 불러오는 데 실패했습니다.')
+    } finally {
+      setLoading(false)
+    }
+  }, [])
 
   useEffect(() => {
     loadData()
@@ -68,28 +47,25 @@ export default function AttendancePage() {
     )
 
   const handleClockIn = async () => {
-    if (!workerId) return
     setIsSubmitting(true)
     try {
       const loc = await getLocation()
-      const supabase = createClient()
-
-      const { error } = await supabase.from('attendances').insert({
-        worker_id: workerId,
-        work_date: today,
-        clock_in: new Date().toISOString(),
-        clock_in_lat: loc.lat,
-        clock_in_lng: loc.lng,
+      const res = await fetch('/api/worker/attendance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lat: loc.lat, lng: loc.lng }),
       })
-
-      if (error) throw error
+      if (!res.ok) {
+        const data = await res.json()
+        throw new Error(data.error ?? '출근 기록 실패')
+      }
       toast.success('출근이 기록되었습니다.')
       await loadData()
     } catch (err) {
       if (err instanceof GeolocationPositionError) {
         toast.error('위치 정보를 가져올 수 없습니다.')
       } else {
-        toast.error('출근 기록에 실패했습니다.')
+        toast.error(err instanceof Error ? err.message : '출근 기록에 실패했습니다.')
       }
       console.error(err)
     } finally {
@@ -98,29 +74,26 @@ export default function AttendancePage() {
   }
 
   const handleClockOut = async () => {
-    if (!workerId || !todayRecord) return
+    if (!todayRecord) return
     setIsSubmitting(true)
     try {
       const loc = await getLocation()
-      const supabase = createClient()
-
-      const { error } = await supabase
-        .from('attendances')
-        .update({
-          clock_out: new Date().toISOString(),
-          clock_out_lat: loc.lat,
-          clock_out_lng: loc.lng,
-        })
-        .eq('id', todayRecord.id)
-
-      if (error) throw error
+      const res = await fetch('/api/worker/attendance', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: todayRecord.id, lat: loc.lat, lng: loc.lng }),
+      })
+      if (!res.ok) {
+        const data = await res.json()
+        throw new Error(data.error ?? '퇴근 기록 실패')
+      }
       toast.success('퇴근이 기록되었습니다.')
       await loadData()
     } catch (err) {
       if (err instanceof GeolocationPositionError) {
         toast.error('위치 정보를 가져올 수 없습니다.')
       } else {
-        toast.error('퇴근 기록에 실패했습니다.')
+        toast.error(err instanceof Error ? err.message : '퇴근 기록에 실패했습니다.')
       }
       console.error(err)
     } finally {
@@ -178,7 +151,7 @@ export default function AttendancePage() {
               disabled={isSubmitting}
               className="w-full py-4 bg-blue-600 text-white text-lg font-bold rounded-2xl active:scale-[0.98] transition-all disabled:opacity-60"
             >
-              🟢 출근하기
+              {isSubmitting ? '처리 중...' : '🟢 출근하기'}
             </button>
           ) : !todayRecord?.clock_out ? (
             <button
@@ -186,7 +159,7 @@ export default function AttendancePage() {
               disabled={isSubmitting}
               className="w-full py-4 bg-gray-800 text-white text-lg font-bold rounded-2xl active:scale-[0.98] transition-all disabled:opacity-60"
             >
-              🔴 퇴근하기
+              {isSubmitting ? '처리 중...' : '🔴 퇴근하기'}
             </button>
           ) : (
             <div className="text-center py-3 bg-green-50 rounded-2xl">
@@ -211,7 +184,6 @@ export default function AttendancePage() {
         </div>
 
         <div className="grid grid-cols-7 gap-1">
-          {/* 빈 칸 채우기 */}
           {Array.from({ length: firstDayOfWeek }).map((_, i) => (
             <div key={`empty-${i}`} />
           ))}

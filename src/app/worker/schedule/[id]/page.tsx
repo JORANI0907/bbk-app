@@ -2,7 +2,6 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { createClient } from '@/lib/supabase/client'
 import { ServiceSchedule } from '@/types/database'
 import { WorkStepIndicator } from '@/components/worker/WorkStepIndicator'
 import { PhotoUploader } from '@/components/worker/PhotoUploader'
@@ -27,6 +26,7 @@ export default function ScheduleDetailPage() {
   const [schedule, setSchedule] = useState<ServiceSchedule | null>(null)
   const [loading, setLoading] = useState(true)
   const [currentStep, setCurrentStep] = useState(0)
+  const [isAdmin, setIsAdmin] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [closingState, setClosingState] = useState<ClosingState>({
     garbage_disposal: false,
@@ -37,46 +37,51 @@ export default function ScheduleDetailPage() {
   })
 
   const loadSchedule = useCallback(async () => {
-    const supabase = createClient()
-    const { data } = await supabase
-      .from('service_schedules')
-      .select('*, customer:customers(*)')
-      .eq('id', scheduleId)
-      .single()
-
-    if (data) {
-      setSchedule(data as ServiceSchedule)
-      setCurrentStep(data.work_step)
+    try {
+      const res = await fetch(`/api/worker/schedule/${scheduleId}`)
+      if (!res.ok) throw new Error('일정을 찾을 수 없습니다.')
+      const data = await res.json()
+      setSchedule(data.schedule as ServiceSchedule)
+      setCurrentStep(data.schedule.work_step ?? 0)
+      setIsAdmin(data.isAdmin ?? false)
+    } catch (err) {
+      console.error(err)
+    } finally {
+      setLoading(false)
     }
-    setLoading(false)
   }, [scheduleId])
 
   useEffect(() => {
     loadSchedule()
   }, [loadSchedule])
 
+  const patchSchedule = async (updates: Record<string, unknown>) => {
+    const res = await fetch(`/api/worker/schedule/${scheduleId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updates),
+    })
+    if (!res.ok) {
+      const data = await res.json()
+      throw new Error(data.error ?? '업데이트 실패')
+    }
+  }
+
   const updateStep = async (newStep: number) => {
     setIsSubmitting(true)
     try {
-      const supabase = createClient()
       const updates: Record<string, unknown> = { work_step: newStep }
 
       if (newStep === 1) {
         updates.status = 'in_progress'
         updates.actual_arrival = new Date().toISOString()
       }
-      if (newStep === 5 || newStep > 5) {
+      if (newStep >= 5) {
         updates.status = 'completed'
         updates.actual_completion = new Date().toISOString()
       }
 
-      const { error } = await supabase
-        .from('service_schedules')
-        .update(updates)
-        .eq('id', scheduleId)
-
-      if (error) throw error
-
+      await patchSchedule(updates)
       setCurrentStep(newStep)
       toast.success('단계가 업데이트되었습니다.')
     } catch (err) {
@@ -90,8 +95,6 @@ export default function ScheduleDetailPage() {
   const handleArrival = async () => {
     setIsSubmitting(true)
     try {
-      const supabase = createClient()
-
       const position = await new Promise<GeolocationPosition>((resolve, reject) =>
         navigator.geolocation.getCurrentPosition(resolve, reject, {
           enableHighAccuracy: true,
@@ -99,18 +102,13 @@ export default function ScheduleDetailPage() {
         }),
       )
 
-      const { error } = await supabase
-        .from('service_schedules')
-        .update({
-          work_step: 2,
-          status: 'in_progress',
-          actual_arrival: new Date().toISOString(),
-          arrival_lat: position.coords.latitude,
-          arrival_lng: position.coords.longitude,
-        })
-        .eq('id', scheduleId)
-
-      if (error) throw error
+      await patchSchedule({
+        work_step: 2,
+        status: 'in_progress',
+        actual_arrival: new Date().toISOString(),
+        arrival_lat: position.coords.latitude,
+        arrival_lng: position.coords.longitude,
+      })
 
       setCurrentStep(2)
       toast.success('도착이 확인되었습니다.')
@@ -135,38 +133,12 @@ export default function ScheduleDetailPage() {
 
     setIsSubmitting(true)
     try {
-      const supabase = createClient()
-
-      const { data: existing } = await supabase
-        .from('closing_checklists')
-        .select('id')
-        .eq('schedule_id', scheduleId)
-        .single()
-
-      if (existing) {
-        await supabase
-          .from('closing_checklists')
-          .update({
-            ...closingState,
-            completed_at: new Date().toISOString(),
-          })
-          .eq('id', existing.id)
-      } else {
-        await supabase.from('closing_checklists').insert({
-          schedule_id: scheduleId,
-          ...closingState,
-          completed_at: new Date().toISOString(),
-        })
-      }
-
-      await supabase
-        .from('service_schedules')
-        .update({
-          work_step: 6,
-          status: 'completed',
-          actual_completion: new Date().toISOString(),
-        })
-        .eq('id', scheduleId)
+      await patchSchedule({
+        work_step: 6,
+        status: 'completed',
+        actual_completion: new Date().toISOString(),
+        closing_checklist: closingState,
+      })
 
       toast.success('작업이 완료되었습니다!')
       router.push('/worker')
@@ -209,6 +181,14 @@ export default function ScheduleDetailPage() {
         <p className="text-sm text-gray-500">{schedule.customer?.address}</p>
       </div>
 
+      {isAdmin && schedule.worker && (
+        <div className="bg-blue-50 border-b border-blue-100 px-4 py-2 flex items-center gap-2">
+          <span className="text-blue-600 text-sm">👷 담당:</span>
+          <span className="text-blue-800 text-sm font-semibold">{(schedule.worker as { name?: string }).name ?? '미배정'}</span>
+          <span className="ml-auto text-xs text-blue-400">[관리자 모니터링]</span>
+        </div>
+      )}
+
       <WorkStepIndicator currentStep={currentStep} />
 
       <div className="px-4 py-6 flex flex-col gap-6">
@@ -227,7 +207,7 @@ export default function ScheduleDetailPage() {
               disabled={isSubmitting}
               className="mt-4 w-full max-w-xs py-4 bg-blue-600 text-white text-lg font-bold rounded-2xl active:scale-[0.98] transition-all disabled:opacity-60"
             >
-              작업 시작
+              {isSubmitting ? '처리 중...' : '작업 시작'}
             </button>
           </div>
         )}
@@ -249,7 +229,7 @@ export default function ScheduleDetailPage() {
               disabled={isSubmitting}
               className="mt-4 w-full max-w-xs py-4 bg-orange-500 text-white text-lg font-bold rounded-2xl active:scale-[0.98] transition-all disabled:opacity-60"
             >
-              도착 확인
+              {isSubmitting ? '처리 중...' : '도착 확인'}
             </button>
           </div>
         )}
@@ -336,7 +316,7 @@ export default function ScheduleDetailPage() {
               disabled={isSubmitting || !CLOSING_ITEMS.every((i) => closingState[i.key])}
               className="w-full py-4 bg-green-600 text-white text-lg font-bold rounded-2xl active:scale-[0.98] transition-all disabled:opacity-40"
             >
-              작업 완료
+              {isSubmitting ? '처리 중...' : '작업 완료'}
             </button>
           </div>
         )}

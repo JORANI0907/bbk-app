@@ -26,7 +26,10 @@ export async function POST(request: NextRequest) {
     }
 
     if (!user.is_active) {
-      return NextResponse.json({ error: '비활성화된 계정입니다. 관리자에게 문의하세요.' }, { status: 403 })
+      const msg = user.role === 'worker'
+        ? '관리자 승인 대기 중인 계정입니다. 승인 후 로그인이 가능합니다.'
+        : '비활성화된 계정입니다. 관리자에게 문의하세요.'
+      return NextResponse.json({ error: msg }, { status: 403 })
     }
 
     if (user.role === 'customer') {

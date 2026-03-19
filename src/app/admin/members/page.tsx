@@ -36,16 +36,54 @@ export default function MembersPage() {
   const [saving, setSaving] = useState(false)
   const [filterRole, setFilterRole] = useState<UserRole | 'all'>('all')
   const [editingId, setEditingId] = useState<string | null>(null)
-  const [pwModal, setPwModal] = useState<{ id: string; name: string } | null>(null)
+  const [pwModal, setPwModal] = useState<{ id: string; name: string; hasAuth: boolean } | null>(null)
   const [newPassword, setNewPassword] = useState('')
   const [settingPw, setSettingPw] = useState(false)
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [approvingId, setApprovingId] = useState<string | null>(null)
 
   const fetchUsers = async () => {
     const res = await fetch('/api/admin/users')
     const data = await res.json()
     setUsers(data.users ?? [])
     setLoading(false)
+  }
+
+  const handleApprove = async (user: User) => {
+    setApprovingId(user.id)
+    try {
+      const res = await fetch('/api/admin/users', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: user.id, is_active: true }),
+      })
+      if (res.ok) {
+        toast.success(`${user.name} 계정이 승인되었습니다.`)
+        fetchUsers()
+      }
+    } finally {
+      setApprovingId(null)
+    }
+  }
+
+  const handleRejectSignup = async (user: User) => {
+    if (!confirm(`"${user.name}" 가입 신청을 거절하시겠습니까?\n계정이 삭제됩니다.`)) return
+    setDeletingId(user.id)
+    try {
+      const res = await fetch('/api/admin/users', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: user.id }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error)
+      toast.success(`${user.name} 가입 신청이 거절되었습니다.`)
+      fetchUsers()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : '처리 실패')
+    } finally {
+      setDeletingId(null)
+    }
   }
 
   useEffect(() => { fetchUsers() }, [])
@@ -131,9 +169,10 @@ export default function MembersPage() {
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
-      toast.success(`${pwModal.name} 비밀번호가 변경되었습니다.`)
+      toast.success(pwModal.hasAuth ? `${pwModal.name} 비밀번호가 변경되었습니다.` : `${pwModal.name} 로그인 계정이 생성되었습니다.`)
       setPwModal(null)
       setNewPassword('')
+      fetchUsers() // auth_id 업데이트 반영
     } catch (err) {
       toast.error(err instanceof Error ? err.message : '비밀번호 변경 실패')
     } finally {
@@ -141,10 +180,19 @@ export default function MembersPage() {
     }
   }
 
-  const filtered = filterRole === 'all' ? users : users.filter(u => u.role === filterRole)
+  const pendingWorkers = users.filter(u => u.role === 'worker' && !u.is_active)
+  const filtered = filterRole === 'all'
+    ? users.filter(u => u.is_active || u.role !== 'worker')
+    : users.filter(u => u.role === filterRole && (u.is_active || u.role !== 'worker'))
 
   return (
     <div className="p-6 max-w-2xl mx-auto">
+      {/* 탭 네비게이션 */}
+      <div className="flex gap-1.5 mb-4">
+        <a href="/admin/workers" className="px-4 py-2 text-gray-600 hover:bg-gray-100 text-sm font-medium rounded-xl transition-colors">👷 직원정보</a>
+        <span className="px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-xl">🔑 계정관리</span>
+      </div>
+
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">회원 관리</h1>
@@ -154,6 +202,50 @@ export default function MembersPage() {
           + 등록
         </Button>
       </div>
+
+      {/* 승인 대기 섹션 */}
+      {!loading && pendingWorkers.length > 0 && (
+        <div className="mb-5">
+          <div className="flex items-center gap-2 mb-2">
+            <span className="text-sm font-semibold text-orange-600">⏳ 승인 대기</span>
+            <span className="bg-orange-100 text-orange-600 text-xs font-bold px-2 py-0.5 rounded-full">{pendingWorkers.length}</span>
+          </div>
+          <div className="space-y-2">
+            {pendingWorkers.map(user => (
+              <Card key={user.id} className="p-4 border-orange-200 bg-orange-50">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-full bg-orange-100 flex items-center justify-center font-semibold text-orange-600 text-sm">
+                      {user.name[0]}
+                    </div>
+                    <div>
+                      <p className="font-semibold text-gray-900 text-sm">{user.name}</p>
+                      <p className="text-xs text-gray-500">{user.phone}</p>
+                      {user.email && <p className="text-xs text-gray-400">{user.email}</p>}
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => handleApprove(user)}
+                      disabled={approvingId === user.id}
+                      className="px-3 py-1.5 text-xs bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-40 font-medium"
+                    >
+                      {approvingId === user.id ? '처리중...' : '승인'}
+                    </button>
+                    <button
+                      onClick={() => handleRejectSignup(user)}
+                      disabled={deletingId === user.id}
+                      className="px-3 py-1.5 text-xs text-red-600 border border-red-200 rounded-lg hover:bg-red-50 disabled:opacity-40 font-medium"
+                    >
+                      거절
+                    </button>
+                  </div>
+                </div>
+              </Card>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* 역할 필터 */}
       <div className="flex gap-2 mb-4">
@@ -249,8 +341,14 @@ export default function MembersPage() {
       {pwModal && (
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center px-4">
           <Card className="p-6 w-full max-w-sm">
-            <h3 className="font-bold text-gray-900 mb-1">비밀번호 초기화</h3>
-            <p className="text-sm text-gray-500 mb-4">{pwModal.name} 계정의 새 비밀번호를 설정합니다.</p>
+            <h3 className="font-bold text-gray-900 mb-1">
+              {pwModal.hasAuth ? '비밀번호 변경' : '비밀번호 설정'}
+            </h3>
+            <p className="text-sm text-gray-500 mb-4">
+              {pwModal.hasAuth
+                ? `${pwModal.name} 계정의 비밀번호를 변경합니다.`
+                : `${pwModal.name} 계정에 로그인 비밀번호를 새로 설정합니다. 이메일/전화번호로 로그인이 가능해집니다.`}
+            </p>
             <input
               type="password"
               value={newPassword}
@@ -293,7 +391,7 @@ export default function MembersPage() {
                       <span className="font-semibold text-gray-900 text-sm">{user.name}</span>
                       <Badge variant={ROLE_BADGE[user.role]}>{ROLE_LABELS[user.role]}</Badge>
                       {!user.is_active && <Badge variant="default">비활성</Badge>}
-                      {user.auth_id && <span className="text-xs text-green-500">●</span>}
+                      <span className={`text-xs ${user.auth_id ? 'text-green-500' : 'text-gray-300'}`} title={user.auth_id ? '로그인 계정 있음' : '로그인 계정 없음'}>●</span>
                     </div>
                     <p className="text-xs text-gray-500 mt-0.5">{user.phone}</p>
                     {user.email && <p className="text-xs text-gray-400">{user.email}</p>}
@@ -306,14 +404,12 @@ export default function MembersPage() {
                   >
                     수정
                   </button>
-                  {user.auth_id && (
-                    <button
-                      onClick={() => { setPwModal({ id: user.id, name: user.name }); setNewPassword('') }}
-                      className="px-2.5 py-1 text-xs text-blue-500 hover:bg-blue-50 rounded-lg"
-                    >
-                      비밀번호
-                    </button>
-                  )}
+                  <button
+                    onClick={() => { setPwModal({ id: user.id, name: user.name, hasAuth: !!user.auth_id }); setNewPassword('') }}
+                    className="px-2.5 py-1 text-xs text-blue-500 hover:bg-blue-50 rounded-lg"
+                  >
+                    {user.auth_id ? '비밀번호 변경' : '비밀번호 설정'}
+                  </button>
                   <button
                     onClick={() => handleToggleActive(user)}
                     className={`px-2.5 py-1 text-xs rounded-lg ${

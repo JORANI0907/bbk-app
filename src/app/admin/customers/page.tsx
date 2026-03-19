@@ -427,6 +427,13 @@ export default function AdminCustomersPage() {
   const notifyOptions = form.customer_type ? NOTIFY_TYPES[form.customer_type] : []
 
   return (
+    <>
+      {/* 탭 네비게이션 */}
+      <div className="flex gap-1.5 px-1 mb-4">
+        <a href="/admin/applications" className="px-4 py-2 text-gray-600 hover:bg-gray-100 text-sm font-medium rounded-xl transition-colors">📋 서비스통합관리</a>
+        <span className="px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-xl">👥 고객관리</span>
+      </div>
+
     <div className="relative flex h-full gap-0 min-h-0">
       {/* ── 좌측: 목록 ── */}
       <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
@@ -909,5 +916,6 @@ export default function AdminCustomersPage() {
         </div>
       )}
     </div>
+    </>
   )
 }

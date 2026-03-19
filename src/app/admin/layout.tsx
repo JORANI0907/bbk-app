@@ -1,19 +1,35 @@
 import { Sidebar } from '@/components/admin/Sidebar'
+import { getServerSession } from '@/lib/session'
+import { redirect } from 'next/navigation'
 import Link from 'next/link'
 
-const MOBILE_NAV = [
-  { href: '/admin', label: '대시보드', icon: '📊' },
-  { href: '/admin/calendar', label: '일정', icon: '📅' },
-  { href: '/admin/customers', label: '고객', icon: '👥' },
-  { href: '/admin/workers', label: '직원', icon: '👷' },
-  { href: '/admin/monitoring', label: '모니터링', icon: '📡' },
+const ADMIN_MOBILE_NAV = [
+  { href: '/admin', label: '홈', icon: '🏠' },
+  { href: '/admin/calendar', label: '배정캘린더', icon: '📅' },
+  { href: '/admin/clients', label: '영업관리', icon: '🏢' },
+  { href: '/admin/team', label: '구성원', icon: '👥' },
+  { href: '/admin/inventory', label: '재고', icon: '📦' },
+]
+
+const WORKER_MOBILE_NAV = [
+  { href: '/admin', label: '홈', icon: '🏠' },
+  { href: '/admin/inventory', label: '재고', icon: '📦' },
 ]
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
+  const session = getServerSession()
+
+  if (!session) redirect('/login')
+
+  const role = session.role
+  const userName = session.name
+
+  const mobileNav = role === 'worker' ? WORKER_MOBILE_NAV : ADMIN_MOBILE_NAV
+
   return (
     <div className="flex min-h-screen bg-gray-50">
       {/* 데스크탑 사이드바 */}
-      <Sidebar />
+      <Sidebar role={role} userName={userName} />
 
       {/* 메인 콘텐츠 */}
       <main className="flex-1 flex flex-col min-w-0">
@@ -24,7 +40,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
       {/* 모바일 하단 탭바 */}
       <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 flex md:hidden z-50">
-        {MOBILE_NAV.map((item) => (
+        {mobileNav.map((item) => (
           <Link
             key={item.href}
             href={item.href}

@@ -17,6 +17,7 @@ interface Application {
   created_at: string
   supply_amount: number | null
   vat: number | null
+  unit_price_per_visit: number | null
   payment_method: string | null
   business_hours_start: string | null
   business_hours_end: string | null
@@ -143,10 +144,12 @@ export default function AdminCalendarPage() {
   const [users, setUsers] = useState<User[]>([])
   const [workers, setWorkers] = useState<Worker[]>([])
   const [loading, setLoading] = useState(true)
+  const [allAssignments, setAllAssignments] = useState<WorkAssignment[]>([])
 
   const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list')
   const [selectedMonth, setSelectedMonth] = useState(currentMonth())
   const [personFilter, setPersonFilter] = useState('')
+  const [workerFilter, setWorkerFilter] = useState('')
   const [currentUser, setCurrentUser] = useState<SessionUser | null>(null)
   const [selected, setSelected] = useState<Application | null>(null)
 
@@ -184,6 +187,16 @@ export default function AdminCalendarPage() {
 
   useEffect(() => { fetchAll() }, [fetchAll])
 
+  const fetchAssignments = useCallback(async (month: string) => {
+    try {
+      const res = await fetch(`/api/admin/work-assignments?month=${month}`)
+      const data = await res.json()
+      setAllAssignments(data.assignments ?? [])
+    } catch { setAllAssignments([]) }
+  }, [])
+
+  useEffect(() => { fetchAssignments(selectedMonth) }, [selectedMonth, fetchAssignments])
+
   useEffect(() => {
     if (!historyWorkerId) { setWorkerAssignments([]); return }
     setWorkerAssLoading(true)
@@ -196,6 +209,18 @@ export default function AdminCalendarPage() {
 
   const isAdmin = currentUser?.role === 'admin'
 
+  const appWorkerMap = useMemo(() => {
+    const map: Record<string, string[]> = {}
+    for (const a of allAssignments) {
+      if (!a.application_id) continue
+      if (!map[a.application_id]) map[a.application_id] = []
+      if (!map[a.application_id].includes(a.worker_id)) {
+        map[a.application_id].push(a.worker_id)
+      }
+    }
+    return map
+  }, [allAssignments])
+
   const filteredApps = useMemo(() => {
     let apps = applications.filter(a => a.construction_date?.startsWith(selectedMonth))
     if (!isAdmin && currentUser) {
@@ -203,8 +228,11 @@ export default function AdminCalendarPage() {
     } else if (personFilter) {
       apps = apps.filter(a => a.assigned_to === personFilter)
     }
+    if (workerFilter) {
+      apps = apps.filter(a => appWorkerMap[a.id]?.includes(workerFilter))
+    }
     return [...apps].sort((a, b) => (a.construction_date ?? '').localeCompare(b.construction_date ?? ''))
-  }, [applications, selectedMonth, personFilter, isAdmin, currentUser])
+  }, [applications, selectedMonth, personFilter, workerFilter, isAdmin, currentUser, appWorkerMap])
 
   const personHistoryApps = useMemo(() => {
     const pid = historyPersonId || (isAdmin ? '' : currentUser?.userId ?? '')
@@ -259,6 +287,13 @@ export default function AdminCalendarPage() {
               {currentUser?.name ?? '내 일정'}
             </span>
           )}
+          {isAdmin && (
+            <select value={workerFilter} onChange={e => setWorkerFilter(e.target.value)}
+              className="border border-gray-200 rounded-lg px-2 py-1.5 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+              <option value="">작업자 전체</option>
+              {workers.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
+            </select>
+          )}
           <span className="text-xs text-gray-400 ml-auto">{filteredApps.length}건</span>
         </div>
 
@@ -272,7 +307,7 @@ export default function AdminCalendarPage() {
               <table className="w-full text-sm">
                 <thead className="bg-gray-50 border-b border-gray-200 sticky top-0">
                   <tr>
-                    {['시공일자', '업체명', '대표자', '담당자', '서비스', '상태'].map(h => (
+                    {['시공일자', '업체명', '대표자', '담당자', '작업자', '서비스', '상태'].map(h => (
                       <th key={h} className="text-left px-3 py-3 text-xs font-semibold text-gray-500 whitespace-nowrap">{h}</th>
                     ))}
                   </tr>
@@ -292,6 +327,13 @@ export default function AdminCalendarPage() {
                         </td>
                         <td className="px-3 py-3 text-gray-700 text-xs">{app.owner_name}</td>
                         <td className="px-3 py-3 text-gray-500 text-xs">{users.find(u => u.id === app.assigned_to)?.name ?? <span className="text-gray-300">미배정</span>}</td>
+                        <td className="px-3 py-3 text-gray-500 text-xs">
+                          {(appWorkerMap[app.id] ?? []).map(wid => {
+                            const w = workers.find(x => x.id === wid)
+                            return w ? <span key={wid} className="inline-block bg-gray-100 text-gray-600 px-1.5 rounded text-xs mr-1">{w.name}</span> : null
+                          })}
+                          {!(appWorkerMap[app.id]?.length) && <span className="text-gray-300">-</span>}
+                        </td>
                         <td className="px-3 py-3 text-gray-500 text-xs">{app.service_type ?? '-'}</td>
                         <td className="px-3 py-3">
                           <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${cfg.badge}`}>
@@ -445,6 +487,45 @@ export default function AdminCalendarPage() {
                   )}
                 </div>
               )}
+
+              {/* 정기엔드케어 단가 설정 (관리자만) */}
+              {isAdmin && selected.service_type === '정기엔드케어' && (
+                <div className="border-t border-gray-100 pt-2">
+                  <p className="text-xs font-semibold text-gray-700 mb-2">정기엔드케어 단가 설정</p>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="number"
+                      defaultValue={selected.unit_price_per_visit ?? ''}
+                      placeholder="건당 단가 (원)"
+                      className="flex-1 px-2 py-1.5 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      onChange={e => {
+                        const val = e.target.value ? parseInt(e.target.value) : null
+                        setSelected(prev => prev ? { ...prev, unit_price_per_visit: val } : prev)
+                      }}
+                    />
+                    <button
+                      onClick={async () => {
+                        if (!selected) return
+                        const res = await fetch('/api/admin/applications', {
+                          method: 'PATCH',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ id: selected.id, unit_price_per_visit: selected.unit_price_per_visit }),
+                        })
+                        if (res.ok) toast.success('단가가 저장되었습니다.')
+                        else toast.error('저장 실패')
+                      }}
+                      className="px-3 py-1.5 bg-blue-600 text-white text-xs rounded-lg hover:bg-blue-700"
+                    >
+                      저장
+                    </button>
+                  </div>
+                  {selected.unit_price_per_visit && (
+                    <p className="text-xs text-gray-500 mt-1">
+                      담당자 · 작업자 각각 건당 <span className="font-bold text-gray-800">{selected.unit_price_per_visit.toLocaleString('ko-KR')}원</span> 지급
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -486,8 +567,28 @@ export default function AdminCalendarPage() {
                   </div>
                 ))}
               </div>
-              <div className="px-3 py-2 border-t border-gray-100 bg-gray-50">
+              {(() => {
+                const endcareApps = personHistoryApps.filter(a => a.service_type === '정기엔드케어' && a.unit_price_per_visit)
+                if (!endcareApps.length) return null
+                const total = endcareApps.reduce((s, a) => s + (a.unit_price_per_visit ?? 0), 0)
+                return (
+                  <div className="px-3 py-2 border-t border-orange-100 bg-orange-50">
+                    <p className="text-xs text-orange-800">
+                      정기엔드케어 <span className="font-bold">{endcareApps.length}건</span> × 단가 = <span className="font-bold">{total.toLocaleString('ko-KR')}원</span>
+                    </p>
+                  </div>
+                )
+              })()}
+              <div className="px-3 py-2 border-t border-gray-100 bg-gray-50 flex justify-between">
                 <p className="text-xs text-gray-500">총 <span className="font-bold text-gray-700">{personHistoryApps.length}건</span></p>
+                {(() => {
+                  const endcareTotal = personHistoryApps
+                    .filter(a => a.service_type === '정기엔드케어' && a.unit_price_per_visit)
+                    .reduce((s, a) => s + (a.unit_price_per_visit ?? 0), 0)
+                  return endcareTotal > 0 ? (
+                    <p className="text-xs font-bold text-orange-700">{endcareTotal.toLocaleString('ko-KR')}원</p>
+                  ) : null
+                })()}
               </div>
             </>
           )}

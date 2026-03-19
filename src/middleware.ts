@@ -43,16 +43,30 @@ export async function middleware(request: NextRequest) {
   if (session) {
     const role = session.role
 
+    // 루트 경로 리디렉션
     if (pathname === '/') {
       if (role === 'admin') return NextResponse.redirect(new URL('/admin', request.url))
-      if (role === 'worker') return NextResponse.redirect(new URL('/worker', request.url))
+      if (role === 'worker') return NextResponse.redirect(new URL('/admin', request.url))
       if (role === 'customer') return NextResponse.redirect(new URL('/customer', request.url))
     }
 
-    if (pathname.startsWith('/admin') && role !== 'admin') {
+    // 어드민 경로: admin과 worker 모두 허용
+    if (pathname.startsWith('/admin') && role !== 'admin' && role !== 'worker') {
       return NextResponse.redirect(new URL('/login', request.url))
     }
-    if (pathname.startsWith('/worker') && role !== 'worker') {
+
+    // 워커 경로: worker가 /worker 방문 시 /admin으로 리디렉션
+    if (pathname.startsWith('/worker') && role === 'worker') {
+      // /worker/schedule/[id] → /admin/schedule/[id]
+      if (pathname.startsWith('/worker/schedule/')) {
+        const id = pathname.replace('/worker/schedule/', '')
+        return NextResponse.redirect(new URL(`/admin/schedule/${id}`, request.url))
+      }
+      // /worker → /admin
+      return NextResponse.redirect(new URL('/admin', request.url))
+    }
+
+    if (pathname.startsWith('/worker') && role !== 'worker' && role !== 'admin') {
       return NextResponse.redirect(new URL('/login', request.url))
     }
     if (pathname.startsWith('/customer') && role !== 'customer') {

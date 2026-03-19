@@ -1,4 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
+import { getServerSession } from '@/lib/session'
+import { redirect } from 'next/navigation'
 import { DashboardStats } from '@/components/admin/DashboardStats'
 import { Card } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
@@ -18,6 +20,9 @@ function getStatusBadgeVariant(status: ScheduleStatus): 'default' | 'success' | 
 }
 
 export default async function AdminDashboardPage() {
+  const session = getServerSession()
+  if (session?.role === 'worker') redirect('/admin/schedule')
+
   const supabase = createClient()
   const today = new Date().toISOString().split('T')[0]
 

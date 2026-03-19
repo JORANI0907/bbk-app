@@ -97,6 +97,12 @@ export default function WorkersPage() {
 
   return (
     <div className="flex flex-col h-full">
+      {/* 탭 네비게이션 */}
+      <div className="flex gap-1.5 px-4 pt-4">
+        <span className="px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-xl">👷 직원정보</span>
+        <a href="/admin/members" className="px-4 py-2 text-gray-600 hover:bg-gray-100 text-sm font-medium rounded-xl transition-colors">🔑 계정관리</a>
+      </div>
+
       {/* Migration Notice */}
       {showMigration && (
         <div className="mx-4 mt-4 bg-amber-50 border border-amber-200 rounded-xl p-4">

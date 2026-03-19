@@ -12,13 +12,16 @@ const notoSansKR = Noto_Sans_KR({
 })
 
 export const metadata: Metadata = {
-  title: 'BBK Korea',
-  description: 'BBK Korea 청소 서비스 앱',
+  title: 'BBK 공간케어',
+  description: 'BBK 공간케어 청소 서비스 앱',
   manifest: '/manifest.json',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
-    title: 'BBK Korea',
+    title: 'BBK 공간케어',
+  },
+  other: {
+    'mobile-web-app-capable': 'yes',
   },
 }
 

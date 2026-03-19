@@ -23,7 +23,7 @@ async function setSession(user: { id: string; role: string; name: string }, sess
 
 function redirectByRole(role: string) {
   if (role === 'admin') window.location.href = '/admin'
-  else if (role === 'worker') window.location.href = '/worker'
+  else if (role === 'worker') window.location.href = '/admin'
   else if (role === 'customer') window.location.href = '/customer'
   else toast.error('접근 권한이 없습니다.')
 }
@@ -97,7 +97,7 @@ export default function LoginPage() {
         <div className="text-center mb-8">
           <div className="inline-flex items-end gap-1 mb-2">
             <span className="text-4xl font-black text-blue-600 tracking-tight">BBK</span>
-            <span className="text-sm text-gray-400 font-medium pb-1">Korea</span>
+            <span className="text-sm text-gray-400 font-medium pb-1">공간케어</span>
           </div>
           <p className="text-gray-500 text-sm">청결한 공간, 신뢰할 수 있는 서비스</p>
         </div>
@@ -168,11 +168,18 @@ export default function LoginPage() {
                   {loading ? '로그인 중...' : '로그인'}
                 </button>
 
-                <div className="text-center pt-1">
-                  <span className="text-xs text-gray-400">계정이 없으신가요? </span>
-                  <Link href="/signup" className="text-xs text-blue-600 font-medium hover:underline">
-                    직원 회원가입
-                  </Link>
+                <div className="text-center pt-1 flex flex-col gap-1.5">
+                  <div>
+                    <span className="text-xs text-gray-400">계정이 없으신가요? </span>
+                    <Link href="/signup" className="text-xs text-blue-600 font-medium hover:underline">
+                      직원 회원가입
+                    </Link>
+                  </div>
+                  <div>
+                    <Link href="/forgot-password" className="text-xs text-gray-400 hover:text-blue-600 hover:underline">
+                      비밀번호를 잊으셨나요?
+                    </Link>
+                  </div>
                 </div>
               </div>
             )}

@@ -2,32 +2,33 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { createClient } from '@/lib/supabase/client'
 
 interface NavItem {
   href: string
   label: string
   icon: string
+  roles: string[]
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { href: '/admin', label: '대시보드', icon: '📊' },
-  { href: '/admin/calendar', label: '일정 관리', icon: '📅' },
-  { href: '/admin/customers', label: '고객 관리', icon: '👥' },
-  { href: '/admin/workers', label: '직원 관리', icon: '👷' },
-  { href: '/admin/applications', label: '서비스 관리', icon: '📋' },
-  { href: '/admin/members', label: '회원 등록', icon: '🔑' },
-  { href: '/admin/inventory', label: '재고 관리', icon: '📦' },
-  { href: '/admin/monitoring', label: '실시간 모니터링', icon: '📡' },
+  { href: '/admin', label: '홈', icon: '🏠', roles: ['admin', 'worker'] },
+  { href: '/admin/calendar', label: '배정캘린더', icon: '📅', roles: ['admin'] },
+  { href: '/admin/clients', label: '영업관리', icon: '🏢', roles: ['admin'] },
+  { href: '/admin/team', label: '구성원', icon: '👥', roles: ['admin'] },
+  { href: '/admin/inventory', label: '재고', icon: '📦', roles: ['admin', 'worker'] },
 ]
 
-export function Sidebar() {
+interface SidebarProps {
+  role: string
+  userName: string
+}
+
+export function Sidebar({ role, userName }: SidebarProps) {
   const pathname = usePathname()
   const router = useRouter()
-  const supabase = createClient()
 
   const handleLogout = async () => {
-    await supabase.auth.signOut()
+    await fetch('/api/auth/session', { method: 'DELETE' })
     router.push('/login')
   }
 
@@ -38,6 +39,13 @@ export function Sidebar() {
     return pathname.startsWith(href)
   }
 
+  const visibleItems = NAV_ITEMS.filter(item => item.roles.includes(role))
+
+  const roleLabel = role === 'admin' ? '관리자' : '직원'
+  const roleBadgeClass = role === 'admin'
+    ? 'bg-blue-100 text-blue-700'
+    : 'bg-green-100 text-green-700'
+
   return (
     <aside className="hidden md:flex flex-col w-64 min-h-screen bg-white border-r border-gray-200">
       {/* 로고 */}
@@ -46,14 +54,16 @@ export function Sidebar() {
           <span className="text-white font-bold text-sm">B</span>
         </div>
         <div>
-          <p className="font-bold text-gray-900 leading-tight">BBK Korea</p>
-          <p className="text-xs text-gray-500">관리자 포털</p>
+          <p className="font-bold text-gray-900 leading-tight">BBK 공간케어</p>
+          <span className={`text-xs font-medium px-1.5 py-0.5 rounded-full ${roleBadgeClass}`}>
+            {roleLabel}
+          </span>
         </div>
       </div>
 
       {/* 메뉴 */}
       <nav className="flex-1 px-3 py-4 space-y-1">
-        {NAV_ITEMS.map((item) => (
+        {visibleItems.map((item) => (
           <Link
             key={item.href}
             href={item.href}
@@ -69,8 +79,11 @@ export function Sidebar() {
         ))}
       </nav>
 
-      {/* 하단 로그아웃 */}
-      <div className="px-3 py-4 border-t border-gray-100">
+      {/* 하단 사용자 정보 및 로그아웃 */}
+      <div className="px-3 py-4 border-t border-gray-100 space-y-1">
+        <div className="px-3 py-2 text-sm text-gray-700 font-medium">
+          {userName}
+        </div>
         <button
           onClick={handleLogout}
           className="flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm font-medium text-gray-600 hover:bg-red-50 hover:text-red-600 transition-colors"

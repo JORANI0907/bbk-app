@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { ServiceSchedule } from '@/types/database'
 import { ScheduleCard } from '@/components/worker/ScheduleCard'
-import { createClient } from '@/lib/supabase/client'
+import { DriveUploadButton } from '@/components/worker/DriveUploadButton'
 import toast from 'react-hot-toast'
 
 interface Props {
@@ -20,20 +20,24 @@ export function WorkerScheduleListClient({ schedules: initial }: Props) {
   const handleStart = async (scheduleId: string) => {
     setLoadingId(scheduleId)
     try {
-      const supabase = createClient()
-      const { error } = await supabase
-        .from('service_schedules')
-        .update({
+      const res = await fetch(`/api/worker/schedule/${scheduleId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
           work_step: 1,
           status: 'in_progress',
           actual_arrival: new Date().toISOString(),
-        })
-        .eq('id', scheduleId)
+        }),
+      })
+      if (!res.ok) {
+        const data = await res.json()
+        throw new Error(data.error ?? '업데이트 실패')
+      }
 
-      if (error) throw error
-
-      setSchedules(prev =>
-        prev.map(s => s.id === scheduleId ? { ...s, work_step: 1, status: 'in_progress' as const } : s)
+      setSchedules((prev) =>
+        prev.map((s) =>
+          s.id === scheduleId ? { ...s, work_step: 1, status: 'in_progress' as const } : s,
+        ),
       )
       toast.success('작업을 시작했습니다!')
       router.push(`/worker/schedule/${scheduleId}`)
@@ -47,20 +51,24 @@ export function WorkerScheduleListClient({ schedules: initial }: Props) {
   const handleEnd = async (scheduleId: string) => {
     setLoadingId(scheduleId)
     try {
-      const supabase = createClient()
-      const { error } = await supabase
-        .from('service_schedules')
-        .update({
+      const res = await fetch(`/api/worker/schedule/${scheduleId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
           work_step: 6,
           status: 'completed',
           actual_completion: new Date().toISOString(),
-        })
-        .eq('id', scheduleId)
+        }),
+      })
+      if (!res.ok) {
+        const data = await res.json()
+        throw new Error(data.error ?? '업데이트 실패')
+      }
 
-      if (error) throw error
-
-      setSchedules(prev =>
-        prev.map(s => s.id === scheduleId ? { ...s, work_step: 6, status: 'completed' as const } : s)
+      setSchedules((prev) =>
+        prev.map((s) =>
+          s.id === scheduleId ? { ...s, work_step: 6, status: 'completed' as const } : s,
+        ),
       )
       toast.success('작업이 완료되었습니다!')
       router.refresh()
@@ -98,16 +106,13 @@ export function WorkerScheduleListClient({ schedules: initial }: Props) {
             </Link>
 
             <div className="flex gap-2 px-1">
-              {/* Drive 사진 버튼 */}
+              {/* Drive 사진 업로드 버튼 */}
               {driveUrl && (
-                <a
-                  href={driveUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex-1 py-2.5 bg-blue-50 text-blue-700 text-sm font-semibold rounded-xl flex items-center justify-center gap-1.5 border border-blue-200 active:scale-[0.98] transition-transform"
-                >
-                  📁 사진 보기/올리기
-                </a>
+                <DriveUploadButton
+                  driveFolderUrl={driveUrl}
+                  scheduledDate={schedule.scheduled_date}
+                  businessName={schedule.customer?.business_name ?? '현장'}
+                />
               )}
 
               {/* 작업 시작 */}

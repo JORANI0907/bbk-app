@@ -15,7 +15,7 @@ export default function WorkerLayout({
         <div className="flex items-center justify-between px-4 h-14">
           <div className="flex items-center gap-2">
             <span className="text-xl font-black text-blue-600 tracking-tight">BBK</span>
-            <span className="text-xs text-gray-400 font-medium">Korea</span>
+            <span className="text-xs text-gray-400 font-medium">공간케어</span>
           </div>
           <span className="text-sm font-medium text-gray-600">{today}</span>
         </div>
