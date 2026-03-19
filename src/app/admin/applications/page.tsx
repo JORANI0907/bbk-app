@@ -1103,22 +1103,26 @@ export default function ServiceManagementPage() {
               </Section>
 
               {/* 건당급여 */}
-              <Section title="건당급여 (급여정산 반영)">
-                <div className="flex items-center gap-2">
-                  <input
-                    type="number"
-                    value={unitPricePerVisit}
-                    onChange={e => setUnitPricePerVisit(e.target.value)}
-                    placeholder="고객관리 단가 또는 직접 입력"
-                    className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                  <span className="text-xs text-gray-400 shrink-0">원/건</span>
+              <Section title="건당급여">
+                <div className="bg-white border border-indigo-100 rounded-lg p-3 flex flex-col gap-2">
+                  <p className="text-xs font-semibold text-gray-700">건당 급여</p>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="number"
+                      value={unitPricePerVisit}
+                      onChange={e => setUnitPricePerVisit(e.target.value)}
+                      placeholder="0"
+                      className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                    <span className="text-xs text-gray-400 shrink-0">원/건</span>
+                  </div>
+                  <p className="text-xs text-gray-400">저장 시 급여정산에 반영됩니다 (이 일정에만 적용)</p>
+                  {unitPricePerVisit && (
+                    <div className="text-xs text-indigo-600 bg-indigo-50 rounded p-2">
+                      💰 이 일정 급여: {Number(unitPricePerVisit).toLocaleString('ko-KR')}원/건
+                    </div>
+                  )}
                 </div>
-                {unitPricePerVisit && (
-                  <p className="text-xs text-indigo-600 mt-1">
-                    💰 저장 시 급여정산에 {Number(unitPricePerVisit).toLocaleString('ko-KR')}원/건으로 반영됩니다
-                  </p>
-                )}
               </Section>
 
               {/* 고객 정보 */}

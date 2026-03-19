@@ -653,10 +653,10 @@ export default function AdminCustomersPage() {
                   <div className="bg-white border border-indigo-100 rounded-lg p-3 flex flex-col gap-2">
                     <p className="text-xs font-semibold text-gray-700">건당 급여</p>
                     <Field label="건당 급여" value={form.unit_price} onChange={set('unit_price')} type="number"
-                      placeholder="0" hint="담당자·작업자가 1건당 받는 금액 (저장 시 급여정산에 자동 반영)" />
+                      placeholder="0" hint="서비스 통합관리로 이관 시 1회 자동 매핑됩니다 (이후 서비스 통합관리에서 개별 수정 가능)" />
                     {form.unit_price && (
                       <div className="text-xs text-indigo-600 bg-indigo-50 rounded p-2">
-                        예) 이번 달 5건 → 급여 자동산정: {(Number(form.unit_price) * 5).toLocaleString('ko-KR')}원
+                        예) 5건 작업 시 → {(Number(form.unit_price) * 5).toLocaleString('ko-KR')}원
                       </div>
                     )}
                   </div>
