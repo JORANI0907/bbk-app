@@ -541,6 +541,27 @@ export default function ServiceManagementPage() {
     }
   }
 
+  const handleDeleteApplicationBulk = async () => {
+    if (checkedIds.length === 0) return
+    if (!confirm(`선택한 ${checkedIds.length}건의 신청서를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.`)) return
+    setBulkSaving(true)
+    let successCount = 0, failCount = 0
+    for (const id of checkedIds) {
+      try {
+        const res = await fetch(`/api/admin/applications?id=${id}`, { method: 'DELETE' })
+        if (res.ok) {
+          successCount++
+          if (selected?.id === id) setSelected(null)
+        } else failCount++
+      } catch { failCount++ }
+    }
+    setApplications(prev => prev.filter(a => !checkedIds.includes(a.id)))
+    setBulkSaving(false)
+    setCheckedIds([])
+    if (failCount === 0) toast.success(`${successCount}건 삭제되었습니다.`)
+    else toast.error(`${successCount}건 성공, ${failCount}건 실패`)
+  }
+
   const handleSaveToCustomerBulk = async () => {
     if (checkedIds.length === 0) return
     setBulkSaving(true)
@@ -868,6 +889,25 @@ export default function ServiceManagementPage() {
             })}
           </div>
 
+          {/* 액션 바 */}
+          {checkedIds.length > 0 && (
+            <div className="mb-3 flex items-center gap-2 bg-green-600 text-white px-4 py-2.5 rounded-xl shadow-sm">
+              <span className="text-sm font-semibold flex-1">{checkedIds.length}건 선택됨</span>
+              <button onClick={() => setCheckedIds([])}
+                className="text-xs text-green-200 hover:text-white px-2 py-1 rounded transition-colors">
+                선택 해제
+              </button>
+              <button onClick={handleDeleteApplicationBulk} disabled={bulkSaving}
+                className="text-xs bg-red-500 hover:bg-red-400 text-white font-semibold px-3 py-1.5 rounded-lg disabled:opacity-50 transition-colors whitespace-nowrap">
+                삭제
+              </button>
+              <button onClick={handleSaveToCustomerBulk} disabled={bulkSaving}
+                className="text-xs bg-white text-green-700 font-semibold px-3 py-1.5 rounded-lg hover:bg-green-50 disabled:opacity-50 transition-colors whitespace-nowrap">
+                {bulkSaving ? '처리 중...' : '고객 DB 저장 →'}
+              </button>
+            </div>
+          )}
+
           {/* 검색 */}
           <div className="relative mb-2">
             <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1047,20 +1087,6 @@ export default function ServiceManagementPage() {
             })()}
           </div>
 
-          {/* 플로팅 이관 바 */}
-          {checkedIds.length > 0 && (
-            <div className="mt-3 flex items-center gap-2 bg-green-600 text-white px-4 py-2.5 rounded-xl shadow-lg">
-              <span className="text-sm font-semibold flex-1">{checkedIds.length}건 선택됨</span>
-              <button onClick={() => setCheckedIds([])}
-                className="text-xs text-green-200 hover:text-white px-2 py-1 rounded transition-colors">
-                선택 해제
-              </button>
-              <button onClick={handleSaveToCustomerBulk} disabled={bulkSaving}
-                className="text-xs bg-white text-green-700 font-semibold px-3 py-1.5 rounded-lg hover:bg-green-50 disabled:opacity-50 transition-colors whitespace-nowrap">
-                {bulkSaving ? '저장 중...' : '고객 DB 저장 →'}
-              </button>
-            </div>
-          )}
         </div>
 
         {/* ── 우측: 상세 패널 (오버레이) ── */}
@@ -1073,12 +1099,6 @@ export default function ServiceManagementPage() {
                 <p className="text-xs text-gray-400 mt-0.5">신청일: {new Date(selected.created_at).toLocaleString('ko-KR')}</p>
               </div>
               <div className="flex items-center gap-1.5 shrink-0">
-                <button
-                  onClick={handleDeleteApplication}
-                  className="text-xs text-red-500 hover:text-red-700 border border-red-200 hover:border-red-400 px-2 py-1 rounded-lg transition-colors"
-                >
-                  삭제
-                </button>
                 <button onClick={() => setSelected(null)} className="text-gray-400 hover:text-gray-600 text-lg leading-none">✕</button>
               </div>
             </div>

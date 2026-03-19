@@ -388,6 +388,27 @@ export default function AdminCustomersPage() {
     }
   }
 
+  const handleDeleteBulk = async () => {
+    if (checkedIds.length === 0) return
+    if (!confirm(`선택한 ${checkedIds.length}건의 고객을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.`)) return
+    setBulkCreating(true)
+    let successCount = 0, failCount = 0
+    for (const id of checkedIds) {
+      try {
+        const res = await fetch(`/api/admin/customers?id=${id}`, { method: 'DELETE' })
+        if (res.ok) {
+          successCount++
+          if (selected?.id === id) { setSelected(null); setIsNew(false) }
+        } else failCount++
+      } catch { failCount++ }
+    }
+    setCustomers(prev => prev.filter(c => !checkedIds.includes(c.id)))
+    setBulkCreating(false)
+    setCheckedIds([])
+    if (failCount === 0) toast.success(`${successCount}건 삭제되었습니다.`)
+    else toast.error(`${successCount}건 성공, ${failCount}건 실패`)
+  }
+
   const handleCreateApplicationBulk = async () => {
     if (checkedIds.length === 0) return
     setBulkCreating(true)
@@ -509,6 +530,25 @@ export default function AdminCustomersPage() {
           ))}
         </div>
 
+        {/* 액션 바 */}
+        {checkedIds.length > 0 && (
+          <div className="mb-3 flex items-center gap-2 bg-blue-600 text-white px-4 py-2.5 rounded-xl shadow-sm">
+            <span className="text-sm font-semibold flex-1">{checkedIds.length}건 선택됨</span>
+            <button onClick={() => setCheckedIds([])}
+              className="text-xs text-blue-200 hover:text-white px-2 py-1 rounded transition-colors">
+              선택 해제
+            </button>
+            <button onClick={handleDeleteBulk} disabled={bulkCreating}
+              className="text-xs bg-red-500 hover:bg-red-400 text-white font-semibold px-3 py-1.5 rounded-lg disabled:opacity-50 transition-colors whitespace-nowrap">
+              삭제
+            </button>
+            <button onClick={handleCreateApplicationBulk} disabled={bulkCreating}
+              className="text-xs bg-white text-blue-700 font-semibold px-3 py-1.5 rounded-lg hover:bg-blue-50 disabled:opacity-50 transition-colors whitespace-nowrap">
+              {bulkCreating ? '처리 중...' : '서비스 신청서 생성 →'}
+            </button>
+          </div>
+        )}
+
         {/* 검색 */}
         <div className="relative mb-3">
           <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -579,20 +619,6 @@ export default function AdminCustomersPage() {
           )}
         </div>
 
-        {/* 플로팅 이관 바 */}
-        {checkedIds.length > 0 && (
-          <div className="mt-3 flex items-center gap-2 bg-blue-600 text-white px-4 py-2.5 rounded-xl shadow-lg">
-            <span className="text-sm font-semibold flex-1">{checkedIds.length}건 선택됨</span>
-            <button onClick={() => setCheckedIds([])}
-              className="text-xs text-blue-200 hover:text-white px-2 py-1 rounded transition-colors">
-              선택 해제
-            </button>
-            <button onClick={handleCreateApplicationBulk} disabled={bulkCreating}
-              className="text-xs bg-white text-blue-700 font-semibold px-3 py-1.5 rounded-lg hover:bg-blue-50 disabled:opacity-50 transition-colors whitespace-nowrap">
-              {bulkCreating ? '생성 중...' : '서비스 신청서 생성 →'}
-            </button>
-          </div>
-        )}
       </div>
 
       {/* ── 우측: 상세 패널 (오버레이) ── */}
@@ -603,12 +629,6 @@ export default function AdminCustomersPage() {
           <div className="p-4 border-b border-gray-100 flex items-center justify-between sticky top-0 bg-white z-10">
             <h2 className="font-bold text-gray-900 truncate">{isNew ? '새 고객 추가' : selected?.business_name}</h2>
             <div className="flex items-center gap-1.5 shrink-0">
-              {!isNew && (
-                <button onClick={handleDelete}
-                  className="text-xs text-red-500 hover:text-red-700 border border-red-200 hover:border-red-400 px-2 py-1 rounded-lg transition-colors">
-                  삭제
-                </button>
-              )}
               <button onClick={() => { setSelected(null); setIsNew(false) }} className="text-gray-400 hover:text-gray-600 text-lg leading-none">✕</button>
             </div>
           </div>
