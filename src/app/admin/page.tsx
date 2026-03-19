@@ -512,29 +512,6 @@ export default function AdminHomePage() {
             )}
           </div>
 
-          {/* 빠른 이동 */}
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-            <div className="px-4 py-3 border-b border-gray-50">
-              <h3 className="text-sm font-bold text-gray-900">⚡ 빠른 이동</h3>
-            </div>
-            <div className="grid grid-cols-2 gap-2 p-3">
-              {[
-                { href: '/admin/calendar', icon: '📅', label: '배정캘린더', color: 'bg-blue-50 hover:bg-blue-100 text-blue-700' },
-                { href: '/admin/schedule', icon: '📋', label: '일정관리',   color: 'bg-indigo-50 hover:bg-indigo-100 text-indigo-700' },
-                { href: '/admin/customers', icon: '🏢', label: '고객관리',  color: 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700' },
-                { href: '/admin/workers',  icon: '👷', label: '직원정보',   color: 'bg-amber-50 hover:bg-amber-100 text-amber-700' },
-                { href: '/admin/payroll',  icon: '💰', label: '급여정산',   color: 'bg-rose-50 hover:bg-rose-100 text-rose-700' },
-                { href: '/admin/inventory',icon: '📦', label: '재고관리',   color: 'bg-gray-50 hover:bg-gray-100 text-gray-700' },
-              ].map(item => (
-                <a key={item.href} href={item.href}
-                  className={`flex flex-col items-center justify-center gap-1.5 py-3 rounded-xl text-xs font-semibold transition-colors ${item.color}`}>
-                  <span className="text-xl">{item.icon}</span>
-                  {item.label}
-                </a>
-              ))}
-            </div>
-          </div>
-
         </div>
       </div>
 
