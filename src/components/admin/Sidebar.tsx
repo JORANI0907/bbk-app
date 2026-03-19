@@ -44,7 +44,7 @@ const NAV_ITEMS: NavItem[] = [
     roles: ['admin'],
     children: [
       { href: '/admin/customers', label: '고객관리' },
-      { href: '/admin/applications', label: '서비스신청' },
+      { href: '/admin/applications', label: '서비스관리' },
     ],
   },
   {

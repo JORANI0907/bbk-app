@@ -9,12 +9,26 @@ interface Application {
   id: string
   business_name: string
   owner_name: string
+  phone: string
+  email: string | null
+  address: string | null
   status: string
   service_type: string | null
   assigned_to: string | null
   construction_date: string | null
   supply_amount: number | null
   vat: number | null
+  payment_method: string | null
+  business_hours_start: string | null
+  business_hours_end: string | null
+  elevator: string | null
+  building_access: string | null
+  parking: string | null
+  access_method: string | null
+  request_notes: string | null
+  care_scope: string | null
+  business_number: string | null
+  account_number: string | null
   drive_folder_url: string | null
 }
 
@@ -138,6 +152,193 @@ function CalendarGrid({
   )
 }
 
+// ─── 상세 패널 ────────────────────────────────────────────────
+
+function DetailPanel({
+  app, users, workers, appWorkerMap, isAdmin, onClose,
+}: {
+  app: Application
+  users: User[]
+  workers: Worker[]
+  appWorkerMap: Record<string, string[]>
+  isAdmin: boolean
+  onClose: () => void
+}) {
+  const [showAccount, setShowAccount] = useState(false)
+  const [showBizNum, setShowBizNum] = useState(false)
+
+  const manager = users.find(u => u.id === app.assigned_to)
+  const workerNames = (appWorkerMap[app.id] ?? [])
+    .map(wid => workers.find(w => w.id === wid)?.name)
+    .filter((n): n is string => !!n)
+
+  const cfg = STATUS_CONFIG[app.status] ?? STATUS_CONFIG['신규']
+
+  const mask = (val: string | null) =>
+    val ? val.slice(0, 4) + '****' + val.slice(-2) : '-'
+
+  const Row = ({ label, value }: { label: string; value: React.ReactNode }) => (
+    <div className="flex items-start gap-2 py-1.5 border-b border-gray-50 last:border-0">
+      <span className="text-xs text-gray-400 shrink-0 w-20">{label}</span>
+      <span className="text-xs text-gray-800 flex-1 text-right">{value ?? '-'}</span>
+    </div>
+  )
+
+  return (
+    <div className="fixed inset-0 z-50 flex justify-end" onClick={onClose}>
+      <div
+        className="relative h-full w-full max-w-sm bg-white shadow-2xl overflow-y-auto flex flex-col"
+        onClick={e => e.stopPropagation()}
+      >
+        {/* 헤더 */}
+        <div className="sticky top-0 bg-white z-10 px-5 py-4 border-b border-gray-100 flex items-start justify-between gap-2">
+          <div>
+            <h2 className="font-bold text-gray-900 text-base leading-tight">{app.business_name}</h2>
+            <div className="flex items-center gap-2 mt-1 flex-wrap">
+              <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${cfg.badge}`}>
+                <span className={`w-1.5 h-1.5 rounded-full ${cfg.dot}`} />
+                {app.status}
+              </span>
+              <span className="text-xs text-gray-400">{fmtDate(app.construction_date)}</span>
+              {app.service_type && <span className="text-xs text-gray-400">{app.service_type}</span>}
+            </div>
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl leading-none shrink-0 mt-0.5">✕</button>
+        </div>
+
+        {/* 사진 링크 */}
+        {app.drive_folder_url && (
+          <div className="px-5 py-3 bg-blue-50 border-b border-blue-100">
+            <a href={app.drive_folder_url} target="_blank" rel="noreferrer"
+              className="flex items-center justify-center gap-2 w-full py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg transition-colors">
+              📷 사진 보기 (Google Drive)
+            </a>
+          </div>
+        )}
+
+        <div className="px-5 py-4 space-y-5 flex-1">
+
+          {/* 고객 기본 정보 */}
+          <section>
+            <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">고객 정보</p>
+            <div className="bg-gray-50 rounded-xl px-3 py-1">
+              <Row label="대표자" value={app.owner_name} />
+              <Row label="연락처" value={
+                app.phone
+                  ? <div className="flex items-center gap-1 justify-end">
+                      <span>{app.phone}</span>
+                      <a href={`tel:${app.phone}`} className="px-1.5 py-0.5 bg-blue-100 text-blue-600 rounded text-xs hover:bg-blue-200">📞</a>
+                    </div>
+                  : null
+              } />
+              {app.email && <Row label="이메일" value={app.email} />}
+              <Row label="주소" value={
+                app.address
+                  ? <div className="flex items-center gap-1 justify-end min-w-0">
+                      <span className="truncate">{app.address}</span>
+                      <button onClick={() => window.open(`https://map.kakao.com/link/search/${encodeURIComponent(app.address!)}`, '_blank')}
+                        className="px-1.5 py-0.5 bg-yellow-100 text-yellow-700 rounded text-xs hover:bg-yellow-200 shrink-0">🗺️</button>
+                    </div>
+                  : null
+              } />
+            </div>
+          </section>
+
+          {/* 민감 정보 (관리자만, 블라인드) */}
+          {isAdmin && (
+            <section>
+              <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">사업자 정보</p>
+              <div className="bg-gray-50 rounded-xl px-3 py-1">
+                <div className="flex items-start gap-2 py-1.5 border-b border-gray-50">
+                  <span className="text-xs text-gray-400 shrink-0 w-20">사업자번호</span>
+                  <div className="flex items-center gap-1.5 flex-1 justify-end">
+                    <span className="text-xs text-gray-800 font-mono">
+                      {showBizNum ? (app.business_number ?? '-') : mask(app.business_number)}
+                    </span>
+                    {app.business_number && (
+                      <button onClick={() => setShowBizNum(v => !v)}
+                        className="text-xs px-1.5 py-0.5 bg-gray-200 hover:bg-gray-300 text-gray-600 rounded transition-colors">
+                        {showBizNum ? '숨김' : '보기'}
+                      </button>
+                    )}
+                  </div>
+                </div>
+                <div className="flex items-start gap-2 py-1.5">
+                  <span className="text-xs text-gray-400 shrink-0 w-20">계좌번호</span>
+                  <div className="flex items-center gap-1.5 flex-1 justify-end">
+                    <span className="text-xs text-gray-800 font-mono">
+                      {showAccount ? (app.account_number ?? '-') : mask(app.account_number)}
+                    </span>
+                    {app.account_number && (
+                      <button onClick={() => setShowAccount(v => !v)}
+                        className="text-xs px-1.5 py-0.5 bg-gray-200 hover:bg-gray-300 text-gray-600 rounded transition-colors">
+                        {showAccount ? '숨김' : '보기'}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </section>
+          )}
+
+          {/* 현장 정보 */}
+          <section>
+            <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">현장 정보</p>
+            <div className="bg-gray-50 rounded-xl px-3 py-1">
+              {(app.business_hours_start || app.business_hours_end) && (
+                <Row label="영업시간" value={`${app.business_hours_start ?? '-'} ~ ${app.business_hours_end ?? '-'}`} />
+              )}
+              {app.elevator && <Row label="엘리베이터" value={app.elevator} />}
+              {app.building_access && <Row label="건물출입" value={app.building_access} />}
+              {app.parking && <Row label="주차" value={app.parking} />}
+              {app.access_method && <Row label="출입방법" value={app.access_method} />}
+              {app.payment_method && <Row label="결제방법" value={app.payment_method} />}
+            </div>
+          </section>
+
+          {/* 배정 정보 */}
+          <section>
+            <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">배정 정보</p>
+            <div className="bg-gray-50 rounded-xl px-3 py-1">
+              <Row label="담당자" value={manager?.name ?? '미배정'} />
+              <Row label="작업자" value={
+                workerNames.length > 0
+                  ? <div className="flex flex-wrap gap-1 justify-end">
+                      {workerNames.map(n => (
+                        <span key={n} className="bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded text-xs">{n}</span>
+                      ))}
+                    </div>
+                  : '미배정'
+              } />
+            </div>
+          </section>
+
+          {/* 요청 / 케어 범위 */}
+          {(app.request_notes || app.care_scope) && (
+            <section>
+              <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">요청 / 케어 범위</p>
+              <div className="space-y-2">
+                {app.request_notes && (
+                  <div className="bg-gray-50 rounded-xl p-3">
+                    <p className="text-xs text-gray-400 mb-1">요청사항</p>
+                    <p className="text-xs text-gray-700 whitespace-pre-wrap leading-relaxed">{app.request_notes}</p>
+                  </div>
+                )}
+                {app.care_scope && (
+                  <div className="bg-indigo-50 rounded-xl p-3">
+                    <p className="text-xs text-indigo-400 mb-1">케어 범위</p>
+                    <p className="text-xs text-indigo-800 whitespace-pre-wrap leading-relaxed font-medium">{app.care_scope}</p>
+                  </div>
+                )}
+              </div>
+            </section>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ─── 메인 페이지 ───────────────────────────────────────────────
 
 export default function SchedulePage() {
@@ -158,6 +359,7 @@ export default function SchedulePage() {
   const [selectedMonth, setSelectedMonth] = useState(currentMonth())
   const [personFilter, setPersonFilter] = useState('')
   const [workerFilter, setWorkerFilter] = useState('')
+  const [selected, setSelected] = useState<Application | null>(null)
 
   // 세션 초기화
   useEffect(() => {
@@ -254,7 +456,18 @@ export default function SchedulePage() {
   }
 
   return (
-    <div className="flex flex-col h-full gap-3 overflow-hidden">
+    <div className="flex flex-col h-full gap-3 overflow-hidden relative">
+      {/* 상세 패널 */}
+      {selected && (
+        <DetailPanel
+          app={selected}
+          users={users}
+          workers={workers}
+          appWorkerMap={appWorkerMap}
+          isAdmin={isAdmin}
+          onClose={() => setSelected(null)}
+        />
+      )}
 
       {/* ── 상단 필터 바 ── */}
       <div className="flex items-center gap-2 flex-wrap shrink-0 bg-white border border-gray-200 rounded-xl px-4 py-3">
@@ -377,8 +590,11 @@ export default function SchedulePage() {
                     .map(wid => workers.find(w => w.id === wid)?.name)
                     .filter((n): n is string => !!n)
                   const manager = users.find(u => u.id === app.assigned_to)
+                  const isSelected = selected?.id === app.id
                   return (
-                    <tr key={app.id} className="hover:bg-blue-50/40 transition-colors">
+                    <tr key={app.id}
+                      onClick={() => setSelected(isSelected ? null : app)}
+                      className={`cursor-pointer hover:bg-blue-50/40 transition-colors ${isSelected ? 'bg-blue-50' : ''}`}>
                       <td className="px-4 py-3 text-gray-500 whitespace-nowrap font-mono text-xs">
                         {fmtDate(app.construction_date)}
                       </td>
