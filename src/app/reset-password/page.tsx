@@ -2,31 +2,29 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { createClient } from '@/lib/supabase/client'
 import toast from 'react-hot-toast'
 
 export default function ResetPasswordPage() {
   const router = useRouter()
-  const [accessToken, setAccessToken] = useState<string | null>(null)
+  const [ready, setReady] = useState(false)
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [done, setDone] = useState(false)
 
   useEffect(() => {
-    // Supabase puts token in hash fragment: #access_token=...&type=recovery
-    const hash = window.location.hash.substring(1)
-    const params = new URLSearchParams(hash)
-    const token = params.get('access_token')
-    const type = params.get('type')
+    const supabase = createClient()
 
-    if (!token || type !== 'recovery') {
-      toast.error('유효하지 않은 링크입니다.')
-      router.replace('/forgot-password')
-      return
-    }
+    // Supabase가 URL의 토큰(해시 또는 ?code=)을 자동 감지해 PASSWORD_RECOVERY 이벤트를 발생시킴
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'PASSWORD_RECOVERY') {
+        setReady(true)
+      }
+    })
 
-    setAccessToken(token)
-  }, [router])
+    return () => subscription.unsubscribe()
+  }, [])
 
   const handleSubmit = async () => {
     if (!password.trim()) {
@@ -41,17 +39,12 @@ export default function ResetPasswordPage() {
       toast.error('비밀번호가 일치하지 않습니다.')
       return
     }
-    if (!accessToken) return
 
     setLoading(true)
     try {
-      const res = await fetch('/api/auth/reset-password', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ access_token: accessToken, password }),
-      })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error ?? '변경 실패')
+      const supabase = createClient()
+      const { error } = await supabase.auth.updateUser({ password })
+      if (error) throw new Error(error.message)
       setDone(true)
     } catch (err) {
       toast.error(err instanceof Error ? err.message : '비밀번호 변경에 실패했습니다.')
@@ -60,10 +53,13 @@ export default function ResetPasswordPage() {
     }
   }
 
-  if (!accessToken) {
+  if (!ready) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <p className="text-gray-400 text-sm">확인 중...</p>
+      <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center px-4">
+        <div className="text-center">
+          <p className="text-gray-400 text-sm mb-2">링크 확인 중...</p>
+          <p className="text-gray-300 text-xs">잠시만 기다려주세요</p>
+        </div>
       </div>
     )
   }
