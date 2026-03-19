@@ -30,12 +30,11 @@ const NAV_ITEMS: NavItem[] = [
   { type: 'leaf', href: '/admin', label: '홈', icon: '🏠', roles: ['admin', 'worker'] },
   {
     type: 'group',
-    label: '배정관리',
+    label: '일정관리',
     icon: '📅',
     roles: ['admin'],
     children: [
-      { href: '/admin/calendar', label: '배정캘린더' },
-      { href: '/admin/schedule', label: '일정관리' },
+      { href: '/admin/schedule', label: '배정관리' },
     ],
   },
   {
