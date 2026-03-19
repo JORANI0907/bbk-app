@@ -38,14 +38,14 @@ interface PayrollRecord {
 }
 
 interface ManagerEntry {
-  person: { id: string; name: string; role: string; phone: string | null }
+  person: { id: string; name: string; role: string; phone: string | null; account_number: string | null }
   jobs: ManagerJob[]
   auto_amount: number
   record: PayrollRecord | undefined
 }
 
 interface WorkerEntry {
-  person: { id: string; name: string; employment_type: string | null; day_wage: number | null; night_wage: number | null; avg_salary: number | null; phone: string | null }
+  person: { id: string; name: string; employment_type: string | null; day_wage: number | null; night_wage: number | null; avg_salary: number | null; phone: string | null; account_number: string | null }
   jobs: WorkerJob[]
   auto_amount: number
   record: PayrollRecord | undefined
@@ -216,6 +216,13 @@ function ManagerCard({
               {isPaid && <span className="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700">💳 지급완료</span>}
             </div>
             <p className="text-xs text-gray-400 mt-0.5">{entry.jobs.length}건 · 자동 {fmt(entry.auto_amount)}</p>
+            {(entry.person.phone || entry.person.account_number) && (
+              <p className="text-xs text-gray-400 mt-0.5">
+                {entry.person.phone && <span>{entry.person.phone}</span>}
+                {entry.person.phone && entry.person.account_number && <span className="mx-1">·</span>}
+                {entry.person.account_number && <span className="font-mono">{entry.person.account_number}</span>}
+              </p>
+            )}
           </div>
           <button onClick={() => setExpanded(v => !v)} className="text-gray-400 hover:text-gray-600 text-lg leading-none p-1">
             {expanded ? '▲' : '▼'}
@@ -456,6 +463,13 @@ function WorkerCard({
               {isPaid && <span className="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700">💳 지급완료</span>}
             </div>
             <p className="text-xs text-gray-400 mt-0.5">{entry.jobs.length}건 · 자동 {fmt(entry.auto_amount)}</p>
+            {(entry.person.phone || entry.person.account_number) && (
+              <p className="text-xs text-gray-400 mt-0.5">
+                {entry.person.phone && <span>{entry.person.phone}</span>}
+                {entry.person.phone && entry.person.account_number && <span className="mx-1">·</span>}
+                {entry.person.account_number && <span className="font-mono">{entry.person.account_number}</span>}
+              </p>
+            )}
           </div>
           <button onClick={() => setExpanded(v => !v)} className="text-gray-400 hover:text-gray-600 text-lg leading-none p-1">
             {expanded ? '▲' : '▼'}
@@ -648,12 +662,65 @@ export default function PayrollPage() {
     return `${y}년 ${Number(m)}월`
   })()
 
+  const downloadSheet = () => {
+    const rows: string[][] = []
+
+    if (tab === 'manager') {
+      rows.push(['이름', '역할', '연락처', '계좌번호', '건수', '자동계산', '최종지급액', '지급여부', '메모'])
+      for (const e of managers) {
+        rows.push([
+          e.person.name,
+          e.person.role === 'admin' ? '관리자' : '직원',
+          e.person.phone ?? '',
+          e.person.account_number ?? '',
+          String(e.jobs.length),
+          String(e.auto_amount),
+          String(e.record?.final_amount ?? e.auto_amount),
+          e.record?.is_paid ? '지급완료' : '미지급',
+          e.record?.note ?? '',
+        ])
+        // 세부 일정
+        for (const job of e.jobs) {
+          rows.push(['', '', '', '', `  ${job.construction_date ?? ''} ${job.business_name}`, String(job.resolved_pay), '', '', ''])
+        }
+      }
+    } else {
+      rows.push(['이름', '고용형태', '연락처', '계좌번호', '건수', '자동계산', '최종지급액', '지급여부', '메모'])
+      for (const e of workersPayroll) {
+        rows.push([
+          e.person.name,
+          e.person.employment_type ?? '',
+          e.person.phone ?? '',
+          e.person.account_number ?? '',
+          String(e.jobs.length),
+          String(e.auto_amount),
+          String(e.record?.final_amount ?? e.auto_amount),
+          e.record?.is_paid ? '지급완료' : '미지급',
+          e.record?.note ?? '',
+        ])
+        for (const job of e.jobs) {
+          rows.push(['', '', '', '', `  ${job.construction_date ?? ''} ${job.business_name}`, String(job.salary ?? 0), '', '', ''])
+        }
+      }
+    }
+
+    const csv = '\uFEFF' + rows.map(r => r.map(c => `"${c.replace(/"/g, '""')}"`).join(',')).join('\n')
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `급여정산_${displayMonth}_${tab === 'manager' ? '담당자' : '작업자'}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
   return (
     <div className="flex flex-col h-full">
       {/* Tab nav */}
       <div className="flex gap-1.5 px-4 pt-4">
         <a href="/admin/workers" className="px-4 py-2 text-gray-600 hover:bg-gray-100 text-sm font-medium rounded-xl transition-colors">👷 직원정보</a>
         <span className="px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-xl">💰 급여정산</span>
+        <a href="/admin/finance" className="px-4 py-2 text-gray-600 hover:bg-gray-100 text-sm font-medium rounded-xl transition-colors">📈 매출매입</a>
         <a href="/admin/members" className="px-4 py-2 text-gray-600 hover:bg-gray-100 text-sm font-medium rounded-xl transition-colors">🔑 계정관리</a>
       </div>
 
@@ -667,6 +734,12 @@ export default function PayrollPage() {
           </div>
           <button onClick={nextMonth} className="p-2 rounded-lg hover:bg-gray-100 text-gray-500 transition-colors">›</button>
         </div>
+      <div className="flex justify-end mb-2">
+        <button onClick={downloadSheet}
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 text-white text-xs font-semibold rounded-lg hover:bg-emerald-700 transition-colors">
+          📊 시트 만들기
+        </button>
+      </div>
 
         {/* Person type tabs */}
         <div className="flex gap-1 bg-gray-100 rounded-xl p-1 mb-4">

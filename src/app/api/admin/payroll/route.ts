@@ -33,7 +33,7 @@ export async function GET(request: NextRequest) {
     // 담당자 목록 (users 테이블의 worker/admin)
     supabase
       .from('users')
-      .select('id, name, role, phone')
+      .select('id, name, role, phone, account_number')
       .in('role', ['worker', 'admin'])
       .eq('is_active', true)
       .order('name'),
@@ -41,7 +41,7 @@ export async function GET(request: NextRequest) {
     // 작업자 목록 (workers 테이블)
     supabase
       .from('workers')
-      .select('id, name, employment_type, day_wage, night_wage, avg_salary, phone')
+      .select('id, name, employment_type, day_wage, night_wage, avg_salary, phone, account_number')
       .order('name'),
 
     // 기존 급여 정산 기록

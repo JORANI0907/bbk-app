@@ -65,11 +65,22 @@ CREATE TABLE IF NOT EXISTS customers (
   longitude DECIMAL,
   contact_name TEXT NOT NULL,
   contact_phone TEXT NOT NULL,
+  email TEXT,
+  account_number TEXT,
+  platform_nickname TEXT,
+  payment_method TEXT,
+  elevator TEXT,
+  building_access TEXT,
+  access_method TEXT,
+  business_hours_start TEXT,
+  business_hours_end TEXT,
   door_password TEXT,
   gas_location TEXT,
   power_location TEXT,
   parking_info TEXT,
   special_notes TEXT,
+  care_scope TEXT,
+  drive_folder_url TEXT,
   pipeline_status TEXT DEFAULT 'inquiry'
     CHECK (pipeline_status IN (
       'inquiry', 'quote_sent', 'consulting', 'contracted',
@@ -77,6 +88,18 @@ CREATE TABLE IF NOT EXISTS customers (
       'payment_done', 'subscription_active', 'renewal_pending',
       'churned'
     )),
+  customer_type TEXT CHECK (customer_type IN ('1회성케어', '정기딥케어', '정기엔드케어')),
+  status TEXT DEFAULT 'active' CHECK (status IN ('active', 'paused', 'terminated')),
+  billing_cycle TEXT CHECK (billing_cycle IN ('월간', '연간')),
+  billing_amount BIGINT,
+  billing_start_date DATE,
+  billing_next_date DATE,
+  contract_start_date DATE,
+  contract_end_date DATE,
+  unit_price BIGINT,
+  visit_interval_days INTEGER,
+  next_visit_date DATE,
+  notes TEXT,
   created_at TIMESTAMPTZ DEFAULT now(),
   updated_at TIMESTAMPTZ DEFAULT now()
 );
@@ -516,5 +539,53 @@ CREATE POLICY "authenticated_read_photos" ON storage.objects
 
 
 -- ============================================================
--- 완료! Table Editor에서 10개 테이블을 확인하세요.
+-- 14. 급여정산 (013 + 014 마이그레이션)
+-- ============================================================
+
+-- 건당 단가 컬럼 (정기엔드케어용)
+ALTER TABLE service_applications
+  ADD COLUMN IF NOT EXISTS unit_price_per_visit INTEGER;
+
+COMMENT ON COLUMN service_applications.unit_price_per_visit
+  IS '정기엔드케어 건당 단가 (담당자/작업자 각각 지급)';
+
+-- 담당자 건당 실지급액 (비워두면 unit_price_per_visit 기준)
+ALTER TABLE service_applications
+  ADD COLUMN IF NOT EXISTS manager_pay INTEGER;
+
+COMMENT ON COLUMN service_applications.manager_pay
+  IS '담당자 건당 실지급액 (비워두면 unit_price_per_visit 기준으로 자동 산정)';
+
+-- 월별 급여 정산 기록 테이블
+CREATE TABLE IF NOT EXISTS payroll_records (
+  id            UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  year_month    TEXT        NOT NULL,
+  person_type   TEXT        NOT NULL CHECK (person_type IN ('user', 'worker')),
+  person_id     UUID        NOT NULL,
+  auto_amount   INTEGER     NOT NULL DEFAULT 0,
+  final_amount  INTEGER,
+  note          TEXT,
+  is_paid       BOOLEAN     NOT NULL DEFAULT false,
+  paid_at       TIMESTAMPTZ,
+  created_at    TIMESTAMPTZ DEFAULT now(),
+  updated_at    TIMESTAMPTZ DEFAULT now(),
+  UNIQUE(year_month, person_type, person_id)
+);
+
+CREATE OR REPLACE FUNCTION update_payroll_records_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = now();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS payroll_records_updated_at ON payroll_records;
+CREATE TRIGGER payroll_records_updated_at
+  BEFORE UPDATE ON payroll_records
+  FOR EACH ROW EXECUTE FUNCTION update_payroll_records_updated_at();
+
+
+-- ============================================================
+-- 완료! Table Editor에서 테이블을 확인하세요.
 -- ============================================================
