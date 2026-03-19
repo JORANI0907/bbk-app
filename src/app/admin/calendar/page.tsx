@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import toast from 'react-hot-toast'
 
 interface Application {
   id: string
@@ -19,43 +18,16 @@ interface Application {
   vat: number | null
   unit_price_per_visit: number | null
   payment_method: string | null
-  business_hours_start: string | null
-  business_hours_end: string | null
-  elevator: string | null
-  building_access: string | null
-  parking: string | null
-  access_method: string | null
-  request_notes: string | null
-  care_scope: string | null
-  admin_notes: string | null
   drive_folder_url: string | null
 }
 
 interface User { id: string; name: string; role: string }
-
-interface Worker {
-  id: string
-  name: string
-  employment_type: string | null
-  avg_salary: number | null
-  day_wage: number | null
-  night_wage: number | null
-}
-
-interface WorkAssignment {
-  id: string
-  worker_id: string
-  application_id: string | null
-  construction_date: string | null
-  business_name: string | null
-  salary: number | null
-}
-
+interface Worker { id: string; name: string; employment_type: string | null }
+interface WorkAssignment { id: string; worker_id: string; application_id: string | null }
 interface SessionUser { userId: string; name: string; role: string }
 
 const currentMonth = () => new Date().toISOString().slice(0, 7)
 const fmtDate = (d: string | null) => d ? d.slice(0, 10).replace(/-/g, '.') : '-'
-const fmt = (n: number | null | undefined) => (n == null ? '0' : n.toLocaleString('ko-KR'))
 
 const STATUS_CONFIG: Record<string, { badge: string; dot: string }> = {
   '신규':    { badge: 'bg-blue-100 text-blue-700',       dot: 'bg-blue-500' },
@@ -76,10 +48,9 @@ function getSession(): SessionUser | null {
 }
 
 function CalendarGrid({
-  year, month, applications, users, selectedId, onSelect,
+  year, month, applications, users,
 }: {
   year: number; month: number; applications: Application[]; users: User[]
-  selectedId?: string; onSelect: (app: Application) => void
 }) {
   const firstDay = new Date(year, month, 1).getDay()
   const daysInMonth = new Date(year, month + 1, 0).getDate()
@@ -122,12 +93,9 @@ function CalendarGrid({
               }`}>{day}</div>
               <div className="space-y-0.5 overflow-hidden">
                 {apps.slice(0, 2).map(app => (
-                  <button key={app.id} onClick={() => onSelect(app)}
-                    className={`w-full text-left px-1 py-0.5 rounded text-xs truncate leading-tight transition-colors ${
-                      selectedId === app.id ? 'bg-indigo-600 text-white' : 'bg-indigo-100 text-indigo-800 hover:bg-indigo-200'
-                    }`}>
+                  <div key={app.id} className="w-full text-left px-1 py-0.5 rounded text-xs truncate leading-tight bg-indigo-100 text-indigo-800">
                     {app.business_name}
-                  </button>
+                  </div>
                 ))}
                 {apps.length > 2 && <div className="text-xs text-gray-400 px-1">+{apps.length - 2}</div>}
               </div>
@@ -143,30 +111,19 @@ export default function AdminCalendarPage() {
   const [applications, setApplications] = useState<Application[]>([])
   const [users, setUsers] = useState<User[]>([])
   const [workers, setWorkers] = useState<Worker[]>([])
-  const [loading, setLoading] = useState(true)
   const [allAssignments, setAllAssignments] = useState<WorkAssignment[]>([])
+  const [loading, setLoading] = useState(true)
+  const [currentUser, setCurrentUser] = useState<SessionUser | null>(null)
 
-  const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list')
+  const [viewMode, setViewMode] = useState<'list' | 'calendar'>('calendar')
   const [selectedMonth, setSelectedMonth] = useState(currentMonth())
   const [personFilter, setPersonFilter] = useState('')
   const [workerFilter, setWorkerFilter] = useState('')
-  const [currentUser, setCurrentUser] = useState<SessionUser | null>(null)
-  const [selected, setSelected] = useState<Application | null>(null)
-
-  // 출력현황
-  const [historyMonth, setHistoryMonth] = useState(currentMonth())
-  const [historyPersonId, setHistoryPersonId] = useState('')
-  const [historyWorkerId, setHistoryWorkerId] = useState('')
-  const [workerAssignments, setWorkerAssignments] = useState<WorkAssignment[]>([])
-  const [workerAssLoading, setWorkerAssLoading] = useState(false)
 
   useEffect(() => {
     const session = getSession()
     setCurrentUser(session)
-    if (session && session.role !== 'admin') {
-      setPersonFilter(session.userId)
-      setHistoryPersonId(session.userId)
-    }
+    if (session && session.role !== 'admin') setPersonFilter(session.userId)
   }, [])
 
   const fetchAll = useCallback(async () => {
@@ -187,25 +144,12 @@ export default function AdminCalendarPage() {
 
   useEffect(() => { fetchAll() }, [fetchAll])
 
-  const fetchAssignments = useCallback(async (month: string) => {
-    try {
-      const res = await fetch(`/api/admin/work-assignments?month=${month}`)
-      const data = await res.json()
-      setAllAssignments(data.assignments ?? [])
-    } catch { setAllAssignments([]) }
-  }, [])
-
-  useEffect(() => { fetchAssignments(selectedMonth) }, [selectedMonth, fetchAssignments])
-
   useEffect(() => {
-    if (!historyWorkerId) { setWorkerAssignments([]); return }
-    setWorkerAssLoading(true)
-    fetch(`/api/admin/work-assignments?worker_id=${historyWorkerId}&month=${historyMonth}`)
+    fetch(`/api/admin/work-assignments?month=${selectedMonth}`)
       .then(r => r.json())
-      .then(d => setWorkerAssignments(d.assignments ?? []))
-      .catch(() => { toast.error('작업자 이력 로드 실패'); setWorkerAssignments([]) })
-      .finally(() => setWorkerAssLoading(false))
-  }, [historyWorkerId, historyMonth])
+      .then(d => setAllAssignments(d.assignments ?? []))
+      .catch(() => {})
+  }, [selectedMonth])
 
   const isAdmin = currentUser?.role === 'admin'
 
@@ -214,9 +158,7 @@ export default function AdminCalendarPage() {
     for (const a of allAssignments) {
       if (!a.application_id) continue
       if (!map[a.application_id]) map[a.application_id] = []
-      if (!map[a.application_id].includes(a.worker_id)) {
-        map[a.application_id].push(a.worker_id)
-      }
+      if (!map[a.application_id].includes(a.worker_id)) map[a.application_id].push(a.worker_id)
     }
     return map
   }, [allAssignments])
@@ -228,438 +170,116 @@ export default function AdminCalendarPage() {
     } else if (personFilter) {
       apps = apps.filter(a => a.assigned_to === personFilter)
     }
-    if (workerFilter) {
-      apps = apps.filter(a => appWorkerMap[a.id]?.includes(workerFilter))
-    }
+    if (workerFilter) apps = apps.filter(a => appWorkerMap[a.id]?.includes(workerFilter))
     return [...apps].sort((a, b) => (a.construction_date ?? '').localeCompare(b.construction_date ?? ''))
   }, [applications, selectedMonth, personFilter, workerFilter, isAdmin, currentUser, appWorkerMap])
-
-  const personHistoryApps = useMemo(() => {
-    const pid = historyPersonId || (isAdmin ? '' : currentUser?.userId ?? '')
-    if (!pid) return []
-    return [...applications]
-      .filter(a => a.assigned_to === pid && a.construction_date?.startsWith(historyMonth))
-      .sort((a, b) => (a.construction_date ?? '').localeCompare(b.construction_date ?? ''))
-  }, [applications, historyPersonId, historyMonth, isAdmin, currentUser])
 
   const [calYear, calMonth] = useMemo(() => {
     const [y, m] = selectedMonth.split('-').map(Number)
     return [y, m - 1]
   }, [selectedMonth])
 
-  const historyWorker = workers.find(w => w.id === historyWorkerId)
-  const historyPerson = users.find(u => u.id === historyPersonId)
-  const workerSalaryTotal = workerAssignments.reduce((s, a) => s + (a.salary ?? 0), 0)
-
   return (
-    <div className="relative flex h-full gap-0 min-h-0">
-      {/* ── 좌측: 목록/캘린더 ── */}
-      <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
-        <div className="flex items-center justify-between mb-4">
-          <h1 className="text-2xl font-bold text-gray-900">일정 관리</h1>
-          <div className="flex items-center gap-2">
-            <div className="flex border border-gray-200 rounded-lg overflow-hidden">
-              <button onClick={() => setViewMode('list')}
-                className={`px-3 py-1.5 text-xs font-medium transition-colors ${viewMode === 'list' ? 'bg-gray-800 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}>
-                목록
-              </button>
-              <button onClick={() => setViewMode('calendar')}
-                className={`px-3 py-1.5 text-xs font-medium transition-colors ${viewMode === 'calendar' ? 'bg-gray-800 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}>
-                캘린더
-              </button>
-            </div>
-            <button onClick={fetchAll} className="px-3 py-1.5 text-xs bg-white border border-gray-200 rounded-lg hover:bg-gray-50">새로고침</button>
+    <div className="flex flex-col h-full overflow-hidden">
+      {/* 헤더 */}
+      <div className="flex items-center justify-between mb-4">
+        <h1 className="text-2xl font-bold text-gray-900">배정캘린더</h1>
+        <div className="flex items-center gap-2">
+          <div className="flex border border-gray-200 rounded-lg overflow-hidden">
+            <button onClick={() => setViewMode('calendar')}
+              className={`px-3 py-1.5 text-xs font-medium transition-colors ${viewMode === 'calendar' ? 'bg-gray-800 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}>
+              캘린더
+            </button>
+            <button onClick={() => setViewMode('list')}
+              className={`px-3 py-1.5 text-xs font-medium transition-colors ${viewMode === 'list' ? 'bg-gray-800 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}>
+              목록
+            </button>
           </div>
+          <button onClick={fetchAll} className="px-3 py-1.5 text-xs bg-white border border-gray-200 rounded-lg hover:bg-gray-50">새로고침</button>
         </div>
+      </div>
 
-        {/* 필터 */}
-        <div className="flex items-center gap-2 mb-3 flex-wrap">
-          <input type="month" value={selectedMonth} onChange={e => setSelectedMonth(e.target.value)}
-            className="border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500" />
-          {isAdmin ? (
-            <select value={personFilter} onChange={e => setPersonFilter(e.target.value)}
-              className="border border-gray-200 rounded-lg px-2 py-1.5 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
-              <option value="">담당자 전체</option>
-              {users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
-            </select>
-          ) : (
-            <span className="px-2 py-1.5 text-xs bg-gray-100 rounded-lg text-gray-600 border border-gray-200">
-              {currentUser?.name ?? '내 일정'}
-            </span>
-          )}
-          {isAdmin && (
-            <select value={workerFilter} onChange={e => setWorkerFilter(e.target.value)}
-              className="border border-gray-200 rounded-lg px-2 py-1.5 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
-              <option value="">작업자 전체</option>
-              {workers.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
-            </select>
-          )}
-          <span className="text-xs text-gray-400 ml-auto">{filteredApps.length}건</span>
-        </div>
-
-        {loading ? (
-          <div className="py-20 text-center text-gray-400 text-sm">불러오는 중...</div>
-        ) : viewMode === 'list' ? (
-          <div className="bg-white rounded-xl border border-gray-200 overflow-auto flex-1">
-            {filteredApps.length === 0 ? (
-              <div className="py-20 text-center text-gray-400 text-sm">일정이 없습니다.</div>
-            ) : (
-              <table className="w-full text-sm">
-                <thead className="bg-gray-50 border-b border-gray-200 sticky top-0">
-                  <tr>
-                    {['시공일자', '업체명', '대표자', '담당자', '작업자', '서비스', '상태'].map(h => (
-                      <th key={h} className="text-left px-3 py-3 text-xs font-semibold text-gray-500 whitespace-nowrap">{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredApps.map(app => {
-                    const cfg = STATUS_CONFIG[app.status] ?? STATUS_CONFIG['신규']
-                    return (
-                      <tr key={app.id} onClick={() => setSelected(app)}
-                        className={`border-b border-gray-100 last:border-0 cursor-pointer hover:bg-blue-50 transition-colors ${selected?.id === app.id ? 'bg-blue-50' : ''}`}>
-                        <td className="px-3 py-3 text-gray-500 whitespace-nowrap font-mono text-xs">{fmtDate(app.construction_date)}</td>
-                        <td className="px-3 py-3 font-medium text-gray-900 max-w-[120px] truncate">
-                          <div className="flex items-center gap-1">
-                            {app.business_name}
-                            {app.drive_folder_url && <span className="text-blue-400 text-xs shrink-0">📷</span>}
-                          </div>
-                        </td>
-                        <td className="px-3 py-3 text-gray-700 text-xs">{app.owner_name}</td>
-                        <td className="px-3 py-3 text-gray-500 text-xs">{users.find(u => u.id === app.assigned_to)?.name ?? <span className="text-gray-300">미배정</span>}</td>
-                        <td className="px-3 py-3 text-gray-500 text-xs">
-                          {(appWorkerMap[app.id] ?? []).map(wid => {
-                            const w = workers.find(x => x.id === wid)
-                            return w ? <span key={wid} className="inline-block bg-gray-100 text-gray-600 px-1.5 rounded text-xs mr-1">{w.name}</span> : null
-                          })}
-                          {!(appWorkerMap[app.id]?.length) && <span className="text-gray-300">-</span>}
-                        </td>
-                        <td className="px-3 py-3 text-gray-500 text-xs">{app.service_type ?? '-'}</td>
-                        <td className="px-3 py-3">
-                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${cfg.badge}`}>
-                            <span className={`w-1.5 h-1.5 rounded-full ${cfg.dot} shrink-0`} />
-                            {app.status}
-                          </span>
-                        </td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
-            )}
-          </div>
+      {/* 필터 */}
+      <div className="flex items-center gap-2 mb-3 flex-wrap">
+        <input type="month" value={selectedMonth} onChange={e => setSelectedMonth(e.target.value)}
+          className="border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        {isAdmin ? (
+          <select value={personFilter} onChange={e => setPersonFilter(e.target.value)}
+            className="border border-gray-200 rounded-lg px-2 py-1.5 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <option value="">담당자 전체</option>
+            {users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+          </select>
         ) : (
-          <div className="overflow-auto flex-1">
-            <CalendarGrid
-              year={calYear} month={calMonth}
-              applications={filteredApps} users={users}
-              selectedId={selected?.id}
-              onSelect={setSelected}
-            />
-          </div>
+          <span className="px-2 py-1.5 text-xs bg-gray-100 rounded-lg text-gray-600 border border-gray-200">
+            {currentUser?.name ?? '내 일정'}
+          </span>
         )}
+        {isAdmin && (
+          <select value={workerFilter} onChange={e => setWorkerFilter(e.target.value)}
+            className="border border-gray-200 rounded-lg px-2 py-1.5 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <option value="">작업자 전체</option>
+            {workers.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
+          </select>
+        )}
+        <span className="text-xs text-gray-400 ml-auto">{filteredApps.length}건</span>
       </div>
 
-      {/* ── 우측: 상세 + 출력현황 (오버레이) ── */}
-      <div className="absolute right-0 top-0 bottom-0 w-[420px] flex flex-col gap-3 overflow-y-auto pb-4 z-20 bg-gray-50 rounded-xl border border-gray-200 shadow-2xl px-3 pt-3">
-
-        {/* 선택된 일정 상세 */}
-        {selected && (
-          <div className="bg-white rounded-xl border border-gray-200 flex-shrink-0">
-            {/* 헤더 */}
-            <div className="p-4 border-b border-gray-100 flex items-start justify-between gap-2">
-              <div>
-                <h2 className="font-bold text-gray-900">{selected.business_name}</h2>
-                <div className="flex items-center gap-2 mt-0.5">
-                  <p className="text-xs text-gray-400">{fmtDate(selected.construction_date)} · {selected.service_type ?? '-'}</p>
-                  <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-xs font-medium ${STATUS_CONFIG[selected.status]?.badge ?? 'bg-gray-100 text-gray-600'}`}>
-                    <span className={`w-1.5 h-1.5 rounded-full ${STATUS_CONFIG[selected.status]?.dot ?? 'bg-gray-400'} shrink-0`} />
-                    {selected.status}
-                  </span>
-                </div>
-              </div>
-              <button onClick={() => setSelected(null)} className="text-gray-400 hover:text-gray-600 text-lg shrink-0">✕</button>
-            </div>
-
-            {/* 사진 보기 버튼 (드라이브 폴더) */}
-            {selected.drive_folder_url && (
-              <div className="px-4 py-3 border-b border-gray-100 bg-blue-50">
-                <a href={selected.drive_folder_url} target="_blank" rel="noreferrer"
-                  className="flex items-center justify-center gap-2 w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg transition-colors">
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                  </svg>
-                  📷 사진 보기 (Google Drive)
-                </a>
-              </div>
-            )}
-
-            {/* 기본정보 */}
-            <div className="p-4 space-y-2.5 text-xs">
-              {/* 연락처 */}
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-gray-400 shrink-0 w-16">연락처</span>
-                <div className="flex items-center gap-1 flex-1 justify-end">
-                  <span className="text-gray-700">{selected.phone || '-'}</span>
-                  {selected.phone && (
-                    <a href={`tel:${selected.phone}`} className="px-1.5 py-0.5 bg-blue-50 text-blue-600 rounded text-xs hover:bg-blue-100">📞</a>
-                  )}
-                </div>
-              </div>
-
-              {/* 이메일 */}
-              {selected.email && (
-                <div className="flex justify-between gap-2">
-                  <span className="text-gray-400 shrink-0 w-16">이메일</span>
-                  <span className="text-gray-700 text-right truncate">{selected.email}</span>
-                </div>
-              )}
-
-              {/* 주소 */}
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-gray-400 shrink-0 w-16">주소</span>
-                <div className="flex items-center gap-1 flex-1 justify-end min-w-0">
-                  <span className="text-gray-700 text-right truncate">{selected.address || '-'}</span>
-                  {selected.address && (
-                    <button onClick={() => window.open(`https://map.kakao.com/link/search/${encodeURIComponent(selected.address)}`, '_blank')}
-                      className="px-1.5 py-0.5 bg-yellow-50 text-yellow-700 rounded text-xs hover:bg-yellow-100 shrink-0">🗺️</button>
-                  )}
-                </div>
-              </div>
-
-              {/* 영업시간 */}
-              {(selected.business_hours_start || selected.business_hours_end) && (
-                <div className="flex justify-between gap-2">
-                  <span className="text-gray-400 shrink-0 w-16">영업시간</span>
-                  <span className="text-gray-700">{selected.business_hours_start ?? '-'} ~ {selected.business_hours_end ?? '-'}</span>
-                </div>
-              )}
-
-              {/* 엘리베이터 / 건물출입 / 주차 */}
-              {[
-                ['엘리베이터', selected.elevator],
-                ['건물출입', selected.building_access],
-                ['주차', selected.parking],
-                ['출입방법', selected.access_method],
-              ].filter(([, v]) => v).map(([label, val]) => (
-                <div key={label as string} className="flex justify-between gap-2">
-                  <span className="text-gray-400 shrink-0 w-16">{label}</span>
-                  <span className="text-gray-700 text-right">{val}</span>
-                </div>
-              ))}
-
-              {/* 구분선 */}
-              {(selected.request_notes || selected.care_scope || selected.admin_notes) && (
-                <div className="border-t border-gray-100 pt-2 space-y-2.5">
-                  {selected.request_notes && (
-                    <div>
-                      <span className="text-gray-400 block mb-1">요청사항</span>
-                      <p className="text-gray-700 whitespace-pre-wrap leading-relaxed bg-gray-50 rounded-lg p-2">{selected.request_notes}</p>
-                    </div>
-                  )}
-                  {selected.care_scope && (
-                    <div>
-                      <span className="text-gray-400 block mb-1">케어범위</span>
-                      <p className="text-gray-700 whitespace-pre-wrap leading-relaxed bg-indigo-50 rounded-lg p-2 font-medium">{selected.care_scope}</p>
-                    </div>
-                  )}
-                  {isAdmin && selected.admin_notes && (
-                    <div>
-                      <span className="text-gray-400 block mb-1">관리자메모</span>
-                      <p className="text-gray-700 whitespace-pre-wrap leading-relaxed bg-amber-50 rounded-lg p-2">{selected.admin_notes}</p>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* 담당자 + 금액 (관리자만) */}
-              {isAdmin && (
-                <div className="border-t border-gray-100 pt-2 space-y-1.5">
-                  <div className="flex justify-between gap-2">
-                    <span className="text-gray-400 shrink-0 w-16">담당자</span>
-                    <span className="text-gray-700">{users.find(u => u.id === selected.assigned_to)?.name ?? '미배정'}</span>
-                  </div>
-                  {selected.supply_amount != null && (
-                    <div className="flex justify-between font-semibold">
-                      <span className="text-gray-400 w-16">총액</span>
-                      <span className="text-gray-800">{fmt((selected.supply_amount ?? 0) + (selected.vat ?? 0))}원</span>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* 정기엔드케어 단가 설정 (관리자만) */}
-              {isAdmin && selected.service_type === '정기엔드케어' && (
-                <div className="border-t border-gray-100 pt-2">
-                  <p className="text-xs font-semibold text-gray-700 mb-2">정기엔드케어 단가 설정</p>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="number"
-                      defaultValue={selected.unit_price_per_visit ?? ''}
-                      placeholder="건당 단가 (원)"
-                      className="flex-1 px-2 py-1.5 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      onChange={e => {
-                        const val = e.target.value ? parseInt(e.target.value) : null
-                        setSelected(prev => prev ? { ...prev, unit_price_per_visit: val } : prev)
-                      }}
-                    />
-                    <button
-                      onClick={async () => {
-                        if (!selected) return
-                        const res = await fetch('/api/admin/applications', {
-                          method: 'PATCH',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ id: selected.id, unit_price_per_visit: selected.unit_price_per_visit }),
-                        })
-                        if (res.ok) toast.success('단가가 저장되었습니다.')
-                        else toast.error('저장 실패')
-                      }}
-                      className="px-3 py-1.5 bg-blue-600 text-white text-xs rounded-lg hover:bg-blue-700"
-                    >
-                      저장
-                    </button>
-                  </div>
-                  {selected.unit_price_per_visit && (
-                    <p className="text-xs text-gray-500 mt-1">
-                      담당자 · 작업자 각각 건당 <span className="font-bold text-gray-800">{selected.unit_price_per_visit.toLocaleString('ko-KR')}원</span> 지급
-                    </p>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* 담당자 출력현황 */}
-        <div className="bg-white rounded-xl border border-gray-200 flex-shrink-0">
-          <div className="p-3 border-b border-gray-100">
-            <p className="text-xs font-semibold text-gray-700 mb-2">담당자 출력현황</p>
-            <div className="flex gap-2">
-              <input type="month" value={historyMonth} onChange={e => setHistoryMonth(e.target.value)}
-                className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500" />
-              {isAdmin ? (
-                <select value={historyPersonId} onChange={e => setHistoryPersonId(e.target.value)}
-                  className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
-                  <option value="">담당자 선택</option>
-                  {users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
-                </select>
-              ) : (
-                <span className="flex-1 py-1.5 text-xs text-gray-600">{historyPerson?.name ?? currentUser?.name}</span>
-              )}
-            </div>
-          </div>
-          {personHistoryApps.length === 0 ? (
-            <div className="p-4 text-xs text-center text-gray-400">
-              {(historyPersonId || !isAdmin) ? '해당 기간 일정 없음' : '담당자를 선택하세요'}
-            </div>
+      {/* 컨텐츠 */}
+      {loading ? (
+        <div className="py-20 text-center text-gray-400 text-sm">불러오는 중...</div>
+      ) : viewMode === 'list' ? (
+        <div className="bg-white rounded-xl border border-gray-200 overflow-auto flex-1">
+          {filteredApps.length === 0 ? (
+            <div className="py-20 text-center text-gray-400 text-sm">일정이 없습니다.</div>
           ) : (
-            <>
-              <div className="divide-y divide-gray-50 max-h-52 overflow-y-auto">
-                {personHistoryApps.map(app => (
-                  <div key={app.id} className="px-3 py-2.5 flex items-center gap-2">
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-mono text-gray-400">{fmtDate(app.construction_date)}</p>
-                      <p className="text-xs font-medium text-gray-900 truncate">{app.business_name}</p>
-                    </div>
-                    <span className={`text-xs px-2 py-0.5 rounded-full ${STATUS_CONFIG[app.status]?.badge ?? 'bg-gray-100 text-gray-600'}`}>
-                      {app.status}
-                    </span>
-                  </div>
-                ))}
-              </div>
-              {(() => {
-                const endcareApps = personHistoryApps.filter(a => a.service_type === '정기엔드케어' && a.unit_price_per_visit)
-                if (!endcareApps.length) return null
-                const total = endcareApps.reduce((s, a) => s + (a.unit_price_per_visit ?? 0), 0)
-                return (
-                  <div className="px-3 py-2 border-t border-orange-100 bg-orange-50">
-                    <p className="text-xs text-orange-800">
-                      정기엔드케어 <span className="font-bold">{endcareApps.length}건</span> × 단가 = <span className="font-bold">{total.toLocaleString('ko-KR')}원</span>
-                    </p>
-                  </div>
-                )
-              })()}
-              <div className="px-3 py-2 border-t border-gray-100 bg-gray-50 flex justify-between">
-                <p className="text-xs text-gray-500">총 <span className="font-bold text-gray-700">{personHistoryApps.length}건</span></p>
-                {(() => {
-                  const endcareTotal = personHistoryApps
-                    .filter(a => a.service_type === '정기엔드케어' && a.unit_price_per_visit)
-                    .reduce((s, a) => s + (a.unit_price_per_visit ?? 0), 0)
-                  return endcareTotal > 0 ? (
-                    <p className="text-xs font-bold text-orange-700">{endcareTotal.toLocaleString('ko-KR')}원</p>
-                  ) : null
-                })()}
-              </div>
-            </>
-          )}
-        </div>
-
-        {/* 작업자 출력현황 / 급여 */}
-        <div className="bg-white rounded-xl border border-gray-200 flex-shrink-0">
-          <div className="p-3 border-b border-gray-100">
-            <p className="text-xs font-semibold text-gray-700 mb-2">작업자 출력현황 / 급여</p>
-            <div className="flex gap-2">
-              <input type="month" value={historyMonth} onChange={e => setHistoryMonth(e.target.value)}
-                className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500" />
-              <select value={historyWorkerId} onChange={e => setHistoryWorkerId(e.target.value)}
-                className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
-                <option value="">작업자 선택</option>
-                {workers.map(w => (
-                  <option key={w.id} value={w.id}>{w.name} ({w.employment_type ?? '-'})</option>
-                ))}
-              </select>
-            </div>
-          </div>
-          {historyWorkerId ? (
-            <>
-              {historyWorker && (
-                <div className="px-3 py-2 bg-amber-50 border-b border-amber-100">
-                  {historyWorker.employment_type === '정직원' ? (
-                    <p className="text-xs text-amber-800">
-                      월급 <span className="font-bold">{fmt(historyWorker.avg_salary)}원</span>
-                    </p>
-                  ) : (
-                    <p className="text-xs text-amber-800">
-                      주간 <span className="font-bold">{fmt(historyWorker.day_wage)}원</span>
-                      <span className="mx-1.5 text-amber-300">·</span>
-                      야간 <span className="font-bold">{fmt(historyWorker.night_wage)}원</span>
-                      <span className="mx-1.5 text-amber-300">·</span>
-                      건당 지급
-                    </p>
-                  )}
-                </div>
-              )}
-              {workerAssLoading ? (
-                <div className="p-4 text-xs text-center text-gray-400">불러오는 중...</div>
-              ) : workerAssignments.length === 0 ? (
-                <div className="p-4 text-xs text-center text-gray-400">해당 기간 출력 이력 없음</div>
-              ) : (
-                <>
-                  <div className="divide-y divide-gray-50 max-h-52 overflow-y-auto">
-                    {workerAssignments.map(ass => (
-                      <div key={ass.id} className="px-3 py-2.5 flex items-center gap-2">
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs font-mono text-gray-400">{fmtDate(ass.construction_date)}</p>
-                          <p className="text-xs font-medium text-gray-900 truncate">{ass.business_name ?? '-'}</p>
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50 border-b border-gray-200 sticky top-0">
+                <tr>
+                  {['시공일자', '업체명', '대표자', '담당자', '작업자', '서비스', '상태'].map(h => (
+                    <th key={h} className="text-left px-3 py-3 text-xs font-semibold text-gray-500 whitespace-nowrap">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {filteredApps.map(app => {
+                  const cfg = STATUS_CONFIG[app.status] ?? STATUS_CONFIG['신규']
+                  return (
+                    <tr key={app.id} className="border-b border-gray-100 last:border-0 hover:bg-gray-50 transition-colors">
+                      <td className="px-3 py-3 text-gray-500 whitespace-nowrap font-mono text-xs">{fmtDate(app.construction_date)}</td>
+                      <td className="px-3 py-3 font-medium text-gray-900 max-w-[120px] truncate">
+                        <div className="flex items-center gap-1">
+                          {app.business_name}
+                          {app.drive_folder_url && <span className="text-blue-400 text-xs shrink-0">📷</span>}
                         </div>
-                        <span className="text-xs font-mono font-semibold text-gray-700 whitespace-nowrap">
-                          {ass.salary != null ? `${fmt(ass.salary)}원` : <span className="text-gray-300">-</span>}
+                      </td>
+                      <td className="px-3 py-3 text-gray-700 text-xs">{app.owner_name}</td>
+                      <td className="px-3 py-3 text-gray-500 text-xs">{users.find(u => u.id === app.assigned_to)?.name ?? <span className="text-gray-300">미배정</span>}</td>
+                      <td className="px-3 py-3 text-gray-500 text-xs">
+                        {(appWorkerMap[app.id] ?? []).map(wid => {
+                          const w = workers.find(x => x.id === wid)
+                          return w ? <span key={wid} className="inline-block bg-gray-100 text-gray-600 px-1.5 rounded text-xs mr-1">{w.name}</span> : null
+                        })}
+                        {!(appWorkerMap[app.id]?.length) && <span className="text-gray-300">-</span>}
+                      </td>
+                      <td className="px-3 py-3 text-gray-500 text-xs">{app.service_type ?? '-'}</td>
+                      <td className="px-3 py-3">
+                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${cfg.badge}`}>
+                          <span className={`w-1.5 h-1.5 rounded-full ${cfg.dot} shrink-0`} />
+                          {app.status}
                         </span>
-                      </div>
-                    ))}
-                  </div>
-                  <div className="px-3 py-2 border-t border-gray-100 bg-gray-50 flex justify-between">
-                    <span className="text-xs text-gray-500">{workerAssignments.length}건</span>
-                    <span className="text-xs font-bold text-gray-800">{fmt(workerSalaryTotal)}원</span>
-                  </div>
-                </>
-              )}
-            </>
-          ) : (
-            <div className="p-4 text-xs text-center text-gray-400">작업자를 선택하세요</div>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
           )}
         </div>
-      </div>
+      ) : (
+        <div className="overflow-auto flex-1">
+          <CalendarGrid year={calYear} month={calMonth} applications={filteredApps} users={users} />
+        </div>
+      )}
     </div>
   )
 }
