@@ -27,10 +27,37 @@ type NavItem = NavLeaf | NavGroup
 // ─── 메뉴 정의 ────────────────────────────────────────────────
 
 const NAV_ITEMS: NavItem[] = [
-  { type: 'leaf', href: '/admin',           label: '홈',        icon: '🏠', roles: ['admin', 'worker'] },
-  { type: 'leaf', href: '/admin/calendar',  label: '배정캘린더', icon: '📅', roles: ['admin'] },
-  { type: 'leaf', href: '/admin/clients',   label: '영업관리',   icon: '🏢', roles: ['admin'] },
-  { type: 'leaf', href: '/admin/team',      label: '구성원',     icon: '👥', roles: ['admin'] },
+  { type: 'leaf', href: '/admin', label: '홈', icon: '🏠', roles: ['admin', 'worker'] },
+  {
+    type: 'group',
+    label: '배정관리',
+    icon: '📅',
+    roles: ['admin'],
+    children: [
+      { href: '/admin/calendar', label: '배정캘린더' },
+      { href: '/admin/schedule', label: '일정관리' },
+    ],
+  },
+  {
+    type: 'group',
+    label: '영업관리',
+    icon: '🏢',
+    roles: ['admin'],
+    children: [
+      { href: '/admin/customers', label: '고객관리' },
+      { href: '/admin/applications', label: '서비스신청' },
+    ],
+  },
+  {
+    type: 'group',
+    label: '구성원',
+    icon: '👥',
+    roles: ['admin'],
+    children: [
+      { href: '/admin/workers', label: '직원정보' },
+      { href: '/admin/members', label: '계정관리' },
+    ],
+  },
   {
     type: 'group',
     label: '정산관리',
@@ -41,7 +68,7 @@ const NAV_ITEMS: NavItem[] = [
       { href: '/admin/finance', label: '매출매입' },
     ],
   },
-  { type: 'leaf', href: '/admin/inventory', label: '재고',       icon: '📦', roles: ['admin', 'worker'] },
+  { type: 'leaf', href: '/admin/inventory', label: '재고', icon: '📦', roles: ['admin', 'worker'] },
 ]
 
 // ─── Props ────────────────────────────────────────────────────
