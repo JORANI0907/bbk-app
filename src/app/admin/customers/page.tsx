@@ -189,6 +189,11 @@ export default function AdminCustomersPage() {
   const [notifyType, setNotifyType] = useState('')
   const [sending, setSending] = useState(false)
   const [portalInfo, setPortalInfo] = useState<{ phone: string; password: string } | null>(null)
+  const [checkedIds, setCheckedIds] = useState<string[]>([])
+  const [bulkCreating, setBulkCreating] = useState(false)
+
+  const toggleCheck = (id: string) =>
+    setCheckedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
 
   const fetchAll = useCallback(async () => {
     setLoading(true)
@@ -383,6 +388,50 @@ export default function AdminCustomersPage() {
     }
   }
 
+  const handleCreateApplicationBulk = async () => {
+    if (checkedIds.length === 0) return
+    setBulkCreating(true)
+    const targets = customers.filter(c => checkedIds.includes(c.id))
+    let successCount = 0
+    let failCount = 0
+    for (const c of targets) {
+      const serviceType =
+        c.customer_type === '정기딥케어' ? '정기딥케어' :
+        c.customer_type === '정기엔드케어' ? '정기엔드케어' : '1회성케어'
+      try {
+        const res = await fetch('/api/admin/applications', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            business_name: c.business_name,
+            owner_name: c.contact_name || c.business_name,
+            platform_nickname: c.platform_nickname,
+            phone: c.contact_phone,
+            email: c.email,
+            address: c.address,
+            business_number: c.business_number,
+            account_number: c.account_number,
+            payment_method: c.payment_method,
+            business_hours_start: c.business_hours_start,
+            business_hours_end: c.business_hours_end,
+            elevator: c.elevator,
+            building_access: c.building_access,
+            parking: c.parking_info,
+            access_method: c.access_method,
+            request_notes: c.special_notes,
+            service_type: serviceType,
+            admin_notes: `고객 DB에서 생성 (${new Date().toLocaleDateString('ko-KR')})`,
+          }),
+        })
+        if (res.ok) successCount++
+        else failCount++
+      } catch { failCount++ }
+    }
+    setBulkCreating(false)
+    setCheckedIds([])
+    if (failCount === 0) toast.success(`서비스 신청서 ${successCount}건이 생성되었습니다.`)
+    else toast.error(`${successCount}건 성공, ${failCount}건 실패`)
+  }
+
   const handleNotify = async () => {
     if (!selected || !notifyType) { toast.error('알림 유형을 선택하세요.'); return }
     setSending(true)
@@ -484,11 +533,17 @@ export default function AdminCustomersPage() {
                 const tStyle = TYPE_STYLE[type]
                 const sStyle = STATUS_STYLE[c.status ?? 'active']
                 const isSelected = selected?.id === c.id
+                const isChecked = checkedIds.includes(c.id)
                 return (
-                  <div key={c.id} onClick={() => handleSelect(c)}
-                    className={`px-4 py-3 cursor-pointer hover:bg-blue-50 transition-colors ${isSelected ? 'bg-blue-50 border-l-2 border-blue-500' : ''}`}>
+                  <div key={c.id}
+                    className={`px-4 py-3 hover:bg-blue-50 transition-colors ${isSelected ? 'bg-blue-50 border-l-2 border-blue-500' : ''} ${isChecked ? 'bg-blue-50' : ''}`}>
                     <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0 flex-1">
+                      <div className="flex items-start gap-2 min-w-0 flex-1">
+                        <div onClick={e => { e.stopPropagation(); toggleCheck(c.id) }} className="mt-0.5 shrink-0 cursor-pointer p-0.5">
+                          <input type="checkbox" checked={isChecked} readOnly
+                            className="accent-blue-600 pointer-events-none" />
+                        </div>
+                        <div className="min-w-0 flex-1 cursor-pointer" onClick={() => handleSelect(c)}>
                         <div className="flex items-center gap-1.5 flex-wrap">
                           <p className="text-sm font-semibold text-gray-900 truncate">{c.business_name}</p>
                           <span className={`text-xs px-1.5 py-0.5 rounded-full ${tStyle.badge}`}>{type}</span>
@@ -506,6 +561,7 @@ export default function AdminCustomersPage() {
                         )}
                         <StatusBadges customer={c} />
                       </div>
+                    </div>
                       {/* 금액 요약 */}
                       <div className="text-right shrink-0 space-y-0.5">
                         {c.billing_amount != null && (
@@ -522,6 +578,21 @@ export default function AdminCustomersPage() {
             </div>
           )}
         </div>
+
+        {/* 플로팅 이관 바 */}
+        {checkedIds.length > 0 && (
+          <div className="mt-3 flex items-center gap-2 bg-blue-600 text-white px-4 py-2.5 rounded-xl shadow-lg">
+            <span className="text-sm font-semibold flex-1">{checkedIds.length}건 선택됨</span>
+            <button onClick={() => setCheckedIds([])}
+              className="text-xs text-blue-200 hover:text-white px-2 py-1 rounded transition-colors">
+              선택 해제
+            </button>
+            <button onClick={handleCreateApplicationBulk} disabled={bulkCreating}
+              className="text-xs bg-white text-blue-700 font-semibold px-3 py-1.5 rounded-lg hover:bg-blue-50 disabled:opacity-50 transition-colors whitespace-nowrap">
+              {bulkCreating ? '생성 중...' : '서비스 신청서 생성 →'}
+            </button>
+          </div>
+        )}
       </div>
 
       {/* ── 우측: 상세 패널 (오버레이) ── */}
@@ -532,12 +603,6 @@ export default function AdminCustomersPage() {
           <div className="p-4 border-b border-gray-100 flex items-center justify-between sticky top-0 bg-white z-10">
             <h2 className="font-bold text-gray-900 truncate">{isNew ? '새 고객 추가' : selected?.business_name}</h2>
             <div className="flex items-center gap-1.5 shrink-0">
-              {!isNew && selected && (
-                <button onClick={handleCreateApplication}
-                  className="text-xs text-blue-600 hover:text-blue-800 border border-blue-200 hover:border-blue-400 px-2 py-1 rounded-lg transition-colors whitespace-nowrap">
-                  서비스 신청서 생성
-                </button>
-              )}
               {!isNew && (
                 <button onClick={handleDelete}
                   className="text-xs text-red-500 hover:text-red-700 border border-red-200 hover:border-red-400 px-2 py-1 rounded-lg transition-colors">

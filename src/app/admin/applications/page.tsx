@@ -348,6 +348,13 @@ export default function ServiceManagementPage() {
   const [notifyLogs, setNotifyLogs] = useState<NotifyLog[]>([])
   const [allNotifyLogs, setAllNotifyLogs] = useState<Record<string, NotifyLog[]>>({})
 
+  // 체크박스 이관
+  const [checkedIds, setCheckedIds] = useState<string[]>([])
+  const [bulkSaving, setBulkSaving] = useState(false)
+
+  const toggleCheck = (id: string) =>
+    setCheckedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
+
   // Google Drive
   const [driveModalOpen, setDriveModalOpen] = useState(false)
   const [savedDriveFolder, setSavedDriveFolder] = useState<DriveFolder | null>(null)
@@ -532,6 +539,51 @@ export default function ServiceManagementPage() {
     } catch (e) {
       toast.error(e instanceof Error ? e.message : '저장 실패')
     }
+  }
+
+  const handleSaveToCustomerBulk = async () => {
+    if (checkedIds.length === 0) return
+    setBulkSaving(true)
+    const targets = applications.filter(a => checkedIds.includes(a.id))
+    let successCount = 0
+    let failCount = 0
+    for (const app of targets) {
+      const customerType =
+        app.service_type === '정기딥케어' ? '정기딥케어' :
+        app.service_type === '정기엔드케어' ? '정기엔드케어' : '1회성케어'
+      try {
+        const res = await fetch('/api/admin/customers', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            business_name: app.business_name,
+            contact_name: app.owner_name,
+            contact_phone: app.phone,
+            email: app.email,
+            address: app.address,
+            business_number: app.business_number,
+            account_number: app.account_number,
+            platform_nickname: app.platform_nickname,
+            payment_method: app.payment_method,
+            business_hours_start: app.business_hours_start,
+            business_hours_end: app.business_hours_end,
+            elevator: app.elevator,
+            building_access: app.building_access,
+            parking_info: app.parking,
+            access_method: app.access_method,
+            special_notes: app.request_notes,
+            customer_type: customerType,
+            pipeline_status: 'inquiry',
+          }),
+        })
+        if (res.ok) successCount++
+        else failCount++
+      } catch { failCount++ }
+    }
+    setBulkSaving(false)
+    setCheckedIds([])
+    if (failCount === 0) toast.success(`고객 DB에 ${successCount}건이 저장되었습니다.`)
+    else toast.error(`${successCount}건 성공, ${failCount}건 실패`)
   }
 
   const handleDeleteApplication = async () => {
@@ -898,6 +950,15 @@ export default function ServiceManagementPage() {
                 <table className="w-full text-sm">
                   <thead className="bg-gray-50 border-b border-gray-200 sticky top-0">
                     <tr>
+                      <th className="px-3 py-3 w-8">
+                        <input type="checkbox"
+                          checked={rows.length > 0 && rows.every(r => checkedIds.includes(r.id))}
+                          onChange={e => {
+                            if (e.target.checked) setCheckedIds(prev => Array.from(new Set(prev.concat(rows.map(r => r.id)))))
+                            else setCheckedIds(prev => prev.filter(id => !rows.some(r => r.id === id)))
+                          }}
+                          className="accent-blue-600 cursor-pointer" />
+                      </th>
                       {[
                         { label: '시공일자', field: 'construction_date' as SortField },
                         { label: '업체명', field: 'business_name' as SortField },
@@ -925,7 +986,12 @@ export default function ServiceManagementPage() {
                       const total = rowTotal(app)
                       return (
                         <tr key={app.id} onClick={() => handleSelect(app)}
-                          className={`border-b border-gray-100 last:border-0 cursor-pointer hover:bg-blue-50 transition-colors ${selected?.id === app.id ? 'bg-blue-50' : ''}`}>
+                          className={`border-b border-gray-100 last:border-0 cursor-pointer hover:bg-blue-50 transition-colors ${selected?.id === app.id || checkedIds.includes(app.id) ? 'bg-blue-50' : ''}`}>
+                          <td className="px-3 py-3 w-8" onClick={e => e.stopPropagation()}>
+                            <input type="checkbox" checked={checkedIds.includes(app.id)}
+                              onChange={() => toggleCheck(app.id)}
+                              className="accent-blue-600 cursor-pointer" />
+                          </td>
                           <td className="px-3 py-3 text-gray-500 whitespace-nowrap font-mono text-xs">
                             {app.construction_date ? fmtDate(app.construction_date) : <span className="text-gray-300">미설정</span>}
                           </td>
@@ -967,7 +1033,7 @@ export default function ServiceManagementPage() {
                   </tbody>
                   <tfoot className="bg-gray-50 border-t-2 border-gray-200 sticky bottom-0">
                     <tr>
-                      <td colSpan={5} className="px-3 py-2.5 text-xs font-semibold text-gray-500">
+                      <td colSpan={6} className="px-3 py-2.5 text-xs font-semibold text-gray-500">
                         합계 <span className="font-normal text-gray-400">({rows.length}건)</span>
                       </td>
                       <td className="px-3 py-2.5 text-xs font-bold text-gray-800 whitespace-nowrap font-mono">
@@ -980,6 +1046,21 @@ export default function ServiceManagementPage() {
               )
             })()}
           </div>
+
+          {/* 플로팅 이관 바 */}
+          {checkedIds.length > 0 && (
+            <div className="mt-3 flex items-center gap-2 bg-green-600 text-white px-4 py-2.5 rounded-xl shadow-lg">
+              <span className="text-sm font-semibold flex-1">{checkedIds.length}건 선택됨</span>
+              <button onClick={() => setCheckedIds([])}
+                className="text-xs text-green-200 hover:text-white px-2 py-1 rounded transition-colors">
+                선택 해제
+              </button>
+              <button onClick={handleSaveToCustomerBulk} disabled={bulkSaving}
+                className="text-xs bg-white text-green-700 font-semibold px-3 py-1.5 rounded-lg hover:bg-green-50 disabled:opacity-50 transition-colors whitespace-nowrap">
+                {bulkSaving ? '저장 중...' : '고객 DB 저장 →'}
+              </button>
+            </div>
+          )}
         </div>
 
         {/* ── 우측: 상세 패널 (오버레이) ── */}
@@ -992,12 +1073,6 @@ export default function ServiceManagementPage() {
                 <p className="text-xs text-gray-400 mt-0.5">신청일: {new Date(selected.created_at).toLocaleString('ko-KR')}</p>
               </div>
               <div className="flex items-center gap-1.5 shrink-0">
-                <button
-                  onClick={handleSaveToCustomer}
-                  className="text-xs text-green-600 hover:text-green-800 border border-green-200 hover:border-green-400 px-2 py-1 rounded-lg transition-colors whitespace-nowrap"
-                >
-                  고객 DB 저장
-                </button>
                 <button
                   onClick={handleDeleteApplication}
                   className="text-xs text-red-500 hover:text-red-700 border border-red-200 hover:border-red-400 px-2 py-1 rounded-lg transition-colors"
