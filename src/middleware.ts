@@ -30,8 +30,13 @@ export async function middleware(request: NextRequest) {
   try {
     const pathname = request.nextUrl.pathname
 
+    // 세션 검증 없이 즉시 통과 (crypto 연산 생략)
+    if (pathname.startsWith('/forgot-password') || pathname.startsWith('/reset-password')) {
+      return NextResponse.next()
+    }
+
     // 공개 경로
-    const publicPaths = ['/login', '/signup', '/forgot-password', '/reset-password', '/api/auth', '/api/sms', '/api/admin', '/api/webhooks']
+    const publicPaths = ['/login', '/signup', '/api/auth', '/api/sms', '/api/admin', '/api/webhooks']
     const isPublic = publicPaths.some(p => pathname.startsWith(p))
 
     const sessionToken = request.cookies.get('bbk_session')?.value
