@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import toast from 'react-hot-toast'
 
@@ -29,7 +30,16 @@ function redirectByRole(role: string) {
 }
 
 export default function LoginPage() {
+  const router = useRouter()
   const [activeTab, setActiveTab] = useState<LoginTab>('employee')
+
+  useEffect(() => {
+    // Supabase recovery 토큰이 /login 해시로 잘못 도착한 경우 /reset-password로 전달
+    const hash = window.location.hash
+    if (hash.includes('type=recovery')) {
+      router.replace('/reset-password' + hash)
+    }
+  }, [router])
 
   // 직원 로그인 상태
   const [empEmail, setEmpEmail] = useState('')

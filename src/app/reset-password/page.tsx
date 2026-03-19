@@ -16,7 +16,15 @@ export default function ResetPasswordPage() {
   useEffect(() => {
     const supabase = createClient()
 
-    // Supabase가 URL의 토큰(해시 또는 ?code=)을 자동 감지해 PASSWORD_RECOVERY 이벤트를 발생시킴
+    // 1) 해시에 access_token이 직접 있는 경우 (implicit flow)
+    const hash = window.location.hash.substring(1)
+    const params = new URLSearchParams(hash)
+    if (params.get('access_token') && params.get('type') === 'recovery') {
+      setReady(true)
+      return
+    }
+
+    // 2) PKCE 또는 세션 이벤트로 오는 경우
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
       if (event === 'PASSWORD_RECOVERY') {
         setReady(true)
@@ -42,9 +50,25 @@ export default function ResetPasswordPage() {
 
     setLoading(true)
     try {
-      const supabase = createClient()
-      const { error } = await supabase.auth.updateUser({ password })
-      if (error) throw new Error(error.message)
+      // implicit flow: 해시의 access_token으로 직접 API 호출
+      const hash = window.location.hash.substring(1)
+      const params = new URLSearchParams(hash)
+      const accessToken = params.get('access_token')
+
+      if (accessToken) {
+        const res = await fetch('/api/auth/reset-password', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ access_token: accessToken, password }),
+        })
+        const data = await res.json()
+        if (!res.ok) throw new Error(data.error ?? '변경 실패')
+      } else {
+        // PKCE flow: Supabase 클라이언트로 업데이트
+        const supabase = createClient()
+        const { error } = await supabase.auth.updateUser({ password })
+        if (error) throw new Error(error.message)
+      }
       setDone(true)
     } catch (err) {
       toast.error(err instanceof Error ? err.message : '비밀번호 변경에 실패했습니다.')
