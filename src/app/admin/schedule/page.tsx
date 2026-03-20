@@ -226,6 +226,11 @@ function DetailPanel({
           </div>
         )}
 
+        {/* 작업 현황 — 상단 고정 */}
+        <div className="px-5 pt-4 pb-2 border-b border-gray-100">
+          <WorkPanel app={app} onUpdate={onAppUpdate} />
+        </div>
+
         <div className="px-5 py-4 space-y-5 flex-1">
 
           {/* 고객 기본 정보 */}
@@ -344,8 +349,6 @@ function DetailPanel({
             </section>
           )}
 
-          {/* 작업 현황 */}
-          <WorkPanel app={app} onUpdate={onAppUpdate} />
         </div>
       </div>
     </div>
