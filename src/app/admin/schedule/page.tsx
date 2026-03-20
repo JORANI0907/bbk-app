@@ -230,12 +230,10 @@ function DetailPanel({
             </div>
           </div>
           <div className="flex items-center gap-2 shrink-0 mt-0.5">
-            {isAdmin && (
-              <button onClick={handleDelete} disabled={deleting}
-                className="text-xs px-2 py-1 bg-red-50 hover:bg-red-100 text-red-500 rounded-lg transition-colors disabled:opacity-50">
-                {deleting ? '삭제 중...' : '삭제'}
-              </button>
-            )}
+            <button onClick={handleDelete} disabled={deleting}
+              className="text-xs px-2 py-1 bg-red-50 hover:bg-red-100 text-red-500 rounded-lg transition-colors disabled:opacity-50">
+              {deleting ? '삭제 중...' : '삭제'}
+            </button>
             <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl leading-none">✕</button>
           </div>
         </div>
