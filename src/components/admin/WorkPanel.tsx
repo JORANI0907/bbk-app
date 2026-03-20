@@ -188,38 +188,31 @@ export function WorkPanel({ app, onUpdate }: Props) {
     finally { setSaving(false) }
   }
 
-  async function handleUploadClick() {
+  function handleUploadClick() {
     if (!hasDrive) {
       toast.error('서비스 관리에서 Drive 폴더를 먼저 생성해주세요.')
       return
     }
-    setUploading(true)
-    try {
-      const { loadGoogleAPIs, requestGoogleToken } = await import('@/lib/googleDrive')
-      await loadGoogleAPIs()
-      const token = await requestGoogleToken()
-      tokenRef.current = token
-      fileInputRef.current?.click()
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Google 인증 실패')
-      setUploading(false)
-    }
+    // user gesture와 직결되게 즉시 파일 선택창 열기
+    fileInputRef.current?.click()
   }
 
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files ?? [])
-    if (!files.length) { setUploading(false); return }
-
-    const token = tokenRef.current
-    if (!token) { toast.error('인증 토큰이 없습니다.'); setUploading(false); return }
+    if (!files.length) return
 
     const folderId = extractFolderId(app.drive_folder_url!)
-    if (!folderId) { toast.error('올바르지 않은 Drive 폴더 URL입니다.'); setUploading(false); return }
+    if (!folderId) { toast.error('올바르지 않은 Drive 폴더 URL입니다.'); return }
 
+    setUploading(true)
     try {
+      // 파일 선택 후 Google OAuth 실행
+      const { loadGoogleAPIs, requestGoogleToken, uploadFileToDrive } = await import('@/lib/googleDrive')
+      await loadGoogleAPIs()
+      const token = await requestGoogleToken()
+
       const subfolderName = activeTab === 'before' ? '작업 전' : '작업 후'
       const subfolderId = await getOrCreateSubfolder(folderId, subfolderName, token)
-      const { uploadFileToDrive } = await import('@/lib/googleDrive')
 
       let uploaded = 0
       for (const file of files) {
