@@ -72,13 +72,14 @@ async function fetchSession(): Promise<SessionUser | null> {
 // ─── 캘린더 그리드 ─────────────────────────────────────────────
 
 function CalendarGrid({
-  year, month, applications, workers, appWorkerMap,
+  year, month, applications, workers, appWorkerMap, onSelect,
 }: {
   year: number
   month: number
   applications: Application[]
   workers: Worker[]
   appWorkerMap: Record<string, string[]>
+  onSelect: (app: Application) => void
 }) {
   const firstDay = new Date(year, month, 1).getDay()
   const daysInMonth = new Date(year, month + 1, 0).getDate()
@@ -135,7 +136,8 @@ function CalendarGrid({
                     .join('·')
                   return (
                     <div key={app.id}
-                      className="px-1.5 py-0.5 rounded-md bg-indigo-100 hover:bg-indigo-200 transition-colors"
+                      onClick={() => onSelect(app)}
+                      className="px-1.5 py-0.5 rounded-md bg-indigo-100 hover:bg-indigo-200 transition-colors cursor-pointer"
                       title={`${app.business_name}${workerNames ? ` · ${workerNames}` : ''}`}>
                       <div className="flex items-center gap-1 min-w-0">
                         <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${cfg.dot}`} />
@@ -675,6 +677,7 @@ export default function SchedulePage() {
             applications={filteredApps}
             workers={workers}
             appWorkerMap={appWorkerMap}
+            onSelect={app => setSelected(app)}
           />
         </div>
 
