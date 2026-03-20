@@ -214,6 +214,9 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ error: 'id가 필요합니다.' }, { status: 400 })
   }
 
+  // 연결된 사진 먼저 삭제 (service_schedules는 FK SET NULL으로 자동 처리)
+  await supabase.from('application_photos').delete().eq('application_id', id)
+
   const { error } = await supabase
     .from('service_applications')
     .delete()

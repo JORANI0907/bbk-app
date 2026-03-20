@@ -164,7 +164,7 @@ function CalendarGrid({
 // ─── 상세 패널 ────────────────────────────────────────────────
 
 function DetailPanel({
-  app, users, workers, appWorkerMap, isAdmin, onClose, onAppUpdate,
+  app, users, workers, appWorkerMap, isAdmin, onClose, onAppUpdate, onDelete,
 }: {
   app: Application
   users: User[]
@@ -173,9 +173,24 @@ function DetailPanel({
   isAdmin: boolean
   onClose: () => void
   onAppUpdate: (updates: Partial<Application>) => void
+  onDelete: () => void
 }) {
   const [showAccount, setShowAccount] = useState(false)
   const [showBizNum, setShowBizNum] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+
+  async function handleDelete() {
+    if (!confirm(`"${app.business_name}" 일정을 삭제하시겠습니까?\n서비스 신청 내용도 함께 삭제됩니다.`)) return
+    setDeleting(true)
+    try {
+      const res = await fetch(`/api/admin/applications?id=${app.id}`, { method: 'DELETE' })
+      if (!res.ok) throw new Error((await res.json()).error)
+      onDelete()
+    } catch (e) {
+      alert(String(e))
+      setDeleting(false)
+    }
+  }
 
   const manager = users.find(u => u.id === app.assigned_to)
   const workerNames = (appWorkerMap[app.id] ?? [])
@@ -213,7 +228,15 @@ function DetailPanel({
               {app.service_type && <span className="text-xs text-gray-400">{app.service_type}</span>}
             </div>
           </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl leading-none shrink-0 mt-0.5">✕</button>
+          <div className="flex items-center gap-2 shrink-0 mt-0.5">
+            {isAdmin && (
+              <button onClick={handleDelete} disabled={deleting}
+                className="text-xs px-2 py-1 bg-red-50 hover:bg-red-100 text-red-500 rounded-lg transition-colors disabled:opacity-50">
+                {deleting ? '삭제 중...' : '삭제'}
+              </button>
+            )}
+            <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl leading-none">✕</button>
+          </div>
         </div>
 
         {/* 사진 링크 */}
@@ -227,7 +250,7 @@ function DetailPanel({
         )}
 
         {/* 작업 현황 — 상단 고정 */}
-        <div className="px-5 pt-4 pb-2 border-b border-gray-100">
+        <div className="px-5 pt-4 pb-4 bg-gray-50 border-b border-gray-200">
           <WorkPanel app={app} onUpdate={onAppUpdate} />
         </div>
 
@@ -486,6 +509,10 @@ export default function SchedulePage() {
           onAppUpdate={(updates) => {
             setSelected(prev => prev ? { ...prev, ...updates } : null)
             setApplications(prev => prev.map(a => a.id === selected.id ? { ...a, ...updates } : a))
+          }}
+          onDelete={() => {
+            setApplications(prev => prev.filter(a => a.id !== selected.id))
+            setSelected(null)
           }}
         />
       )}
