@@ -58,6 +58,7 @@ const ADMIN_NAV: NavItem[] = [
 
 const WORKER_NAV: NavItem[] = [
   { href: '/admin', label: '홈', icon: HOME_ICON, exact: true },
+  { href: '/admin/schedule', label: '일정', icon: CALENDAR_ICON },
   { href: '/admin/inventory', label: '재고', icon: BOX_ICON },
 ]
 

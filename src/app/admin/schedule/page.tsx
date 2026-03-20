@@ -465,9 +465,12 @@ export default function SchedulePage() {
   const filteredApps = useMemo(() => {
     let apps = [...applications]
 
-    // 담당자 필터
+    // 담당자/작업자 필터 (비관리자: 자신이 담당자이거나 작업자로 배정된 일정만)
     if (!isAdmin && currentUser) {
-      apps = apps.filter(a => a.assigned_to === currentUser.userId)
+      apps = apps.filter(a =>
+        a.assigned_to === currentUser.userId ||
+        (appWorkerMap[a.id] ?? []).includes(currentUser.userId)
+      )
     } else if (personFilter) {
       apps = apps.filter(a => a.assigned_to === personFilter)
     }

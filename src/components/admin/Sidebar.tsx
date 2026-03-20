@@ -32,7 +32,7 @@ const NAV_ITEMS: NavItem[] = [
     type: 'group',
     label: '일정관리',
     icon: '📅',
-    roles: ['admin'],
+    roles: ['admin', 'worker'],
     children: [
       { href: '/admin/schedule', label: '배정관리' },
     ],
