@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import toast from 'react-hot-toast'
-import imageCompression from 'browser-image-compression'
 import {
   loadGoogleAPIs,
   requestGoogleToken,
@@ -239,6 +238,7 @@ export function WorkPanel({ app, onUpdate }: Props) {
 
       let uploaded = 0
       for (const file of files) {
+        const { default: imageCompression } = await import('browser-image-compression')
         const compressed = await imageCompression(file, { maxSizeMB: 1, maxWidthOrHeight: 1920, useWebWorker: true })
         const safeDate = (app.work_started_at ?? new Date().toISOString()).slice(0, 10).replace(/-/g, '')
         const safeName = app.business_name.replace(/[/\\:*?"<>|]/g, '_')
