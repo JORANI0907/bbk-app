@@ -66,7 +66,7 @@ async function getOrCreateSubfolder(parentId: string, name: string, token: strin
     { headers: { Authorization: `Bearer ${token}` } }
   )
   const data = await res.json()
-  if (data.files?.length > 0) return data.files[0].id
+  if (data.files?.length > 0) return data.files[0].id as string
 
   const createRes = await fetch(
     'https://www.googleapis.com/drive/v3/files?supportsAllDrives=true',
@@ -76,6 +76,10 @@ async function getOrCreateSubfolder(parentId: string, name: string, token: strin
       body: JSON.stringify({ name, mimeType: 'application/vnd.google-apps.folder', parents: [parentId] }),
     }
   )
+  if (!createRes.ok) {
+    const err = await createRes.json()
+    throw new Error(err.error?.message ?? `서브폴더 생성 실패 (${createRes.status})`)
+  }
   const folder = await createRes.json()
   return folder.id as string
 }
@@ -87,13 +91,32 @@ export function WorkPanel({ app, onUpdate }: Props) {
   const [uploading, setUploading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [activeTab, setActiveTab] = useState<'before' | 'after'>('before')
-  const fileInputRef = useRef<HTMLInputElement>(null)
-  const tokenRef = useRef<string | null>(null)
-  const countdown = useCountdown(app.notification_send_at)
+  const [apisReady, setApisReady] = useState(false)
 
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  // 구글 드라이브 모듈 (SSR 방지용 동적 import 결과를 캐시)
+  const driveRef = useRef<typeof import('@/lib/googleDrive') | null>(null)
+  // OAuth 토큰 캐시 (팝업 한 번만 열리도록)
+  const tokenRef = useRef<string | null>(null)
+  // 버튼 클릭 시 시작된 OAuth Promise (handleFileChange에서 await)
+  const tokenPromiseRef = useRef<Promise<string> | null>(null)
+
+  const countdown = useCountdown(app.notification_send_at)
   const status = app.work_status ?? 'pending'
   const hasDrive = !!app.drive_folder_url
 
+  // ── Google Drive 모듈 & API 스크립트 사전 로드 ──────────────
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    import('@/lib/googleDrive').then(mod => {
+      driveRef.current = mod
+      mod.loadGoogleAPIs()
+        .then(() => setApisReady(true))
+        .catch(() => setApisReady(false))
+    })
+  }, [])
+
+  // ── 사진 목록 로드 ───────────────────────────────────────────
   const loadPhotos = useCallback(async () => {
     const res = await fetch(`/api/admin/applications/${app.id}/photos`)
     if (res.ok) setPhotos((await res.json()).photos ?? [])
@@ -108,6 +131,7 @@ export function WorkPanel({ app, onUpdate }: Props) {
 
   const canComplete = photos.length > 0 && customerMemo.trim().length > 0
 
+  // ── 작업 시작 ────────────────────────────────────────────────
   async function handleStart() {
     setSaving(true)
     try {
@@ -123,6 +147,7 @@ export function WorkPanel({ app, onUpdate }: Props) {
     finally { setSaving(false) }
   }
 
+  // ── 메모 저장 ────────────────────────────────────────────────
   async function saveMemos() {
     const res = await fetch(`/api/admin/applications/${app.id}/work`, {
       method: 'PATCH',
@@ -133,6 +158,7 @@ export function WorkPanel({ app, onUpdate }: Props) {
     onUpdate({ customer_memo: customerMemo, internal_memo: internalMemo })
   }
 
+  // ── 작업 완료 ────────────────────────────────────────────────
   async function handleComplete() {
     if (!canComplete) return
     setSaving(true)
@@ -157,6 +183,7 @@ export function WorkPanel({ app, onUpdate }: Props) {
     finally { setSaving(false) }
   }
 
+  // ── 알림 취소 ────────────────────────────────────────────────
   async function handleCancelNotification() {
     setSaving(true)
     try {
@@ -172,6 +199,7 @@ export function WorkPanel({ app, onUpdate }: Props) {
     finally { setSaving(false) }
   }
 
+  // ── 지금 발송 ────────────────────────────────────────────────
   async function handleSendNow() {
     setSaving(true)
     try {
@@ -182,21 +210,47 @@ export function WorkPanel({ app, onUpdate }: Props) {
         body: JSON.stringify({ action: 'send_now' }),
       })
       if (!res.ok) throw new Error((await res.json()).error)
-      onUpdate({ notification_sent_at: new Date().toISOString(), notification_send_at: null, customer_memo: customerMemo, internal_memo: internalMemo })
+      onUpdate({
+        notification_sent_at: new Date().toISOString(),
+        notification_send_at: null,
+        customer_memo: customerMemo,
+        internal_memo: internalMemo,
+      })
       toast.success('고객에게 알림을 발송했습니다.')
     } catch (e) { toast.error(String(e)) }
     finally { setSaving(false) }
   }
 
+  // ── + 버튼 클릭 ──────────────────────────────────────────────
+  // 핵심: await 없이 동기적으로 두 작업을 시작해야 브라우저가 팝업을 허용함
   function handleUploadClick() {
     if (!hasDrive) {
       toast.error('서비스 관리에서 Drive 폴더를 먼저 생성해주세요.')
       return
     }
-    // user gesture와 직결되게 즉시 파일 선택창 열기
+    if (!driveRef.current || !apisReady) {
+      toast.error('Google API 로딩 중입니다. 잠시 후 다시 시도해주세요.')
+      return
+    }
+
+    // 1) 파일 선택창 즉시 열기 (user gesture 유지)
     fileInputRef.current?.click()
+
+    // 2) OAuth 토큰 요청 동기적으로 시작 (await 없음 → user gesture 유지 → 팝업 허용)
+    if (!tokenRef.current && !tokenPromiseRef.current) {
+      tokenPromiseRef.current = driveRef.current.requestGoogleToken()
+        .then(token => {
+          tokenRef.current = token
+          return token
+        })
+        .catch(err => {
+          tokenPromiseRef.current = null
+          throw err
+        })
+    }
   }
 
+  // ── 파일 선택 후 업로드 ──────────────────────────────────────
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files ?? [])
     if (!files.length) return
@@ -206,24 +260,34 @@ export function WorkPanel({ app, onUpdate }: Props) {
 
     setUploading(true)
     try {
-      // 파일 선택 후 Google OAuth 실행
-      const { loadGoogleAPIs, requestGoogleToken, uploadFileToDrive } = await import('@/lib/googleDrive')
-      await loadGoogleAPIs()
-      const token = await requestGoogleToken()
+      // 이미 캐시된 토큰이 없으면 OAuth 완료를 기다림
+      let token: string
+      if (tokenRef.current) {
+        token = tokenRef.current
+      } else if (tokenPromiseRef.current) {
+        token = await tokenPromiseRef.current
+      } else {
+        throw new Error('Google 인증이 필요합니다. + 버튼을 다시 눌러주세요.')
+      }
 
       const subfolderName = activeTab === 'before' ? '작업 전' : '작업 후'
       const subfolderId = await getOrCreateSubfolder(folderId, subfolderName, token)
 
+      const { default: imageCompression } = await import('browser-image-compression')
+
       let uploaded = 0
       for (const file of files) {
-        const { default: imageCompression } = await import('browser-image-compression')
-        const compressed = await imageCompression(file, { maxSizeMB: 1, maxWidthOrHeight: 1920, useWebWorker: true })
+        const compressed = await imageCompression(file, {
+          maxSizeMB: 1,
+          maxWidthOrHeight: 1920,
+          useWebWorker: true,
+        })
         const safeDate = (app.work_started_at ?? new Date().toISOString()).slice(0, 10).replace(/-/g, '')
         const safeName = app.business_name.replace(/[/\\:*?"<>|]/g, '_')
         const ext = (file.name.split('.').pop() ?? 'jpg').toLowerCase()
         const fileName = `${safeDate}_${safeName}_${Date.now()}.${ext}`
 
-        const { fileId, fileUrl } = await uploadFileToDrive(
+        const { fileId, fileUrl } = await driveRef.current!.uploadFileToDrive(
           new File([compressed], fileName, { type: compressed.type }),
           subfolderId,
           fileName,
@@ -233,7 +297,12 @@ export function WorkPanel({ app, onUpdate }: Props) {
         const res = await fetch(`/api/admin/applications/${app.id}/photos`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ drive_file_id: fileId, web_view_link: fileUrl, thumbnail_link: null, photo_type: activeTab }),
+          body: JSON.stringify({
+            drive_file_id: fileId,
+            web_view_link: fileUrl,
+            thumbnail_link: null,
+            photo_type: activeTab,
+          }),
         })
         if (res.ok) {
           const { photo } = await res.json()
@@ -241,16 +310,21 @@ export function WorkPanel({ app, onUpdate }: Props) {
           uploaded++
         }
       }
-      toast.success(`사진 ${uploaded}장 업로드 완료`)
+      if (uploaded > 0) toast.success(`사진 ${uploaded}장 업로드 완료`)
     } catch (e) {
+      // 토큰 오류면 캐시 초기화 (다음 시도 때 재인증)
+      if (e instanceof Error && (e.message.includes('인증') || e.message.includes('auth'))) {
+        tokenRef.current = null
+        tokenPromiseRef.current = null
+      }
       toast.error(e instanceof Error ? e.message : '업로드 실패')
     } finally {
       setUploading(false)
-      tokenRef.current = null
       if (fileInputRef.current) fileInputRef.current.value = ''
     }
   }
 
+  // ── 사진 삭제 ────────────────────────────────────────────────
   async function handleDeletePhoto(photoId: string) {
     if (!confirm('목록에서 제거하시겠습니까? (Drive 파일은 유지됩니다)')) return
     try {
@@ -319,8 +393,12 @@ export function WorkPanel({ app, onUpdate }: Props) {
                 </button>
               </div>
             ))}
-            <button onClick={handleUploadClick} disabled={uploading}
-              className="aspect-square border-2 border-dashed border-gray-200 rounded-lg flex flex-col items-center justify-center gap-1 hover:border-blue-400 hover:bg-blue-50 disabled:opacity-40">
+            <button
+              onClick={handleUploadClick}
+              disabled={uploading}
+              title={!apisReady ? 'Google API 로딩 중...' : undefined}
+              className="aspect-square border-2 border-dashed border-gray-200 rounded-lg flex flex-col items-center justify-center gap-1 hover:border-blue-400 hover:bg-blue-50 disabled:opacity-40"
+            >
               {uploading
                 ? <div className="w-4 h-4 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
                 : <span className="text-gray-400 text-lg">+</span>}
