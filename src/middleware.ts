@@ -35,8 +35,10 @@ export async function middleware(request: NextRequest) {
       return NextResponse.next()
     }
 
-    // 공개 경로
-    const publicPaths = ['/login', '/signup', '/api/auth', '/api/sms', '/api/admin', '/api/webhooks']
+    // 공개 경로 (정적 HTML 포함)
+    if (pathname.endsWith('.html')) return NextResponse.next()
+
+    const publicPaths = ['/login', '/signup', '/api/auth', '/api/sms', '/api/admin', '/api/webhooks', '/api/form']
     const isPublic = publicPaths.some(p => pathname.startsWith(p))
 
     const sessionToken = request.cookies.get('bbk_session')?.value
@@ -87,6 +89,6 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    '/((?!_next/static|_next/image|favicon.ico|icons|manifest.json|sw.js|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+    '/((?!_next/static|_next/image|favicon.ico|icons|manifest.json|sw.js|.*\\.(?:svg|png|jpg|jpeg|gif|webp|html)$).*)',
   ],
 }
