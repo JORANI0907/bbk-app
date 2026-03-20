@@ -1183,13 +1183,13 @@
         parking: parkingValue,
         paymentMethod: document.querySelector('input[name="paymentMethod"]:checked').value,
         accountNumber: document.getElementById('accountNumber').value.trim(),
-        privacyConsent: document.getElementById('privacyConsent').checked ? '동의' : '미동의',
-        serviceConsent: document.getElementById('serviceConsent').checked ? '동의' : '미동의',
+        privacyConsent: document.getElementById('privacyConsent').checked,
+        serviceConsent: document.getElementById('serviceConsent').checked,
         requestNotes: document.getElementById('requestNotes').value.trim()
       };
 
-      // Make 웹훅으로 직접 전송
-      var webhookUrl = 'https://hook.eu2.make.com/d6rjjszhes75r9wwhngqhhseevo8qttc';
+      // BBK 웹앱 API로 전송
+      var webhookUrl = 'https://bbk-app.vercel.app/api/webhooks/application';
 
       fetch(webhookUrl, {
         method: 'POST',
