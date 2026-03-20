@@ -42,6 +42,9 @@ interface Customer {
   unit_price: number | null
   visit_interval_days: number | null
   next_visit_date: string | null
+  visit_schedule_type: 'weekday' | 'monthly_date' | null
+  visit_weekdays: number[] | null
+  visit_monthly_dates: number[] | null
   notes: string | null
   created_at: string
   updated_at: string
@@ -87,7 +90,83 @@ const EMPTY_FORM = {
   billing_start_date: '', billing_next_date: '',
   contract_start_date: '', contract_end_date: '',
   unit_price: '',
-  visit_interval_days: '', next_visit_date: '', notes: '',
+  visit_interval_days: '', next_visit_date: '',
+  visit_schedule_type: '', notes: '',
+}
+
+// ─── 방문 주기 ────────────────────────────────────────────────
+const WEEKDAYS = [
+  { label: '월', value: 1 }, { label: '화', value: 2 }, { label: '수', value: 3 },
+  { label: '목', value: 4 }, { label: '금', value: 5 }, { label: '토', value: 6 },
+  { label: '일', value: 0 },
+]
+
+function VisitScheduleEditor({ scheduleType, weekdays, monthlyDates, onScheduleTypeChange, onWeekdaysChange, onMonthlyDatesChange, color = 'blue' }: {
+  scheduleType: string; weekdays: number[]; monthlyDates: number[]
+  onScheduleTypeChange: (v: string) => void
+  onWeekdaysChange: (v: number[]) => void
+  onMonthlyDatesChange: (v: number[]) => void
+  color?: 'blue' | 'purple'
+}) {
+  const active = color === 'purple' ? 'bg-purple-600 text-white' : 'bg-blue-600 text-white'
+  const ring = color === 'purple' ? 'ring-purple-400' : 'ring-blue-400'
+
+  const toggleWeekday = (day: number) =>
+    onWeekdaysChange(weekdays.includes(day) ? weekdays.filter(d => d !== day) : [...weekdays, day])
+  const toggleDate = (date: number) =>
+    onMonthlyDatesChange(monthlyDates.includes(date) ? monthlyDates.filter(d => d !== date) : [...monthlyDates, date])
+
+  return (
+    <div className="flex flex-col gap-2">
+      <p className="text-xs font-semibold text-gray-700">방문 주기 설정</p>
+      <div className="flex gap-1.5">
+        {[{ key: 'weekday', label: '요일별' }, { key: 'monthly_date', label: '날짜별' }].map(({ key, label }) => (
+          <button key={key} onClick={() => onScheduleTypeChange(key)}
+            className={`flex-1 py-1.5 text-xs rounded-lg font-medium transition-colors ${scheduleType === key ? active : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {scheduleType === 'weekday' && (
+        <div className="flex flex-col gap-1.5">
+          <p className="text-xs text-gray-500">매월 방문할 요일을 선택하세요</p>
+          <div className="flex gap-1">
+            {WEEKDAYS.map(({ label, value }) => (
+              <button key={value} onClick={() => toggleWeekday(value)}
+                className={`flex-1 py-2 text-xs font-bold rounded-lg transition-colors ${weekdays.includes(value) ? active : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
+                {label}
+              </button>
+            ))}
+          </div>
+          {weekdays.length > 0 && (
+            <p className={`text-xs ${color === 'purple' ? 'text-purple-600' : 'text-blue-600'}`}>
+              선택: {WEEKDAYS.filter(w => weekdays.includes(w.value)).map(w => w.label).join(', ')}요일
+            </p>
+          )}
+        </div>
+      )}
+
+      {scheduleType === 'monthly_date' && (
+        <div className="flex flex-col gap-1.5">
+          <p className="text-xs text-gray-500">매월 방문할 날짜를 선택하세요</p>
+          <div className="grid grid-cols-7 gap-1">
+            {Array.from({ length: 31 }, (_, i) => i + 1).map(d => (
+              <button key={d} onClick={() => toggleDate(d)}
+                className={`py-1.5 text-xs font-medium rounded-lg transition-colors ${monthlyDates.includes(d) ? active : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
+                {d}
+              </button>
+            ))}
+          </div>
+          {monthlyDates.length > 0 && (
+            <p className={`text-xs ${color === 'purple' ? 'text-purple-600' : 'text-blue-600'}`}>
+              선택: 매월 {[...monthlyDates].sort((a, b) => a - b).join('일, ')}일
+            </p>
+          )}
+        </div>
+      )}
+    </div>
+  )
 }
 
 // ─── 헬퍼 ─────────────────────────────────────────────────────
@@ -192,6 +271,8 @@ export default function AdminCustomersPage() {
   const [portalInfo, setPortalInfo] = useState<{ phone: string; password: string } | null>(null)
   const [checkedIds, setCheckedIds] = useState<string[]>([])
   const [bulkCreating, setBulkCreating] = useState(false)
+  const [visitWeekdays, setVisitWeekdays] = useState<number[]>([])
+  const [visitMonthlyDates, setVisitMonthlyDates] = useState<number[]>([])
 
   const toggleCheck = (id: string) =>
     setCheckedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
@@ -238,17 +319,22 @@ export default function AdminCustomersPage() {
     unit_price: c.unit_price?.toString() ?? '',
     visit_interval_days: c.visit_interval_days?.toString() ?? '',
     next_visit_date: c.next_visit_date ?? '',
+    visit_schedule_type: c.visit_schedule_type ?? '',
     notes: c.notes ?? '',
   })
 
   const handleSelect = (c: Customer) => {
     setSelected(c); setIsNew(false); setNotifyType('')
     setForm(toForm(c))
+    setVisitWeekdays(c.visit_weekdays ?? [])
+    setVisitMonthlyDates(c.visit_monthly_dates ?? [])
   }
 
   const handleNew = () => {
     setSelected(null); setIsNew(true); setNotifyType('')
     setForm(EMPTY_FORM)
+    setVisitWeekdays([])
+    setVisitMonthlyDates([])
   }
 
   const set = (key: keyof typeof EMPTY_FORM) => (v: string) =>
@@ -296,6 +382,9 @@ export default function AdminCustomersPage() {
     unit_price: form.unit_price ? Number(form.unit_price) : null,
     visit_interval_days: form.visit_interval_days ? Number(form.visit_interval_days) : null,
     next_visit_date: form.next_visit_date || null,
+    visit_schedule_type: form.visit_schedule_type || null,
+    visit_weekdays: visitWeekdays,
+    visit_monthly_dates: visitMonthlyDates,
     notes: form.notes || null,
   })
 
@@ -781,13 +870,15 @@ export default function AdminCustomersPage() {
                   {/* 방문 주기 */}
                   <div className="flex flex-col gap-2">
                     <p className="text-xs font-semibold text-gray-700">방문 일정</p>
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-gray-500 w-24 shrink-0">방문 주기</span>
-                      <input type="number" value={form.visit_interval_days} onChange={e => set('visit_interval_days')(e.target.value)}
-                        placeholder="30"
-                        className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white" />
-                      <span className="text-xs text-gray-500 shrink-0">일마다</span>
-                    </div>
+                    <VisitScheduleEditor
+                      scheduleType={form.visit_schedule_type}
+                      weekdays={visitWeekdays}
+                      monthlyDates={visitMonthlyDates}
+                      onScheduleTypeChange={set('visit_schedule_type')}
+                      onWeekdaysChange={setVisitWeekdays}
+                      onMonthlyDatesChange={setVisitMonthlyDates}
+                      color="purple"
+                    />
                     <div className="flex items-center gap-2">
                       <span className="text-xs text-gray-500 w-24 shrink-0">다음 방문일</span>
                       <input type="date" value={form.next_visit_date} onChange={e => set('next_visit_date')(e.target.value)}
@@ -868,13 +959,15 @@ export default function AdminCustomersPage() {
                   {/* 방문 주기 */}
                   <div className="flex flex-col gap-2">
                     <p className="text-xs font-semibold text-gray-700">방문 일정</p>
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-gray-500 w-24 shrink-0">방문 주기</span>
-                      <input type="number" value={form.visit_interval_days} onChange={e => set('visit_interval_days')(e.target.value)}
-                        placeholder="30"
-                        className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white" />
-                      <span className="text-xs text-gray-500 shrink-0">일마다</span>
-                    </div>
+                    <VisitScheduleEditor
+                      scheduleType={form.visit_schedule_type}
+                      weekdays={visitWeekdays}
+                      monthlyDates={visitMonthlyDates}
+                      onScheduleTypeChange={set('visit_schedule_type')}
+                      onWeekdaysChange={setVisitWeekdays}
+                      onMonthlyDatesChange={setVisitMonthlyDates}
+                      color="blue"
+                    />
                     <div className="flex items-center gap-2">
                       <span className="text-xs text-gray-500 w-24 shrink-0">다음 방문일</span>
                       <input type="date" value={form.next_visit_date} onChange={e => set('next_visit_date')(e.target.value)}

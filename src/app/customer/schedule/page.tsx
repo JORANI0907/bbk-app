@@ -5,6 +5,7 @@ import { format, isPast, isToday } from 'date-fns'
 import { ko } from 'date-fns/locale'
 import { ServiceSchedule } from '@/types/database'
 import { SCHEDULE_STATUS_LABELS, SCHEDULE_STATUS_COLORS } from '@/lib/constants'
+import { ScheduleChangeRequest } from '@/components/customer/ScheduleChangeRequest'
 
 function getDday(date: string): number {
   const today = new Date()
@@ -105,6 +106,8 @@ export default async function CustomerSchedulePage() {
 
   return (
     <div className="px-4 py-5 flex flex-col gap-6">
+      <ScheduleChangeRequest upcomingSchedules={upcoming} />
+
       <section>
         <h2 className="text-base font-bold text-gray-900 mb-3">예정된 서비스</h2>
         {upcoming.length === 0 ? (

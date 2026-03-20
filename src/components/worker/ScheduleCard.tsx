@@ -59,7 +59,10 @@ export function ScheduleCard({ schedule, onPress }: Props) {
 
       <div className="flex items-center gap-2 flex-wrap">
         <div className="flex items-center gap-1 text-sm text-gray-600">
-          <span>🕐</span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5 text-gray-400">
+            <circle cx="12" cy="12" r="10" />
+            <polyline points="12 6 12 12 16 14" />
+          </svg>
           <span>
             {formatTime(schedule.scheduled_time_start)} ~{' '}
             {formatTime(schedule.scheduled_time_end)}

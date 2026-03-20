@@ -15,11 +15,10 @@ const NOTION_TOKEN = process.env.NOTION_TOKEN
 const NOTION_APPLICATIONS_DB_ID = process.env.NOTION_APPLICATIONS_DB_ID
 const MAKE_WEBHOOK_URL =
   process.env.MAKE_APPLICATION_WEBHOOK_URL ??
-  'https://hook.eu2.make.com/soggf64wuee7na9n3kb7ii69r44bxpgr'
+  'https://hook.eu2.make.com/hkbb3jhkz2cefv1kcn8awrpm472jho2x'
 
 async function syncToNotion(application: Record<string, string>) {
   if (!NOTION_TOKEN || !NOTION_APPLICATIONS_DB_ID) return null
-
   try {
     const res = await fetch('https://api.notion.com/v1/pages', {
       method: 'POST',
@@ -61,7 +60,6 @@ async function syncToNotion(application: Record<string, string>) {
 
 export async function POST(request: NextRequest) {
   try {
-    // Make.com 웹훅 시크릿 검증 (선택)
     const body = await request.json()
 
     const {
@@ -74,85 +72,112 @@ export async function POST(request: NextRequest) {
     } = body
 
     if (!ownerName || !phone || !businessName || !address) {
-      return NextResponse.json({ error: '필수 항목이 누락되었습니다.' }, { status: 400, headers: CORS_HEADERS })
+      return NextResponse.json(
+        { error: '필수 항목이 누락되었습니다.' },
+        { status: 400, headers: CORS_HEADERS },
+      )
     }
 
     const supabase = createServiceClient()
 
-    // Supabase 저장
-    const { data: inserted, error } = await supabase
-      .from('service_applications')
-      .insert({
-        submitted_at: timestamp,
-        owner_name: ownerName,
-        platform_nickname: platformNickname,
-        phone,
-        email,
-        business_name: businessName,
-        business_number: businessNumber,
-        address,
-        business_hours_start: businessHoursStart,
-        business_hours_end: businessHoursEnd,
-        elevator,
-        building_access: buildingAccess,
-        access_method: accessMethod,
-        parking,
-        payment_method: paymentMethod,
-        account_number: accountNumber,
-        privacy_consent: privacyConsent,
-        service_consent: serviceConsent,
-        request_notes: requestNotes,
-        status: '신규',
-      })
-      .select()
-      .single()
-
-    if (error) {
-      console.error('Supabase insert error:', error)
-      return NextResponse.json({ error: error.message }, { status: 500 })
+    const makePayload = {
+      businessName,
+      ownerName,
+      phone,
+      email,
+      emailId: emailId ?? (email ? email.split('@')[0] : ''),
+      emailDomain: emailDomain ?? (email ? email.split('@')[1] : ''),
+      address,
+      businessNumber,
+      businessHoursStart,
+      businessHoursEnd,
+      elevator,
+      buildingAccess,
+      accessMethod,
+      parking,
+      paymentMethod,
+      accountNumber,
+      platformNickname,
+      requestNotes,
+      timestamp,
     }
 
-    // Notion 미러링 (비동기, 실패해도 OK)
-    const notionPageId = await syncToNotion(body)
-    if (notionPageId && inserted) {
-      await supabase
+    // Supabase 저장과 Make 웹훅을 병렬 실행 — 하나가 실패해도 나머지는 동작
+    const [supabaseResult, makeResult] = await Promise.allSettled([
+      supabase
         .from('service_applications')
-        .update({ notion_page_id: notionPageId })
-        .eq('id', inserted.id)
-    }
-
-    // Make 웹훅 (카카오 알림 + Gmail)
-    if (MAKE_WEBHOOK_URL) {
+        .insert({
+          submitted_at: timestamp,
+          owner_name: ownerName,
+          platform_nickname: platformNickname,
+          phone,
+          email,
+          business_name: businessName,
+          business_number: businessNumber,
+          address,
+          business_hours_start: businessHoursStart,
+          business_hours_end: businessHoursEnd,
+          elevator,
+          building_access: buildingAccess,
+          access_method: accessMethod,
+          parking,
+          payment_method: paymentMethod,
+          account_number: accountNumber,
+          privacy_consent: privacyConsent,
+          service_consent: serviceConsent,
+          request_notes: requestNotes,
+          status: '신규',
+        })
+        .select()
+        .single(),
       fetch(MAKE_WEBHOOK_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          businessName,
-          ownerName,
-          phone,
-          email,
-          emailId: emailId ?? (email ? email.split('@')[0] : ''),
-          emailDomain: emailDomain ?? (email ? email.split('@')[1] : ''),
-          address,
-          businessNumber,
-          businessHoursStart,
-          businessHoursEnd,
-          elevator,
-          buildingAccess,
-          accessMethod,
-          parking,
-          paymentMethod,
-          accountNumber,
-          platformNickname,
-          requestNotes,
-        }),
-      }).catch(err => console.error('Make webhook error:', err))
+        body: JSON.stringify(makePayload),
+      }),
+    ])
+
+    if (makeResult.status === 'rejected') {
+      console.error('Make webhook error:', makeResult.reason)
+    } else {
+      console.log('Make webhook status:', makeResult.value.status)
     }
 
-    return NextResponse.json({ success: true, id: inserted?.id }, { headers: CORS_HEADERS })
+    // Supabase 결과 처리
+    let insertedId: string | null = null
+    if (supabaseResult.status === 'fulfilled') {
+      const { data: inserted, error } = supabaseResult.value
+      if (error) {
+        console.error('Supabase insert error:', error)
+      } else {
+        insertedId = inserted?.id ?? null
+      }
+    } else {
+      console.error('Supabase error:', supabaseResult.reason)
+    }
+
+    // Notion 미러링 (Supabase 성공 시에만, 실패해도 OK)
+    if (insertedId) {
+      try {
+        const notionPageId = await syncToNotion(body)
+        if (notionPageId) {
+          await supabase
+            .from('service_applications')
+            .update({ notion_page_id: notionPageId })
+            .eq('id', insertedId)
+        }
+      } catch (e) {
+        console.error('Notion error:', e)
+      }
+    }
+
+    return NextResponse.json(
+      { success: true, id: insertedId },
+      { headers: CORS_HEADERS },
+    )
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
-    console.error('Webhook error:', msg)
+    console.error('Webhook handler error:', msg)
     return NextResponse.json({ error: msg }, { status: 500, headers: CORS_HEADERS })
   }
 }

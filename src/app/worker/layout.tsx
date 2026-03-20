@@ -11,13 +11,13 @@ export default function WorkerLayout({
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
-      <header className="sticky top-0 z-40 bg-white border-b border-gray-200 safe-area-pt">
+      <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-sm border-b border-gray-100 safe-area-pt shadow-sm">
         <div className="flex items-center justify-between px-4 h-14">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
             <span className="text-xl font-black text-blue-600 tracking-tight">BBK</span>
-            <span className="text-xs text-gray-400 font-medium">공간케어</span>
+            <span className="text-[10px] text-gray-400 font-semibold uppercase tracking-widest">Korea</span>
           </div>
-          <span className="text-sm font-medium text-gray-600">{today}</span>
+          <span className="text-xs font-medium text-gray-500 bg-gray-50 px-3 py-1.5 rounded-lg">{today}</span>
         </div>
       </header>
 

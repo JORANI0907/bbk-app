@@ -81,11 +81,18 @@ export function WorkerScheduleListClient({ schedules: initial }: Props) {
 
   if (schedules.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-20 gap-4 text-center">
-        <span className="text-6xl">🌤️</span>
+      <div className="flex flex-col items-center justify-center py-20 gap-4 text-center bg-white rounded-2xl border border-gray-100">
+        <div className="w-16 h-16 rounded-full bg-blue-50 flex items-center justify-center">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-8 h-8 text-blue-400">
+            <rect x="3" y="4" width="18" height="18" rx="2" ry="2" strokeLinecap="round" strokeLinejoin="round" />
+            <line x1="16" y1="2" x2="16" y2="6" strokeLinecap="round" />
+            <line x1="8" y1="2" x2="8" y2="6" strokeLinecap="round" />
+            <line x1="3" y1="10" x2="21" y2="10" strokeLinecap="round" />
+          </svg>
+        </div>
         <div>
-          <p className="text-lg font-semibold text-gray-700">오늘 배정된 현장이 없습니다</p>
-          <p className="text-sm text-gray-400 mt-1">관리자에게 문의하거나 내일 일정을 확인해주세요.</p>
+          <p className="text-base font-semibold text-gray-700">오늘 배정된 현장이 없습니다</p>
+          <p className="text-sm text-gray-400 mt-1">관리자에게 문의해주세요.</p>
         </div>
       </div>
     )
