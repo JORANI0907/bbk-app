@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import toast from 'react-hot-toast'
+import { CustomerRequestsPanel } from '@/components/admin/CustomerRequestsPanel'
 
 // ─── 타입 ─────────────────────────────────────────────────────
 type CustomerType = '1회성케어' | '정기딥케어' | '정기엔드케어'
@@ -958,6 +959,11 @@ export default function AdminCustomersPage() {
                   )}
                 </div>
               </div>
+            )}
+
+            {/* 요청사항 이력 + 담당자 메모 관리 */}
+            {!isNew && selected && (
+              <CustomerRequestsPanel customerId={selected.id} />
             )}
           </div>
         </div>

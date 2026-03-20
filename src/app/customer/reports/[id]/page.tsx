@@ -18,6 +18,14 @@ export default async function CustomerReportDetailPage({ params }: PageProps) {
 
   const supabase = createServiceClient()
 
+  // 고객 본인 업장 검증
+  const { data: userProfile } = await supabase
+    .from('users')
+    .select('*, customer:customers(id)')
+    .eq('id', session.userId)
+    .single()
+  const customerId = userProfile?.customer?.id ?? null
+
   const { data: schedule } = await supabase
     .from('service_schedules')
     .select('*, customer:customers(*)')
@@ -25,6 +33,7 @@ export default async function CustomerReportDetailPage({ params }: PageProps) {
     .single()
 
   if (!schedule || schedule.status !== 'completed') notFound()
+  if (customerId && schedule.customer_id !== customerId) notFound()
 
   const typedSchedule = schedule as ServiceSchedule
 
@@ -160,6 +169,14 @@ export default async function CustomerReportDetailPage({ params }: PageProps) {
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* 담당자 메모 (관리자 공개 승인된 경우만) */}
+      {typedSchedule.worker_memo && typedSchedule.memo_visible && (
+        <div className="bg-amber-50 rounded-2xl border border-amber-100 p-4">
+          <p className="text-xs font-semibold text-amber-600 mb-2">📋 담당자 메모</p>
+          <p className="text-sm text-gray-700 whitespace-pre-wrap">{typedSchedule.worker_memo}</p>
         </div>
       )}
 

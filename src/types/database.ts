@@ -95,6 +95,7 @@ export interface ServiceSchedule {
   arrival_lat: number | null
   arrival_lng: number | null
   worker_memo: string | null
+  memo_visible: boolean
   payment_status: PaymentStatus
   payment_amount: number | null
   payment_date: string | null
@@ -168,6 +169,15 @@ export interface InventoryItem {
   unit: string
   min_qty: number
   last_updated: string
+}
+
+export interface CustomerRequest {
+  id: string
+  customer_id: string
+  user_id: string
+  content: string
+  is_read: boolean
+  created_at: string
 }
 
 export interface InventoryLog {

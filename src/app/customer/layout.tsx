@@ -54,6 +54,12 @@ export default async function CustomerLayout({
           >
             서비스 리포트
           </Link>
+          <Link
+            href="/customer/requests"
+            className="flex-1 text-center py-2.5 text-xs font-medium text-gray-600 hover:text-blue-600 transition-colors"
+          >
+            요청사항
+          </Link>
         </nav>
       </header>
 
