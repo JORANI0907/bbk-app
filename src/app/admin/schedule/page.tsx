@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import toast from 'react-hot-toast'
+import { WorkPanel } from '@/components/admin/WorkPanel'
 
 // ─── 타입 ──────────────────────────────────────────────────────
 
@@ -30,6 +31,14 @@ interface Application {
   business_number: string | null
   account_number: string | null
   drive_folder_url: string | null
+  // 작업 추적
+  work_status: string | null
+  work_started_at: string | null
+  work_completed_at: string | null
+  customer_memo: string | null
+  internal_memo: string | null
+  notification_send_at: string | null
+  notification_sent_at: string | null
 }
 
 interface User { id: string; name: string; role: string }
@@ -153,7 +162,7 @@ function CalendarGrid({
 // ─── 상세 패널 ────────────────────────────────────────────────
 
 function DetailPanel({
-  app, users, workers, appWorkerMap, isAdmin, onClose,
+  app, users, workers, appWorkerMap, isAdmin, onClose, onAppUpdate,
 }: {
   app: Application
   users: User[]
@@ -161,6 +170,7 @@ function DetailPanel({
   appWorkerMap: Record<string, string[]>
   isAdmin: boolean
   onClose: () => void
+  onAppUpdate: (updates: Partial<Application>) => void
 }) {
   const [showAccount, setShowAccount] = useState(false)
   const [showBizNum, setShowBizNum] = useState(false)
@@ -331,6 +341,9 @@ function DetailPanel({
               </div>
             </section>
           )}
+
+          {/* 작업 현황 */}
+          <WorkPanel app={app} onUpdate={onAppUpdate} />
         </div>
       </div>
     </div>
@@ -465,6 +478,10 @@ export default function SchedulePage() {
           appWorkerMap={appWorkerMap}
           isAdmin={isAdmin}
           onClose={() => setSelected(null)}
+          onAppUpdate={(updates) => {
+            setSelected(prev => prev ? { ...prev, ...updates } : null)
+            setApplications(prev => prev.map(a => a.id === selected.id ? { ...a, ...updates } : a))
+          }}
         />
       )}
 
@@ -622,10 +639,23 @@ export default function SchedulePage() {
                       </td>
                       <td className="px-4 py-3 text-gray-500 text-xs">{app.service_type ?? '-'}</td>
                       <td className="px-4 py-3">
-                        <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium ${cfg.badge}`}>
-                          <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${cfg.dot}`} />
-                          {app.status}
-                        </span>
+                        <div className="flex flex-wrap gap-1">
+                          <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium ${cfg.badge}`}>
+                            <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${cfg.dot}`} />
+                            {app.status}
+                          </span>
+                          {app.work_status === 'in_progress' && (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-700">
+                              <span className="w-1.5 h-1.5 rounded-full bg-orange-500 animate-pulse" />
+                              작업중
+                            </span>
+                          )}
+                          {app.work_status === 'completed' && (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">
+                              ✅ 완료
+                            </span>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   )
