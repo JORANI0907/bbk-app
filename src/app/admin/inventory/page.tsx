@@ -5,7 +5,6 @@ import toast from 'react-hot-toast'
 import {
   loadGoogleAPIs,
   requestGoogleToken,
-  openFolderPicker,
   uploadFileToDrive,
   getSavedInventoryFolder,
   saveInventoryFolderCookie,
@@ -298,21 +297,6 @@ export default function AdminInventoryPage() {
     }
   }
 
-  const handleDriveSetup = async () => {
-    try {
-      await loadGoogleAPIs()
-      const token = await requestGoogleToken()
-      const folder = await openFolderPicker(token)
-      if (folder) {
-        saveInventoryFolderCookie(folder)
-        setInventoryFolder(folder)
-        toast.success(`폴더 설정: ${folder.name}`)
-      }
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Drive 설정 실패')
-    }
-  }
-
   const filteredItems = items.filter(item => {
     const matchCategory = categoryFilter === 'all' || item.category === categoryFilter
     const matchSearch = !searchQuery || item.item_name.toLowerCase().includes(searchQuery.toLowerCase())
@@ -328,13 +312,6 @@ export default function AdminInventoryPage() {
           <div className="flex items-center justify-between mb-3">
             <h1 className="text-lg font-bold text-gray-900">재고 관리</h1>
             <div className="flex gap-2">
-              <button
-                onClick={handleDriveSetup}
-                className="text-xs px-2 py-1 rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
-                title="Drive 폴더 설정"
-              >
-                Drive 설정
-              </button>
               <button
                 onClick={() => setShowAddModal(true)}
                 className="text-xs px-3 py-1 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors font-medium"
