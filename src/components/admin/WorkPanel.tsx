@@ -1,16 +1,7 @@
 'use client'
 
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect } from 'react'
 import toast from 'react-hot-toast'
-
-interface Photo {
-  id: string
-  photo_type: 'before' | 'after'
-  drive_file_id: string
-  web_view_link: string
-  thumbnail_link: string | null
-  created_at: string
-}
 
 interface WorkApp {
   id: string
@@ -52,86 +43,22 @@ function formatCountdown(sec: number) {
   return `${m}분 ${String(s).padStart(2, '0')}초`
 }
 
-function extractFolderId(url: string): string | null {
-  const m = url.match(/\/folders\/([a-zA-Z0-9_-]+)/)
-  return m ? m[1] : null
-}
-
-async function getOrCreateSubfolder(parentId: string, name: string, token: string): Promise<string> {
-  const q = encodeURIComponent(
-    `'${parentId}' in parents AND name='${name}' AND mimeType='application/vnd.google-apps.folder' AND trashed=false`
-  )
-  const res = await fetch(
-    `https://www.googleapis.com/drive/v3/files?q=${q}&supportsAllDrives=true&includeItemsFromAllDrives=true&fields=files(id)`,
-    { headers: { Authorization: `Bearer ${token}` } }
-  )
-  const data = await res.json()
-  if (data.files?.length > 0) return data.files[0].id as string
-
-  const createRes = await fetch(
-    'https://www.googleapis.com/drive/v3/files?supportsAllDrives=true',
-    {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, mimeType: 'application/vnd.google-apps.folder', parents: [parentId] }),
-    }
-  )
-  if (!createRes.ok) {
-    const err = await createRes.json()
-    throw new Error(err.error?.message ?? `서브폴더 생성 실패 (${createRes.status})`)
-  }
-  const folder = await createRes.json()
-  return folder.id as string
-}
-
 export function WorkPanel({ app, onUpdate }: Props) {
-  const [photos, setPhotos] = useState<Photo[]>([])
   const [customerMemo, setCustomerMemo] = useState(app.customer_memo ?? '')
   const [internalMemo, setInternalMemo] = useState(app.internal_memo ?? '')
-  const [uploading, setUploading] = useState(false)
+  const [beforeChecked, setBeforeChecked] = useState(false)
+  const [afterChecked, setAfterChecked] = useState(false)
   const [saving, setSaving] = useState(false)
-  const [activeTab, setActiveTab] = useState<'before' | 'after'>('before')
-  const [apisReady, setApisReady] = useState(false)
-
-  const fileInputRef = useRef<HTMLInputElement>(null)
-  // 구글 드라이브 모듈 (SSR 방지용 동적 import 결과를 캐시)
-  const driveRef = useRef<typeof import('@/lib/googleDrive') | null>(null)
-  // OAuth 토큰 캐시 (팝업 한 번만 열리도록)
-  const tokenRef = useRef<string | null>(null)
-  // 버튼 클릭 시 시작된 OAuth Promise (handleFileChange에서 await)
-  const tokenPromiseRef = useRef<Promise<string> | null>(null)
 
   const countdown = useCountdown(app.notification_send_at)
   const status = app.work_status ?? 'pending'
-  const hasDrive = !!app.drive_folder_url
-
-  // ── Google Drive 모듈 & API 스크립트 사전 로드 ──────────────
-  useEffect(() => {
-    if (typeof window === 'undefined') return
-    import('@/lib/googleDrive').then(mod => {
-      driveRef.current = mod
-      mod.loadGoogleAPIs()
-        .then(() => setApisReady(true))
-        .catch(() => setApisReady(false))
-    })
-  }, [])
-
-  // ── 사진 목록 로드 ───────────────────────────────────────────
-  const loadPhotos = useCallback(async () => {
-    const res = await fetch(`/api/admin/applications/${app.id}/photos`)
-    if (res.ok) setPhotos((await res.json()).photos ?? [])
-  }, [app.id])
-
-  useEffect(() => {
-    if (status === 'in_progress' || status === 'completed') loadPhotos()
-  }, [status, loadPhotos])
 
   useEffect(() => { setCustomerMemo(app.customer_memo ?? '') }, [app.customer_memo])
   useEffect(() => { setInternalMemo(app.internal_memo ?? '') }, [app.internal_memo])
 
-  const canComplete = photos.length > 0 && customerMemo.trim().length > 0
+  const photosChecked = beforeChecked && afterChecked
+  const canComplete = photosChecked && customerMemo.trim().length > 0
 
-  // ── 작업 시작 ────────────────────────────────────────────────
   async function handleStart() {
     setSaving(true)
     try {
@@ -147,7 +74,6 @@ export function WorkPanel({ app, onUpdate }: Props) {
     finally { setSaving(false) }
   }
 
-  // ── 메모 저장 ────────────────────────────────────────────────
   async function saveMemos() {
     const res = await fetch(`/api/admin/applications/${app.id}/work`, {
       method: 'PATCH',
@@ -158,7 +84,6 @@ export function WorkPanel({ app, onUpdate }: Props) {
     onUpdate({ customer_memo: customerMemo, internal_memo: internalMemo })
   }
 
-  // ── 작업 완료 ────────────────────────────────────────────────
   async function handleComplete() {
     if (!canComplete) return
     setSaving(true)
@@ -183,7 +108,6 @@ export function WorkPanel({ app, onUpdate }: Props) {
     finally { setSaving(false) }
   }
 
-  // ── 알림 취소 ────────────────────────────────────────────────
   async function handleCancelNotification() {
     setSaving(true)
     try {
@@ -199,7 +123,6 @@ export function WorkPanel({ app, onUpdate }: Props) {
     finally { setSaving(false) }
   }
 
-  // ── 지금 발송 ────────────────────────────────────────────────
   async function handleSendNow() {
     setSaving(true)
     try {
@@ -220,123 +143,6 @@ export function WorkPanel({ app, onUpdate }: Props) {
     } catch (e) { toast.error(String(e)) }
     finally { setSaving(false) }
   }
-
-  // ── + 버튼 클릭 ──────────────────────────────────────────────
-  // 핵심: await 없이 동기적으로 두 작업을 시작해야 브라우저가 팝업을 허용함
-  function handleUploadClick() {
-    if (!hasDrive) {
-      toast.error('서비스 관리에서 Drive 폴더를 먼저 생성해주세요.')
-      return
-    }
-    if (!driveRef.current || !apisReady) {
-      toast.error('Google API 로딩 중입니다. 잠시 후 다시 시도해주세요.')
-      return
-    }
-
-    // 1) 파일 선택창 즉시 열기 (user gesture 유지)
-    fileInputRef.current?.click()
-
-    // 2) OAuth 토큰 요청 동기적으로 시작 (await 없음 → user gesture 유지 → 팝업 허용)
-    if (!tokenRef.current && !tokenPromiseRef.current) {
-      tokenPromiseRef.current = driveRef.current.requestGoogleToken()
-        .then(token => {
-          tokenRef.current = token
-          return token
-        })
-        .catch(err => {
-          tokenPromiseRef.current = null
-          throw err
-        })
-    }
-  }
-
-  // ── 파일 선택 후 업로드 ──────────────────────────────────────
-  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const files = Array.from(e.target.files ?? [])
-    if (!files.length) return
-
-    const folderId = extractFolderId(app.drive_folder_url!)
-    if (!folderId) { toast.error('올바르지 않은 Drive 폴더 URL입니다.'); return }
-
-    setUploading(true)
-    try {
-      // 이미 캐시된 토큰이 없으면 OAuth 완료를 기다림
-      let token: string
-      if (tokenRef.current) {
-        token = tokenRef.current
-      } else if (tokenPromiseRef.current) {
-        token = await tokenPromiseRef.current
-      } else {
-        throw new Error('Google 인증이 필요합니다. + 버튼을 다시 눌러주세요.')
-      }
-
-      const subfolderName = activeTab === 'before' ? '작업 전' : '작업 후'
-      const subfolderId = await getOrCreateSubfolder(folderId, subfolderName, token)
-
-      const { default: imageCompression } = await import('browser-image-compression')
-
-      let uploaded = 0
-      for (const file of files) {
-        const compressed = await imageCompression(file, {
-          maxSizeMB: 1,
-          maxWidthOrHeight: 1920,
-          useWebWorker: true,
-        })
-        const safeDate = (app.work_started_at ?? new Date().toISOString()).slice(0, 10).replace(/-/g, '')
-        const safeName = app.business_name.replace(/[/\\:*?"<>|]/g, '_')
-        const ext = (file.name.split('.').pop() ?? 'jpg').toLowerCase()
-        const fileName = `${safeDate}_${safeName}_${Date.now()}.${ext}`
-
-        const { fileId, fileUrl } = await driveRef.current!.uploadFileToDrive(
-          new File([compressed], fileName, { type: compressed.type }),
-          subfolderId,
-          fileName,
-          token,
-        )
-
-        const res = await fetch(`/api/admin/applications/${app.id}/photos`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            drive_file_id: fileId,
-            web_view_link: fileUrl,
-            thumbnail_link: null,
-            photo_type: activeTab,
-          }),
-        })
-        if (res.ok) {
-          const { photo } = await res.json()
-          setPhotos(prev => [...prev, photo])
-          uploaded++
-        }
-      }
-      if (uploaded > 0) toast.success(`사진 ${uploaded}장 업로드 완료`)
-    } catch (e) {
-      // 토큰 오류면 캐시 초기화 (다음 시도 때 재인증)
-      if (e instanceof Error && (e.message.includes('인증') || e.message.includes('auth'))) {
-        tokenRef.current = null
-        tokenPromiseRef.current = null
-      }
-      toast.error(e instanceof Error ? e.message : '업로드 실패')
-    } finally {
-      setUploading(false)
-      if (fileInputRef.current) fileInputRef.current.value = ''
-    }
-  }
-
-  // ── 사진 삭제 ────────────────────────────────────────────────
-  async function handleDeletePhoto(photoId: string) {
-    if (!confirm('목록에서 제거하시겠습니까? (Drive 파일은 유지됩니다)')) return
-    try {
-      const res = await fetch(`/api/admin/applications/${app.id}/photos/${photoId}`, { method: 'DELETE' })
-      if (!res.ok) throw new Error((await res.json()).error)
-      setPhotos(prev => prev.filter(p => p.id !== photoId))
-    } catch (e) { toast.error(String(e)) }
-  }
-
-  const beforePhotos = photos.filter(p => p.photo_type === 'before')
-  const afterPhotos = photos.filter(p => p.photo_type === 'after')
-  const currentPhotos = activeTab === 'before' ? beforePhotos : afterPhotos
 
   return (
     <section>
@@ -371,69 +177,88 @@ export function WorkPanel({ app, onUpdate }: Props) {
             )}
           </div>
 
-          <div className="flex gap-1">
-            {(['before', 'after'] as const).map(tab => (
-              <button key={tab} onClick={() => setActiveTab(tab)}
-                className={`flex-1 py-1.5 text-xs font-semibold rounded-lg transition-colors ${activeTab === tab ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-500'}`}>
-                {tab === 'before' ? `작업 전 (${beforePhotos.length})` : `작업 후 (${afterPhotos.length})`}
-              </button>
-            ))}
-          </div>
-
-          <div className="grid grid-cols-3 gap-1.5">
-            {currentPhotos.map(photo => (
-              <div key={photo.id} className="relative aspect-square group">
-                <a href={photo.web_view_link} target="_blank" rel="noreferrer"
-                  className="block w-full h-full bg-blue-50 rounded-lg flex items-center justify-center text-blue-600 text-xs font-medium hover:bg-blue-100">
-                  📄 보기
+          {/* 사진 업로드 */}
+          <div className="bg-gray-50 rounded-xl p-3 space-y-2">
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-semibold text-gray-600">사진 업로드</p>
+              {app.drive_folder_url ? (
+                <a
+                  href={app.drive_folder_url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 px-2.5 py-1 rounded-lg transition-colors"
+                >
+                  📁 Google Drive 열기
                 </a>
-                <button onClick={() => handleDeletePhoto(photo.id)}
-                  className="absolute top-0.5 right-0.5 w-5 h-5 bg-red-500 text-white rounded-full text-xs hidden group-hover:flex items-center justify-center">
-                  ✕
-                </button>
-              </div>
-            ))}
-            <button
-              onClick={handleUploadClick}
-              disabled={uploading}
-              title={!apisReady ? 'Google API 로딩 중...' : undefined}
-              className="aspect-square border-2 border-dashed border-gray-200 rounded-lg flex flex-col items-center justify-center gap-1 hover:border-blue-400 hover:bg-blue-50 disabled:opacity-40"
-            >
-              {uploading
-                ? <div className="w-4 h-4 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
-                : <span className="text-gray-400 text-lg">+</span>}
-            </button>
+              ) : (
+                <span className="text-xs text-amber-600">⚠ Drive 폴더 미생성</span>
+              )}
+            </div>
+            <p className="text-xs text-gray-400">Drive에서 작업 전/후 사진을 업로드한 후 아래를 체크해주세요.</p>
+            <div className="space-y-1.5">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={beforeChecked}
+                  onChange={e => setBeforeChecked(e.target.checked)}
+                  className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                />
+                <span className="text-xs text-gray-700">작업 전 사진 업로드 완료</span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={afterChecked}
+                  onChange={e => setAfterChecked(e.target.checked)}
+                  className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                />
+                <span className="text-xs text-gray-700">작업 후 사진 업로드 완료</span>
+              </label>
+            </div>
           </div>
-
-          <input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handleFileChange} />
-
-          {!hasDrive && (
-            <p className="text-xs text-amber-600 bg-amber-50 rounded-lg px-2 py-1.5">⚠ 서비스 관리에서 Google Drive 폴더를 먼저 생성해주세요</p>
-          )}
 
           <div>
-            <label className="text-xs font-semibold text-gray-600 mb-1 block">고객 전달 특이사항 <span className="text-red-400">*</span></label>
-            <textarea value={customerMemo} onChange={e => setCustomerMemo(e.target.value)} onBlur={saveMemos}
+            <label className="text-xs font-semibold text-gray-600 mb-1 block">
+              고객 전달 특이사항 <span className="text-red-400">*</span>
+            </label>
+            <textarea
+              value={customerMemo}
+              onChange={e => setCustomerMemo(e.target.value)}
+              onBlur={saveMemos}
               placeholder="고객에게 전달할 내용 (완료 알림 SMS에 포함됩니다)"
-              rows={3} className="w-full text-xs border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none" />
+              rows={3}
+              className="w-full text-xs border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+            />
           </div>
 
           <div>
             <label className="text-xs font-semibold text-gray-600 mb-1 block">내부 메모</label>
-            <textarea value={internalMemo} onChange={e => setInternalMemo(e.target.value)} onBlur={saveMemos}
+            <textarea
+              value={internalMemo}
+              onChange={e => setInternalMemo(e.target.value)}
+              onBlur={saveMemos}
               placeholder="내부 참고용 메모 (고객에게 발송되지 않음)"
-              rows={2} className="w-full text-xs border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none bg-gray-50" />
+              rows={2}
+              className="w-full text-xs border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none bg-gray-50"
+            />
           </div>
 
           {!canComplete && (
             <div className="text-xs text-gray-400 space-y-0.5">
-              {photos.length === 0 && <p>• 사진을 1장 이상 업로드해주세요</p>}
+              {!photosChecked && <p>• 사진 업로드 체크박스를 모두 확인해주세요</p>}
               {customerMemo.trim().length === 0 && <p>• 고객 전달 특이사항을 작성해주세요</p>}
             </div>
           )}
 
-          <button onClick={handleComplete} disabled={!canComplete || saving}
-            className={`w-full py-3 font-semibold rounded-xl text-sm ${canComplete && !saving ? 'bg-green-600 hover:bg-green-700 text-white' : 'bg-gray-100 text-gray-400 cursor-not-allowed'}`}>
+          <button
+            onClick={handleComplete}
+            disabled={!canComplete || saving}
+            className={`w-full py-3 font-semibold rounded-xl text-sm ${
+              canComplete && !saving
+                ? 'bg-green-600 hover:bg-green-700 text-white'
+                : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+            }`}
+          >
             {saving ? '처리 중...' : '✅ 작업 완료'}
           </button>
         </div>
@@ -453,29 +278,38 @@ export function WorkPanel({ app, onUpdate }: Props) {
             )}
           </div>
 
-          {photos.length > 0 && (
-            <div className="flex flex-wrap gap-1">
-              {photos.map(photo => (
-                <a key={photo.id} href={photo.web_view_link} target="_blank" rel="noreferrer"
-                  className={`text-xs px-2 py-1 rounded-full font-medium ${photo.photo_type === 'before' ? 'bg-gray-100 text-gray-600' : 'bg-blue-50 text-blue-600'}`}>
-                  {photo.photo_type === 'before' ? '작업 전' : '작업 후'} 📷
-                </a>
-              ))}
-              <span className="text-xs text-gray-400 self-center">총 {photos.length}장</span>
-            </div>
+          {app.drive_folder_url && (
+            <a
+              href={app.drive_folder_url}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 px-2.5 py-1 rounded-lg transition-colors"
+            >
+              📁 Google Drive 열기
+            </a>
           )}
 
           <div>
             <label className="text-xs font-semibold text-gray-600 mb-1 block">고객 전달 특이사항</label>
-            <textarea value={customerMemo} onChange={e => setCustomerMemo(e.target.value)} onBlur={saveMemos}
-              disabled={!!app.notification_sent_at} rows={3}
-              className="w-full text-xs border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none disabled:bg-gray-50 disabled:text-gray-400" />
+            <textarea
+              value={customerMemo}
+              onChange={e => setCustomerMemo(e.target.value)}
+              onBlur={saveMemos}
+              disabled={!!app.notification_sent_at}
+              rows={3}
+              className="w-full text-xs border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none disabled:bg-gray-50 disabled:text-gray-400"
+            />
           </div>
 
           <div>
             <label className="text-xs font-semibold text-gray-600 mb-1 block">내부 메모</label>
-            <textarea value={internalMemo} onChange={e => setInternalMemo(e.target.value)} onBlur={saveMemos}
-              rows={2} className="w-full text-xs border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none bg-gray-50" />
+            <textarea
+              value={internalMemo}
+              onChange={e => setInternalMemo(e.target.value)}
+              onBlur={saveMemos}
+              rows={2}
+              className="w-full text-xs border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none bg-gray-50"
+            />
           </div>
 
           {app.notification_sent_at ? (
