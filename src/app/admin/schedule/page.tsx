@@ -1,8 +1,10 @@
 'use client'
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
+import dynamic from 'next/dynamic'
 import toast from 'react-hot-toast'
-import { WorkPanel } from '@/components/admin/WorkPanel'
+
+const WorkPanel = dynamic(() => import('@/components/admin/WorkPanel').then(m => m.WorkPanel), { ssr: false })
 
 // ─── 타입 ──────────────────────────────────────────────────────
 
