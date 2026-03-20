@@ -66,7 +66,7 @@ export async function POST(request: NextRequest) {
 
     const {
       timestamp, ownerName, platformNickname, phone, address,
-      businessName, businessNumber, email,
+      businessName, businessNumber, email, emailId, emailDomain,
       businessHoursStart, businessHoursEnd,
       elevator, buildingAccess, accessMethod, parking,
       paymentMethod, accountNumber,
@@ -131,7 +131,8 @@ export async function POST(request: NextRequest) {
           ownerName,
           phone,
           email,
-          emailId: email ? email.split('@')[0] : '',
+          emailId: emailId ?? (email ? email.split('@')[0] : ''),
+          emailDomain: emailDomain ?? (email ? email.split('@')[1] : ''),
           address,
           businessNumber,
           businessHoursStart,
