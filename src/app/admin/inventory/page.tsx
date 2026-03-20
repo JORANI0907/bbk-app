@@ -1,10 +1,11 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import toast from 'react-hot-toast'
 import {
   loadGoogleAPIs,
   requestGoogleToken,
+  openFolderPicker,
   uploadFileToDrive,
   getSavedInventoryFolder,
   saveInventoryFolderCookie,
@@ -38,13 +39,12 @@ interface InventoryLog {
 }
 
 const CATEGORY_CONFIG: Record<InventoryCategory, { label: string; dot: string; badge: string }> = {
-  chemical:   { label: '약품',  dot: 'bg-purple-500', badge: 'bg-purple-100 text-purple-700' },
-  equipment:  { label: '장비',  dot: 'bg-blue-500',   badge: 'bg-blue-100 text-blue-700' },
+  chemical:   { label: '약품',   dot: 'bg-purple-500', badge: 'bg-purple-100 text-purple-700' },
+  equipment:  { label: '장비',   dot: 'bg-blue-500',   badge: 'bg-blue-100 text-blue-700' },
   consumable: { label: '소모품', dot: 'bg-green-500',  badge: 'bg-green-100 text-green-700' },
-  other:      { label: '기타',  dot: 'bg-gray-400',   badge: 'bg-gray-100 text-gray-600' },
+  other:      { label: '기타',   dot: 'bg-gray-400',   badge: 'bg-gray-100 text-gray-600' },
 }
 
-// change_type → UI 표시명
 const TX_LABELS: Record<TxType, string> = {
   receive: '입고',
   use:     '수령',
@@ -52,7 +52,6 @@ const TX_LABELS: Record<TxType, string> = {
   adjust:  '조정',
 }
 
-// 각 타입별 안내 문구
 const TX_DESCRIPTIONS: Record<TxType, string> = {
   receive: '물품이 창고에 들어올 때 관리자가 입력합니다. 재고가 증가합니다.',
   use:     '관리자 또는 직원이 창고에서 물품을 가져갈 때 입력합니다. 재고가 감소합니다.',
@@ -74,6 +73,9 @@ const TX_EFFECT: Record<TxType, string> = {
   adjust:  '= 절대값',
 }
 
+// 수령/반납은 사진 필수
+const PHOTO_REQUIRED: TxType[] = ['use', 'return']
+
 function parseNote(note: string | null): { text?: string; photo?: string; worker?: string } {
   if (!note) return {}
   try {
@@ -92,6 +94,7 @@ export default function AdminInventoryPage() {
   const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [categoryFilter, setCategoryFilter] = useState<InventoryCategory | 'all'>('all')
+  const [role, setRole] = useState<string>('')
 
   const [editForm, setEditForm] = useState<{ item_name: string; category: InventoryCategory; unit: string }>({
     item_name: '', category: 'chemical', unit: '',
@@ -113,11 +116,21 @@ export default function AdminInventoryPage() {
   const [txLoading, setTxLoading] = useState(false)
 
   const [inventoryFolder, setInventoryFolder] = useState<DriveFolder | null>(null)
+  const [apisReady, setApisReady] = useState(false)
   const [logsLoading, setLogsLoading] = useState(false)
 
+  // OAuth 토큰 캐시 (사진 선택 시 시작된 Promise)
+  const tokenPromiseRef = useRef<Promise<string> | null>(null)
+
+  // ── 초기화 ──────────────────────────────────────────────────
   useEffect(() => {
     setInventoryFolder(getSavedInventoryFolder())
     fetchItems()
+    fetch('/api/auth/me').then(r => r.json()).then(d => setRole(d.user?.role ?? ''))
+    // Google API 스크립트 사전 로드
+    loadGoogleAPIs()
+      .then(() => setApisReady(true))
+      .catch(() => {})
   }, [])
 
   const fetchItems = async () => {
@@ -163,10 +176,7 @@ export default function AdminInventoryPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: selectedItem.id, ...editForm }),
       })
-      if (!res.ok) {
-        const json = await res.json()
-        throw new Error(json.error ?? '저장 실패')
-      }
+      if (!res.ok) throw new Error((await res.json()).error ?? '저장 실패')
       const json = await res.json()
       setItems(prev => prev.map(it => it.id === selectedItem.id ? { ...it, ...json.item } : it))
       setSelectedItem(prev => prev ? { ...prev, ...json.item } : prev)
@@ -183,10 +193,7 @@ export default function AdminInventoryPage() {
     if (!confirm(`"${selectedItem.item_name}"을(를) 삭제하시겠습니까?`)) return
     try {
       const res = await fetch(`/api/admin/inventory?id=${selectedItem.id}`, { method: 'DELETE' })
-      if (!res.ok) {
-        const json = await res.json()
-        throw new Error(json.error ?? '삭제 실패')
-      }
+      if (!res.ok) throw new Error((await res.json()).error ?? '삭제 실패')
       setItems(prev => prev.filter(it => it.id !== selectedItem.id))
       setSelectedItem(null)
       setLogs([])
@@ -208,10 +215,7 @@ export default function AdminInventoryPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ...addForm, min_qty: 0 }),
       })
-      if (!res.ok) {
-        const json = await res.json()
-        throw new Error(json.error ?? '추가 실패')
-      }
+      if (!res.ok) throw new Error((await res.json()).error ?? '추가 실패')
       const json = await res.json()
       setItems(prev => [...prev, json.item])
       setShowAddModal(false)
@@ -230,16 +234,48 @@ export default function AdminInventoryPage() {
     setTxNote('')
     setTxPhoto(null)
     setTxPhotoPreview(null)
+    tokenPromiseRef.current = null
     setShowTxModal(true)
   }
 
+  // ── 사진 선택 시: 동기적으로 OAuth 시작 (user gesture 유지) ──
   const handlePhotoCapture = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
     setTxPhoto(file)
     setTxPhotoPreview(URL.createObjectURL(file))
+
+    // 사진 선택은 user gesture → 이 시점에 await 없이 OAuth 시작
+    if (apisReady && inventoryFolder && !tokenPromiseRef.current) {
+      tokenPromiseRef.current = requestGoogleToken()
+        .catch(err => {
+          tokenPromiseRef.current = null
+          throw err
+        })
+    }
   }
 
+  // ── Drive 저장 위치 설정 (관리자) ─────────────────────────────
+  // 버튼 클릭 = user gesture → requestGoogleToken() 동기 호출 가능
+  function handleDriveSetup() {
+    if (!apisReady) {
+      toast.error('Google API 로딩 중입니다. 잠시 후 다시 시도해주세요.')
+      return
+    }
+    // OAuth 시작 (동기, user gesture 맥락)
+    requestGoogleToken()
+      .then(token => openFolderPicker(token))
+      .then(folder => {
+        if (folder) {
+          saveInventoryFolderCookie(folder)
+          setInventoryFolder(folder)
+          toast.success(`저장 위치 설정 완료: ${folder.name}`)
+        }
+      })
+      .catch(err => toast.error(err instanceof Error ? err.message : 'Drive 설정 실패'))
+  }
+
+  // ── 입출고 처리 ──────────────────────────────────────────────
   const handleTransaction = async () => {
     if (!selectedItem) return
     const qty = Number(txQty)
@@ -247,22 +283,38 @@ export default function AdminInventoryPage() {
       toast.error('수량을 0보다 크게 입력해주세요')
       return
     }
+
+    // 수령/반납 사진 필수
+    if (PHOTO_REQUIRED.includes(txType) && !txPhoto) {
+      toast.error(`${TX_LABELS[txType]} 시 사진을 첨부해야 합니다.`)
+      return
+    }
+
+    // 사진은 있는데 Drive 폴더 미설정
+    if (txPhoto && !inventoryFolder) {
+      toast.error('Drive 저장 위치를 먼저 설정해주세요. (⚙️ 버튼)')
+      return
+    }
+
     setTxLoading(true)
     try {
       let photoUrl: string | null = null
       if (txPhoto && inventoryFolder) {
-        try {
-          await loadGoogleAPIs()
-          const token = await requestGoogleToken()
-          const ext = txPhoto.name.split('.').pop() ?? 'jpg'
-          const result = await uploadFileToDrive(
-            txPhoto, inventoryFolder.id,
-            `재고_${selectedItem.item_name}_${Date.now()}.${ext}`, token
-          )
-          photoUrl = result.fileUrl
-        } catch {
-          toast.error('사진 업로드 실패 - 메모만 저장됩니다')
+        let token: string
+        if (tokenPromiseRef.current) {
+          token = await tokenPromiseRef.current
+        } else {
+          // fallback: 직접 요청 (팝업 차단될 수 있음)
+          token = await requestGoogleToken()
         }
+        const ext = txPhoto.name.split('.').pop() ?? 'jpg'
+        const result = await uploadFileToDrive(
+          txPhoto,
+          inventoryFolder.id,
+          `재고_${selectedItem.item_name}_${Date.now()}.${ext}`,
+          token
+        )
+        photoUrl = result.fileUrl
       }
 
       const res = await fetch('/api/inventory/transaction', {
@@ -276,10 +328,7 @@ export default function AdminInventoryPage() {
           photo_url: photoUrl,
         }),
       })
-      if (!res.ok) {
-        const json = await res.json()
-        throw new Error(json.error ?? '처리 실패')
-      }
+      if (!res.ok) throw new Error((await res.json()).error ?? '처리 실패')
       const json = await res.json()
       setItems(prev => prev.map(it =>
         it.id === selectedItem.id
@@ -291,6 +340,7 @@ export default function AdminInventoryPage() {
       toast.success('처리되었습니다')
       fetchLogs(selectedItem.id)
     } catch (err) {
+      tokenPromiseRef.current = null
       toast.error(err instanceof Error ? err.message : '처리 실패')
     } finally {
       setTxLoading(false)
@@ -303,6 +353,9 @@ export default function AdminInventoryPage() {
     return matchCategory && matchSearch
   })
 
+  const needsPhoto = PHOTO_REQUIRED.includes(txType)
+  const canSubmit = needsPhoto ? !!txPhoto : true
+
   return (
     <div className="flex h-screen bg-gray-50 overflow-hidden">
       {/* Left Panel */}
@@ -312,6 +365,15 @@ export default function AdminInventoryPage() {
           <div className="flex items-center justify-between mb-3">
             <h1 className="text-lg font-bold text-gray-900">재고 관리</h1>
             <div className="flex gap-2">
+              {role === 'admin' && (
+                <button
+                  onClick={handleDriveSetup}
+                  title="Drive 저장 위치 설정"
+                  className="text-xs px-2 py-1 rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
+                >
+                  ⚙️ 저장 위치
+                </button>
+              )}
               <button
                 onClick={() => setShowAddModal(true)}
                 className="text-xs px-3 py-1 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors font-medium"
@@ -321,8 +383,17 @@ export default function AdminInventoryPage() {
             </div>
           </div>
 
-          {inventoryFolder && (
-            <div className="text-xs text-green-600 mb-2">📁 {inventoryFolder.name}</div>
+          {inventoryFolder ? (
+            <div className="text-xs text-green-600 bg-green-50 rounded-lg px-2 py-1 mb-2 flex items-center gap-1">
+              <span>📁</span>
+              <span className="truncate">{inventoryFolder.name}</span>
+            </div>
+          ) : (
+            role === 'admin' && (
+              <div className="text-xs text-amber-600 bg-amber-50 rounded-lg px-2 py-1 mb-2">
+                ⚠ 수령/반납 사진 저장을 위해 Drive 저장 위치를 설정해주세요
+              </div>
+            )
           )}
 
           <input
@@ -466,12 +537,9 @@ export default function AdminInventoryPage() {
                   {selectedItem.current_qty}
                   <span className="text-base font-normal text-gray-500 ml-1">{selectedItem.unit}</span>
                 </p>
-                <p className="text-xs text-gray-400 mt-0.5">
-                  수량은 0.1 단위로 입력할 수 있습니다
-                </p>
+                <p className="text-xs text-gray-400 mt-0.5">수량은 0.1 단위로 입력할 수 있습니다</p>
               </div>
 
-              {/* Transaction buttons */}
               <div className="grid grid-cols-4 gap-2 mb-3">
                 {(['receive', 'use', 'return', 'adjust'] as const).map(type => (
                   <button
@@ -485,13 +553,15 @@ export default function AdminInventoryPage() {
                 ))}
               </div>
 
-              {/* Guide descriptions */}
               <div className="grid grid-cols-2 gap-2">
                 {(['receive', 'use', 'return', 'adjust'] as const).map(type => (
                   <div key={type} className="text-xs text-gray-500 bg-gray-50 rounded-lg px-3 py-2">
                     <span className="font-medium text-gray-700">{TX_LABELS[type]}</span>
                     <span className="mx-1">·</span>
                     {TX_DESCRIPTIONS[type]}
+                    {PHOTO_REQUIRED.includes(type) && (
+                      <span className="ml-1 text-red-500 font-medium">사진 필수</span>
+                    )}
                   </div>
                 ))}
               </div>
@@ -627,12 +697,11 @@ export default function AdminInventoryPage() {
       {showTxModal && selectedItem && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6">
-            <h2 className="text-lg font-bold text-gray-900 mb-1">
-              {TX_LABELS[txType]}
-            </h2>
-            <p className="text-sm text-gray-500 mb-1">{selectedItem.item_name} · 현재 {selectedItem.current_qty}{selectedItem.unit}</p>
+            <h2 className="text-lg font-bold text-gray-900 mb-1">{TX_LABELS[txType]}</h2>
+            <p className="text-sm text-gray-500 mb-1">
+              {selectedItem.item_name} · 현재 {selectedItem.current_qty}{selectedItem.unit}
+            </p>
 
-            {/* 안내 문구 */}
             <div className={`text-xs rounded-lg px-3 py-2 mb-4 ${
               txType === 'receive' ? 'bg-green-50 text-green-700' :
               txType === 'use'     ? 'bg-orange-50 text-orange-700' :
@@ -668,11 +737,24 @@ export default function AdminInventoryPage() {
                   className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
                 />
               </div>
+
+              {/* 사진 (수령/반납 필수) */}
               <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1">사진</label>
-                <label className="flex items-center gap-2 cursor-pointer">
+                <label className="block text-xs font-medium text-gray-500 mb-1">
+                  사진
+                  {needsPhoto && <span className="text-red-500 ml-1">*필수</span>}
+                </label>
+
+                {!inventoryFolder && (
+                  <p className="text-xs text-red-500 bg-red-50 rounded-lg px-2 py-1.5 mb-2">
+                    Drive 저장 위치가 설정되지 않았습니다.
+                    {role === 'admin' ? ' ⚙️ 저장 위치 버튼에서 설정해주세요.' : ' 관리자에게 문의해주세요.'}
+                  </p>
+                )}
+
+                <label className={`flex items-center gap-2 cursor-pointer ${!inventoryFolder ? 'opacity-50 pointer-events-none' : ''}`}>
                   <span className="px-4 py-2 rounded-lg bg-gray-50 border border-gray-200 text-sm text-gray-600 hover:bg-gray-100 transition-colors">
-                    📷 사진 촬영
+                    📷 사진 촬영 / 선택
                   </span>
                   <input
                     type="file"
@@ -680,14 +762,17 @@ export default function AdminInventoryPage() {
                     capture="environment"
                     onChange={handlePhotoCapture}
                     className="hidden"
+                    disabled={!inventoryFolder}
                   />
-                  {txPhoto && <span className="text-xs text-green-600">{txPhoto.name}</span>}
+                  {txPhoto && <span className="text-xs text-green-600">✓ {txPhoto.name}</span>}
                 </label>
+
                 {txPhotoPreview && (
                   <img src={txPhotoPreview} alt="미리보기" className="mt-2 w-full h-32 object-cover rounded-lg" />
                 )}
-                {!inventoryFolder && txPhoto && (
-                  <p className="text-xs text-orange-500 mt-1">Drive 폴더 미설정 시 사진이 업로드되지 않습니다</p>
+
+                {needsPhoto && !txPhoto && inventoryFolder && (
+                  <p className="text-xs text-red-500 mt-1">사진을 첨부해야 저장할 수 있습니다.</p>
                 )}
               </div>
             </div>
@@ -701,7 +786,7 @@ export default function AdminInventoryPage() {
               </button>
               <button
                 onClick={handleTransaction}
-                disabled={txLoading}
+                disabled={txLoading || !canSubmit}
                 className={`flex-1 py-2 rounded-xl text-white text-sm font-medium transition-colors disabled:opacity-50 ${
                   txType === 'receive' ? 'bg-green-600 hover:bg-green-700' :
                   txType === 'use'     ? 'bg-orange-500 hover:bg-orange-600' :
