@@ -13,7 +13,9 @@ export async function OPTIONS() {
 
 const NOTION_TOKEN = process.env.NOTION_TOKEN
 const NOTION_APPLICATIONS_DB_ID = process.env.NOTION_APPLICATIONS_DB_ID
-const MAKE_WEBHOOK_URL = process.env.MAKE_APPLICATION_WEBHOOK_URL
+const MAKE_WEBHOOK_URL =
+  process.env.MAKE_APPLICATION_WEBHOOK_URL ??
+  'https://hook.eu2.make.com/d6rjjszhes75r9wwhngqhhseevo8qttc'
 
 async function syncToNotion(application: Record<string, string>) {
   if (!NOTION_TOKEN || !NOTION_APPLICATIONS_DB_ID) return null
