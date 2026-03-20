@@ -4,7 +4,10 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import dynamic from 'next/dynamic'
 import toast from 'react-hot-toast'
 
-const WorkPanel = dynamic(() => import('@/components/admin/WorkPanel').then(m => m.WorkPanel), { ssr: false })
+const WorkPanel = dynamic(
+  () => import('@/components/admin/WorkPanel').then(m => m.WorkPanel),
+  { ssr: false, loading: () => <p className="text-xs text-gray-400 py-2">작업 현황 로딩 중...</p> }
+)
 
 // ─── 타입 ──────────────────────────────────────────────────────
 
