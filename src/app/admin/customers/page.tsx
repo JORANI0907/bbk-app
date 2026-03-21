@@ -269,6 +269,9 @@ export default function AdminCustomersPage() {
   const [notifyType, setNotifyType] = useState('')
   const [sending, setSending] = useState(false)
   const [portalInfo, setPortalInfo] = useState<{ phone: string; password: string } | null>(null)
+  const [pwModal, setPwModal] = useState(false)
+  const [newPw, setNewPw] = useState('')
+  const [settingPw, setSettingPw] = useState(false)
   const [checkedIds, setCheckedIds] = useState<string[]>([])
   const [bulkCreating, setBulkCreating] = useState(false)
   const [visitWeekdays, setVisitWeekdays] = useState<number[]>([])
@@ -423,6 +426,31 @@ export default function AdminCustomersPage() {
     } catch (e) {
       toast.error(e instanceof Error ? e.message : '저장 실패')
     } finally { setSaving(false) }
+  }
+
+  const handleSetPassword = async () => {
+    if (!selected) return
+    if (newPw.length < 6) { toast.error('비밀번호는 6자 이상이어야 합니다.'); return }
+    setSettingPw(true)
+    try {
+      const res = await fetch('/api/admin/customers/set-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          customer_id: selected.id,
+          name: selected.contact_name || selected.business_name,
+          phone: selected.contact_phone,
+          password: newPw,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || '설정 실패')
+      toast.success('포털 비밀번호가 설정되었습니다.')
+      setPwModal(false)
+      setNewPw('')
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : '설정 실패')
+    } finally { setSettingPw(false) }
   }
 
   const handleDelete = async () => {
@@ -1020,6 +1048,16 @@ export default function AdminCustomersPage() {
               {saving ? '저장 중...' : isNew ? '✚ 고객 추가' : '💾 저장'}
             </button>
 
+            {/* 포털 비밀번호 설정 (기존 고객만) */}
+            {!isNew && selected && (
+              <button
+                onClick={() => { setNewPw(''); setPwModal(true) }}
+                className="w-full py-2.5 bg-gray-100 text-gray-700 text-sm font-semibold rounded-lg hover:bg-gray-200 transition-colors"
+              >
+                🔑 포털 비밀번호 설정 / 재설정
+              </button>
+            )}
+
             {/* 알림 발송 (정기케어만) */}
             {!isNew && selected && isRegular && (
               <div className="border border-gray-100 rounded-xl overflow-hidden">
@@ -1058,6 +1096,46 @@ export default function AdminCustomersPage() {
             {!isNew && selected && (
               <CustomerRequestsPanel customerId={selected.id} />
             )}
+          </div>
+        </div>
+      )}
+
+      {/* 포털 비밀번호 설정 모달 */}
+      {pwModal && selected && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6 flex flex-col gap-4">
+            <h3 className="font-bold text-gray-900">포털 비밀번호 설정</h3>
+            <div className="bg-gray-50 rounded-xl p-3 text-xs text-gray-600 space-y-1">
+              <p><span className="text-gray-400">업체명</span> · {selected.business_name}</p>
+              <p><span className="text-gray-400">연락처</span> · {selected.contact_phone}</p>
+              <p className="text-gray-400 pt-1">로그인 ID는 전화번호로 자동 설정됩니다.</p>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1">새 비밀번호 (6자 이상)</label>
+              <input
+                type="text"
+                value={newPw}
+                onChange={e => setNewPw(e.target.value)}
+                placeholder="비밀번호 입력"
+                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                autoFocus
+              />
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={() => { setPwModal(false); setNewPw('') }}
+                className="flex-1 py-2 rounded-xl border border-gray-200 text-gray-600 text-sm font-medium hover:bg-gray-50 transition-colors"
+              >
+                취소
+              </button>
+              <button
+                onClick={handleSetPassword}
+                disabled={settingPw || newPw.length < 6}
+                className="flex-1 py-2 rounded-xl bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 disabled:opacity-50 transition-colors"
+              >
+                {settingPw ? '설정 중...' : '설정'}
+              </button>
+            </div>
           </div>
         </div>
       )}
