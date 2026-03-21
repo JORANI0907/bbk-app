@@ -45,6 +45,7 @@ interface Customer {
   visit_schedule_type: 'weekday' | 'monthly_date' | null
   visit_weekdays: number[] | null
   visit_monthly_dates: number[] | null
+  schedule_generation_day: number | null
   notes: string | null
   created_at: string
   updated_at: string
@@ -59,8 +60,8 @@ const PARKING_OPTIONS = ['가능', '불가능', '주차없음']
 
 const NOTIFY_TYPES: Record<CustomerType, string[]> = {
   '1회성케어':    ['방문견적알림', '작업완료알림'],
-  '정기딥케어':   ['정기결제알림', '정기방문알림', '계약갱신알림', '작업완료알림'],
-  '정기엔드케어': ['정기결제알림', '정기방문알림', '계약갱신알림', '작업완료알림'],
+  '정기딥케어':   ['정기결제알림', '정기방문알림', '계약갱신알림', '작업완료알림', '계정안내알림'],
+  '정기엔드케어': ['정기결제알림', '정기방문알림', '계약갱신알림', '작업완료알림', '계정안내알림'],
 }
 
 const TYPE_STYLE: Record<CustomerType, { badge: string; accent: string }> = {
@@ -90,8 +91,9 @@ const EMPTY_FORM = {
   billing_start_date: '', billing_next_date: '',
   contract_start_date: '', contract_end_date: '',
   unit_price: '',
-  visit_interval_days: '', next_visit_date: '',
-  visit_schedule_type: '', notes: '',
+  visit_interval_days: '',
+  visit_schedule_type: '', schedule_generation_day: '23', notes: '',
+  next_visit_date: '',
 }
 
 // ─── 방문 주기 ────────────────────────────────────────────────
@@ -180,12 +182,27 @@ function daysUntil(dateStr: string | null): number | null {
   return Math.ceil((target.getTime() - today.getTime()) / 86400000)
 }
 
-function calcNextBillingDate(startDate: string, cycle: BillingCycle): string {
-  const months = cycle === '월간' ? 1 : 12
-  const today = new Date(); today.setHours(0, 0, 0, 0)
+function calcNextBillingDate(startDate: string, cycle: BillingCycle, prepaidPeriods = 1): string {
+  const monthsPerPeriod = cycle === '월간' ? 1 : 12
   const next = new Date(startDate)
-  while (next <= today) next.setMonth(next.getMonth() + months)
+  next.setMonth(next.getMonth() + monthsPerPeriod * prepaidPeriods)
   return next.toISOString().slice(0, 10)
+}
+
+function getPrepaidMonthLabels(startDate: string, cycle: BillingCycle, prepaidPeriods: number): string {
+  if (!startDate || prepaidPeriods < 1) return ''
+  const monthsPerPeriod = cycle === '월간' ? 1 : 12
+  const labels: string[] = []
+  for (let i = 0; i < prepaidPeriods; i++) {
+    const d = new Date(startDate)
+    d.setMonth(d.getMonth() + monthsPerPeriod * i)
+    if (cycle === '월간') {
+      labels.push(`${d.getMonth() + 1}월`)
+    } else {
+      labels.push(`${d.getFullYear()}년`)
+    }
+  }
+  return labels.join(', ')
 }
 
 // ─── 상태 배지 ────────────────────────────────────────────────
@@ -272,10 +289,12 @@ export default function AdminCustomersPage() {
   const [pwModal, setPwModal] = useState(false)
   const [newPw, setNewPw] = useState('')
   const [settingPw, setSettingPw] = useState(false)
+  const [creatingAccount, setCreatingAccount] = useState(false)
   const [checkedIds, setCheckedIds] = useState<string[]>([])
   const [bulkCreating, setBulkCreating] = useState(false)
   const [visitWeekdays, setVisitWeekdays] = useState<number[]>([])
   const [visitMonthlyDates, setVisitMonthlyDates] = useState<number[]>([])
+  const [prepaidPeriods, setPrepaidPeriods] = useState(1)
 
   const toggleCheck = (id: string) =>
     setCheckedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
@@ -321,9 +340,10 @@ export default function AdminCustomersPage() {
     contract_end_date: c.contract_end_date ?? '',
     unit_price: c.unit_price?.toString() ?? '',
     visit_interval_days: c.visit_interval_days?.toString() ?? '',
-    next_visit_date: c.next_visit_date ?? '',
     visit_schedule_type: c.visit_schedule_type ?? '',
+    schedule_generation_day: c.schedule_generation_day?.toString() ?? '23',
     notes: c.notes ?? '',
+    next_visit_date: c.next_visit_date ?? '',
   })
 
   const handleSelect = (c: Customer) => {
@@ -331,6 +351,7 @@ export default function AdminCustomersPage() {
     setForm(toForm(c))
     setVisitWeekdays(c.visit_weekdays ?? [])
     setVisitMonthlyDates(c.visit_monthly_dates ?? [])
+    setPrepaidPeriods(1)
   }
 
   const handleNew = () => {
@@ -338,13 +359,12 @@ export default function AdminCustomersPage() {
     setForm(EMPTY_FORM)
     setVisitWeekdays([])
     setVisitMonthlyDates([])
+    setPrepaidPeriods(1)
   }
 
   const set = (key: keyof typeof EMPTY_FORM) => (v: string) =>
     setForm(prev => {
       const next = { ...prev, [key]: v }
-      // 정기엔드케어로 변경 시 billing_cycle = 월간 고정
-      if (key === 'customer_type' && v === '정기엔드케어') next.billing_cycle = '월간'
       // 결제 시작일 or 주기 변경 시 다음 결제일 자동계산
       if ((key === 'billing_start_date' || key === 'billing_cycle') && next.billing_start_date && next.billing_cycle) {
         try { next.billing_next_date = calcNextBillingDate(next.billing_start_date, next.billing_cycle as BillingCycle) }
@@ -384,8 +404,8 @@ export default function AdminCustomersPage() {
     contract_end_date: form.contract_end_date || null,
     unit_price: form.unit_price ? Number(form.unit_price) : null,
     visit_interval_days: form.visit_interval_days ? Number(form.visit_interval_days) : null,
-    next_visit_date: form.next_visit_date || null,
     visit_schedule_type: form.visit_schedule_type || null,
+    schedule_generation_day: form.schedule_generation_day ? Number(form.schedule_generation_day) : 23,
     visit_weekdays: visitWeekdays,
     visit_monthly_dates: visitMonthlyDates,
     notes: form.notes || null,
@@ -453,6 +473,32 @@ export default function AdminCustomersPage() {
     } finally { setSettingPw(false) }
   }
 
+  const handleCreateAccount = async () => {
+    if (!selected) return
+    const name = selected.contact_name || selected.business_name
+    const phone = (selected.contact_phone ?? '').replace(/-/g, '')
+    if (!phone) { toast.error('연락처가 없습니다.'); return }
+    if (phone.length < 6) { toast.error('연락처가 올바르지 않습니다.'); return }
+    setCreatingAccount(true)
+    try {
+      const res = await fetch('/api/admin/customers/set-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          customer_id: selected.id,
+          name,
+          phone: selected.contact_phone,
+          password: phone,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || '계정 생성 실패')
+      setPortalInfo({ phone: name, password: phone })
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : '계정 생성 실패')
+    } finally { setCreatingAccount(false) }
+  }
+
   const handleDelete = async () => {
     if (!selected) return
     if (!confirm(`"${selected.business_name}" 고객을 삭제하시겠습니까?`)) return
@@ -504,6 +550,41 @@ export default function AdminCustomersPage() {
     } catch (e) {
       toast.error(e instanceof Error ? e.message : '생성 실패')
     }
+  }
+
+  const handleGenerateSchedulesBulk = async () => {
+    const regularIds = checkedIds.filter(id => {
+      const c = customers.find(c => c.id === id)
+      return c?.customer_type === '정기딥케어' || c?.customer_type === '정기엔드케어'
+    })
+    if (regularIds.length === 0) {
+      toast.error('정기딥케어 또는 정기엔드케어 고객을 선택해주세요.')
+      return
+    }
+    setBulkCreating(true)
+    try {
+      const res = await fetch('/api/admin/customers/generate-schedules', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ customer_ids: regularIds }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || '일정 생성 실패')
+      const totalSkipped = (data.results as Array<{ skipped: number }>).reduce((s, r) => s + r.skipped, 0)
+      if (data.totalInserted === 0 && totalSkipped > 0) {
+        toast(`${data.targetMonth} 일정이 이미 모두 생성되어 있습니다. (${totalSkipped}건 중복)`, { icon: 'ℹ️' })
+      } else if (data.totalInserted === 0) {
+        toast.error(`방문 주기가 설정되지 않아 생성할 일정이 없습니다.`)
+      } else {
+        const msg = totalSkipped > 0
+          ? `${data.targetMonth} 일정 ${data.totalInserted}건 생성 완료 (${totalSkipped}건 이미 존재)`
+          : `${data.targetMonth} 일정 ${data.totalInserted}건 생성 완료`
+        toast.success(msg)
+      }
+      setCheckedIds([])
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : '일정 생성 실패')
+    } finally { setBulkCreating(false) }
   }
 
   const handleDeleteBulk = async () => {
@@ -659,6 +740,10 @@ export default function AdminCustomersPage() {
             <button onClick={handleDeleteBulk} disabled={bulkCreating}
               className="text-xs bg-red-500 hover:bg-red-400 text-white font-semibold px-3 py-1.5 rounded-lg disabled:opacity-50 transition-colors whitespace-nowrap">
               삭제
+            </button>
+            <button onClick={handleGenerateSchedulesBulk} disabled={bulkCreating}
+              className="text-xs bg-green-600 hover:bg-green-700 text-white font-semibold px-3 py-1.5 rounded-lg disabled:opacity-50 transition-colors whitespace-nowrap">
+              {bulkCreating ? '처리 중...' : '📅 다음달 일정 생성'}
             </button>
             <button onClick={handleCreateApplicationBulk} disabled={bulkCreating}
               className="text-xs bg-white text-blue-700 font-semibold px-3 py-1.5 rounded-lg hover:bg-blue-50 disabled:opacity-50 transition-colors whitespace-nowrap">
@@ -846,16 +931,32 @@ export default function AdminCustomersPage() {
                 </div>
                 <div className="p-4 flex flex-col gap-4">
                   {/* 고객 → 범빌드코리아 */}
-                  <div className="bg-white border border-purple-100 rounded-lg p-3 flex flex-col gap-2">
-                    <p className="text-xs font-semibold text-gray-700">고객 → 범빌드코리아 (월 결제 고정)</p>
-                    <Field label="월 계약 금액" value={form.billing_amount} onChange={set('billing_amount')} type="number"
-                      placeholder="0" hint="고객이 매월 범빌드코리아에 지불하는 금액" />
+                  <div className="bg-white border border-purple-100 rounded-lg p-3 flex flex-col gap-3">
+                    <p className="text-xs font-semibold text-gray-700">고객 → 범빌드코리아</p>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-gray-500 w-24 shrink-0">결제 주기</span>
+                      <div className="flex gap-1.5 flex-1">
+                        {(['월간', '연간'] as BillingCycle[]).map(c => (
+                          <button key={c} onClick={() => set('billing_cycle')(c)}
+                            className={`flex-1 py-1.5 text-xs rounded-lg font-medium transition-colors ${
+                              form.billing_cycle === c ? 'bg-purple-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                            }`}>{c}</button>
+                        ))}
+                      </div>
+                    </div>
+                    <Field label="계약 금액" value={form.billing_amount} onChange={set('billing_amount')} type="number"
+                      placeholder="0" hint={form.billing_cycle === '연간' ? '연간 계약 총 금액' : '매월 결제 금액'} />
+                    {form.billing_cycle === '연간' && form.billing_amount && (
+                      <p className="text-xs text-purple-600 bg-purple-50 rounded p-2">
+                        월 환산: {Math.round(Number(form.billing_amount) / 12).toLocaleString('ko-KR')}원/월
+                      </p>
+                    )}
                   </div>
 
-                  {/* 건당 급여 */}
+                  {/* 작업 건당 급여 */}
                   <div className="bg-white border border-indigo-100 rounded-lg p-3 flex flex-col gap-2">
-                    <p className="text-xs font-semibold text-gray-700">건당 급여</p>
-                    <Field label="건당 급여" value={form.unit_price} onChange={set('unit_price')} type="number"
+                    <p className="text-xs font-semibold text-gray-700">작업 건당 급여</p>
+                    <Field label="작업 건당 급여" value={form.unit_price} onChange={set('unit_price')} type="number"
                       placeholder="0" hint="서비스 통합관리로 이관 시 1회 자동 매핑됩니다 (이후 서비스 통합관리에서 개별 수정 가능)" />
                     {form.unit_price && (
                       <div className="text-xs text-indigo-600 bg-indigo-50 rounded p-2">
@@ -868,30 +969,42 @@ export default function AdminCustomersPage() {
                   <div className="flex flex-col gap-2">
                     <p className="text-xs font-semibold text-gray-700">결제 일정</p>
                     <div className="flex items-center gap-2">
-                      <span className="text-xs text-gray-500 w-24 shrink-0">결제 시작일</span>
-                      <input type="date" value={form.billing_start_date} onChange={e => set('billing_start_date')(e.target.value)}
-                        className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white" />
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-gray-500 w-24 shrink-0">다음 결제일</span>
-                      <input type="date" value={form.billing_next_date} onChange={e => set('billing_next_date')(e.target.value)}
-                        className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white" />
-                      {form.billing_start_date && (
-                        <button onClick={() => {
-                          try { set('billing_next_date')(calcNextBillingDate(form.billing_start_date, '월간')) }
-                          catch { /* ignore */ }
-                        }} className="text-xs text-purple-600 border border-purple-200 rounded px-2 py-1 hover:bg-purple-50">자동</button>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-2">
                       <span className="text-xs text-gray-500 w-24 shrink-0">계약 시작</span>
                       <input type="date" value={form.contract_start_date} onChange={e => set('contract_start_date')(e.target.value)}
-                        className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white" />
+                        className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-purple-500 bg-white" />
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="text-xs text-gray-500 w-24 shrink-0">계약 만료</span>
                       <input type="date" value={form.contract_end_date} onChange={e => set('contract_end_date')(e.target.value)}
-                        className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white" />
+                        className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-purple-500 bg-white" />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-gray-500 w-24 shrink-0">결제 시작일</span>
+                      <input type="date" value={form.billing_start_date} onChange={e => set('billing_start_date')(e.target.value)}
+                        className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-purple-500 bg-white" />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-gray-500 w-24 shrink-0">선납 기간 수</span>
+                      <input type="number" min={1} max={60} value={prepaidPeriods}
+                        onChange={e => setPrepaidPeriods(Math.max(1, Number(e.target.value)))}
+                        className="w-16 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-purple-500 text-center" />
+                      <span className="text-xs text-gray-400">{form.billing_cycle === '연간' ? '년' : '개월'}</span>
+                      {form.billing_start_date && (
+                        <span className="text-xs text-purple-600 flex-1 text-right">
+                          {getPrepaidMonthLabels(form.billing_start_date, form.billing_cycle as BillingCycle, prepaidPeriods)} 완료
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-gray-500 w-24 shrink-0">다음 결제일</span>
+                      <input type="date" value={form.billing_next_date} onChange={e => set('billing_next_date')(e.target.value)}
+                        className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-purple-500 bg-white" />
+                      {form.billing_start_date && (
+                        <button onClick={() => {
+                          try { set('billing_next_date')(calcNextBillingDate(form.billing_start_date, form.billing_cycle as BillingCycle, prepaidPeriods)) }
+                          catch { /* ignore */ }
+                        }} className="text-xs text-purple-600 border border-purple-200 rounded px-2 py-1 hover:bg-purple-50 whitespace-nowrap">자동계산</button>
+                      )}
                     </div>
                   </div>
 
@@ -908,9 +1021,14 @@ export default function AdminCustomersPage() {
                       color="purple"
                     />
                     <div className="flex items-center gap-2">
-                      <span className="text-xs text-gray-500 w-24 shrink-0">다음 방문일</span>
-                      <input type="date" value={form.next_visit_date} onChange={e => set('next_visit_date')(e.target.value)}
-                        className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white" />
+                      <span className="text-xs text-gray-500 w-24 shrink-0">일정 생성 기준일</span>
+                      <div className="flex items-center gap-1.5 flex-1">
+                        <span className="text-xs text-gray-400">매월</span>
+                        <input type="number" min={1} max={31} value={form.schedule_generation_day}
+                          onChange={e => set('schedule_generation_day')(e.target.value)}
+                          className="w-16 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-purple-500 text-center" />
+                        <span className="text-xs text-gray-400">일에 다음달 일정 자동 생성</span>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -957,22 +1075,6 @@ export default function AdminCustomersPage() {
                   <div className="flex flex-col gap-2">
                     <p className="text-xs font-semibold text-gray-700">결제 일정</p>
                     <div className="flex items-center gap-2">
-                      <span className="text-xs text-gray-500 w-24 shrink-0">결제 시작일</span>
-                      <input type="date" value={form.billing_start_date} onChange={e => set('billing_start_date')(e.target.value)}
-                        className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white" />
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-gray-500 w-24 shrink-0">다음 결제일</span>
-                      <input type="date" value={form.billing_next_date} onChange={e => set('billing_next_date')(e.target.value)}
-                        className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white" />
-                      {form.billing_start_date && form.billing_cycle && (
-                        <button onClick={() => {
-                          try { set('billing_next_date')(calcNextBillingDate(form.billing_start_date, form.billing_cycle as BillingCycle)) }
-                          catch { /* ignore */ }
-                        }} className="text-xs text-blue-600 border border-blue-200 rounded px-2 py-1 hover:bg-blue-50">자동</button>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-2">
                       <span className="text-xs text-gray-500 w-24 shrink-0">계약 시작</span>
                       <input type="date" value={form.contract_start_date} onChange={e => set('contract_start_date')(e.target.value)}
                         className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white" />
@@ -981,6 +1083,34 @@ export default function AdminCustomersPage() {
                       <span className="text-xs text-gray-500 w-24 shrink-0">계약 만료</span>
                       <input type="date" value={form.contract_end_date} onChange={e => set('contract_end_date')(e.target.value)}
                         className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white" />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-gray-500 w-24 shrink-0">결제 시작일</span>
+                      <input type="date" value={form.billing_start_date} onChange={e => set('billing_start_date')(e.target.value)}
+                        className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white" />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-gray-500 w-24 shrink-0">선납 기간 수</span>
+                      <input type="number" min={1} max={60} value={prepaidPeriods}
+                        onChange={e => setPrepaidPeriods(Math.max(1, Number(e.target.value)))}
+                        className="w-16 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 text-center" />
+                      <span className="text-xs text-gray-400">{form.billing_cycle === '연간' ? '년' : '개월'}</span>
+                      {form.billing_start_date && (
+                        <span className="text-xs text-blue-600 flex-1 text-right">
+                          {getPrepaidMonthLabels(form.billing_start_date, form.billing_cycle as BillingCycle, prepaidPeriods)} 완료
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-gray-500 w-24 shrink-0">다음 결제일</span>
+                      <input type="date" value={form.billing_next_date} onChange={e => set('billing_next_date')(e.target.value)}
+                        className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white" />
+                      {form.billing_start_date && form.billing_cycle && (
+                        <button onClick={() => {
+                          try { set('billing_next_date')(calcNextBillingDate(form.billing_start_date, form.billing_cycle as BillingCycle, prepaidPeriods)) }
+                          catch { /* ignore */ }
+                        }} className="text-xs text-blue-600 border border-blue-200 rounded px-2 py-1 hover:bg-blue-50 whitespace-nowrap">자동계산</button>
+                      )}
                     </div>
                   </div>
 
@@ -997,9 +1127,14 @@ export default function AdminCustomersPage() {
                       color="blue"
                     />
                     <div className="flex items-center gap-2">
-                      <span className="text-xs text-gray-500 w-24 shrink-0">다음 방문일</span>
-                      <input type="date" value={form.next_visit_date} onChange={e => set('next_visit_date')(e.target.value)}
-                        className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white" />
+                      <span className="text-xs text-gray-500 w-24 shrink-0">일정 생성 기준일</span>
+                      <div className="flex items-center gap-1.5 flex-1">
+                        <span className="text-xs text-gray-400">매월</span>
+                        <input type="number" min={1} max={31} value={form.schedule_generation_day}
+                          onChange={e => set('schedule_generation_day')(e.target.value)}
+                          className="w-16 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 text-center" />
+                        <span className="text-xs text-gray-400">일에 다음달 일정 자동 생성</span>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -1048,6 +1183,17 @@ export default function AdminCustomersPage() {
               {saving ? '저장 중...' : isNew ? '✚ 고객 추가' : '💾 저장'}
             </button>
 
+            {/* 계정 생성 (정기고객만) */}
+            {!isNew && selected && (selected.customer_type === '정기딥케어' || selected.customer_type === '정기엔드케어') && (
+              <button
+                onClick={handleCreateAccount}
+                disabled={creatingAccount}
+                className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white text-sm font-semibold rounded-lg transition-colors"
+              >
+                {creatingAccount ? '생성 중...' : '🔐 계정 생성'}
+              </button>
+            )}
+
             {/* 포털 비밀번호 설정 (기존 고객만) */}
             {!isNew && selected && (
               <button
@@ -1061,7 +1207,7 @@ export default function AdminCustomersPage() {
             {/* 알림 발송 (정기케어만) */}
             {!isNew && selected && isRegular && (
               <div className="border border-gray-100 rounded-xl overflow-hidden">
-                <p className="text-xs font-semibold text-gray-500 px-4 py-2.5 bg-gray-50 border-b border-gray-100">결제 · 방문 알림 발송</p>
+                <p className="text-xs font-semibold text-gray-500 px-4 py-2.5 bg-gray-50 border-b border-gray-100">고객 알림 발송</p>
                 <div className="p-4 space-y-3">
                   <div className="flex gap-2">
                     <select value={notifyType} onChange={e => setNotifyType(e.target.value)}
@@ -1085,6 +1231,9 @@ export default function AdminCustomersPage() {
                       )}
                       {notifyType === '계약갱신알림' && selected.contract_end_date && (
                         <p className="text-orange-500">계약 만료: {fmtDate(selected.contract_end_date)}</p>
+                      )}
+                      {notifyType === '계정안내알림' && (
+                        <p className="text-orange-500">ID: {selected.contact_name || selected.business_name} · PW: {(selected.contact_phone ?? '').replace(/-/g, '')}</p>
                       )}
                     </div>
                   )}
@@ -1151,8 +1300,8 @@ export default function AdminCustomersPage() {
             </div>
             <div className="bg-blue-50 rounded-xl p-4 space-y-3">
               <div className="flex items-center justify-between">
-                <span className="text-xs text-gray-500 w-16 shrink-0">아이디</span>
-                <span className="font-mono text-sm font-semibold text-gray-800 flex-1 text-right">{portalInfo.phone}</span>
+                <span className="text-xs text-gray-500 w-16 shrink-0">아이디 (ID)</span>
+                <span className="text-sm font-semibold text-gray-800 flex-1 text-right">{portalInfo.phone}</span>
                 <button
                   onClick={() => { navigator.clipboard.writeText(portalInfo.phone); toast.success('복사됨') }}
                   className="ml-2 text-xs text-blue-600 hover:text-blue-800 px-2 py-1 rounded-lg hover:bg-blue-100 transition-colors"
@@ -1167,7 +1316,9 @@ export default function AdminCustomersPage() {
                 >복사</button>
               </div>
             </div>
-            <p className="text-xs text-gray-400 text-center">이 창을 닫으면 비밀번호를 다시 확인할 수 없습니다.</p>
+            <div className="bg-gray-50 rounded-xl px-3 py-2 text-xs text-gray-500 text-center">
+              ID는 성함, 비밀번호는 연락처(하이픈 없이)입니다.
+            </div>
             <button
               onClick={() => setPortalInfo(null)}
               className="w-full py-2.5 text-sm font-semibold text-white bg-blue-600 rounded-xl hover:bg-blue-700 transition-colors"
