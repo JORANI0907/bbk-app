@@ -12,6 +12,7 @@ interface ContentItem {
   content_type: string
   title: string
   body: string
+  thumbnail_url: string | null
   region: string
   item: string
   char_count: number | null
@@ -189,9 +190,19 @@ export default function AgentDetailPage() {
 
                         {isExpanded && (
                           <div className="px-5 pb-5 border-t border-gray-50">
-                            <div className="mt-4 bg-gray-50 rounded-xl p-4 max-h-96 overflow-y-auto">
-                              <pre className="text-xs text-gray-700 whitespace-pre-wrap font-sans leading-relaxed">{item.body}</pre>
-                            </div>
+                            {item.content_type === 'thumbnail' && item.thumbnail_url ? (
+                              <div className="mt-4">
+                                <img
+                                  src={item.thumbnail_url}
+                                  alt={item.title}
+                                  className="w-full rounded-xl border border-gray-100"
+                                />
+                              </div>
+                            ) : (
+                              <div className="mt-4 bg-gray-50 rounded-xl p-4 max-h-96 overflow-y-auto">
+                                <pre className="text-xs text-gray-700 whitespace-pre-wrap font-sans leading-relaxed">{item.body}</pre>
+                              </div>
+                            )}
                             {item.published_at && (
                               <p className="text-xs text-gray-400 mt-2">발행일: {item.published_at.slice(0, 10)}</p>
                             )}
