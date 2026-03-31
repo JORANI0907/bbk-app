@@ -3,9 +3,11 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
+import { AGENT_CONFIG, CONTENT_TYPE_META, type AgentKey } from '@/lib/marketing-agents'
 
 interface ContentItem {
   id: string
+  agent: string
   content_type: string
   title: string
   region: string
@@ -15,30 +17,26 @@ interface ContentItem {
   created_at: string
 }
 
-const TYPE_LABELS: Record<string, { label: string; icon: string; color: string }> = {
-  blog:         { label: '블로그', icon: '📝', color: 'bg-brand-100 text-brand-700' },
-  insta:        { label: '인스타', icon: '📸', color: 'bg-pink-100 text-pink-700' },
-  image_prompt: { label: '이미지', icon: '🎨', color: 'bg-purple-100 text-purple-700' },
-}
-
 export default function ContentHistoryPage() {
   const supabase = createClient()
   const [items, setItems] = useState<ContentItem[]>([])
   const [loading, setLoading] = useState(true)
+  const [agentFilter, setAgentFilter] = useState<string>('all')
   const [typeFilter, setTypeFilter] = useState<string>('all')
   const [publishFilter, setPublishFilter] = useState<string>('all')
   const [search, setSearch] = useState('')
 
-  useEffect(() => { load() }, [typeFilter, publishFilter])
+  useEffect(() => { load() }, [agentFilter, typeFilter, publishFilter])
 
   async function load() {
     setLoading(true)
     let q = supabase
       .from('marketing_content')
-      .select('id,content_type,title,region,item,char_count,is_published,created_at')
+      .select('id,agent,content_type,title,region,item,char_count,is_published,created_at')
       .order('created_at', { ascending: false })
       .limit(100)
 
+    if (agentFilter !== 'all') q = q.eq('agent', agentFilter)
     if (typeFilter !== 'all') q = q.eq('content_type', typeFilter)
     if (publishFilter === 'published') q = q.eq('is_published', true)
     if (publishFilter === 'unpublished') q = q.eq('is_published', false)
@@ -71,40 +69,37 @@ export default function ContentHistoryPage() {
       </div>
 
       {/* 필터 */}
-      <div className="flex flex-wrap gap-3">
+      <div className="flex flex-wrap gap-2">
         <input
           type="text"
           placeholder="제목, 지역, 품목 검색..."
           value={search}
           onChange={e => setSearch(e.target.value)}
-          className="flex-1 min-w-48 text-sm border border-gray-200 rounded-xl px-4 py-2 focus:outline-none focus:ring-2 focus:ring-brand-300"
+          className="w-full text-sm border border-gray-200 rounded-xl px-4 py-2 focus:outline-none focus:ring-2 focus:ring-brand-300"
         />
-        <div className="flex gap-2">
-          {['all', 'blog', 'insta', 'image_prompt'].map(t => (
-            <button
-              key={t}
-              onClick={() => setTypeFilter(t)}
-              className={`px-3 py-2 rounded-xl text-sm font-medium transition-colors ${
-                typeFilter === t ? 'bg-brand-600 text-white' : 'bg-white border border-gray-200 text-gray-600 hover:border-brand-300'
-              }`}
-            >
-              {t === 'all' ? '전체' : TYPE_LABELS[t]?.label}
+        {/* 에이전트 필터 */}
+        <div className="flex flex-wrap gap-1.5">
+          {[{ val: 'all', label: '전체' }, { val: 'LEADER', label: '👑 LEADER' }, { val: 'MKT', label: '📝 MKT' }, { val: 'DSN', label: '🎨 DSN' }, { val: 'STR', label: '📊 STR' }].map(a => (
+            <button key={a.val} onClick={() => setAgentFilter(a.val)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${agentFilter === a.val ? 'bg-gray-800 text-white' : 'bg-white border border-gray-200 text-gray-600 hover:border-gray-400'}`}>
+              {a.label}
             </button>
           ))}
         </div>
-        <div className="flex gap-2">
-          {[
-            { val: 'all', label: '전체' },
-            { val: 'published', label: '✅ 발행완료' },
-            { val: 'unpublished', label: '⬜ 미발행' },
-          ].map(f => (
-            <button
-              key={f.val}
-              onClick={() => setPublishFilter(f.val)}
-              className={`px-3 py-2 rounded-xl text-sm font-medium transition-colors ${
-                publishFilter === f.val ? 'bg-gray-800 text-white' : 'bg-white border border-gray-200 text-gray-600 hover:border-gray-400'
-              }`}
-            >
+        {/* 타입 필터 */}
+        <div className="flex flex-wrap gap-1.5">
+          {['all', 'blog', 'insta', 'image_prompt', 'weekly_calendar', 'monthly_report', 'keyword_strategy'].map(t => (
+            <button key={t} onClick={() => setTypeFilter(t)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${typeFilter === t ? 'bg-brand-600 text-white' : 'bg-white border border-gray-200 text-gray-600 hover:border-brand-300'}`}>
+              {t === 'all' ? '전체 타입' : `${CONTENT_TYPE_META[t]?.icon ?? ''} ${CONTENT_TYPE_META[t]?.label ?? t}`}
+            </button>
+          ))}
+        </div>
+        {/* 발행 필터 */}
+        <div className="flex gap-1.5">
+          {[{ val: 'all', label: '전체' }, { val: 'published', label: '✅ 발행완료' }, { val: 'unpublished', label: '⬜ 미발행' }].map(f => (
+            <button key={f.val} onClick={() => setPublishFilter(f.val)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${publishFilter === f.val ? 'bg-gray-800 text-white' : 'bg-white border border-gray-200 text-gray-600 hover:border-gray-400'}`}>
               {f.label}
             </button>
           ))}
@@ -135,19 +130,25 @@ export default function ContentHistoryPage() {
                 </div>
                 <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
                   {dateItems.map((item, idx) => {
-                    const cfg = TYPE_LABELS[item.content_type] ?? { label: item.content_type, icon: '📄', color: 'bg-gray-100 text-gray-600' }
+                    const meta = CONTENT_TYPE_META[item.content_type] ?? { label: item.content_type, icon: '📄', agent: 'MKT' as AgentKey }
+                    const agentCfg = AGENT_CONFIG[item.agent as AgentKey] ?? AGENT_CONFIG.MKT
                     return (
                       <Link
                         key={item.id}
-                        href={`/admin/marketing/today?date=${date}`}
+                        href={`/admin/marketing/team/${item.agent}`}
                         className={`flex items-center gap-4 px-5 py-4 hover:bg-gray-50 transition-colors ${idx > 0 ? 'border-t border-gray-50' : ''}`}
                       >
-                        <span className="text-xl">{cfg.icon}</span>
+                        <span className="text-xl">{meta.icon}</span>
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-semibold text-gray-800 truncate">{item.title}</p>
-                          <p className="text-xs text-gray-400 mt-0.5">{item.region} · {item.item}{item.char_count ? ` · ${item.char_count.toLocaleString()}자` : ''}</p>
+                          <p className="text-xs text-gray-400 mt-0.5">
+                            {item.region && item.item ? `${item.region} · ${item.item}` : meta.label}
+                            {item.char_count ? ` · ${item.char_count.toLocaleString()}자` : ''}
+                          </p>
                         </div>
-                        <span className={`text-xs font-semibold px-2 py-0.5 rounded-full flex-shrink-0 ${cfg.color}`}>{cfg.label}</span>
+                        <span className={`text-xs font-semibold px-2 py-0.5 rounded-full flex-shrink-0 ${agentCfg.badgeClass}`}>
+                          {agentCfg.icon} {agentCfg.label}
+                        </span>
                         <span className={`text-xs font-semibold px-2 py-0.5 rounded-full flex-shrink-0 ${
                           item.is_published ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-400'
                         }`}>
