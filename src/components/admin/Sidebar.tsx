@@ -117,15 +117,10 @@ const NAV_ITEMS: NavItem[] = [
     roles: ['admin'],
     children: [
       { href: '/admin/marketing', label: '대시보드' },
-      { href: '/admin/marketing/team', label: '팀 조직도' },
-      { href: '/admin/marketing/today', label: '오늘 콘텐츠' },
-      { href: '/admin/marketing/content', label: '콘텐츠 이력' },
+      { href: '/admin/marketing/today', label: '콘텐츠' },
       { href: '/admin/marketing/calendar', label: '캘린더' },
-      { href: '/admin/marketing/keywords', label: '키워드 전략' },
-      { href: '/admin/marketing/blog', label: '블로그 성과' },
-      { href: '/admin/marketing/instagram', label: '인스타그램 성과' },
-      { href: '/admin/marketing/place', label: '네이버 플레이스' },
-      { href: '/admin/marketing/logs', label: '실행 로그' },
+      { href: '/admin/marketing/keywords', label: '키워드' },
+      { href: '/admin/marketing/blog', label: '채널 성과' },
     ],
   },
 ]
