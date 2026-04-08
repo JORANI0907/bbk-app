@@ -53,11 +53,11 @@ export default function ContentHistoryPage() {
     item.item.includes(search)
   )
 
-  // 날짜별 그룹핑
+  // 날짜별 그룹핑 (KST 기준)
   const grouped = filtered.reduce<Record<string, ContentItem[]>>((acc, item) => {
-    const date = item.created_at.slice(0, 10)
-    if (!acc[date]) acc[date] = []
-    acc[date].push(item)
+    const kstDate = new Date(new Date(item.created_at).getTime() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10)
+    if (!acc[kstDate]) acc[kstDate] = []
+    acc[kstDate].push(item)
     return acc
   }, {})
 
@@ -135,7 +135,7 @@ export default function ContentHistoryPage() {
                     return (
                       <Link
                         key={item.id}
-                        href={`/admin/marketing/team/${item.agent}`}
+                        href={`/admin/marketing/content/${item.id}`}
                         className={`flex items-center gap-4 px-5 py-4 hover:bg-gray-50 transition-colors ${idx > 0 ? 'border-t border-gray-50' : ''}`}
                       >
                         <span className="text-xl">{meta.icon}</span>

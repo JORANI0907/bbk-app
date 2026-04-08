@@ -94,6 +94,10 @@ function ContentCard({ content, onUpdate }: { content: Content; onUpdate: () => 
   const captionText = isInsta && hashtagLine
     ? bodyLines.slice(0, bodyLines.indexOf(hashtagLine)).join('\n').trim()
     : content.body
+  const rawHashtagText = hashtagLine ? content.body.slice(content.body.indexOf('#')) : ''
+  const formattedHashtags = rawHashtagText
+    ? (rawHashtagText.match(/#\S+/g) ?? []).join(' ')
+    : ''
 
   return (
     <div className={`rounded-2xl border-2 ${cfg.color} overflow-hidden`}>
@@ -135,14 +139,14 @@ function ContentCard({ content, onUpdate }: { content: Content; onUpdate: () => 
               </p>
             </div>
             {/* 해시태그 */}
-            {hashtagLine && (
+            {hashtagLine && formattedHashtags && (
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-xs font-semibold text-gray-500 uppercase">해시태그</span>
-                  <CopyButton text={content.body.slice(content.body.indexOf('#'))} label="해시태그 복사" />
+                  <CopyButton text={formattedHashtags} label="해시태그 복사" />
                 </div>
-                <p className="text-xs text-blue-600 leading-relaxed bg-blue-50 rounded-xl p-3 max-h-32 overflow-y-auto">
-                  {content.body.slice(content.body.indexOf('#'))}
+                <p className="text-xs text-blue-600 leading-relaxed bg-blue-50 rounded-xl p-3">
+                  {formattedHashtags}
                 </p>
               </div>
             )}
@@ -178,21 +182,29 @@ function ContentCard({ content, onUpdate }: { content: Content; onUpdate: () => 
 
 // ─── Main ─────────────────────────────────────────────────────
 
+// 한국 시간(KST = UTC+9) 기준 오늘 날짜 반환
+function getKSTDate() {
+  return new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10)
+}
+
 export default function TodayContentPage() {
   const supabase = createClient()
   const [contents, setContents] = useState<Content[]>([])
   const [loading, setLoading] = useState(true)
-  const [date, setDate] = useState(new Date().toISOString().slice(0, 10))
+  const [date, setDate] = useState(getKSTDate)
 
   useEffect(() => { load() }, [date])
 
   async function load() {
     setLoading(true)
+    // KST 날짜 범위를 UTC로 변환하여 조회 (KST = UTC+9)
+    const startUTC = new Date(date + 'T00:00:00+09:00').toISOString()
+    const endUTC = new Date(date + 'T23:59:59+09:00').toISOString()
     const { data } = await supabase
       .from('marketing_content')
       .select('*')
-      .gte('created_at', date + 'T00:00:00')
-      .lte('created_at', date + 'T23:59:59')
+      .gte('created_at', startUTC)
+      .lte('created_at', endUTC)
       .order('content_type')
     setContents(data ?? [])
     setLoading(false)

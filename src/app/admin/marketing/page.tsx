@@ -51,7 +51,7 @@ function currentYM() {
 }
 
 function today() {
-  return new Date().toISOString().slice(0, 10)
+  return new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10)
 }
 
 export default function MarketingDashboard() {
@@ -112,7 +112,12 @@ export default function MarketingDashboard() {
     )
   }
 
-  const todayItems = recentAll.filter(r => r.created_at.slice(0, 10) === today())
+  const kstToday = today()
+  const todayItems = recentAll.filter(r => {
+    // created_at(UTC)을 KST로 변환 후 날짜 비교
+    const kstDate = new Date(new Date(r.created_at).getTime() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10)
+    return kstDate === kstToday
+  })
 
   return (
     <div className="space-y-6">
