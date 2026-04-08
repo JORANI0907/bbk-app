@@ -46,6 +46,7 @@ const NAV_ITEMS: NavItem[] = [
       { href: '/admin/workers', label: '직원관리' },
       { href: '/admin/incidents', label: '경위서' },
       { href: '/admin/inventory', label: '재고관리', badgeKey: 'inventory' },
+      { href: '/admin/my-requests', label: '요청하기', badgeKey: 'worker_requests' },
     ],
   },
   {
@@ -75,15 +76,8 @@ const NAV_ITEMS: NavItem[] = [
     type: 'group', label: '마케팅 에이전트', icon: '🤖', roles: ['admin'],
     children: [
       { href: '/admin/marketing', label: '대시보드' },
-      { href: '/admin/marketing/team', label: '팀 조직도' },
-      { href: '/admin/marketing/today', label: '오늘 콘텐츠' },
-      { href: '/admin/marketing/content', label: '콘텐츠 이력' },
-      { href: '/admin/marketing/calendar', label: '캘린더' },
-      { href: '/admin/marketing/keywords', label: '키워드 전략' },
-      { href: '/admin/marketing/blog', label: '블로그 성과' },
-      { href: '/admin/marketing/instagram', label: '인스타그램 성과' },
-      { href: '/admin/marketing/place', label: '네이버 플레이스' },
-      { href: '/admin/marketing/logs', label: '실행 로그' },
+      { href: '/admin/marketing/today', label: '콘텐츠' },
+      { href: '/admin/marketing/keywords', label: '키워드' },
     ],
   },
 ]
@@ -137,7 +131,7 @@ const WORKER_ALL_ITEMS: QuickItem[] = [
   { href: '/admin/attendance', label: '출퇴근', icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> },
   { href: '/admin/inventory', label: '재고관리', icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg> },
   { href: '/admin/incidents', label: '경위서', icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg> },
-  { href: '/worker/requests', label: '요청하기', badgeKey: 'worker_requests', icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg> },
+  { href: '/admin/my-requests', label: '요청하기', badgeKey: 'worker_requests', icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg> },
 ]
 
 // 기본 퀵탭 (설정이 없을 때)

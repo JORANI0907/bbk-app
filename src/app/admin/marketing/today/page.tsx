@@ -4,11 +4,9 @@ import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import toast from 'react-hot-toast'
 
-// ─── Types ────────────────────────────────────────────────────
-
 interface Content {
   id: string
-  content_type: 'blog' | 'insta' | 'image_prompt'
+  content_type: 'blog' | 'insta' | 'image_prompt' | 'thumbnail'
   title: string
   body: string
   region: string
@@ -20,18 +18,26 @@ interface Content {
   created_at: string
 }
 
-// ─── Copy Button ──────────────────────────────────────────────
+// UTC timestamp → KST 날짜 문자열 (YYYY-MM-DD)
+function toKSTDate(utcStr: string) {
+  return new Date(new Date(utcStr).getTime() + 9 * 60 * 60 * 1000)
+    .toISOString()
+    .slice(0, 10)
+}
+
+// 오늘 KST 날짜
+function todayKST() {
+  return new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10)
+}
 
 function CopyButton({ text, label = '복사' }: { text: string; label?: string }) {
   const [copied, setCopied] = useState(false)
-
   async function handleCopy() {
     await navigator.clipboard.writeText(text)
     setCopied(true)
-    toast.success('클립보드에 복사됐어요!')
+    toast.success('복사됐어요!')
     setTimeout(() => setCopied(false), 2000)
   }
-
   return (
     <button
       onClick={handleCopy}
@@ -44,12 +50,9 @@ function CopyButton({ text, label = '복사' }: { text: string; label?: string }
   )
 }
 
-// ─── Publish Toggle ───────────────────────────────────────────
-
 function PublishToggle({ content, onUpdate }: { content: Content; onUpdate: () => void }) {
   const supabase = createClient()
   const [loading, setLoading] = useState(false)
-
   async function toggle() {
     setLoading(true)
     const newVal = !content.is_published
@@ -61,7 +64,6 @@ function PublishToggle({ content, onUpdate }: { content: Content; onUpdate: () =
     onUpdate()
     setLoading(false)
   }
-
   return (
     <button
       onClick={toggle}
@@ -77,31 +79,26 @@ function PublishToggle({ content, onUpdate }: { content: Content; onUpdate: () =
   )
 }
 
-// ─── Content Card ─────────────────────────────────────────────
-
 function ContentCard({ content, onUpdate }: { content: Content; onUpdate: () => void }) {
   const typeConfig = {
-    blog: { icon: '📝', label: '블로그', color: 'border-brand-200 bg-brand-50' },
-    insta: { icon: '📸', label: '인스타그램', color: 'border-pink-200 bg-pink-50' },
+    blog:         { icon: '📝', label: '블로그',       color: 'border-brand-200 bg-brand-50' },
+    insta:        { icon: '📸', label: '인스타그램',   color: 'border-pink-200 bg-pink-50' },
     image_prompt: { icon: '🎨', label: '이미지 프롬프트', color: 'border-purple-200 bg-purple-50' },
+    thumbnail:    { icon: '🖼️', label: '썸네일',       color: 'border-yellow-200 bg-yellow-50' },
   }
-  const cfg = typeConfig[content.content_type]
+  const cfg = typeConfig[content.content_type] ?? typeConfig.blog
 
-  // 인스타의 경우 캡션과 해시태그 분리
   const isInsta = content.content_type === 'insta'
-  const bodyLines = content.body.split('\n')
+  const bodyLines = content.body?.split('\n') ?? []
   const hashtagLine = isInsta ? bodyLines.find(l => l.trim().startsWith('#')) : null
   const captionText = isInsta && hashtagLine
     ? bodyLines.slice(0, bodyLines.indexOf(hashtagLine)).join('\n').trim()
     : content.body
-  const rawHashtagText = hashtagLine ? content.body.slice(content.body.indexOf('#')) : ''
-  const formattedHashtags = rawHashtagText
-    ? (rawHashtagText.match(/#\S+/g) ?? []).join(' ')
-    : ''
+  const rawHashtags = hashtagLine ? content.body.slice(content.body.indexOf('#')) : ''
+  const formattedHashtags = rawHashtags ? (rawHashtags.match(/#\S+/g) ?? []).join(' ') : ''
 
   return (
     <div className={`rounded-2xl border-2 ${cfg.color} overflow-hidden`}>
-      {/* 카드 헤더 */}
       <div className="flex items-center justify-between px-5 py-3 bg-white border-b border-gray-100">
         <div className="flex items-center gap-2">
           <span className="text-lg">{cfg.icon}</span>
@@ -116,7 +113,6 @@ function ContentCard({ content, onUpdate }: { content: Content; onUpdate: () => 
         </div>
       </div>
 
-      {/* 제목 */}
       <div className="px-5 py-3 bg-white border-b border-gray-50">
         <div className="flex items-center justify-between">
           <p className="font-semibold text-gray-900 text-sm flex-1 mr-3">{content.title}</p>
@@ -124,11 +120,9 @@ function ContentCard({ content, onUpdate }: { content: Content; onUpdate: () => 
         </div>
       </div>
 
-      {/* 본문 */}
       <div className="px-5 py-4 bg-white">
         {isInsta ? (
           <div className="space-y-3">
-            {/* 캡션 */}
             <div>
               <div className="flex items-center justify-between mb-2">
                 <span className="text-xs font-semibold text-gray-500 uppercase">캡션</span>
@@ -138,19 +132,15 @@ function ContentCard({ content, onUpdate }: { content: Content; onUpdate: () => 
                 {captionText}
               </p>
             </div>
-            {/* 해시태그 */}
-            {hashtagLine && formattedHashtags && (
+            {formattedHashtags && (
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-xs font-semibold text-gray-500 uppercase">해시태그</span>
                   <CopyButton text={formattedHashtags} label="해시태그 복사" />
                 </div>
-                <p className="text-xs text-blue-600 leading-relaxed bg-blue-50 rounded-xl p-3">
-                  {formattedHashtags}
-                </p>
+                <p className="text-xs text-blue-600 leading-relaxed bg-blue-50 rounded-xl p-3">{formattedHashtags}</p>
               </div>
             )}
-            {/* 전체 복사 */}
             <CopyButton text={content.body} label="전체 복사" />
           </div>
         ) : (
@@ -166,7 +156,6 @@ function ContentCard({ content, onUpdate }: { content: Content; onUpdate: () => 
         )}
       </div>
 
-      {/* 태그 */}
       {content.tags && content.tags.length > 0 && (
         <div className="px-5 pb-4 bg-white">
           <div className="flex flex-wrap gap-1.5">
@@ -180,55 +169,86 @@ function ContentCard({ content, onUpdate }: { content: Content; onUpdate: () => 
   )
 }
 
-// ─── Main ─────────────────────────────────────────────────────
-
-// 한국 시간(KST = UTC+9) 기준 오늘 날짜 반환
-function getKSTDate() {
-  return new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10)
-}
-
 export default function TodayContentPage() {
   const supabase = createClient()
-  const [contents, setContents] = useState<Content[]>([])
+  const [allContents, setAllContents] = useState<Content[]>([])
   const [loading, setLoading] = useState(true)
-  const [date, setDate] = useState(getKSTDate)
+  const [selectedDate, setSelectedDate] = useState(todayKST())
 
-  useEffect(() => { load() }, [date])
+  useEffect(() => { load() }, [])
 
   async function load() {
     setLoading(true)
-    // KST 날짜 범위를 UTC로 변환하여 조회 (KST = UTC+9)
-    const startUTC = new Date(date + 'T00:00:00+09:00').toISOString()
-    const endUTC = new Date(date + 'T23:59:59+09:00').toISOString()
+    // 최근 30일 콘텐츠를 가져와서 KST 날짜 기준으로 프론트엔드에서 필터링
+    // (timezone 변환 문제를 완전히 우회)
+    const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
     const { data } = await supabase
       .from('marketing_content')
       .select('*')
-      .gte('created_at', startUTC)
-      .lte('created_at', endUTC)
-      .order('content_type')
-    setContents(data ?? [])
+      .gte('created_at', since)
+      .order('created_at', { ascending: false })
+      .limit(200)
+    setAllContents(data ?? [])
     setLoading(false)
   }
 
+  // KST 날짜별로 그룹화
+  const grouped = allContents.reduce<Record<string, Content[]>>((acc, c) => {
+    const d = toKSTDate(c.created_at)
+    if (!acc[d]) acc[d] = []
+    acc[d].push(c)
+    return acc
+  }, {})
+
+  // 날짜 목록 (최신순)
+  const dates = Object.keys(grouped).sort((a, b) => b.localeCompare(a))
+
+  // 선택된 날짜의 콘텐츠
+  const contents = grouped[selectedDate] ?? []
   const blog = contents.find(c => c.content_type === 'blog')
   const insta = contents.find(c => c.content_type === 'insta')
   const image = contents.find(c => c.content_type === 'image_prompt')
 
+  const kstToday = todayKST()
+
   return (
     <div className="space-y-6">
-      {/* 헤더 */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">오늘 콘텐츠</h1>
+          <h1 className="text-2xl font-bold text-gray-900">콘텐츠</h1>
           <p className="text-sm text-gray-500 mt-0.5">생성된 콘텐츠를 확인하고 복사해서 발행하세요</p>
         </div>
         <input
           type="date"
-          value={date}
-          onChange={e => setDate(e.target.value)}
+          value={selectedDate}
+          onChange={e => setSelectedDate(e.target.value)}
           className="text-sm border border-gray-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-300"
         />
       </div>
+
+      {/* 날짜 빠른 선택 */}
+      {!loading && dates.length > 0 && (
+        <div className="flex gap-2 flex-wrap">
+          {dates.slice(0, 7).map(d => (
+            <button
+              key={d}
+              onClick={() => setSelectedDate(d)}
+              className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-colors ${
+                selectedDate === d
+                  ? 'bg-brand-600 text-white'
+                  : 'bg-white border border-gray-200 text-gray-600 hover:border-brand-300'
+              }`}
+            >
+              {d === kstToday ? '오늘' : d.slice(5)}
+              {grouped[d] && (
+                <span className="ml-1 opacity-60">
+                  {grouped[d].filter(c => c.content_type === 'blog' || c.content_type === 'insta').length}편
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
+      )}
 
       {loading ? (
         <div className="flex items-center justify-center h-64">
@@ -237,12 +257,13 @@ export default function TodayContentPage() {
       ) : contents.length === 0 ? (
         <div className="flex flex-col items-center justify-center h-64 bg-white rounded-2xl border border-gray-100">
           <p className="text-4xl mb-3">📭</p>
-          <p className="font-semibold text-gray-700">이 날짜에 생성된 콘텐츠가 없어요</p>
-          <p className="text-sm text-gray-400 mt-1">다른 날짜를 선택하거나 대시보드에서 생성하세요</p>
+          <p className="font-semibold text-gray-700">
+            {selectedDate === kstToday ? '오늘 아직 생성된 콘텐츠가 없어요' : `${selectedDate} 콘텐츠가 없어요`}
+          </p>
+          <p className="text-sm text-gray-400 mt-1">위의 날짜를 선택하거나 대시보드에서 생성하세요</p>
         </div>
       ) : (
         <>
-          {/* 발행 현황 요약 */}
           <div className="flex gap-3">
             {[
               { label: '블로그', data: blog, icon: '📝' },
@@ -261,16 +282,11 @@ export default function TodayContentPage() {
             ))}
           </div>
 
-          {/* 블로그 + 인스타 나란히 */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {blog && <ContentCard content={blog} onUpdate={load} />}
             {insta && <ContentCard content={insta} onUpdate={load} />}
           </div>
-
-          {/* 이미지 프롬프트 */}
-          {image && (
-            <ContentCard content={image} onUpdate={load} />
-          )}
+          {image && <ContentCard content={image} onUpdate={load} />}
         </>
       )}
     </div>
