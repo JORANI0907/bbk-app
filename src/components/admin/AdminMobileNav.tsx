@@ -77,7 +77,7 @@ const NAV_ITEMS: NavItem[] = [
     children: [
       { href: '/admin/marketing', label: '대시보드' },
       { href: '/admin/marketing/today', label: '콘텐츠' },
-      { href: '/admin/marketing/keywords', label: '키워드' },
+      { href: '/admin/marketing/roi', label: 'ROI 성과' },
     ],
   },
 ]
