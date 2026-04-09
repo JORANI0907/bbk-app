@@ -35,5 +35,7 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# Local Netlify folder
-.netlify
+.vercel
+.env*.local
+.env.check.production
+.env.vercel.production
