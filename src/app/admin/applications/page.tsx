@@ -10,7 +10,7 @@ import { MonthNavigator } from '@/components/MonthNavigator'
 const getDriveLib = () => import('@/lib/googleDrive')
 
 type ServiceType = '1회성케어' | '정기딥케어' | '정기엔드케어'
-type ApplicationStatus = '예약확정' | '예약1일전' | '예약당일' | '작업완료' | '결제' | '결제완료' | '계산서발행완료' | '예약금환급완료' | '예약취소' | 'A/S방문' | '방문견적'
+type ApplicationStatus = '예약확정' | '예약1일전' | '예약당일' | '작업완료' | '결제' | '결제완료' | '결제완료(잔금)' | '계산서발행완료' | '예약금환급완료' | '예약취소' | 'A/S방문' | '방문견적'
 
 interface User { id: string; name: string; role: string }
 interface Worker { id: string; name: string; employment_type: string | null; phone: string | null; account_number: string | null }
@@ -63,8 +63,9 @@ const STATUS_CONFIG: Record<ApplicationStatus, { color: string; badge: string; d
   '예약당일':      { color: 'bg-blue-600 text-white',     badge: 'bg-blue-100 text-blue-800 ring-blue-300',      dot: 'bg-blue-600',   row: 'bg-sky-50' },
   '작업완료':      { color: 'bg-orange-500 text-white',   badge: 'bg-orange-100 text-orange-700 ring-orange-300', dot: 'bg-orange-500', row: 'bg-orange-50' },
   '결제':          { color: 'bg-orange-400 text-white',   badge: 'bg-orange-100 text-orange-600 ring-orange-200', dot: 'bg-orange-400', row: 'bg-amber-50' },
-  '결제완료':      { color: 'bg-gray-500 text-white',     badge: 'bg-gray-100 text-gray-600 ring-gray-300',      dot: 'bg-gray-500',   row: 'bg-gray-100' },
-  '계산서발행완료': { color: 'bg-gray-300 text-gray-700', badge: 'bg-gray-50 text-gray-500 ring-gray-200',       dot: 'bg-gray-300',   row: 'bg-white' },
+  '결제완료':       { color: 'bg-gray-500 text-white',     badge: 'bg-gray-100 text-gray-600 ring-gray-300',        dot: 'bg-gray-500',   row: 'bg-gray-100' },
+  '결제완료(잔금)': { color: 'bg-emerald-600 text-white', badge: 'bg-emerald-100 text-emerald-700 ring-emerald-300', dot: 'bg-emerald-600', row: 'bg-emerald-50' },
+  '계산서발행완료': { color: 'bg-gray-300 text-gray-700', badge: 'bg-gray-50 text-gray-500 ring-gray-200',         dot: 'bg-gray-300',   row: 'bg-white' },
   '예약금환급완료': { color: 'bg-gray-300 text-gray-700', badge: 'bg-gray-50 text-gray-500 ring-gray-200',       dot: 'bg-gray-300',   row: 'bg-white' },
   '예약취소':      { color: 'bg-gray-400 text-white',     badge: 'bg-gray-100 text-gray-600 ring-gray-300',      dot: 'bg-gray-400',   row: 'bg-gray-50' },
   'A/S방문':       { color: 'bg-gray-400 text-white',     badge: 'bg-gray-100 text-gray-600 ring-gray-300',      dot: 'bg-gray-400',   row: 'bg-gray-50' },
@@ -72,21 +73,22 @@ const STATUS_CONFIG: Record<ApplicationStatus, { color: string; badge: string; d
 }
 const NOTIFICATION_TYPES = [
   '예약확정알림', '예약1일전알림', '예약당일알림', '작업완료알림',
-  '결제알림', '결제완료알림', '계산서발행완료알림', '예약금환급완료알림',
+  '결제알림', '결제완료알림', '결제완료알림(잔금)', '계산서발행완료알림', '예약금환급완료알림',
   '예약취소알림', 'A/S방문알림', '방문견적알림',
 ]
 const NOTIFY_TYPE_CONFIG: Record<string, { badge: string; dot: string }> = {
-  '예약확정알림':      { badge: 'bg-blue-100 text-blue-700',    dot: 'bg-blue-500' },
-  '예약1일전알림':     { badge: 'bg-sky-100 text-sky-700',     dot: 'bg-sky-400' },
-  '예약당일알림':      { badge: 'bg-violet-100 text-violet-700', dot: 'bg-violet-500' },
-  '작업완료알림':      { badge: 'bg-green-100 text-green-700',  dot: 'bg-green-500' },
-  '결제알림':         { badge: 'bg-orange-100 text-orange-700', dot: 'bg-orange-500' },
-  '결제완료알림':      { badge: 'bg-emerald-100 text-emerald-700', dot: 'bg-emerald-500' },
-  '계산서발행완료알림': { badge: 'bg-teal-100 text-teal-700',   dot: 'bg-teal-500' },
-  '예약금환급완료알림': { badge: 'bg-cyan-100 text-cyan-700',   dot: 'bg-cyan-500' },
-  '예약취소알림':      { badge: 'bg-red-100 text-red-700',     dot: 'bg-red-500' },
-  'A/S방문알림':      { badge: 'bg-yellow-100 text-yellow-700', dot: 'bg-yellow-500' },
-  '방문견적알림':      { badge: 'bg-indigo-100 text-indigo-700', dot: 'bg-indigo-500' },
+  '예약확정알림':       { badge: 'bg-blue-100 text-blue-700',      dot: 'bg-blue-500' },
+  '예약1일전알림':      { badge: 'bg-sky-100 text-sky-700',        dot: 'bg-sky-400' },
+  '예약당일알림':       { badge: 'bg-violet-100 text-violet-700',  dot: 'bg-violet-500' },
+  '작업완료알림':       { badge: 'bg-green-100 text-green-700',    dot: 'bg-green-500' },
+  '결제알림':           { badge: 'bg-orange-100 text-orange-700',  dot: 'bg-orange-500' },
+  '결제완료알림':       { badge: 'bg-emerald-100 text-emerald-700', dot: 'bg-emerald-500' },
+  '결제완료알림(잔금)': { badge: 'bg-emerald-100 text-emerald-800', dot: 'bg-emerald-600' },
+  '계산서발행완료알림': { badge: 'bg-teal-100 text-teal-700',      dot: 'bg-teal-500' },
+  '예약금환급완료알림': { badge: 'bg-cyan-100 text-cyan-700',      dot: 'bg-cyan-500' },
+  '예약취소알림':       { badge: 'bg-red-100 text-red-700',        dot: 'bg-red-500' },
+  'A/S방문알림':        { badge: 'bg-yellow-100 text-yellow-700',  dot: 'bg-yellow-500' },
+  '방문견적알림':       { badge: 'bg-indigo-100 text-indigo-700',  dot: 'bg-indigo-500' },
 }
 const SORT_LABELS: Record<SortField, string> = {
   construction_date: '시공일자',
