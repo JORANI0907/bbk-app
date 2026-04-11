@@ -252,9 +252,12 @@ export function AdminMobileNav({ role, unreadIncidentCount = 0, navConfig = {}, 
           >
             {/* 드로어 헤더 */}
             <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
-              <div className="flex items-center gap-2">
-                <span className="text-lg font-black text-brand-600">BBK</span>
-                <span className="text-[11px] text-gray-400 font-semibold uppercase tracking-widest">공간케어</span>
+              <div className="flex items-center gap-2.5">
+                <img src="/bbk-logo.png" alt="BBK" className="w-8 h-8 rounded-lg object-cover" />
+                <div>
+                  <p className="text-sm font-black text-gray-900 leading-none">BBK 공간케어</p>
+                  <p className="text-[10px] text-gray-400 font-medium uppercase tracking-widest mt-0.5">Management</p>
+                </div>
               </div>
               <button onClick={() => setDrawerOpen(false)} className="text-gray-400 hover:text-gray-700 text-xl leading-none p-1">✕</button>
             </div>

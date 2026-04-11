@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import toast from 'react-hot-toast'
 import type { DriveFolder } from '@/lib/googleDrive'
 import { openGoogleDrive } from '@/lib/mapUtils'
+import { useModalBackButton } from '@/hooks/useModalBackButton'
 
 const getDriveLib = () => import('@/lib/googleDrive')
 
@@ -380,6 +381,27 @@ export default function ServiceManagementPage() {
   const [businessHoursEnd, setBusinessHoursEnd] = useState('')
 
   const vatManual = useRef(false)
+
+  // 스크롤 복원 (모바일 뒤로가기 후 선택 행으로 돌아오기)
+  const rowRefs = useRef<Record<string, HTMLTableRowElement | null>>({})
+  const prevSelectedIdRef = useRef<string | null>(null)
+
+  const closePanel = useCallback(() => {
+    prevSelectedIdRef.current = selected?.id ?? null
+    setSelected(null)
+  }, [selected])
+
+  useEffect(() => {
+    if (!selected && prevSelectedIdRef.current) {
+      const el = rowRefs.current[prevSelectedIdRef.current]
+      el?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+      prevSelectedIdRef.current = null
+    }
+  }, [selected])
+
+  useModalBackButton(!!selected, closePanel)
+
+  const todayStr = new Date().toISOString().slice(0, 10)
 
   const isCashNoVat = paymentMethod === '현금(부가세 X)'
   const effectiveVat = isCashNoVat ? 0 : (Number(vat) || 0)
@@ -1184,15 +1206,22 @@ export default function ServiceManagementPage() {
                       const isSelected = selected?.id === app.id || checkedIds.includes(app.id)
                       const rowBg = isSelected ? 'bg-blue-100' : (statusCfg?.row ?? 'bg-white')
                       return (
-                        <tr key={app.id} onClick={() => handleSelect(app)}
+                        <tr key={app.id}
+                          ref={el => { rowRefs.current[app.id] = el }}
+                          onClick={() => handleSelect(app)}
                           className={`border-b border-gray-100 last:border-0 cursor-pointer hover:brightness-95 transition-all ${rowBg}`}>
                           <td className="px-3 py-2.5 w-8" onClick={e => e.stopPropagation()}>
                             <input type="checkbox" checked={checkedIds.includes(app.id)}
                               onChange={() => toggleCheck(app.id)}
                               className="accent-blue-600 cursor-pointer" />
                           </td>
-                          <td className="px-3 py-2.5 text-gray-500 whitespace-nowrap font-mono text-xs">
-                            {app.construction_date ? fmtDate(app.construction_date) : <span className="text-gray-300">미설정</span>}
+                          <td className="px-3 py-2.5 whitespace-nowrap">
+                            <span className="font-mono text-xs text-gray-500">
+                              {app.construction_date ? fmtDate(app.construction_date) : <span className="text-gray-300">미설정</span>}
+                            </span>
+                            {app.construction_date?.slice(0, 10) === todayStr && (
+                              <span className="ml-1.5 text-xs font-bold text-blue-600 bg-blue-100 px-1.5 py-0.5 rounded-full">오늘</span>
+                            )}
                           </td>
                           <td className="px-3 py-2.5 max-w-[140px]">
                             <div className="font-medium text-gray-900 truncate text-sm leading-tight">{app.business_name}</div>
@@ -1256,6 +1285,9 @@ export default function ServiceManagementPage() {
 
         {/* ── 우측: 상세 패널 (오버레이) ── */}
         {selected && (
+          <>
+            {/* PC 백드롭 - 패널 외 클릭 시 닫힘 */}
+            <div className="absolute inset-0 z-10 hidden md:block" onClick={closePanel} />
           <div className="absolute right-0 top-0 bottom-0 w-[480px] bg-white rounded-xl border border-gray-200 shadow-2xl overflow-y-auto z-20">
             {/* 헤더 */}
             <div className="p-4 border-b border-gray-100 flex items-start justify-between gap-2 sticky top-0 bg-white z-10">
@@ -1264,7 +1296,7 @@ export default function ServiceManagementPage() {
                 <p className="text-xs text-gray-400 mt-0.5">신청일: {new Date(selected.created_at).toLocaleString('ko-KR')}</p>
               </div>
               <div className="flex items-center gap-1.5 shrink-0">
-                <button onClick={() => setSelected(null)} className="text-gray-400 hover:text-gray-600 text-lg leading-none">✕</button>
+                <button onClick={closePanel} className="text-gray-400 hover:text-gray-600 text-lg leading-none">✕</button>
               </div>
             </div>
 
@@ -1641,6 +1673,7 @@ export default function ServiceManagementPage() {
               </button>
             </div>
           </div>
+          </>
         )}
       </div>
     </>

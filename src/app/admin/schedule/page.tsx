@@ -1,10 +1,11 @@
 'use client'
 
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import toast from 'react-hot-toast'
 
 import { WorkPanel } from '@/components/admin/WorkPanel'
 import { openGoogleDrive } from '@/lib/mapUtils'
+import { useModalBackButton } from '@/hooks/useModalBackButton'
 
 // ─── 타입 ──────────────────────────────────────────────────────
 
@@ -501,7 +502,27 @@ export default function SchedulePage() {
   const [personFilter, setPersonFilter] = useState('')
   const [workerFilter, setWorkerFilter] = useState('')
   const [serviceTypeFilter, setServiceTypeFilter] = useState('전체보기')
+  const [search, setSearch] = useState('')
   const [selected, setSelected] = useState<Application | null>(null)
+
+  // 스크롤 복원 (모바일 뒤로가기 후 선택 행으로 돌아오기)
+  const rowRefs = useRef<Record<string, HTMLTableRowElement | null>>({})
+  const prevSelectedIdRef = useRef<string | null>(null)
+
+  const handleClose = useCallback(() => {
+    prevSelectedIdRef.current = selected?.id ?? null
+    setSelected(null)
+  }, [selected])
+
+  useEffect(() => {
+    if (!selected && prevSelectedIdRef.current) {
+      const el = rowRefs.current[prevSelectedIdRef.current]
+      el?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+      prevSelectedIdRef.current = null
+    }
+  }, [selected])
+
+  useModalBackButton(!!selected, handleClose)
 
   // 세션 초기화
   useEffect(() => {
@@ -594,10 +615,23 @@ export default function SchedulePage() {
       apps = apps.filter(a => a.service_type === serviceTypeFilter)
     }
 
+    // 검색
+    if (search.trim()) {
+      const q = search.trim().toLowerCase()
+      apps = apps.filter(a =>
+        a.business_name.toLowerCase().includes(q) ||
+        a.owner_name.toLowerCase().includes(q) ||
+        a.phone.toLowerCase().includes(q) ||
+        (a.address ?? '').toLowerCase().includes(q) ||
+        (a.care_scope ?? '').toLowerCase().includes(q) ||
+        (a.service_type ?? '').toLowerCase().includes(q)
+      )
+    }
+
     // 시공일자 내림차순 (최신이 위)
     return apps.sort((a, b) =>
       (b.construction_date ?? '').localeCompare(a.construction_date ?? ''))
-  }, [applications, personFilter, workerFilter, serviceTypeFilter, isAdmin, currentUser, appWorkerMap])
+  }, [applications, personFilter, workerFilter, serviceTypeFilter, isAdmin, currentUser, appWorkerMap, search])
 
   const [calYear, calMonth] = useMemo(() => {
     const [y, m] = selectedMonth.split('-').map(Number)
@@ -644,7 +678,7 @@ export default function SchedulePage() {
           workers={workers}
           appWorkerMap={appWorkerMap}
           isAdmin={isAdmin}
-          onClose={() => setSelected(null)}
+          onClose={handleClose}
           onAppUpdate={(updates) => {
             setSelected(prev => prev ? { ...prev, ...updates } : null)
             setApplications(prev => prev.map(a => a.id === selected.id ? { ...a, ...updates } : a))
@@ -716,6 +750,23 @@ export default function SchedulePage() {
           </select>
         )}
 
+        {/* 검색 */}
+        <div className="relative">
+          <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" />
+          </svg>
+          <input
+            type="text"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="업체명, 주소, 케어범위..."
+            className="pl-7 pr-7 py-1.5 text-xs border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 w-40"
+          />
+          {search && (
+            <button onClick={() => setSearch('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-xs">✕</button>
+          )}
+        </div>
+
         {/* 건수 */}
         <span className="text-xs text-gray-400 font-medium">
           {loading ? '...' : `${filteredApps.length}건`}
@@ -776,7 +827,7 @@ export default function SchedulePage() {
             <table className="w-full text-sm">
               <thead className="bg-gray-50 border-b border-gray-200 sticky top-0 z-10">
                 <tr>
-                  {['시공일자', '업체명', '대표자', '담당자', '작업자', '서비스', '상태'].map(h => (
+                  {['시공일자', '업체명', '케어범위', '대표자', '담당자', '작업자'].map(h => (
                     <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-gray-500 whitespace-nowrap">{h}</th>
                   ))}
                 </tr>
@@ -786,36 +837,54 @@ export default function SchedulePage() {
                   if (item.kind === 'week') {
                     return (
                       <tr key={item.key}>
-                        <td colSpan={7} className="px-4 py-1 bg-gray-50">
+                        <td colSpan={6} className="px-4 py-1 bg-gray-50">
                           <span className="text-xs text-gray-400 font-medium">{item.label}</span>
                         </td>
                       </tr>
                     )
                   }
                   const app = item.app
-                  const cfg = STATUS_CONFIG[app.status] ?? STATUS_CONFIG['신규']
                   const workerNames = (appWorkerMap[app.id] ?? [])
                     .map(wid => workers.find(w => w.id === wid)?.name)
                     .filter((n): n is string => !!n)
                   const manager = users.find(u => u.id === app.assigned_to)
                   const isSelected = selected?.id === app.id
-                  const isToday = app.construction_date?.slice(0, 10) === getScheduleToday()
+                  const todayStr = getScheduleToday()
+                  const isToday = app.construction_date?.slice(0, 10) === todayStr
                   const svcColor = app.service_type ? (SERVICE_TYPE_CONFIG[app.service_type] ?? 'bg-gray-100 text-gray-700') : ''
                   return (
                     <tr key={app.id}
-                      onClick={() => setSelected(isSelected ? null : app)}
+                      ref={el => { rowRefs.current[app.id] = el }}
+                      onClick={() => isSelected ? handleClose() : setSelected(app)}
                       className={`cursor-pointer hover:bg-blue-50/40 transition-colors ${isSelected ? 'bg-blue-50' : isToday ? 'bg-yellow-50' : ''}`}>
-                      <td className="px-4 py-3 text-gray-500 whitespace-nowrap font-mono text-xs">
-                        {fmtDate(app.construction_date)}
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <span className="font-mono text-xs text-gray-500">{fmtDate(app.construction_date)}</span>
+                        {isToday && (
+                          <span className="ml-1.5 text-xs font-bold text-blue-600 bg-blue-100 px-1.5 py-0.5 rounded-full">오늘</span>
+                        )}
                       </td>
-                      <td className="px-4 py-3 font-medium text-gray-900 max-w-[140px]">
-                        <div className="flex items-center gap-1.5 truncate">
-                          {app.business_name}
+                      <td className="px-4 py-3 max-w-[160px]">
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-medium text-gray-900 truncate text-sm">{app.business_name}</span>
                           {app.drive_folder_url && <span className="text-blue-400 text-xs shrink-0">📷</span>}
+                          {app.work_status === 'in_progress' && (
+                            <span className="w-1.5 h-1.5 rounded-full bg-orange-500 animate-pulse shrink-0" />
+                          )}
+                          {app.work_status === 'completed' && (
+                            <span className="text-xs text-green-600 shrink-0">✓</span>
+                          )}
                         </div>
+                        {app.address && (
+                          <div className="text-xs text-gray-400 truncate mt-0.5">{app.address}</div>
+                        )}
                       </td>
-                      <td className="px-4 py-3 text-gray-600 text-xs">{app.owner_name}</td>
-                      <td className="px-4 py-3 text-xs">
+                      <td className="px-4 py-3 max-w-[130px]">
+                        {app.care_scope
+                          ? <span className="text-xs text-gray-600 line-clamp-2 leading-tight">{app.care_scope}</span>
+                          : <span className="text-gray-300 text-xs">-</span>}
+                      </td>
+                      <td className="px-4 py-3 text-gray-600 text-xs whitespace-nowrap">{app.owner_name}</td>
+                      <td className="px-4 py-3 text-xs whitespace-nowrap">
                         {manager
                           ? <span className="text-gray-700">{manager.name}</span>
                           : <span className="text-gray-300">미배정</span>}
@@ -830,32 +899,6 @@ export default function SchedulePage() {
                               ))}
                             </div>
                           : <span className="text-gray-300">-</span>}
-                      </td>
-                      <td className="px-4 py-3 text-xs">
-                        {app.service_type
-                          ? <span className={`px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap ${svcColor}`}>
-                              {app.service_type}
-                            </span>
-                          : <span className="text-gray-300">-</span>}
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex flex-wrap gap-1">
-                          <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium whitespace-nowrap ${cfg.badge}`}>
-                            <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${cfg.dot}`} />
-                            {app.status}
-                          </span>
-                          {app.work_status === 'in_progress' && (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-700 whitespace-nowrap">
-                              <span className="w-1.5 h-1.5 rounded-full bg-orange-500 animate-pulse" />
-                              작업중
-                            </span>
-                          )}
-                          {app.work_status === 'completed' && (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700 whitespace-nowrap">
-                              완료
-                            </span>
-                          )}
-                        </div>
                       </td>
                     </tr>
                   )
