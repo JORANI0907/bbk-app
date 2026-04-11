@@ -17,7 +17,10 @@ export async function GET(request: NextRequest) {
       .from('service_applications')
       .select('id, business_name, supply_amount, vat, payment_method, service_type, construction_date')
       .gte('construction_date', `${month}-01`)
-      .lte('construction_date', `${month}-31`)
+      .lt('construction_date', (() => {
+        const [y, m] = month.split('-').map(Number)
+        return m === 12 ? `${y + 1}-01-01` : `${y}-${String(m + 1).padStart(2, '0')}-01`
+      })())
       .not('supply_amount', 'is', null)
       .order('construction_date'),
 

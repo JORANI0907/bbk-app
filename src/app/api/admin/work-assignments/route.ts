@@ -21,9 +21,13 @@ export async function GET(request: NextRequest) {
   if (worker_id) query = query.eq('worker_id', worker_id)
   if (application_id) query = query.eq('application_id', application_id)
   if (month) {
+    const [y, m] = month.split('-').map(Number)
+    const nextMonth = m === 12
+      ? `${y + 1}-01-01`
+      : `${y}-${String(m + 1).padStart(2, '0')}-01`
     query = query
       .gte('construction_date', `${month}-01`)
-      .lte('construction_date', `${month}-31`)
+      .lt('construction_date', nextMonth)
   }
 
   const { data, error } = await query
