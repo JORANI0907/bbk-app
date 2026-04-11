@@ -112,38 +112,45 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center px-4 relative overflow-hidden"
-      style={{ background: 'linear-gradient(135deg, #eff6ff 0%, #f8fafc 50%, #eef2ff 100%)' }}>
+    <div className="min-h-screen flex flex-col items-center justify-center px-4 relative overflow-hidden">
 
-      {/* 배경 장식 */}
-      <div className="absolute top-0 left-0 w-72 h-72 rounded-full opacity-20 -translate-x-1/2 -translate-y-1/2"
-        style={{ background: 'radial-gradient(circle, #3b82f6 0%, transparent 70%)' }} />
-      <div className="absolute bottom-0 right-0 w-96 h-96 rounded-full opacity-15 translate-x-1/3 translate-y-1/3"
-        style={{ background: 'radial-gradient(circle, #6366f1 0%, transparent 70%)' }} />
+      {/* 배경 이미지 */}
+      <div
+        className="absolute inset-0 bg-center bg-cover bg-no-repeat"
+        style={{ backgroundImage: "url('/login-bg.png')" }}
+      />
+      {/* 고급스러운 다크 그라데이션 오버레이 */}
+      <div className="absolute inset-0"
+        style={{ background: 'linear-gradient(160deg, rgba(0,30,80,0.72) 0%, rgba(0,10,40,0.60) 50%, rgba(30,0,80,0.72) 100%)' }} />
+      {/* 하단 블러 비네트 */}
+      <div className="absolute bottom-0 left-0 right-0 h-48"
+        style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.5) 0%, transparent 100%)' }} />
 
       <div className={`w-full max-w-sm relative z-10 transition-all duration-700 ease-out ${mounted ? 'opacity-100 scale-100' : 'opacity-0 scale-95'}`}>
 
         {/* 로고 */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl mb-4 shadow-lg"
-            style={{ background: 'linear-gradient(135deg, #2563eb, #4f46e5)' }}>
-            <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-            </svg>
+          <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl mb-4 shadow-2xl overflow-hidden border-2 border-white/20"
+            style={{ background: 'rgba(255,255,255,0.10)', backdropFilter: 'blur(12px)' }}>
+            <img src="/login-bg.png" alt="BBK" className="w-full h-full object-cover" />
           </div>
-          <h1 className="text-3xl font-black text-gray-900 tracking-tight">
-            BBK <span className="text-blue-600">공간케어</span>
+          <h1 className="text-3xl font-black text-white tracking-tight drop-shadow-lg">
+            BBK <span className="text-sky-300">공간케어</span>
           </h1>
-          <p className="text-gray-500 text-sm mt-1.5">청결한 공간, 신뢰할 수 있는 서비스</p>
+          <p className="text-white/70 text-sm mt-1.5 drop-shadow">청결한 공간, 신뢰할 수 있는 서비스</p>
         </div>
 
         {/* 카드 */}
-        <div className="bg-white/90 backdrop-blur-sm rounded-3xl shadow-xl border border-white overflow-hidden"
-          style={{ boxShadow: '0 20px 60px rgba(37, 99, 235, 0.12), 0 4px 16px rgba(0,0,0,0.06)' }}>
+        <div className="rounded-3xl overflow-hidden border border-white/20"
+          style={{
+            background: 'rgba(255,255,255,0.10)',
+            backdropFilter: 'blur(20px)',
+            WebkitBackdropFilter: 'blur(20px)',
+            boxShadow: '0 24px 64px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.15)',
+          }}>
 
           {/* 탭 */}
-          <div className="flex p-1.5 m-4 bg-gray-100 rounded-2xl gap-1">
+          <div className="flex p-1.5 m-4 rounded-2xl gap-1" style={{ background: 'rgba(0,0,0,0.25)' }}>
             {([
               { key: 'employee', label: '직원 · 관리자' },
               { key: 'customer', label: '고객' },
@@ -151,8 +158,8 @@ export default function LoginPage() {
               <button key={key} onClick={() => setActiveTab(key)}
                 className={`flex-1 py-2.5 text-sm font-semibold rounded-xl transition-all duration-200 ${
                   activeTab === key
-                    ? 'bg-white text-blue-600 shadow-sm'
-                    : 'text-gray-500 hover:text-gray-700'
+                    ? 'bg-white text-blue-700 shadow-md'
+                    : 'text-white/70 hover:text-white'
                 }`}>
                 {label}
               </button>
@@ -165,9 +172,9 @@ export default function LoginPage() {
             {activeTab === 'employee' && (
               <div className="flex flex-col gap-4">
                 <div>
-                  <label className="text-xs font-semibold text-gray-600 mb-1.5 block">이메일</label>
+                  <label className="text-xs font-semibold text-white/80 mb-1.5 block">이메일</label>
                   <div className="relative">
-                    <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400">
+                    <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/50">
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                       </svg>
@@ -175,14 +182,14 @@ export default function LoginPage() {
                     <input type="email" value={empEmail} onChange={e => setEmpEmail(e.target.value)}
                       placeholder="example@email.com" autoComplete="email"
                       onKeyDown={e => e.key === 'Enter' && handleEmployeeLogin()}
-                      className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl text-sm bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all" />
+                      className="w-full pl-10 pr-4 py-3 border border-white/20 rounded-xl text-sm bg-white/15 text-white placeholder-white/40 focus:bg-white/25 focus:outline-none focus:ring-2 focus:ring-sky-400 focus:border-transparent transition-all" />
                   </div>
                 </div>
 
                 <div>
-                  <label className="text-xs font-semibold text-gray-600 mb-1.5 block">비밀번호</label>
+                  <label className="text-xs font-semibold text-white/80 mb-1.5 block">비밀번호</label>
                   <div className="relative">
-                    <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400">
+                    <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/50">
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                       </svg>
@@ -191,9 +198,9 @@ export default function LoginPage() {
                       onChange={e => setEmpPassword(e.target.value)} placeholder="비밀번호 입력"
                       autoComplete="current-password"
                       onKeyDown={e => e.key === 'Enter' && handleEmployeeLogin()}
-                      className="w-full pl-10 pr-10 py-3 border border-gray-200 rounded-xl text-sm bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all" />
+                      className="w-full pl-10 pr-10 py-3 border border-white/20 rounded-xl text-sm bg-white/15 text-white placeholder-white/40 focus:bg-white/25 focus:outline-none focus:ring-2 focus:ring-sky-400 focus:border-transparent transition-all" />
                     <button type="button" onClick={() => setShowEmpPw(v => !v)}
-                      className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                      className="absolute right-3.5 top-1/2 -translate-y-1/2 text-white/40 hover:text-white/80">
                       <EyeIcon open={showEmpPw} />
                     </button>
                   </div>
@@ -214,10 +221,10 @@ export default function LoginPage() {
                 </button>
 
                 <div className="flex items-center justify-between text-xs pt-1">
-                  <Link href="/forgot-password" className="text-gray-400 hover:text-blue-600 transition-colors">
+                  <Link href="/forgot-password" className="text-white/50 hover:text-white transition-colors">
                     비밀번호 찾기
                   </Link>
-                  <Link href="/signup" className="text-blue-600 font-semibold hover:text-blue-700 transition-colors">
+                  <Link href="/signup" className="text-sky-300 font-semibold hover:text-sky-200 transition-colors">
                     직원 회원가입 →
                   </Link>
                 </div>
@@ -228,9 +235,9 @@ export default function LoginPage() {
             {activeTab === 'customer' && (
               <div className="flex flex-col gap-4">
                 <div>
-                  <label className="text-xs font-semibold text-gray-600 mb-1.5 block">연락처</label>
+                  <label className="text-xs font-semibold text-white/80 mb-1.5 block">연락처</label>
                   <div className="relative">
-                    <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400">
+                    <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/50">
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
                       </svg>
@@ -238,14 +245,14 @@ export default function LoginPage() {
                     <input type="tel" value={custPhone} onChange={e => setCustPhone(e.target.value)}
                       placeholder="01012345678" autoComplete="tel"
                       onKeyDown={e => e.key === 'Enter' && handleCustomerLogin()}
-                      className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl text-sm bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all" />
+                      className="w-full pl-10 pr-4 py-3 border border-white/20 rounded-xl text-sm bg-white/15 text-white placeholder-white/40 focus:bg-white/25 focus:outline-none focus:ring-2 focus:ring-sky-400 focus:border-transparent transition-all" />
                   </div>
                 </div>
 
                 <div>
-                  <label className="text-xs font-semibold text-gray-600 mb-1.5 block">비밀번호</label>
+                  <label className="text-xs font-semibold text-white/80 mb-1.5 block">비밀번호</label>
                   <div className="relative">
-                    <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400">
+                    <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/50">
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                       </svg>
@@ -254,9 +261,9 @@ export default function LoginPage() {
                       onChange={e => setCustPassword(e.target.value)} placeholder="비밀번호 입력"
                       autoComplete="current-password"
                       onKeyDown={e => e.key === 'Enter' && handleCustomerLogin()}
-                      className="w-full pl-10 pr-10 py-3 border border-gray-200 rounded-xl text-sm bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all" />
+                      className="w-full pl-10 pr-10 py-3 border border-white/20 rounded-xl text-sm bg-white/15 text-white placeholder-white/40 focus:bg-white/25 focus:outline-none focus:ring-2 focus:ring-sky-400 focus:border-transparent transition-all" />
                     <button type="button" onClick={() => setShowCustPw(v => !v)}
-                      className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                      className="absolute right-3.5 top-1/2 -translate-y-1/2 text-white/40 hover:text-white/80">
                       <EyeIcon open={showCustPw} />
                     </button>
                   </div>
@@ -276,16 +283,16 @@ export default function LoginPage() {
                   ) : '로그인'}
                 </button>
 
-                <p className="text-center text-xs text-gray-400 pt-1">
+                <p className="text-center text-xs text-white/50 pt-1">
                   로그인 정보는{' '}
-                  <span className="text-blue-500 font-medium">031-759-4877</span>로 문의하세요
+                  <span className="text-sky-300 font-medium">031-759-4877</span>로 문의하세요
                 </p>
               </div>
             )}
           </div>
         </div>
 
-        <p className="text-center text-xs text-gray-400 mt-6">© 2025 BBK Korea. All rights reserved.</p>
+        <p className="text-center text-xs text-white/40 mt-6">© 2025 BBK Korea. All rights reserved.</p>
       </div>
     </div>
   )

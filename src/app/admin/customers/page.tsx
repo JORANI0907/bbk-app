@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import toast from 'react-hot-toast'
-import { CustomerRequestsPanel } from '@/components/admin/CustomerRequestsPanel'
 
 // ─── 타입 ─────────────────────────────────────────────────────
 type CustomerType = '1회성케어' | '정기딥케어' | '정기엔드케어'
@@ -299,11 +298,6 @@ export default function AdminCustomersPage() {
   const [saving, setSaving] = useState(false)
   const [notifyType, setNotifyType] = useState('')
   const [sending, setSending] = useState(false)
-  const [portalInfo, setPortalInfo] = useState<{ phone: string; password: string } | null>(null)
-  const [pwModal, setPwModal] = useState(false)
-  const [newPw, setNewPw] = useState('')
-  const [settingPw, setSettingPw] = useState(false)
-  const [creatingAccount, setCreatingAccount] = useState(false)
   const [checkedIds, setCheckedIds] = useState<string[]>([])
   const [bulkCreating, setBulkCreating] = useState(false)
   const [visitWeekdays, setVisitWeekdays] = useState<number[]>([])
@@ -471,11 +465,7 @@ export default function AdminCustomersPage() {
         setCustomers(prev => [newCustomer, ...prev])
         handleSelect(newCustomer)
         setIsNew(false)
-        if (data.generatedPassword && form.contact_phone) {
-          setPortalInfo({ phone: form.contact_phone, password: data.generatedPassword })
-        } else {
-          toast.success('고객이 추가되었습니다.')
-        }
+        toast.success('고객이 추가되었습니다.')
       } else if (selected) {
         const res = await fetch('/api/admin/customers', {
           method: 'PATCH', headers: { 'Content-Type': 'application/json' },
@@ -491,57 +481,6 @@ export default function AdminCustomersPage() {
     } catch (e) {
       toast.error(e instanceof Error ? e.message : '저장 실패')
     } finally { setSaving(false) }
-  }
-
-  const handleSetPassword = async () => {
-    if (!selected) return
-    if (newPw.length < 6) { toast.error('비밀번호는 6자 이상이어야 합니다.'); return }
-    setSettingPw(true)
-    try {
-      const res = await fetch('/api/admin/customers/set-password', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          customer_id: selected.id,
-          name: selected.contact_name || selected.business_name,
-          phone: selected.contact_phone,
-          password: newPw,
-        }),
-      })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || '설정 실패')
-      toast.success('포털 비밀번호가 설정되었습니다.')
-      setPwModal(false)
-      setNewPw('')
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : '설정 실패')
-    } finally { setSettingPw(false) }
-  }
-
-  const handleCreateAccount = async () => {
-    if (!selected) return
-    const name = selected.contact_name || selected.business_name
-    const phone = (selected.contact_phone ?? '').replace(/-/g, '')
-    if (!phone) { toast.error('연락처가 없습니다.'); return }
-    if (phone.length < 6) { toast.error('연락처가 올바르지 않습니다.'); return }
-    setCreatingAccount(true)
-    try {
-      const res = await fetch('/api/admin/customers/set-password', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          customer_id: selected.id,
-          name,
-          phone: selected.contact_phone,
-          password: phone,
-        }),
-      })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || '계정 생성 실패')
-      setPortalInfo({ phone: name, password: phone })
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : '계정 생성 실패')
-    } finally { setCreatingAccount(false) }
   }
 
   const handleDelete = async () => {
@@ -1058,16 +997,18 @@ export default function AdminCustomersPage() {
               </div>
             </div>
 
-            {/* 결제정보 */}
+            {/* 결제정보 — worker 숨김 */}
+            {!isWorker && (
             <div className="bg-gray-50 rounded-xl p-4 flex flex-col gap-3">
               <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">결제정보</p>
               <SelectField label="결제방법" value={form.payment_method} options={PAYMENT_METHODS} onChange={set('payment_method')} />
               <Field label="계좌번호" value={form.account_number} onChange={set('account_number')} mono />
               <Field label="사업자번호" value={form.business_number} onChange={set('business_number')} mono />
             </div>
+            )}
 
-            {/* ── 정기엔드케어 계약 ── */}
-            {isEndCare && (
+            {/* ── 정기엔드케어 계약 — worker 숨김 ── */}
+            {!isWorker && isEndCare && (
               <div className="rounded-xl border border-purple-200 overflow-hidden">
                 <div className="bg-purple-50 px-4 py-2.5 border-b border-purple-200">
                   <p className="text-xs font-semibold text-purple-800">정기엔드케어 계약 정보</p>
@@ -1210,8 +1151,8 @@ export default function AdminCustomersPage() {
               </div>
             )}
 
-            {/* ── 정기딥케어 계약 ── */}
-            {isDipCare && (
+            {/* ── 정기딥케어 계약 — worker 숨김 ── */}
+            {!isWorker && isDipCare && (
               <div className="rounded-xl border border-blue-200 overflow-hidden">
                 <div className="bg-blue-50 px-4 py-2.5 border-b border-blue-200">
                   <p className="text-xs font-semibold text-blue-800">정기딥케어 계약 정보</p>
@@ -1385,29 +1326,8 @@ export default function AdminCustomersPage() {
               </div>
             )}
 
-            {/* 계정 생성 (정기고객만, admin 전용) */}
-            {!isWorker && !isNew && selected && (selected.customer_type === '정기딥케어' || selected.customer_type === '정기엔드케어') && (
-              <button
-                onClick={handleCreateAccount}
-                disabled={creatingAccount}
-                className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white text-sm font-semibold rounded-lg transition-colors"
-              >
-                {creatingAccount ? '생성 중...' : '🔐 계정 생성'}
-              </button>
-            )}
-
-            {/* 포털 비밀번호 설정 (기존 고객만, admin 전용) */}
-            {!isWorker && !isNew && selected && (
-              <button
-                onClick={() => { setNewPw(''); setPwModal(true) }}
-                className="w-full py-2.5 bg-gray-100 text-gray-700 text-sm font-semibold rounded-lg hover:bg-gray-200 transition-colors"
-              >
-                🔑 포털 비밀번호 설정 / 재설정
-              </button>
-            )}
-
-            {/* 알림 발송 (정기케어만) */}
-            {!isNew && selected && isRegular && (
+            {/* 알림 발송 (정기케어만, 관리자만) */}
+            {!isWorker && !isNew && selected && isRegular && (
               <div className="border border-gray-100 rounded-xl overflow-hidden">
                 <p className="text-xs font-semibold text-gray-500 px-4 py-2.5 bg-gray-50 border-b border-gray-100">고객 알림 발송</p>
                 <div className="p-4 space-y-3">
@@ -1443,93 +1363,10 @@ export default function AdminCustomersPage() {
               </div>
             )}
 
-            {/* 요청사항 이력 + 담당자 메모 관리 */}
-            {!isNew && selected && (
-              <CustomerRequestsPanel customerId={selected.id} />
-            )}
           </div>
         </div>
       )}
 
-      {/* 포털 비밀번호 설정 모달 */}
-      {pwModal && selected && (
-        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6 flex flex-col gap-4">
-            <h3 className="font-bold text-gray-900">포털 비밀번호 설정</h3>
-            <div className="bg-gray-50 rounded-xl p-3 text-xs text-gray-600 space-y-1">
-              <p><span className="text-gray-400">업체명</span> · {selected.business_name}</p>
-              <p><span className="text-gray-400">연락처</span> · {selected.contact_phone}</p>
-              <p className="text-gray-400 pt-1">로그인 ID는 전화번호로 자동 설정됩니다.</p>
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">새 비밀번호 (6자 이상)</label>
-              <input
-                type="text"
-                value={newPw}
-                onChange={e => setNewPw(e.target.value)}
-                placeholder="비밀번호 입력"
-                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                autoFocus
-              />
-            </div>
-            <div className="flex gap-3">
-              <button
-                onClick={() => { setPwModal(false); setNewPw('') }}
-                className="flex-1 py-2 rounded-xl border border-gray-200 text-gray-600 text-sm font-medium hover:bg-gray-50 transition-colors"
-              >
-                취소
-              </button>
-              <button
-                onClick={handleSetPassword}
-                disabled={settingPw || newPw.length < 6}
-                className="flex-1 py-2 rounded-xl bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 disabled:opacity-50 transition-colors"
-              >
-                {settingPw ? '설정 중...' : '설정'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* 포털 계정 자동 생성 결과 모달 */}
-      {portalInfo && (
-        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6 flex flex-col gap-4">
-            <div className="text-center">
-              <div className="text-3xl mb-2">🎉</div>
-              <h3 className="font-bold text-gray-900">고객 포털 계정이 생성됐습니다</h3>
-              <p className="text-xs text-gray-500 mt-1">고객에게 아래 로그인 정보를 전달해주세요.</p>
-            </div>
-            <div className="bg-blue-50 rounded-xl p-4 space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-gray-500 w-16 shrink-0">아이디 (ID)</span>
-                <span className="text-sm font-semibold text-gray-800 flex-1 text-right">{portalInfo.phone}</span>
-                <button
-                  onClick={() => { navigator.clipboard.writeText(portalInfo.phone); toast.success('복사됨') }}
-                  className="ml-2 text-xs text-blue-600 hover:text-blue-800 px-2 py-1 rounded-lg hover:bg-blue-100 transition-colors"
-                >복사</button>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-gray-500 w-16 shrink-0">비밀번호</span>
-                <span className="font-mono text-sm font-semibold text-gray-800 flex-1 text-right tracking-widest">{portalInfo.password}</span>
-                <button
-                  onClick={() => { navigator.clipboard.writeText(portalInfo.password); toast.success('복사됨') }}
-                  className="ml-2 text-xs text-blue-600 hover:text-blue-800 px-2 py-1 rounded-lg hover:bg-blue-100 transition-colors"
-                >복사</button>
-              </div>
-            </div>
-            <div className="bg-gray-50 rounded-xl px-3 py-2 text-xs text-gray-500 text-center">
-              ID는 성함, 비밀번호는 연락처(하이픈 없이)입니다.
-            </div>
-            <button
-              onClick={() => setPortalInfo(null)}
-              className="w-full py-2.5 text-sm font-semibold text-white bg-blue-600 rounded-xl hover:bg-blue-700 transition-colors"
-            >
-              확인
-            </button>
-          </div>
-        </div>
-      )}
     </div>
     </>
   )

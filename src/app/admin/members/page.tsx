@@ -41,6 +41,19 @@ export default function MembersPage() {
   const [settingPw, setSettingPw] = useState(false)
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [approvingId, setApprovingId] = useState<string | null>(null)
+  const [sendingId, setSendingId] = useState<string | null>(null)
+
+  // 현재 로그인 사용자
+  const [currentRole, setCurrentRole] = useState<string>('admin')
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null)
+  const [currentUser, setCurrentUser] = useState<User | null>(null)
+
+  // worker 자신의 PW 변경
+  const [selfNewPw, setSelfNewPw] = useState('')
+  const [selfConfirmPw, setSelfConfirmPw] = useState('')
+  const [selfSaving, setSelfSaving] = useState(false)
+
+  const isWorker = currentRole === 'worker'
 
   const fetchUsers = async () => {
     const res = await fetch('/api/admin/users')
@@ -48,6 +61,24 @@ export default function MembersPage() {
     setUsers(data.users ?? [])
     setLoading(false)
   }
+
+  useEffect(() => {
+    fetch('/api/auth/me').then(r => r.json()).then(d => {
+      if (d.user) {
+        setCurrentRole(d.user.role ?? 'admin')
+        setCurrentUserId(d.user.userId ?? null)
+      }
+    }).catch(() => {})
+    fetchUsers()
+  }, [])
+
+  // 현재 사용자 정보 추출 (worker 뷰용)
+  useEffect(() => {
+    if (currentUserId && users.length > 0) {
+      const me = users.find(u => u.id === currentUserId) ?? null
+      setCurrentUser(me)
+    }
+  }, [currentUserId, users])
 
   const handleApprove = async (user: User) => {
     setApprovingId(user.id)
@@ -172,11 +203,54 @@ export default function MembersPage() {
       toast.success(pwModal.hasAuth ? `${pwModal.name} 비밀번호가 변경되었습니다.` : `${pwModal.name} 로그인 계정이 생성되었습니다.`)
       setPwModal(null)
       setNewPassword('')
-      fetchUsers() // auth_id 업데이트 반영
+      fetchUsers()
     } catch (err) {
       toast.error(err instanceof Error ? err.message : '비밀번호 변경 실패')
     } finally {
       setSettingPw(false)
+    }
+  }
+
+  const handleSendAccount = async (user: User) => {
+    const phone = (user.phone ?? '').replace(/-/g, '')
+    if (!phone) { toast.error('전화번호가 없습니다.'); return }
+    setSendingId(user.id)
+    try {
+      const res = await fetch('/api/admin/members/send-account', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: user.id }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error)
+      toast.success(`${user.name}님께 계정 정보를 발송했습니다.`)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : '발송 실패')
+    } finally {
+      setSendingId(null)
+    }
+  }
+
+  const handleSelfPasswordChange = async () => {
+    if (!currentUser) return
+    if (selfNewPw.length < 8) { toast.error('비밀번호는 8자 이상이어야 합니다.'); return }
+    if (selfNewPw !== selfConfirmPw) { toast.error('비밀번호가 일치하지 않습니다.'); return }
+    setSelfSaving(true)
+    try {
+      const res = await fetch('/api/admin/users', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: currentUser.id, reset_password: true, new_password: selfNewPw }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error)
+      toast.success('비밀번호가 변경되었습니다.')
+      setSelfNewPw('')
+      setSelfConfirmPw('')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : '변경 실패')
+    } finally {
+      setSelfSaving(false)
     }
   }
 
@@ -185,14 +259,103 @@ export default function MembersPage() {
     ? users.filter(u => u.is_active || u.role !== 'worker')
     : users.filter(u => u.role === filterRole && (u.is_active || u.role !== 'worker'))
 
+  // ── 직원(worker) 뷰: 본인 계정 정보 + PW 변경 ──
+  if (isWorker) {
+    return (
+      <div className="p-6 max-w-md mx-auto">
+        <h1 className="text-2xl font-bold text-gray-900 mb-1">내 계정</h1>
+        <p className="text-sm text-gray-500 mb-6">내 계정 정보를 확인하고 비밀번호를 변경할 수 있습니다.</p>
+
+        {loading ? (
+          <div className="text-center py-12 text-gray-400 text-sm">불러오는 중...</div>
+        ) : currentUser ? (
+          <div className="space-y-4">
+            {/* 계정 정보 */}
+            <Card className="p-5">
+              <div className="flex items-center gap-4 mb-4">
+                <div className="w-14 h-14 rounded-full bg-blue-100 flex items-center justify-center font-bold text-blue-600 text-xl">
+                  {currentUser.name[0]}
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-gray-900">{currentUser.name}</span>
+                    <Badge variant={ROLE_BADGE[currentUser.role]}>{ROLE_LABELS[currentUser.role]}</Badge>
+                  </div>
+                  <p className="text-sm text-gray-500 mt-0.5">{currentUser.phone}</p>
+                  {currentUser.email && <p className="text-xs text-gray-400">{currentUser.email}</p>}
+                </div>
+              </div>
+              <div className="bg-gray-50 rounded-xl p-3 space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-500">이름</span>
+                  <span className="font-medium text-gray-800">{currentUser.name}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-500">전화번호</span>
+                  <span className="font-medium text-gray-800">{currentUser.phone}</span>
+                </div>
+                {currentUser.email && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-500">이메일</span>
+                    <span className="font-medium text-gray-800">{currentUser.email}</span>
+                  </div>
+                )}
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-500">로그인 계정</span>
+                  <span className={`font-medium ${currentUser.auth_id ? 'text-green-600' : 'text-gray-400'}`}>
+                    {currentUser.auth_id ? '활성' : '미설정'}
+                  </span>
+                </div>
+              </div>
+            </Card>
+
+            {/* 비밀번호 변경 */}
+            <Card className="p-5">
+              <h2 className="font-semibold text-gray-900 mb-4">비밀번호 변경</h2>
+              <div className="space-y-3">
+                <div>
+                  <label className="text-xs font-medium text-gray-600 mb-1.5 block">새 비밀번호 (8자 이상)</label>
+                  <input
+                    type="password"
+                    value={selfNewPw}
+                    onChange={e => setSelfNewPw(e.target.value)}
+                    placeholder="새 비밀번호"
+                    className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-gray-600 mb-1.5 block">비밀번호 확인</label>
+                  <input
+                    type="password"
+                    value={selfConfirmPw}
+                    onChange={e => setSelfConfirmPw(e.target.value)}
+                    placeholder="비밀번호 재입력"
+                    className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                {selfNewPw && selfConfirmPw && selfNewPw !== selfConfirmPw && (
+                  <p className="text-xs text-red-500">비밀번호가 일치하지 않습니다.</p>
+                )}
+                <Button
+                  onClick={handleSelfPasswordChange}
+                  isLoading={selfSaving}
+                  className="w-full"
+                >
+                  비밀번호 변경
+                </Button>
+              </div>
+            </Card>
+          </div>
+        ) : (
+          <div className="text-center py-12 text-gray-400 text-sm">계정 정보를 불러올 수 없습니다.</div>
+        )}
+      </div>
+    )
+  }
+
+  // ── 관리자 뷰 ──
   return (
     <div className="p-6 max-w-2xl mx-auto">
-      {/* 탭 네비게이션 */}
-      <div className="flex gap-1.5 mb-4">
-        <a href="/admin/workers" className="px-4 py-2 text-gray-600 hover:bg-gray-100 text-sm font-medium rounded-xl transition-colors">👷 직원정보</a>
-        <span className="px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-xl">🔑 계정관리</span>
-      </div>
-
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">회원 관리</h1>
@@ -347,7 +510,7 @@ export default function MembersPage() {
             <p className="text-sm text-gray-500 mb-4">
               {pwModal.hasAuth
                 ? `${pwModal.name} 계정의 비밀번호를 변경합니다.`
-                : `${pwModal.name} 계정에 로그인 비밀번호를 새로 설정합니다. 이메일/전화번호로 로그인이 가능해집니다.`}
+                : `${pwModal.name} 계정에 로그인 비밀번호를 새로 설정합니다.`}
             </p>
             <input
               type="password"
@@ -381,13 +544,13 @@ export default function MembersPage() {
         <div className="space-y-2">
           {filtered.map(user => (
             <Card key={user.id} className="p-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center font-semibold text-blue-600 text-sm">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center font-semibold text-blue-600 text-sm shrink-0">
                     {user.name[0]}
                   </div>
-                  <div>
-                    <div className="flex items-center gap-2">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <span className="font-semibold text-gray-900 text-sm">{user.name}</span>
                       <Badge variant={ROLE_BADGE[user.role]}>{ROLE_LABELS[user.role]}</Badge>
                       {!user.is_active && <Badge variant="default">비활성</Badge>}
@@ -397,7 +560,17 @@ export default function MembersPage() {
                     {user.email && <p className="text-xs text-gray-400">{user.email}</p>}
                   </div>
                 </div>
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-1 shrink-0 flex-wrap justify-end">
+                  {/* 계정 발송 — admin/worker 역할에만 */}
+                  {(user.role === 'admin' || user.role === 'worker') && (
+                    <button
+                      onClick={() => handleSendAccount(user)}
+                      disabled={sendingId === user.id}
+                      className="px-2.5 py-1 text-xs bg-kakao text-yellow-900 bg-yellow-300 hover:bg-yellow-400 rounded-lg font-medium disabled:opacity-40 whitespace-nowrap"
+                    >
+                      {sendingId === user.id ? '발송 중...' : '계정 발송'}
+                    </button>
+                  )}
                   <button
                     onClick={() => handleEdit(user)}
                     className="px-2.5 py-1 text-xs text-gray-500 hover:bg-gray-100 rounded-lg"
@@ -408,7 +581,7 @@ export default function MembersPage() {
                     onClick={() => { setPwModal({ id: user.id, name: user.name, hasAuth: !!user.auth_id }); setNewPassword('') }}
                     className="px-2.5 py-1 text-xs text-blue-500 hover:bg-blue-50 rounded-lg"
                   >
-                    {user.auth_id ? '비밀번호 변경' : '비밀번호 설정'}
+                    {user.auth_id ? 'PW 변경' : 'PW 설정'}
                   </button>
                   <button
                     onClick={() => handleToggleActive(user)}
