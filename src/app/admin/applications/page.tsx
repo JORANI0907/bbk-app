@@ -134,6 +134,29 @@ function isMigrationError(msg: string) {
   return msg.includes('does not exist') || msg.includes('column') || msg.includes('no such column')
 }
 
+// ─── 시공일자 → 주차 정보 ────────────────────────────────────
+function getWeekInfo(dateStr: string): { key: string; label: string } {
+  const date = new Date(dateStr.slice(0, 10) + 'T00:00:00+09:00')
+  const dow = date.getDay() // 0=일,1=월,...,6=토
+  const daysToMon = dow === 0 ? -6 : 1 - dow
+  const monday = new Date(date)
+  monday.setDate(date.getDate() + daysToMon)
+  const sunday = new Date(monday)
+  sunday.setDate(monday.getDate() + 6)
+
+  // 해당 월에서 몇 번째 월요일인지 카운트
+  const y = monday.getFullYear()
+  const m = monday.getMonth()
+  let weekNum = 0
+  for (let d = 1; d <= monday.getDate(); d++) {
+    if (new Date(y, m, d).getDay() === 1) weekNum++
+  }
+
+  const fm = (d: Date) => `${d.getMonth() + 1}/${d.getDate()}`
+  const label = `${m + 1}월 ${weekNum}주차 (${fm(monday)} ~ ${fm(sunday)})`
+  return { key: `${y}-${m + 1}-w${weekNum}`, label }
+}
+
 function sortApplications(apps: Application[], field: SortField, dir: SortDir): Application[] {
   return [...apps].sort((a, b) => {
     let va: string | null = null
@@ -1363,14 +1386,32 @@ export default function ServiceManagementPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {rows.map(app => {
+                    {(() => {
+                      let lastWeekKey = ''
+                      return rows.flatMap(app => {
+                        const cells: React.ReactNode[] = []
+                        // 주차 헤더 삽입
+                        if (app.construction_date) {
+                          const { key, label } = getWeekInfo(app.construction_date)
+                          if (key !== lastWeekKey) {
+                            lastWeekKey = key
+                            cells.push(
+                              <tr key={`wk-${key}`} className="bg-gradient-to-r from-blue-50 to-indigo-50 border-t-2 border-blue-200">
+                                <td colSpan={10} className="px-4 py-1.5">
+                                  <span className="text-xs font-bold text-blue-700 tracking-wide">{label}</span>
+                                </td>
+                              </tr>
+                            )
+                          }
+                        }
+
                       const lastLog = (allNotifyLogs[app.id] || [])[0]
                       const notifyCfg = lastLog ? NOTIFY_TYPE_CONFIG[lastLog.type] : null
                       const total = rowTotal(app)
                       const statusCfg = STATUS_CONFIG[app.status]
                       const isSelected = selected?.id === app.id || checkedIds.includes(app.id)
                       const rowBg = isSelected ? 'bg-blue-100' : (statusCfg?.row ?? 'bg-white')
-                      return (
+                      cells.push(
                         <tr key={app.id}
                           ref={el => { rowRefs.current[app.id] = el }}
                           onClick={() => handleSelect(app)}
@@ -1428,7 +1469,9 @@ export default function ServiceManagementPage() {
                           </td>
                         </tr>
                       )
-                    })}
+                      return cells
+                    })
+                  })()}
                   </tbody>
                   <tfoot className="bg-gray-50 border-t-2 border-gray-200 sticky bottom-0">
                     <tr>
