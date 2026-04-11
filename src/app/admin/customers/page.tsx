@@ -51,6 +51,7 @@ interface Customer {
   visit_count_per_month: number | null
   payment_status: string[] | null
   payment_date: number | null
+  assigned_user_id: string | null
   created_at: string
   updated_at: string
 }
@@ -287,7 +288,7 @@ function SelectField({ label, value, options, onChange }: {
 export default function AdminCustomersPage() {
   const [customers, setCustomers] = useState<Customer[]>([])
   const [loading, setLoading] = useState(true)
-  const [typeTab, setTypeTab] = useState<CustomerType | '전체'>('전체')
+  const [selectedTypes, setSelectedTypes] = useState<Set<CustomerType>>(new Set())
   const [search, setSearch] = useState('')
   const [selected, setSelected] = useState<Customer | null>(null)
   const [isNew, setIsNew] = useState(false)
@@ -305,9 +306,11 @@ export default function AdminCustomersPage() {
   const [visitWeekdays, setVisitWeekdays] = useState<number[]>([])
   const [visitMonthlyDates, setVisitMonthlyDates] = useState<number[]>([])
   const [prepaidPeriods, setPrepaidPeriods] = useState(1)
-  // P1-18: 현재 사용자 역할
+  // 현재 사용자 세션
   const [currentRole, setCurrentRole] = useState<string>('admin')
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null)
   const isWorker = currentRole === 'worker'
+  const isAdmin = currentRole === 'admin'
 
   const toggleCheck = (id: string) =>
     setCheckedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
@@ -322,9 +325,11 @@ export default function AdminCustomersPage() {
 
   useEffect(() => {
     fetchAll()
-    // P1-18: 현재 사용자 역할 확인
-    fetch('/api/admin/me').then(r => r.json()).then(d => {
-      if (d.role) setCurrentRole(d.role)
+    fetch('/api/auth/me').then(r => r.json()).then(d => {
+      if (d.user) {
+        setCurrentRole(d.user.role ?? 'admin')
+        setCurrentUserId(d.user.userId ?? null)
+      }
     }).catch(() => { /* 무시 */ })
   }, [fetchAll])
 
@@ -709,24 +714,50 @@ export default function AdminCustomersPage() {
 
   const filtered = useMemo(() => {
     let list = customers
-    if (typeTab !== '전체') list = list.filter(c => (c.customer_type ?? '1회성케어') === typeTab)
+
+    // 비관리자: 담당자(assigned_user_id)가 자신인 고객만
+    if (!isAdmin && currentUserId) {
+      list = list.filter(c => c.assigned_user_id === currentUserId)
+    }
+
+    // 서비스 유형 복수 필터 (비어있으면 전체)
+    if (selectedTypes.size > 0) {
+      list = list.filter(c => selectedTypes.has((c.customer_type ?? '1회성케어') as CustomerType))
+    }
+
+    // 검색: 업체명, 고객명, 연락처, 주소, 케어범위, 계좌번호, 사업자번호
     if (search.trim()) {
       const q = search.trim().toLowerCase()
       list = list.filter(c =>
         c.business_name.toLowerCase().includes(q) ||
         (c.contact_name ?? '').toLowerCase().includes(q) ||
         (c.contact_phone ?? '').toLowerCase().includes(q) ||
-        (c.address ?? '').toLowerCase().includes(q)
+        (c.address ?? '').toLowerCase().includes(q) ||
+        (c.care_scope ?? '').toLowerCase().includes(q) ||
+        (c.account_number ?? '').toLowerCase().includes(q) ||
+        (c.business_number ?? '').toLowerCase().includes(q)
       )
     }
     return list
-  }, [customers, typeTab, search])
+  }, [customers, isAdmin, currentUserId, selectedTypes, search])
+
+  const toggleType = (t: CustomerType) => {
+    setSelectedTypes(prev => {
+      const next = new Set(prev)
+      if (next.has(t)) next.delete(t)
+      else next.add(t)
+      return next
+    })
+  }
 
   const typeCounts = useMemo(() => {
-    const counts: Record<string, number> = { '전체': customers.length }
-    for (const t of CUSTOMER_TYPES) counts[t] = customers.filter(c => (c.customer_type ?? '1회성케어') === t).length
+    const base = (!isAdmin && currentUserId)
+      ? customers.filter(c => c.assigned_user_id === currentUserId)
+      : customers
+    const counts: Record<string, number> = { '전체': base.length }
+    for (const t of CUSTOMER_TYPES) counts[t] = base.filter(c => (c.customer_type ?? '1회성케어') === t).length
     return counts
-  }, [customers])
+  }, [customers, isAdmin, currentUserId])
 
   const isRegular = form.customer_type === '정기딥케어' || form.customer_type === '정기엔드케어'
   const isEndCare = form.customer_type === '정기엔드케어'
@@ -735,12 +766,6 @@ export default function AdminCustomersPage() {
 
   return (
     <>
-      {/* 탭 네비게이션 */}
-      <div className="flex gap-1.5 px-1 mb-4">
-        <a href="/admin/applications" className="px-4 py-2 text-gray-600 hover:bg-gray-100 text-sm font-medium rounded-xl transition-colors">📋 서비스통합관리</a>
-        <span className="px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-xl">👥 고객관리</span>
-      </div>
-
     <div className="relative flex h-full gap-0 min-h-0">
       {/* ── 좌측: 목록 ── */}
       <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
@@ -756,17 +781,29 @@ export default function AdminCustomersPage() {
           </div>
         </div>
 
-        {/* 타입 탭 */}
-        <div className="flex border-b border-gray-200 mb-3">
-          {(['전체', ...CUSTOMER_TYPES] as const).map(t => (
-            <button key={t} onClick={() => setTypeTab(t)}
-              className={`px-3 py-2.5 text-sm font-semibold transition-colors relative whitespace-nowrap ${typeTab === t ? 'text-blue-600 border-b-2 border-blue-600 -mb-px' : 'text-gray-500 hover:text-gray-700'}`}>
-              {t}
-              <span className={`ml-1.5 text-xs px-1.5 py-0.5 rounded-full ${typeTab === t ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-500'}`}>
-                {typeCounts[t] ?? 0}
-              </span>
+        {/* 서비스 유형 체크박스 복수선택 */}
+        <div className="flex flex-wrap gap-1.5 mb-3">
+          <span className="text-xs text-gray-500 self-center mr-0.5">유형</span>
+          {CUSTOMER_TYPES.map(t => {
+            const checked = selectedTypes.has(t)
+            return (
+              <button key={t} onClick={() => toggleType(t)}
+                className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium border transition-colors ${
+                  checked ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-200 hover:border-blue-400'
+                }`}>
+                <span>{t}</span>
+                <span className={`text-xs px-1 py-0.5 rounded-full ${checked ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-500'}`}>
+                  {typeCounts[t] ?? 0}
+                </span>
+              </button>
+            )
+          })}
+          {selectedTypes.size > 0 && (
+            <button onClick={() => setSelectedTypes(new Set())}
+              className="px-2 py-1 text-xs text-gray-400 hover:text-gray-600 border border-gray-200 rounded-lg bg-white">
+              전체 ({typeCounts['전체'] ?? 0})
             </button>
-          ))}
+          )}
         </div>
 
         {/* 액션 바 */}
@@ -906,9 +943,9 @@ export default function AdminCustomersPage() {
               </div>
             </div>
 
-            {/* 기본 정보 */}
+            {/* 일반정보 */}
             <div className="bg-gray-50 rounded-xl p-4 flex flex-col gap-3">
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">기본 정보</p>
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">일반정보</p>
               <Field label="업체명 *" value={form.business_name} onChange={set('business_name')} />
               <Field label="대표자명" value={form.contact_name} onChange={set('contact_name')} />
               <Field label="플랫폼 닉네임" value={form.platform_nickname} onChange={set('platform_nickname')} placeholder="네이버, 카카오 등" />
@@ -921,48 +958,68 @@ export default function AdminCustomersPage() {
                 </div>
               </div>
               <Field label="이메일" value={form.email} onChange={set('email')} />
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-gray-500 w-24 shrink-0">주소</span>
-                <div className="flex flex-1 gap-1">
-                  <input value={form.address} onChange={e => set('address')(e.target.value)}
-                    className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                  <button onClick={() => window.open(`https://map.naver.com/v5/search/${encodeURIComponent(form.address)}`, '_blank')}
-                    className="px-2 py-1.5 text-xs bg-green-50 text-green-700 rounded-lg hover:bg-green-100 shrink-0">🗺️</button>
+            </div>
+
+            {/* 작업장정보 */}
+            <div className="rounded-xl border border-green-200 overflow-hidden">
+              <div className="bg-green-50 px-4 py-2.5 border-b border-green-200">
+                <p className="text-xs font-semibold text-green-800">작업장정보</p>
+              </div>
+              <div className="p-4 flex flex-col gap-3">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-gray-500 w-24 shrink-0">주소</span>
+                  <div className="flex flex-1 gap-1">
+                    <input value={form.address} onChange={e => set('address')(e.target.value)}
+                      className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-green-500" />
+                    <button onClick={() => window.open(`https://map.naver.com/v5/search/${encodeURIComponent(form.address)}`, '_blank')}
+                      className="px-2 py-1.5 text-xs bg-green-50 text-green-700 rounded-lg hover:bg-green-100 shrink-0">🗺️</button>
+                  </div>
+                </div>
+                <Field label="상세주소" value={form.address_detail} onChange={set('address_detail')} />
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-gray-500 w-24 shrink-0">영업시간</span>
+                  <div className="flex items-center gap-1 flex-1">
+                    <input type="time" value={form.business_hours_start} onChange={e => set('business_hours_start')(e.target.value)}
+                      className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-green-500" />
+                    <span className="text-gray-400 text-xs">~</span>
+                    <input type="time" value={form.business_hours_end} onChange={e => set('business_hours_end')(e.target.value)}
+                      className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-green-500" />
+                  </div>
+                </div>
+                <SelectField label="엘리베이터" value={form.elevator} options={ELEVATOR_OPTIONS} onChange={set('elevator')} />
+                <SelectField label="건물출입" value={form.building_access} options={BUILDING_ACCESS_OPTIONS} onChange={set('building_access')} />
+                <SelectField label="주차" value={form.parking_info} options={PARKING_OPTIONS} onChange={set('parking_info')} />
+                <Field label="출입방법" value={form.access_method} onChange={set('access_method')} placeholder="출입 방법 메모" />
+                <Field label="출입번호" value={form.door_password} onChange={set('door_password')} placeholder="도어락 비밀번호" />
+              </div>
+            </div>
+
+            {/* 시공정보 */}
+            <div className="rounded-xl border border-green-200 overflow-hidden">
+              <div className="bg-green-50 px-4 py-2.5 border-b border-green-200">
+                <p className="text-xs font-semibold text-green-800">시공정보</p>
+              </div>
+              <div className="p-4 flex flex-col gap-3">
+                <div className="flex items-start gap-2">
+                  <span className="text-xs text-gray-500 w-24 shrink-0 pt-1.5">요청사항</span>
+                  <textarea value={form.special_notes} onChange={e => set('special_notes')(e.target.value)} rows={2}
+                    className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-green-500 resize-none" />
+                </div>
+                <div className="flex items-start gap-2">
+                  <span className="text-xs text-gray-500 w-24 shrink-0 pt-1.5">케어범위</span>
+                  <textarea value={form.care_scope} onChange={e => set('care_scope')(e.target.value)} rows={3}
+                    placeholder="케어 범위를 입력하세요&#10;예) 주방, 화장실 2개, 사무실 전체"
+                    className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-green-500 resize-none" />
                 </div>
               </div>
-              <Field label="상세주소" value={form.address_detail} onChange={set('address_detail')} />
+            </div>
+
+            {/* 결제정보 */}
+            <div className="bg-gray-50 rounded-xl p-4 flex flex-col gap-3">
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">결제정보</p>
               <Field label="사업자번호" value={form.business_number} onChange={set('business_number')} mono />
               <Field label="계좌번호" value={form.account_number} onChange={set('account_number')} mono />
               <SelectField label="결제방법" value={form.payment_method} options={PAYMENT_METHODS} onChange={set('payment_method')} />
-              {/* 영업시간 */}
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-gray-500 w-24 shrink-0">영업시간</span>
-                <div className="flex items-center gap-1 flex-1">
-                  <input type="time" value={form.business_hours_start} onChange={e => set('business_hours_start')(e.target.value)}
-                    className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                  <span className="text-gray-400 text-xs">~</span>
-                  <input type="time" value={form.business_hours_end} onChange={e => set('business_hours_end')(e.target.value)}
-                    className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                </div>
-              </div>
-              <SelectField label="엘리베이터" value={form.elevator} options={ELEVATOR_OPTIONS} onChange={set('elevator')} />
-              <SelectField label="건물출입" value={form.building_access} options={BUILDING_ACCESS_OPTIONS} onChange={set('building_access')} />
-              <SelectField label="주차" value={form.parking_info} options={PARKING_OPTIONS} onChange={set('parking_info')} />
-              <Field label="출입방법" value={form.access_method} onChange={set('access_method')} placeholder="출입 방법 메모" />
-              <Field label="출입번호" value={form.door_password} onChange={set('door_password')} placeholder="도어락 비밀번호" />
-              {/* 요청사항 */}
-              <div className="flex items-start gap-2">
-                <span className="text-xs text-gray-500 w-24 shrink-0 pt-1.5">요청사항</span>
-                <textarea value={form.special_notes} onChange={e => set('special_notes')(e.target.value)} rows={2}
-                  className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none" />
-              </div>
-              {/* 케어범위 */}
-              <div className="flex items-start gap-2">
-                <span className="text-xs text-gray-500 w-24 shrink-0 pt-1.5">케어범위</span>
-                <textarea value={form.care_scope} onChange={e => set('care_scope')(e.target.value)} rows={3}
-                  placeholder="케어 범위를 입력하세요&#10;예) 주방, 화장실 2개, 사무실 전체"
-                  className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none" />
-              </div>
             </div>
 
             {/* ── 정기엔드케어 계약 ── */}
