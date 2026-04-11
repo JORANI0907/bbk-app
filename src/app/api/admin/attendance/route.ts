@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { getServerSession } from '@/lib/session'
+import { sendSlack } from '@/lib/slack'
 
 const ALLOWED_POST = ['worker_id', 'work_date', 'clock_in', 'clock_out', 'notes',
   'clock_in_lat', 'clock_in_lng', 'clock_out_lat', 'clock_out_lng', 'worker_name', 'status',
@@ -65,6 +66,12 @@ export async function POST(request: NextRequest) {
     .single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  // Slack 알림 (fire-and-forget)
+  const workerName = (insert.worker_name as string) ?? session.name
+  const clockType = insert.clock_out ? '퇴근' : '출근'
+  sendSlack(`[출퇴근] ${workerName} ${clockType}`).catch(() => {})
+
   return NextResponse.json({ data }, { status: 201 })
 }
 

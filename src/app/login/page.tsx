@@ -52,6 +52,11 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false)
   const [showEmpPw, setShowEmpPw] = useState(false)
   const [showCustPw, setShowCustPw] = useState(false)
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   useEffect(() => {
     const hash = window.location.hash
@@ -116,7 +121,7 @@ export default function LoginPage() {
       <div className="absolute bottom-0 right-0 w-96 h-96 rounded-full opacity-15 translate-x-1/3 translate-y-1/3"
         style={{ background: 'radial-gradient(circle, #6366f1 0%, transparent 70%)' }} />
 
-      <div className="w-full max-w-sm relative z-10">
+      <div className={`w-full max-w-sm relative z-10 transition-all duration-700 ease-out ${mounted ? 'opacity-100 scale-100' : 'opacity-0 scale-95'}`}>
 
         {/* 로고 */}
         <div className="text-center mb-8">

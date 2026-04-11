@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { getServerSession } from '@/lib/session'
+import { sendSlack } from '@/lib/slack'
 
 const ALLOWED_POST = ['type', 'incident_date', 'location', 'description', 'action_taken']
 const ALLOWED_PATCH_ADMIN = ['status', 'admin_comment']
@@ -63,6 +64,11 @@ export async function POST(request: NextRequest) {
     .single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  // Slack 알림 (fire-and-forget)
+  const title = (insert.type as string) ?? '경위서'
+  sendSlack(`[경위서] ${title} 제출 (${session.name})`).catch(() => {})
+
   return NextResponse.json({ data }, { status: 201 })
 }
 

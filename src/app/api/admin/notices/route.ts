@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { getServerSession } from '@/lib/session'
+import { sendSlack } from '@/lib/slack'
 
 export async function GET() {
   const supabase = createServiceClient()
@@ -42,6 +43,10 @@ export async function POST(req: NextRequest) {
     .single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  // Slack 알림 (fire-and-forget)
+  sendSlack(`[공지등록] ${title.trim()}`).catch(() => {})
+
   return NextResponse.json({ notice: data })
 }
 

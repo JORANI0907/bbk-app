@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { signInWithPassword } from '@/lib/auth-helpers'
+import { sendSlack } from '@/lib/slack'
 
 export async function POST(request: NextRequest) {
   try {
@@ -35,6 +36,9 @@ export async function POST(request: NextRequest) {
     if (user.role === 'customer') {
       return NextResponse.json({ error: '고객은 고객 탭에서 로그인해주세요.' }, { status: 403 })
     }
+
+    // Slack 알림 (fire-and-forget)
+    sendSlack(`[로그인] ${user.name} (${user.role}) 로그인`).catch(() => {})
 
     return NextResponse.json({
       success: true,

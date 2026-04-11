@@ -603,6 +603,13 @@ function WorkerCard({
 
 // ─── Unit Price Settings ──────────────────────────────────────────────────────
 
+interface CustomerGroup {
+  business_name: string
+  service_type: string
+  applicationIds: string[]
+  unit_price_per_visit: number | null
+}
+
 function UnitPriceSettings() {
   const [apps, setApps] = useState<UnitPriceApp[]>([])
   const [loading, setLoading] = useState(true)
@@ -623,20 +630,51 @@ function UnitPriceSettings() {
       .finally(() => setLoading(false))
   }, [])
 
-  const handleSave = async (app: UnitPriceApp) => {
-    const val = edits[app.id]
+  // 업체명별로 그룹핑
+  const groups: CustomerGroup[] = (() => {
+    const map = new Map<string, CustomerGroup>()
+    for (const app of apps) {
+      const existing = map.get(app.business_name)
+      if (existing) {
+        existing.applicationIds.push(app.id)
+      } else {
+        map.set(app.business_name, {
+          business_name: app.business_name,
+          service_type: app.service_type,
+          applicationIds: [app.id],
+          unit_price_per_visit: app.unit_price_per_visit,
+        })
+      }
+    }
+    return Array.from(map.values())
+  })()
+
+  const handleSave = async (group: CustomerGroup) => {
+    const val = edits[group.business_name]
     if (val === undefined) return
-    setSaving(app.id)
+    setSaving(group.business_name)
     try {
-      const res = await fetch('/api/admin/applications', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: app.id, unit_price_per_visit: val === '' ? null : Number(val) }),
-      })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error)
-      setApps(prev => prev.map(a => a.id === app.id ? { ...a, unit_price_per_visit: val === '' ? null : Number(val) } : a))
-      setEdits(prev => { const n = { ...prev }; delete n[app.id]; return n })
+      const newPrice = val === '' ? null : Number(val)
+      // 동일 업체의 모든 application에 단가 적용
+      await Promise.all(
+        group.applicationIds.map(id =>
+          fetch('/api/admin/applications', {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id, unit_price_per_visit: newPrice }),
+          }).then(r => r.json()).then(data => {
+            if (data.error) throw new Error(data.error)
+          })
+        )
+      )
+      setApps(prev =>
+        prev.map(a =>
+          group.applicationIds.includes(a.id)
+            ? { ...a, unit_price_per_visit: newPrice }
+            : a
+        )
+      )
+      setEdits(prev => { const n = { ...prev }; delete n[group.business_name]; return n })
       toast.success('단가 저장됨')
     } catch (err) {
       toast.error(err instanceof Error ? err.message : '저장 실패')
@@ -645,8 +683,8 @@ function UnitPriceSettings() {
     }
   }
 
-  const filtered = apps.filter(a =>
-    !search || a.business_name.toLowerCase().includes(search.toLowerCase())
+  const filtered = groups.filter(g =>
+    !search || g.business_name.toLowerCase().includes(search.toLowerCase())
   )
 
   if (loading) {
@@ -656,7 +694,7 @@ function UnitPriceSettings() {
   return (
     <div>
       <div className="mb-4 px-1">
-        <p className="text-xs text-gray-500 mb-3">정기딥케어 · 정기엔드케어 계약의 방문당 단가를 설정합니다.</p>
+        <p className="text-xs text-gray-500 mb-3">정기딥케어 · 정기엔드케어 계약의 방문당 단가를 설정합니다. (업체별 일괄 적용)</p>
         <input
           type="text"
           value={search}
@@ -673,19 +711,17 @@ function UnitPriceSettings() {
         </div>
       ) : (
         <div className="flex flex-col gap-2">
-          {filtered.map(app => {
-            const editVal = edits[app.id]
+          {filtered.map(group => {
+            const editVal = edits[group.business_name]
             const isEditing = editVal !== undefined
             return (
-              <div key={app.id} className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
+              <div key={group.business_name} className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-gray-900 truncate">{app.business_name}</p>
+                    <p className="text-sm font-semibold text-gray-900 truncate">{group.business_name}</p>
                     <div className="flex items-center gap-2 mt-0.5">
-                      <span className="text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full">{app.service_type}</span>
-                      {app.construction_date && (
-                        <span className="text-xs text-gray-400">{fmtDate(app.construction_date)}</span>
-                      )}
+                      <span className="text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full">{group.service_type}</span>
+                      <span className="text-xs text-gray-400">{group.applicationIds.length}건</span>
                     </div>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
@@ -694,20 +730,20 @@ function UnitPriceSettings() {
                         <input
                           type="number"
                           value={editVal}
-                          onChange={e => setEdits(prev => ({ ...prev, [app.id]: e.target.value }))}
+                          onChange={e => setEdits(prev => ({ ...prev, [group.business_name]: e.target.value }))}
                           className="w-28 px-2 py-1.5 border border-blue-300 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
                           placeholder="금액"
                           autoFocus
                         />
                         <button
-                          onClick={() => handleSave(app)}
-                          disabled={saving === app.id}
+                          onClick={() => handleSave(group)}
+                          disabled={saving === group.business_name}
                           className="px-3 py-1.5 bg-blue-600 text-white text-xs font-semibold rounded-lg hover:bg-blue-700 disabled:opacity-60"
                         >
-                          {saving === app.id ? '...' : '저장'}
+                          {saving === group.business_name ? '...' : '저장'}
                         </button>
                         <button
-                          onClick={() => setEdits(prev => { const n = { ...prev }; delete n[app.id]; return n })}
+                          onClick={() => setEdits(prev => { const n = { ...prev }; delete n[group.business_name]; return n })}
                           className="text-xs text-gray-400 hover:text-gray-600"
                         >
                           취소
@@ -715,11 +751,11 @@ function UnitPriceSettings() {
                       </>
                     ) : (
                       <>
-                        <span className={`text-sm font-bold ${app.unit_price_per_visit ? 'text-orange-600' : 'text-gray-300'}`}>
-                          {app.unit_price_per_visit ? app.unit_price_per_visit.toLocaleString('ko-KR') + '원' : '미설정'}
+                        <span className={`text-sm font-bold ${group.unit_price_per_visit ? 'text-orange-600' : 'text-gray-300'}`}>
+                          {group.unit_price_per_visit ? group.unit_price_per_visit.toLocaleString('ko-KR') + '원' : '미설정'}
                         </span>
                         <button
-                          onClick={() => setEdits(prev => ({ ...prev, [app.id]: String(app.unit_price_per_visit ?? '') }))}
+                          onClick={() => setEdits(prev => ({ ...prev, [group.business_name]: String(group.unit_price_per_visit ?? '') }))}
                           className="text-xs text-gray-400 hover:text-blue-600 px-1"
                         >
                           ✏️

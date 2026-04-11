@@ -25,3 +25,16 @@ body {
     text-wrap: balance;
   }
 }
+
+@keyframes bbk-wobble {
+  0%, 100% { transform: rotate(0deg) scale(1); }
+  15% { transform: rotate(-8deg) scale(1.05); }
+  30% { transform: rotate(6deg) scale(1.05); }
+  45% { transform: rotate(-4deg) scale(1.02); }
+  60% { transform: rotate(3deg) scale(1.02); }
+  75% { transform: rotate(-2deg) scale(1.01); }
+}
+
+.animate-bbk-wobble {
+  animation: bbk-wobble 1.4s ease-in-out infinite;
+}

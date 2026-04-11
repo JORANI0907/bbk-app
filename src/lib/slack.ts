@@ -1,6 +1,16 @@
 // Slack 알림 공통 유틸
 // 환경변수: SLACK_WEBHOOK_URL
 
+export async function sendSlack(text: string): Promise<void> {
+  const webhookUrl = process.env.SLACK_WEBHOOK_URL
+  if (!webhookUrl) return
+  await fetch(webhookUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ text }),
+  }).catch(() => {}) // fire-and-forget, 실패 무시
+}
+
 export interface SlackNotifyOptions {
   notifyType: string
   customerName: string

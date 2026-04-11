@@ -81,13 +81,30 @@ function fmtDate(d: string | null): string {
   return `${yy}.${mm}.${dd}(${dow})`
 }
 
-/** ISO 주차 번호 계산 */
-function getISOWeek(dateStr: string): { year: number; week: number } {
+/** 주차 레이블 계산 - "N월 N주차 (M.D 월 ~ M.D 일)" 형식 */
+function getWeekLabel(dateStr: string): { key: string; label: string } {
   const date = new Date(dateStr.slice(0, 10) + 'T00:00:00')
-  const jan1 = new Date(date.getFullYear(), 0, 1)
-  const dayOfYear = Math.floor((date.getTime() - jan1.getTime()) / 86400000) + 1
-  const week = Math.ceil((dayOfYear + jan1.getDay()) / 7)
-  return { year: date.getFullYear(), week }
+
+  // 해당 주의 월요일 구하기 (일=0 기준으로 조정)
+  const dayOfWeek = date.getDay() // 0=일, 1=월 ... 6=토
+  const daysFromMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1
+  const monday = new Date(date)
+  monday.setDate(date.getDate() - daysFromMonday)
+  const sunday = new Date(monday)
+  sunday.setDate(monday.getDate() + 6)
+
+  // 월요일 기준으로 몇 번째 주인지 (월요일의 날짜를 7로 나눠 올림)
+  const weekOfMonth = Math.ceil(monday.getDate() / 7)
+
+  // 월 기준은 날짜(date)의 월을 사용
+  const month = date.getMonth() + 1
+
+  const mondayStr = `${monday.getMonth() + 1}.${monday.getDate()}`
+  const sundayStr = `${sunday.getMonth() + 1}.${sunday.getDate()}`
+  const key = `${monday.getFullYear()}-${String(monday.getMonth() + 1).padStart(2, '0')}-${String(monday.getDate()).padStart(2, '0')}`
+  const label = `${month}월 ${weekOfMonth}주차 (${mondayStr} 월 ~ ${sundayStr} 일)`
+
+  return { key, label }
 }
 
 const STATUS_CONFIG: Record<string, { badge: string; dot: string }> = {
@@ -728,11 +745,10 @@ export default function SchedulePage() {
     let lastWeekKey = ''
     for (const app of filteredApps) {
       if (app.construction_date) {
-        const { year, week } = getISOWeek(app.construction_date)
-        const weekKey = `${year}-W${week}`
-        if (weekKey !== lastWeekKey) {
-          items.push({ kind: 'week', key: weekKey, label: `${year}년 ${week}주차` })
-          lastWeekKey = weekKey
+        const { key, label } = getWeekLabel(app.construction_date)
+        if (key !== lastWeekKey) {
+          items.push({ kind: 'week', key, label })
+          lastWeekKey = key
         }
       }
       items.push({ kind: 'app', app })

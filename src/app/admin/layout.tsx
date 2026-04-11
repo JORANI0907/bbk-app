@@ -19,7 +19,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
       {/* 메인 콘텐츠 */}
       <main className="flex-1 flex flex-col min-w-0">
-        <div className="flex-1 p-4 md:p-8 pb-20 md:pb-8">
+        <div className="flex-1 p-4 md:p-8 pb-24 md:pb-8">
           {children}
         </div>
       </main>

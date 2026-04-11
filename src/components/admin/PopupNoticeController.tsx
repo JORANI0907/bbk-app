@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { usePathname } from 'next/navigation'
 
 interface PopupNotice {
@@ -26,45 +26,77 @@ const PRIORITY_LABEL: Record<string, string> = {
 
 const TYPE_ICON: Record<string, string> = { notice: '📢', event: '🎉' }
 
+const SESSION_KEY = 'bbk_popup_dismissed'
+
+function getDismissedIds(): string[] {
+  try {
+    const raw = sessionStorage.getItem(SESSION_KEY)
+    return raw ? (JSON.parse(raw) as string[]) : []
+  } catch {
+    return []
+  }
+}
+
+function addDismissedId(id: string): void {
+  try {
+    const current = getDismissedIds()
+    if (!current.includes(id)) {
+      sessionStorage.setItem(SESSION_KEY, JSON.stringify([...current, id]))
+    }
+  } catch {
+    // sessionStorage 접근 불가 시 무시
+  }
+}
+
 export function PopupNoticeController() {
   const pathname = usePathname()
   const [queue, setQueue] = useState<PopupNotice[]>([])
   const [current, setCurrent] = useState<PopupNotice | null>(null)
-  // 이미 표시된 공지 ID 추적 (세션 내 중복 표시 방지 — 탭 변경마다 재표시)
-  const shownInTab = useRef<Set<string>>(new Set())
+  const [dontShow, setDontShow] = useState(false)
   // 최초 로드는 건너뜀 (홈 화면 진입 시 바로 팝업 안 뜨도록)
-  const isFirstLoad = useRef(true)
+  const [isFirstLoad, setIsFirstLoad] = useState(true)
 
   // 탭(pathname) 변경 시 팝업 공지 fetch
   useEffect(() => {
-    if (isFirstLoad.current) {
-      isFirstLoad.current = false
+    if (isFirstLoad) {
+      setIsFirstLoad(false)
       return
     }
-    // 탭 이동 시 shownInTab 초기화 (탭마다 팝업 다시 표시)
-    shownInTab.current = new Set()
 
     fetch('/api/admin/notices')
       .then(r => r.json())
       .then(d => {
+        const dismissed = getDismissedIds()
         const popupNotices: PopupNotice[] = (d.notices ?? []).filter(
-          (n: { popup?: boolean }) => n.popup === true
+          (n: { popup?: boolean; id: string }) =>
+            n.popup === true && !dismissed.includes(n.id)
         )
         if (popupNotices.length > 0) {
           setQueue(popupNotices)
           setCurrent(popupNotices[0])
+          setDontShow(false)
         }
       })
       .catch(() => {})
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathname])
 
   const handleClose = () => {
     if (!current) return
-    shownInTab.current.add(current.id)
-    const remaining = queue.filter(n => !shownInTab.current.has(n.id))
-    if (remaining.length > 0) {
-      setCurrent(remaining[0])
-      setQueue(remaining)
+
+    if (dontShow) {
+      addDismissedId(current.id)
+    }
+
+    const remainingQueue = queue.slice(1)
+    // 남은 큐에서 이미 dismissed된 것 제외
+    const dismissed = getDismissedIds()
+    const nextQueue = remainingQueue.filter(n => !dismissed.includes(n.id))
+
+    if (nextQueue.length > 0) {
+      setCurrent(nextQueue[0])
+      setQueue(nextQueue)
+      setDontShow(false)
     } else {
       setCurrent(null)
       setQueue([])
@@ -72,6 +104,8 @@ export function PopupNoticeController() {
   }
 
   if (!current) return null
+
+  const currentIndex = queue.findIndex(n => n.id === current.id)
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
@@ -90,7 +124,7 @@ export function PopupNoticeController() {
             </span>
             {queue.length > 1 && (
               <span className="text-xs text-gray-400 ml-auto">
-                {queue.indexOf(current) + 1} / {queue.length}
+                {currentIndex + 1} / {queue.length}
               </span>
             )}
           </div>
@@ -110,12 +144,23 @@ export function PopupNoticeController() {
           )}
         </div>
 
-        <div className="px-5 pb-5">
+        <div className="px-5 pb-5 flex flex-col gap-3">
+          {/* 숙지 체크박스 */}
+          <label className="flex items-center gap-2 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={dontShow}
+              onChange={e => setDontShow(e.target.checked)}
+              className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+            />
+            <span className="text-xs text-gray-500">오늘 하루 보지 않기 (앱 종료 전까지)</span>
+          </label>
+
           <button
             onClick={handleClose}
             className="w-full py-2.5 bg-blue-600 text-white rounded-xl text-sm font-semibold hover:bg-blue-700 transition-colors"
           >
-            {queue.filter(n => !shownInTab.current.has(n.id)).length > 1
+            {queue.length > 1 && currentIndex < queue.length - 1
               ? '다음 공지 보기'
               : '확인'}
           </button>

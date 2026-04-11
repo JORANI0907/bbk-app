@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import toast from 'react-hot-toast'
+import { LoadingSpinner } from '@/components/admin/LoadingSpinner'
 
 // ─── 타입 ──────────────────────────────────────────────────────────
 
@@ -39,6 +40,7 @@ interface Application {
   service_type: string
   scheduled_date: string | null
   created_at: string
+  assigned_to: string | null
 }
 
 interface SessionUser { userId: string; name: string; role: string }
@@ -185,7 +187,7 @@ function NoticeCard({ notice }: { notice: Notice }) {
 
 // ─── 오늘의 일정 카드 ─────────────────────────────────────────────
 
-function TodayScheduleCard() {
+function TodayScheduleCard({ role, userId }: { role: string; userId: string }) {
   const [schedules, setSchedules] = useState<Schedule[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -193,10 +195,21 @@ function TodayScheduleCard() {
     const today = new Date().toISOString().slice(0, 10)
     fetch(`/api/admin/schedules?date=${today}`)
       .then(r => r.json())
-      .then(d => setSchedules(d.schedules ?? []))
+      .then(d => {
+        const all: Schedule[] = d.schedules ?? []
+        // worker는 본인에게 배정된 일정만 클라이언트 필터링
+        if (role === 'worker' && userId) {
+          setSchedules(all.filter(s => {
+            const sch = s as Schedule & { assigned_user_id?: string; customer?: { assigned_user_id?: string } }
+            return sch.assigned_user_id === userId || sch.customer?.assigned_user_id === userId
+          }))
+        } else {
+          setSchedules(all)
+        }
+      })
       .catch(() => {})
       .finally(() => setLoading(false))
-  }, [])
+  }, [role, userId])
 
   return (
     <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
@@ -206,7 +219,7 @@ function TodayScheduleCard() {
           className="text-xs text-blue-600 hover:underline font-medium">보러가기</Link>
       </div>
       {loading ? (
-        <div className="px-4 py-6 text-center text-gray-400 text-xs">불러오는 중...</div>
+        <LoadingSpinner text="일정 불러오는 중..." />
       ) : schedules.length === 0 ? (
         <div className="px-4 py-6 text-center text-gray-400 text-xs">오늘 배정된 일정이 없습니다.</div>
       ) : (
@@ -240,22 +253,27 @@ function TodayScheduleCard() {
 
 // ─── 새로 추가된 일정 카드 ─────────────────────────────────────────
 
-function NewScheduleCard() {
+function NewScheduleCard({ role, userId }: { role: string; userId: string }) {
   const [apps, setApps] = useState<Application[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    fetch('/api/admin/applications?limit=5&sort=created_at')
+    fetch('/api/admin/applications?limit=50&sort=created_at')
       .then(r => r.json())
       .then(d => {
-        const list: Application[] = d.applications ?? d.data ?? []
+        let list: Application[] = d.applications ?? d.data ?? []
         // 최근 7일 내 추가된 것만
         const cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000
-        setApps(list.filter(a => new Date(a.created_at).getTime() > cutoff).slice(0, 5))
+        list = list.filter(a => new Date(a.created_at).getTime() > cutoff)
+        // worker는 본인이 담당자인 일정만 클라이언트 필터링
+        if (role === 'worker' && userId) {
+          list = list.filter(a => a.assigned_to === userId)
+        }
+        setApps(list.slice(0, 5))
       })
       .catch(() => {})
       .finally(() => setLoading(false))
-  }, [])
+  }, [role, userId])
 
   return (
     <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
@@ -265,7 +283,7 @@ function NewScheduleCard() {
           className="text-xs text-blue-600 hover:underline font-medium">보러가기</Link>
       </div>
       {loading ? (
-        <div className="px-4 py-6 text-center text-gray-400 text-xs">불러오는 중...</div>
+        <LoadingSpinner text="일정 불러오는 중..." />
       ) : apps.length === 0 ? (
         <div className="px-4 py-6 text-center text-gray-400 text-xs">최근 7일 내 새 일정이 없습니다.</div>
       ) : (
@@ -406,7 +424,7 @@ export default function AdminHomePage() {
           </div>
 
           {loading ? (
-            <div className="py-12 text-center text-gray-400 text-sm">불러오는 중...</div>
+            <LoadingSpinner />
           ) : filteredNotices.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 bg-white rounded-2xl border border-dashed border-gray-200 text-center gap-2">
               <span className="text-4xl">📋</span>
@@ -425,10 +443,10 @@ export default function AdminHomePage() {
         <div className="flex flex-col gap-4">
 
           {/* 오늘의 일정 */}
-          <TodayScheduleCard />
+          <TodayScheduleCard role={currentUser?.role ?? ''} userId={currentUser?.userId ?? ''} />
 
           {/* 새로 추가된 일정 */}
-          <NewScheduleCard />
+          <NewScheduleCard role={currentUser?.role ?? ''} userId={currentUser?.userId ?? ''} />
 
         </div>
       </div>
