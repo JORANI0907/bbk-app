@@ -55,18 +55,18 @@ type SortDir = 'asc' | 'desc'
 
 // ─── 상수 ────────────────────────────────────────────────────
 const SERVICE_TYPES: ServiceType[] = ['1회성케어', '정기딥케어', '정기엔드케어']
-const STATUS_CONFIG: Record<ApplicationStatus, { color: string; badge: string; dot: string }> = {
-  '예약확정':      { color: 'bg-indigo-500 text-white',   badge: 'bg-indigo-100 text-indigo-700 ring-indigo-300',   dot: 'bg-indigo-500' },
-  '예약1일전':     { color: 'bg-sky-500 text-white',      badge: 'bg-sky-100 text-sky-700 ring-sky-300',           dot: 'bg-sky-500' },
-  '예약당일':      { color: 'bg-violet-500 text-white',   badge: 'bg-violet-100 text-violet-700 ring-violet-300',  dot: 'bg-violet-500' },
-  '작업완료':      { color: 'bg-teal-500 text-white',     badge: 'bg-teal-100 text-teal-700 ring-teal-300',        dot: 'bg-teal-500' },
-  '결제':          { color: 'bg-orange-400 text-white',   badge: 'bg-orange-100 text-orange-700 ring-orange-300',  dot: 'bg-orange-400' },
-  '결제완료':      { color: 'bg-emerald-500 text-white',  badge: 'bg-emerald-100 text-emerald-700 ring-emerald-300', dot: 'bg-emerald-500' },
-  '계산서발행완료': { color: 'bg-teal-600 text-white',    badge: 'bg-teal-100 text-teal-700 ring-teal-300',        dot: 'bg-teal-600' },
-  '예약금환급완료': { color: 'bg-cyan-500 text-white',    badge: 'bg-cyan-100 text-cyan-700 ring-cyan-300',        dot: 'bg-cyan-500' },
-  '예약취소':      { color: 'bg-red-500 text-white',      badge: 'bg-red-100 text-red-700 ring-red-300',           dot: 'bg-red-500' },
-  'A/S방문':       { color: 'bg-yellow-500 text-white',   badge: 'bg-yellow-100 text-yellow-700 ring-yellow-300',  dot: 'bg-yellow-500' },
-  '방문견적':      { color: 'bg-blue-500 text-white',     badge: 'bg-blue-100 text-blue-700 ring-blue-300',        dot: 'bg-blue-500' },
+const STATUS_CONFIG: Record<ApplicationStatus, { color: string; badge: string; dot: string; row: string }> = {
+  '예약확정':      { color: 'bg-green-600 text-white',    badge: 'bg-green-100 text-green-800 ring-green-300',    dot: 'bg-green-600',  row: 'bg-green-50' },
+  '예약1일전':     { color: 'bg-blue-500 text-white',     badge: 'bg-blue-100 text-blue-700 ring-blue-300',      dot: 'bg-blue-500',   row: 'bg-blue-50' },
+  '예약당일':      { color: 'bg-blue-600 text-white',     badge: 'bg-blue-100 text-blue-800 ring-blue-300',      dot: 'bg-blue-600',   row: 'bg-sky-50' },
+  '작업완료':      { color: 'bg-orange-500 text-white',   badge: 'bg-orange-100 text-orange-700 ring-orange-300', dot: 'bg-orange-500', row: 'bg-orange-50' },
+  '결제':          { color: 'bg-orange-400 text-white',   badge: 'bg-orange-100 text-orange-600 ring-orange-200', dot: 'bg-orange-400', row: 'bg-amber-50' },
+  '결제완료':      { color: 'bg-gray-500 text-white',     badge: 'bg-gray-100 text-gray-600 ring-gray-300',      dot: 'bg-gray-500',   row: 'bg-gray-100' },
+  '계산서발행완료': { color: 'bg-gray-300 text-gray-700', badge: 'bg-gray-50 text-gray-500 ring-gray-200',       dot: 'bg-gray-300',   row: 'bg-white' },
+  '예약금환급완료': { color: 'bg-gray-300 text-gray-700', badge: 'bg-gray-50 text-gray-500 ring-gray-200',       dot: 'bg-gray-300',   row: 'bg-white' },
+  '예약취소':      { color: 'bg-gray-400 text-white',     badge: 'bg-gray-100 text-gray-600 ring-gray-300',      dot: 'bg-gray-400',   row: 'bg-gray-50' },
+  'A/S방문':       { color: 'bg-gray-400 text-white',     badge: 'bg-gray-100 text-gray-600 ring-gray-300',      dot: 'bg-gray-400',   row: 'bg-gray-50' },
+  '방문견적':      { color: 'bg-gray-400 text-white',     badge: 'bg-gray-100 text-gray-600 ring-gray-300',      dot: 'bg-gray-400',   row: 'bg-gray-50' },
 }
 const NOTIFICATION_TYPES = [
   '예약확정알림', '예약1일전알림', '예약당일알림', '작업완료알림',
@@ -313,7 +313,9 @@ export default function ServiceManagementPage() {
   const [savedAssignments, setSavedAssignments] = useState<WorkAssignment[]>([])
   const [workerDropdownOpen, setWorkerDropdownOpen] = useState(false)
   const [loading, setLoading] = useState(true)
-  const [activeType, setActiveType] = useState<ServiceType | '전체' | '미배정'>('전체')
+  // 서비스 유형 복수 선택 (빈 Set = 전체)
+  const [selectedTypes, setSelectedTypes] = useState<Set<string>>(new Set())
+  const [showUnassigned, setShowUnassigned] = useState(false)
   const [selected, setSelected] = useState<Application | null>(null)
   const [saving, setSaving] = useState(false)
   const [sending, setSending] = useState(false)
@@ -322,15 +324,12 @@ export default function ServiceManagementPage() {
   const [sortField, setSortField] = useState<SortField>('construction_date')
   const [sortDir, setSortDir] = useState<SortDir>('desc')
 
-  // 뷰 모드 (미배정 탭은 activeType으로 통합)
-  const viewMode = activeType === '미배정' ? 'unassigned' : 'all'
-
-  // 월 필터 (서비스통합관리 뷰)
+  // 월 필터
   const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7))
+  const [showMonthPicker, setShowMonthPicker] = useState(false)
 
   // 필터
-  const [statusFilter, setStatusFilter] = useState<ApplicationStatus | ''>('')
-  const [notifyFilter, setNotifyFilter] = useState('')
+  const [paymentFilter, setPaymentFilter] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
 
   // 알림
@@ -906,18 +905,40 @@ export default function ServiceManagementPage() {
 
   const unassignedCount = applications.filter(a => !a.assigned_to).length
 
-  const byType = (type: ServiceType | '전체' | '미배정') => {
-    let filtered = (type === '전체' || type === '미배정') ? [...applications] : applications.filter(a => (a.service_type ?? '1회성케어') === type)
-    if (type === '미배정') {
+  const toggleType = (t: string) => {
+    setSelectedTypes(prev => {
+      const next = new Set(prev)
+      if (next.has(t)) next.delete(t)
+      else next.add(t)
+      return next
+    })
+    setShowUnassigned(false)
+  }
+
+  const moveMonth = (delta: number) => {
+    const [y, m] = selectedMonth.split('-').map(Number)
+    const next = new Date(y, m - 1 + delta, 1)
+    setSelectedMonth(`${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, '0')}`)
+  }
+
+  const filteredApps = (() => {
+    let filtered = [...applications]
+
+    if (showUnassigned) {
       filtered = filtered.filter(a => !a.assigned_to)
     } else {
-      filtered = filtered.filter(a => a.assigned_to && a.construction_date?.startsWith(selectedMonth))
+      // 월 필터 (시공일자 기준)
+      filtered = filtered.filter(a => a.construction_date?.startsWith(selectedMonth))
+      // 서비스 유형 복수 필터 (아무것도 선택 안 하면 전체)
+      if (selectedTypes.size > 0) {
+        filtered = filtered.filter(a => selectedTypes.has(a.service_type ?? '1회성케어'))
+      }
     }
-    if (statusFilter) filtered = filtered.filter(a => a.status === statusFilter)
-    if (notifyFilter) filtered = filtered.filter(a => {
-      const last = (allNotifyLogs[a.id] || [])[0]
-      return last?.type === notifyFilter
-    })
+
+    // 결제방법 필터
+    if (paymentFilter) filtered = filtered.filter(a => a.payment_method === paymentFilter)
+
+    // 검색: 업체명, 고객명, 연락처, 주소, 케어범위, 계좌번호, 사업자번호, 공급가액
     if (searchQuery.trim()) {
       const q = searchQuery.trim().toLowerCase()
       filtered = filtered.filter(a =>
@@ -925,13 +946,15 @@ export default function ServiceManagementPage() {
         a.owner_name.toLowerCase().includes(q) ||
         a.phone.toLowerCase().includes(q) ||
         (a.address ?? '').toLowerCase().includes(q) ||
-        (a.email ?? '').toLowerCase().includes(q) ||
-        (a.platform_nickname ?? '').toLowerCase().includes(q) ||
-        (a.business_number ?? '').toLowerCase().includes(q)
+        (a.care_scope ?? '').toLowerCase().includes(q) ||
+        (a.account_number ?? '').toLowerCase().includes(q) ||
+        (a.business_number ?? '').toLowerCase().includes(q) ||
+        (a.supply_amount != null ? String(a.supply_amount) : '').includes(q)
       )
     }
+
     return sortApplications(filtered, sortField, sortDir)
-  }
+  })()
 
   return (
     <>
@@ -953,40 +976,56 @@ export default function ServiceManagementPage() {
           <div className="flex items-center justify-between mb-4">
             <div>
               <h1 className="text-2xl font-bold text-gray-900">서비스통합관리</h1>
-              {activeType === '미배정' && (
+              {showUnassigned && (
                 <p className="text-sm text-orange-600 mt-0.5">담당자가 배정되지 않은 일정입니다. 클릭하여 담당자를 지정하세요.</p>
               )}
             </div>
             <button onClick={fetchAll} className="px-3 py-1.5 text-sm bg-white border border-gray-200 rounded-lg hover:bg-gray-50">새로고침</button>
           </div>
 
-          {/* 서비스 유형 탭 */}
-          <div className="flex border-b border-gray-200 mb-3 overflow-x-auto">
-            {(['전체', ...SERVICE_TYPES, '미배정'] as const).map(type => {
-              const isUnassigned = type === '미배정'
-              const isActive = activeType === type
+          {/* 서비스 유형 복수 체크박스 필터 */}
+          <div className="flex items-center gap-2 mb-3 flex-wrap">
+            {SERVICE_TYPES.map(t => {
+              const active = selectedTypes.has(t)
+              const TYPE_COLOR: Record<string, string> = {
+                '1회성케어': active ? 'bg-gray-700 text-white border-gray-700' : 'bg-white text-gray-600 border-gray-300 hover:border-gray-500',
+                '정기딥케어': active ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-blue-600 border-blue-300 hover:border-blue-500',
+                '정기엔드케어': active ? 'bg-purple-600 text-white border-purple-600' : 'bg-white text-purple-600 border-purple-300 hover:border-purple-500',
+              }
               return (
-                <button key={type}
-                  onClick={() => { setActiveType(type); setSelected(null) }}
-                  className={`px-4 py-2.5 text-sm font-semibold transition-colors relative whitespace-nowrap shrink-0 ${
-                    isActive
-                      ? isUnassigned
-                        ? 'text-orange-500 border-b-2 border-orange-500 -mb-px'
-                        : 'text-blue-600 border-b-2 border-blue-600 -mb-px'
-                      : 'text-gray-500 hover:text-gray-700'
-                  }`}
+                <button key={t}
+                  onClick={() => toggleType(t)}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all ${TYPE_COLOR[t]}`}
                 >
-                  {isUnassigned ? '⚠️ 미배정' : type}
-                  <span className={`ml-1.5 text-xs px-1.5 py-0.5 rounded-full ${
-                    isActive
-                      ? isUnassigned ? 'bg-orange-100 text-orange-600' : 'bg-blue-100 text-blue-600'
-                      : isUnassigned && unassignedCount > 0 ? 'bg-orange-100 text-orange-500' : 'bg-gray-100 text-gray-500'
+                  <span className={`w-3.5 h-3.5 rounded border flex items-center justify-center text-xs shrink-0 ${
+                    active ? 'bg-white/30 border-white/50' : 'border-current'
                   }`}>
-                    {byType(type).length}
+                    {active && '✓'}
                   </span>
+                  {t}
                 </button>
               )
             })}
+            <button
+              onClick={() => { setShowUnassigned(v => !v); setSelectedTypes(new Set()) }}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all ${
+                showUnassigned ? 'bg-orange-500 text-white border-orange-500' : 'bg-white text-orange-600 border-orange-300 hover:border-orange-500'
+              }`}
+            >
+              <span className={`w-3.5 h-3.5 rounded border flex items-center justify-center text-xs shrink-0 ${
+                showUnassigned ? 'bg-white/30 border-white/50' : 'border-current'
+              }`}>
+                {showUnassigned && '✓'}
+              </span>
+              ⚠️ 미배정
+              {unassignedCount > 0 && (
+                <span className="ml-0.5 bg-orange-100 text-orange-600 px-1.5 py-0.5 rounded-full text-xs">{unassignedCount}</span>
+              )}
+            </button>
+            {(selectedTypes.size > 0 || showUnassigned) && (
+              <button onClick={() => { setSelectedTypes(new Set()); setShowUnassigned(false) }}
+                className="text-xs text-gray-400 hover:text-gray-600 underline">전체 보기</button>
+            )}
           </div>
 
           {/* 액션 바 */}
@@ -1021,7 +1060,7 @@ export default function ServiceManagementPage() {
               type="text"
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
-              placeholder="업체명, 대표자, 연락처, 주소 검색..."
+              placeholder="업체명, 대표자, 연락처, 주소, 케어범위, 계좌·사업자번호, 금액 검색..."
               className="w-full pl-8 pr-8 py-1.5 text-xs border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
             {searchQuery && (
@@ -1030,32 +1069,47 @@ export default function ServiceManagementPage() {
           </div>
 
           {/* 필터 + 정렬 컨트롤 */}
-          <div className="flex items-center gap-2 mb-3 flex-wrap">
-            {/* 계약상태 필터 */}
-            <div className="flex items-center gap-1.5">
-              {statusFilter && <span className={`w-2 h-2 rounded-full ${STATUS_CONFIG[statusFilter as ApplicationStatus]?.dot}`} />}
-              <select value={statusFilter} onChange={e => setStatusFilter(e.target.value as ApplicationStatus | '')}
-                className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 pr-6">
-                <option value="">계약상태 전체</option>
-                {(Object.keys(STATUS_CONFIG) as ApplicationStatus[]).map(s => (
-                  <option key={s} value={s}>{s}</option>
-                ))}
-              </select>
-            </div>
-            {/* 최근알림 필터 */}
-            <div className="flex items-center gap-1.5">
-              {notifyFilter && <span className={`w-2 h-2 rounded-full ${NOTIFY_TYPE_CONFIG[notifyFilter]?.dot}`} />}
-              <select value={notifyFilter} onChange={e => setNotifyFilter(e.target.value)}
-                className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 pr-6">
-                <option value="">최근알림 전체</option>
-                {NOTIFICATION_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-              </select>
-            </div>
-            {/* 월 필터 (미배정 탭 제외) */}
-            {activeType !== '미배정' && (
-              <input type="month" value={selectedMonth} onChange={e => setSelectedMonth(e.target.value)}
-                className="border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500" />
+          <div className="flex items-center gap-2 mb-3 flex-wrap relative">
+            {/* 시공일자 월 네비게이터 */}
+            {!showUnassigned && (
+              <div className="flex items-center border border-gray-200 rounded-lg overflow-hidden">
+                <button onClick={() => moveMonth(-1)}
+                  className="px-2.5 py-1.5 text-gray-500 hover:bg-gray-100 transition-colors font-bold text-sm">‹</button>
+                <button
+                  onClick={() => setShowMonthPicker(v => !v)}
+                  className="px-3 py-1.5 text-xs font-semibold text-gray-800 hover:bg-gray-50 transition-colors min-w-[80px] text-center"
+                >
+                  {selectedMonth.replace('-', '. ')}
+                </button>
+                <button onClick={() => moveMonth(1)}
+                  className="px-2.5 py-1.5 text-gray-500 hover:bg-gray-100 transition-colors font-bold text-sm">›</button>
+              </div>
             )}
+            {/* 년/월 팝업 */}
+            {showMonthPicker && !showUnassigned && (
+              <div className="absolute top-10 left-0 z-30 bg-white border border-gray-200 rounded-xl shadow-xl p-3 flex flex-col gap-2 w-44">
+                <p className="text-xs font-semibold text-gray-500 mb-1">날짜 선택</p>
+                <input
+                  type="month"
+                  value={selectedMonth}
+                  onChange={e => { setSelectedMonth(e.target.value); setShowMonthPicker(false) }}
+                  className="border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 w-full"
+                  autoFocus
+                />
+                <button onClick={() => setShowMonthPicker(false)}
+                  className="text-xs text-gray-400 hover:text-gray-600 text-center">닫기</button>
+              </div>
+            )}
+
+            {/* 결제방법 필터 */}
+            <select value={paymentFilter} onChange={e => setPaymentFilter(e.target.value)}
+              className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+              <option value="">결제방법 전체</option>
+              {['현금(부가세 O)', '현금(부가세 X)', '카드', '계좌이체'].map(p => (
+                <option key={p} value={p}>{p}</option>
+              ))}
+            </select>
+
             {/* 정렬 */}
             <select value={`${sortField}:${sortDir}`}
               onChange={e => {
@@ -1063,21 +1117,19 @@ export default function ServiceManagementPage() {
                 setSortField(f as SortField)
                 setSortDir(d as SortDir)
               }}
-              className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 pr-6 ml-auto">
+              className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 ml-auto">
               {(Object.entries(SORT_LABELS) as [SortField, string][]).flatMap(([f, l]) => [
                 <option key={`${f}:desc`} value={`${f}:desc`}>{l} ↓</option>,
                 <option key={`${f}:asc`} value={`${f}:asc`}>{l} ↑</option>,
               ])}
             </select>
+
             {/* 필터 초기화 */}
-            {(statusFilter || notifyFilter) && (
-              <button onClick={() => { setStatusFilter(''); setNotifyFilter('') }}
+            {paymentFilter && (
+              <button onClick={() => setPaymentFilter('')}
                 className="text-xs text-blue-500 hover:text-blue-700 underline whitespace-nowrap">
                 초기화
               </button>
-            )}
-            {searchQuery && (
-              <span className="text-xs text-gray-400 ml-1">"{searchQuery}" 검색 중</span>
             )}
           </div>
 
@@ -1085,14 +1137,14 @@ export default function ServiceManagementPage() {
           <div className="bg-white rounded-xl border border-gray-200 overflow-auto flex-1 flex flex-col">
             {loading ? (
               <div className="py-20 text-center text-gray-400 text-sm">불러오는 중...</div>
-            ) : byType(activeType).length === 0 ? (
+            ) : filteredApps.length === 0 ? (
               <div className="py-20 text-center text-gray-400 text-sm">신청서가 없습니다.</div>
             ) : (() => {
-              const rows = byType(activeType)
+              const rows = filteredApps
               const totalSum = rows.reduce((s, a) => s + rowTotal(a), 0)
               return (
                 <table className="w-full text-sm">
-                  <thead className="bg-gray-50 border-b border-gray-200 sticky top-0">
+                  <thead className="bg-gray-50 border-b border-gray-200 sticky top-0 z-10">
                     <tr>
                       <th className="px-3 py-3 w-8">
                         <input type="checkbox"
@@ -1105,14 +1157,14 @@ export default function ServiceManagementPage() {
                       </th>
                       {[
                         { label: '시공일자', field: 'construction_date' as SortField },
-                        { label: '업체명', field: 'business_name' as SortField },
+                        { label: '업체명 / 주소', field: 'business_name' as SortField },
+                        { label: '케어범위', field: null },
                         { label: '대표자', field: 'owner_name' as SortField },
                         { label: '담당자', field: null },
-                        { label: '작업자', field: null },
                         { label: '결제방법', field: 'payment_method' as SortField },
                         { label: '총액', field: 'total_amount' as SortField },
-                        { label: '최근알림', field: null },
                         { label: '계약상태', field: 'status' as SortField },
+                        { label: '최근알림', field: null },
                       ].map(({ label, field }) => (
                         <th key={label}
                           onClick={field ? () => toggleSort(field) : undefined}
@@ -1128,39 +1180,48 @@ export default function ServiceManagementPage() {
                       const lastLog = (allNotifyLogs[app.id] || [])[0]
                       const notifyCfg = lastLog ? NOTIFY_TYPE_CONFIG[lastLog.type] : null
                       const total = rowTotal(app)
+                      const statusCfg = STATUS_CONFIG[app.status]
+                      const isSelected = selected?.id === app.id || checkedIds.includes(app.id)
+                      const rowBg = isSelected ? 'bg-blue-100' : (statusCfg?.row ?? 'bg-white')
                       return (
                         <tr key={app.id} onClick={() => handleSelect(app)}
-                          className={`border-b border-gray-100 last:border-0 cursor-pointer hover:bg-blue-50 transition-colors ${selected?.id === app.id || checkedIds.includes(app.id) ? 'bg-blue-50' : ''}`}>
-                          <td className="px-3 py-3 w-8" onClick={e => e.stopPropagation()}>
+                          className={`border-b border-gray-100 last:border-0 cursor-pointer hover:brightness-95 transition-all ${rowBg}`}>
+                          <td className="px-3 py-2.5 w-8" onClick={e => e.stopPropagation()}>
                             <input type="checkbox" checked={checkedIds.includes(app.id)}
                               onChange={() => toggleCheck(app.id)}
                               className="accent-blue-600 cursor-pointer" />
                           </td>
-                          <td className="px-3 py-3 text-gray-500 whitespace-nowrap font-mono text-xs">
+                          <td className="px-3 py-2.5 text-gray-500 whitespace-nowrap font-mono text-xs">
                             {app.construction_date ? fmtDate(app.construction_date) : <span className="text-gray-300">미설정</span>}
                           </td>
-                          <td className="px-3 py-3 font-medium text-gray-900 max-w-[120px] truncate">{app.business_name}</td>
-                          <td className="px-3 py-3 text-gray-700 text-xs">{app.owner_name}</td>
-                          <td className="px-3 py-3 text-gray-500 text-xs">{users.find(u => u.id === app.assigned_to)?.name ?? <span className="text-gray-300">미배정</span>}</td>
-                          <td className="px-3 py-3 text-xs">
-                            {selected?.id === app.id && selectedWorkerIds.length > 0 ? (
-                              <div className="flex flex-wrap gap-0.5">
-                                {selectedWorkerIds.slice(0, 2).map(wid => {
-                                  const w = workers.find(x => x.id === wid)
-                                  return w ? <span key={wid} className="px-1.5 py-0.5 bg-indigo-100 text-indigo-700 rounded text-xs">{w.name}</span> : null
-                                })}
-                                {selectedWorkerIds.length > 2 && <span className="text-gray-400">+{selectedWorkerIds.length - 2}</span>}
-                              </div>
-                            ) : <span className="text-gray-300">-</span>}
+                          <td className="px-3 py-2.5 max-w-[140px]">
+                            <div className="font-medium text-gray-900 truncate text-sm leading-tight">{app.business_name}</div>
+                            {app.address && (
+                              <div className="text-xs text-gray-400 truncate mt-0.5 leading-tight">{app.address}</div>
+                            )}
                           </td>
-                          <td className="px-3 py-3 text-gray-500 text-xs whitespace-nowrap">{app.payment_method ?? '-'}</td>
-                          <td className="px-3 py-3 text-xs font-mono font-semibold text-gray-700 whitespace-nowrap">
+                          <td className="px-3 py-2.5 max-w-[130px]">
+                            {app.care_scope ? (
+                              <span className="text-xs text-gray-600 line-clamp-2 leading-tight">{app.care_scope}</span>
+                            ) : <span className="text-gray-300 text-xs">-</span>}
+                          </td>
+                          <td className="px-3 py-2.5 text-gray-700 text-xs whitespace-nowrap">{app.owner_name}</td>
+                          <td className="px-3 py-2.5 text-gray-500 text-xs whitespace-nowrap">
+                            {users.find(u => u.id === app.assigned_to)?.name ?? <span className="text-gray-300">미배정</span>}
+                          </td>
+                          <td className="px-3 py-2.5 text-gray-500 text-xs whitespace-nowrap">{app.payment_method ?? '-'}</td>
+                          <td className="px-3 py-2.5 text-xs font-mono font-semibold text-gray-700 whitespace-nowrap">
                             {total > 0 ? <>{fmt(total)}<span className="text-gray-400 font-normal">원</span></> : <span className="text-gray-300">-</span>}
                           </td>
-                          <td className="px-3 py-3">
+                          <td className="px-3 py-2.5">
+                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold whitespace-nowrap ${statusCfg?.badge ?? 'bg-gray-100 text-gray-600'}`}>
+                              <span className={`w-1.5 h-1.5 rounded-full ${statusCfg?.dot ?? 'bg-gray-400'} shrink-0`} />
+                              {app.status}
+                            </span>
+                          </td>
+                          <td className="px-3 py-2.5">
                             {lastLog && notifyCfg ? (
                               <div className="flex items-center gap-1 flex-wrap">
-                                {/* P2-31: 자동 발송 구분 태그 */}
                                 {lastLog.method === 'auto' && (
                                   <span className="text-xs px-1 py-0.5 bg-indigo-100 text-indigo-500 rounded font-medium leading-none">[자동]</span>
                                 )}
@@ -1171,25 +1232,19 @@ export default function ServiceManagementPage() {
                               </div>
                             ) : <span className="text-gray-300 text-xs">-</span>}
                           </td>
-                          <td className="px-3 py-3">
-                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_CONFIG[app.status]?.badge ?? 'bg-gray-100 text-gray-600'}`}>
-                              <span className={`w-1.5 h-1.5 rounded-full ${STATUS_CONFIG[app.status]?.dot ?? 'bg-gray-400'} shrink-0`} />
-                              {app.status}
-                            </span>
-                          </td>
                         </tr>
                       )
                     })}
                   </tbody>
                   <tfoot className="bg-gray-50 border-t-2 border-gray-200 sticky bottom-0">
                     <tr>
-                      <td colSpan={6} className="px-3 py-2.5 text-xs font-semibold text-gray-500">
+                      <td colSpan={7} className="px-3 py-2.5 text-xs font-semibold text-gray-500">
                         합계 <span className="font-normal text-gray-400">({rows.length}건)</span>
                       </td>
                       <td className="px-3 py-2.5 text-xs font-bold text-gray-800 whitespace-nowrap font-mono">
                         {fmt(totalSum)}<span className="text-gray-500 font-normal">원</span>
                       </td>
-                      <td colSpan={2} />
+                      <td colSpan={1} />
                     </tr>
                   </tfoot>
                 </table>
