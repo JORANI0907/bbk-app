@@ -7,7 +7,7 @@ import type { DriveFolder } from '@/lib/googleDrive'
 const getDriveLib = () => import('@/lib/googleDrive')
 
 type ServiceType = '1회성케어' | '정기딥케어' | '정기엔드케어'
-type ApplicationStatus = '신규' | '검토중' | '계약완료' | '보류' | '거절'
+type ApplicationStatus = '신규' | '검토중' | '견적발송' | '예약확정' | '배정완료' | '작업완료' | '결제완료' | '결제완료(잔금)' | '보류' | '취소' | '거절'
 
 interface User { id: string; name: string; role: string }
 interface Worker { id: string; name: string; employment_type: string | null; phone: string | null; account_number: string | null }
@@ -47,7 +47,7 @@ interface Application {
   unit_price_per_visit: number | null
 }
 
-interface NotifyLog { type: string; sentAt: string }
+interface NotifyLog { type: string; sentAt: string; method?: 'auto' | 'manual' }
 
 type SortField = 'construction_date' | 'created_at' | 'business_name' | 'owner_name' | 'payment_method' | 'status' | 'total_amount'
 type SortDir = 'asc' | 'desc'
@@ -55,11 +55,17 @@ type SortDir = 'asc' | 'desc'
 // ─── 상수 ────────────────────────────────────────────────────
 const SERVICE_TYPES: ServiceType[] = ['1회성케어', '정기딥케어', '정기엔드케어']
 const STATUS_CONFIG: Record<ApplicationStatus, { color: string; badge: string; dot: string }> = {
-  '신규':    { color: 'bg-blue-500 text-white',    badge: 'bg-blue-100 text-blue-700 ring-blue-300',   dot: 'bg-blue-500' },
-  '검토중':  { color: 'bg-amber-500 text-white',   badge: 'bg-amber-100 text-amber-700 ring-amber-300', dot: 'bg-amber-500' },
-  '계약완료': { color: 'bg-emerald-500 text-white', badge: 'bg-emerald-100 text-emerald-700 ring-emerald-300', dot: 'bg-emerald-500' },
-  '보류':    { color: 'bg-gray-400 text-white',    badge: 'bg-gray-100 text-gray-600 ring-gray-300',   dot: 'bg-gray-400' },
-  '거절':    { color: 'bg-red-500 text-white',     badge: 'bg-red-100 text-red-700 ring-red-300',     dot: 'bg-red-500' },
+  '신규':          { color: 'bg-blue-500 text-white',       badge: 'bg-blue-100 text-blue-700 ring-blue-300',         dot: 'bg-blue-500' },
+  '검토중':        { color: 'bg-amber-500 text-white',      badge: 'bg-amber-100 text-amber-700 ring-amber-300',       dot: 'bg-amber-500' },
+  '견적발송':      { color: 'bg-sky-500 text-white',        badge: 'bg-sky-100 text-sky-700 ring-sky-300',             dot: 'bg-sky-500' },
+  '예약확정':      { color: 'bg-indigo-500 text-white',     badge: 'bg-indigo-100 text-indigo-700 ring-indigo-300',    dot: 'bg-indigo-500' },
+  '배정완료':      { color: 'bg-violet-500 text-white',     badge: 'bg-violet-100 text-violet-700 ring-violet-300',    dot: 'bg-violet-500' },
+  '작업완료':      { color: 'bg-teal-500 text-white',       badge: 'bg-teal-100 text-teal-700 ring-teal-300',          dot: 'bg-teal-500' },
+  '결제완료':      { color: 'bg-emerald-500 text-white',    badge: 'bg-emerald-100 text-emerald-700 ring-emerald-300', dot: 'bg-emerald-500' },
+  '결제완료(잔금)': { color: 'bg-green-600 text-white',      badge: 'bg-green-100 text-green-700 ring-green-300',       dot: 'bg-green-600' },
+  '보류':          { color: 'bg-gray-400 text-white',       badge: 'bg-gray-100 text-gray-600 ring-gray-300',          dot: 'bg-gray-400' },
+  '취소':          { color: 'bg-orange-400 text-white',     badge: 'bg-orange-100 text-orange-600 ring-orange-300',    dot: 'bg-orange-400' },
+  '거절':          { color: 'bg-red-500 text-white',        badge: 'bg-red-100 text-red-700 ring-red-300',             dot: 'bg-red-500' },
 }
 const NOTIFICATION_TYPES = [
   '예약확정알림', '예약1일전알림', '예약당일알림', '작업완료알림',
@@ -541,6 +547,31 @@ export default function ServiceManagementPage() {
     }
   }
 
+  const handleDuplicateBulk = async () => {
+    if (checkedIds.length === 0) return
+    if (!confirm(`선택한 ${checkedIds.length}건의 신청서를 복제하시겠습니까?`)) return
+    setBulkSaving(true)
+    let successCount = 0, failCount = 0
+    const newItems: Application[] = []
+    for (const id of checkedIds) {
+      try {
+        const res = await fetch(`/api/admin/applications/${id}/duplicate`, { method: 'POST' })
+        const d = await res.json()
+        if (res.ok && d.application) {
+          newItems.push(d.application as Application)
+          successCount++
+        } else failCount++
+      } catch { failCount++ }
+    }
+    if (newItems.length > 0) {
+      setApplications(prev => [...newItems, ...prev])
+    }
+    setBulkSaving(false)
+    setCheckedIds([])
+    if (failCount === 0) toast.success(`${successCount}건 복제되었습니다.`)
+    else toast.error(`${successCount}건 성공, ${failCount}건 실패`)
+  }
+
   const handleDeleteApplicationBulk = async () => {
     if (checkedIds.length === 0) return
     if (!confirm(`선택한 ${checkedIds.length}건의 신청서를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.`)) return
@@ -723,6 +754,26 @@ export default function ServiceManagementPage() {
     finally { setSending(false) }
   }
 
+  const handleResend = async (type: string) => {
+    if (!selected) return
+    setSending(true)
+    try {
+      const res = await fetch('/api/admin/notify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ application_id: selected.id, type }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error)
+      const log: NotifyLog = { type: `[재발송] ${type}`, sentAt: new Date().toISOString() }
+      appendLog(selected.id, log)
+      setNotifyLogs(prev => [log, ...prev])
+      setAllNotifyLogs(prev => ({ ...prev, [selected.id]: [log, ...(prev[selected.id] || [])].slice(0, 50) }))
+      toast.success(`${type} 재발송 완료`)
+    } catch (e) { toast.error(e instanceof Error ? e.message : '재발송 실패') }
+    finally { setSending(false) }
+  }
+
   const handleSelectDriveFolder = async () => {
     try {
       const lib = await getDriveLib()
@@ -896,6 +947,10 @@ export default function ServiceManagementPage() {
               <button onClick={() => setCheckedIds([])}
                 className="text-xs text-green-200 hover:text-white px-2 py-1 rounded transition-colors">
                 선택 해제
+              </button>
+              <button onClick={handleDuplicateBulk} disabled={bulkSaving}
+                className="text-xs bg-yellow-500 hover:bg-yellow-400 text-white font-semibold px-3 py-1.5 rounded-lg disabled:opacity-50 transition-colors whitespace-nowrap">
+                {bulkSaving ? '처리 중...' : '복제'}
               </button>
               <button onClick={handleDeleteApplicationBulk} disabled={bulkSaving}
                 className="text-xs bg-red-500 hover:bg-red-400 text-white font-semibold px-3 py-1.5 rounded-lg disabled:opacity-50 transition-colors whitespace-nowrap">
@@ -1106,19 +1161,18 @@ export default function ServiceManagementPage() {
             <div className="p-4 space-y-5">
               {/* 계약상태 */}
               <Section title="계약상태">
-                <div className="flex gap-1.5 flex-wrap">
-                  {(Object.keys(STATUS_CONFIG) as ApplicationStatus[]).map(s => (
-                    <button key={s} disabled={saving}
-                      onClick={() => quickSave({ status: s })}
-                      className={`px-3 py-1 rounded-full text-xs font-medium transition-colors flex items-center gap-1.5 ${
-                        selected.status === s
-                          ? STATUS_CONFIG[s].color + ' ring-2 ring-offset-1 ring-current'
-                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                      }`}>
-                      <span className={`w-2 h-2 rounded-full ${STATUS_CONFIG[s].dot}`} />
-                      {s}
-                    </button>
-                  ))}
+                <div className="flex items-center gap-2">
+                  <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${STATUS_CONFIG[selected.status]?.dot ?? 'bg-gray-400'}`} />
+                  <select
+                    value={selected.status}
+                    disabled={saving}
+                    onChange={e => quickSave({ status: e.target.value as ApplicationStatus })}
+                    className={`flex-1 border rounded-lg px-3 py-2 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500 ${STATUS_CONFIG[selected.status]?.badge ?? 'bg-gray-100 text-gray-600'}`}
+                  >
+                    {(Object.keys(STATUS_CONFIG) as ApplicationStatus[]).map(s => (
+                      <option key={s} value={s}>{s}</option>
+                    ))}
+                  </select>
                 </div>
               </Section>
 
@@ -1238,8 +1292,8 @@ export default function ServiceManagementPage() {
                     <div className="flex flex-1 gap-1">
                       <input value={address} onChange={e => setAddress(e.target.value)}
                         className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                      <button onClick={() => window.open(`https://map.kakao.com/link/search/${encodeURIComponent(address)}`, '_blank')}
-                        className="px-2 py-1.5 text-xs bg-yellow-50 text-yellow-700 rounded-lg hover:bg-yellow-100 shrink-0">🗺️</button>
+                      <button onClick={() => window.open(`https://map.naver.com/v5/search/${encodeURIComponent(address)}`, '_blank')}
+                        className="px-2 py-1.5 text-xs bg-green-50 text-green-700 rounded-lg hover:bg-green-100 shrink-0">🗺️</button>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
@@ -1414,16 +1468,34 @@ export default function ServiceManagementPage() {
                   {notifyLogs.length === 0 ? (
                     <p className="text-xs text-gray-400 text-center py-4">발송 이력이 없습니다.</p>
                   ) : (
-                    <div className="max-h-44 overflow-y-auto divide-y divide-gray-50">
+                    <div className="max-h-52 overflow-y-auto divide-y divide-gray-50">
                       {notifyLogs.map((log, i) => {
-                        const cfg = NOTIFY_TYPE_CONFIG[log.type]
+                        const isResent = log.type.startsWith('[재발송] ')
+                        const baseType = isResent ? log.type.replace('[재발송] ', '') : log.type
+                        const cfg = NOTIFY_TYPE_CONFIG[baseType]
                         return (
                           <div key={i} className="flex items-center justify-between px-3 py-2 gap-2">
-                            <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium ${cfg?.badge ?? 'bg-gray-100 text-gray-600'}`}>
-                              <span className={`w-1.5 h-1.5 rounded-full ${cfg?.dot ?? 'bg-gray-400'} shrink-0`} />
-                              {log.type}
-                            </span>
-                            <span className="text-xs text-gray-400 shrink-0">{new Date(log.sentAt).toLocaleString('ko-KR')}</span>
+                            <div className="flex items-center gap-1.5 min-w-0">
+                              {isResent && (
+                                <span className="text-xs px-1.5 py-0.5 bg-gray-100 text-gray-500 rounded font-medium shrink-0">재발송</span>
+                              )}
+                              <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium ${cfg?.badge ?? 'bg-gray-100 text-gray-600'}`}>
+                                <span className={`w-1.5 h-1.5 rounded-full ${cfg?.dot ?? 'bg-gray-400'} shrink-0`} />
+                                <span className="truncate">{baseType}</span>
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2 shrink-0">
+                              <span className="text-xs text-gray-400">{new Date(log.sentAt).toLocaleString('ko-KR', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}</span>
+                              {!isResent && (
+                                <button
+                                  onClick={() => handleResend(baseType)}
+                                  disabled={sending}
+                                  className="text-xs px-2 py-0.5 bg-orange-50 text-orange-600 hover:bg-orange-100 rounded transition-colors disabled:opacity-50 whitespace-nowrap"
+                                >
+                                  재발송
+                                </button>
+                              )}
+                            </div>
                           </div>
                         )
                       })}

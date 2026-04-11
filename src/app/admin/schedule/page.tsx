@@ -51,8 +51,27 @@ interface SessionUser { userId: string; name: string; role: string }
 
 const currentMonth = () => new Date().toISOString().slice(0, 7)
 
-const fmtDate = (d: string | null) =>
-  d ? d.slice(0, 10).replace(/-/g, '.') : '-'
+const DOW_KO = ['일', '월', '화', '수', '목', '금', '토']
+
+/** 26.03.31(화) 형식 */
+function fmtDate(d: string | null): string {
+  if (!d) return '-'
+  const date = new Date(d.slice(0, 10) + 'T00:00:00')
+  const yy = String(date.getFullYear()).slice(2)
+  const mm = String(date.getMonth() + 1).padStart(2, '0')
+  const dd = String(date.getDate()).padStart(2, '0')
+  const dow = DOW_KO[date.getDay()]
+  return `${yy}.${mm}.${dd}(${dow})`
+}
+
+/** ISO 주차 번호 계산 */
+function getISOWeek(dateStr: string): { year: number; week: number } {
+  const date = new Date(dateStr.slice(0, 10) + 'T00:00:00')
+  const jan1 = new Date(date.getFullYear(), 0, 1)
+  const dayOfYear = Math.floor((date.getTime() - jan1.getTime()) / 86400000) + 1
+  const week = Math.ceil((dayOfYear + jan1.getDay()) / 7)
+  return { year: date.getFullYear(), week }
+}
 
 const STATUS_CONFIG: Record<string, { badge: string; dot: string }> = {
   '신규':     { badge: 'bg-blue-100 text-blue-700',       dot: 'bg-blue-500' },
@@ -61,6 +80,15 @@ const STATUS_CONFIG: Record<string, { badge: string; dot: string }> = {
   '보류':     { badge: 'bg-gray-100 text-gray-600',       dot: 'bg-gray-400' },
   '거절':     { badge: 'bg-red-100 text-red-700',         dot: 'bg-red-500' },
 }
+
+/** 서비스 유형 뱃지 색상 */
+const SERVICE_TYPE_CONFIG: Record<string, string> = {
+  '1회성케어':  'bg-gray-100 text-gray-700',
+  '정기딥케어': 'bg-blue-100 text-blue-700',
+  '정기엔드케어': 'bg-purple-100 text-purple-700',
+}
+
+const SERVICE_TYPE_OPTIONS = ['전체보기', '1회성케어', '정기딥케어', '정기엔드케어']
 
 async function fetchSession(): Promise<SessionUser | null> {
   try {
@@ -215,6 +243,7 @@ function DetailPanel({
       <div
         className="relative h-full w-full max-w-sm bg-white shadow-2xl overflow-y-auto flex flex-col"
         onClick={e => e.stopPropagation()}
+        style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 80px)' }}
       >
         {/* 헤더 */}
         <div className="sticky top-0 bg-white z-10 px-5 py-4 border-b border-gray-100 flex items-start justify-between gap-2">
@@ -226,7 +255,11 @@ function DetailPanel({
                 {app.status}
               </span>
               <span className="text-xs text-gray-400">{fmtDate(app.construction_date)}</span>
-              {app.service_type && <span className="text-xs text-gray-400">{app.service_type}</span>}
+              {app.service_type && (
+                <span className={`text-xs px-2 py-0.5 rounded-full font-medium whitespace-nowrap ${SERVICE_TYPE_CONFIG[app.service_type] ?? 'bg-gray-100 text-gray-700'}`}>
+                  {app.service_type}
+                </span>
+              )}
             </div>
           </div>
           <div className="flex items-center gap-2 shrink-0 mt-0.5">
@@ -397,6 +430,7 @@ export default function SchedulePage() {
   const [selectedMonth, setSelectedMonth] = useState(currentMonth())
   const [personFilter, setPersonFilter] = useState('')
   const [workerFilter, setWorkerFilter] = useState('')
+  const [serviceTypeFilter, setServiceTypeFilter] = useState('전체보기')
   const [selected, setSelected] = useState<Application | null>(null)
 
   // 세션 초기화
@@ -461,28 +495,39 @@ export default function SchedulePage() {
     return map
   }, [allAssignments])
 
-  // 클라이언트 필터: 담당자 + 작업자
+  // 클라이언트 필터: 담당자 + 작업자 + 서비스 유형
   const filteredApps = useMemo(() => {
     let apps = [...applications]
 
-    // 담당자/작업자 필터 (비관리자: 자신이 담당자이거나 작업자로 배정된 일정만)
+    // 비관리자: 자신이 담당자이거나 작업자로 배정된 일정만
     if (!isAdmin && currentUser) {
       apps = apps.filter(a =>
         a.assigned_to === currentUser.userId ||
         (appWorkerMap[a.id] ?? []).includes(currentUser.userId)
       )
-    } else if (personFilter) {
-      apps = apps.filter(a => a.assigned_to === personFilter)
+    } else if (isAdmin) {
+      // 담당자 필터 (OR 조건: 해당 worker가 담당자이거나 작업자)
+      if (personFilter) {
+        apps = apps.filter(a =>
+          a.assigned_to === personFilter ||
+          (appWorkerMap[a.id] ?? []).includes(personFilter)
+        )
+      }
+      // 작업자 필터 (work_assignments에 해당 worker_id가 있는 일정만)
+      if (workerFilter) {
+        apps = apps.filter(a => (appWorkerMap[a.id] ?? []).includes(workerFilter))
+      }
     }
 
-    // 작업자 필터
-    if (workerFilter) {
-      apps = apps.filter(a => (appWorkerMap[a.id] ?? []).includes(workerFilter))
+    // 서비스 유형 필터
+    if (serviceTypeFilter && serviceTypeFilter !== '전체보기') {
+      apps = apps.filter(a => a.service_type === serviceTypeFilter)
     }
 
+    // 시공일자 내림차순 (최신이 위)
     return apps.sort((a, b) =>
-      (a.construction_date ?? '').localeCompare(b.construction_date ?? ''))
-  }, [applications, personFilter, workerFilter, isAdmin, currentUser, appWorkerMap])
+      (b.construction_date ?? '').localeCompare(a.construction_date ?? ''))
+  }, [applications, personFilter, workerFilter, serviceTypeFilter, isAdmin, currentUser, appWorkerMap])
 
   const [calYear, calMonth] = useMemo(() => {
     const [y, m] = selectedMonth.split('-').map(Number)
@@ -496,6 +541,28 @@ export default function SchedulePage() {
       `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, '0')}`
     )
   }
+
+  // 주차 구분선을 포함한 목록 렌더링 아이템 빌드
+  type ListItem =
+    | { kind: 'week'; key: string; label: string }
+    | { kind: 'app'; app: Application }
+
+  const listItems = useMemo((): ListItem[] => {
+    const items: ListItem[] = []
+    let lastWeekKey = ''
+    for (const app of filteredApps) {
+      if (app.construction_date) {
+        const { year, week } = getISOWeek(app.construction_date)
+        const weekKey = `${year}-W${week}`
+        if (weekKey !== lastWeekKey) {
+          items.push({ kind: 'week', key: weekKey, label: `${year}년 ${week}주차` })
+          lastWeekKey = weekKey
+        }
+      }
+      items.push({ kind: 'app', app })
+    }
+    return items
+  }, [filteredApps])
 
   return (
     <div className="flex flex-col h-full gap-3 overflow-hidden relative">
@@ -539,6 +606,17 @@ export default function SchedulePage() {
             ›
           </button>
         </div>
+
+        {/* 서비스 유형 필터 */}
+        <select
+          value={serviceTypeFilter}
+          onChange={e => setServiceTypeFilter(e.target.value)}
+          className="border border-gray-200 rounded-lg px-3 py-1.5 text-xs text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 min-w-[110px]"
+        >
+          {SERVICE_TYPE_OPTIONS.map(opt => (
+            <option key={opt} value={opt}>{opt}</option>
+          ))}
+        </select>
 
         {/* 담당자 필터 */}
         {isAdmin ? (
@@ -634,13 +712,24 @@ export default function SchedulePage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
-                {filteredApps.map(app => {
+                {listItems.map(item => {
+                  if (item.kind === 'week') {
+                    return (
+                      <tr key={item.key}>
+                        <td colSpan={7} className="px-4 py-1 bg-gray-50">
+                          <span className="text-xs text-gray-400 font-medium">{item.label}</span>
+                        </td>
+                      </tr>
+                    )
+                  }
+                  const app = item.app
                   const cfg = STATUS_CONFIG[app.status] ?? STATUS_CONFIG['신규']
                   const workerNames = (appWorkerMap[app.id] ?? [])
                     .map(wid => workers.find(w => w.id === wid)?.name)
                     .filter((n): n is string => !!n)
                   const manager = users.find(u => u.id === app.assigned_to)
                   const isSelected = selected?.id === app.id
+                  const svcColor = app.service_type ? (SERVICE_TYPE_CONFIG[app.service_type] ?? 'bg-gray-100 text-gray-700') : ''
                   return (
                     <tr key={app.id}
                       onClick={() => setSelected(isSelected ? null : app)}
@@ -664,29 +753,35 @@ export default function SchedulePage() {
                         {workerNames.length > 0
                           ? <div className="flex flex-wrap gap-1">
                               {workerNames.map(name => (
-                                <span key={name} className="bg-indigo-50 text-indigo-700 border border-indigo-100 px-1.5 py-0.5 rounded-md text-xs">
+                                <span key={name} className="bg-indigo-50 text-indigo-700 border border-indigo-100 px-1.5 py-0.5 rounded-md text-xs whitespace-nowrap">
                                   {name}
                                 </span>
                               ))}
                             </div>
                           : <span className="text-gray-300">-</span>}
                       </td>
-                      <td className="px-4 py-3 text-gray-500 text-xs">{app.service_type ?? '-'}</td>
+                      <td className="px-4 py-3 text-xs">
+                        {app.service_type
+                          ? <span className={`px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap ${svcColor}`}>
+                              {app.service_type}
+                            </span>
+                          : <span className="text-gray-300">-</span>}
+                      </td>
                       <td className="px-4 py-3">
                         <div className="flex flex-wrap gap-1">
-                          <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium ${cfg.badge}`}>
+                          <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium whitespace-nowrap ${cfg.badge}`}>
                             <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${cfg.dot}`} />
                             {app.status}
                           </span>
                           {app.work_status === 'in_progress' && (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-700">
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-700 whitespace-nowrap">
                               <span className="w-1.5 h-1.5 rounded-full bg-orange-500 animate-pulse" />
                               작업중
                             </span>
                           )}
                           {app.work_status === 'completed' && (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">
-                              ✅ 완료
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700 whitespace-nowrap">
+                              완료
                             </span>
                           )}
                         </div>

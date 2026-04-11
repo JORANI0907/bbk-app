@@ -47,6 +47,10 @@ interface Customer {
   visit_monthly_dates: number[] | null
   schedule_generation_day: number | null
   notes: string | null
+  rotation_type: '3개월' | '6개월' | '12개월' | null
+  visit_count_per_month: number | null
+  payment_status: string[] | null
+  payment_date: number | null
   created_at: string
   updated_at: string
 }
@@ -54,6 +58,8 @@ interface Customer {
 // ─── 상수 ─────────────────────────────────────────────────────
 const CUSTOMER_TYPES: CustomerType[] = ['1회성케어', '정기딥케어', '정기엔드케어']
 const PAYMENT_METHODS = ['현금', '카드', '계좌이체', '현금(부가세 X)']
+const ROTATION_TYPES = ['3개월', '6개월', '12개월'] as const
+const PAYMENT_STATUS_OPTIONS = ['미수령', '수령완료', '세금계산서발행', '결제완료']
 const ELEVATOR_OPTIONS = ['있음', '없음', '해당없음']
 const BUILDING_ACCESS_OPTIONS = ['신청필요', '신청불필요', '해당없음']
 const PARKING_OPTIONS = ['가능', '불가능', '주차없음']
@@ -94,6 +100,10 @@ const EMPTY_FORM = {
   visit_interval_days: '',
   visit_schedule_type: '', schedule_generation_day: '23', notes: '',
   next_visit_date: '',
+  rotation_type: '' as '' | '3개월' | '6개월' | '12개월',
+  visit_count_per_month: '',
+  payment_status: [] as string[],
+  payment_date: '',
 }
 
 // ─── 방문 주기 ────────────────────────────────────────────────
@@ -344,6 +354,10 @@ export default function AdminCustomersPage() {
     schedule_generation_day: c.schedule_generation_day?.toString() ?? '23',
     notes: c.notes ?? '',
     next_visit_date: c.next_visit_date ?? '',
+    rotation_type: (c.rotation_type ?? '') as '' | '3개월' | '6개월' | '12개월',
+    visit_count_per_month: c.visit_count_per_month?.toString() ?? '',
+    payment_status: c.payment_status ?? [],
+    payment_date: c.payment_date?.toString() ?? '',
   })
 
   const handleSelect = (c: Customer) => {
@@ -409,6 +423,10 @@ export default function AdminCustomersPage() {
     visit_weekdays: visitWeekdays,
     visit_monthly_dates: visitMonthlyDates,
     notes: form.notes || null,
+    rotation_type: form.rotation_type || null,
+    visit_count_per_month: form.visit_count_per_month ? Number(form.visit_count_per_month) : null,
+    payment_status: form.payment_status.length > 0 ? form.payment_status : null,
+    payment_date: form.payment_date ? Number(form.payment_date) : null,
   })
 
   const handleSave = async () => {
@@ -585,6 +603,17 @@ export default function AdminCustomersPage() {
     } catch (e) {
       toast.error(e instanceof Error ? e.message : '일정 생성 실패')
     } finally { setBulkCreating(false) }
+
+    // 폴더 자동 생성 (fire-and-forget: 실패해도 일정 생성은 완료된 것으로 처리)
+    const now = new Date()
+    const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1)
+    for (const id of regularIds) {
+      fetch(`/api/admin/customers/${id}/create-schedule-folder`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ year: nextMonth.getFullYear(), month: nextMonth.getMonth() + 1 }),
+      }).catch(() => { /* 폴더 생성 실패는 무시 */ })
+    }
   }
 
   const handleDeleteBulk = async () => {
@@ -884,8 +913,8 @@ export default function AdminCustomersPage() {
                 <div className="flex flex-1 gap-1">
                   <input value={form.address} onChange={e => set('address')(e.target.value)}
                     className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                  <button onClick={() => window.open(`https://map.kakao.com/link/search/${encodeURIComponent(form.address)}`, '_blank')}
-                    className="px-2 py-1.5 text-xs bg-yellow-50 text-yellow-700 rounded-lg hover:bg-yellow-100 shrink-0">🗺️</button>
+                  <button onClick={() => window.open(`https://map.naver.com/v5/search/${encodeURIComponent(form.address)}`, '_blank')}
+                    className="px-2 py-1.5 text-xs bg-green-50 text-green-700 rounded-lg hover:bg-green-100 shrink-0">🗺️</button>
                 </div>
               </div>
               <Field label="상세주소" value={form.address_detail} onChange={set('address_detail')} />
@@ -951,6 +980,38 @@ export default function AdminCustomersPage() {
                         월 환산: {Math.round(Number(form.billing_amount) / 12).toLocaleString('ko-KR')}원/월
                       </p>
                     )}
+                  </div>
+
+                  {/* 결제현황 / 결제일자 */}
+                  <div className="bg-white border border-purple-100 rounded-lg p-3 flex flex-col gap-3">
+                    <p className="text-xs font-semibold text-gray-700">결제현황</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {PAYMENT_STATUS_OPTIONS.map(opt => {
+                        const checked = form.payment_status.includes(opt)
+                        return (
+                          <button key={opt}
+                            onClick={() => {
+                              const next = checked
+                                ? form.payment_status.filter(s => s !== opt)
+                                : [...form.payment_status, opt]
+                              setForm(prev => ({ ...prev, payment_status: next }))
+                            }}
+                            className={`px-3 py-1.5 text-xs rounded-lg font-medium transition-colors ${
+                              checked ? 'bg-purple-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                            }`}>
+                            {opt}
+                          </button>
+                        )
+                      })}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-gray-500 w-24 shrink-0">결제일자</span>
+                      <input type="number" min={1} max={31} value={form.payment_date}
+                        onChange={e => set('payment_date')(e.target.value)}
+                        placeholder="1~31"
+                        className="w-20 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-purple-500 text-center" />
+                      <span className="text-xs text-gray-400">일</span>
+                    </div>
                   </div>
 
                   {/* 작업 건당 급여 */}
@@ -1063,6 +1124,34 @@ export default function AdminCustomersPage() {
                         월 환산: {Math.round(Number(form.billing_amount) / 12).toLocaleString('ko-KR')}원/월
                       </p>
                     )}
+                  </div>
+
+                  {/* 순환식 / 월 회수 */}
+                  <div className="bg-white border border-blue-100 rounded-lg p-3 flex flex-col gap-3">
+                    <p className="text-xs font-semibold text-gray-700">방문 주기 설정</p>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-gray-500 w-24 shrink-0">순환식</span>
+                      <div className="flex gap-1.5 flex-1">
+                        {ROTATION_TYPES.map(r => (
+                          <button key={r} onClick={() => set('rotation_type')(r)}
+                            className={`flex-1 py-1.5 text-xs rounded-lg font-medium transition-colors ${
+                              form.rotation_type === r ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                            }`}>{r}</button>
+                        ))}
+                        {form.rotation_type && (
+                          <button onClick={() => set('rotation_type')('')}
+                            className="px-2 py-1.5 text-xs text-gray-400 hover:text-gray-600 rounded-lg bg-gray-50 hover:bg-gray-100">✕</button>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-gray-500 w-24 shrink-0">월 회수</span>
+                      <input type="number" min={1} max={31} value={form.visit_count_per_month}
+                        onChange={e => set('visit_count_per_month')(e.target.value)}
+                        placeholder="0"
+                        className="w-20 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 text-center" />
+                      <span className="text-xs text-gray-400">회/월</span>
+                    </div>
                   </div>
 
                   {/* 급여 안내 */}

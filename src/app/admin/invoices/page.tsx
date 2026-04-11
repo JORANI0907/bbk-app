@@ -5,6 +5,25 @@ import toast from 'react-hot-toast'
 
 // ─── 타입 ────────────────────────────────────────────────────────
 
+interface TaxInvoiceTarget {
+  application_id: string
+  공급자등록번호: string
+  공급자상호: string
+  공급자대표자: string
+  공급자주소: string
+  공급자업태: string
+  공급자종목: string
+  공급받는자등록번호: string
+  공급받는자상호: string
+  공급받는자대표자: string
+  작성일자: string
+  공급가액: number
+  세액: number
+  품목: string
+  수량: number
+  단가: number
+}
+
 interface InvoiceLog {
   id: string
   issued_at: string
@@ -47,6 +66,34 @@ function monthLabel(ym: string) {
   return `${y}년 ${Number(m)}월`
 }
 
+// ─── 유틸 (세금계산서) ───────────────────────────────────────────
+
+function exportTaxInvoiceCSV(targets: TaxInvoiceTarget[]) {
+  const headers = [
+    '공급자등록번호', '공급자상호', '공급자대표자', '공급자주소',
+    '공급자업태', '공급자종목', '공급받는자등록번호', '공급받는자상호',
+    '공급받는자대표자', '작성일자', '공급가액', '세액', '품목', '수량', '단가',
+  ]
+  const rows = targets.map(t => [
+    t.공급자등록번호, t.공급자상호, t.공급자대표자, t.공급자주소,
+    t.공급자업태, t.공급자종목, t.공급받는자등록번호, t.공급받는자상호,
+    t.공급받는자대표자, t.작성일자, t.공급가액, t.세액, t.품목, t.수량, t.단가,
+  ])
+  const csvContent = [headers, ...rows]
+    .map(row => row.map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(','))
+    .join('\n')
+
+  const bom = '\uFEFF'
+  const blob = new Blob([bom + csvContent], { type: 'text/csv;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  const today = new Date().toISOString().slice(0, 10).replace(/-/g, '')
+  a.href = url
+  a.download = `세금계산서_발행대상_${today}.csv`
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
 // ─── 컴포넌트 ────────────────────────────────────────────────────
 
 export default function InvoicesPage() {
@@ -56,6 +103,28 @@ export default function InvoicesPage() {
   const [showModal, setShowModal] = useState(false)
   const [form, setForm] = useState<InvoiceFormData>(EMPTY_FORM)
   const [saving, setSaving] = useState(false)
+
+  // 세금계산서 자동화
+  const [taxTargets, setTaxTargets] = useState<TaxInvoiceTarget[]>([])
+  const [taxPeriod, setTaxPeriod] = useState<{ from: string; to: string } | null>(null)
+  const [taxLoading, setTaxLoading] = useState(false)
+  const [taxChecked, setTaxChecked] = useState(false)
+
+  const fetchTaxTargets = useCallback(async () => {
+    setTaxLoading(true)
+    try {
+      const res = await fetch('/api/admin/tax-invoice-auto', { method: 'POST' })
+      const json = await res.json()
+      if (!res.ok) { toast.error(json.error || '조회 실패'); return }
+      setTaxTargets(json.targets ?? [])
+      setTaxPeriod(json.period ?? null)
+      setTaxChecked(true)
+    } catch {
+      toast.error('네트워크 오류가 발생했습니다.')
+    } finally {
+      setTaxLoading(false)
+    }
+  }, [])
 
   const fetchInvoices = useCallback(async (m: string) => {
     setLoading(true)
@@ -128,6 +197,65 @@ export default function InvoicesPage() {
         >
           <span className="text-base leading-none">+</span> 새 발행 기록
         </button>
+      </div>
+
+      {/* 세금계산서 자동화 대상 섹션 */}
+      <div className="px-4 pb-3">
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+          <div className="flex items-center justify-between mb-2">
+            <div>
+              <p className="text-sm font-bold text-amber-800">세금계산서 자동화 대상</p>
+              <p className="text-xs text-amber-600 mt-0.5">
+                매주 토요일 자동 실행 예정 — 지난주 토~이번주 토 완료건 중 계산서 결제 대상
+              </p>
+            </div>
+            <button
+              onClick={fetchTaxTargets}
+              disabled={taxLoading}
+              className="px-3 py-2 bg-amber-600 text-white text-xs font-semibold rounded-xl hover:bg-amber-700 transition-colors disabled:opacity-50 whitespace-nowrap"
+            >
+              {taxLoading ? '조회 중...' : '이번주 발행 대상 확인'}
+            </button>
+          </div>
+
+          {taxChecked && (
+            <>
+              {taxPeriod && (
+                <p className="text-xs text-amber-700 mb-2">
+                  조회 기간: {taxPeriod.from} ~ {taxPeriod.to} | 총 {taxTargets.length}건
+                </p>
+              )}
+              {taxTargets.length === 0 ? (
+                <p className="text-xs text-gray-500 py-2">이번 주 발행 대상이 없습니다.</p>
+              ) : (
+                <>
+                  <div className="bg-white rounded-xl border border-amber-100 overflow-hidden mb-2">
+                    <div className="grid grid-cols-4 gap-2 px-3 py-2 bg-amber-100 text-xs font-semibold text-amber-700">
+                      <span>업체명</span>
+                      <span>대표자</span>
+                      <span className="text-right">공급가액</span>
+                      <span className="text-right">세액</span>
+                    </div>
+                    {taxTargets.map(t => (
+                      <div key={t.application_id} className="grid grid-cols-4 gap-2 px-3 py-2 border-t border-amber-50 text-xs">
+                        <span className="text-gray-800 font-medium truncate">{t.공급받는자상호}</span>
+                        <span className="text-gray-600 truncate">{t.공급받는자대표자}</span>
+                        <span className="text-right text-gray-800">{t.공급가액.toLocaleString('ko-KR')}원</span>
+                        <span className="text-right text-gray-600">{t.세액.toLocaleString('ko-KR')}원</span>
+                      </div>
+                    ))}
+                  </div>
+                  <button
+                    onClick={() => exportTaxInvoiceCSV(taxTargets)}
+                    className="w-full py-2 bg-green-600 text-white text-xs font-semibold rounded-xl hover:bg-green-700 transition-colors"
+                  >
+                    구글시트로 내보내기 (CSV — 홈택스 탑재용)
+                  </button>
+                </>
+              )}
+            </>
+          )}
+        </div>
       </div>
 
       {/* 월 네비게이터 */}

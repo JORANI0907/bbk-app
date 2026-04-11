@@ -14,6 +14,7 @@ import type { DriveFolder } from '@/lib/googleDrive'
 
 type InventoryCategory = 'chemical' | 'equipment' | 'consumable' | 'other'
 type TxType = 'receive' | 'return' | 'use' | 'adjust'
+type MainTab = 'status' | 'logs'
 
 interface InventoryItem {
   id: string
@@ -36,6 +37,10 @@ interface InventoryLog {
   created_at: string
   photo_url?: string | null
   worker_name?: string | null
+}
+
+interface AdminInventoryLog extends InventoryLog {
+  item_name: string
 }
 
 const CATEGORY_CONFIG: Record<InventoryCategory, { label: string; dot: string; badge: string }> = {
@@ -119,6 +124,13 @@ export default function AdminInventoryPage() {
   const [apisReady, setApisReady] = useState(false)
   const [logsLoading, setLogsLoading] = useState(false)
 
+  // 변동내역 탭 (관리자 전용)
+  const [mainTab, setMainTab] = useState<MainTab>('status')
+  const [adminLogs, setAdminLogs] = useState<AdminInventoryLog[]>([])
+  const [adminLogsLoading, setAdminLogsLoading] = useState(false)
+  const [logMonth, setLogMonth] = useState(() => new Date().toISOString().slice(0, 7))
+  const [logType, setLogType] = useState<'all' | 'use' | 'return'>('all')
+
   // OAuth 토큰 캐시 (사진 선택 시 시작된 Promise)
   const tokenPromiseRef = useRef<Promise<string> | null>(null)
 
@@ -160,6 +172,27 @@ export default function AdminInventoryPage() {
       setLogsLoading(false)
     }
   }, [])
+
+  const fetchAdminLogs = useCallback(async (month: string, type: 'all' | 'use' | 'return') => {
+    setAdminLogsLoading(true)
+    try {
+      const params = new URLSearchParams({ month, type })
+      const res = await fetch(`/api/admin/inventory/admin-logs?${params}`)
+      if (!res.ok) { setAdminLogs([]); return }
+      const json = await res.json()
+      setAdminLogs(json.logs ?? [])
+    } catch {
+      setAdminLogs([])
+    } finally {
+      setAdminLogsLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (mainTab === 'logs' && role === 'admin') {
+      fetchAdminLogs(logMonth, logType)
+    }
+  }, [mainTab, logMonth, logType, role, fetchAdminLogs])
 
   const handleSelectItem = (item: InventoryItem) => {
     setSelectedItem(item)
@@ -347,6 +380,51 @@ export default function AdminInventoryPage() {
     }
   }
 
+  const exportAdminLogsCSV = () => {
+    const headers = ['직원명', '품목', '유형', '수량', '날짜']
+    const rows = adminLogs.map(l => [
+      l.worker_name ?? '',
+      l.item_name,
+      TX_LABELS[l.change_type],
+      l.quantity,
+      new Date(l.created_at).toLocaleDateString('ko-KR'),
+    ])
+    const csv = [headers, ...rows]
+      .map(r => r.map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(','))
+      .join('\n')
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `재고변동내역_${logMonth}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  // 변동내역 집계
+  const workerLogMap: Record<string, Record<string, { use: number; return: number; lastDate: string }>> = {}
+  for (const log of adminLogs) {
+    const workerKey = log.worker_name ?? log.worker_id ?? '미상'
+    if (!workerLogMap[workerKey]) workerLogMap[workerKey] = {}
+    if (!workerLogMap[workerKey][log.item_name]) {
+      workerLogMap[workerKey][log.item_name] = { use: 0, return: 0, lastDate: '' }
+    }
+    const entry = workerLogMap[workerKey][log.item_name]
+    if (log.change_type === 'use') entry.use += log.quantity
+    if (log.change_type === 'return') entry.return += log.quantity
+    if (!entry.lastDate || log.created_at > entry.lastDate) entry.lastDate = log.created_at
+  }
+
+  const itemUsageMap: Record<string, number> = {}
+  for (const log of adminLogs) {
+    if (log.change_type === 'use') {
+      itemUsageMap[log.item_name] = (itemUsageMap[log.item_name] ?? 0) + log.quantity
+    }
+  }
+  const totalUse = adminLogs.filter(l => l.change_type === 'use').reduce((s, l) => s + l.quantity, 0)
+  const totalReturn = adminLogs.filter(l => l.change_type === 'return').reduce((s, l) => s + l.quantity, 0)
+  const maxUsage = Math.max(...Object.values(itemUsageMap), 1)
+
   const filteredItems = items.filter(item => {
     const matchCategory = categoryFilter === 'all' || item.category === categoryFilter
     const matchSearch = !searchQuery || item.item_name.toLowerCase().includes(searchQuery.toLowerCase())
@@ -357,7 +435,146 @@ export default function AdminInventoryPage() {
   const canSubmit = needsPhoto ? !!txPhoto : true
 
   return (
-    <div className="flex h-screen bg-gray-50 overflow-hidden">
+    <div className="flex flex-col h-screen bg-gray-50 overflow-hidden">
+      {/* 탭 바 */}
+      <div className="flex items-center gap-1 px-4 pt-3 pb-0 bg-white border-b border-gray-200 shrink-0">
+        <button
+          onClick={() => setMainTab('status')}
+          className={`px-4 py-2 text-sm font-semibold rounded-t-lg transition-colors border-b-2 ${mainTab === 'status' ? 'border-blue-600 text-blue-700' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+        >
+          재고 현황
+        </button>
+        {role === 'admin' && (
+          <button
+            onClick={() => setMainTab('logs')}
+            className={`px-4 py-2 text-sm font-semibold rounded-t-lg transition-colors border-b-2 ${mainTab === 'logs' ? 'border-blue-600 text-blue-700' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+          >
+            변동내역
+          </button>
+        )}
+      </div>
+
+      {/* 변동내역 탭 */}
+      {mainTab === 'logs' && role === 'admin' ? (
+        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+          {/* 필터 */}
+          <div className="flex items-center gap-3 flex-wrap">
+            <input
+              type="month"
+              value={logMonth}
+              onChange={e => setLogMonth(e.target.value)}
+              className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <div className="flex gap-1">
+              {(['all', 'use', 'return'] as const).map(t => (
+                <button
+                  key={t}
+                  onClick={() => setLogType(t)}
+                  className={`px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors ${logType === t ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300'}`}
+                >
+                  {t === 'all' ? '전체' : t === 'use' ? '수령' : '반납'}
+                </button>
+              ))}
+            </div>
+            <button
+              onClick={exportAdminLogsCSV}
+              disabled={adminLogs.length === 0}
+              className="ml-auto px-4 py-2 text-xs font-semibold bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors"
+            >
+              엑셀 다운로드 (CSV)
+            </button>
+          </div>
+
+          {adminLogsLoading ? (
+            <div className="text-center text-gray-400 text-sm py-12">불러오는 중...</div>
+          ) : (
+            <>
+              {/* 월간 요약 카드 */}
+              <div className="grid grid-cols-3 gap-3">
+                <div className="bg-orange-50 rounded-xl p-4">
+                  <p className="text-xs text-orange-600 font-medium">총 수령 건수</p>
+                  <p className="text-2xl font-bold text-orange-700 mt-1">{adminLogs.filter(l => l.change_type === 'use').length}건</p>
+                  <p className="text-xs text-orange-500 mt-0.5">수량 합계 {totalUse}</p>
+                </div>
+                <div className="bg-blue-50 rounded-xl p-4">
+                  <p className="text-xs text-blue-600 font-medium">총 반납 건수</p>
+                  <p className="text-2xl font-bold text-blue-700 mt-1">{adminLogs.filter(l => l.change_type === 'return').length}건</p>
+                  <p className="text-xs text-blue-500 mt-0.5">수량 합계 {totalReturn}</p>
+                </div>
+                <div className="bg-purple-50 rounded-xl p-4">
+                  <p className="text-xs text-purple-600 font-medium">순 소비량</p>
+                  <p className="text-2xl font-bold text-purple-700 mt-1">{(totalUse - totalReturn).toFixed(1)}</p>
+                  <p className="text-xs text-purple-500 mt-0.5">수령 - 반납</p>
+                </div>
+              </div>
+
+              {/* 품목별 사용량 막대그래프 */}
+              {Object.keys(itemUsageMap).length > 0 && (
+                <div className="bg-white rounded-xl shadow-sm p-5">
+                  <h3 className="font-semibold text-gray-800 mb-3">품목별 수령량</h3>
+                  <div className="space-y-2">
+                    {Object.entries(itemUsageMap)
+                      .sort(([, a], [, b]) => b - a)
+                      .map(([name, qty]) => (
+                        <div key={name} className="flex items-center gap-3">
+                          <span className="text-xs text-gray-600 w-28 shrink-0 truncate">{name}</span>
+                          <div className="flex-1 bg-gray-100 rounded-full h-4 overflow-hidden">
+                            <div
+                              className="bg-orange-400 h-4 rounded-full transition-all"
+                              style={{ width: `${(qty / maxUsage) * 100}%` }}
+                            />
+                          </div>
+                          <span className="text-xs font-semibold text-gray-700 w-10 text-right">{qty}</span>
+                        </div>
+                      ))}
+                  </div>
+                </div>
+              )}
+
+              {/* 직원별 사용량 테이블 */}
+              <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+                <h3 className="font-semibold text-gray-800 px-5 py-4 border-b border-gray-100">직원별 사용량</h3>
+                {Object.keys(workerLogMap).length === 0 ? (
+                  <div className="text-center text-gray-400 text-sm py-8">내역이 없습니다.</div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="bg-gray-50 text-xs font-semibold text-gray-500">
+                          <th className="text-left px-4 py-3">직원명</th>
+                          <th className="text-left px-4 py-3">품목</th>
+                          <th className="text-right px-4 py-3">수령</th>
+                          <th className="text-right px-4 py-3">반납</th>
+                          <th className="text-right px-4 py-3">순사용</th>
+                          <th className="text-right px-4 py-3">마지막 날짜</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {Object.entries(workerLogMap).flatMap(([worker, items]) =>
+                          Object.entries(items).map(([item, stat], idx) => (
+                            <tr key={`${worker}-${item}`} className="border-t border-gray-50 hover:bg-gray-50">
+                              <td className="px-4 py-2.5 text-gray-800 font-medium">{idx === 0 ? worker : ''}</td>
+                              <td className="px-4 py-2.5 text-gray-600">{item}</td>
+                              <td className="px-4 py-2.5 text-right text-orange-600">{stat.use}</td>
+                              <td className="px-4 py-2.5 text-right text-blue-600">{stat.return}</td>
+                              <td className="px-4 py-2.5 text-right font-semibold text-purple-700">{(stat.use - stat.return).toFixed(1)}</td>
+                              <td className="px-4 py-2.5 text-right text-gray-400 text-xs">
+                                {stat.lastDate ? new Date(stat.lastDate).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' }) : '-'}
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+        </div>
+      ) : (
+
+      <div className="flex flex-1 overflow-hidden">
       {/* Left Panel */}
       <div className="w-80 flex flex-col bg-white border-r border-gray-200 shrink-0">
         {/* Header */}
@@ -478,55 +695,76 @@ export default function AdminInventoryPage() {
               </span>
             </div>
 
-            {/* Edit form */}
+            {/* Edit form — 기본정보는 admin만 수정 가능 (P1-19) */}
             <div className="bg-white rounded-xl shadow-sm p-5 space-y-4">
-              <h3 className="font-semibold text-gray-800">기본 정보</h3>
+              <div className="flex items-center justify-between">
+                <h3 className="font-semibold text-gray-800">기본 정보</h3>
+                {role !== 'admin' && (
+                  <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">읽기 전용</span>
+                )}
+              </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-medium text-gray-500 mb-1">아이템명</label>
-                  <input
-                    value={editForm.item_name}
-                    onChange={e => setEditForm(f => ({ ...f, item_name: e.target.value }))}
-                    className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
+                  {role === 'admin' ? (
+                    <input
+                      value={editForm.item_name}
+                      onChange={e => setEditForm(f => ({ ...f, item_name: e.target.value }))}
+                      className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  ) : (
+                    <p className="px-3 py-2 text-sm text-gray-800 bg-gray-50 rounded-lg">{editForm.item_name}</p>
+                  )}
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-gray-500 mb-1">카테고리</label>
-                  <select
-                    value={editForm.category}
-                    onChange={e => setEditForm(f => ({ ...f, category: e.target.value as InventoryCategory }))}
-                    className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="chemical">약품</option>
-                    <option value="equipment">장비</option>
-                    <option value="consumable">소모품</option>
-                    <option value="other">기타</option>
-                  </select>
+                  {role === 'admin' ? (
+                    <select
+                      value={editForm.category}
+                      onChange={e => setEditForm(f => ({ ...f, category: e.target.value as InventoryCategory }))}
+                      className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="chemical">약품</option>
+                      <option value="equipment">장비</option>
+                      <option value="consumable">소모품</option>
+                      <option value="other">기타</option>
+                    </select>
+                  ) : (
+                    <p className="px-3 py-2 text-sm text-gray-800 bg-gray-50 rounded-lg">
+                      {CATEGORY_CONFIG[editForm.category].label}
+                    </p>
+                  )}
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-gray-500 mb-1">단위</label>
-                  <input
-                    value={editForm.unit}
-                    onChange={e => setEditForm(f => ({ ...f, unit: e.target.value }))}
-                    className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
+                  {role === 'admin' ? (
+                    <input
+                      value={editForm.unit}
+                      onChange={e => setEditForm(f => ({ ...f, unit: e.target.value }))}
+                      className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  ) : (
+                    <p className="px-3 py-2 text-sm text-gray-800 bg-gray-50 rounded-lg">{editForm.unit}</p>
+                  )}
                 </div>
               </div>
-              <div className="flex gap-2 justify-between">
-                <button
-                  onClick={handleDelete}
-                  className="px-4 py-2 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 text-sm font-medium transition-colors"
-                >
-                  🗑️ 삭제
-                </button>
-                <button
-                  onClick={handleSave}
-                  disabled={editLoading}
-                  className="px-6 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 text-sm font-medium transition-colors disabled:opacity-50"
-                >
-                  {editLoading ? '저장 중...' : '💾 저장'}
-                </button>
-              </div>
+              {role === 'admin' && (
+                <div className="flex gap-2 justify-between">
+                  <button
+                    onClick={handleDelete}
+                    className="px-4 py-2 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 text-sm font-medium transition-colors"
+                  >
+                    🗑️ 삭제
+                  </button>
+                  <button
+                    onClick={handleSave}
+                    disabled={editLoading}
+                    className="px-6 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 text-sm font-medium transition-colors disabled:opacity-50"
+                  >
+                    {editLoading ? '저장 중...' : '💾 저장'}
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* Current stock & transactions */}
@@ -693,7 +931,7 @@ export default function AdminInventoryPage() {
         </div>
       )}
 
-      {/* Transaction Modal */}
+      {/* Transaction Modal — outside the two-panel wrapper but inside the ternary block */}
       {showTxModal && selectedItem && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6">
@@ -799,6 +1037,8 @@ export default function AdminInventoryPage() {
             </div>
           </div>
         </div>
+      )}
+      </div>
       )}
     </div>
   )
