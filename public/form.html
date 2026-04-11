@@ -4,58 +4,118 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>BBK 공간케어 신청서</title>
-  
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
-  
   <style>
     :root {
-      --primary: #2AABE2;
-      --primary-dark: #1E8FC0;
-      --primary-light: #E8F6FC;
-      --primary-glow: rgba(42, 171, 226, 0.15);
-      --dark: #1A1A2E;
-      --dark-soft: #2D2D44;
-      --text: #2C3E50;
-      --text-light: #6B7B8D;
-      --text-muted: #95A5B5;
-      --bg: #F5F7FA;
+      --primary: #2563EB;
+      --primary-dark: #1d4ed8;
+      --primary-light: #EFF6FF;
+      --primary-glow: rgba(37, 99, 235, 0.18);
+      --dark: #0f172a;
+      --text: #1e293b;
+      --text-light: #64748b;
+      --text-muted: #94a3b8;
+      --bg: #f1f5f9;
       --white: #FFFFFF;
-      --border: #E2E8F0;
-      --border-focus: var(--primary);
-      --success: #27AE60;
-      --success-light: #E8F8F0;
-      --error: #E74C3C;
-      --error-light: #FDF0EF;
-      --warning: #F39C12;
-      --shadow-sm: 0 1px 3px rgba(0,0,0,0.06);
-      --shadow-md: 0 4px 12px rgba(0,0,0,0.08);
-      --shadow-lg: 0 8px 30px rgba(0,0,0,0.12);
-      --shadow-glow: 0 0 20px rgba(42, 171, 226, 0.2);
-      --radius-sm: 8px;
-      --radius-md: 12px;
-      --radius-lg: 16px;
-      --radius-xl: 20px;
-      --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      --border: #e2e8f0;
+      --success: #16a34a;
+      --shadow-sm: 0 1px 3px rgba(0,0,0,0.08);
+      --shadow-md: 0 4px 16px rgba(0,0,0,0.10);
+      --shadow-lg: 0 12px 40px rgba(0,0,0,0.14);
+      --radius: 16px;
+      --radius-sm: 10px;
     }
-
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    html { scroll-behavior: smooth; }
-
+    * { margin:0; padding:0; box-sizing:border-box; }
+    html { scroll-behavior:smooth; }
     body {
-      font-family: 'Noto Sans KR', -apple-system, BlinkMacSystemFont, sans-serif;
+      font-family:'Noto Sans KR', -apple-system, sans-serif;
       background: var(--bg);
       color: var(--text);
-      line-height: 1.7;
+      line-height: 1.6;
       -webkit-font-smoothing: antialiased;
       min-height: 100vh;
     }
 
-    /* ═══════ Hero ═══════ */
+    /* ─── Splash ─── */
+    #splash {
+      position: fixed;
+      inset: 0;
+      z-index: 9999;
+      background: var(--dark);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 20px;
+      transition: opacity 0.6s ease, transform 0.6s ease;
+    }
+    #splash.hide {
+      opacity: 0;
+      pointer-events: none;
+    }
+    #splash.gone { display: none; }
+
+    .splash-logo {
+      width: 96px;
+      height: 96px;
+      border-radius: 24px;
+      object-fit: cover;
+      box-shadow: 0 0 40px rgba(37,99,235,0.5), var(--shadow-lg);
+      animation: splashPop 0.7s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+    }
+    @keyframes splashPop {
+      0%   { transform: scale(0.3); opacity: 0; }
+      60%  { transform: scale(1.08); }
+      100% { transform: scale(1); opacity: 1; }
+    }
+    .splash-title {
+      font-size: 24px;
+      font-weight: 900;
+      color: #fff;
+      letter-spacing: -0.5px;
+      animation: splashFade 0.5s ease 0.35s both;
+    }
+    .splash-sub {
+      font-size: 12px;
+      font-weight: 500;
+      color: rgba(255,255,255,0.45);
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      animation: splashFade 0.5s ease 0.5s both;
+    }
+    @keyframes splashFade {
+      from { opacity:0; transform: translateY(8px); }
+      to   { opacity:1; transform: translateY(0); }
+    }
+    .splash-bar {
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      height: 3px;
+      background: linear-gradient(90deg, transparent, var(--primary), #818cf8, transparent);
+      animation: splashBar 1.2s ease 0.1s both;
+    }
+    @keyframes splashBar {
+      from { transform: scaleX(0); }
+      to   { transform: scaleX(1); }
+    }
+
+    /* ─── App wrapper ─── */
+    #app {
+      opacity: 0;
+      transform: translateY(16px);
+      transition: opacity 0.6s ease, transform 0.6s ease;
+    }
+    #app.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* ─── Hero ─── */
     .hero {
-      background: linear-gradient(135deg, var(--dark) 0%, #16213E 50%, var(--dark-soft) 100%);
-      padding: 48px 20px 56px;
+      background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 60%, #1e293b 100%);
+      padding: 52px 20px 60px;
       text-align: center;
       position: relative;
       overflow: hidden;
@@ -63,1372 +123,547 @@
     .hero::before {
       content: '';
       position: absolute;
-      top: -50%; left: -50%;
-      width: 200%; height: 200%;
-      background: radial-gradient(ellipse at 30% 50%, rgba(42,171,226,0.08) 0%, transparent 60%),
-                  radial-gradient(ellipse at 70% 50%, rgba(42,171,226,0.05) 0%, transparent 60%);
-      animation: heroShimmer 12s ease-in-out infinite alternate;
-    }
-    @keyframes heroShimmer {
-      0% { transform: translateX(-5%) translateY(-2%); }
-      100% { transform: translateX(5%) translateY(2%); }
+      inset: 0;
+      background: radial-gradient(ellipse 60% 80% at 50% 0%, rgba(37,99,235,0.12) 0%, transparent 70%);
     }
     .hero::after {
       content: '';
       position: absolute;
       bottom: 0; left: 0; right: 0;
-      height: 4px;
-      background: linear-gradient(90deg, transparent, var(--primary), transparent);
+      height: 3px;
+      background: linear-gradient(90deg, transparent, var(--primary), #818cf8, transparent);
     }
-    .hero-content {
-      position: relative; z-index: 1;
-      max-width: 600px; margin: 0 auto;
+    .hero-inner {
+      position: relative;
+      z-index: 1;
+      max-width: 560px;
+      margin: 0 auto;
     }
-    .logo-container {
+    .hero-logo {
+      width: 76px;
+      height: 76px;
+      border-radius: 20px;
+      object-fit: cover;
+      box-shadow: 0 0 32px rgba(37,99,235,0.4), var(--shadow-md);
       margin-bottom: 20px;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      gap: 12px;
-      animation: logoFloat 4s ease-in-out infinite;
+      animation: heroFloat 5s ease-in-out infinite;
     }
-    @keyframes logoFloat {
-      0%, 100% { transform: translateY(0); }
-      50% { transform: translateY(-6px); }
+    @keyframes heroFloat {
+      0%,100% { transform: translateY(0); }
+      50%      { transform: translateY(-7px); }
     }
-    .logo-container img.logo-img {
-      height: 72px;
-      filter: drop-shadow(0 4px 12px rgba(42,171,226,0.3));
+    .hero-badge {
+      display: inline-block;
+      background: rgba(37,99,235,0.2);
+      border: 1px solid rgba(37,99,235,0.4);
+      color: #93c5fd;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 4px 12px;
+      border-radius: 999px;
+      letter-spacing: 1px;
+      margin-bottom: 14px;
     }
-    .person-icon {
-      height: 85px;
-      filter: drop-shadow(0 2px 8px rgba(255,255,255,0.2));
-    }
-    .hero h1 {
+    .hero-title {
       font-size: 26px;
-      font-weight: 800;
-      color: var(--white);
+      font-weight: 900;
+      color: #fff;
       letter-spacing: -0.5px;
       margin-bottom: 10px;
     }
-    .hero h1 span {
-      background: linear-gradient(135deg, var(--primary), #5BC0EB);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
-    }
-    .hero-subtitle {
-      color: rgba(255,255,255,0.55);
-      font-size: 14px; font-weight: 400;
-      letter-spacing: 0.3px;
+    .hero-desc {
+      font-size: 14px;
+      color: rgba(255,255,255,0.5);
+      line-height: 1.7;
     }
 
-    /* ═══════ Form Container ═══════ */
+    /* ─── Form wrapper ─── */
     .form-wrapper {
-      max-width: 640px;
-      margin: -28px auto 40px;
-      padding: 0 16px;
-      position: relative; z-index: 2;
+      max-width: 600px;
+      margin: 0 auto;
+      padding: 28px 16px 60px;
     }
 
-    /* ═══════ Section Cards ═══════ */
+    /* ─── Section card ─── */
     .section-card {
       background: var(--white);
-      border-radius: var(--radius-lg);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow-sm);
       padding: 28px 24px;
       margin-bottom: 16px;
-      box-shadow: var(--shadow-sm);
       border: 1px solid var(--border);
-      transition: var(--transition);
-      opacity: 0;
-      transform: none;
-      animation: cardFadeIn 0.5s ease forwards;
-      overflow: visible;
     }
-    .section-card:hover {
-      box-shadow: var(--shadow-md);
-      border-color: rgba(42,171,226,0.15);
-    }
-    @keyframes cardFadeIn {
-      from { opacity: 0; }
-      to { opacity: 1; }
-    }
-    .section-card:nth-child(1) { animation-delay: 0.05s; }
-    .section-card:nth-child(2) { animation-delay: 0.1s; }
-    .section-card:nth-child(3) { animation-delay: 0.15s; }
-    .section-card:nth-child(4) { animation-delay: 0.2s; }
-    .section-card:nth-child(5) { animation-delay: 0.25s; }
-
     .section-header {
-      display: flex; align-items: center; gap: 10px;
-      margin-bottom: 22px; padding-bottom: 14px;
-      border-bottom: 2px solid var(--bg);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 24px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--border);
     }
     .section-icon {
-      width: 38px; height: 38px; border-radius: 10px;
+      width: 40px; height: 40px;
+      border-radius: 12px;
       display: flex; align-items: center; justify-content: center;
-      font-size: 18px; flex-shrink: 0;
+      font-size: 18px;
+      flex-shrink: 0;
     }
     .section-icon.blue { background: var(--primary-light); }
-    .section-icon.green { background: var(--success-light); }
-    .section-icon.purple { background: #F3E5F5; }
-    .section-icon.teal { background: #E0F2F1; }
-    .section-icon.red { background: var(--error-light); }
+    .section-icon.green { background: #f0fdf4; }
+    .section-icon.purple { background: #faf5ff; }
+    .section-title { font-size: 15px; font-weight: 700; color: var(--text); }
+    .section-desc { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
 
-    .section-title { font-size: 16px; font-weight: 700; color: var(--dark); letter-spacing: -0.3px; }
-    .section-desc { font-size: 12.5px; color: var(--text-muted); margin-top: 2px; }
-
-    /* ═══════ Form Fields ═══════ */
+    /* ─── Form elements ─── */
     .form-group { margin-bottom: 20px; }
     .form-group:last-child { margin-bottom: 0; }
     .form-label {
-      display: flex; align-items: center; gap: 6px;
-      font-size: 13.5px; font-weight: 600; color: var(--text);
+      display: block;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text);
       margin-bottom: 7px;
     }
-    .form-label .required { color: var(--error); font-weight: 700; font-size: 14px; }
-    .form-label .emoji { font-size: 15px; }
+    .required { color: #ef4444; margin-left: 3px; }
     .form-hint {
-      font-size: 12px; color: var(--text-muted);
-      margin-bottom: 7px; padding-left: 2px; line-height: 1.5;
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-bottom: 7px;
     }
-    .form-hint.important {
-      color: var(--primary-dark); font-weight: 500;
-      background: var(--primary-light);
-      padding: 8px 12px; border-radius: var(--radius-sm);
-      border-left: 3px solid var(--primary);
-    }
-    .form-hint.warning-hint {
-      color: #E67E22; font-weight: 500;
-      background: #FFF8E1;
-      padding: 8px 12px; border-radius: var(--radius-sm);
-      border-left: 3px solid #F39C12;
-      margin-top: 8px;
-    }
-
     .form-input, .form-select, .form-textarea {
       width: 100%;
-      padding: 12px 14px;
-      font-size: 14px;
-      font-family: 'Noto Sans KR', sans-serif;
-      color: var(--text);
-      background: var(--white);
+      padding: 11px 14px;
       border: 1.5px solid var(--border);
       border-radius: var(--radius-sm);
-      transition: var(--transition);
+      font-family: inherit;
+      font-size: 14px;
+      color: var(--text);
+      background: #fafafa;
       outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
     }
-    .form-input:hover, .form-select:hover, .form-textarea:hover { border-color: #CBD5E0; }
     .form-input:focus, .form-select:focus, .form-textarea:focus {
       border-color: var(--primary);
       box-shadow: 0 0 0 3px var(--primary-glow);
+      background: var(--white);
     }
-    .form-input::placeholder, .form-textarea::placeholder { color: var(--text-muted); font-weight: 300; }
     .form-input.error, .form-select.error, .form-textarea.error {
-      border-color: var(--error);
-      box-shadow: 0 0 0 3px rgba(231,76,60,0.1);
+      border-color: #ef4444;
+      box-shadow: 0 0 0 3px rgba(239,68,68,0.12);
     }
-    .form-textarea { min-height: 100px; resize: vertical; line-height: 1.6; }
+    .form-textarea {
+      min-height: 100px;
+      resize: vertical;
+    }
     .form-select {
       appearance: none;
-      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M6 8L1 3h10z' fill='%236B7B8D'/%3E%3C/svg%3E");
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%2394a3b8' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
       background-repeat: no-repeat;
       background-position: right 14px center;
       padding-right: 36px;
       cursor: pointer;
     }
-
-    /* Time Row with custom picker */
-    .time-row {
-      display: flex; align-items: center; gap: 10px;
+    .error-msg {
+      font-size: 12px;
+      color: #ef4444;
+      margin-top: 5px;
+      display: none;
     }
-    .time-row .time-field { flex: 1; }
-    .time-separator { font-size: 18px; font-weight: 700; color: var(--text-muted); }
+    .error-msg.visible { display: block; }
 
-    .time-input-wrapper {
+    /* ─── Care scope checkboxes ─── */
+    .care-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+    }
+    .care-item {
       position: relative;
     }
-    .time-input-wrapper .form-input {
-      padding-right: 40px;
-    }
-    .time-dropdown-btn {
-      position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
-      background: var(--primary-light); border: none; border-radius: 6px;
-      width: 28px; height: 28px; cursor: pointer;
-      display: flex; align-items: center; justify-content: center;
-      transition: var(--transition);
-      font-size: 14px;
-    }
-    .time-dropdown-btn:hover { background: var(--primary); color: white; }
-
-    .time-dropdown {
+    .care-item input[type="checkbox"] {
       position: absolute;
-      bottom: calc(100% + 4px);
-      left: 0;
-      right: 0;
-      background: var(--white);
+      opacity: 0;
+      width: 0; height: 0;
+    }
+    .care-label {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 12px 8px;
       border: 1.5px solid var(--border);
       border-radius: var(--radius-sm);
-      box-shadow: var(--shadow-lg);
-      max-height: 200px; overflow-y: auto;
-      z-index: 99999;
-      display: none;
+      background: #fafafa;
+      cursor: pointer;
+      transition: all 0.18s ease;
+      text-align: center;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-light);
+      user-select: none;
     }
-    .time-dropdown.open { display: block; }
-    .time-dropdown-item {
-      padding: 8px 14px; font-size: 13px; cursor: pointer;
-      transition: var(--transition);
+    .care-label .care-emoji { font-size: 20px; line-height: 1; }
+    .care-item input:checked + .care-label {
+      border-color: var(--primary);
+      background: var(--primary-light);
+      color: var(--primary-dark);
+      box-shadow: 0 0 0 2px var(--primary-glow);
     }
-    .time-dropdown-item:hover {
-      background: var(--primary-light); color: var(--primary-dark);
-    }
+    .care-label:hover { border-color: #93c5fd; background: var(--primary-light); }
 
-    /* Email Row */
-    .email-row { display: flex; align-items: center; gap: 8px; }
-    .email-row .form-input { flex: 1; }
-    .email-at { font-size: 16px; font-weight: 600; color: var(--text-muted); flex-shrink: 0; }
-    .email-row .form-select { flex: 1; }
-
-    /* Radio & Checkbox */
-    .radio-group { display: flex; flex-wrap: wrap; gap: 8px; }
-    .radio-option { position: relative; }
-    .radio-option input { display: none; }
-    .radio-option label {
-      display: inline-flex; align-items: center; gap: 7px;
-      padding: 10px 16px;
-      border: 1.5px solid var(--border);
-      border-radius: var(--radius-sm);
-      cursor: pointer; font-size: 13.5px; font-weight: 500;
-      transition: var(--transition);
-      background: var(--white); user-select: none;
-    }
-    .radio-option label:hover { border-color: var(--primary); background: var(--primary-light); }
-    .radio-option input:checked + label {
-      background: var(--primary); border-color: var(--primary);
-      color: var(--white);
-      box-shadow: 0 2px 8px rgba(42,171,226,0.3);
-    }
-    .radio-dot {
-      width: 16px; height: 16px;
-      border: 2px solid var(--border);
-      border-radius: 50%;
-      display: flex; align-items: center; justify-content: center;
-      transition: var(--transition); flex-shrink: 0;
-    }
-    .radio-dot::after {
-      content: ''; width: 7px; height: 7px; border-radius: 50%;
-      background: transparent; transition: var(--transition);
-    }
-    .radio-option input:checked + label .radio-dot { border-color: var(--white); }
-    .radio-option input:checked + label .radio-dot::after { background: var(--white); }
-
-    /* Custom input for "직접입력" */
-    .custom-input-wrapper {
-      margin-top: 8px;
-      display: none;
-    }
-    .custom-input-wrapper.visible { display: block; }
-
-    /* Consent */
-    .consent-box {
-      background: var(--bg);
-      border: 1.5px solid var(--border);
-      border-radius: var(--radius-md);
-      padding: 16px 18px; margin-bottom: 12px;
-      transition: var(--transition);
-    }
-    .consent-box:last-child { margin-bottom: 0; }
-    .consent-box:hover { border-color: var(--primary); }
-    .consent-box.error { border-color: var(--error); background: var(--error-light); }
-    .consent-link { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
-    .consent-link a {
-      color: var(--primary); text-decoration: none;
-      font-size: 13px; font-weight: 600;
-      display: inline-flex; align-items: center; gap: 4px;
-      transition: var(--transition);
-    }
-    .consent-link a:hover { color: var(--primary-dark); text-decoration: underline; }
-    .consent-link a svg { width: 14px; height: 14px; }
-    .checkbox-wrapper {
-      display: flex; align-items: center; gap: 10px;
-      cursor: pointer; user-select: none;
-    }
-    .checkbox-wrapper input { display: none; }
-    .custom-checkbox {
-      width: 20px; height: 20px;
-      border: 2px solid var(--border); border-radius: 5px;
-      display: flex; align-items: center; justify-content: center;
-      transition: var(--transition); flex-shrink: 0;
-    }
-    .custom-checkbox svg {
-      width: 12px; height: 12px; stroke: var(--white); stroke-width: 3;
-      fill: none; opacity: 0; transition: var(--transition);
-    }
-    .checkbox-wrapper input:checked ~ .custom-checkbox { background: var(--primary); border-color: var(--primary); }
-    .checkbox-wrapper input:checked ~ .custom-checkbox svg { opacity: 1; }
-    .checkbox-text { font-size: 13px; font-weight: 500; color: var(--text); }
-    .checkbox-text .warning { color: var(--error); font-size: 11.5px; font-weight: 400; }
-
-    .error-msg {
-      font-size: 12px; color: var(--error); margin-top: 5px;
-      display: none; align-items: center; gap: 4px;
-    }
-    .error-msg.visible { display: flex; }
-
-    /* ═══════ Submit ═══════ */
-    .submit-section { padding: 0 0 12px; }
-    .privacy-note {
-      text-align: center; font-size: 12px; color: var(--text-muted);
-      margin-bottom: 18px;
-      display: flex; align-items: center; justify-content: center; gap: 6px;
-    }
-    .privacy-note svg { width: 14px; height: 14px; stroke: var(--text-muted); flex-shrink: 0; }
+    /* ─── Submit section ─── */
+    .submit-section { padding: 0 0 8px; }
     .submit-btn {
-      width: 100%; padding: 16px; font-size: 16px; font-weight: 700;
-      font-family: 'Noto Sans KR', sans-serif; color: var(--white);
-      background: linear-gradient(135deg, var(--primary), var(--primary-dark));
-      border: none; border-radius: var(--radius-md); cursor: pointer;
-      transition: var(--transition); position: relative; overflow: hidden; letter-spacing: 0.5px;
+      width: 100%;
+      padding: 16px;
+      background: linear-gradient(135deg, var(--primary), #4f46e5);
+      color: #fff;
+      border: none;
+      border-radius: var(--radius);
+      font-family: inherit;
+      font-size: 16px;
+      font-weight: 800;
+      cursor: pointer;
+      box-shadow: 0 4px 20px rgba(37,99,235,0.35);
+      transition: transform 0.2s, box-shadow 0.2s, opacity 0.2s;
+      position: relative;
+      overflow: hidden;
     }
-    .submit-btn:hover { transform: translateY(-2px); box-shadow: var(--shadow-glow), var(--shadow-md); }
+    .submit-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 28px rgba(37,99,235,0.45); }
     .submit-btn:active { transform: translateY(0); }
-    .submit-btn:disabled { opacity: 0.7; cursor: not-allowed; transform: none; }
-    .submit-btn .btn-text {
-      display: flex; align-items: center; justify-content: center;
-      gap: 8px; transition: var(--transition);
-    }
+    .submit-btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+    .submit-btn .btn-text { display: block; transition: opacity 0.2s; }
     .submit-btn.loading .btn-text { opacity: 0; }
     .submit-btn .spinner {
-      position: absolute; top: 50%; left: 50%;
-      transform: translate(-50%, -50%);
-      width: 24px; height: 24px;
-      border: 3px solid rgba(255,255,255,0.3);
-      border-top-color: var(--white); border-radius: 50%;
-      opacity: 0; transition: var(--transition);
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      transition: opacity 0.2s;
     }
-    .submit-btn.loading .spinner { opacity: 1; animation: spin 0.8s linear infinite; }
-    @keyframes spin { to { transform: translate(-50%, -50%) rotate(360deg); } }
+    .submit-btn.loading .spinner { opacity: 1; }
+    .spinner-ring {
+      width: 22px; height: 22px;
+      border: 2.5px solid rgba(255,255,255,0.3);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
 
-    /* ═══════ Modal ═══════ */
+    /* ─── Privacy notice ─── */
+    .privacy-notice {
+      font-size: 11px;
+      color: var(--text-muted);
+      text-align: center;
+      line-height: 1.6;
+      padding: 14px 0 0;
+    }
+
+    /* ─── Success Modal ─── */
     .modal-overlay {
-      position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-      background: rgba(0,0,0,0.5); backdrop-filter: blur(6px);
-      display: flex; align-items: center; justify-content: center;
-      z-index: 1000; opacity: 0; visibility: hidden;
-      transition: var(--transition); padding: 20px;
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(15,23,42,0.65);
+      backdrop-filter: blur(6px);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
     }
-    .modal-overlay.active { opacity: 1; visibility: visible; }
-    .modal-content {
-      background: var(--white); border-radius: var(--radius-xl);
-      padding: 40px 32px; max-width: 400px; width: 100%; text-align: center;
-      transform: scale(0.9) translateY(20px); transition: var(--transition);
+    .modal-overlay.active { display: flex; }
+    .modal-card {
+      background: var(--white);
+      border-radius: 24px;
+      padding: 40px 32px;
+      max-width: 400px;
+      width: 100%;
+      text-align: center;
       box-shadow: var(--shadow-lg);
+      animation: modalIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) both;
     }
-    .modal-overlay.active .modal-content { transform: scale(1) translateY(0); }
+    @keyframes modalIn {
+      from { transform: scale(0.85); opacity: 0; }
+      to   { transform: scale(1); opacity: 1; }
+    }
     .modal-icon {
-      width: 72px; height: 72px; border-radius: 50%;
-      background: var(--success-light);
-      display: flex; align-items: center; justify-content: center;
+      width: 72px; height: 72px;
+      background: linear-gradient(135deg, #dcfce7, #bbf7d0);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 32px;
       margin: 0 auto 20px;
     }
-    .modal-icon svg { width: 36px; height: 36px; stroke: var(--success); stroke-width: 3; fill: none; }
-    .modal-title { font-size: 20px; font-weight: 800; color: var(--dark); margin-bottom: 10px; }
-    .modal-message { font-size: 14px; color: var(--text-light); line-height: 1.6; margin-bottom: 24px; }
+    .modal-title {
+      font-size: 20px;
+      font-weight: 900;
+      color: var(--text);
+      margin-bottom: 10px;
+    }
+    .modal-desc {
+      font-size: 14px;
+      color: var(--text-light);
+      line-height: 1.7;
+      margin-bottom: 28px;
+    }
     .modal-btn {
-      display: inline-flex; align-items: center; justify-content: center;
-      padding: 12px 32px; background: var(--success); color: var(--white);
-      border: none; border-radius: var(--radius-sm);
-      font-size: 14px; font-weight: 600; font-family: 'Noto Sans KR', sans-serif;
-      cursor: pointer; transition: var(--transition);
+      display: inline-block;
+      background: linear-gradient(135deg, var(--primary), #4f46e5);
+      color: #fff;
+      border: none;
+      border-radius: 12px;
+      padding: 13px 32px;
+      font-family: inherit;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      width: 100%;
+      transition: transform 0.2s;
     }
-    .modal-btn:hover { background: #219A52; transform: translateY(-1px); }
+    .modal-btn:hover { transform: translateY(-1px); }
 
-    /* ═══════ Progress ═══════ */
-    .progress-container {
-      position: sticky; top: 0; z-index: 100;
-      background: var(--white); border-bottom: 1px solid var(--border);
-      padding: 10px 20px;
-      display: flex; align-items: center; gap: 12px;
-      box-shadow: var(--shadow-sm);
-    }
-    .progress-bar { flex: 1; height: 5px; background: var(--bg); border-radius: 10px; overflow: hidden; }
-    .progress-fill {
-      height: 100%;
-      background: linear-gradient(90deg, var(--primary), #5BC0EB);
-      border-radius: 10px; transition: width 0.4s ease; width: 0%;
-    }
-    .progress-text { font-size: 12px; font-weight: 600; color: var(--primary); white-space: nowrap; min-width: 32px; text-align: right; }
-
+    /* ─── Footer ─── */
     .footer {
-      text-align: center; padding: 24px 20px 32px;
-      color: var(--text-muted); font-size: 11.5px;
+      text-align: center;
+      padding: 20px;
+      font-size: 11px;
+      color: var(--text-muted);
     }
-
-    /* No-biz toggle button */
-    .no-biz-toggle {
-      display: inline-flex; align-items: center; gap: 6px;
-      padding: 7px 14px; font-size: 13px; font-weight: 500;
-      font-family: 'Noto Sans KR', sans-serif;
-      color: var(--text-secondary); background: var(--bg-secondary);
-      border: 1.5px solid var(--border); border-radius: 20px;
-      cursor: pointer; transition: var(--transition);
-    }
-    .no-biz-toggle:hover { border-color: var(--primary); color: var(--primary); }
-    .no-biz-toggle.active {
-      background: var(--primary); color: var(--white);
-      border-color: var(--primary);
-    }
-    .no-biz-check { font-size: 15px; }
-
-    /* Verification buttons */
-    .verify-btn {
-      padding: 10px 16px; font-size: 13px; font-weight: 600;
-      font-family: 'Noto Sans KR', sans-serif;
-      color: var(--white); background: var(--primary);
-      border: none; border-radius: var(--radius-sm);
-      cursor: pointer; transition: var(--transition);
-      white-space: nowrap; flex-shrink: 0;
-    }
-    .verify-btn:hover { background: var(--primary-dark); }
-    .verify-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-    .verify-btn.verify-confirm { background: var(--success); }
-    .verify-btn.verify-confirm:hover { background: #219A52; }
 
     @media (max-width: 480px) {
-      .hero { padding: 36px 16px 44px; }
-      .hero h1 { font-size: 22px; }
-      .section-card { padding: 22px 18px; }
-      .radio-group { flex-direction: column; }
-      .radio-option label { width: 100%; justify-content: center; }
-      .email-row { flex-direction: column; gap: 8px; }
-      .email-at { display: none; }
-      .time-row { gap: 6px; }
-      .section-card:nth-child(2) { z-index: 10; }
+      .hero { padding: 40px 16px 48px; }
+      .hero-title { font-size: 22px; }
+      .section-card { padding: 22px 16px; }
+      .care-grid { grid-template-columns: repeat(3, 1fr); }
     }
-
-    /* ═══════════════════════════════════════
-       PREMIUM DESIGN UPGRADE
-    ═══════════════════════════════════════ */
-
-    /* 전체 배경 */
-    body { background: #EEF2F7; }
-
-    /* 히어로 - 앱과 동일 색상 계열, 컴팩트한 높이 */
-    .hero {
-      background: linear-gradient(150deg, #0f172a 0%, #1e3a5f 50%, #0f172a 100%) !important;
-      padding: 22px 20px 32px !important;
-    }
-    .hero::before {
-      background:
-        radial-gradient(ellipse at 25% 55%, rgba(42,171,226,0.11) 0%, transparent 55%),
-        radial-gradient(ellipse at 75% 45%, rgba(42,171,226,0.07) 0%, transparent 55%) !important;
-    }
-    .hero::after {
-      height: 2px;
-      background: linear-gradient(90deg, transparent 0%, rgba(42,171,226,0.75) 35%, #7DD3FC 50%, rgba(42,171,226,0.75) 65%, transparent 100%) !important;
-    }
-
-    /* 로고 영역 - 애니메이션 제거, 간격 축소 */
-    .logo-container {
-      animation: none !important;
-      margin-bottom: 10px !important;
-      gap: 8px !important;
-      align-items: center !important;
-    }
-
-    /* 인물 이미지 축소 */
-    .person-icon {
-      height: 46px !important;
-      filter: drop-shadow(0 2px 10px rgba(42,171,226,0.4)) !important;
-    }
-
-    /* BUMBUILD KOREA 텍스트 크기 축소 (인라인 스타일 덮어쓰기) */
-    .logo-container > div > span {
-      font-size: 17px !important;
-      letter-spacing: -0.2px !important;
-      line-height: 1.2 !important;
-    }
-
-    /* h1 - 앱 스타일에 맞게 */
-    .hero h1 {
-      font-size: 22px !important;
-      font-weight: 900 !important;
-      letter-spacing: -0.5px !important;
-      margin-bottom: 5px !important;
-    }
-
-    /* 서브타이틀 */
-    .hero-subtitle {
-      font-size: 13px !important;
-      color: rgba(255,255,255,0.42) !important;
-      margin-top: 4px !important;
-      letter-spacing: 0.1px !important;
-    }
-
-    /* 섹션 카드 - 더 프리미엄한 그림자와 라운드 */
-    .section-card {
-      border-radius: 22px !important;
-      border: 1px solid rgba(255,255,255,0.9) !important;
-      box-shadow: 0 2px 16px rgba(0,0,0,0.06), 0 1px 4px rgba(0,0,0,0.04) !important;
-      transition: transform 0.25s ease, box-shadow 0.25s ease !important;
-    }
-    .section-card:hover {
-      box-shadow: 0 8px 32px rgba(0,0,0,0.1), 0 2px 8px rgba(42,171,226,0.08) !important;
-      transform: translateY(-2px) !important;
-      border-color: rgba(42,171,226,0.15) !important;
-    }
-
-    /* 섹션 아이콘 - 그라디언트로 업그레이드 */
-    .section-icon,
-    .section-icon.blue,
-    .section-icon.green,
-    .section-icon.purple,
-    .section-icon.teal,
-    .section-icon.red {
-      background: linear-gradient(135deg, #2AABE2 0%, #1A7AB5 100%) !important;
-      border-radius: 14px !important;
-      box-shadow: 0 4px 14px rgba(42,171,226,0.38) !important;
-      font-size: 19px !important;
-    }
-
-    /* 섹션 헤더 구분선 */
-    .section-header {
-      border-bottom: 2px solid #F0F4F8 !important;
-      padding-bottom: 16px !important;
-      margin-bottom: 24px !important;
-    }
-    .section-title { font-size: 17px !important; letter-spacing: -0.4px !important; }
-    .section-desc { font-size: 12.5px !important; margin-top: 3px !important; }
-
-    /* 입력 필드 - 더 세련된 스타일 */
-    .form-input, .form-select, .form-textarea {
-      border-radius: 12px !important;
-      background: #F8FAFC !important;
-      border-color: #E2E8F0 !important;
-      font-weight: 500 !important;
-      font-size: 14px !important;
-      padding: 12px 16px !important;
-    }
-    .form-input:hover, .form-select:hover, .form-textarea:hover {
-      border-color: #CBD5E1 !important;
-      background: #fff !important;
-    }
-    .form-input:focus, .form-select:focus, .form-textarea:focus {
-      border-color: #2AABE2 !important;
-      background: #fff !important;
-      box-shadow: 0 0 0 4px rgba(42,171,226,0.14) !important;
-    }
-    .form-input::placeholder, .form-textarea::placeholder { color: #C0CAD6 !important; }
-
-    /* 라벨 */
-    .form-label {
-      font-size: 13.5px !important;
-      color: #2D3748 !important;
-      font-weight: 700 !important;
-      letter-spacing: -0.1px !important;
-    }
-
-    /* 라디오 버튼 - 더 프리미엄 */
-    .radio-option label {
-      border-radius: 12px !important;
-      font-weight: 600 !important;
-      font-size: 13.5px !important;
-      padding: 11px 18px !important;
-      border: 1.5px solid #E2E8F0 !important;
-      background: #F8FAFC !important;
-      transition: all 0.2s ease !important;
-    }
-    .radio-option label:hover {
-      border-color: #2AABE2 !important;
-      background: rgba(42,171,226,0.05) !important;
-      transform: translateY(-1px);
-    }
-    .radio-option input:checked + label {
-      background: linear-gradient(135deg, #2AABE2, #1A7AB5) !important;
-      border-color: transparent !important;
-      box-shadow: 0 4px 14px rgba(42,171,226,0.38) !important;
-      transform: scale(1.03) !important;
-    }
-
-    /* 인증 버튼 */
-    .verify-btn {
-      border-radius: 10px !important;
-      font-weight: 700 !important;
-      font-size: 13px !important;
-      background: linear-gradient(135deg, #2AABE2, #1A7AB5) !important;
-      box-shadow: 0 3px 10px rgba(42,171,226,0.32) !important;
-      padding: 11px 18px !important;
-    }
-    .verify-btn:hover {
-      box-shadow: 0 5px 16px rgba(42,171,226,0.45) !important;
-      transform: translateY(-1px) !important;
-    }
-    .verify-btn.verify-confirm {
-      background: linear-gradient(135deg, #27AE60, #1D8248) !important;
-      box-shadow: 0 3px 10px rgba(39,174,96,0.32) !important;
-    }
-
-    /* 동의 박스 */
-    .consent-box {
-      border-radius: 14px !important;
-      background: #F8FAFC !important;
-      border: 1.5px solid #E8EEF4 !important;
-      padding: 18px !important;
-    }
-    .consent-box:hover { border-color: #2AABE2 !important; }
-
-    /* 커스텀 체크박스 */
-    .custom-checkbox {
-      border-radius: 8px !important;
-      border: 2px solid #CBD5E1 !important;
-    }
-    .checkbox-wrapper input:checked ~ .custom-checkbox {
-      background: linear-gradient(135deg, #2AABE2, #1A7AB5) !important;
-      border-color: transparent !important;
-      box-shadow: 0 2px 8px rgba(42,171,226,0.38) !important;
-    }
-
-    /* 동의 링크 */
-    .consent-link a {
-      color: #2AABE2 !important;
-      font-weight: 700 !important;
-    }
-
-    /* 진행률 바 */
-    .progress-container {
-      box-shadow: 0 2px 12px rgba(0,0,0,0.08) !important;
-      padding: 11px 20px !important;
-    }
-    .progress-bar {
-      height: 7px !important;
-      background: #E8EEF4 !important;
-      border-radius: 10px !important;
-    }
-    .progress-fill {
-      background: linear-gradient(90deg, #2AABE2 0%, #5BC0EB 50%, #2AABE2 100%) !important;
-      background-size: 200% 100% !important;
-      animation: progressShimmer 2.5s linear infinite !important;
-    }
-    @keyframes progressShimmer {
-      0% { background-position: 200% 0; }
-      100% { background-position: -200% 0; }
-    }
-    .progress-text { font-size: 12.5px !important; font-weight: 700 !important; color: #2AABE2 !important; }
-
-    /* 제출 버튼 - 최고급 스타일 */
-    .submit-btn {
-      border-radius: 18px !important;
-      padding: 18px !important;
-      font-size: 17px !important;
-      font-weight: 800 !important;
-      letter-spacing: 0.3px !important;
-      background: linear-gradient(135deg, #2AABE2 0%, #1A7AB5 100%) !important;
-      box-shadow: 0 6px 28px rgba(42,171,226,0.52) !important;
-    }
-    .submit-btn:hover {
-      transform: translateY(-3px) !important;
-      box-shadow: 0 12px 36px rgba(42,171,226,0.58) !important;
-    }
-    .submit-btn:active { transform: translateY(-1px) !important; }
-
-    /* 힌트 박스 */
-    .form-hint.important {
-      border-radius: 10px !important;
-      border-left: 4px solid #2AABE2 !important;
-      background: rgba(42,171,226,0.07) !important;
-      color: #1A7AB5 !important;
-    }
-    .form-hint.warning-hint {
-      border-radius: 10px !important;
-      border-left: 4px solid #F39C12 !important;
-    }
-
-    /* 성공 모달 */
-    .modal-content { border-radius: 26px !important; padding: 44px 32px !important; }
-    .modal-icon {
-      width: 88px !important; height: 88px !important;
-      background: linear-gradient(135deg, #2AABE2, #1A7AB5) !important;
-      box-shadow: 0 8px 36px rgba(42,171,226,0.48) !important;
-    }
-    .modal-icon svg { stroke: white !important; width: 42px !important; height: 42px !important; }
-    .modal-title { font-size: 22px !important; font-weight: 900 !important; letter-spacing: -0.5px !important; }
-    .modal-btn {
-      border-radius: 14px !important;
-      padding: 14px 40px !important;
-      font-size: 15px !important;
-      font-weight: 700 !important;
-      background: linear-gradient(135deg, #2AABE2, #1A7AB5) !important;
-      box-shadow: 0 4px 16px rgba(42,171,226,0.4) !important;
-    }
-    .modal-btn:hover {
-      transform: translateY(-2px) !important;
-      box-shadow: 0 8px 24px rgba(42,171,226,0.5) !important;
-    }
-
-    /* 사업자 없음 토글 */
-    .no-biz-toggle { border-radius: 20px !important; font-weight: 600 !important; }
-    .no-biz-toggle.active {
-      background: linear-gradient(135deg, #2AABE2, #1A7AB5) !important;
-      border-color: transparent !important;
-      box-shadow: 0 3px 12px rgba(42,171,226,0.38) !important;
-    }
-
-    /* 푸터 */
-    .footer { color: #94A3B8 !important; font-size: 12px !important; padding: 28px 20px 36px !important; }
-
-    /* form-wrapper 여백 */
-    .form-wrapper { margin-bottom: 50px; }
   </style>
 </head>
-
 <body>
 
-  <!-- ═══════ Hero ═══════ -->
-  <div class="hero">
-    <div class="hero-content">
-</div>
-      <h1>BBK <span>공간케어</span> 신청서</h1>
-      <p class="hero-subtitle">아래 정보를 입력해주시면 담당자가 빠르게 연락드립니다</p>
+  <!-- ═══ Splash ═══ -->
+  <div id="splash">
+    <img src="/bbk-logo.png" alt="BBK 공간케어" class="splash-logo">
+    <div class="splash-title">BBK 공간케어</div>
+    <div class="splash-sub">Professional Care Service</div>
+    <div class="splash-bar"></div>
+  </div>
+
+  <!-- ═══ App ═══ -->
+  <div id="app">
+
+    <!-- Hero -->
+    <div class="hero">
+      <div class="hero-inner">
+        <img src="/bbk-logo.png" alt="BBK" class="hero-logo">
+        <div class="hero-badge">SERVICE INQUIRY</div>
+        <div class="hero-title">공간케어 견적 신청</div>
+        <div class="hero-desc">아래 정보를 입력하시면<br>담당자가 빠르게 연락드리겠습니다.</div>
+      </div>
     </div>
-  </div>
 
-  <!-- ═══════ Progress ═══════ -->
-  <div class="progress-container">
-    <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
-    <div class="progress-text" id="progressText">0%</div>
-  </div>
+    <!-- Form -->
+    <div class="form-wrapper">
+      <form id="bbkForm" onsubmit="return false;">
 
-  <!-- ═══════ Form ═══════ -->
-  <div class="form-wrapper">
-    <form id="bbkForm" onsubmit="return false;">
+        <!-- 기본 정보 -->
+        <div class="section-card">
+          <div class="section-header">
+            <div class="section-icon blue">👤</div>
+            <div>
+              <div class="section-title">기본 정보</div>
+              <div class="section-desc">담당자 및 회사 정보를 입력해주세요</div>
+            </div>
+          </div>
 
-      <!-- ══════ Section 2: 사업장 정보 (영업시간 포함) ══════ -->
-      <div class="section-card">
-        <div class="section-header">
-          <div class="section-icon green">🏢</div>
-          <div>
-            <div class="section-title">사업장 정보</div>
-            <div class="section-desc">서비스를 제공할 사업장 정보를 입력해주세요</div>
+          <div class="form-group">
+            <label class="form-label">고객명 <span class="required">*</span></label>
+            <input type="text" class="form-input" id="ownerName" placeholder="예) 홍길동" autocomplete="name">
+            <div class="error-msg" id="ownerNameError">고객명을 입력해주세요</div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">회사명 <span class="required">*</span></label>
+            <input type="text" class="form-input" id="businessName" placeholder="예) BBK 코리아" autocomplete="organization">
+            <div class="error-msg" id="businessNameError">회사명을 입력해주세요</div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">연락처 <span class="required">*</span></label>
+            <input type="tel" class="form-input" id="phone" placeholder="예) 010-1234-5678" autocomplete="tel">
+            <div class="error-msg" id="phoneError">연락처를 입력해주세요</div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">이메일</label>
+            <input type="email" class="form-input" id="email" placeholder="예) hello@company.com" autocomplete="email">
           </div>
         </div>
 
-        <div class="form-group">
-          <label class="form-label"><span class="emoji">📍</span>상호명<span class="required">*</span></label>
-          <input type="text" class="form-input" id="businessName" placeholder="상호명을 입력해주세요" required>
-          <div class="error-msg" id="businessNameError">⚠ 상호명을 입력해주세요</div>
-        </div>
-
-        <div class="form-group">
-          <label class="form-label"><span class="emoji">🗺️</span>주소<span class="required">*</span></label>
-          <input type="text" class="form-input" id="address" placeholder="사업장 주소를 입력해주세요" required>
-          <div class="error-msg" id="addressError">⚠ 주소를 입력해주세요</div>
-        </div>
-
-        <div class="form-group">
-          <label class="form-label"><span class="emoji">🏬</span>사업자등록번호 (계산서 발행용)<span id="bizRequiredMark" class="required">*</span></label>
-          <div style="margin-bottom:10px;">
-            <button type="button" id="noBizToggleBtn" class="no-biz-toggle" onclick="toggleBizNumberBtn()">
-              <span id="noBizCheckIcon" class="no-biz-check">☐</span> 사업자 등록 전(번호 없음)
-            </button>
-            <input type="hidden" id="noBizNumber" value="false">
+        <!-- 서비스 정보 -->
+        <div class="section-card">
+          <div class="section-header">
+            <div class="section-icon green">🏢</div>
+            <div>
+              <div class="section-title">서비스 정보</div>
+              <div class="section-desc">케어 관련 정보를 입력해주세요</div>
+            </div>
           </div>
-          <div class="form-hint">※ 숫자 10자리만 입력 (하이픈 제외)</div>
-          <div style="display:flex; gap:8px; align-items:center;">
-            <input type="text" class="form-input" id="businessNumber" placeholder="0000000000" required style="flex:1;">
-            <button type="button" class="verify-btn" id="checkBizBtn" onclick="checkBusinessNumber()">확인</button>
-          </div>
-          <div id="bizResult" style="font-size:13px; margin-top:6px;"></div>
-          <div id="noBizNotice" style="display:none; margin-top:8px; padding:10px 12px; background:#FFF3E0; border-left:3px solid #FF9800; border-radius:4px; font-size:12px; color:#E65100; line-height:1.6;">
-            ⚠️ 사업자등록번호가 없는 경우 <b>세금계산서 발행이 불가</b>합니다.<br>
-            ⚠️ <b>선입금 후 서비스 진행</b>이 원칙이며, 상담 시 안내드리겠습니다.
-          </div>
-          <div class="error-msg" id="businessNumberError">⚠ 사업자등록번호를 입력해주세요</div>
-        </div>
 
-        <!-- 영업시간 (사업장 정보 섹션으로 이동) -->
-        <div class="form-group">
-          <label class="form-label"><span class="emoji">🌃</span>영업시간 (서비스 방문 시간 접수용)<span class="required">*</span></label>
-          <div class="form-hint">시간을 직접 입력하거나 🕐 버튼을 눌러 선택할 수 있습니다 (30분 단위)</div>
-          <div class="time-row">
-            <div class="time-field">
-              <div class="time-input-wrapper">
-                <input type="text" class="form-input" id="businessHoursStart" placeholder="예: 09:00" required>
-                <button type="button" class="time-dropdown-btn" onclick="toggleTimeDropdown('startTimeDropdown')">🕐</button>
-                <div class="time-dropdown" id="startTimeDropdown"></div>
+          <div class="form-group">
+            <label class="form-label">주소 <span class="required">*</span></label>
+            <input type="text" class="form-input" id="address" placeholder="케어 장소 주소를 입력해주세요" autocomplete="street-address">
+            <div class="error-msg" id="addressError">주소를 입력해주세요</div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">희망 방문일</label>
+            <input type="date" class="form-input" id="constructionDate" min="">
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">케어 범위 <span class="required">*</span></label>
+            <div class="form-hint">해당하는 항목을 모두 선택해주세요</div>
+            <div class="care-grid">
+              <div class="care-item">
+                <input type="checkbox" id="care1" value="화장실">
+                <label class="care-label" for="care1"><span class="care-emoji">🚿</span>화장실</label>
+              </div>
+              <div class="care-item">
+                <input type="checkbox" id="care2" value="주방">
+                <label class="care-label" for="care2"><span class="care-emoji">🍳</span>주방</label>
+              </div>
+              <div class="care-item">
+                <input type="checkbox" id="care3" value="객실/사무실">
+                <label class="care-label" for="care3"><span class="care-emoji">🪑</span>객실/사무실</label>
+              </div>
+              <div class="care-item">
+                <input type="checkbox" id="care4" value="유리/창문">
+                <label class="care-label" for="care4"><span class="care-emoji">🪟</span>유리/창문</label>
+              </div>
+              <div class="care-item">
+                <input type="checkbox" id="care5" value="에어컨">
+                <label class="care-label" for="care5"><span class="care-emoji">❄️</span>에어컨</label>
+              </div>
+              <div class="care-item">
+                <input type="checkbox" id="care6" value="기타">
+                <label class="care-label" for="care6"><span class="care-emoji">✨</span>기타</label>
               </div>
             </div>
-            <span class="time-separator">~</span>
-            <div class="time-field">
-              <div class="time-input-wrapper">
-                <input type="text" class="form-input" id="businessHoursEnd" placeholder="예: 22:00" required>
-                <button type="button" class="time-dropdown-btn" onclick="toggleTimeDropdown('endTimeDropdown')">🕐</button>
-                <div class="time-dropdown" id="endTimeDropdown"></div>
-              </div>
+            <div class="error-msg" id="careScopeError" style="margin-top:8px;">케어 범위를 하나 이상 선택해주세요</div>
+          </div>
+        </div>
+
+        <!-- 요청사항 -->
+        <div class="section-card">
+          <div class="section-header">
+            <div class="section-icon purple">📝</div>
+            <div>
+              <div class="section-title">요청사항</div>
+              <div class="section-desc">추가로 전달하고 싶은 내용을 자유롭게 작성해주세요</div>
             </div>
           </div>
-          <div class="error-msg" id="businessHoursError">⚠ 영업시간을 입력해주세요</div>
-        </div>
-      </div>
 
-      <!-- ══════ Section 1: 기본 정보 (이메일 포함) ══════ -->
-      <div class="section-card">
-        <div class="section-header">
-          <div class="section-icon blue">👤</div>
-          <div>
-            <div class="section-title">기본 정보</div>
-            <div class="section-desc">대표자 및 연락처 정보를 입력해주세요</div>
+          <div class="form-group" style="margin-bottom:0;">
+            <textarea class="form-textarea" id="requestNotes" placeholder="특이사항, 희망 시간대, 공간 크기 등 자유롭게 입력해주세요"></textarea>
           </div>
         </div>
 
-        <div class="form-group">
-          <label class="form-label"><span class="emoji">🎈</span>담당자 성함<span class="required">*</span></label>
-          <div class="form-hint">현장 소통 담당자의 성함을 작성해주세요</div>
-          <input type="text" class="form-input" id="ownerName" placeholder="예) 홍길동" required>
-          <div class="error-msg" id="ownerNameError">⚠ 대표자 성함을 입력해주세요</div>
-        </div>
-
-        <div class="form-group">
-          <label class="form-label"><span class="emoji">🎈</span>입금자명<span class="required">*</span></label>
-          <div class="form-hint">입금 시 표시될 이름을 8글자 이내로 작성해주세요</div>
-          <input type="text" class="form-input" id="platformNickname" placeholder="예) 김철수" maxlength="8" required>
-          <div class="error-msg" id="platformNicknameError">⚠ 입금자명을 입력해주세요</div>
-        </div>
-
-        <div class="form-group">
-          <label class="form-label"><span class="emoji">📱</span>연락처<span class="required">*</span></label>
-          <div class="form-hint">고객사 시공 담당자(소통) 번호 입력</div>
-          <div style="display:flex; gap:8px; align-items:center;">
-            <input type="tel" class="form-input" id="phone" placeholder="010-0000-0000" required style="flex:1;">
-            <button type="button" class="verify-btn" id="sendSmsBtn" onclick="sendVerificationSMS()">인증번호 받기</button>
-          </div>
-          <div class="error-msg" id="phoneError">⚠ 연락처를 입력해주세요</div>
-          <!-- SMS 인증 입력 영역 -->
-          <div id="smsVerifySection" style="display:none; margin-top:10px;">
-            <div style="display:flex; gap:8px; align-items:center;">
-              <input type="text" class="form-input" id="smsCode" placeholder="인증번호 6자리 입력" maxlength="6" style="flex:1;">
-              <button type="button" class="verify-btn verify-confirm" id="verifySmsBtn" onclick="verifySMSCode()">확인</button>
-            </div>
-            <div id="smsTimer" style="font-size:12px; color:var(--primary); margin-top:5px;"></div>
-            <div id="smsResult" style="font-size:12px; margin-top:5px;"></div>
-          </div>
-          <div id="phoneVerified" style="display:none; margin-top:8px; font-size:13px; color:var(--success); font-weight:600;">✅ 연락처 인증 완료</div>
-        </div>
-
-        <!-- 이메일 (기본정보 섹션으로 이동) -->
-        <div class="form-group">
-          <label class="form-label"><span class="emoji">✉️</span>이메일 (계산서 발행용)<span class="required">*</span></label>
-          <div class="email-row">
-            <input type="text" class="form-input" id="emailId" placeholder="아이디만 입력 (@제외)" autocomplete="email" required>
-            <span class="email-at">@</span>
-            <select class="form-select" id="emailDomain" required>
-              <option value="" disabled selected>이메일 주소 선택</option>
-              <option value="naver.com">naver.com</option>
-              <option value="gmail.com">gmail.com</option>
-              <option value="daum.net">daum.net</option>
-              <option value="hanmail.net">hanmail.net</option>
-              <option value="kakao.com">kakao.com</option>
-              <option value="nate.com">nate.com</option>
-              <option value="custom">직접입력</option>
-            </select>
-          </div>
-          <input type="text" class="form-input" id="emailCustom" placeholder="이메일 도메인 직접 입력" style="display:none; margin-top:8px;">
-          <div class="error-msg" id="emailError">⚠ 이메일을 입력해주세요</div>
-        </div>
-      </div>
-
-      <!-- ══════ Section 3: 출입 · 주차 정보 (주차 먼저, 출입 나중) ══════ -->
-      <div class="section-card">
-        <div class="section-header">
-          <div class="section-icon purple">🔐</div>
-          <div>
-            <div class="section-title">출입 · 주차 정보</div>
-            <div class="section-desc">원활한 서비스를 위한 출입 및 주차 정보</div>
+        <!-- Submit -->
+        <div class="section-card submit-section">
+          <button type="button" class="submit-btn" id="submitBtn" onclick="handleSubmit()">
+            <span class="btn-text">견적 신청하기</span>
+            <span class="spinner"><span class="spinner-ring"></span></span>
+          </button>
+          <div class="privacy-notice">
+            제출하신 정보는 견적 상담 목적으로만 사용되며,<br>담당자 확인 후 연락드리겠습니다.
           </div>
         </div>
 
-        <div class="form-group">
-          <label class="form-label"><span class="emoji">📦</span>엘리베이터 사용 가능 여부<span class="required">*</span></label>
-          <div class="radio-group">
-            <div class="radio-option">
-              <input type="radio" name="elevator" id="elevatorYes" value="가능" required>
-              <label for="elevatorYes"><span class="radio-dot"></span>사용 가능</label>
-            </div>
-            <div class="radio-option">
-              <input type="radio" name="elevator" id="elevatorNo" value="불가">
-              <label for="elevatorNo"><span class="radio-dot"></span>사용 불가</label>
-            </div>
-            <div class="radio-option">
-              <input type="radio" name="elevator" id="elevatorNA" value="해당없음">
-              <label for="elevatorNA"><span class="radio-dot"></span>해당 없음</label>
-            </div>
-          </div>
-          <div class="error-msg" id="elevatorError">⚠ 엘리베이터 사용 가능 여부를 선택해주세요</div>
-        </div>
+      </form>
 
-        <div class="form-group">
-          <label class="form-label"><span class="emoji">🪪</span>건물 출입 신청 필요 여부<span class="required">*</span></label>
-          <div class="form-hint">백화점, 아울렛 등 건물에서 출입을 통제하는 경우 작성</div>
-          <div class="radio-group">
-            <div class="radio-option">
-              <input type="radio" name="buildingAccess" id="accessYes" value="필요" required>
-              <label for="accessYes"><span class="radio-dot"></span>신청 필요</label>
-            </div>
-            <div class="radio-option">
-              <input type="radio" name="buildingAccess" id="accessNo" value="불필요">
-              <label for="accessNo"><span class="radio-dot"></span>신청 불필요</label>
-            </div>
-          </div>
-          <div class="error-msg" id="buildingAccessError">⚠ 건물 출입 신청 필요 여부를 선택해주세요</div>
-        </div>
+      <div class="footer">© 2025 BBK Korea. All rights reserved.</div>
+    </div>
 
-        <!-- 🚙 주차 방법 (출입 방법보다 위로 이동, 라디오 선택 + 직접입력) -->
-        <div class="form-group">
-          <label class="form-label"><span class="emoji">🚙</span>주차 방법<span class="required">*</span></label>
-          <div class="radio-group">
-            <div class="radio-option">
-              <input type="radio" name="parking" id="parkingBuilding" value="건물 전용주차장" required>
-              <label for="parkingBuilding"><span class="radio-dot"></span>건물 전용주차장</label>
-            </div>
-            <div class="radio-option">
-              <input type="radio" name="parking" id="parkingNearby" value="건물 주변 주차가능">
-              <label for="parkingNearby"><span class="radio-dot"></span>건물 주변 주차가능</label>
-            </div>
-            <div class="radio-option">
-              <input type="radio" name="parking" id="parkingNone" value="주차공간 없음">
-              <label for="parkingNone"><span class="radio-dot"></span>주차공간 없음</label>
-            </div>
-            <div class="radio-option">
-              <input type="radio" name="parking" id="parkingCustom" value="직접입력">
-              <label for="parkingCustom"><span class="radio-dot"></span>직접입력</label>
-            </div>
-          </div>
-          <div class="custom-input-wrapper" id="parkingCustomWrapper">
-            <input type="text" class="form-input" id="parkingCustomInput" placeholder="주차 방법을 직접 입력해주세요">
-          </div>
-          <div class="form-hint warning-hint">
-            🅿️ 주차등록이 불가한 경우 일부 주차요금이 발생할 수 있으니, 사전에 주차 가능 여부를 확인해주시면 감사하겠습니다.
-          </div>
-          <div class="error-msg" id="parkingError">⚠ 주차 방법을 선택해주세요</div>
-        </div>
+  </div><!-- /#app -->
 
-        <!-- 🔏 출입 방법 (주차 방법 아래로 이동) -->
-        <div class="form-group">
-          <label class="form-label"><span class="emoji">🔏</span>출입 방법 (비밀번호)<span class="required">*</span></label>
-          <div class="form-hint important">
-            ⚠ 요청 주신 공간의 출입 방법을 작성해주세요! (매우 중요)<br>
-            화장실이 외부에 있는 경우 함께 작성해주세요! (매우 중요)
-          </div>
-          <textarea class="form-textarea" id="accessMethod" placeholder="예: 현관 비밀번호 1234#, 화장실 외부 2층 공용화장실 이용" required></textarea>
-          <div class="error-msg" id="accessMethodError">⚠ 출입 방법을 입력해주세요</div>
-        </div>
-      </div>
-
-      <!-- ══════ Section 4: 결제 정보 ══════ -->
-      <div class="section-card">
-        <div class="section-header">
-          <div class="section-icon teal">💳</div>
-          <div>
-            <div class="section-title">결제 정보</div>
-            <div class="section-desc">결제 방법 및 계좌 정보를 입력해주세요</div>
-          </div>
-        </div>
-
-        <div class="form-group">
-          <label class="form-label"><span class="emoji">💳</span>결제 방법 선택<span class="required">*</span></label>
-          <div class="radio-group">
-            <div class="radio-option">
-              <input type="radio" name="paymentMethod" id="payTransfer" value="현금(계산서 희망)" required>
-              <label for="payTransfer"><span class="radio-dot"></span>현금(계산서 희망)</label>
-            </div>
-            <div class="radio-option">
-              <input type="radio" name="paymentMethod" id="payCard" value="카드(온라인 간편결제)">
-              <label for="payCard"><span class="radio-dot"></span>카드(온라인 간편결제)</label>
-            </div>
-            <div class="radio-option">
-              <input type="radio" name="paymentMethod" id="payPlatform" value="플랫폼">
-              <label for="payPlatform"><span class="radio-dot"></span>플랫폼</label>
-            </div>
-            <div class="radio-option">
-              <input type="radio" name="paymentMethod" id="payCash" value="현금(비과세)">
-              <label for="payCash"><span class="radio-dot"></span>현금(비과세)</label>
-            </div>
-          </div>
-          <div class="error-msg" id="paymentMethodError">⚠ 결제 방법을 선택해주세요</div>
-          <div id="prepayNotice" style="display:none; margin-top:8px; padding:10px 12px; background:#FFEBEE; border-left:3px solid #F44336; border-radius:4px; font-size:12px; color:#C62828; line-height:1.6; font-weight:600;">
-            📌 사업자등록 전 고객님은 <b>선입금 후 서비스 진행</b>이 원칙입니다.<br>
-            상세 안내는 상담 시 별도로 드리겠습니다.
-          </div>
-        </div>
-
-        <div class="form-group">
-          <label class="form-label"><span class="emoji">📥</span>계좌번호 (카드, 플랫폼 결제 시 페이백)<span class="required">*</span></label>
-          <div class="form-hint">카드 or 플랫폼 결제 시 예약금 페이백을 위해 작성 바랍니다.</div>
-          <input type="text" class="form-input" id="accountNumber" placeholder="은행명 + 계좌번호 (예: 국민은행 000-000-000000)" required>
-          <div class="error-msg" id="accountNumberError">⚠ 계좌번호를 입력해주세요</div>
-        </div>
-      </div>
-
-      <!-- ══════ Section 5: 동의 & 요청사항 ══════ -->
-      <div class="section-card">
-        <div class="section-header">
-          <div class="section-icon red">📋</div>
-          <div>
-            <div class="section-title">동의 · 요청사항</div>
-            <div class="section-desc">서비스 이용을 위한 필수 동의 및 요청사항</div>
-          </div>
-        </div>
-
-        <div class="form-group">
-          <div class="consent-box" id="privacyConsentBox">
-            <div class="consent-link">
-              <span>📢</span>
-              <a href="https://www.notion.so/240fc2d565d78031a026d99b716cd138?v=2b1fc2d565d78003b813000ca83d1815" target="_blank">
-                개인정보 제공 및 마케팅 이용 동의 링크 확인
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-              </a>
-            </div>
-            <label class="checkbox-wrapper">
-              <input type="checkbox" id="privacyConsent">
-              <div class="custom-checkbox"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></div>
-              <span class="checkbox-text">동의합니다 <span class="warning">(미동의 시 서비스 이용 제한)</span></span>
-            </label>
-          </div>
-          <div class="error-msg" id="privacyConsentError">⚠ 개인정보 제공 동의가 필요합니다</div>
-        </div>
-
-        <div class="form-group">
-          <div class="consent-box" id="serviceConsentBox">
-            <div class="consent-link">
-              <span>🔔</span>
-              <a href="https://www.notion.so/255fc2d565d780ad807ed13533001e17?v=2b1fc2d565d78003b813000ca83d1815" target="_blank">
-                기본 안내사항 링크 확인
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-              </a>
-            </div>
-            <label class="checkbox-wrapper">
-              <input type="checkbox" id="serviceConsent">
-              <div class="custom-checkbox"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></div>
-              <span class="checkbox-text">동의합니다 <span class="warning">(미동의 시 서비스 이용 제한)</span></span>
-            </label>
-          </div>
-          <div class="error-msg" id="serviceConsentError">⚠ 기본 안내사항 동의가 필요합니다</div>
-        </div>
-
-        <div class="form-group">
-          <label class="form-label"><span class="emoji">🖋️</span>요청/안내 사항 작성</label>
-          <textarea class="form-textarea" id="requestNotes" placeholder="추가 요청사항이나 안내 사항이 있으시면 자유롭게 작성해주세요"></textarea>
-        </div>
-      </div>
-
-      <!-- ══════ Submit ══════ -->
-      <div class="submit-section">
-        <div class="privacy-note">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-          고객님의 소중한 정보는 서비스 목적으로만 사용되며 서비스 직후 영구 파기됩니다.
-        </div>
-        <button type="button" class="submit-btn" id="submitBtn" onclick="handleSubmit()">
-          <span class="btn-text">🔒 신청서 보안 발송하기</span>
-          <div class="spinner"></div>
-        </button>
-      </div>
-    </form>
-  </div>
-
-  <div class="footer">© BUMBUILD KOREA · 범빌드코리아<br>문의사항은 언제든 연락 주세요 · 031-759-4877</div>
-
-  <!-- ═══════ Modal ═══════ -->
+  <!-- ═══ Success Modal ═══ -->
   <div class="modal-overlay" id="successModal">
-    <div class="modal-content">
-      <div class="modal-icon"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></div>
-      <div class="modal-title">신청 완료! 🎉</div>
-      <div class="modal-message">공간케어 신청서가 성공적으로 접수되었습니다.<br>빠른 시일 내에 연락드리겠습니다.</div>
+    <div class="modal-card">
+      <div class="modal-icon">✅</div>
+      <div class="modal-title">신청 완료!</div>
+      <div class="modal-desc">
+        견적 신청이 접수되었습니다.<br>
+        담당자가 <strong>1~2 영업일 내</strong>에 연락드리겠습니다.
+      </div>
       <button class="modal-btn" onclick="closeModal()">확인</button>
     </div>
   </div>
 
   <script>
-    // ═══════ Time Dropdown (30분 단위) ═══════
-    function generateTimeOptions() {
-      var times = [];
-      for (var h = 0; h < 24; h++) {
-        for (var m = 0; m < 60; m += 30) {
-          var hh = h.toString().padStart(2, '0');
-          var mm = m.toString().padStart(2, '0');
-          times.push(hh + ':' + mm);
-        }
-      }
-      return times;
-    }
+    // ─── 스플래시 → 앱 전환 ───────────────────────────────────────
+    window.addEventListener('load', function () {
+      var splash = document.getElementById('splash');
+      var app    = document.getElementById('app');
 
-    function buildTimeDropdown(dropdownId, inputId) {
-      var dropdown = document.getElementById(dropdownId);
-      var times = generateTimeOptions();
-      dropdown.innerHTML = '';
-      times.forEach(function(t) {
-        var div = document.createElement('div');
-        div.className = 'time-dropdown-item';
-        div.textContent = t;
-        div.addEventListener('click', function() {
-          document.getElementById(inputId).value = t;
-          dropdown.classList.remove('open');
-          updateProgress();
-        });
-        dropdown.appendChild(div);
-      });
-    }
-
-    buildTimeDropdown('startTimeDropdown', 'businessHoursStart');
-    buildTimeDropdown('endTimeDropdown', 'businessHoursEnd');
-
-    function toggleTimeDropdown(id) {
-      var dd = document.getElementById(id);
-      var isOpen = dd.classList.contains('open');
-      // Close all
-      document.querySelectorAll('.time-dropdown').forEach(function(el) { el.classList.remove('open'); });
-      if (!isOpen) dd.classList.add('open');
-    }
-
-    // Close dropdown on outside click
-    document.addEventListener('click', function(e) {
-      if (!e.target.closest('.time-input-wrapper')) {
-        document.querySelectorAll('.time-dropdown').forEach(function(el) { el.classList.remove('open'); });
-      }
+      // 최소 1.4초 스플래시 표시
+      setTimeout(function () {
+        splash.classList.add('hide');
+        app.classList.add('visible');
+        setTimeout(function () { splash.classList.add('gone'); }, 650);
+      }, 1400);
     });
 
-    // ═══════ Parking custom input toggle ═══════
-    document.querySelectorAll('input[name="parking"]').forEach(function(radio) {
-      radio.addEventListener('change', function() {
-        var wrapper = document.getElementById('parkingCustomWrapper');
-        if (this.value === '직접입력') {
-          wrapper.classList.add('visible');
-          document.getElementById('parkingCustomInput').focus();
-        } else {
-          wrapper.classList.remove('visible');
-          document.getElementById('parkingCustomInput').value = '';
-        }
-      });
-    });
+    // ─── 희망일자 최소값 = 오늘 ──────────────────────────────────
+    (function () {
+      var today = new Date();
+      var yyyy  = today.getFullYear();
+      var mm    = String(today.getMonth() + 1).padStart(2, '0');
+      var dd    = String(today.getDate()).padStart(2, '0');
+      document.getElementById('constructionDate').min = yyyy + '-' + mm + '-' + dd;
+    })();
 
-    // ═══════ Progress ═══════
-    var requiredFields = [
-      'ownerName', 'platformNickname', 'phone', 'emailId', 'emailDomain',
-      'address', 'businessName', 'businessNumber',
-      'businessHoursStart', 'businessHoursEnd',
-      'accessMethod', 'accountNumber'
-    ];
-    var requiredRadios = ['elevator', 'buildingAccess', 'parking', 'paymentMethod'];
-    var requiredChecks = ['privacyConsent', 'serviceConsent'];
-
-    function updateProgress() {
-      var filled = 0;
-      var total = requiredFields.length + requiredRadios.length + requiredChecks.length;
-      requiredFields.forEach(function(id) { if (document.getElementById(id).value.trim()) filled++; });
-      requiredRadios.forEach(function(name) { if (document.querySelector('input[name="' + name + '"]:checked')) filled++; });
-      requiredChecks.forEach(function(id) { if (document.getElementById(id).checked) filled++; });
-      var pct = Math.round((filled / total) * 100);
-      document.getElementById('progressFill').style.width = pct + '%';
-      document.getElementById('progressText').textContent = pct + '%';
-    }
-
-    document.querySelectorAll('.form-input, .form-select, .form-textarea').forEach(function(el) {
-      el.addEventListener('input', updateProgress);
-      el.addEventListener('change', updateProgress);
-    });
-    document.querySelectorAll('input[type="radio"], input[type="checkbox"]').forEach(function(el) {
-      el.addEventListener('change', updateProgress);
-    });
-
-    // ═══════ Email domain toggle ═══════
-    document.getElementById('emailDomain').addEventListener('change', function() {
-      var custom = document.getElementById('emailCustom');
-      if (this.value === 'custom') {
-        custom.style.display = 'block';
-        custom.required = true;
-        custom.focus();
-      } else {
-        custom.style.display = 'none';
-        custom.required = false;
-        custom.value = '';
-      }
-    });
-
-    // ═══════ Phone auto-format ═══════
-    document.getElementById('phone').addEventListener('input', function() {
-      var val = this.value.replace(/[^0-9]/g, '');
-      if (val.length > 11) val = val.slice(0, 11);
-      if (val.length >= 8) this.value = val.slice(0,3) + '-' + val.slice(3,7) + '-' + val.slice(7);
-      else if (val.length >= 4) this.value = val.slice(0,3) + '-' + val.slice(3);
-      else this.value = val;
-    });
-
-    // ═══════ Business number auto-format ═══════
-    // ═══════ 사업자등록번호 ═══════
-    // 하이픈(-) 제거 후 숫자만 10자리까지 허용. 자동완성으로 '298-78-00455' 형태 입력도 정상 처리.
-    document.getElementById('businessNumber').addEventListener('input', function() {
-      var raw = this.value.replace(/-/g, '').replace(/[^0-9]/g, '');
-      if (raw.length > 10) raw = raw.slice(0, 10);
-      this.value = raw;
-      bizVerified = false;
-      document.getElementById('bizResult').innerHTML = '';
-    });
-
-    // ═══════ Email 자동완성 처리 ═══════
-    // 자동완성으로 'id@domain.com' 형태가 들어오면 '@' 기준으로 분리하여 각 필드에 자동 입력
-    document.getElementById('emailId').addEventListener('input', function() {
-      var val = this.value;
-      if (val.indexOf('@') === -1) return;
-      var atIdx = val.indexOf('@');
-      var id = val.slice(0, atIdx);
-      var domain = val.slice(atIdx + 1);
-      this.value = id;
-      if (domain) {
-        var domainSelect = document.getElementById('emailDomain');
-        var customInput = document.getElementById('emailCustom');
-        domainSelect.value = 'custom';
-        customInput.style.display = 'block';
-        customInput.required = true;
-        customInput.value = domain;
-        updateProgress();
-      }
-    });
-    // 연락처 변경 시 인증 리셋 (readOnly가 아닌 경우)
-    document.getElementById('phone').addEventListener('input', function() {
-      if (!this.readOnly) {
-        phoneVerified = false;
-        document.getElementById('phoneVerified').style.display = 'none';
-        document.getElementById('sendSmsBtn').style.display = '';
-      }
-    });
-
-    // ═══════ Clear errors ═══════
-    document.querySelectorAll('.form-input, .form-select, .form-textarea').forEach(function(el) {
-      el.addEventListener('focus', function() {
-        this.classList.remove('error');
-        var errEl = document.getElementById(this.id + 'Error');
-        if (errEl) errEl.classList.remove('visible');
-      });
-    });
-    document.querySelectorAll('input[type="radio"]').forEach(function(el) {
-      el.addEventListener('change', function() {
-        var errEl = document.getElementById(this.name + 'Error');
-        if (errEl) errEl.classList.remove('visible');
-      });
-    });
-    document.querySelectorAll('input[type="checkbox"]').forEach(function(el) {
-      el.addEventListener('change', function() {
-        var errEl = document.getElementById(this.id + 'Error');
-        if (errEl) errEl.classList.remove('visible');
-        var box = document.getElementById(this.id + 'Box');
-        if (box) box.classList.remove('error');
-      });
-    });
-
-    // ═══════ Validation & Submit ═══════
-    function showError(fieldId, errorId) {
-      var field = document.getElementById(fieldId);
-      var error = document.getElementById(errorId);
-      if (field) field.classList.add('error');
-      if (error) error.classList.add('visible');
-    }
-
+    // ─── 폼 검증 ─────────────────────────────────────────────────
     function validateForm() {
-      var isValid = true;
-      var firstError = null;
+      var ok = true;
 
-      var textFields = [
-        {id:'ownerName', err:'ownerNameError'}, {id:'platformNickname', err:'platformNicknameError'},
-        {id:'phone', err:'phoneError'}, {id:'emailId', err:'emailError'},
-        {id:'address', err:'addressError'}, {id:'businessName', err:'businessNameError'},
-        {id:'businessNumber', err:'businessNumberError'},
-        {id:'accessMethod', err:'accessMethodError'}, {id:'accountNumber', err:'accountNumberError'}
-      ];
-
-      textFields.forEach(function(f) {
-        var el = document.getElementById(f.id);
-        // 사업자등록 전 체크 시 사업자번호 검증 스킵
-        if (f.id === 'businessNumber' && document.getElementById('noBizNumber').value === 'true') return;
-        if (!el.value.trim()) {
-          showError(f.id, f.err);
-          isValid = false;
-          if (!firstError) firstError = el;
-        }
-      });
-
-      var emailDomain = document.getElementById('emailDomain');
-      if (!emailDomain.value) {
-        showError('emailDomain', 'emailError');
-        isValid = false;
-        if (!firstError) firstError = emailDomain;
-      }
-      if (emailDomain.value === 'custom' && !document.getElementById('emailCustom').value.trim()) {
-        showError('emailCustom', 'emailError');
-        isValid = false;
-      }
-
-      var start = document.getElementById('businessHoursStart');
-      var end = document.getElementById('businessHoursEnd');
-      if (!start.value || !end.value) {
-        document.getElementById('businessHoursError').classList.add('visible');
-        isValid = false;
-        if (!firstError) firstError = start;
-      }
-
-      requiredRadios.forEach(function(name) {
-        if (!document.querySelector('input[name="' + name + '"]:checked')) {
-          var errEl = document.getElementById(name + 'Error');
-          if (errEl) errEl.classList.add('visible');
-          isValid = false;
-          if (!firstError) firstError = document.querySelector('input[name="' + name + '"]');
-        }
-      });
-
-      // 주차 직접입력 검증
-      var parkingChecked = document.querySelector('input[name="parking"]:checked');
-      if (parkingChecked && parkingChecked.value === '직접입력') {
-        if (!document.getElementById('parkingCustomInput').value.trim()) {
-          showError('parkingCustomInput', 'parkingError');
-          isValid = false;
-          if (!firstError) firstError = document.getElementById('parkingCustomInput');
+      function check(id, errId, condition) {
+        var el  = document.getElementById(id);
+        var err = document.getElementById(errId);
+        if (condition) {
+          if (el) el.classList.remove('error');
+          if (err) err.classList.remove('visible');
+        } else {
+          if (el) el.classList.add('error');
+          if (err) err.classList.add('visible');
+          ok = false;
         }
       }
 
-      requiredChecks.forEach(function(id) {
-        if (!document.getElementById(id).checked) {
-          var errEl = document.getElementById(id + 'Error');
-          if (errEl) errEl.classList.add('visible');
-          var box = document.getElementById(id + 'Box');
-          if (box) box.classList.add('error');
-          isValid = false;
-          if (!firstError) firstError = document.getElementById(id);
-        }
-      });
+      check('ownerName',    'ownerNameError',    document.getElementById('ownerName').value.trim() !== '');
+      check('businessName', 'businessNameError', document.getElementById('businessName').value.trim() !== '');
+      check('phone',        'phoneError',        document.getElementById('phone').value.trim() !== '');
+      check('address',      'addressError',      document.getElementById('address').value.trim() !== '');
 
-      // ═══ 연락처 SMS 인증 필수 검증 ═══
-      if (!phoneVerified) {
-        var phoneEl = document.getElementById('phone');
-        var phoneVerifyMsg = document.getElementById('phoneError');
-        phoneVerifyMsg.textContent = '⚠ 연락처 인증을 완료해주세요';
-        phoneVerifyMsg.classList.add('visible');
-        phoneEl.classList.add('error');
-        isValid = false;
-        if (!firstError) firstError = phoneEl;
+      // 케어범위 체크
+      var anyChecked = document.querySelectorAll('.care-item input:checked').length > 0;
+      var careErr    = document.getElementById('careScopeError');
+      if (anyChecked) {
+        if (careErr) careErr.classList.remove('visible');
+      } else {
+        if (careErr) careErr.classList.add('visible');
+        ok = false;
       }
 
-      // ═══ 사업자등록번호 인증 필수 검증 (사업자등록 전 제외) ═══
-      if (document.getElementById('noBizNumber').value !== 'true' && !bizVerified) {
-        var bizEl = document.getElementById('businessNumber');
-        var bizVerifyMsg = document.getElementById('businessNumberError');
-        bizVerifyMsg.textContent = '⚠ 사업자등록번호 확인을 완료해주세요';
-        bizVerifyMsg.classList.add('visible');
-        bizEl.classList.add('error');
-        isValid = false;
-        if (!firstError) firstError = bizEl;
-      }
-
-      if (!isValid && firstError) firstError.scrollIntoView({behavior:'smooth', block:'center'});
-      return isValid;
+      return ok;
     }
 
+    // ─── 제출 ─────────────────────────────────────────────────────
     function handleSubmit() {
       if (!validateForm()) return;
 
@@ -1436,21 +671,13 @@
       btn.classList.add('loading');
       btn.disabled = true;
 
-      var emailDomainEl = document.getElementById('emailDomain');
-      var emailDomain = emailDomainEl.value === 'custom'
-        ? document.getElementById('emailCustom').value.trim()
-        : emailDomainEl.value;
+      // 케어범위 수집
+      var checkedCare = Array.from(document.querySelectorAll('.care-item input:checked'))
+                             .map(function(el) { return el.value; });
 
-      // 주차 값 처리
-      var parkingChecked = document.querySelector('input[name="parking"]:checked');
-      var parkingValue = parkingChecked.value;
-      if (parkingValue === '직접입력') {
-        parkingValue = document.getElementById('parkingCustomInput').value.trim();
-      }
-
-      // 타임스탬프 생성
+      // KST 타임스탬프
       var now = new Date();
-      var kst = new Date(now.getTime() + (9 * 60 * 60 * 1000));
+      var kst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
       var timestamp = kst.getFullYear() + '-' +
         String(kst.getMonth() + 1).padStart(2, '0') + '-' +
         String(kst.getDate()).padStart(2, '0') + ' ' +
@@ -1459,256 +686,46 @@
         String(kst.getSeconds()).padStart(2, '0');
 
       var formData = {
-        timestamp: timestamp,
-        ownerName: document.getElementById('ownerName').value.trim(),
-        platformNickname: document.getElementById('platformNickname').value.trim(),
-        phone: document.getElementById('phone').value.trim(),
-        address: document.getElementById('address').value.trim(),
-        businessName: document.getElementById('businessName').value.trim(),
-        businessNumber: document.getElementById('noBizNumber').value === 'true' ? '사업자등록 전' : document.getElementById('businessNumber').value.trim().replace(/-/g,''),
-        emailId: document.getElementById('emailId').value.trim(),
-        emailDomain: emailDomain,
-        email: document.getElementById('emailId').value.trim() + '@' + emailDomain,
-        businessHoursStart: document.getElementById('businessHoursStart').value,
-        businessHoursEnd: document.getElementById('businessHoursEnd').value,
-        elevator: document.querySelector('input[name="elevator"]:checked').value,
-        buildingAccess: document.querySelector('input[name="buildingAccess"]:checked').value,
-        accessMethod: document.getElementById('accessMethod').value.trim(),
-        parking: parkingValue,
-        paymentMethod: document.querySelector('input[name="paymentMethod"]:checked').value,
-        accountNumber: document.getElementById('accountNumber').value.trim(),
-        privacyConsent: document.getElementById('privacyConsent').checked,
-        serviceConsent: document.getElementById('serviceConsent').checked,
-        requestNotes: document.getElementById('requestNotes').value.trim()
+        timestamp:        timestamp,
+        ownerName:        document.getElementById('ownerName').value.trim(),
+        businessName:     document.getElementById('businessName').value.trim(),
+        phone:            document.getElementById('phone').value.trim(),
+        email:            document.getElementById('email').value.trim(),
+        address:          document.getElementById('address').value.trim(),
+        constructionDate: document.getElementById('constructionDate').value || null,
+        careScope:        checkedCare.join(', '),
+        requestNotes:     document.getElementById('requestNotes').value.trim(),
       };
 
-      // BBK 웹앱 API로 전송
-      var webhookUrl = 'https://bbk-app.vercel.app/api/webhooks/application';
-
-      fetch(webhookUrl, {
-        method: 'POST',
+      fetch('https://bbk-app.vercel.app/api/webhooks/application', {
+        method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData)
+        body:    JSON.stringify(formData),
       })
-      .then(function(response) {
+      .then(function (res) {
         btn.classList.remove('loading');
         btn.disabled = false;
-        if (response.ok) {
+        if (res.ok) {
           document.getElementById('successModal').classList.add('active');
         } else {
           alert('전송 중 오류가 발생했습니다. 다시 시도해주세요.');
         }
       })
-      .catch(function(error) {
+      .catch(function () {
         btn.classList.remove('loading');
         btn.disabled = false;
         alert('네트워크 오류가 발생했습니다. 인터넷 연결을 확인해주세요.');
       });
     }
 
+    // ─── 모달 닫기 ───────────────────────────────────────────────
     function closeModal() {
       document.getElementById('successModal').classList.remove('active');
       document.getElementById('bbkForm').reset();
-      document.querySelectorAll('.form-input, .form-select, .form-textarea').forEach(function(el) { el.classList.remove('error'); });
+      document.querySelectorAll('.care-item input').forEach(function(el) { el.checked = false; });
+      document.querySelectorAll('.form-input, .form-textarea').forEach(function(el) { el.classList.remove('error'); });
       document.querySelectorAll('.error-msg').forEach(function(el) { el.classList.remove('visible'); });
-      document.getElementById('emailCustom').style.display = 'none';
-      document.getElementById('parkingCustomWrapper').classList.remove('visible');
-      updateProgress();
-      window.scrollTo({top:0, behavior:'smooth'});
-    }
-
-    updateProgress();
-
-    // ═══════ SMS 본인인증 ═══════
-    var smsToken = '';
-    var smsTimerInterval = null;
-    var phoneVerified = false;
-
-    function sendVerificationSMS() {
-      var phone = document.getElementById('phone').value.trim();
-      if (!phone || !/^01[016789]-?\d{3,4}-?\d{4}$/.test(phone.replace(/-/g, ''))) {
-        alert('유효한 연락처를 입력해주세요.');
-        return;
-      }
-
-      var btn = document.getElementById('sendSmsBtn');
-      btn.disabled = true;
-      btn.textContent = '발송 중...';
-
-      fetch('https://bbk-app.vercel.app/api/form/send-sms', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: phone, action: 'send' })
-      })
-      .then(function(res) { return res.json(); })
-      .then(function(data) {
-        if (data.success) {
-          smsToken = data.token;
-          document.getElementById('smsVerifySection').style.display = 'block';
-          document.getElementById('smsCode').value = '';
-          document.getElementById('smsCode').focus();
-          document.getElementById('smsResult').textContent = '';
-          document.getElementById('smsTimer').style.color = 'var(--primary)';
-
-          var remaining = 180;
-          clearInterval(smsTimerInterval);
-          smsTimerInterval = setInterval(function() {
-            remaining--;
-            var m = Math.floor(remaining / 60);
-            var s = remaining % 60;
-            document.getElementById('smsTimer').textContent = '남은 시간: ' + m + ':' + (s < 10 ? '0' : '') + s;
-            if (remaining <= 0) {
-              clearInterval(smsTimerInterval);
-              document.getElementById('smsTimer').textContent = '시간이 만료되었습니다. 다시 요청해주세요.';
-              document.getElementById('smsTimer').style.color = 'var(--error)';
-              smsToken = '';
-            }
-          }, 1000);
-
-          btn.textContent = '재발송';
-          btn.disabled = false;
-          document.getElementById('phone').readOnly = true;
-        } else {
-          alert(data.message || 'SMS 발송에 실패했습니다.');
-          btn.textContent = '인증번호 받기';
-          btn.disabled = false;
-        }
-      })
-      .catch(function() {
-        alert('네트워크 오류가 발생했습니다.');
-        btn.textContent = '인증번호 받기';
-        btn.disabled = false;
-      });
-    }
-
-    function verifySMSCode() {
-      var code = document.getElementById('smsCode').value.trim();
-      var phone = document.getElementById('phone').value.trim();
-      if (!code || code.length !== 6) {
-        document.getElementById('smsResult').innerHTML = '<span style="color:var(--error);">6자리 인증번호를 입력해주세요.</span>';
-        return;
-      }
-      if (!smsToken) {
-        document.getElementById('smsResult').innerHTML = '<span style="color:var(--error);">인증 시간이 만료되었습니다. 다시 요청해주세요.</span>';
-        return;
-      }
-
-      fetch('https://bbk-app.vercel.app/api/form/send-sms', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: phone, action: 'verify', code: code, token: smsToken })
-      })
-      .then(function(res) { return res.json(); })
-      .then(function(data) {
-        if (data.verified) {
-          phoneVerified = true;
-          clearInterval(smsTimerInterval);
-          document.getElementById('smsVerifySection').style.display = 'none';
-          document.getElementById('phoneVerified').style.display = 'block';
-          document.getElementById('sendSmsBtn').style.display = 'none';
-          document.getElementById('phone').readOnly = true;
-          updateProgress();
-        } else {
-          document.getElementById('smsResult').innerHTML = '<span style="color:var(--error);">인증번호가 일치하지 않습니다.</span>';
-        }
-      })
-      .catch(function() {
-        document.getElementById('smsResult').innerHTML = '<span style="color:var(--error);">오류가 발생했습니다.</span>';
-      });
-    }
-
-    // ═══════ 사업자등록 전 토글 ═══════
-    function toggleBizNumberBtn() {
-      var hiddenInput = document.getElementById('noBizNumber');
-      var btn = document.getElementById('noBizToggleBtn');
-      var icon = document.getElementById('noBizCheckIcon');
-      var isActive = hiddenInput.value === 'true';
-
-      // 토글
-      var checked = !isActive;
-      hiddenInput.value = checked ? 'true' : 'false';
-
-      var bizInput = document.getElementById('businessNumber');
-      var checkBtn = document.getElementById('checkBizBtn');
-      var bizResult = document.getElementById('bizResult');
-      var noBizNotice = document.getElementById('noBizNotice');
-      var prepayNotice = document.getElementById('prepayNotice');
-      var bizRequiredMark = document.getElementById('bizRequiredMark');
-
-      if (checked) {
-        btn.classList.add('active');
-        icon.textContent = '☑';
-        bizInput.value = '';
-        bizInput.disabled = true;
-        bizInput.required = false;
-        bizInput.placeholder = '사업자등록 전 - 입력 불필요';
-        bizInput.style.background = '#f0f0f0';
-        checkBtn.disabled = true;
-        checkBtn.style.opacity = '0.4';
-        bizResult.innerHTML = '';
-        noBizNotice.style.display = 'block';
-        prepayNotice.style.display = 'block';
-        bizRequiredMark.style.display = 'none';
-        bizVerified = true;
-      } else {
-        btn.classList.remove('active');
-        icon.textContent = '☐';
-        bizInput.disabled = false;
-        bizInput.required = true;
-        bizInput.placeholder = '0000000000';
-        bizInput.style.background = '';
-        checkBtn.disabled = false;
-        checkBtn.style.opacity = '1';
-        noBizNotice.style.display = 'none';
-        prepayNotice.style.display = 'none';
-        bizRequiredMark.style.display = 'inline';
-        bizVerified = false;
-      }
-    }
-
-    // ═══════ 사업자등록번호 확인 ═══════
-    var bizVerified = false;
-
-    function checkBusinessNumber() {
-      var bizNum = document.getElementById('businessNumber').value.trim();
-      if (!bizNum) {
-        alert('사업자등록번호를 입력해주세요.');
-        return;
-      }
-
-      var btn = document.getElementById('checkBizBtn');
-      var resultDiv = document.getElementById('bizResult');
-      btn.disabled = true;
-      btn.textContent = '조회 중...';
-      resultDiv.innerHTML = '';
-
-      fetch('https://bbk-app.vercel.app/api/form/check-biz', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ businessNumber: bizNum })
-      })
-      .then(function(res) { return res.json(); })
-      .then(function(data) {
-        btn.disabled = false;
-        btn.textContent = '확인';
-
-        if (data.success) {
-          if (data.valid) {
-            bizVerified = true;
-            resultDiv.innerHTML = '<span style="color:var(--success); font-weight:600;">✅ ' + data.message + '</span>';
-          } else {
-            bizVerified = false;
-            resultDiv.innerHTML = '<span style="color:var(--error); font-weight:600;">❌ ' + data.message + '</span>';
-          }
-        } else {
-          resultDiv.innerHTML = '<span style="color:var(--error);">' + (data.message || '조회에 실패했습니다.') + '</span>';
-        }
-      })
-      .catch(function() {
-        btn.disabled = false;
-        btn.textContent = '확인';
-        resultDiv.innerHTML = '<span style="color:var(--error);">네트워크 오류가 발생했습니다.</span>';
-      });
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   </script>
 </body>

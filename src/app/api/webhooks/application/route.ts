@@ -69,9 +69,10 @@ export async function POST(request: NextRequest) {
       elevator, buildingAccess, accessMethod, parking,
       paymentMethod, accountNumber,
       privacyConsent, serviceConsent, requestNotes,
+      constructionDate, careScope,
     } = body
 
-    if (!ownerName || !phone || !businessName || !address) {
+    if (!ownerName || !businessName || !address) {
       return NextResponse.json(
         { error: '필수 항목이 누락되었습니다.' },
         { status: 400, headers: CORS_HEADERS },
@@ -126,6 +127,8 @@ export async function POST(request: NextRequest) {
           privacy_consent: privacyConsent,
           service_consent: serviceConsent,
           request_notes: requestNotes,
+          construction_date: constructionDate ?? null,
+          care_scope: careScope ?? null,
           status: '신규',
         })
         .select()
