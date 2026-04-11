@@ -1344,7 +1344,7 @@ export default function ServiceManagementPage() {
 
           {/* 목록 테이블 */}
           {(viewMode === 'list' || showUnassigned) && (
-          <div className="bg-white rounded-xl border border-gray-200 overflow-auto flex-1 flex flex-col">
+          <div className="bg-white rounded-xl border border-gray-200 overflow-auto flex-1 flex flex-col overscroll-contain">
             {loading ? (
               <LoadingSpinner />
             ) : filteredApps.length === 0 ? (
@@ -1497,7 +1497,7 @@ export default function ServiceManagementPage() {
           <>
             {/* PC 백드롭 - 패널 외 클릭 시 닫힘 */}
             <div className="absolute inset-0 z-10 hidden md:block" onClick={closePanel} />
-          <div className="absolute right-0 top-0 bottom-0 w-[480px] bg-white rounded-xl border border-gray-200 shadow-2xl overflow-y-auto z-20">
+          <div className="absolute right-0 top-0 bottom-0 w-[480px] bg-white rounded-xl border border-gray-200 shadow-2xl overflow-y-auto overscroll-contain z-20">
             {/* 헤더 */}
             <div className="p-4 border-b border-gray-100 flex items-start justify-between gap-2 sticky top-0 bg-white z-10">
               <div>

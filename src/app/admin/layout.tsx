@@ -13,13 +13,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const userName = session.name
 
   return (
-    <div className="flex min-h-screen bg-gray-50">
+    <div className="flex h-screen overflow-hidden bg-gray-50">
       {/* 데스크탑 사이드바 (badges 포함) */}
       <SidebarWithBadges role={role} userName={userName} />
 
       {/* 메인 콘텐츠 */}
-      <main className="flex-1 flex flex-col min-w-0">
-        <div className="flex-1 p-4 md:p-8 pb-24 md:pb-8">
+      <main className="flex-1 flex flex-col min-w-0 overflow-hidden">
+        <div className="flex-1 p-4 md:p-8 pb-24 md:pb-8 overflow-y-auto min-h-0">
           {children}
         </div>
       </main>
