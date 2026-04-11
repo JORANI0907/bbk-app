@@ -1,5 +1,6 @@
-import { Sidebar } from '@/components/admin/Sidebar'
+import { SidebarWithBadges } from '@/components/admin/SidebarWithBadges'
 import { AdminMobileNav } from '@/components/admin/AdminMobileNav'
+import { PopupNoticeController } from '@/components/admin/PopupNoticeController'
 import { getServerSession } from '@/lib/session'
 import { redirect } from 'next/navigation'
 
@@ -13,8 +14,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   return (
     <div className="flex min-h-screen bg-gray-50">
-      {/* 데스크탑 사이드바 */}
-      <Sidebar role={role} userName={userName} />
+      {/* 데스크탑 사이드바 (badges 포함) */}
+      <SidebarWithBadges role={role} userName={userName} />
 
       {/* 메인 콘텐츠 */}
       <main className="flex-1 flex flex-col min-w-0">
@@ -25,6 +26,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
       {/* 모바일 하단 탭바 */}
       <AdminMobileNav role={role} />
+
+      {/* 팝업 공지 컨트롤러 */}
+      <PopupNoticeController />
     </div>
   )
 }

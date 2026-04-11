@@ -20,6 +20,7 @@ interface Notice {
   event_date: string | null
   target_audience: Audience
   popup: boolean
+  image_url: string | null
   created_at: string
   updated_at: string | null
 }
@@ -33,6 +34,7 @@ interface NoticeFormData {
   event_date: string
   target_audience: Audience
   popup: boolean
+  image_url: string
 }
 
 const EMPTY_FORM: NoticeFormData = {
@@ -44,6 +46,7 @@ const EMPTY_FORM: NoticeFormData = {
   event_date: '',
   target_audience: 'all',
   popup: false,
+  image_url: '',
 }
 
 // ─── 상수 ────────────────────────────────────────────────────────
@@ -74,6 +77,7 @@ export default function NoticesPage() {
   const [form, setForm] = useState<NoticeFormData>(EMPTY_FORM)
   const [saving, setSaving] = useState(false)
   const [deleteId, setDeleteId] = useState<string | null>(null)
+  const [photoUploading, setPhotoUploading] = useState(false)
 
   const fetchNotices = useCallback(async () => {
     setLoading(true)
@@ -108,8 +112,26 @@ export default function NoticesPage() {
       event_date: n.event_date ?? '',
       target_audience: n.target_audience ?? 'all',
       popup: n.popup ?? false,
+      image_url: n.image_url ?? '',
     })
     setShowModal(true)
+  }
+
+  const handlePhotoUpload = async (file: File) => {
+    setPhotoUploading(true)
+    try {
+      const fd = new FormData()
+      fd.append('photo', file)
+      const res = await fetch('/api/admin/notices/photo', { method: 'POST', body: fd })
+      const json = await res.json()
+      if (!res.ok) { toast.error(json.error || '업로드 실패'); return }
+      setForm(prev => ({ ...prev, image_url: json.url }))
+      toast.success('사진이 업로드되었습니다.')
+    } catch {
+      toast.error('사진 업로드 실패')
+    } finally {
+      setPhotoUploading(false)
+    }
   }
 
   const handleSave = async () => {
@@ -122,6 +144,7 @@ export default function NoticesPage() {
       const body = {
         ...form,
         event_date: form.type === 'event' && form.event_date ? form.event_date : null,
+        image_url: form.image_url.trim() || null,
         ...(editTarget ? { id: editTarget.id } : {}),
       }
       const method = editTarget ? 'PATCH' : 'POST'
@@ -211,9 +234,13 @@ export default function NoticesPage() {
           filtered.map(notice => (
             <div
               key={notice.id}
-              className="bg-white rounded-xl border border-gray-100 shadow-sm p-4"
+              className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden"
             >
-              <div className="flex items-start gap-3">
+              {/* 사진이 있으면 먼저 표시 */}
+              {notice.image_url && (
+                <img src={notice.image_url} alt={notice.title} className="w-full max-h-40 object-cover" />
+              )}
+              <div className="flex items-start gap-3 p-4">
                 <div className="flex-1 min-w-0">
                   {/* 뱃지 행 */}
                   <div className="flex items-center gap-1.5 flex-wrap mb-1.5">
@@ -363,6 +390,36 @@ export default function NoticesPage() {
                   rows={5}
                   className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 resize-none"
                 />
+              </div>
+
+              {/* 사진 업로드 */}
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 mb-1">사진 (선택)</label>
+                {form.image_url && (
+                  <div className="mb-2 relative">
+                    <img src={form.image_url} alt="미리보기" className="w-full max-h-32 object-cover rounded-lg" />
+                    <button
+                      type="button"
+                      onClick={() => setForm(prev => ({ ...prev, image_url: '' }))}
+                      className="absolute top-1 right-1 bg-black/50 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs hover:bg-black/70"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                )}
+                <label className={`flex items-center justify-center gap-2 w-full border-2 border-dashed border-gray-200 rounded-xl py-3 cursor-pointer text-sm text-gray-500 hover:bg-gray-50 transition-colors ${photoUploading ? 'opacity-50 pointer-events-none' : ''}`}>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={e => {
+                      const file = e.target.files?.[0]
+                      if (file) handlePhotoUpload(file)
+                      e.target.value = ''
+                    }}
+                  />
+                  {photoUploading ? '업로드 중...' : '📷 사진 선택'}
+                </label>
               </div>
 
               {/* 토글 옵션 */}

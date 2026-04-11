@@ -20,11 +20,38 @@ interface Request {
   updated_at: string
 }
 
-const CATEGORY_LABELS: Record<string, string> = {
-  supply: '소모품요청',
+// ─── 카테고리 정의 ─────────────────────────────────────────────────
+
+const WORKER_CATEGORIES = [
+  { value: 'suggestion', label: '건의사항' },
+  { value: 'vacation', label: '휴가신청' },
+  { value: 'material', label: '자료요청' },
+  { value: 'supply', label: '비품/소모품요청' },
+  { value: 'inquiry', label: '업무문의' },
+]
+
+const CUSTOMER_CATEGORIES = [
+  { value: 'service_inquiry', label: '서비스문의' },
+  { value: 'schedule_change', label: '일정변경요청' },
+  { value: 'complaint', label: '불만/클레임' },
+  { value: 'additional_service', label: '추가서비스요청' },
+  { value: 'other', label: '기타문의' },
+]
+
+const ALL_CATEGORY_LABELS: Record<string, string> = {
+  suggestion: '건의사항',
+  vacation: '휴가신청',
+  material: '자료요청',
+  supply: '비품/소모품요청',
   inquiry: '업무문의',
+  // legacy
   schedule: '일정조정',
   other: '기타',
+  // customer
+  service_inquiry: '서비스문의',
+  schedule_change: '일정변경요청',
+  complaint: '불만/클레임',
+  additional_service: '추가서비스요청',
 }
 
 const STATUS_BADGE: Record<string, string> = {
@@ -41,7 +68,138 @@ const STATUS_LABELS: Record<string, string> = {
 
 type StatusFilter = 'all' | 'pending' | 'approved' | 'rejected'
 
-export default function RequestsPage() {
+// ─── 직원용 제출 폼 ────────────────────────────────────────────────
+
+function WorkerSubmitForm({ onSubmitted }: { onSubmitted: () => void }) {
+  const [category, setCategory] = useState(WORKER_CATEGORIES[0].value)
+  const [content, setContent] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!content.trim()) { toast.error('내용을 입력하세요.'); return }
+    setSubmitting(true)
+    try {
+      const res = await fetch('/api/admin/requests', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ category, content: content.trim() }),
+      })
+      const json = await res.json()
+      if (!res.ok) { toast.error(json.error || '제출 실패'); return }
+      toast.success('요청이 제출되었습니다.')
+      setContent('')
+      onSubmitted()
+    } catch {
+      toast.error('네트워크 오류')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 flex flex-col gap-4">
+      <h2 className="text-sm font-bold text-gray-800">새 요청 작성</h2>
+
+      {/* 카테고리 선택 */}
+      <div className="flex gap-2 flex-wrap">
+        {WORKER_CATEGORIES.map(cat => (
+          <button
+            key={cat.value}
+            type="button"
+            onClick={() => setCategory(cat.value)}
+            className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+              category === cat.value
+                ? 'bg-blue-600 text-white'
+                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+            }`}
+          >
+            {cat.label}
+          </button>
+        ))}
+      </div>
+
+      {/* 내용 */}
+      <textarea
+        rows={4}
+        value={content}
+        onChange={e => setContent(e.target.value)}
+        placeholder={
+          category === 'vacation' ? '휴가 기간, 사유를 입력하세요.' :
+          category === 'supply' ? '필요한 물품명, 수량, 용도를 입력하세요.' :
+          category === 'material' ? '필요한 자료 종류와 목적을 입력하세요.' :
+          '내용을 자유롭게 입력하세요.'
+        }
+        className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+      />
+
+      <button
+        type="submit"
+        disabled={submitting}
+        className="self-end px-5 py-2 text-sm font-semibold text-white bg-blue-600 rounded-xl hover:bg-blue-700 disabled:opacity-50 transition-colors"
+      >
+        {submitting ? '제출 중...' : '요청 제출'}
+      </button>
+    </form>
+  )
+}
+
+// ─── 직원용 내 요청 목록 ────────────────────────────────────────────
+
+function WorkerRequestList({ refreshKey }: { refreshKey: number }) {
+  const [requests, setRequests] = useState<Request[]>([])
+  const [loading, setLoading] = useState(false)
+
+  const fetchMyRequests = useCallback(async () => {
+    setLoading(true)
+    try {
+      const res = await fetch('/api/admin/requests?limit=50')
+      const json = await res.json()
+      if (res.ok) setRequests(json.data ?? [])
+    } catch {
+      // silent
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => { fetchMyRequests() }, [fetchMyRequests, refreshKey])
+
+  if (loading) return <div className="text-center py-8 text-sm text-gray-400">불러오는 중...</div>
+  if (requests.length === 0) return (
+    <div className="text-center py-12 text-sm text-gray-400">아직 제출한 요청이 없습니다.</div>
+  )
+
+  return (
+    <div className="flex flex-col gap-2">
+      {requests.map(req => (
+        <div key={req.id} className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
+          <div className="flex items-start justify-between gap-2 mb-2">
+            <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">
+              {ALL_CATEGORY_LABELS[req.category] ?? req.category}
+            </span>
+            <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${STATUS_BADGE[req.status]}`}>
+              {STATUS_LABELS[req.status]}
+            </span>
+          </div>
+          <p className="text-sm text-gray-800">{req.content}</p>
+          {req.admin_memo && (
+            <div className="mt-2 bg-blue-50 rounded-lg p-2.5">
+              <p className="text-xs text-blue-500 font-medium mb-0.5">관리자 답변</p>
+              <p className="text-xs text-blue-800">{req.admin_memo}</p>
+            </div>
+          )}
+          <p className="text-xs text-gray-400 mt-2">{new Date(req.created_at).toLocaleDateString('ko-KR')}</p>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+// ─── 관리자용 요청 목록 ────────────────────────────────────────────
+
+function AdminRequestView() {
+  const [requesterTab, setRequesterTab] = useState<'worker' | 'customer'>('worker')
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
   const [requests, setRequests] = useState<Request[]>([])
   const [total, setTotal] = useState(0)
@@ -90,27 +248,44 @@ export default function RequestsPage() {
     }
   }
 
-  const pendingCount = requests.filter(r => r.status === 'pending').length
-  const unreadCount = requests.filter(r => !r.requester_read).length
+  // 탭에 따라 필터링
+  const filtered = requests.filter(r =>
+    requesterTab === 'worker'
+      ? r.requester_role === 'worker' || r.requester_role === 'admin'
+      : r.requester_role === 'customer'
+  )
+
+  const workerPending = requests.filter(r =>
+    (r.requester_role === 'worker' || r.requester_role === 'admin') && r.status === 'pending'
+  ).length
+  const customerPending = requests.filter(r =>
+    r.requester_role === 'customer' && r.status === 'pending'
+  ).length
 
   return (
-    <div className="flex flex-col h-full">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">요청 관리</h1>
-        <p className="text-sm text-gray-500 mt-1">직원들의 요청을 확인하고 처리합니다.</p>
+    <>
+      {/* 요약 카드 */}
+      <div className="grid grid-cols-2 gap-3 mb-5">
+        <div className="bg-amber-50 border border-amber-100 rounded-xl p-3">
+          <p className="text-xs font-medium text-amber-600 mb-0.5">직원 대기중</p>
+          <p className="text-2xl font-bold text-amber-700">{workerPending}</p>
+        </div>
+        <div className="bg-purple-50 border border-purple-100 rounded-xl p-3">
+          <p className="text-xs font-medium text-purple-600 mb-0.5">고객 대기중</p>
+          <p className="text-2xl font-bold text-purple-700">{customerPending}</p>
+        </div>
       </div>
 
-      {/* 요약 카드 */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
-        {[
-          { label: '전체', value: total, color: 'bg-gray-50 text-gray-700' },
-          { label: '대기중', value: pendingCount, color: 'bg-amber-50 text-amber-700' },
-          { label: '미읽음', value: unreadCount, color: 'bg-blue-50 text-blue-700' },
-        ].map(card => (
-          <div key={card.label} className={`rounded-xl p-3 ${card.color} border border-opacity-20`}>
-            <p className="text-xs font-medium opacity-70">{card.label}</p>
-            <p className="text-2xl font-bold mt-0.5">{card.value}</p>
-          </div>
+      {/* 요청자 탭 */}
+      <div className="flex gap-1 mb-3 bg-gray-100 rounded-xl p-1 w-fit">
+        {([
+          { key: 'worker', label: `직원 (${requests.filter(r => r.requester_role === 'worker' || r.requester_role === 'admin').length})` },
+          { key: 'customer', label: `고객 (${requests.filter(r => r.requester_role === 'customer').length})` },
+        ] as const).map(tab => (
+          <button key={tab.key} onClick={() => setRequesterTab(tab.key)}
+            className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${requesterTab === tab.key ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
+            {tab.label}
+          </button>
         ))}
       </div>
 
@@ -118,7 +293,7 @@ export default function RequestsPage() {
       <div className="flex gap-1 mb-4 bg-gray-100 rounded-xl p-1 w-fit">
         {(['all', 'pending', 'approved', 'rejected'] as StatusFilter[]).map(s => (
           <button key={s} onClick={() => setStatusFilter(s)}
-            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${statusFilter === s ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
+            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${statusFilter === s ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
             {s === 'all' ? '전체' : STATUS_LABELS[s]}
           </button>
         ))}
@@ -128,7 +303,7 @@ export default function RequestsPage() {
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
         {loading ? (
           <div className="flex items-center justify-center h-40 text-gray-400 text-sm">불러오는 중...</div>
-        ) : requests.length === 0 ? (
+        ) : filtered.length === 0 ? (
           <div className="flex items-center justify-center h-40 text-gray-400 text-sm">요청이 없습니다.</div>
         ) : (
           <div className="overflow-x-auto">
@@ -139,27 +314,26 @@ export default function RequestsPage() {
                   <th className="text-left px-4 py-3 font-medium text-gray-600">카테고리</th>
                   <th className="text-left px-4 py-3 font-medium text-gray-600">내용</th>
                   <th className="text-left px-4 py-3 font-medium text-gray-600 w-20">상태</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-600 w-28">날짜</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-600 w-24">날짜</th>
                 </tr>
               </thead>
               <tbody>
-                {requests.map(req => (
+                {filtered.map(req => (
                   <tr key={req.id}
                     onClick={() => { setSelected(req); setAdminMemo(req.admin_memo ?? '') }}
                     className={`border-b border-gray-50 cursor-pointer hover:bg-gray-50 transition-colors ${!req.requester_read ? 'bg-blue-50/30' : ''}`}>
                     <td className="px-4 py-3">
                       <p className="font-medium text-gray-900">{req.requester_name}</p>
-                      <p className="text-xs text-gray-400">{req.requester_role === 'admin' ? '관리자' : '직원'}</p>
                     </td>
                     <td className="px-4 py-3">
                       <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">
-                        {CATEGORY_LABELS[req.category] ?? req.category}
+                        {ALL_CATEGORY_LABELS[req.category] ?? req.category}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-gray-700 max-w-xs">
                       <p className="truncate">{req.content}</p>
                       {!req.requester_read && (
-                        <span className="text-[10px] bg-blue-500 text-white px-1.5 py-0.5 rounded-full ml-1">NEW</span>
+                        <span className="text-[10px] bg-blue-500 text-white px-1.5 py-0.5 rounded-full">NEW</span>
                       )}
                     </td>
                     <td className="px-4 py-3">
@@ -185,7 +359,7 @@ export default function RequestsPage() {
             <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
               <div className="flex items-center gap-2">
                 <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">
-                  {CATEGORY_LABELS[selected.category] ?? selected.category}
+                  {ALL_CATEGORY_LABELS[selected.category] ?? selected.category}
                 </span>
                 <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${STATUS_BADGE[selected.status]}`}>
                   {STATUS_LABELS[selected.status]}
@@ -198,6 +372,9 @@ export default function RequestsPage() {
                 <div>
                   <p className="text-xs text-gray-400 mb-0.5">요청자</p>
                   <p className="font-medium text-gray-800">{selected.requester_name}</p>
+                  <p className="text-xs text-gray-400">
+                    {selected.requester_role === 'customer' ? '고객' : '직원'}
+                  </p>
                 </div>
                 <div>
                   <p className="text-xs text-gray-400 mb-0.5">요청일</p>
@@ -231,6 +408,52 @@ export default function RequestsPage() {
           </div>
         </div>
       )}
+    </>
+  )
+}
+
+// ─── 메인 페이지 ───────────────────────────────────────────────────
+
+export default function RequestsPage() {
+  const [userRole, setUserRole] = useState('')
+  const [refreshKey, setRefreshKey] = useState(0)
+
+  useEffect(() => {
+    fetch('/api/admin/me')
+      .then(r => r.json())
+      .then(j => setUserRole(j.role ?? ''))
+      .catch(() => {})
+  }, [])
+
+  if (!userRole) return null
+
+  // ── 직원 화면 ─────────────────────────────────────────────────
+  if (userRole === 'worker') {
+    return (
+      <div className="flex flex-col gap-5">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">요청하기</h1>
+          <p className="text-sm text-gray-500 mt-1">건의사항, 휴가신청, 자료요청 등을 제출하세요.</p>
+        </div>
+
+        <WorkerSubmitForm onSubmitted={() => setRefreshKey(k => k + 1)} />
+
+        <div>
+          <h2 className="text-sm font-bold text-gray-700 mb-3">내 요청 내역</h2>
+          <WorkerRequestList refreshKey={refreshKey} />
+        </div>
+      </div>
+    )
+  }
+
+  // ── 관리자 화면 ──────────────────────────────────────────────
+  return (
+    <div className="flex flex-col gap-4">
+      <div>
+        <h1 className="text-2xl font-bold text-gray-900">요청 관리</h1>
+        <p className="text-sm text-gray-500 mt-1">직원 및 고객의 요청을 확인하고 처리합니다.</p>
+      </div>
+      <AdminRequestView />
     </div>
   )
 }

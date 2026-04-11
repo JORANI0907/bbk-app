@@ -16,10 +16,10 @@ export async function GET() {
   const [
     scheduleRes,
     applicationsRes,
-    inventoryRes,
     requestsRes,
     noticesRes,
     workerRequestsRes,
+    incidentsRes,
   ] = await Promise.all([
     // schedule: 오늘 이후 배정된 일정 (worker용)
     isAdmin
@@ -38,9 +38,6 @@ export async function GET() {
           .gte('created_at', sevenDaysAgo)
       : Promise.resolve({ count: 0 }),
 
-    // inventory: 별도 처리 (아래 lowItems에서 계산)
-    Promise.resolve({ count: 0 }),
-
     // requests: pending 상태
     isAdmin
       ? supabase
@@ -51,7 +48,8 @@ export async function GET() {
           .from('requests')
           .select('id', { count: 'exact', head: true })
           .eq('requester_id', session.userId)
-          .eq('status', 'pending'),
+          .eq('requester_read', false)
+          .not('admin_memo', 'is', null),
 
     // notices: 최근 7일 신규
     supabase
@@ -59,16 +57,30 @@ export async function GET() {
       .select('id', { count: 'exact', head: true })
       .gte('created_at', sevenDaysAgo),
 
-    // worker_requests: 본인 요청 중 admin_memo 있고 미읽음
-    supabase
-      .from('requests')
-      .select('id', { count: 'exact', head: true })
-      .eq('requester_id', session.userId)
-      .eq('requester_read', false)
-      .not('admin_memo', 'is', null),
+    // worker_requests: 본인 요청 중 admin_memo 있고 미읽음 (worker 전용)
+    isAdmin
+      ? Promise.resolve({ count: 0 })
+      : supabase
+          .from('requests')
+          .select('id', { count: 'exact', head: true })
+          .eq('requester_id', session.userId)
+          .eq('requester_read', false)
+          .not('admin_memo', 'is', null),
+
+    // incidents: pending (admin=전체, worker=본인)
+    isAdmin
+      ? supabase
+          .from('incidents')
+          .select('id', { count: 'exact', head: true })
+          .eq('status', 'pending')
+      : supabase
+          .from('incidents')
+          .select('id', { count: 'exact', head: true })
+          .eq('author_id', session.userId)
+          .eq('status', 'pending'),
   ])
 
-  // inventory는 raw sql filter 없이 간단히 처리
+  // inventory: 재고 부족 항목 수 (admin만)
   let inventoryCount = 0
   if (isAdmin) {
     const { data: lowItems } = await supabase
@@ -86,6 +98,7 @@ export async function GET() {
     requests: requestsRes.count ?? 0,
     notices: noticesRes.count ?? 0,
     worker_requests: workerRequestsRes.count ?? 0,
+    incidents: incidentsRes.count ?? 0,
   })
 }
 

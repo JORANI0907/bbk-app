@@ -131,7 +131,6 @@ const NAV_ITEMS: NavItem[] = [
 interface SidebarProps {
   role: string
   userName: string
-  unreadIncidentCount?: number
   navBadges?: Record<string, number>
 }
 
@@ -148,7 +147,7 @@ function NavBadge({ count }: { count: number }) {
 
 // ─── 컴포넌트 ─────────────────────────────────────────────────
 
-export function Sidebar({ role, userName, unreadIncidentCount = 0, navBadges = {} }: SidebarProps) {
+export function Sidebar({ role, userName, navBadges = {} }: SidebarProps) {
   const pathname = usePathname()
   const router = useRouter()
 
@@ -157,9 +156,8 @@ export function Sidebar({ role, userName, unreadIncidentCount = 0, navBadges = {
 
   const getBadgeCount = useCallback((key: string | undefined) => {
     if (!key || dismissed.has(key)) return 0
-    if (key === 'incidents') return unreadIncidentCount
     return navBadges[key] ?? 0
-  }, [dismissed, navBadges, unreadIncidentCount])
+  }, [dismissed, navBadges])
 
   const handleNavClick = useCallback((badgeKey?: string) => {
     if (!badgeKey) return
@@ -219,14 +217,12 @@ export function Sidebar({ role, userName, unreadIncidentCount = 0, navBadges = {
 
           if (item.type === 'leaf') {
             const active = isLeafActive(item.href)
-            // 경위서 뱃지는 기존 방식 유지
-            const badgeKey = item.href === '/admin/incidents' ? 'incidents' : item.badgeKey
-            const count = getBadgeCount(badgeKey)
+            const count = getBadgeCount(item.badgeKey)
             return (
               <Link
                 key={item.href}
                 href={item.href}
-                onClick={() => handleNavClick(badgeKey)}
+                onClick={() => handleNavClick(item.badgeKey)}
                 className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
                   active
                     ? 'bg-brand-600 text-white'
