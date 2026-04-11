@@ -872,7 +872,7 @@ export default function AdminCustomersPage() {
 
           {/* 헤더 */}
           <div className="p-4 border-b border-gray-100 flex items-center justify-between sticky top-0 bg-white z-10">
-            <h2 className="font-bold text-gray-900 truncate">{isNew ? '새 고객 추가' : selected?.business_name}</h2>
+            <h2 className="font-bold text-gray-900 break-words">{isNew ? '새 고객 추가' : selected?.business_name}</h2>
             <div className="flex items-center gap-1.5 shrink-0">
               <button onClick={() => { setSelected(null); setIsNew(false) }} className="text-gray-400 hover:text-gray-600 text-lg leading-none">✕</button>
             </div>

@@ -741,14 +741,20 @@ export default function ServiceManagementPage() {
       const res = await fetch('/api/admin/notify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ application_id: selected.id, type: notifyType }),
+        body: JSON.stringify({ application_id: selected.id, type: notifyType, method: 'manual' }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
-      const log: NotifyLog = { type: notifyType, sentAt: new Date().toISOString() }
+      // P2-31: method 포함하여 이력 저장
+      const log: NotifyLog = { type: notifyType, sentAt: new Date().toISOString(), method: 'manual' }
       appendLog(selected.id, log)
       setNotifyLogs(prev => [log, ...prev])
       setAllNotifyLogs(prev => ({ ...prev, [selected.id]: [log, ...(prev[selected.id] || [])].slice(0, 50) }))
+      // P2-27/28: 계약상태 자동변경 UI 반영
+      if (data.new_status) {
+        setSelected(prev => prev ? { ...prev, status: data.new_status } : prev)
+        setApplications(prev => prev.map(a => a.id === selected.id ? { ...a, status: data.new_status } : a))
+      }
       toast.success(`${notifyType} 발송 완료`)
       setNotifyType('')
     } catch (e) { toast.error(e instanceof Error ? e.message : '발송 실패') }
@@ -1111,10 +1117,16 @@ export default function ServiceManagementPage() {
                           </td>
                           <td className="px-3 py-3">
                             {lastLog && notifyCfg ? (
-                              <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${notifyCfg.badge}`}>
-                                <span className={`w-1.5 h-1.5 rounded-full ${notifyCfg.dot} shrink-0`} />
-                                <span className="truncate max-w-[80px]">{lastLog.type.replace('알림', '')}</span>
-                              </span>
+                              <div className="flex items-center gap-1 flex-wrap">
+                                {/* P2-31: 자동 발송 구분 태그 */}
+                                {lastLog.method === 'auto' && (
+                                  <span className="text-xs px-1 py-0.5 bg-indigo-100 text-indigo-500 rounded font-medium leading-none">[자동]</span>
+                                )}
+                                <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${notifyCfg.badge}`}>
+                                  <span className={`w-1.5 h-1.5 rounded-full ${notifyCfg.dot} shrink-0`} />
+                                  <span className="truncate max-w-[80px]">{lastLog.type.replace('알림', '')}</span>
+                                </span>
+                              </div>
                             ) : <span className="text-gray-300 text-xs">-</span>}
                           </td>
                           <td className="px-3 py-3">
@@ -1479,6 +1491,10 @@ export default function ServiceManagementPage() {
                             <div className="flex items-center gap-1.5 min-w-0">
                               {isResent && (
                                 <span className="text-xs px-1.5 py-0.5 bg-gray-100 text-gray-500 rounded font-medium shrink-0">재발송</span>
+                              )}
+                              {/* P2-31: 자동/수동 구분 태그 */}
+                              {log.method === 'auto' && (
+                                <span className="text-xs px-1.5 py-0.5 bg-indigo-100 text-indigo-600 rounded font-medium shrink-0">[자동]</span>
                               )}
                               <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium ${cfg?.badge ?? 'bg-gray-100 text-gray-600'}`}>
                                 <span className={`w-1.5 h-1.5 rounded-full ${cfg?.dot ?? 'bg-gray-400'} shrink-0`} />
