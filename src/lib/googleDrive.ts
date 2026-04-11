@@ -64,6 +64,30 @@ export function requestGoogleToken(): Promise<string> {
   })
 }
 
+/** OAuth2 액세스 토큰 요청 (Sheets + Drive + Gmail 스코프) */
+export function requestGoogleTokenWithScopes(): Promise<string> {
+  if (!GOOGLE_CLIENT_ID) {
+    return Promise.reject(new Error('NEXT_PUBLIC_GOOGLE_CLIENT_ID가 설정되지 않았습니다.'))
+  }
+  return new Promise((resolve, reject) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const g = (window as any).google
+    const tokenClient = g.accounts.oauth2.initTokenClient({
+      client_id: GOOGLE_CLIENT_ID,
+      scope: [
+        'https://www.googleapis.com/auth/drive',
+        'https://www.googleapis.com/auth/spreadsheets',
+        'https://www.googleapis.com/auth/gmail.send',
+      ].join(' '),
+      callback: (resp: { access_token?: string; error?: string }) => {
+        if (resp.error) reject(new Error(`Google 인증 실패: ${resp.error}`))
+        else resolve(resp.access_token!)
+      },
+    })
+    tokenClient.requestAccessToken()
+  })
+}
+
 /**
  * 폴더 ID가 바로가기(Shortcut)인 경우 실제 폴더 ID로 resolve
  * 실패하면 Picker가 반환한 원래 값 그대로 사용

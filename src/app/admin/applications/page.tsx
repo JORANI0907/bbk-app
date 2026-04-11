@@ -8,7 +8,7 @@ import { openGoogleDrive } from '@/lib/mapUtils'
 const getDriveLib = () => import('@/lib/googleDrive')
 
 type ServiceType = '1회성케어' | '정기딥케어' | '정기엔드케어'
-type ApplicationStatus = '신규' | '검토중' | '견적발송' | '예약확정' | '배정완료' | '작업완료' | '결제완료' | '결제완료(잔금)' | '보류' | '취소' | '거절'
+type ApplicationStatus = '예약확정' | '예약1일전' | '예약당일' | '작업완료' | '결제' | '결제완료' | '계산서발행완료' | '예약금환급완료' | '예약취소' | 'A/S방문' | '방문견적'
 
 interface User { id: string; name: string; role: string }
 interface Worker { id: string; name: string; employment_type: string | null; phone: string | null; account_number: string | null }
@@ -56,17 +56,17 @@ type SortDir = 'asc' | 'desc'
 // ─── 상수 ────────────────────────────────────────────────────
 const SERVICE_TYPES: ServiceType[] = ['1회성케어', '정기딥케어', '정기엔드케어']
 const STATUS_CONFIG: Record<ApplicationStatus, { color: string; badge: string; dot: string }> = {
-  '신규':          { color: 'bg-blue-500 text-white',       badge: 'bg-blue-100 text-blue-700 ring-blue-300',         dot: 'bg-blue-500' },
-  '검토중':        { color: 'bg-amber-500 text-white',      badge: 'bg-amber-100 text-amber-700 ring-amber-300',       dot: 'bg-amber-500' },
-  '견적발송':      { color: 'bg-sky-500 text-white',        badge: 'bg-sky-100 text-sky-700 ring-sky-300',             dot: 'bg-sky-500' },
-  '예약확정':      { color: 'bg-indigo-500 text-white',     badge: 'bg-indigo-100 text-indigo-700 ring-indigo-300',    dot: 'bg-indigo-500' },
-  '배정완료':      { color: 'bg-violet-500 text-white',     badge: 'bg-violet-100 text-violet-700 ring-violet-300',    dot: 'bg-violet-500' },
-  '작업완료':      { color: 'bg-teal-500 text-white',       badge: 'bg-teal-100 text-teal-700 ring-teal-300',          dot: 'bg-teal-500' },
-  '결제완료':      { color: 'bg-emerald-500 text-white',    badge: 'bg-emerald-100 text-emerald-700 ring-emerald-300', dot: 'bg-emerald-500' },
-  '결제완료(잔금)': { color: 'bg-green-600 text-white',      badge: 'bg-green-100 text-green-700 ring-green-300',       dot: 'bg-green-600' },
-  '보류':          { color: 'bg-gray-400 text-white',       badge: 'bg-gray-100 text-gray-600 ring-gray-300',          dot: 'bg-gray-400' },
-  '취소':          { color: 'bg-orange-400 text-white',     badge: 'bg-orange-100 text-orange-600 ring-orange-300',    dot: 'bg-orange-400' },
-  '거절':          { color: 'bg-red-500 text-white',        badge: 'bg-red-100 text-red-700 ring-red-300',             dot: 'bg-red-500' },
+  '예약확정':      { color: 'bg-indigo-500 text-white',   badge: 'bg-indigo-100 text-indigo-700 ring-indigo-300',   dot: 'bg-indigo-500' },
+  '예약1일전':     { color: 'bg-sky-500 text-white',      badge: 'bg-sky-100 text-sky-700 ring-sky-300',           dot: 'bg-sky-500' },
+  '예약당일':      { color: 'bg-violet-500 text-white',   badge: 'bg-violet-100 text-violet-700 ring-violet-300',  dot: 'bg-violet-500' },
+  '작업완료':      { color: 'bg-teal-500 text-white',     badge: 'bg-teal-100 text-teal-700 ring-teal-300',        dot: 'bg-teal-500' },
+  '결제':          { color: 'bg-orange-400 text-white',   badge: 'bg-orange-100 text-orange-700 ring-orange-300',  dot: 'bg-orange-400' },
+  '결제완료':      { color: 'bg-emerald-500 text-white',  badge: 'bg-emerald-100 text-emerald-700 ring-emerald-300', dot: 'bg-emerald-500' },
+  '계산서발행완료': { color: 'bg-teal-600 text-white',    badge: 'bg-teal-100 text-teal-700 ring-teal-300',        dot: 'bg-teal-600' },
+  '예약금환급완료': { color: 'bg-cyan-500 text-white',    badge: 'bg-cyan-100 text-cyan-700 ring-cyan-300',        dot: 'bg-cyan-500' },
+  '예약취소':      { color: 'bg-red-500 text-white',      badge: 'bg-red-100 text-red-700 ring-red-300',           dot: 'bg-red-500' },
+  'A/S방문':       { color: 'bg-yellow-500 text-white',   badge: 'bg-yellow-100 text-yellow-700 ring-yellow-300',  dot: 'bg-yellow-500' },
+  '방문견적':      { color: 'bg-blue-500 text-white',     badge: 'bg-blue-100 text-blue-700 ring-blue-300',        dot: 'bg-blue-500' },
 }
 const NOTIFICATION_TYPES = [
   '예약확정알림', '예약1일전알림', '예약당일알림', '작업완료알림',
@@ -86,11 +86,6 @@ const NOTIFY_TYPE_CONFIG: Record<string, { badge: string; dot: string }> = {
   'A/S방문알림':      { badge: 'bg-yellow-100 text-yellow-700', dot: 'bg-yellow-500' },
   '방문견적알림':      { badge: 'bg-indigo-100 text-indigo-700', dot: 'bg-indigo-500' },
 }
-// 신청서 폼과 동일한 옵션
-const PAYMENT_METHODS = ['현금', '카드', '계좌이체', '현금(부가세 X)']
-const ELEVATOR_OPTIONS = ['있음', '없음', '해당없음']
-const BUILDING_ACCESS_OPTIONS = ['신청필요', '신청불필요', '해당없음']
-const PARKING_OPTIONS = ['가능', '불가능', '주차없음']
 const SORT_LABELS: Record<SortField, string> = {
   construction_date: '시공일자',
   created_at: '신청일',
@@ -169,18 +164,6 @@ function EditRow({ label, value, onChange, mono }: { label: string; value: strin
       <span className="text-xs text-gray-500 w-20 shrink-0">{label}</span>
       <input value={value} onChange={e => onChange(e.target.value)}
         className={`flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 ${mono ? 'font-mono' : ''}`} />
-    </div>
-  )
-}
-function SelectRow({ label, value, options, onChange }: { label: string; value: string; options: string[]; onChange: (v: string) => void }) {
-  return (
-    <div className="flex items-center gap-2">
-      <span className="text-xs text-gray-500 w-20 shrink-0">{label}</span>
-      <select value={value} onChange={e => onChange(e.target.value)}
-        className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
-        <option value="">선택</option>
-        {options.map(o => <option key={o} value={o}>{o}</option>)}
-      </select>
     </div>
   )
 }
@@ -368,7 +351,13 @@ export default function ServiceManagementPage() {
   const [driveToken, setDriveToken] = useState<string | null>(null)
   const [driveCreating, setDriveCreating] = useState(false)
 
+  // 견적서 발송
+  const [quoteSending, setQuoteSending] = useState(false)
+  const [quoteLog, setQuoteLog] = useState<{ quoteNo: string; sentAt: string; pdfUrl?: string } | null>(null)
+
   // 편집 필드
+  const [ownerName, setOwnerName] = useState('')
+  const [businessNameEdit, setBusinessNameEdit] = useState('')
   const [adminNotes, setAdminNotes] = useState('')
   const [assignedTo, setAssignedTo] = useState('')
   const [constructionDate, setConstructionDate] = useState('')
@@ -424,7 +413,10 @@ export default function ServiceManagementPage() {
   const handleSelect = (app: Application) => {
     setSelected(app)
     // 신청서 제출 값 우선 반영 (null이면 빈 문자열)
+    setOwnerName(app.owner_name ?? '')
+    setBusinessNameEdit(app.business_name ?? '')
     setAdminNotes(app.admin_notes ?? '')
+    setQuoteLog(null)
     setAssignedTo(app.assigned_to ?? '')
     setConstructionDate(app.construction_date ?? '')
     setDeposit(String(app.deposit ?? ''))
@@ -685,6 +677,8 @@ export default function ServiceManagementPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           id: selected.id,
+          owner_name: ownerName || null,
+          business_name: businessNameEdit || null,
           admin_notes: adminNotes,
           assigned_to: assignedTo || null,
           construction_date: constructionDate || null,
@@ -847,6 +841,60 @@ export default function ServiceManagementPage() {
     } finally { setDriveCreating(false) }
   }
 
+  const getQuoteValidationErrors = () => {
+    const missing: string[] = []
+    if (!ownerName.trim()) missing.push('고객명')
+    if (!businessNameEdit.trim()) missing.push('업체명')
+    if (!phone.trim()) missing.push('연락처')
+    if (!email.trim()) missing.push('이메일')
+    if (!address.trim()) missing.push('주소')
+    if (!careScope.trim()) missing.push('케어범위')
+    if (!constructionDate) missing.push('시공일자')
+    if (!supplyAmount || Number(supplyAmount) === 0) missing.push('공급가액')
+    return missing
+  }
+
+  const handleSendQuote = async () => {
+    if (!selected) return
+    const errors = getQuoteValidationErrors()
+    if (errors.length > 0) {
+      toast.error(`${errors.join(', ')} 미작성 됨`, { duration: 4000 })
+      return
+    }
+    setQuoteSending(true)
+    try {
+      const lib = await getDriveLib()
+      await lib.loadGoogleAPIs()
+      const token = await lib.requestGoogleTokenWithScopes()
+
+      const res = await fetch(`/api/admin/applications/${selected.id}/send-quote`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          owner_name: ownerName,
+          business_name: businessNameEdit,
+          phone,
+          email,
+          address,
+          care_scope: careScope,
+          construction_date: constructionDate,
+          supply_amount: Number(supplyAmount) || 0,
+          vat: effectiveVat,
+          total_amount: totalAmount,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || '견적서 발송 실패')
+      setQuoteLog({ quoteNo: data.quote_no, sentAt: new Date().toISOString(), pdfUrl: data.pdf_url })
+      toast.success(`견적서 발송 완료! (${data.quote_no})`)
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : '견적서 발송 실패')
+    } finally { setQuoteSending(false) }
+  }
+
   const toggleSort = (field: SortField) => {
     if (sortField === field) {
       setSortDir(d => d === 'asc' ? 'desc' : 'asc')
@@ -898,12 +946,6 @@ export default function ServiceManagementPage() {
           creating={driveCreating}
         />
       )}
-
-      {/* 탭 네비게이션 */}
-      <div className="flex gap-1.5 px-1 mb-4 flex-wrap">
-        <span className="px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-xl">📋 서비스통합관리</span>
-        <a href="/admin/customers" className="px-4 py-2 text-gray-600 hover:bg-gray-100 text-sm font-medium rounded-xl transition-colors">👥 고객관리</a>
-      </div>
 
       <div className="relative flex h-full gap-0 min-h-0">
         {/* ── 좌측: 목록 ── */}
@@ -1287,9 +1329,11 @@ export default function ServiceManagementPage() {
                 </div>
               </Section>
 
-              {/* 고객 정보 */}
-              <Section title="고객 정보">
+              {/* 일반정보 */}
+              <Section title="일반정보">
                 <div className="space-y-2">
+                  <EditRow label="고객명" value={ownerName} onChange={setOwnerName} />
+                  <EditRow label="업체명" value={businessNameEdit} onChange={setBusinessNameEdit} />
                   <div className="flex items-center gap-2">
                     <span className="text-xs text-gray-500 w-20 shrink-0">연락처</span>
                     <div className="flex flex-1 gap-1">
@@ -1310,42 +1354,6 @@ export default function ServiceManagementPage() {
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="text-xs text-gray-500 w-20 shrink-0">사업자번호</span>
-                    <div className="flex flex-1 gap-1">
-                      <input value={businessNumber} onChange={e => setBusinessNumber(e.target.value)}
-                        className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono" />
-                      <button onClick={() => copyText(businessNumber, '사업자번호')} className="px-2 py-1.5 text-xs bg-gray-50 rounded-lg hover:bg-gray-100">📋</button>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-gray-500 w-20 shrink-0">계좌번호</span>
-                    <div className="flex flex-1 gap-1">
-                      <input value={accountNumber} onChange={e => setAccountNumber(e.target.value)}
-                        className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono" />
-                      <button onClick={() => copyText(accountNumber, '계좌번호')} className="px-2 py-1.5 text-xs bg-gray-50 rounded-lg hover:bg-gray-100">📋</button>
-                    </div>
-                  </div>
-
-                  {/* 결제방법 */}
-                  <div className="flex items-start gap-2">
-                    <span className="text-xs text-gray-500 w-20 shrink-0 pt-1.5">결제방법</span>
-                    <div className="flex-1 space-y-1.5">
-                      <select value={PAYMENT_METHODS.includes(paymentMethod) ? paymentMethod : '직접입력'}
-                        onChange={e => e.target.value === '직접입력' ? handlePaymentMethodChange('') : handlePaymentMethodChange(e.target.value)}
-                        className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
-                        {PAYMENT_METHODS.map(m => <option key={m} value={m}>{m}</option>)}
-                        <option value="직접입력">직접입력</option>
-                      </select>
-                      {!PAYMENT_METHODS.includes(paymentMethod) && (
-                        <input value={paymentMethod} onChange={e => handlePaymentMethodChange(e.target.value)}
-                          placeholder="결제방법 직접 입력"
-                          className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                      )}
-                    </div>
-                  </div>
-
-                  {/* 영업시간 (수정 가능) */}
-                  <div className="flex items-center gap-2">
                     <span className="text-xs text-gray-500 w-20 shrink-0">영업시간</span>
                     <div className="flex items-center gap-1 flex-1">
                       <input type="time" value={businessHoursStart} onChange={e => setBusinessHoursStart(e.target.value)}
@@ -1355,73 +1363,61 @@ export default function ServiceManagementPage() {
                         className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500" />
                     </div>
                   </div>
+                </div>
+              </Section>
 
-                  {/* 엘리베이터 */}
-                  <div className="flex items-start gap-2">
-                    <span className="text-xs text-gray-500 w-20 shrink-0 pt-1.5">엘리베이터</span>
-                    <div className="flex-1 space-y-1.5">
-                      <select value={ELEVATOR_OPTIONS.includes(elevator) ? elevator : '직접입력'}
-                        onChange={e => e.target.value === '직접입력' ? setElevator('') : setElevator(e.target.value)}
-                        className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
-                        {ELEVATOR_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
-                        <option value="직접입력">직접입력</option>
-                      </select>
-                      {!ELEVATOR_OPTIONS.includes(elevator) && (
-                        <input value={elevator} onChange={e => setElevator(e.target.value)}
-                          placeholder="엘리베이터 상태 직접 입력"
-                          className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                      )}
-                    </div>
-                  </div>
-
-                  {/* 건물출입 */}
-                  <div className="flex items-start gap-2">
-                    <span className="text-xs text-gray-500 w-20 shrink-0 pt-1.5">건물출입</span>
-                    <div className="flex-1 space-y-1.5">
-                      <select value={BUILDING_ACCESS_OPTIONS.includes(buildingAccess) ? buildingAccess : '직접입력'}
-                        onChange={e => e.target.value === '직접입력' ? setBuildingAccess('') : setBuildingAccess(e.target.value)}
-                        className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
-                        {BUILDING_ACCESS_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
-                        <option value="직접입력">직접입력</option>
-                      </select>
-                      {!BUILDING_ACCESS_OPTIONS.includes(buildingAccess) && (
-                        <input value={buildingAccess} onChange={e => setBuildingAccess(e.target.value)}
-                          placeholder="건물출입 방법 직접 입력"
-                          className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                      )}
-                    </div>
-                  </div>
-
-                  {/* 주차 */}
-                  <div className="flex items-start gap-2">
-                    <span className="text-xs text-gray-500 w-20 shrink-0 pt-1.5">주차</span>
-                    <div className="flex-1 space-y-1.5">
-                      <select value={PARKING_OPTIONS.includes(parking) ? parking : '직접입력'}
-                        onChange={e => e.target.value === '직접입력' ? setParking('') : setParking(e.target.value)}
-                        className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
-                        {PARKING_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
-                        <option value="직접입력">직접입력</option>
-                      </select>
-                      {!PARKING_OPTIONS.includes(parking) && (
-                        <input value={parking} onChange={e => setParking(e.target.value)}
-                          placeholder="주차 정보 직접 입력"
-                          className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                      )}
-                    </div>
-                  </div>
-
+              {/* 작업장정보 */}
+              <Section title="작업장정보">
+                <div className="border-2 border-green-200 rounded-xl p-3 space-y-2 bg-green-50/30">
+                  <EditRow label="주차" value={parking} onChange={setParking} />
+                  <EditRow label="건물출입" value={buildingAccess} onChange={setBuildingAccess} />
+                  <EditRow label="엘리베이터" value={elevator} onChange={setElevator} />
                   <EditRow label="출입방법" value={accessMethod} onChange={setAccessMethod} />
+                </div>
+              </Section>
 
-                  <div className="flex items-start gap-2">
-                    <span className="text-xs text-gray-500 w-20 shrink-0 pt-1.5">요청사항</span>
-                    <textarea value={requestNotes} onChange={e => setRequestNotes(e.target.value)} rows={2}
-                      className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none" />
-                  </div>
+              {/* 시공정보 */}
+              <Section title="시공정보">
+                <div className="border-2 border-green-200 rounded-xl p-3 space-y-2 bg-green-50/30">
                   <div className="flex items-start gap-2">
                     <span className="text-xs text-gray-500 w-20 shrink-0 pt-1.5">케어범위</span>
                     <textarea value={careScope} onChange={e => setCareScope(e.target.value)} rows={3}
-                      placeholder="케어 범위를 입력하세요&#10;예) 주방, 화장실 2개, 사무실 전체"
-                      className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none" />
+                      placeholder="예) - 후드청소&#10;- 덕트청소&#10;- 계단청소"
+                      className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-green-500 resize-none" />
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <span className="text-xs text-gray-500 w-20 shrink-0 pt-1.5">요청사항</span>
+                    <textarea value={requestNotes} onChange={e => setRequestNotes(e.target.value)} rows={2}
+                      className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-green-500 resize-none" />
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <span className="text-xs text-gray-500 w-20 shrink-0 pt-1.5">관리자메모</span>
+                    <textarea value={adminNotes} onChange={e => setAdminNotes(e.target.value)} rows={3}
+                      placeholder="내부 메모를 입력하세요..."
+                      className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-green-500 resize-none" />
+                  </div>
+                </div>
+              </Section>
+
+              {/* 결제정보 */}
+              <Section title="결제정보">
+                <div className="space-y-2">
+                  <EditRow label="결제방법" value={paymentMethod} onChange={handlePaymentMethodChange} />
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-gray-500 w-20 shrink-0">계좌번호</span>
+                    <div className="flex flex-1 gap-1">
+                      <input value={accountNumber} onChange={e => setAccountNumber(e.target.value)}
+                        className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono" />
+                      <button onClick={() => copyText(accountNumber, '계좌번호')} className="px-2 py-1.5 text-xs bg-gray-50 rounded-lg hover:bg-gray-100">📋</button>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-gray-500 w-20 shrink-0">사업자번호</span>
+                    <div className="flex flex-1 gap-1">
+                      <input value={businessNumber} onChange={e => setBusinessNumber(e.target.value)}
+                        className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono" />
+                      <button onClick={() => copyText(businessNumber, '사업자번호')} className="px-2 py-1.5 text-xs bg-gray-50 rounded-lg hover:bg-gray-100">📋</button>
+                    </div>
                   </div>
                 </div>
               </Section>
@@ -1551,11 +1547,36 @@ export default function ServiceManagementPage() {
                 </a>
               )}
 
-              {/* 관리자 메모 */}
-              <Section title="관리자 메모">
-                <textarea value={adminNotes} onChange={e => setAdminNotes(e.target.value)}
-                  rows={3} placeholder="내부 메모를 입력하세요..."
-                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none" />
+              {/* 견적서 발송 */}
+              <Section title="견적서 발송">
+                <div className="space-y-2">
+                  {(() => {
+                    const errors = getQuoteValidationErrors()
+                    return errors.length > 0 ? (
+                      <div className="px-3 py-2 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-700">
+                        ⚠️ {errors.join(', ')} 미작성 됨
+                      </div>
+                    ) : null
+                  })()}
+                  <button onClick={handleSendQuote} disabled={quoteSending}
+                    className="w-full py-2.5 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors flex items-center justify-center gap-2">
+                    <span>📄</span>
+                    <span>{quoteSending ? '발송 중...' : '견적서 보내기'}</span>
+                  </button>
+                  {quoteLog && (
+                    <div className="space-y-1">
+                      <div className="text-xs text-gray-500 px-1">
+                        마지막 발송: {new Date(quoteLog.sentAt).toLocaleString('ko-KR', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })} ({quoteLog.quoteNo})
+                      </div>
+                      {quoteLog.pdfUrl && (
+                        <a href={quoteLog.pdfUrl} target="_blank" rel="noopener noreferrer"
+                          className="flex items-center gap-1.5 text-xs text-blue-600 hover:text-blue-800 underline px-1">
+                          <span>📄</span>견적서 확인
+                        </a>
+                      )}
+                    </div>
+                  )}
+                </div>
               </Section>
 
               {/* 전체 저장 */}
