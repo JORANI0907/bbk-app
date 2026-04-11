@@ -1,0 +1,288 @@
+'use client'
+
+import { useState, useEffect, useCallback } from 'react'
+import toast from 'react-hot-toast'
+
+// ─── 타입 ────────────────────────────────────────────────────────
+
+interface InvoiceLog {
+  id: string
+  issued_at: string
+  count: number
+  file_url: string | null
+  issued_by: string | null
+  application_ids: string[]
+  notes: string | null
+  created_at: string
+}
+
+interface InvoiceFormData {
+  issued_at: string
+  count: string
+  file_url: string
+  notes: string
+}
+
+const EMPTY_FORM: InvoiceFormData = {
+  issued_at: new Date().toISOString().slice(0, 16),
+  count: '',
+  file_url: '',
+  notes: '',
+}
+
+// ─── 유틸 ────────────────────────────────────────────────────────
+
+function getCurrentMonth() {
+  const now = new Date()
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+}
+
+function formatDateTime(iso: string) {
+  const d = new Date(iso)
+  return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+}
+
+function monthLabel(ym: string) {
+  const [y, m] = ym.split('-')
+  return `${y}년 ${Number(m)}월`
+}
+
+// ─── 컴포넌트 ────────────────────────────────────────────────────
+
+export default function InvoicesPage() {
+  const [month, setMonth] = useState(getCurrentMonth)
+  const [invoices, setInvoices] = useState<InvoiceLog[]>([])
+  const [loading, setLoading] = useState(true)
+  const [showModal, setShowModal] = useState(false)
+  const [form, setForm] = useState<InvoiceFormData>(EMPTY_FORM)
+  const [saving, setSaving] = useState(false)
+
+  const fetchInvoices = useCallback(async (m: string) => {
+    setLoading(true)
+    try {
+      const res = await fetch(`/api/admin/invoices?month=${m}`)
+      const json = await res.json()
+      if (!res.ok) { toast.error(json.error || '로드 실패'); return }
+      setInvoices(json.invoices ?? [])
+    } catch {
+      toast.error('네트워크 오류가 발생했습니다.')
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => { fetchInvoices(month) }, [fetchInvoices, month])
+
+  const handleMonthChange = (delta: number) => {
+    const [y, m] = month.split('-').map(Number)
+    const d = new Date(y, m - 1 + delta, 1)
+    setMonth(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`)
+  }
+
+  const openModal = () => {
+    setForm({ ...EMPTY_FORM, issued_at: new Date().toISOString().slice(0, 16) })
+    setShowModal(true)
+  }
+
+  const handleSave = async () => {
+    const countNum = parseInt(form.count, 10)
+    if (!form.issued_at) { toast.error('발행일을 입력하세요.'); return }
+    if (!form.count || isNaN(countNum) || countNum < 1) { toast.error('건수를 올바르게 입력하세요.'); return }
+
+    setSaving(true)
+    try {
+      const res = await fetch('/api/admin/invoices', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          issued_at: new Date(form.issued_at).toISOString(),
+          count: countNum,
+          file_url: form.file_url || null,
+          notes: form.notes || null,
+          application_ids: [],
+        }),
+      })
+      const json = await res.json()
+      if (!res.ok) { toast.error(json.error || '저장 실패'); return }
+
+      toast.success('발행 기록이 등록되었습니다.')
+      setShowModal(false)
+      fetchInvoices(month)
+    } catch {
+      toast.error('네트워크 오류가 발생했습니다.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const totalCount = invoices.reduce((sum, inv) => sum + (inv.count || 0), 0)
+
+  return (
+    <div className="flex flex-col h-full">
+      {/* 헤더 */}
+      <div className="flex items-center justify-between px-4 pt-4 pb-3">
+        <h1 className="text-lg font-bold text-gray-900">세금계산서</h1>
+        <button
+          onClick={openModal}
+          className="flex items-center gap-1.5 px-4 py-2 bg-brand-600 text-white text-sm font-semibold rounded-xl hover:bg-brand-700 transition-colors"
+        >
+          <span className="text-base leading-none">+</span> 새 발행 기록
+        </button>
+      </div>
+
+      {/* 월 네비게이터 */}
+      <div className="flex items-center gap-3 px-4 pb-3">
+        <button
+          onClick={() => handleMonthChange(-1)}
+          className="w-8 h-8 flex items-center justify-center rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-600 transition-colors"
+        >
+          ‹
+        </button>
+        <span className="text-sm font-semibold text-gray-800 min-w-[90px] text-center">
+          {monthLabel(month)}
+        </span>
+        <button
+          onClick={() => handleMonthChange(1)}
+          className="w-8 h-8 flex items-center justify-center rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-600 transition-colors"
+        >
+          ›
+        </button>
+        <input
+          type="month"
+          value={month}
+          onChange={e => setMonth(e.target.value)}
+          className="ml-2 border border-gray-200 rounded-xl px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+        />
+      </div>
+
+      {/* 요약 카드 */}
+      <div className="px-4 pb-3">
+        <div className="bg-brand-50 rounded-xl p-4 flex items-center gap-4">
+          <div>
+            <p className="text-xs text-brand-600 font-medium">이번 달 총 발행</p>
+            <p className="text-2xl font-bold text-brand-700">{totalCount}건</p>
+          </div>
+          <div className="ml-auto text-right">
+            <p className="text-xs text-gray-500">발행 횟수</p>
+            <p className="text-lg font-semibold text-gray-700">{invoices.length}회</p>
+          </div>
+        </div>
+      </div>
+
+      {/* 테이블 */}
+      <div className="flex-1 overflow-y-auto px-4 pb-4">
+        {loading ? (
+          <div className="flex items-center justify-center py-20 text-gray-400 text-sm">로딩 중...</div>
+        ) : invoices.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-20 text-gray-400">
+            <p className="text-sm">발행 기록이 없습니다.</p>
+          </div>
+        ) : (
+          <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+            {/* 테이블 헤더 */}
+            <div className="grid grid-cols-4 gap-2 px-4 py-3 bg-gray-50 border-b border-gray-100 text-xs font-semibold text-gray-500">
+              <span>발행일시</span>
+              <span className="text-center">건수</span>
+              <span className="text-center">파일</span>
+              <span>비고</span>
+            </div>
+            {/* 테이블 행 */}
+            {invoices.map((inv, idx) => (
+              <div
+                key={inv.id}
+                className={`grid grid-cols-4 gap-2 px-4 py-3 text-sm items-center ${idx !== invoices.length - 1 ? 'border-b border-gray-50' : ''}`}
+              >
+                <span className="text-gray-700 text-xs">{formatDateTime(inv.issued_at)}</span>
+                <span className="text-center font-semibold text-gray-900">{inv.count}건</span>
+                <span className="text-center">
+                  {inv.file_url ? (
+                    <a
+                      href={inv.file_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-brand-600 hover:underline text-xs font-medium"
+                    >
+                      파일 보기
+                    </a>
+                  ) : (
+                    <span className="text-gray-300 text-xs">-</span>
+                  )}
+                </span>
+                <span className="text-gray-500 text-xs truncate">{inv.notes || '-'}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* 등록 모달 */}
+      {showModal && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 p-4">
+          <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+              <h2 className="text-base font-bold text-gray-900">새 발행 기록</h2>
+              <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-700 text-xl leading-none p-1">✕</button>
+            </div>
+            <div className="p-5 space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 mb-1">발행일시 *</label>
+                <input
+                  type="datetime-local"
+                  value={form.issued_at}
+                  onChange={e => setForm(prev => ({ ...prev, issued_at: e.target.value }))}
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 mb-1">건수 *</label>
+                <input
+                  type="number"
+                  min={1}
+                  value={form.count}
+                  onChange={e => setForm(prev => ({ ...prev, count: e.target.value }))}
+                  placeholder="발행 건수"
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 mb-1">파일 URL</label>
+                <input
+                  type="url"
+                  value={form.file_url}
+                  onChange={e => setForm(prev => ({ ...prev, file_url: e.target.value }))}
+                  placeholder="https://..."
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 mb-1">비고</label>
+                <input
+                  type="text"
+                  value={form.notes}
+                  onChange={e => setForm(prev => ({ ...prev, notes: e.target.value }))}
+                  placeholder="메모 (선택)"
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+                />
+              </div>
+            </div>
+            <div className="flex gap-2 px-5 pb-5">
+              <button
+                onClick={() => setShowModal(false)}
+                className="flex-1 py-2.5 rounded-xl border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors"
+              >
+                취소
+              </button>
+              <button
+                onClick={handleSave}
+                disabled={saving}
+                className="flex-1 py-2.5 rounded-xl bg-brand-600 text-white text-sm font-semibold hover:bg-brand-700 transition-colors disabled:opacity-50"
+              >
+                {saving ? '저장 중...' : '등록'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
