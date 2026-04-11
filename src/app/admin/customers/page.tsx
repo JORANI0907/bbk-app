@@ -52,6 +52,7 @@ interface Customer {
   payment_status: string[] | null
   payment_date: number | null
   assigned_user_id: string | null
+  assigned_worker_id: string | null
   created_at: string
   updated_at: string
 }
@@ -105,6 +106,8 @@ const EMPTY_FORM = {
   visit_count_per_month: '',
   payment_status: [] as string[],
   payment_date: '',
+  assigned_user_id: '',
+  assigned_worker_id: '',
 }
 
 // ─── 방문 주기 ────────────────────────────────────────────────
@@ -312,6 +315,10 @@ export default function AdminCustomersPage() {
   const isWorker = currentRole === 'worker'
   const isAdmin = currentRole === 'admin'
 
+  // 담당자/작업자 목록
+  const [usersList, setUsersList] = useState<Array<{ id: string; name: string; role: string }>>([])
+  const [workersList, setWorkersList] = useState<Array<{ id: string; name: string }>>([])
+
   const toggleCheck = (id: string) =>
     setCheckedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
 
@@ -331,6 +338,8 @@ export default function AdminCustomersPage() {
         setCurrentUserId(d.user.userId ?? null)
       }
     }).catch(() => { /* 무시 */ })
+    fetch('/api/admin/users').then(r => r.json()).then(d => setUsersList(d.users ?? [])).catch(() => {})
+    fetch('/api/admin/workers').then(r => r.json()).then(d => setWorkersList(d.workers ?? [])).catch(() => {})
   }, [fetchAll])
 
   const toForm = (c: Customer): typeof EMPTY_FORM => ({
@@ -372,6 +381,8 @@ export default function AdminCustomersPage() {
     visit_count_per_month: c.visit_count_per_month?.toString() ?? '',
     payment_status: c.payment_status ?? [],
     payment_date: c.payment_date?.toString() ?? '',
+    assigned_user_id: c.assigned_user_id ?? '',
+    assigned_worker_id: c.assigned_worker_id ?? '',
   })
 
   const handleSelect = (c: Customer) => {
@@ -441,6 +452,8 @@ export default function AdminCustomersPage() {
     visit_count_per_month: form.visit_count_per_month ? Number(form.visit_count_per_month) : null,
     payment_status: form.payment_status.length > 0 ? form.payment_status : null,
     payment_date: form.payment_date ? Number(form.payment_date) : null,
+    assigned_user_id: form.assigned_user_id || null,
+    assigned_worker_id: form.assigned_worker_id || null,
   })
 
   const handleSave = async () => {
@@ -943,12 +956,36 @@ export default function AdminCustomersPage() {
               </div>
             </div>
 
+            {/* 담당직원 */}
+            <div className="bg-gray-50 rounded-xl p-4 flex flex-col gap-3">
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">담당직원</p>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-gray-500 w-24 shrink-0">담당자</span>
+                <select value={form.assigned_user_id} onChange={e => set('assigned_user_id')(e.target.value)}
+                  className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+                  <option value="">담당자 없음</option>
+                  {usersList.map(u => (
+                    <option key={u.id} value={u.id}>{u.name} ({u.role === 'admin' ? '관리자' : '직원'})</option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-gray-500 w-24 shrink-0">작업자</span>
+                <select value={form.assigned_worker_id} onChange={e => set('assigned_worker_id')(e.target.value)}
+                  className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+                  <option value="">작업자 없음</option>
+                  {workersList.map(w => (
+                    <option key={w.id} value={w.id}>{w.name}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
             {/* 일반정보 */}
             <div className="bg-gray-50 rounded-xl p-4 flex flex-col gap-3">
               <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">일반정보</p>
               <Field label="업체명 *" value={form.business_name} onChange={set('business_name')} />
-              <Field label="대표자명" value={form.contact_name} onChange={set('contact_name')} />
-              <Field label="플랫폼 닉네임" value={form.platform_nickname} onChange={set('platform_nickname')} placeholder="네이버, 카카오 등" />
+              <Field label="고객명" value={form.contact_name} onChange={set('contact_name')} />
               <div className="flex items-center gap-2">
                 <span className="text-xs text-gray-500 w-24 shrink-0">연락처</span>
                 <div className="flex flex-1 gap-1">
@@ -958,6 +995,7 @@ export default function AdminCustomersPage() {
                 </div>
               </div>
               <Field label="이메일" value={form.email} onChange={set('email')} />
+              <Field label="플랫폼 닉네임" value={form.platform_nickname} onChange={set('platform_nickname')} placeholder="네이버, 카카오 등" />
             </div>
 
             {/* 작업장정보 */}
@@ -986,9 +1024,9 @@ export default function AdminCustomersPage() {
                       className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-green-500" />
                   </div>
                 </div>
-                <SelectField label="엘리베이터" value={form.elevator} options={ELEVATOR_OPTIONS} onChange={set('elevator')} />
-                <SelectField label="건물출입" value={form.building_access} options={BUILDING_ACCESS_OPTIONS} onChange={set('building_access')} />
                 <SelectField label="주차" value={form.parking_info} options={PARKING_OPTIONS} onChange={set('parking_info')} />
+                <SelectField label="건물출입" value={form.building_access} options={BUILDING_ACCESS_OPTIONS} onChange={set('building_access')} />
+                <SelectField label="엘리베이터" value={form.elevator} options={ELEVATOR_OPTIONS} onChange={set('elevator')} />
                 <Field label="출입방법" value={form.access_method} onChange={set('access_method')} placeholder="출입 방법 메모" />
                 <Field label="출입번호" value={form.door_password} onChange={set('door_password')} placeholder="도어락 비밀번호" />
               </div>
@@ -1001,14 +1039,20 @@ export default function AdminCustomersPage() {
               </div>
               <div className="p-4 flex flex-col gap-3">
                 <div className="flex items-start gap-2">
+                  <span className="text-xs text-gray-500 w-24 shrink-0 pt-1.5">케어범위</span>
+                  <textarea value={form.care_scope} onChange={e => set('care_scope')(e.target.value)} rows={3}
+                    placeholder="케어 범위를 입력하세요&#10;예) 주방, 화장실 2개, 사무실 전체"
+                    className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-green-500 resize-none" />
+                </div>
+                <div className="flex items-start gap-2">
                   <span className="text-xs text-gray-500 w-24 shrink-0 pt-1.5">요청사항</span>
                   <textarea value={form.special_notes} onChange={e => set('special_notes')(e.target.value)} rows={2}
                     className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-green-500 resize-none" />
                 </div>
                 <div className="flex items-start gap-2">
-                  <span className="text-xs text-gray-500 w-24 shrink-0 pt-1.5">케어범위</span>
-                  <textarea value={form.care_scope} onChange={e => set('care_scope')(e.target.value)} rows={3}
-                    placeholder="케어 범위를 입력하세요&#10;예) 주방, 화장실 2개, 사무실 전체"
+                  <span className="text-xs text-gray-500 w-24 shrink-0 pt-1.5">관리자메모</span>
+                  <textarea value={form.notes} onChange={e => set('notes')(e.target.value)} rows={2}
+                    placeholder="내부 메모를 입력하세요..."
                     className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-green-500 resize-none" />
                 </div>
               </div>
@@ -1017,9 +1061,9 @@ export default function AdminCustomersPage() {
             {/* 결제정보 */}
             <div className="bg-gray-50 rounded-xl p-4 flex flex-col gap-3">
               <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">결제정보</p>
-              <Field label="사업자번호" value={form.business_number} onChange={set('business_number')} mono />
-              <Field label="계좌번호" value={form.account_number} onChange={set('account_number')} mono />
               <SelectField label="결제방법" value={form.payment_method} options={PAYMENT_METHODS} onChange={set('payment_method')} />
+              <Field label="계좌번호" value={form.account_number} onChange={set('account_number')} mono />
+              <Field label="사업자번호" value={form.business_number} onChange={set('business_number')} mono />
             </div>
 
             {/* ── 정기엔드케어 계약 ── */}
@@ -1327,14 +1371,6 @@ export default function AdminCustomersPage() {
                 })()}
               </div>
             )}
-
-            {/* 메모 */}
-            <div>
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">메모</p>
-              <textarea value={form.notes} onChange={e => set('notes')(e.target.value)}
-                rows={2} placeholder="내부 메모를 입력하세요..."
-                className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none" />
-            </div>
 
             {/* 저장 버튼 — worker는 읽기 전용 */}
             {!isWorker && (

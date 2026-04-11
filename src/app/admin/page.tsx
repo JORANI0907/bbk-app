@@ -62,10 +62,6 @@ function timeAgo(iso: string) {
   return new Date(iso).toLocaleDateString('ko-KR', { month: 'long', day: 'numeric' })
 }
 
-function fmtEventDate(d: string) {
-  return new Date(d).toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'short' })
-}
-
 const PRIORITY_CONFIG = {
   urgent:    { label: '긴급', badge: 'bg-red-500 text-white',      border: 'border-l-red-500',    bg: 'bg-red-50' },
   important: { label: '중요', badge: 'bg-orange-500 text-white',   border: 'border-l-orange-400', bg: 'bg-orange-50' },
@@ -154,7 +150,7 @@ function NoticeCard({ notice }: { notice: Notice }) {
               <span className={`text-xs font-medium ${tc.color}`}>{tc.label}</span>
               {notice.event_date && (
                 <span className="text-xs text-purple-600 bg-purple-50 px-2 py-0.5 rounded-full">
-                  📅 {fmtEventDate(notice.event_date)}
+                  📅 {new Date(notice.event_date).toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'short' })}
                 </span>
               )}
             </div>
@@ -330,11 +326,6 @@ export default function AdminHomePage() {
 
   const filteredNotices = notices.filter(n => filter === 'all' || n.type === filter)
 
-  const upcomingEvents = notices
-    .filter(n => n.type === 'event' && n.event_date && n.event_date >= new Date().toISOString().slice(0, 10))
-    .sort((a, b) => (a.event_date ?? '').localeCompare(b.event_date ?? ''))
-    .slice(0, 4)
-
   const urgentCount = notices.filter(n => n.priority === 'urgent').length
   const pinnedCount = notices.filter(n => n.pinned).length
 
@@ -432,45 +423,6 @@ export default function AdminHomePage() {
 
         {/* 사이드 패널 (1/3) */}
         <div className="flex flex-col gap-4">
-
-          {/* 다가오는 행사 */}
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-            <div className="px-4 py-3 border-b border-gray-50 flex items-center justify-between">
-              <h3 className="text-sm font-bold text-gray-900">🗓 다가오는 행사</h3>
-              <span className="text-xs text-gray-400">{upcomingEvents.length}건</span>
-            </div>
-            {upcomingEvents.length === 0 ? (
-              <div className="px-4 py-8 text-center text-gray-400 text-xs">예정된 행사가 없습니다.</div>
-            ) : (
-              <div className="divide-y divide-gray-50">
-                {upcomingEvents.map(ev => {
-                  const daysLeft = ev.event_date
-                    ? Math.ceil((new Date(ev.event_date).getTime() - Date.now()) / 86400000)
-                    : null
-                  return (
-                    <div key={ev.id} className="px-4 py-3 flex items-center gap-3">
-                      <div className="w-10 h-10 shrink-0 rounded-xl bg-purple-100 flex flex-col items-center justify-center text-purple-700">
-                        <span className="text-xs font-bold leading-none">
-                          {ev.event_date ? new Date(ev.event_date).toLocaleDateString('ko-KR', { month: 'short' }) : ''}
-                        </span>
-                        <span className="text-base font-extrabold leading-none">
-                          {ev.event_date ? new Date(ev.event_date).getDate() : ''}
-                        </span>
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-semibold text-gray-900 truncate">{ev.title}</p>
-                        {daysLeft !== null && (
-                          <p className={`text-xs mt-0.5 font-medium ${daysLeft === 0 ? 'text-red-500' : daysLeft <= 3 ? 'text-orange-500' : 'text-gray-400'}`}>
-                            {daysLeft === 0 ? '오늘!' : daysLeft === 1 ? '내일' : `D-${daysLeft}`}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            )}
-          </div>
 
           {/* 오늘의 일정 */}
           <TodayScheduleCard />
