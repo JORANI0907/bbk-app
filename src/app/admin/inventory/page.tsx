@@ -195,10 +195,13 @@ export default function AdminInventoryPage() {
     }
   }, [mainTab, logMonth, logType, role, fetchAdminLogs])
 
+  const [mobileShowDetail, setMobileShowDetail] = useState(false)
+
   const handleSelectItem = (item: InventoryItem) => {
     setSelectedItem(item)
     setEditForm({ item_name: item.item_name, category: item.category, unit: item.unit })
     fetchLogs(item.id)
+    setMobileShowDetail(true)
   }
 
   const handleSave = async () => {
@@ -575,9 +578,9 @@ export default function AdminInventoryPage() {
         </div>
       ) : (
 
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-1 overflow-hidden relative">
       {/* Left Panel */}
-      <div className="w-80 flex flex-col bg-white border-r border-gray-200 shrink-0">
+      <div className={`${mobileShowDetail ? 'hidden md:flex' : 'flex'} w-full md:w-80 flex-col bg-white border-r border-gray-200 md:shrink-0`}>
         {/* Header */}
         <div className="p-4 border-b border-gray-200">
           <div className="flex items-center justify-between mb-3">
@@ -676,8 +679,8 @@ export default function AdminInventoryPage() {
         </div>
       </div>
 
-      {/* Right Panel */}
-      <div className="flex-1 overflow-y-auto">
+      {/* Right Panel — 모바일: 전체화면 오버레이 */}
+      <div className={`${mobileShowDetail ? 'flex' : 'hidden md:flex'} flex-col flex-1 overflow-y-auto md:relative absolute inset-0 bg-white z-20 md:z-auto`}>
         {!selectedItem ? (
           <div className="flex items-center justify-center h-full text-gray-400">
             <div className="text-center">
@@ -686,7 +689,14 @@ export default function AdminInventoryPage() {
             </div>
           </div>
         ) : (
-          <div className="max-w-3xl mx-auto p-6 space-y-6">
+          <div className="max-w-3xl mx-auto p-4 md:p-6 space-y-6">
+            {/* 모바일 뒤로가기 버튼 */}
+            <button
+              onClick={() => { setMobileShowDetail(false) }}
+              className="md:hidden flex items-center gap-1.5 text-sm text-blue-600 font-medium -mb-2"
+            >
+              ← 목록으로
+            </button>
             {/* Item header */}
             <div className="flex items-center gap-3">
               <span className={`w-3 h-3 rounded-full ${CATEGORY_CONFIG[selectedItem.category].dot}`} />
