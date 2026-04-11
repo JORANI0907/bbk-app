@@ -6,6 +6,7 @@ import type { DriveFolder } from '@/lib/googleDrive'
 import { openGoogleDrive } from '@/lib/mapUtils'
 import { useModalBackButton } from '@/hooks/useModalBackButton'
 import { MonthNavigator } from '@/components/MonthNavigator'
+import { LoadingSpinner } from '@/components/admin/LoadingSpinner'
 
 const getDriveLib = () => import('@/lib/googleDrive')
 
@@ -1322,7 +1323,7 @@ export default function ServiceManagementPage() {
           {(viewMode === 'list' || showUnassigned) && (
           <div className="bg-white rounded-xl border border-gray-200 overflow-auto flex-1 flex flex-col">
             {loading ? (
-              <div className="py-20 text-center text-gray-400 text-sm">불러오는 중...</div>
+              <LoadingSpinner />
             ) : filteredApps.length === 0 ? (
               <div className="py-20 text-center text-gray-400 text-sm">신청서가 없습니다.</div>
             ) : (() => {

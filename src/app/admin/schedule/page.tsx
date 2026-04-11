@@ -7,6 +7,7 @@ import { WorkPanel } from '@/components/admin/WorkPanel'
 import { openGoogleDrive } from '@/lib/mapUtils'
 import { useModalBackButton } from '@/hooks/useModalBackButton'
 import { MonthNavigator } from '@/components/MonthNavigator'
+import { LoadingSpinner } from '@/components/admin/LoadingSpinner'
 
 // ─── 타입 ──────────────────────────────────────────────────────
 
@@ -884,8 +885,8 @@ export default function SchedulePage() {
 
       {/* ── 컨텐츠 ── */}
       {loading || !refLoaded ? (
-        <div className="flex-1 flex items-center justify-center text-gray-400 text-sm">
-          불러오는 중...
+        <div className="flex-1 flex items-center justify-center">
+          <LoadingSpinner />
         </div>
       ) : viewMode === 'list' ? (
 

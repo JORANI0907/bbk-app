@@ -83,7 +83,7 @@ export async function POST(request: NextRequest) {
   const results = { case1: 0, case2: 0, case3: 0, errors: 0 }
 
   // ── Case 1: 1회성케어 + 정기딥케어(월간) 결제 미완료 건 ─────────
-  const UNPAID_STATUSES = ['작업완료', '결제요청', '결제대기']
+  const UNPAID_STATUSES = ['작업완료', '결제']
   const { data: unpaidApps } = await supabase
     .from('service_applications')
     .select('id, owner_name, business_name, phone, balance, account_number, construction_date, status, service_type, notification_log')

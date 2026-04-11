@@ -23,6 +23,7 @@ export const metadata: Metadata = {
     startupImage: '/bbk-logo.png',
   },
   icons: {
+    icon: '/bbk-logo.png',
     apple: '/bbk-logo.png',
   },
   other: {
