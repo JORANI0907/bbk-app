@@ -19,6 +19,7 @@ const MAKE_TEAM_ID = 2567117
 const MAKE_URL = `https://www.make.com/en/organization/${MAKE_TEAM_ID}/scenarios`
 
 const INITIAL_ITEMS: AutomationItem[] = [
+  // ── 고객응대 ──────────────────────────────────────────────────
   {
     id: 'missed-call',
     name: '부재중 전화 자동 명함 발송',
@@ -27,6 +28,82 @@ const INITIAL_ITEMS: AutomationItem[] = [
     active: true,
     trigger: 'Webhook (부재중 전화)',
   },
+
+  // ── 예약알림 ──────────────────────────────────────────────────
+  {
+    id: 'schedule-notify-day-before',
+    name: '예약 1일전 알림 자동 발송',
+    description: '내일 시공 예정이고 배정완료 상태인 건에 SMS를 자동 발송합니다. 발송 후 Slack 보고.',
+    category: '예약알림',
+    active: true,
+    trigger: '매일 오전 8시 (Make → /api/webhooks/schedule-notify)',
+  },
+  {
+    id: 'schedule-notify-today',
+    name: '예약 당일 알림 자동 발송',
+    description: '오늘 시공 예정이고 배정완료 상태인 건에 SMS를 자동 발송합니다. 발송 후 Slack 보고.',
+    category: '예약알림',
+    active: true,
+    trigger: '매일 오전 8시 (Make → /api/webhooks/schedule-notify)',
+  },
+
+  // ── 작업완료알림 ───────────────────────────────────────────────
+  {
+    id: 'work-complete-end-care',
+    name: '정기엔드케어 작업완료 알림',
+    description: '정기엔드케어 작업완료 시 카카오 알림톡 전용 템플릿으로 발송. SMS fallback 포함. 발송 후 Slack 보고.',
+    category: '작업완료',
+    active: true,
+    trigger: '작업 완료 처리 시 자동 (1시간 후 또는 즉시)',
+  },
+
+  // ── 결제알림 ──────────────────────────────────────────────────
+  {
+    id: 'payment-notify-oneshot',
+    name: '1회성케어 / 정기딥케어(월간) 결제알림',
+    description: '작업완료 후 결제완료 전 건에 매일 결제 요청 SMS를 발송합니다. 결제완료 상태가 되면 자동 중단.',
+    category: '결제알림',
+    active: true,
+    trigger: '매일 자동 (Make → /api/webhooks/payment-notify)',
+  },
+  {
+    id: 'payment-notify-end-care',
+    name: '정기엔드케어 결제알림',
+    description: 'customers.payment_date가 오늘이고 이번달 미결제 건에 정기결제 SMS를 발송합니다.',
+    category: '결제알림',
+    active: true,
+    trigger: '매일 자동 (Make → /api/webhooks/payment-notify)',
+  },
+  {
+    id: 'payment-notify-yearly',
+    name: '정기딥케어(연간) 계약 만료 알림',
+    description: 'contract_end_date 30일 전부터 매일 연장 안내 SMS를 발송합니다.',
+    category: '결제알림',
+    active: true,
+    trigger: '매일 자동 (Make → /api/webhooks/payment-notify)',
+  },
+
+  // ── 세금계산서 ────────────────────────────────────────────────
+  {
+    id: 'invoice-weekly',
+    name: '세금계산서 자동화',
+    description: '매주 토요일 해당 주 완료된 건 기준으로 세금계산서 발행 처리를 자동화합니다.',
+    category: '세금계산서',
+    active: false,
+    trigger: '매주 토요일 (Make 시나리오)',
+  },
+
+  // ── Slack 보고 ────────────────────────────────────────────────
+  {
+    id: 'slack-all-notify',
+    name: '모든 알림 Slack 실시간 보고',
+    description: '수동/자동 발송 모든 알림을 Slack으로 실시간 보고합니다. 유형, 수신자, 발송시각, 발송방법 포함.',
+    category: 'Slack',
+    active: true,
+    trigger: '알림 발송 시 자동 (SLACK_WEBHOOK_URL)',
+  },
+
+  // ── 보고서 / 재고 ─────────────────────────────────────────────
   {
     id: 'monthly-report',
     name: '월간 보고서 자동 생성',
@@ -47,8 +124,13 @@ const INITIAL_ITEMS: AutomationItem[] = [
 
 const CATEGORY_BADGE: Record<string, string> = {
   '고객응대': 'bg-blue-100 text-blue-700',
+  '예약알림': 'bg-sky-100 text-sky-700',
+  '작업완료': 'bg-green-100 text-green-700',
+  '결제알림': 'bg-orange-100 text-orange-700',
+  '세금계산서': 'bg-teal-100 text-teal-700',
+  'Slack': 'bg-violet-100 text-violet-700',
   '보고서': 'bg-purple-100 text-purple-700',
-  '재고관리': 'bg-green-100 text-green-700',
+  '재고관리': 'bg-emerald-100 text-emerald-700',
 }
 
 // ─── 컴포넌트 ────────────────────────────────────────────────────

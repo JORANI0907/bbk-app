@@ -1,7 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { sendOTP } from '@/lib/solapi'
+import { sendSMS } from '@/lib/solapi'
 import { createServiceClient } from '@/lib/supabase/server'
+import { notifySlack } from '@/lib/slack'
 
+// ─── 알림 유형 → 계약상태 자동변경 매핑 (P2-27/28) ──────────────
+const NOTIFY_TO_STATUS: Record<string, string> = {
+  '예약확정알림': '예약확정',
+  '작업완료알림': '작업완료',
+  '결제완료알림': '결제완료',
+}
+
+// ─── 알림 메시지 템플릿 ──────────────────────────────────────────
 const TEMPLATES: Record<string, (data: Record<string, string>) => string> = {
   '예약확정알림':    (d) => `[BBK 공간케어] ${d.name}님, ${d.business_name} 예약이 확정되었습니다.\n방문일시: ${d.date} ${d.time}\n문의: 031-759-4877`,
   '예약1일전알림':  (d) => `[BBK 공간케어] ${d.name}님, 내일 ${d.time}에 ${d.business_name} 방문 예정입니다.\n문의: 031-759-4877`,
@@ -16,9 +25,22 @@ const TEMPLATES: Record<string, (data: Record<string, string>) => string> = {
   '방문견적알림':   (d) => `[BBK 공간케어] ${d.name}님, 방문견적 일시: ${d.date} ${d.time}\n문의: 031-759-4877`,
 }
 
+// ─── notification_log 항목 타입 ──────────────────────────────────
+interface NotificationLogEntry {
+  type: string
+  sent_at: string
+  phone: string
+  method: 'auto' | 'manual'
+  template_id?: string
+}
+
 export async function POST(request: NextRequest) {
   try {
-    const { application_id, type } = await request.json()
+    const { application_id, type, method = 'manual' } = await request.json() as {
+      application_id: string
+      type: string
+      method?: 'auto' | 'manual'
+    }
     if (!application_id || !type) {
       return NextResponse.json({ error: '필수 항목 누락' }, { status: 400 })
     }
@@ -38,18 +60,54 @@ export async function POST(request: NextRequest) {
     const message = templateFn({
       name: app.owner_name ?? '',
       business_name: app.business_name ?? '',
-      date: app.submitted_at?.slice(0, 10) ?? '',
+      date: app.construction_date?.slice(0, 10) ?? app.submitted_at?.slice(0, 10) ?? '',
       time: app.business_hours_start ?? '',
       balance: String(app.balance ?? 0),
       account: app.account_number ?? '',
     })
 
-    const phone = app.phone?.replace(/-/g, '') ?? ''
+    const phone = (app.phone ?? '').replace(/-/g, '')
     if (!phone) return NextResponse.json({ error: '전화번호가 없습니다.' }, { status: 400 })
 
-    await sendOTP(phone, message)
+    await sendSMS(phone, message)
 
-    return NextResponse.json({ success: true, message })
+    // ── P2-27/28: 계약상태 자동변경 ──────────────────────────────
+    const newStatus = NOTIFY_TO_STATUS[type]
+    const nowIso = new Date().toISOString()
+
+    // ── P2-30: notification_log append ──────────────────────────
+    const existingLog: NotificationLogEntry[] = Array.isArray(app.notification_log)
+      ? (app.notification_log as NotificationLogEntry[])
+      : []
+
+    const newEntry: NotificationLogEntry = {
+      type,
+      sent_at: nowIso,
+      phone,
+      method,
+    }
+
+    const updatedLog = [newEntry, ...existingLog]
+
+    const dbUpdates: Record<string, unknown> = { notification_log: updatedLog }
+    if (newStatus) dbUpdates.status = newStatus
+
+    await supabase
+      .from('service_applications')
+      .update(dbUpdates)
+      .eq('id', application_id)
+
+    // ── P2-29: Slack 보고 ────────────────────────────────────────
+    await notifySlack({
+      notifyType: type,
+      customerName: app.owner_name ?? '',
+      phone,
+      businessName: app.business_name ?? '',
+      constructionDate: app.construction_date?.slice(0, 10) ?? null,
+      method,
+    }).catch(() => { /* Slack 실패는 무시 */ })
+
+    return NextResponse.json({ success: true, message, new_status: newStatus ?? null })
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
     return NextResponse.json({ error: msg }, { status: 500 })

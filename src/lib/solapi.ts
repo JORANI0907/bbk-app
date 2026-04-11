@@ -46,3 +46,29 @@ export async function sendCompletionAlert(phone: string, customerName: string): 
   const text = `[BBK Korea] ${customerName}님, 오늘 청소 서비스가 완료되었습니다. 리포트를 확인해보세요.`
   await sendSMS(phone, text)
 }
+
+export async function sendAlimtalk(
+  to: string,
+  templateId: string,
+  variables: Record<string, string>,
+  fallbackText: string,
+): Promise<void> {
+  const from = process.env.SOLAPI_SENDER_NUMBER
+  if (!from) throw new Error('발신번호(SOLAPI_SENDER_NUMBER)가 설정되지 않았습니다.')
+  const channelId = process.env.SOLAPI_KAKAO_CHANNEL_ID
+  if (!channelId) throw new Error('카카오 채널 ID(SOLAPI_KAKAO_CHANNEL_ID)가 설정되지 않았습니다.')
+
+  const service = getService()
+  const phone = to.replace(/-/g, '')
+
+  await service.sendOne({
+    to: phone,
+    from,
+    kakaoOptions: {
+      pfId: channelId,
+      templateId,
+      variables,
+    },
+    text: fallbackText,
+  } as Parameters<typeof service.sendOne>[0])
+}
