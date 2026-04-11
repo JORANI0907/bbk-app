@@ -52,6 +52,20 @@ interface SessionUser { userId: string; name: string; role: string }
 
 const currentMonth = () => new Date().toISOString().slice(0, 7)
 
+/**
+ * 배정관리 "오늘" 기준: 낮 12시 이후에는 다음날을 오늘로 취급
+ * (새벽 작업 특성상 낮 12시 이후부터 다음날 일정이 활성화)
+ */
+function getScheduleToday(): string {
+  const now = new Date()
+  if (now.getHours() >= 12) {
+    const tomorrow = new Date(now)
+    tomorrow.setDate(tomorrow.getDate() + 1)
+    return tomorrow.toISOString().slice(0, 10)
+  }
+  return now.toISOString().slice(0, 10)
+}
+
 const DOW_KO = ['일', '월', '화', '수', '목', '금', '토']
 
 /** 26.03.31(화) 형식 */
@@ -113,7 +127,7 @@ function CalendarGrid({
 }) {
   const firstDay = new Date(year, month, 1).getDay()
   const daysInMonth = new Date(year, month + 1, 0).getDate()
-  const todayStr = new Date().toISOString().slice(0, 10)
+  const todayStr = getScheduleToday()
 
   const dayMap = useMemo(() => {
     const map: Record<string, Application[]> = {}
@@ -208,6 +222,9 @@ function DetailPanel({
   const [showAccount, setShowAccount] = useState(false)
   const [showBizNum, setShowBizNum] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [showWorkPanel, setShowWorkPanel] = useState(
+    app.work_status === 'in_progress' || app.work_status === 'completed'
+  )
 
   async function handleDelete() {
     if (!confirm(`"${app.business_name}" 일정을 삭제하시겠습니까?\n서비스 신청 내용도 함께 삭제됩니다.`)) return
@@ -242,12 +259,11 @@ function DetailPanel({
   return (
     <div className="fixed inset-0 z-50 flex justify-end" onClick={onClose}>
       <div
-        className="relative h-full w-full max-w-sm bg-white shadow-2xl overflow-y-auto flex flex-col"
+        className="relative h-full w-full max-w-sm bg-white shadow-2xl flex flex-col"
         onClick={e => e.stopPropagation()}
-        style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 80px)' }}
       >
         {/* 헤더 */}
-        <div className="sticky top-0 bg-white z-10 px-5 py-4 border-b border-gray-100 flex items-start justify-between gap-2">
+        <div className="sticky top-0 bg-white z-10 px-5 py-4 border-b border-gray-100 flex items-start justify-between gap-2 shrink-0">
           <div>
             <h2 className="font-bold text-gray-900 text-base leading-tight">{app.business_name}</h2>
             <div className="flex items-center gap-2 mt-1 flex-wrap">
@@ -264,55 +280,65 @@ function DetailPanel({
             </div>
           </div>
           <div className="flex items-center gap-2 shrink-0 mt-0.5">
-            <button onClick={handleDelete} disabled={deleting}
-              className="text-xs px-2 py-1 bg-red-50 hover:bg-red-100 text-red-500 rounded-lg transition-colors disabled:opacity-50">
-              {deleting ? '삭제 중...' : '삭제'}
-            </button>
+            {isAdmin && (
+              <button onClick={handleDelete} disabled={deleting}
+                className="text-xs px-2 py-1 bg-red-50 hover:bg-red-100 text-red-500 rounded-lg transition-colors disabled:opacity-50">
+                {deleting ? '삭제 중...' : '삭제'}
+              </button>
+            )}
             <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl leading-none">✕</button>
           </div>
         </div>
 
-        {/* 사진 링크 */}
-        {app.drive_folder_url && (
-          <div className="px-5 py-3 bg-blue-50 border-b border-blue-100">
-            <button
-              onClick={() => openGoogleDrive(app.drive_folder_url!)}
-              className="flex items-center justify-center gap-2 w-full py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg transition-colors"
-            >
-              📷 사진 보기 (Google Drive)
-            </button>
-          </div>
-        )}
+        {/* 본문 스크롤 영역 */}
+        <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5">
 
-        {/* 작업 현황 — 상단 고정 */}
-        <div className="px-5 pt-4 pb-4 bg-gray-50 border-b border-gray-200">
-          <WorkPanel app={app} onUpdate={onAppUpdate} />
-        </div>
-
-        <div className="px-5 py-4 space-y-5 flex-1">
-
-          {/* 고객 기본 정보 */}
+          {/* 섹션 1 - 일반정보 */}
           <section>
-            <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">고객 정보</p>
-            <div className="bg-gray-50 rounded-xl px-3 py-1">
-              <Row label="대표자" value={app.owner_name} />
+            <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">일반정보</p>
+            <div className="bg-gray-50 rounded-xl px-3 py-1 space-y-0">
+              <Row label="고객명" value={app.owner_name} />
+              <Row label="업체명" value={app.business_name} />
               <Row label="연락처" value={
-                app.phone
-                  ? <div className="flex items-center gap-1 justify-end">
-                      <span>{app.phone}</span>
-                      <a href={`tel:${app.phone}`} className="px-1.5 py-0.5 bg-blue-100 text-blue-600 rounded text-xs hover:bg-blue-200">📞</a>
-                    </div>
-                  : null
+                app.phone ? (
+                  <div className="flex items-center gap-1 justify-end">
+                    <span>{app.phone}</span>
+                    <a href={`tel:${app.phone}`} className="px-1.5 py-0.5 bg-blue-100 text-blue-600 rounded text-xs hover:bg-blue-200">📞</a>
+                  </div>
+                ) : null
               } />
               {app.email && <Row label="이메일" value={app.email} />}
               <Row label="주소" value={
-                app.address
-                  ? <div className="flex items-center gap-1 justify-end min-w-0">
-                      <span className="truncate">{app.address}</span>
-                      <button onClick={() => window.open(`https://map.kakao.com/link/search/${encodeURIComponent(app.address!)}`, '_blank')}
-                        className="px-1.5 py-0.5 bg-yellow-100 text-yellow-700 rounded text-xs hover:bg-yellow-200 shrink-0">🗺️</button>
+                app.address ? (
+                  <div className="flex items-center gap-1 justify-end min-w-0">
+                    <span className="truncate">{app.address}</span>
+                    <button
+                      onClick={() => window.open(`https://map.naver.com/v5/search/${encodeURIComponent(app.address!)}`, '_blank')}
+                      className="px-1.5 py-0.5 bg-green-100 text-green-700 rounded text-xs shrink-0 hover:bg-green-200">
+                      🗺️
+                    </button>
+                  </div>
+                ) : null
+              } />
+              {(app.business_hours_start || app.business_hours_end) && (
+                <Row label="영업시간" value={`${app.business_hours_start ?? '-'} ~ ${app.business_hours_end ?? '-'}`} />
+              )}
+            </div>
+          </section>
+
+          {/* 배정 정보 */}
+          <section>
+            <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">배정 정보</p>
+            <div className="bg-gray-50 rounded-xl px-3 py-1">
+              <Row label="담당자" value={manager?.name ?? '미배정'} />
+              <Row label="작업자" value={
+                workerNames.length > 0
+                  ? <div className="flex flex-wrap gap-1 justify-end">
+                      {workerNames.map(n => (
+                        <span key={n} className="bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded text-xs">{n}</span>
+                      ))}
                     </div>
-                  : null
+                  : '미배정'
               } />
             </div>
           </section>
@@ -354,60 +380,101 @@ function DetailPanel({
             </section>
           )}
 
-          {/* 현장 정보 */}
+          {/* 섹션 2 - 작업장정보 */}
           <section>
-            <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">현장 정보</p>
-            <div className="bg-gray-50 rounded-xl px-3 py-1">
-              {(app.business_hours_start || app.business_hours_end) && (
-                <Row label="영업시간" value={`${app.business_hours_start ?? '-'} ~ ${app.business_hours_end ?? '-'}`} />
-              )}
-              {app.elevator && <Row label="엘리베이터" value={app.elevator} />}
-              {app.building_access && <Row label="건물출입" value={app.building_access} />}
+            <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">작업장정보</p>
+            <div className="border-2 border-green-200 rounded-xl px-3 py-1 bg-green-50/30">
               {app.parking && <Row label="주차" value={app.parking} />}
+              {app.building_access && <Row label="건물출입" value={app.building_access} />}
+              {app.elevator && <Row label="엘리베이터" value={app.elevator} />}
               {app.access_method && <Row label="출입방법" value={app.access_method} />}
-              {app.payment_method && <Row label="결제방법" value={app.payment_method} />}
+              {!app.parking && !app.building_access && !app.elevator && !app.access_method && (
+                <p className="text-xs text-gray-400 py-2">작업장 정보가 없습니다.</p>
+              )}
             </div>
           </section>
 
-          {/* 배정 정보 */}
+          {/* 섹션 3 - 시공정보 */}
           <section>
-            <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">배정 정보</p>
-            <div className="bg-gray-50 rounded-xl px-3 py-1">
-              <Row label="담당자" value={manager?.name ?? '미배정'} />
-              <Row label="작업자" value={
-                workerNames.length > 0
-                  ? <div className="flex flex-wrap gap-1 justify-end">
-                      {workerNames.map(n => (
-                        <span key={n} className="bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded text-xs">{n}</span>
-                      ))}
-                    </div>
-                  : '미배정'
-              } />
+            <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">시공정보</p>
+            <div className="border-2 border-green-200 rounded-xl p-3 bg-green-50/30 space-y-2">
+              {app.care_scope && (
+                <div>
+                  <p className="text-xs text-green-600 font-semibold mb-1">케어 범위</p>
+                  <p className="text-xs text-gray-700 whitespace-pre-wrap leading-relaxed">{app.care_scope}</p>
+                </div>
+              )}
+              {app.request_notes && (
+                <div>
+                  <p className="text-xs text-gray-500 font-semibold mb-1">요청사항</p>
+                  <p className="text-xs text-gray-700 whitespace-pre-wrap leading-relaxed">{app.request_notes}</p>
+                </div>
+              )}
+              {!app.care_scope && !app.request_notes && (
+                <p className="text-xs text-gray-400">시공 정보가 없습니다.</p>
+              )}
             </div>
           </section>
-
-          {/* 요청 / 케어 범위 */}
-          {(app.request_notes || app.care_scope) && (
-            <section>
-              <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">요청 / 케어 범위</p>
-              <div className="space-y-2">
-                {app.request_notes && (
-                  <div className="bg-gray-50 rounded-xl p-3">
-                    <p className="text-xs text-gray-400 mb-1">요청사항</p>
-                    <p className="text-xs text-gray-700 whitespace-pre-wrap leading-relaxed">{app.request_notes}</p>
-                  </div>
-                )}
-                {app.care_scope && (
-                  <div className="bg-indigo-50 rounded-xl p-3">
-                    <p className="text-xs text-indigo-400 mb-1">케어 범위</p>
-                    <p className="text-xs text-indigo-800 whitespace-pre-wrap leading-relaxed font-medium">{app.care_scope}</p>
-                  </div>
-                )}
-              </div>
-            </section>
-          )}
 
         </div>
+
+        {/* 하단 액션 버튼 영역 */}
+        <div className="shrink-0 bg-white border-t border-gray-100 px-5 py-4 space-y-2"
+          style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 16px)' }}>
+          {/* 버튼 1: 사진보기 */}
+          <button
+            onClick={() => app.drive_folder_url
+              ? openGoogleDrive(app.drive_folder_url)
+              : toast.error('Drive 폴더가 연결되지 않았습니다.')}
+            className={`w-full py-3 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 transition-colors ${
+              app.drive_folder_url
+                ? 'bg-blue-600 hover:bg-blue-700 text-white'
+                : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+            }`}
+          >
+            📷 사진보기 {!app.drive_folder_url && '(폴더 미연결)'}
+          </button>
+
+          {/* 버튼 2: 작업 시작/현황 */}
+          <button
+            onClick={() => setShowWorkPanel(true)}
+            className={`w-full py-3 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 transition-colors ${
+              app.work_status === 'completed'
+                ? 'bg-green-600 hover:bg-green-700 text-white'
+                : app.work_status === 'in_progress'
+                ? 'bg-orange-500 hover:bg-orange-600 text-white animate-pulse'
+                : 'bg-gray-800 hover:bg-gray-900 text-white'
+            }`}
+          >
+            {app.work_status === 'completed' ? '✅ 작업완료 (상세보기)' :
+             app.work_status === 'in_progress' ? '⚡ 작업진행중 (클릭하여 계속)' :
+             '▶ 작업 시작'}
+          </button>
+        </div>
+
+        {/* WorkPanel 전체화면 오버레이 */}
+        {showWorkPanel && (
+          <div
+            className="fixed inset-0 z-[60] bg-white overflow-y-auto flex flex-col"
+            style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 80px)' }}
+          >
+            <div className="sticky top-0 bg-white border-b border-gray-100 px-5 py-4 flex items-center gap-3 z-10">
+              <button
+                onClick={() => setShowWorkPanel(false)}
+                className="text-gray-500 hover:text-gray-700 text-sm"
+              >
+                ← 뒤로
+              </button>
+              <div>
+                <h3 className="font-bold text-gray-900">{app.business_name}</h3>
+                <p className="text-xs text-gray-400">{fmtDate(app.construction_date)} 작업현황</p>
+              </div>
+            </div>
+            <div className="px-5 py-4">
+              <WorkPanel app={app} onUpdate={(updates) => { onAppUpdate(updates) }} />
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )
@@ -732,11 +799,12 @@ export default function SchedulePage() {
                     .filter((n): n is string => !!n)
                   const manager = users.find(u => u.id === app.assigned_to)
                   const isSelected = selected?.id === app.id
+                  const isToday = app.construction_date?.slice(0, 10) === getScheduleToday()
                   const svcColor = app.service_type ? (SERVICE_TYPE_CONFIG[app.service_type] ?? 'bg-gray-100 text-gray-700') : ''
                   return (
                     <tr key={app.id}
                       onClick={() => setSelected(isSelected ? null : app)}
-                      className={`cursor-pointer hover:bg-blue-50/40 transition-colors ${isSelected ? 'bg-blue-50' : ''}`}>
+                      className={`cursor-pointer hover:bg-blue-50/40 transition-colors ${isSelected ? 'bg-blue-50' : isToday ? 'bg-yellow-50' : ''}`}>
                       <td className="px-4 py-3 text-gray-500 whitespace-nowrap font-mono text-xs">
                         {fmtDate(app.construction_date)}
                       </td>

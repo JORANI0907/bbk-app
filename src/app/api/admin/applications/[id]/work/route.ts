@@ -33,6 +33,26 @@ export async function PATCH(request: NextRequest, { params }: Params) {
       .eq('id', id)
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+    // 작업시작 Slack 보고
+    try {
+      const { data: appData } = await supabase
+        .from('service_applications')
+        .select('business_name, owner_name, construction_date, service_type')
+        .eq('id', id)
+        .single()
+      if (appData) {
+        await notifySlack({
+          notifyType: '작업시작',
+          customerName: appData.owner_name ?? '',
+          phone: '',
+          businessName: appData.business_name ?? '',
+          constructionDate: appData.construction_date?.slice(0, 10) ?? null,
+          method: 'manual',
+        })
+      }
+    } catch { /* Slack 실패 무시 */ }
+
     return NextResponse.json({ success: true })
   }
 
@@ -85,6 +105,19 @@ export async function PATCH(request: NextRequest, { params }: Params) {
       .update(updates)
       .eq('id', id)
 
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json({ success: true })
+  }
+
+  if (action === 'cancel_complete') {
+    const { error } = await supabase
+      .from('service_applications')
+      .update({
+        work_status: 'in_progress',
+        work_completed_at: null,
+        notification_send_at: null,
+      })
+      .eq('id', id)
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     return NextResponse.json({ success: true })
   }

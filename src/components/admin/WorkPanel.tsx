@@ -313,6 +313,28 @@ export function WorkPanel({ app, onUpdate }: Props) {
           >
             {saving ? '처리 중...' : '✅ 작업 완료'}
           </button>
+
+          <button
+            onClick={async () => {
+              if (!confirm('작업 시작을 취소하시겠습니까?')) return
+              setSaving(true)
+              try {
+                const res = await fetch(`/api/admin/applications/${app.id}/work`, {
+                  method: 'PATCH',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ action: 'cancel_start' }),
+                })
+                if (!res.ok) throw new Error((await res.json()).error)
+                onUpdate({ work_status: 'pending', work_started_at: null })
+                toast.success('작업 시작이 취소되었습니다.')
+              } catch (e) { toast.error(String(e)) }
+              finally { setSaving(false) }
+            }}
+            disabled={saving}
+            className="w-full py-2 bg-white hover:bg-red-50 border border-gray-200 hover:border-red-200 text-gray-500 hover:text-red-600 text-xs font-semibold rounded-xl transition-colors"
+          >
+            작업시작 취소 (뒤로)
+          </button>
         </div>
       )}
 
@@ -379,33 +401,54 @@ export function WorkPanel({ app, onUpdate }: Props) {
             </div>
           ) : app.notification_send_at && countdown !== null ? (
             <div className="bg-amber-50 rounded-xl px-3 py-2.5 space-y-2">
-              <p className="text-xs font-semibold text-amber-700">
-                {isEndCare ? '엔드케어 작업완료 알림 발송 대기 중' : '고객 알림 발송 대기 중'}
-              </p>
+              <p className="text-xs font-semibold text-amber-700">알림 발송 대기 중</p>
               <p className="text-xs text-amber-600 font-mono">
                 {countdown > 0 ? `${formatCountdown(countdown)} 후 자동 발송` : '곧 발송됩니다...'}
               </p>
+              <p className="text-xs text-gray-500">발송을 누르지 않아도 1시간 후 자동 발송됩니다.</p>
               <div className="flex gap-2">
                 <button onClick={handleSendNow} disabled={saving}
-                  className="flex-1 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-xs font-semibold rounded-lg">
-                  지금 발송
+                  className="flex-1 py-2 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white text-xs font-semibold rounded-xl border-2 border-green-400">
+                  {saving ? '발송 중...' : '📣 작업완료 알림 발송'}
                 </button>
                 <button onClick={handleCancelNotification} disabled={saving}
-                  className="flex-1 py-1.5 bg-white hover:bg-gray-50 disabled:opacity-50 border border-gray-200 text-gray-600 text-xs font-semibold rounded-lg">
+                  className="flex-1 py-2 bg-white hover:bg-gray-50 disabled:opacity-50 border border-gray-200 text-gray-600 text-xs font-semibold rounded-xl">
                   발송 취소
                 </button>
               </div>
             </div>
           ) : (
             <div className="space-y-2">
-              <div className="bg-gray-50 rounded-xl px-3 py-2">
-                <p className="text-xs text-gray-400">알림을 수동으로 발송할 수 있습니다.</p>
-              </div>
               <button onClick={handleSendNow} disabled={saving}
-                className="w-full py-1.5 bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white text-xs font-semibold rounded-lg">
-                {saving ? '발송 중...' : isEndCare ? '엔드케어 작업완료 알림 발송' : '작업완료 알림 발송'}
+                className="w-full py-2.5 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white text-xs font-semibold rounded-xl border-2 border-green-400">
+                {saving ? '발송 중...' : isEndCare ? '📣 엔드케어 작업완료 알림 발송' : '📣 작업완료 알림 발송'}
               </button>
+              <p className="text-xs text-gray-400 text-center">발송을 누르지 않아도 1시간 후 자동 발송됩니다.</p>
             </div>
+          )}
+
+          {!app.notification_sent_at && (
+            <button
+              onClick={async () => {
+                if (!confirm('작업 완료를 취소하시겠습니까?')) return
+                setSaving(true)
+                try {
+                  const res = await fetch(`/api/admin/applications/${app.id}/work`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'cancel_complete' }),
+                  })
+                  if (!res.ok) throw new Error((await res.json()).error)
+                  onUpdate({ work_status: 'in_progress', work_completed_at: null, notification_send_at: null })
+                  toast.success('작업 완료가 취소되었습니다.')
+                } catch (e) { toast.error(String(e)) }
+                finally { setSaving(false) }
+              }}
+              disabled={saving}
+              className="w-full py-2 bg-white hover:bg-red-50 border border-gray-200 hover:border-red-200 text-gray-500 hover:text-red-600 text-xs font-semibold rounded-xl transition-colors"
+            >
+              작업완료 취소
+            </button>
           )}
         </div>
       )}
