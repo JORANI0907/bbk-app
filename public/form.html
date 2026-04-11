@@ -4,7 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>BBK 공간케어 신청서</title>
-  
+  <link rel="icon" href="/bbk-logo.png" type="image/png">
+
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
@@ -53,75 +54,101 @@
     }
 
     /* ═══════ Hero ═══════ */
+    /* ─── Splash ─── */
+    #splash {
+      position: fixed; inset: 0; z-index: 9999;
+      background: #0f172a;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 20px;
+      transition: opacity 0.6s ease, transform 0.6s ease;
+    }
+    #splash.hide { opacity: 0; pointer-events: none; }
+    #splash.gone { display: none; }
+    .splash-logo {
+      width: 96px; height: 96px; border-radius: 24px; object-fit: cover;
+      box-shadow: 0 0 40px rgba(37,99,235,0.5);
+      animation: splashPop 0.7s cubic-bezier(0.34,1.56,0.64,1) both;
+    }
+    @keyframes splashPop {
+      0%   { transform:scale(0.3); opacity:0 }
+      60%  { transform:scale(1.08) }
+      100% { transform:scale(1); opacity:1 }
+    }
+    .splash-title {
+      font-size: 24px; font-weight: 900; color: #fff; letter-spacing: -0.5px;
+      animation: splashFade 0.5s ease 0.35s both;
+    }
+    .splash-sub {
+      font-size: 12px; font-weight: 500; color: rgba(255,255,255,0.4);
+      letter-spacing: 3px; text-transform: uppercase;
+      animation: splashFade 0.5s ease 0.5s both;
+    }
+    @keyframes splashFade {
+      from { opacity:0; transform:translateY(8px) }
+      to   { opacity:1; transform:translateY(0) }
+    }
+    .splash-bar {
+      position: absolute; bottom: 0; left: 0; right: 0; height: 3px;
+      background: linear-gradient(90deg, transparent, #2563eb, #818cf8, transparent);
+      animation: splashBar 1.2s ease 0.1s both;
+    }
+    @keyframes splashBar {
+      from { transform:scaleX(0) }
+      to   { transform:scaleX(1) }
+    }
+
+    /* ─── Hero ─── */
     .hero {
-      background: linear-gradient(135deg, var(--dark) 0%, #16213E 50%, var(--dark-soft) 100%);
-      padding: 48px 20px 56px;
+      background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 60%, #1e293b 100%);
+      padding: 52px 20px 60px;
       text-align: center;
       position: relative;
       overflow: hidden;
     }
     .hero::before {
       content: '';
-      position: absolute;
-      top: -50%; left: -50%;
-      width: 200%; height: 200%;
-      background: radial-gradient(ellipse at 30% 50%, rgba(42,171,226,0.08) 0%, transparent 60%),
-                  radial-gradient(ellipse at 70% 50%, rgba(42,171,226,0.05) 0%, transparent 60%);
-      animation: heroShimmer 12s ease-in-out infinite alternate;
-    }
-    @keyframes heroShimmer {
-      0% { transform: translateX(-5%) translateY(-2%); }
-      100% { transform: translateX(5%) translateY(2%); }
+      position: absolute; inset: 0;
+      background: radial-gradient(ellipse 60% 80% at 50% 0%, rgba(37,99,235,0.12) 0%, transparent 70%);
     }
     .hero::after {
       content: '';
       position: absolute;
-      bottom: 0; left: 0; right: 0;
-      height: 4px;
-      background: linear-gradient(90deg, transparent, var(--primary), transparent);
+      bottom: 0; left: 0; right: 0; height: 3px;
+      background: linear-gradient(90deg, transparent, #2563eb, #818cf8, transparent);
     }
     .hero-content {
       position: relative; z-index: 1;
       max-width: 600px; margin: 0 auto;
+      display: flex; flex-direction: column; align-items: center;
     }
-    .logo-container {
-      margin-bottom: 20px;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      gap: 12px;
-      animation: logoFloat 4s ease-in-out infinite;
+    .hero-logo {
+      width: 76px; height: 76px; border-radius: 20px; object-fit: cover;
+      box-shadow: 0 0 32px rgba(37,99,235,0.4);
+      margin-bottom: 18px; display: block;
+      animation: heroFloat 5s ease-in-out infinite;
     }
-    @keyframes logoFloat {
+    @keyframes heroFloat {
       0%, 100% { transform: translateY(0); }
-      50% { transform: translateY(-6px); }
+      50%       { transform: translateY(-7px); }
     }
-    .logo-container img.logo-img {
-      height: 72px;
-      filter: drop-shadow(0 4px 12px rgba(42,171,226,0.3));
-    }
-    .person-icon {
-      height: 85px;
-      filter: drop-shadow(0 2px 8px rgba(255,255,255,0.2));
+    .hero-badge {
+      display: inline-block;
+      background: rgba(37,99,235,0.2); border: 1px solid rgba(37,99,235,0.4);
+      color: #93c5fd; font-size: 11px; font-weight: 600;
+      padding: 4px 14px; border-radius: 999px; letter-spacing: 1px; margin-bottom: 14px;
     }
     .hero h1 {
-      font-size: 26px;
-      font-weight: 800;
-      color: var(--white);
-      letter-spacing: -0.5px;
-      margin-bottom: 10px;
+      font-size: 26px; font-weight: 900; color: #fff;
+      letter-spacing: -0.5px; margin-bottom: 10px;
     }
-    .hero h1 span {
-      background: linear-gradient(135deg, var(--primary), #5BC0EB);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
-    }
+    .hero h1 span { color: #93c5fd; }
     .hero-subtitle {
-      color: rgba(255,255,255,0.55);
-      font-size: 14px; font-weight: 400;
-      letter-spacing: 0.3px;
+      color: rgba(255,255,255,0.5);
+      font-size: 14px; font-weight: 400; line-height: 1.7;
     }
+    /* legacy compat */
+    .logo-container { display: none; }
+    .person-icon    { display: none; }
 
     /* ═══════ Form Container ═══════ */
     .form-wrapper {
@@ -783,10 +810,20 @@
 
 <body>
 
+  <!-- ═══════ Splash ═══════ -->
+  <div id="splash">
+    <img src="/bbk-logo.png" alt="BBK 공간케어" class="splash-logo">
+    <div class="splash-title">BBK 공간케어</div>
+    <div class="splash-sub">Professional Care Service</div>
+    <div class="splash-bar"></div>
+  </div>
+
   <!-- ═══════ Hero ═══════ -->
+  <div id="app" style="opacity:0;transform:translateY(14px);transition:opacity 0.5s ease,transform 0.5s ease;">
   <div class="hero">
     <div class="hero-content">
-</div>
+      <img src="/bbk-logo.png" alt="BBK" class="hero-logo">
+      <div class="hero-badge">SERVICE INQUIRY</div>
       <h1>BBK <span>공간케어</span> 신청서</h1>
       <p class="hero-subtitle">아래 정보를 입력해주시면 담당자가 빠르게 연락드립니다</p>
     </div>
@@ -1135,6 +1172,7 @@
   </div>
 
   <div class="footer">© BUMBUILD KOREA · 범빌드코리아<br>문의사항은 언제든 연락 주세요 · 031-759-4877</div>
+  </div><!-- /#app -->
 
   <!-- ═══════ Modal ═══════ -->
   <div class="modal-overlay" id="successModal">
@@ -1710,6 +1748,20 @@
         resultDiv.innerHTML = '<span style="color:var(--error);">네트워크 오류가 발생했습니다.</span>';
       });
     }
+  </script>
+
+  <script>
+    // ─── 스플래시 → 앱 전환 ──────────────────────────────────
+    (function () {
+      var splash = document.getElementById('splash');
+      var app    = document.getElementById('app');
+      setTimeout(function () {
+        splash.classList.add('hide');
+        app.style.opacity  = '1';
+        app.style.transform = 'translateY(0)';
+        setTimeout(function () { splash.classList.add('gone'); }, 650);
+      }, 1400);
+    })();
   </script>
 </body>
 </html>
