@@ -6,6 +6,7 @@ import toast from 'react-hot-toast'
 import { WorkPanel } from '@/components/admin/WorkPanel'
 import { openGoogleDrive } from '@/lib/mapUtils'
 import { useModalBackButton } from '@/hooks/useModalBackButton'
+import { MonthNavigator } from '@/components/MonthNavigator'
 
 // ─── 타입 ──────────────────────────────────────────────────────
 
@@ -114,17 +115,83 @@ async function fetchSession(): Promise<SessionUser | null> {
   } catch { return null }
 }
 
+// ─── 날짜 리스트 패널 ──────────────────────────────────────────
+
+function DayListPanel({
+  dateStr, apps, workers, appWorkerMap, onSelectApp, onClose,
+}: {
+  dateStr: string
+  apps: Application[]
+  workers: Worker[]
+  appWorkerMap: Record<string, string[]>
+  onSelectApp: (app: Application) => void
+  onClose: () => void
+}) {
+  const parts = dateStr.split('-').map(Number)
+  const m = parts[1]
+  const d = parts[2]
+  const dow = new Date(dateStr + 'T12:00:00').getDay()
+  const dayLabel = ['일', '월', '화', '수', '목', '금', '토'][dow]
+
+  return (
+    <div className="fixed inset-0 z-40 bg-black/40 flex items-end md:items-center justify-center"
+      onClick={onClose}>
+      <div
+        className="bg-white w-full max-w-md max-h-[80vh] rounded-t-2xl md:rounded-2xl flex flex-col overflow-hidden"
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 shrink-0">
+          <div>
+            <h3 className="font-bold text-gray-900">{m}월 {d}일 ({dayLabel})</h3>
+            <p className="text-xs text-gray-400">{apps.length}건</p>
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-lg leading-none">✕</button>
+        </div>
+        <div className="overflow-y-auto flex-1 p-3 flex flex-col gap-2">
+          {apps.map(app => {
+            const workerNames = (appWorkerMap[app.id] ?? [])
+              .map(wid => workers.find(w => w.id === wid)?.name)
+              .filter((n): n is string => !!n)
+              .join(' · ')
+            const cfg = STATUS_CONFIG[app.status] ?? STATUS_CONFIG['신규']
+            return (
+              <button key={app.id}
+                onClick={() => { onSelectApp(app); onClose() }}
+                className="text-left bg-gray-50 hover:bg-blue-50 border border-gray-100 hover:border-blue-200 rounded-xl p-3 transition-colors"
+              >
+                <div className="flex items-center gap-2 mb-1">
+                  <span className={`w-2 h-2 rounded-full shrink-0 ${cfg.dot}`} />
+                  <span className="font-semibold text-gray-900 text-sm">{app.business_name}</span>
+                  <span className={`ml-auto text-[10px] px-2 py-0.5 rounded-full shrink-0 ${cfg.badge}`}>{app.status}</span>
+                </div>
+                <p className="text-xs text-gray-500 ml-4">{app.owner_name}</p>
+                {app.address && (
+                  <p className="text-[11px] text-gray-400 truncate ml-4 mt-0.5">{app.address}</p>
+                )}
+                {app.care_scope && (
+                  <p className="text-[11px] text-blue-500 ml-4 mt-0.5 line-clamp-1">{app.care_scope}</p>
+                )}
+                {workerNames && (
+                  <p className="text-[11px] text-indigo-500 ml-4 mt-0.5">{workerNames}</p>
+                )}
+              </button>
+            )
+          })}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ─── 캘린더 그리드 ─────────────────────────────────────────────
 
 function CalendarGrid({
-  year, month, applications, workers, appWorkerMap, onSelect,
+  year, month, applications, onDaySelect,
 }: {
   year: number
   month: number
   applications: Application[]
-  workers: Worker[]
-  appWorkerMap: Record<string, string[]>
-  onSelect: (app: Application) => void
+  onDaySelect: (dateStr: string, apps: Application[]) => void
 }) {
   const firstDay = new Date(year, month, 1).getDay()
   const daysInMonth = new Date(year, month + 1, 0).getDate()
@@ -157,17 +224,23 @@ function CalendarGrid({
           </div>
         ))}
       </div>
-      <div className="grid grid-cols-7 auto-rows-[6.5rem]">
+      <div className="grid grid-cols-7 auto-rows-[7rem]">
         {cells.map((day, i) => {
           if (!day) return <div key={`e-${i}`} className="border-r border-b border-gray-50 bg-gray-50/40" />
           const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
           const apps = dayMap[dateStr] ?? []
           const isToday = dateStr === todayStr
           const dow = (firstDay + day - 1) % 7
+          const hasApps = apps.length > 0
 
           return (
-            <div key={day} className={`border-r border-b border-gray-50 p-1.5 flex flex-col gap-0.5
-              ${isToday ? 'bg-blue-50' : (dow === 0 || dow === 6) ? 'bg-gray-50/50' : ''}`}>
+            <div
+              key={day}
+              onClick={() => hasApps && onDaySelect(dateStr, apps)}
+              className={`border-r border-b border-gray-50 p-1.5 flex flex-col gap-0.5
+                ${isToday ? 'bg-blue-50' : (dow === 0 || dow === 6) ? 'bg-gray-50/50' : ''}
+                ${hasApps ? 'cursor-pointer hover:bg-indigo-50/40 transition-colors' : ''}`}
+            >
               <div className={`text-xs font-bold w-6 h-6 flex items-center justify-center rounded-full shrink-0
                 ${isToday ? 'bg-blue-600 text-white' : dow === 0 ? 'text-red-500' : dow === 6 ? 'text-blue-500' : 'text-gray-700'}`}>
                 {day}
@@ -175,27 +248,22 @@ function CalendarGrid({
               <div className="flex flex-col gap-0.5 overflow-hidden">
                 {apps.slice(0, 2).map(app => {
                   const cfg = STATUS_CONFIG[app.status] ?? STATUS_CONFIG['신규']
-                  const workerNames = (appWorkerMap[app.id] ?? [])
-                    .map(wid => workers.find(w => w.id === wid)?.name)
-                    .filter(Boolean)
-                    .join('·')
                   return (
                     <div key={app.id}
-                      onClick={() => onSelect(app)}
-                      className="px-1.5 py-0.5 rounded-md bg-indigo-100 hover:bg-indigo-200 transition-colors cursor-pointer"
-                      title={`${app.business_name}${workerNames ? ` · ${workerNames}` : ''}`}>
+                      className="px-1 py-0.5 rounded-md bg-indigo-50 border border-indigo-100/80">
                       <div className="flex items-center gap-1 min-w-0">
                         <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${cfg.dot}`} />
-                        <span className="text-xs text-indigo-800 font-medium truncate leading-tight">{app.business_name}</span>
+                        <span className="text-[10px] text-indigo-800 font-semibold truncate leading-tight">{app.business_name}</span>
                       </div>
-                      {workerNames && (
-                        <p className="text-xs text-indigo-500 truncate leading-tight pl-2.5">{workerNames}</p>
+                      <p className="text-[9px] text-gray-400 truncate leading-tight pl-2.5">{app.owner_name}</p>
+                      {app.address && (
+                        <p className="text-[9px] text-gray-400 truncate leading-tight pl-2.5">{app.address}</p>
                       )}
                     </div>
                   )
                 })}
                 {apps.length > 2 && (
-                  <div className="text-xs text-gray-400 px-1.5 font-medium">+{apps.length - 2}건</div>
+                  <div className="text-[10px] text-gray-400 px-1 font-medium">+{apps.length - 2}건</div>
                 )}
               </div>
             </div>
@@ -505,6 +573,10 @@ export default function SchedulePage() {
   const [search, setSearch] = useState('')
   const [selected, setSelected] = useState<Application | null>(null)
 
+  // 날짜 클릭 (캘린더 → 날짜 목록 패널)
+  const [selectedDate, setSelectedDate] = useState<string | null>(null)
+  const [selectedDateApps, setSelectedDateApps] = useState<Application[]>([])
+
   // 스크롤 복원 (모바일 뒤로가기 후 선택 행으로 돌아오기)
   const rowRefs = useRef<Record<string, HTMLTableRowElement | null>>({})
   const prevSelectedIdRef = useRef<string | null>(null)
@@ -694,22 +766,7 @@ export default function SchedulePage() {
       <div className="flex items-center gap-2 flex-wrap shrink-0 bg-white border border-gray-200 rounded-xl px-4 py-3">
 
         {/* 월 이동 */}
-        <div className="flex items-center border border-gray-200 rounded-lg overflow-hidden">
-          <button onClick={() => moveMonth(-1)}
-            className="px-2.5 py-1.5 text-gray-500 hover:bg-gray-100 transition-colors font-bold text-sm">
-            ‹
-          </button>
-          <input
-            type="month"
-            value={selectedMonth}
-            onChange={e => setSelectedMonth(e.target.value)}
-            className="px-2 py-1.5 text-xs font-semibold text-gray-800 bg-transparent focus:outline-none w-28 text-center"
-          />
-          <button onClick={() => moveMonth(1)}
-            className="px-2.5 py-1.5 text-gray-500 hover:bg-gray-100 transition-colors font-bold text-sm">
-            ›
-          </button>
-        </div>
+        <MonthNavigator value={selectedMonth} onChange={setSelectedMonth} />
 
         {/* 서비스 유형 필터 */}
         <select
@@ -916,12 +973,25 @@ export default function SchedulePage() {
             year={calYear}
             month={calMonth}
             applications={filteredApps}
-            workers={workers}
-            appWorkerMap={appWorkerMap}
-            onSelect={app => setSelected(app)}
+            onDaySelect={(dateStr, apps) => {
+              setSelectedDate(dateStr)
+              setSelectedDateApps(apps)
+            }}
           />
         </div>
 
+      )}
+
+      {/* 날짜 목록 패널 (캘린더 날짜 클릭 시) */}
+      {selectedDate && (
+        <DayListPanel
+          dateStr={selectedDate}
+          apps={selectedDateApps}
+          workers={workers}
+          appWorkerMap={appWorkerMap}
+          onSelectApp={app => setSelected(app)}
+          onClose={() => setSelectedDate(null)}
+        />
       )}
     </div>
   )

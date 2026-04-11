@@ -3,9 +3,10 @@ import { createServiceClient } from '@/lib/supabase/server'
 import { getServerSession } from '@/lib/session'
 
 const ALLOWED_POST = ['worker_id', 'work_date', 'clock_in', 'clock_out', 'notes',
-  'clock_in_lat', 'clock_in_lng', 'clock_out_lat', 'clock_out_lng', 'worker_name', 'status']
+  'clock_in_lat', 'clock_in_lng', 'clock_out_lat', 'clock_out_lng', 'worker_name', 'status',
+  'clock_in_photo_url', 'clock_out_photo_url']
 const ALLOWED_PATCH = ['clock_out', 'notes', 'clock_in', 'status',
-  'clock_out_lat', 'clock_out_lng']
+  'clock_out_lat', 'clock_out_lng', 'clock_in_photo_url', 'clock_out_photo_url']
 
 export async function GET(request: NextRequest) {
   const session = getServerSession()

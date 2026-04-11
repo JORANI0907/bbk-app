@@ -1,7 +1,10 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import toast from 'react-hot-toast'
+import { MonthNavigator } from '@/components/MonthNavigator'
+
+// ─── Types ───────────────────────────────────────────────────────────────────
 
 interface AttendanceRecord {
   id: string
@@ -14,6 +17,8 @@ interface AttendanceRecord {
   clock_in_lng: number | null
   clock_out_lat: number | null
   clock_out_lng: number | null
+  clock_in_photo_url: string | null
+  clock_out_photo_url: string | null
   status: string | null
   notes: string | null
   worker?: { id: string; name: string; employment_type: string } | null
@@ -24,6 +29,8 @@ interface Worker {
   name: string
   employment_type: string
 }
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function formatTime(ts: string | null): string {
   if (!ts) return '-'
@@ -36,18 +43,441 @@ function formatDuration(clockIn: string | null, clockOut: string | null): string
   if (diff <= 0) return '-'
   const h = Math.floor(diff / 3600000)
   const m = Math.floor((diff % 3600000) / 60000)
-  return `${h}h ${m}m`
+  return `${h}시간 ${m}분`
+}
+
+function getWeekday(dateStr: string): number {
+  return new Date(dateStr + 'T12:00:00').getDay()
 }
 
 function getDaysInMonth(year: number, month: number): number {
   return new Date(year, month, 0).getDate()
 }
 
-function getWeekday(dateStr: string): number {
-  return new Date(dateStr).getDay()
+function formatLocationText(lat: number | null, lng: number | null): string {
+  if (!lat || !lng) return '-'
+  return `${lat.toFixed(4)}, ${lng.toFixed(4)}`
 }
 
-export default function AttendancePage() {
+async function reverseGeocode(lat: number, lng: number): Promise<string> {
+  try {
+    const res = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&accept-language=ko`,
+      { headers: { 'User-Agent': 'BBK-App/1.0' } }
+    )
+    if (!res.ok) return `${lat.toFixed(4)}, ${lng.toFixed(4)}`
+    const json = await res.json() as { display_name?: string }
+    return json.display_name ?? `${lat.toFixed(4)}, ${lng.toFixed(4)}`
+  } catch {
+    return `${lat.toFixed(4)}, ${lng.toFixed(4)}`
+  }
+}
+
+// ─── Camera Component ─────────────────────────────────────────────────────────
+
+type CameraPhase = 'preview' | 'captured'
+
+interface CameraProps {
+  onCapture: (blob: Blob, dataUrl: string) => void
+  onCancel: () => void
+}
+
+function CameraCapture({ onCapture, onCancel }: CameraProps) {
+  const videoRef = useRef<HTMLVideoElement>(null)
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const streamRef = useRef<MediaStream | null>(null)
+  const [phase, setPhase] = useState<CameraPhase>('preview')
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+  const [capturedBlob, setCapturedBlob] = useState<Blob | null>(null)
+  const [cameraError, setCameraError] = useState<string | null>(null)
+
+  useEffect(() => {
+    navigator.mediaDevices.getUserMedia({
+      video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } }
+    }).then(stream => {
+      streamRef.current = stream
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream
+      }
+    }).catch(() => {
+      setCameraError('카메라 접근 권한이 필요합니다.')
+    })
+
+    return () => {
+      streamRef.current?.getTracks().forEach(t => t.stop())
+    }
+  }, [])
+
+  const capture = () => {
+    const video = videoRef.current
+    const canvas = canvasRef.current
+    if (!video || !canvas) return
+
+    canvas.width = video.videoWidth
+    canvas.height = video.videoHeight
+    canvas.getContext('2d')?.drawImage(video, 0, 0)
+
+    canvas.toBlob(blob => {
+      if (!blob) return
+      const url = canvas.toDataURL('image/jpeg', 0.85)
+      setCapturedBlob(blob)
+      setPreviewUrl(url)
+      setPhase('captured')
+      streamRef.current?.getTracks().forEach(t => t.stop())
+    }, 'image/jpeg', 0.85)
+  }
+
+  const retake = () => {
+    setPhase('preview')
+    setPreviewUrl(null)
+    setCapturedBlob(null)
+    navigator.mediaDevices.getUserMedia({
+      video: { facingMode: { ideal: 'environment' } }
+    }).then(stream => {
+      streamRef.current = stream
+      if (videoRef.current) videoRef.current.srcObject = stream
+    })
+  }
+
+  const confirm = () => {
+    if (capturedBlob && previewUrl) onCapture(capturedBlob, previewUrl)
+  }
+
+  if (cameraError) {
+    return (
+      <div className="flex flex-col items-center gap-4 py-8">
+        <div className="text-4xl">📷</div>
+        <p className="text-sm text-red-500">{cameraError}</p>
+        <button onClick={onCancel} className="px-4 py-2 bg-gray-100 text-gray-700 rounded-xl text-sm font-medium">
+          취소
+        </button>
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="relative w-full rounded-2xl overflow-hidden bg-black aspect-video">
+        {phase === 'preview' && (
+          <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
+        )}
+        {phase === 'captured' && previewUrl && (
+          <img src={previewUrl} alt="촬영된 사진" className="w-full h-full object-cover" />
+        )}
+      </div>
+      <canvas ref={canvasRef} className="hidden" />
+
+      <div className="flex gap-2">
+        {phase === 'preview' ? (
+          <>
+            <button onClick={onCancel}
+              className="flex-1 py-3 bg-gray-100 text-gray-700 rounded-xl text-sm font-semibold">
+              취소
+            </button>
+            <button onClick={capture}
+              className="flex-1 py-3 bg-blue-600 text-white rounded-xl text-sm font-semibold">
+              촬영
+            </button>
+          </>
+        ) : (
+          <>
+            <button onClick={retake}
+              className="flex-1 py-3 bg-gray-100 text-gray-700 rounded-xl text-sm font-semibold">
+              다시 촬영
+            </button>
+            <button onClick={confirm}
+              className="flex-1 py-3 bg-blue-600 text-white rounded-xl text-sm font-semibold">
+              사용
+            </button>
+          </>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ─── Worker Clock View ────────────────────────────────────────────────────────
+
+type ClockPhase =
+  | 'idle'
+  | 'camera'
+  | 'locating'
+  | 'submitting'
+  | 'done'
+
+interface WorkerInfo {
+  id: string
+  name: string
+  role: string
+}
+
+interface WorkerClockViewProps {
+  workerInfo: WorkerInfo
+}
+
+function WorkerClockView({ workerInfo }: WorkerClockViewProps) {
+  const [todayRecord, setTodayRecord] = useState<AttendanceRecord | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [flow, setFlow] = useState<'clock_in' | 'clock_out' | null>(null)
+  const [phase, setPhase] = useState<ClockPhase>('idle')
+  const [capturedBlob, setCapturedBlob] = useState<Blob | null>(null)
+  const [elapsed, setElapsed] = useState(0)
+
+  const todayStr = new Date().toISOString().slice(0, 10)
+
+  const fetchToday = useCallback(async () => {
+    setLoading(true)
+    try {
+      const params = new URLSearchParams({ month: todayStr.slice(0, 7) })
+      const res = await fetch(`/api/admin/attendance?${params}`)
+      const json = await res.json()
+      const records: AttendanceRecord[] = json.data ?? []
+      const rec = records.find(r => r.work_date === todayStr && r.worker_id === workerInfo.id) ?? null
+      setTodayRecord(rec)
+    } catch {
+      // ignore
+    } finally {
+      setLoading(false)
+    }
+  }, [todayStr, workerInfo.id])
+
+  useEffect(() => { fetchToday() }, [fetchToday])
+
+  // Elapsed timer when clocked in but not out
+  useEffect(() => {
+    if (!todayRecord?.clock_in || todayRecord?.clock_out) return
+    const update = () => {
+      const diff = Date.now() - new Date(todayRecord.clock_in!).getTime()
+      setElapsed(Math.floor(diff / 1000))
+    }
+    update()
+    const id = setInterval(update, 1000)
+    return () => clearInterval(id)
+  }, [todayRecord])
+
+  const formatElapsed = (seconds: number) => {
+    const h = Math.floor(seconds / 3600)
+    const m = Math.floor((seconds % 3600) / 60)
+    const s = seconds % 60
+    return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
+  }
+
+  const startFlow = (type: 'clock_in' | 'clock_out') => {
+    setFlow(type)
+    setPhase('camera')
+    setCapturedBlob(null)
+  }
+
+  const handleCapture = (blob: Blob) => {
+    setCapturedBlob(blob)
+    setPhase('locating')
+    submitAttendance(blob)
+  }
+
+  const submitAttendance = async (blob: Blob) => {
+    setPhase('submitting')
+
+    try {
+      // 1. 위치 정보 획득
+      let lat: number | null = null
+      let lng: number | null = null
+      await new Promise<void>(resolve => {
+        navigator.geolocation.getCurrentPosition(
+          pos => { lat = pos.coords.latitude; lng = pos.coords.longitude; resolve() },
+          () => resolve(),
+          { timeout: 8000, maximumAge: 0 }
+        )
+      })
+
+      // 2. 사진 업로드 (Google Drive)
+      let photoUrl: string | null = null
+      if (blob) {
+        const fd = new FormData()
+        fd.append('photo', blob, 'photo.jpg')
+        fd.append('type', flow!)
+        fd.append('worker_name', workerInfo.name)
+        fd.append('date', todayStr)
+
+        const uploadRes = await fetch('/api/admin/attendance/photo', { method: 'POST', body: fd })
+        if (uploadRes.ok) {
+          const uploadJson = await uploadRes.json() as { url?: string }
+          photoUrl = uploadJson.url ?? null
+        }
+      }
+
+      const now = new Date().toISOString()
+
+      if (flow === 'clock_in') {
+        // 3a. 새 출근 기록 생성
+        const body: Record<string, unknown> = {
+          worker_id: workerInfo.id,
+          worker_name: workerInfo.name,
+          work_date: todayStr,
+          clock_in: now,
+        }
+        if (lat !== null) { body.clock_in_lat = lat; body.clock_in_lng = lng }
+        if (photoUrl) body.clock_in_photo_url = photoUrl
+
+        const res = await fetch('/api/admin/attendance', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        })
+        const json = await res.json()
+        if (!res.ok) { toast.error(json.error || '출근 기록 실패'); setPhase('idle'); return }
+        toast.success('출근 완료!')
+        setTodayRecord(json.data)
+      } else if (flow === 'clock_out' && todayRecord) {
+        // 3b. 기존 레코드 퇴근 업데이트
+        const body: Record<string, unknown> = { id: todayRecord.id, clock_out: now }
+        if (lat !== null) { body.clock_out_lat = lat; body.clock_out_lng = lng }
+        if (photoUrl) body.clock_out_photo_url = photoUrl
+
+        const res = await fetch('/api/admin/attendance', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        })
+        const json = await res.json()
+        if (!res.ok) { toast.error(json.error || '퇴근 기록 실패'); setPhase('idle'); return }
+        toast.success('퇴근 완료!')
+        await fetchToday()
+      }
+
+      setPhase('done')
+      setTimeout(() => setPhase('idle'), 2000)
+    } catch {
+      toast.error('처리 중 오류가 발생했습니다.')
+      setPhase('idle')
+    } finally {
+      setFlow(null)
+      setCapturedBlob(null)
+    }
+  }
+
+  const cancelFlow = () => {
+    setFlow(null)
+    setPhase('idle')
+    setCapturedBlob(null)
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64 text-gray-400 text-sm">불러오는 중...</div>
+    )
+  }
+
+  const isClockedIn = !!todayRecord?.clock_in
+  const isClockedOut = !!todayRecord?.clock_out
+
+  // Camera open
+  if (phase === 'camera') {
+    return (
+      <div className="max-w-sm mx-auto px-4 pt-8">
+        <p className="text-center text-sm font-semibold text-gray-700 mb-4">
+          {flow === 'clock_in' ? '출근 사진 촬영' : '퇴근 사진 촬영'}
+        </p>
+        <CameraCapture onCapture={handleCapture} onCancel={cancelFlow} />
+      </div>
+    )
+  }
+
+  // Processing
+  if (phase === 'locating' || phase === 'submitting') {
+    return (
+      <div className="flex flex-col items-center justify-center h-64 gap-3">
+        <div className="w-12 h-12 rounded-full border-4 border-blue-500 border-t-transparent animate-spin" />
+        <p className="text-sm text-gray-500 font-medium">
+          {phase === 'locating' ? '위치 확인 중...' : '기록 저장 중...'}
+        </p>
+      </div>
+    )
+  }
+
+  // Done flash
+  if (phase === 'done') {
+    return (
+      <div className="flex flex-col items-center justify-center h-64 gap-3">
+        <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center text-3xl">✓</div>
+        <p className="text-sm text-green-600 font-semibold">완료!</p>
+      </div>
+    )
+  }
+
+  // Main UI
+  return (
+    <div className="flex flex-col items-center justify-center min-h-[60vh] gap-6 px-6">
+      {/* Date display */}
+      <div className="text-center">
+        <p className="text-xs text-gray-400 font-medium">
+          {new Date().toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' })}
+        </p>
+        <p className="text-2xl font-black text-gray-900 mt-1">
+          {workerInfo.name}
+        </p>
+      </div>
+
+      {/* Status card */}
+      {!isClockedIn && (
+        <div className="w-full max-w-xs bg-gray-50 rounded-2xl p-6 flex flex-col items-center gap-4">
+          <div className="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center text-4xl">🏢</div>
+          <p className="text-sm text-gray-500 text-center">오늘 출근 기록이 없습니다.<br />출근 버튼을 눌러 출근하세요.</p>
+          <button
+            onClick={() => startFlow('clock_in')}
+            className="w-full py-4 bg-blue-600 text-white rounded-2xl text-base font-bold hover:bg-blue-700 active:scale-95 transition-all shadow-lg shadow-blue-100"
+          >
+            출근하기
+          </button>
+        </div>
+      )}
+
+      {isClockedIn && !isClockedOut && (
+        <div className="w-full max-w-xs bg-gray-50 rounded-2xl p-6 flex flex-col items-center gap-4">
+          <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center text-4xl">✅</div>
+          <div className="text-center">
+            <p className="text-xs text-gray-400 mb-1">출근 시각</p>
+            <p className="text-lg font-bold text-gray-800">{formatTime(todayRecord!.clock_in)}</p>
+          </div>
+          {/* Elapsed timer */}
+          <div className="bg-white border border-gray-200 rounded-xl px-6 py-3 text-center">
+            <p className="text-xs text-gray-400 mb-0.5">근무 경과</p>
+            <p className="text-2xl font-mono font-bold text-blue-600">{formatElapsed(elapsed)}</p>
+          </div>
+          <button
+            onClick={() => startFlow('clock_out')}
+            className="w-full py-4 bg-orange-500 text-white rounded-2xl text-base font-bold hover:bg-orange-600 active:scale-95 transition-all shadow-lg shadow-orange-100"
+          >
+            퇴근하기
+          </button>
+        </div>
+      )}
+
+      {isClockedIn && isClockedOut && (
+        <div className="w-full max-w-xs bg-gray-50 rounded-2xl p-6 flex flex-col items-center gap-4">
+          <div className="w-20 h-20 bg-purple-100 rounded-full flex items-center justify-center text-4xl">🌙</div>
+          <p className="text-sm font-semibold text-gray-700">오늘 출퇴근 완료</p>
+          <div className="w-full flex gap-3">
+            <div className="flex-1 bg-white border border-gray-200 rounded-xl p-3 text-center">
+              <p className="text-[10px] text-gray-400 mb-1">출근</p>
+              <p className="text-sm font-bold text-gray-800">{formatTime(todayRecord!.clock_in)}</p>
+            </div>
+            <div className="flex-1 bg-white border border-gray-200 rounded-xl p-3 text-center">
+              <p className="text-[10px] text-gray-400 mb-1">퇴근</p>
+              <p className="text-sm font-bold text-gray-800">{formatTime(todayRecord!.clock_out)}</p>
+            </div>
+          </div>
+          <p className="text-xs text-gray-400">
+            근무 시간 {formatDuration(todayRecord!.clock_in, todayRecord!.clock_out)}
+          </p>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── Admin Table View ─────────────────────────────────────────────────────────
+
+function AdminTableView() {
   const today = new Date()
   const [yearMonth, setYearMonth] = useState(
     `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`
@@ -56,22 +486,14 @@ export default function AttendancePage() {
   const [selectedWorkerId, setSelectedWorkerId] = useState('')
   const [records, setRecords] = useState<AttendanceRecord[]>([])
   const [loading, setLoading] = useState(false)
-  const [userRole, setUserRole] = useState<string>('')
-  const [editingId, setEditingId] = useState<string | null>(null)
-  const [editForm, setEditForm] = useState<{ clock_in: string; clock_out: string; notes: string }>({
-    clock_in: '', clock_out: '', notes: '',
-  })
-  const [saving, setSaving] = useState(false)
+  const [editingNoteId, setEditingNoteId] = useState<string | null>(null)
+  const [noteValue, setNoteValue] = useState('')
+  const [savingNote, setSavingNote] = useState(false)
 
   useEffect(() => {
     fetch('/api/admin/workers')
       .then(r => r.json())
       .then(j => setWorkers(j.workers ?? []))
-      .catch(() => {})
-
-    fetch('/api/admin/me')
-      .then(r => r.json())
-      .then(j => setUserRole(j.role ?? ''))
       .catch(() => {})
   }, [])
 
@@ -93,37 +515,28 @@ export default function AttendancePage() {
 
   useEffect(() => { fetchRecords() }, [fetchRecords])
 
-  const handleEditStart = (rec: AttendanceRecord) => {
-    setEditingId(rec.id)
-    setEditForm({
-      clock_in: rec.clock_in ? new Date(rec.clock_in).toISOString().slice(0, 16) : '',
-      clock_out: rec.clock_out ? new Date(rec.clock_out).toISOString().slice(0, 16) : '',
-      notes: rec.notes ?? '',
-    })
+  const startNoteEdit = (rec: AttendanceRecord) => {
+    setEditingNoteId(rec.id)
+    setNoteValue(rec.notes ?? '')
   }
 
-  const handleEditSave = async () => {
-    if (!editingId) return
-    setSaving(true)
+  const saveNote = async (id: string) => {
+    setSavingNote(true)
     try {
-      const body: Record<string, unknown> = { id: editingId, notes: editForm.notes }
-      if (editForm.clock_in) body.clock_in = new Date(editForm.clock_in).toISOString()
-      if (editForm.clock_out) body.clock_out = new Date(editForm.clock_out).toISOString()
-
       const res = await fetch('/api/admin/attendance', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
+        body: JSON.stringify({ id, notes: noteValue }),
       })
       const json = await res.json()
-      if (!res.ok) { toast.error(json.error || '수정 실패'); return }
-      toast.success('수정되었습니다.')
-      setEditingId(null)
+      if (!res.ok) { toast.error(json.error || '저장 실패'); return }
+      toast.success('메모 저장됨')
+      setEditingNoteId(null)
       fetchRecords()
     } catch {
       toast.error('네트워크 오류')
     } finally {
-      setSaving(false)
+      setSavingNote(false)
     }
   }
 
@@ -135,46 +548,27 @@ export default function AttendancePage() {
     return { ...acc, [d]: [...(acc[d] ?? []), rec] }
   }, {})
 
-  const months: string[] = []
-  for (let i = -5; i <= 2; i++) {
-    const d = new Date(today.getFullYear(), today.getMonth() + i, 1)
-    months.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`)
-  }
+  const showNameColumn = !selectedWorkerId
 
   return (
-    <div className="flex flex-col h-full">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">출퇴근 관리</h1>
-        <p className="text-sm text-gray-500 mt-1">직원별 출퇴근 기록을 조회하고 관리합니다.</p>
-      </div>
+    <div>
+      {/* Filter bar */}
+      <div className="flex flex-wrap items-center gap-3 mb-5">
+        <MonthNavigator value={yearMonth} onChange={setYearMonth} />
 
-      {/* 필터 */}
-      <div className="flex flex-wrap gap-3 mb-5">
         <select
-          value={yearMonth}
-          onChange={e => setYearMonth(e.target.value)}
-          className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          value={selectedWorkerId}
+          onChange={e => setSelectedWorkerId(e.target.value)}
+          className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ml-auto"
         >
-          {months.map(m => (
-            <option key={m} value={m}>{m.replace('-', '년 ')}월</option>
+          <option value="">전체 직원</option>
+          {workers.map(w => (
+            <option key={w.id} value={w.id}>{w.name}</option>
           ))}
         </select>
-
-        {userRole === 'admin' && (
-          <select
-            value={selectedWorkerId}
-            onChange={e => setSelectedWorkerId(e.target.value)}
-            className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            <option value="">전체 직원</option>
-            {workers.map(w => (
-              <option key={w.id} value={w.id}>{w.name}</option>
-            ))}
-          </select>
-        )}
       </div>
 
-      {/* 테이블 */}
+      {/* Table */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
         {loading ? (
           <div className="flex items-center justify-center h-40 text-gray-400 text-sm">불러오는 중...</div>
@@ -184,16 +578,13 @@ export default function AttendancePage() {
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-100">
                   <th className="text-left px-4 py-3 font-medium text-gray-600 w-20">날짜</th>
-                  {userRole === 'admin' && !selectedWorkerId && (
+                  {showNameColumn && (
                     <th className="text-left px-4 py-3 font-medium text-gray-600 w-24">이름</th>
                   )}
-                  <th className="text-left px-4 py-3 font-medium text-gray-600 w-24">출근</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-600 w-24">퇴근</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-600">출근</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-600">퇴근</th>
                   <th className="text-left px-4 py-3 font-medium text-gray-600 w-20">근무시간</th>
                   <th className="text-left px-4 py-3 font-medium text-gray-600">메모</th>
-                  {userRole === 'admin' && (
-                    <th className="text-left px-4 py-3 font-medium text-gray-600 w-16">수정</th>
-                  )}
                 </tr>
               </thead>
               <tbody>
@@ -204,19 +595,20 @@ export default function AttendancePage() {
                   const weekday = getWeekday(dateStr)
                   const isWeekend = weekday === 0 || weekday === 6
                   const dayLabel = ['일', '월', '화', '수', '목', '금', '토'][weekday]
+                  const isToday = dateStr === new Date().toISOString().slice(0, 10)
 
                   if (dayRecs.length === 0) {
                     return (
                       <tr key={dateStr} className={`border-b border-gray-50 ${isWeekend ? 'bg-red-50/30' : ''}`}>
-                        <td className={`px-4 py-2.5 font-medium ${weekday === 0 ? 'text-red-500' : weekday === 6 ? 'text-blue-500' : 'text-gray-700'}`}>
+                        <td className={`px-4 py-2.5 font-medium text-sm ${weekday === 0 ? 'text-red-500' : weekday === 6 ? 'text-blue-500' : 'text-gray-700'}`}>
                           {i + 1}일 ({dayLabel})
+                          {isToday && <span className="ml-1 text-[10px] bg-blue-600 text-white px-1 py-0.5 rounded-full">오늘</span>}
                         </td>
-                        {userRole === 'admin' && !selectedWorkerId && <td className="px-4 py-2.5 text-gray-300">-</td>}
-                        <td className="px-4 py-2.5 text-gray-300">-</td>
-                        <td className="px-4 py-2.5 text-gray-300">-</td>
-                        <td className="px-4 py-2.5 text-gray-300">-</td>
-                        <td className="px-4 py-2.5 text-gray-300">-</td>
-                        {userRole === 'admin' && <td className="px-4 py-2.5" />}
+                        {showNameColumn && <td className="px-4 py-2.5 text-gray-200">-</td>}
+                        <td className="px-4 py-2.5 text-gray-200">-</td>
+                        <td className="px-4 py-2.5 text-gray-200">-</td>
+                        <td className="px-4 py-2.5 text-gray-200">-</td>
+                        <td className="px-4 py-2.5 text-gray-200">-</td>
                       </tr>
                     )
                   }
@@ -224,63 +616,98 @@ export default function AttendancePage() {
                   return dayRecs.map((rec, idx) => (
                     <tr key={rec.id} className={`border-b border-gray-50 ${isWeekend ? 'bg-red-50/30' : 'hover:bg-gray-50/50'}`}>
                       {idx === 0 && (
-                        <td className={`px-4 py-2.5 font-medium align-top ${weekday === 0 ? 'text-red-500' : weekday === 6 ? 'text-blue-500' : 'text-gray-700'}`} rowSpan={dayRecs.length}>
+                        <td
+                          className={`px-4 py-2.5 font-medium align-top text-sm ${weekday === 0 ? 'text-red-500' : weekday === 6 ? 'text-blue-500' : 'text-gray-700'}`}
+                          rowSpan={dayRecs.length}
+                        >
                           {i + 1}일 ({dayLabel})
+                          {isToday && <span className="ml-1 text-[10px] bg-blue-600 text-white px-1 py-0.5 rounded-full">오늘</span>}
                         </td>
                       )}
-                      {userRole === 'admin' && !selectedWorkerId && (
+                      {showNameColumn && (
                         <td className="px-4 py-2.5 text-gray-700 font-medium">
                           {rec.worker?.name ?? rec.worker_name ?? '-'}
                         </td>
                       )}
 
-                      {editingId === rec.id ? (
-                        <>
-                          <td className="px-4 py-2">
-                            <input type="datetime-local" value={editForm.clock_in}
-                              onChange={e => setEditForm(f => ({ ...f, clock_in: e.target.value }))}
-                              className="border rounded px-2 py-1 text-xs w-36" />
-                          </td>
-                          <td className="px-4 py-2">
-                            <input type="datetime-local" value={editForm.clock_out}
-                              onChange={e => setEditForm(f => ({ ...f, clock_out: e.target.value }))}
-                              className="border rounded px-2 py-1 text-xs w-36" />
-                          </td>
-                          <td className="px-4 py-2 text-gray-400 text-xs">-</td>
-                          <td className="px-4 py-2">
-                            <input value={editForm.notes}
-                              onChange={e => setEditForm(f => ({ ...f, notes: e.target.value }))}
-                              className="border rounded px-2 py-1 text-xs w-full" placeholder="메모" />
-                          </td>
-                          <td className="px-4 py-2">
-                            <div className="flex gap-1">
-                              <button onClick={handleEditSave} disabled={saving}
-                                className="text-xs bg-blue-600 text-white px-2 py-1 rounded hover:bg-blue-700 disabled:opacity-50">
-                                저장
-                              </button>
-                              <button onClick={() => setEditingId(null)}
-                                className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded hover:bg-gray-200">
-                                취소
-                              </button>
+                      {/* 출근 */}
+                      <td className="px-4 py-2.5">
+                        {rec.clock_in ? (
+                          <div className="flex flex-col gap-0.5">
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-medium text-gray-800">{formatTime(rec.clock_in)}</span>
+                              {rec.clock_in_photo_url && (
+                                <a href={rec.clock_in_photo_url} target="_blank" rel="noopener noreferrer"
+                                  className="text-[10px] text-blue-500 hover:underline">📷</a>
+                              )}
                             </div>
-                          </td>
-                        </>
-                      ) : (
-                        <>
-                          <td className="px-4 py-2.5 text-gray-700">{formatTime(rec.clock_in)}</td>
-                          <td className="px-4 py-2.5 text-gray-700">{formatTime(rec.clock_out)}</td>
-                          <td className="px-4 py-2.5 text-gray-500">{formatDuration(rec.clock_in, rec.clock_out)}</td>
-                          <td className="px-4 py-2.5 text-gray-500 max-w-xs truncate">{rec.notes || '-'}</td>
-                          {userRole === 'admin' && (
-                            <td className="px-4 py-2.5">
-                              <button onClick={() => handleEditStart(rec)}
-                                className="text-xs text-blue-600 hover:text-blue-800 font-medium">
-                                수정
-                              </button>
-                            </td>
-                          )}
-                        </>
-                      )}
+                            {(rec.clock_in_lat || rec.clock_in_lng) && (
+                              <span className="text-[10px] text-gray-400 leading-tight">
+                                {formatLocationText(rec.clock_in_lat, rec.clock_in_lng)}
+                              </span>
+                            )}
+                          </div>
+                        ) : <span className="text-gray-300">-</span>}
+                      </td>
+
+                      {/* 퇴근 */}
+                      <td className="px-4 py-2.5">
+                        {rec.clock_out ? (
+                          <div className="flex flex-col gap-0.5">
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-medium text-gray-800">{formatTime(rec.clock_out)}</span>
+                              {rec.clock_out_photo_url && (
+                                <a href={rec.clock_out_photo_url} target="_blank" rel="noopener noreferrer"
+                                  className="text-[10px] text-blue-500 hover:underline">📷</a>
+                              )}
+                            </div>
+                            {(rec.clock_out_lat || rec.clock_out_lng) && (
+                              <span className="text-[10px] text-gray-400 leading-tight">
+                                {formatLocationText(rec.clock_out_lat, rec.clock_out_lng)}
+                              </span>
+                            )}
+                          </div>
+                        ) : <span className="text-gray-300">-</span>}
+                      </td>
+
+                      {/* 근무시간 */}
+                      <td className="px-4 py-2.5 text-gray-500 text-xs">
+                        {formatDuration(rec.clock_in, rec.clock_out)}
+                      </td>
+
+                      {/* 메모 */}
+                      <td className="px-4 py-2.5 min-w-[160px]">
+                        {editingNoteId === rec.id ? (
+                          <div className="flex gap-1 items-center">
+                            <input
+                              value={noteValue}
+                              onChange={e => setNoteValue(e.target.value)}
+                              onKeyDown={e => { if (e.key === 'Enter') saveNote(rec.id) }}
+                              className="border border-gray-200 rounded-lg px-2 py-1 text-xs flex-1 focus:outline-none focus:ring-1 focus:ring-blue-400"
+                              placeholder="메모 입력"
+                              autoFocus
+                            />
+                            <button onClick={() => saveNote(rec.id)} disabled={savingNote}
+                              className="text-xs bg-blue-600 text-white px-2 py-1 rounded-lg hover:bg-blue-700 disabled:opacity-50">
+                              저장
+                            </button>
+                            <button onClick={() => setEditingNoteId(null)}
+                              className="text-xs text-gray-400 hover:text-gray-600">
+                              ✕
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => startNoteEdit(rec)}
+                            className="text-left w-full text-xs text-gray-600 hover:text-blue-600 group"
+                          >
+                            {rec.notes
+                              ? <span>{rec.notes}</span>
+                              : <span className="text-gray-300 group-hover:text-blue-400">메모 추가...</span>
+                            }
+                          </button>
+                        )}
+                      </td>
                     </tr>
                   ))
                 })}
@@ -289,6 +716,44 @@ export default function AttendancePage() {
           </div>
         )}
       </div>
+    </div>
+  )
+}
+
+// ─── Main Page ────────────────────────────────────────────────────────────────
+
+export default function AttendancePage() {
+  const [userInfo, setUserInfo] = useState<{ id: string; name: string; role: string } | null>(null)
+
+  useEffect(() => {
+    fetch('/api/admin/me')
+      .then(r => r.json())
+      .then(j => setUserInfo({ id: j.id ?? '', name: j.name ?? '', role: j.role ?? '' }))
+      .catch(() => {})
+  }, [])
+
+  if (!userInfo) {
+    return (
+      <div className="flex items-center justify-center h-64 text-gray-400 text-sm">불러오는 중...</div>
+    )
+  }
+
+  const isWorker = userInfo.role === 'worker'
+
+  return (
+    <div className="flex flex-col h-full">
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold text-gray-900">출퇴근 관리</h1>
+        <p className="text-sm text-gray-500 mt-1">
+          {isWorker ? '출퇴근을 기록하세요.' : '직원별 출퇴근 기록을 조회하고 관리합니다.'}
+        </p>
+      </div>
+
+      {isWorker ? (
+        <WorkerClockView workerInfo={userInfo} />
+      ) : (
+        <AdminTableView />
+      )}
     </div>
   )
 }

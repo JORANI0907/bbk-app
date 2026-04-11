@@ -1,10 +1,11 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import toast from 'react-hot-toast'
 import type { DriveFolder } from '@/lib/googleDrive'
 import { openGoogleDrive } from '@/lib/mapUtils'
 import { useModalBackButton } from '@/hooks/useModalBackButton'
+import { MonthNavigator } from '@/components/MonthNavigator'
 
 const getDriveLib = () => import('@/lib/googleDrive')
 
@@ -306,6 +307,147 @@ function DriveFolderModal({
 }
 
 // ─── 메인 페이지 ─────────────────────────────────────────────
+// ─── 서비스관리 캘린더 뷰 ────────────────────────────────────────
+
+function AppCalendarView({
+  selectedMonth, applications, onSelectApp,
+  calDate, calDateApps, onDaySelect, onDayClose,
+}: {
+  selectedMonth: string
+  applications: Application[]
+  onSelectApp: (app: Application) => void
+  calDate: string | null
+  calDateApps: Application[]
+  onDaySelect: (dateStr: string, apps: Application[]) => void
+  onDayClose: () => void
+}) {
+  const [y, m] = selectedMonth.split('-').map(Number)
+  const year = y
+  const month = m - 1 // 0-indexed for Date
+  const firstDay = new Date(year, month, 1).getDay()
+  const daysInMonth = new Date(year, month + 1, 0).getDate()
+  const todayStr = new Date().toISOString().slice(0, 10)
+
+  const dayMap = useMemo(() => {
+    const map: Record<string, Application[]> = {}
+    for (const app of applications) {
+      if (!app.construction_date) continue
+      const d = app.construction_date.slice(0, 10)
+      if (!map[d]) map[d] = []
+      map[d].push(app)
+    }
+    return map
+  }, [applications])
+
+  const cells: (number | null)[] = []
+  for (let i = 0; i < firstDay; i++) cells.push(null)
+  for (let d = 1; d <= daysInMonth; d++) cells.push(d)
+
+  const DAYS = ['일', '월', '화', '수', '목', '금', '토']
+
+  return (
+    <>
+      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden flex-1">
+        <div className="grid grid-cols-7 border-b border-gray-100">
+          {DAYS.map(d => (
+            <div key={d} className={`text-center py-2.5 text-xs font-semibold
+              ${d === '일' ? 'text-red-500' : d === '토' ? 'text-blue-500' : 'text-gray-500'}`}>
+              {d}
+            </div>
+          ))}
+        </div>
+        <div className="grid grid-cols-7 auto-rows-[7rem]">
+          {cells.map((day, i) => {
+            if (!day) return <div key={`e-${i}`} className="border-r border-b border-gray-50 bg-gray-50/40" />
+            const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+            const apps = dayMap[dateStr] ?? []
+            const isToday = dateStr === todayStr
+            const dow = (firstDay + day - 1) % 7
+            const hasApps = apps.length > 0
+
+            return (
+              <div
+                key={day}
+                onClick={() => hasApps && onDaySelect(dateStr, apps)}
+                className={`border-r border-b border-gray-50 p-1.5 flex flex-col gap-0.5
+                  ${isToday ? 'bg-blue-50' : (dow === 0 || dow === 6) ? 'bg-gray-50/50' : ''}
+                  ${hasApps ? 'cursor-pointer hover:bg-blue-50/30 transition-colors' : ''}`}
+              >
+                <div className={`text-xs font-bold w-6 h-6 flex items-center justify-center rounded-full shrink-0
+                  ${isToday ? 'bg-blue-600 text-white' : dow === 0 ? 'text-red-500' : dow === 6 ? 'text-blue-500' : 'text-gray-700'}`}>
+                  {day}
+                </div>
+                <div className="flex flex-col gap-0.5 overflow-hidden">
+                  {apps.slice(0, 2).map(app => {
+                    const cfg = STATUS_CONFIG[app.status] ?? STATUS_CONFIG['예약확정']
+                    return (
+                      <div key={app.id} className="px-1 py-0.5 rounded-md bg-blue-50 border border-blue-100/80">
+                        <div className="flex items-center gap-1 min-w-0">
+                          <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${cfg.dot}`} />
+                          <span className="text-[10px] text-blue-800 font-semibold truncate leading-tight">{app.business_name}</span>
+                        </div>
+                        <p className="text-[9px] text-gray-400 truncate leading-tight pl-2.5">{app.owner_name}</p>
+                        {app.address && (
+                          <p className="text-[9px] text-gray-400 truncate leading-tight pl-2.5">{app.address}</p>
+                        )}
+                      </div>
+                    )
+                  })}
+                  {apps.length > 2 && (
+                    <div className="text-[10px] text-gray-400 px-1 font-medium">+{apps.length - 2}건</div>
+                  )}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+
+      {/* 날짜 목록 패널 */}
+      {calDate && (
+        <div className="fixed inset-0 z-40 bg-black/40 flex items-end md:items-center justify-center"
+          onClick={onDayClose}>
+          <div
+            className="bg-white w-full max-w-md max-h-[80vh] rounded-t-2xl md:rounded-2xl flex flex-col overflow-hidden"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 shrink-0">
+              <div>
+                <h3 className="font-bold text-gray-900">
+                  {calDate.slice(5, 7)}월 {calDate.slice(8, 10)}일
+                  ({['일','월','화','수','목','금','토'][new Date(calDate + 'T12:00:00').getDay()]})
+                </h3>
+                <p className="text-xs text-gray-400">{calDateApps.length}건</p>
+              </div>
+              <button onClick={onDayClose} className="text-gray-400 hover:text-gray-600 text-lg leading-none">✕</button>
+            </div>
+            <div className="overflow-y-auto flex-1 p-3 flex flex-col gap-2">
+              {calDateApps.map(app => {
+                const cfg = STATUS_CONFIG[app.status] ?? STATUS_CONFIG['예약확정']
+                return (
+                  <button key={app.id}
+                    onClick={() => { onSelectApp(app); onDayClose() }}
+                    className="text-left bg-gray-50 hover:bg-blue-50 border border-gray-100 hover:border-blue-200 rounded-xl p-3 transition-colors"
+                  >
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className={`w-2 h-2 rounded-full shrink-0 ${cfg.dot}`} />
+                      <span className="font-semibold text-gray-900 text-sm">{app.business_name}</span>
+                      <span className={`ml-auto text-[10px] px-2 py-0.5 rounded-full shrink-0 ${cfg.badge}`}>{app.status}</span>
+                    </div>
+                    <p className="text-xs text-gray-500 ml-4">{app.owner_name}</p>
+                    {app.address && <p className="text-[11px] text-gray-400 truncate ml-4 mt-0.5">{app.address}</p>}
+                    {app.care_scope && <p className="text-[11px] text-blue-500 ml-4 mt-0.5 line-clamp-1">{app.care_scope}</p>}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  )
+}
+
 export default function ServiceManagementPage() {
   const [applications, setApplications] = useState<Application[]>([])
   const [users, setUsers] = useState<User[]>([])
@@ -325,9 +467,13 @@ export default function ServiceManagementPage() {
   const [sortField, setSortField] = useState<SortField>('construction_date')
   const [sortDir, setSortDir] = useState<SortDir>('desc')
 
+  // 보기 모드
+  const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list')
+  const [calDate, setCalDate] = useState<string | null>(null)
+  const [calDateApps, setCalDateApps] = useState<Application[]>([])
+
   // 월 필터
   const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7))
-  const [showMonthPicker, setShowMonthPicker] = useState(false)
 
   // 필터
   const [paymentFilter, setPaymentFilter] = useState('')
@@ -1091,35 +1237,37 @@ export default function ServiceManagementPage() {
           </div>
 
           {/* 필터 + 정렬 컨트롤 */}
-          <div className="flex items-center gap-2 mb-3 flex-wrap relative">
+          <div className="flex items-center gap-2 mb-3 flex-wrap">
             {/* 시공일자 월 네비게이터 */}
             {!showUnassigned && (
-              <div className="flex items-center border border-gray-200 rounded-lg overflow-hidden">
-                <button onClick={() => moveMonth(-1)}
-                  className="px-2.5 py-1.5 text-gray-500 hover:bg-gray-100 transition-colors font-bold text-sm">‹</button>
-                <button
-                  onClick={() => setShowMonthPicker(v => !v)}
-                  className="px-3 py-1.5 text-xs font-semibold text-gray-800 hover:bg-gray-50 transition-colors min-w-[80px] text-center"
-                >
-                  {selectedMonth.replace('-', '. ')}
-                </button>
-                <button onClick={() => moveMonth(1)}
-                  className="px-2.5 py-1.5 text-gray-500 hover:bg-gray-100 transition-colors font-bold text-sm">›</button>
-              </div>
+              <MonthNavigator value={selectedMonth} onChange={setSelectedMonth} />
             )}
-            {/* 년/월 팝업 */}
-            {showMonthPicker && !showUnassigned && (
-              <div className="absolute top-10 left-0 z-30 bg-white border border-gray-200 rounded-xl shadow-xl p-3 flex flex-col gap-2 w-44">
-                <p className="text-xs font-semibold text-gray-500 mb-1">날짜 선택</p>
-                <input
-                  type="month"
-                  value={selectedMonth}
-                  onChange={e => { setSelectedMonth(e.target.value); setShowMonthPicker(false) }}
-                  className="border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 w-full"
-                  autoFocus
-                />
-                <button onClick={() => setShowMonthPicker(false)}
-                  className="text-xs text-gray-400 hover:text-gray-600 text-center">닫기</button>
+
+            {/* 보기 모드 토글 */}
+            {!showUnassigned && (
+              <div className="flex bg-gray-100 rounded-lg p-0.5 ml-1">
+                <button
+                  onClick={() => setViewMode('list')}
+                  className={`flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-md transition-all ${
+                    viewMode === 'list' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+                  </svg>
+                  목록
+                </button>
+                <button
+                  onClick={() => setViewMode('calendar')}
+                  className={`flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-md transition-all ${
+                    viewMode === 'calendar' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                  캘린더
+                </button>
               </div>
             )}
 
@@ -1155,7 +1303,21 @@ export default function ServiceManagementPage() {
             )}
           </div>
 
+          {/* 캘린더 뷰 */}
+          {viewMode === 'calendar' && !showUnassigned && (
+            <AppCalendarView
+              selectedMonth={selectedMonth}
+              applications={filteredApps}
+              onSelectApp={app => setSelected(app)}
+              calDate={calDate}
+              calDateApps={calDateApps}
+              onDaySelect={(d, apps) => { setCalDate(d); setCalDateApps(apps) }}
+              onDayClose={() => setCalDate(null)}
+            />
+          )}
+
           {/* 목록 테이블 */}
+          {(viewMode === 'list' || showUnassigned) && (
           <div className="bg-white rounded-xl border border-gray-200 overflow-auto flex-1 flex flex-col">
             {loading ? (
               <div className="py-20 text-center text-gray-400 text-sm">불러오는 중...</div>
@@ -1280,6 +1442,7 @@ export default function ServiceManagementPage() {
               )
             })()}
           </div>
+          )}
 
         </div>
 

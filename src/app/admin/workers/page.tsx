@@ -11,6 +11,11 @@ function isMigrationError(msg: string) {
     msg.includes('no such') || msg.includes('relation') || msg.includes('table')
 }
 
+const POSITION_RANK: Record<string, number> = {
+  '대표': 0, '부대표': 1, '이사': 2, '부장': 3, '차장': 4,
+  '과장': 5, '대리': 6, '주임': 7, '사원': 8,
+}
+
 export default function WorkersPage() {
   const [workers, setWorkers] = useState<Worker[]>([])
   const [selectedWorker, setSelectedWorker] = useState<Worker | null>(null)
@@ -23,6 +28,14 @@ export default function WorkersPage() {
   const [filterSpecialty, setFilterSpecialty] = useState('')
   const [showAddForm, setShowAddForm] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [userRole, setUserRole] = useState<string>('')
+
+  useEffect(() => {
+    fetch('/api/admin/me')
+      .then(r => r.json())
+      .then(j => setUserRole(j.role ?? ''))
+      .catch(() => {})
+  }, [])
 
   const fetchWorkers = useCallback(async () => {
     setLoading(true)
@@ -52,15 +65,12 @@ export default function WorkersPage() {
         list = list.filter(w => w.specialties?.toLowerCase().includes(kw))
       }
 
-      // 필터 없을 때 정직원 → 인턴 → 일용직 → 기타 순 정렬
-      if (!filterType) {
-        const ORDER: Record<string, number> = { '정직원': 0, '인턴': 1, '일용직': 2 }
-        list = [...list].sort((a, b) => {
-          const oa = ORDER[a.employment_type ?? ''] ?? 3
-          const ob = ORDER[b.employment_type ?? ''] ?? 3
-          return oa !== ob ? oa - ob : a.name.localeCompare(b.name, 'ko')
-        })
-      }
+      // 직급 높은 순 정렬 (position 기준), 동일 직급은 이름순
+      list = [...list].sort((a, b) => {
+        const ra = POSITION_RANK[a.position ?? ''] ?? 99
+        const rb = POSITION_RANK[b.position ?? ''] ?? 99
+        return ra !== rb ? ra - rb : a.name.localeCompare(b.name, 'ko')
+      })
 
       setWorkers(list)
     } catch {
@@ -97,12 +107,6 @@ export default function WorkersPage() {
 
   return (
     <div className="flex flex-col h-full">
-      {/* 탭 네비게이션 */}
-      <div className="flex gap-1.5 px-4 pt-4">
-        <span className="px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-xl">👷 직원정보</span>
-        <a href="/admin/members" className="px-4 py-2 text-gray-600 hover:bg-gray-100 text-sm font-medium rounded-xl transition-colors">🔑 계정관리</a>
-      </div>
-
       {/* Migration Notice */}
       {showMigration && (
         <div className="mx-4 mt-4 bg-amber-50 border border-amber-200 rounded-xl p-4">
@@ -136,11 +140,11 @@ export default function WorkersPage() {
 
       {/* Split panel */}
       <div className="flex flex-1 gap-0 overflow-hidden p-4">
-        {/* Left panel */}
-        <div className="w-80 shrink-0 flex flex-col bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden mr-4">
+        {/* Left panel — 직원 역할은 전체 너비 */}
+        <div className={`${userRole === 'worker' ? 'w-full' : 'w-80 mr-4'} shrink-0 flex flex-col bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden`}>
           <WorkerList
             workers={workers}
-            selectedId={selectedWorker?.id ?? null}
+            selectedId={userRole === 'worker' ? null : (selectedWorker?.id ?? null)}
             loading={loading}
             search={search}
             filterType={filterType}
@@ -151,26 +155,28 @@ export default function WorkersPage() {
             onFilterTypeChange={setFilterType}
             onFilterSkillChange={setFilterSkill}
             onFilterSpecialtyChange={setFilterSpecialty}
-            onSelectWorker={setSelectedWorker}
-            onShowAddForm={setShowAddForm}
+            onSelectWorker={userRole === 'worker' ? () => {} : setSelectedWorker}
+            onShowAddForm={userRole === 'worker' ? () => {} : setShowAddForm}
             onWorkerAdded={handleWorkerAdded}
           />
         </div>
 
-        {/* Right panel */}
-        <div className="flex-1 bg-white rounded-xl shadow-sm border border-gray-100 overflow-y-auto">
-          {selectedWorker ? (
-            <WorkerDetail
-              worker={selectedWorker}
-              onWorkerUpdated={handleWorkerUpdated}
-              onWorkerDeleted={handleWorkerDeleted}
-            />
-          ) : (
-            <div className="flex items-center justify-center h-full text-gray-400 text-sm">
-              왼쪽에서 직원을 선택하세요
-            </div>
-          )}
-        </div>
+        {/* Right panel — 관리자만 */}
+        {userRole !== 'worker' && (
+          <div className="flex-1 bg-white rounded-xl shadow-sm border border-gray-100 overflow-y-auto">
+            {selectedWorker ? (
+              <WorkerDetail
+                worker={selectedWorker}
+                onWorkerUpdated={handleWorkerUpdated}
+                onWorkerDeleted={handleWorkerDeleted}
+              />
+            ) : (
+              <div className="flex items-center justify-center h-full text-gray-400 text-sm">
+                왼쪽에서 직원을 선택하세요
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   )
