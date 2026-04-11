@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import toast from 'react-hot-toast'
 
 import { WorkPanel } from '@/components/admin/WorkPanel'
+import { openGoogleDrive } from '@/lib/mapUtils'
 
 // ─── 타입 ──────────────────────────────────────────────────────
 
@@ -274,10 +275,12 @@ function DetailPanel({
         {/* 사진 링크 */}
         {app.drive_folder_url && (
           <div className="px-5 py-3 bg-blue-50 border-b border-blue-100">
-            <a href={app.drive_folder_url} target="_blank" rel="noreferrer"
-              className="flex items-center justify-center gap-2 w-full py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg transition-colors">
+            <button
+              onClick={() => openGoogleDrive(app.drive_folder_url!)}
+              className="flex items-center justify-center gap-2 w-full py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg transition-colors"
+            >
               📷 사진 보기 (Google Drive)
-            </a>
+            </button>
           </div>
         )}
 

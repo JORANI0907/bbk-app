@@ -11,6 +11,7 @@ import {
   saveInventoryFolderCookie,
 } from '@/lib/googleDrive'
 import type { DriveFolder } from '@/lib/googleDrive'
+import { openGoogleDrive } from '@/lib/mapUtils'
 
 type InventoryCategory = 'chemical' | 'equipment' | 'consumable' | 'other'
 type TxType = 'receive' | 'return' | 'use' | 'adjust'
@@ -839,10 +840,12 @@ export default function AdminInventoryPage() {
                           </div>
                           {noteText && <p className="text-xs text-gray-500 truncate">{noteText}</p>}
                           {photoUrl && (
-                            <a href={photoUrl} target="_blank" rel="noopener noreferrer"
-                              className="text-xs text-blue-500 hover:underline">
+                            <button
+                              onClick={() => openGoogleDrive(photoUrl)}
+                              className="text-xs text-blue-500 hover:underline text-left"
+                            >
                               📷 사진 보기
-                            </a>
+                            </button>
                           )}
                         </div>
                         <span className="shrink-0 text-xs text-gray-400 whitespace-nowrap">

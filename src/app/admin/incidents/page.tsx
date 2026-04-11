@@ -117,6 +117,12 @@ export default function IncidentsPage() {
       const json = await res.json()
       if (!res.ok) { toast.error(json.error || '저장 실패'); return }
       toast.success('처리 완료로 변경되었습니다.')
+      // 낙관적 로컬 상태 업데이트 — 모달 닫기 전 목록에 즉시 반영
+      setReports(prev => prev.map(r =>
+        r.id === selected.id
+          ? { ...r, status: 'reviewed' as const, admin_comment: adminComment }
+          : r
+      ))
       setSelected(null)
       fetchReports()
     } catch {

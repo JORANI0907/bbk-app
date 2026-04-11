@@ -84,6 +84,14 @@ export default function WorkerInventoryPage() {
     setPhotoPreview(URL.createObjectURL(file))
   }
 
+  const uploadWithTimeout = <T,>(uploadFn: () => Promise<T>, timeoutMs = 30000): Promise<T> =>
+    Promise.race([
+      uploadFn(),
+      new Promise<T>((_, reject) =>
+        setTimeout(() => reject(new Error('업로드 타임아웃 (30초)')), timeoutMs)
+      ),
+    ])
+
   const handleSubmit = async () => {
     if (!selectedItem) return
     const qty = Number(quantity)
@@ -93,8 +101,9 @@ export default function WorkerInventoryPage() {
     }
 
     setSubmitting(true)
+    let photoUrl: string | null = null
+
     try {
-      let photoUrl: string | null = null
       const inventoryFolder = getSavedInventoryFolder()
 
       if (photo && inventoryFolder) {
@@ -103,10 +112,14 @@ export default function WorkerInventoryPage() {
           const token = await requestGoogleToken()
           const ext = photo.name.split('.').pop() ?? 'jpg'
           const fileName = `재고_${selectedItem.item_name}_${Date.now()}.${ext}`
-          const result = await uploadFileToDrive(photo, inventoryFolder.id, fileName, token)
+          const result = await uploadWithTimeout(() =>
+            uploadFileToDrive(photo, inventoryFolder.id, fileName, token)
+          )
           photoUrl = result.fileUrl
-        } catch {
-          // Skip photo upload if it fails
+        } catch (uploadErr) {
+          // 사진 업로드 실패 시 사진 없이 진행
+          const msg = uploadErr instanceof Error ? uploadErr.message : '사진 업로드 실패'
+          toast.error(`사진 업로드 실패: ${msg}\n사진 없이 처리합니다.`, { duration: 4000 })
         }
       }
 
@@ -129,7 +142,6 @@ export default function WorkerInventoryPage() {
 
       const json = await res.json()
 
-      // Update local state
       setItems(prev => prev.map(it =>
         it.id === selectedItem.id ? { ...it, current_qty: json.new_qty } : it
       ))
@@ -321,8 +333,9 @@ export default function WorkerInventoryPage() {
               {/* Buttons */}
               <div className="flex gap-3">
                 <button
-                  onClick={closeModal}
-                  className="flex-1 py-3 rounded-xl border border-gray-200 text-gray-600 text-sm font-semibold hover:bg-gray-50 transition-colors"
+                  onClick={submitting ? undefined : closeModal}
+                  disabled={submitting}
+                  className="flex-1 py-3 rounded-xl border border-gray-200 text-gray-600 text-sm font-semibold hover:bg-gray-50 transition-colors disabled:opacity-40"
                 >
                   취소
                 </button>
@@ -333,9 +346,19 @@ export default function WorkerInventoryPage() {
                     txType === 'receive' ? 'bg-green-600 hover:bg-green-700' : 'bg-blue-600 hover:bg-blue-700'
                   }`}
                 >
-                  {submitting ? '처리 중...' : '확인'}
+                  {submitting ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      처리 중...
+                    </span>
+                  ) : '확인'}
                 </button>
               </div>
+              {submitting && (
+                <p className="text-xs text-center text-gray-400 mt-2">
+                  사진 업로드 중... 최대 30초 소요될 수 있습니다
+                </p>
+              )}
             </div>
           </div>
         </div>

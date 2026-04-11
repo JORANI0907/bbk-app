@@ -305,6 +305,9 @@ export default function AdminCustomersPage() {
   const [visitWeekdays, setVisitWeekdays] = useState<number[]>([])
   const [visitMonthlyDates, setVisitMonthlyDates] = useState<number[]>([])
   const [prepaidPeriods, setPrepaidPeriods] = useState(1)
+  // P1-18: 현재 사용자 역할
+  const [currentRole, setCurrentRole] = useState<string>('admin')
+  const isWorker = currentRole === 'worker'
 
   const toggleCheck = (id: string) =>
     setCheckedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
@@ -317,7 +320,13 @@ export default function AdminCustomersPage() {
     setLoading(false)
   }, [])
 
-  useEffect(() => { fetchAll() }, [fetchAll])
+  useEffect(() => {
+    fetchAll()
+    // P1-18: 현재 사용자 역할 확인
+    fetch('/api/admin/me').then(r => r.json()).then(d => {
+      if (d.role) setCurrentRole(d.role)
+    }).catch(() => { /* 무시 */ })
+  }, [fetchAll])
 
   const toForm = (c: Customer): typeof EMPTY_FORM => ({
     business_name: c.business_name ?? '',
@@ -739,9 +748,11 @@ export default function AdminCustomersPage() {
           <h1 className="text-2xl font-bold text-gray-900">고객 관리</h1>
           <div className="flex gap-2">
             <button onClick={fetchAll} className="px-3 py-1.5 text-sm bg-white border border-gray-200 rounded-lg hover:bg-gray-50">새로고침</button>
-            <button onClick={handleNew} className="px-3 py-1.5 text-sm bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors">
-              + 고객 추가
-            </button>
+            {!isWorker && (
+              <button onClick={handleNew} className="px-3 py-1.5 text-sm bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors">
+                + 고객 추가
+              </button>
+            )}
           </div>
         </div>
 
@@ -766,10 +777,12 @@ export default function AdminCustomersPage() {
               className="text-xs text-blue-200 hover:text-white px-2 py-1 rounded transition-colors">
               선택 해제
             </button>
-            <button onClick={handleDeleteBulk} disabled={bulkCreating}
-              className="text-xs bg-red-500 hover:bg-red-400 text-white font-semibold px-3 py-1.5 rounded-lg disabled:opacity-50 transition-colors whitespace-nowrap">
-              삭제
-            </button>
+            {!isWorker && (
+              <button onClick={handleDeleteBulk} disabled={bulkCreating}
+                className="text-xs bg-red-500 hover:bg-red-400 text-white font-semibold px-3 py-1.5 rounded-lg disabled:opacity-50 transition-colors whitespace-nowrap">
+                삭제
+              </button>
+            )}
             <button onClick={handleGenerateSchedulesBulk} disabled={bulkCreating}
               className="text-xs bg-green-600 hover:bg-green-700 text-white font-semibold px-3 py-1.5 rounded-lg disabled:opacity-50 transition-colors whitespace-nowrap">
               {bulkCreating ? '처리 중...' : '📅 다음달 일정 생성'}
@@ -1266,14 +1279,21 @@ export default function AdminCustomersPage() {
                 className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none" />
             </div>
 
-            {/* 저장 버튼 */}
-            <button onClick={handleSave} disabled={saving}
-              className="w-full py-2.5 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 disabled:opacity-60 transition-colors">
-              {saving ? '저장 중...' : isNew ? '✚ 고객 추가' : '💾 저장'}
-            </button>
+            {/* 저장 버튼 — worker는 읽기 전용 */}
+            {!isWorker && (
+              <button onClick={handleSave} disabled={saving}
+                className="w-full py-2.5 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 disabled:opacity-60 transition-colors">
+                {saving ? '저장 중...' : isNew ? '✚ 고객 추가' : '💾 저장'}
+              </button>
+            )}
+            {isWorker && (
+              <div className="w-full py-2.5 bg-gray-100 text-gray-400 text-sm font-semibold rounded-lg text-center">
+                읽기 전용 (수정 권한 없음)
+              </div>
+            )}
 
-            {/* 계정 생성 (정기고객만) */}
-            {!isNew && selected && (selected.customer_type === '정기딥케어' || selected.customer_type === '정기엔드케어') && (
+            {/* 계정 생성 (정기고객만, admin 전용) */}
+            {!isWorker && !isNew && selected && (selected.customer_type === '정기딥케어' || selected.customer_type === '정기엔드케어') && (
               <button
                 onClick={handleCreateAccount}
                 disabled={creatingAccount}
@@ -1283,8 +1303,8 @@ export default function AdminCustomersPage() {
               </button>
             )}
 
-            {/* 포털 비밀번호 설정 (기존 고객만) */}
-            {!isNew && selected && (
+            {/* 포털 비밀번호 설정 (기존 고객만, admin 전용) */}
+            {!isWorker && !isNew && selected && (
               <button
                 onClick={() => { setNewPw(''); setPwModal(true) }}
                 className="w-full py-2.5 bg-gray-100 text-gray-700 text-sm font-semibold rounded-lg hover:bg-gray-200 transition-colors"

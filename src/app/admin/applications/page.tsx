@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import toast from 'react-hot-toast'
 import type { DriveFolder } from '@/lib/googleDrive'
+import { openGoogleDrive } from '@/lib/mapUtils'
 
 const getDriveLib = () => import('@/lib/googleDrive')
 
@@ -1512,10 +1513,12 @@ export default function ServiceManagementPage() {
                     <span>📁</span><span>폴더 생성/변경</span>
                   </button>
                   {selected.drive_folder_url && (
-                    <a href={selected.drive_folder_url} target="_blank" rel="noopener noreferrer"
-                      className="flex items-center gap-2 text-xs text-green-600 hover:text-green-700">
+                    <button
+                      onClick={() => openGoogleDrive(selected.drive_folder_url!)}
+                      className="flex items-center gap-2 text-xs text-green-600 hover:text-green-700"
+                    >
                       <span>🔗</span><span className="truncate">Drive 폴더 열기</span>
-                    </a>
+                    </button>
                   )}
                   {savedDriveFolder && (
                     <p className="text-xs text-gray-400">기본 위치: 📂 {savedDriveFolder.name}</p>

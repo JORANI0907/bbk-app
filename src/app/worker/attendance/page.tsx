@@ -11,6 +11,7 @@ export default function AttendancePage() {
   const [monthRecords, setMonthRecords] = useState<Attendance[]>([])
   const [loading, setLoading] = useState(true)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [facingMode, setFacingMode] = useState<'user' | 'environment'>('user')
 
   const today = format(new Date(), 'yyyy-MM-dd')
   const currentMonth = new Date()
@@ -26,7 +27,6 @@ export default function AttendancePage() {
       setTodayRecord(data.today)
       setMonthRecords(data.month ?? [])
     } catch (err) {
-      console.error(err)
       toast.error('데이터를 불러오는 데 실패했습니다.')
     } finally {
       setLoading(false)
@@ -67,7 +67,6 @@ export default function AttendancePage() {
       } else {
         toast.error(err instanceof Error ? err.message : '출근 기록에 실패했습니다.')
       }
-      console.error(err)
     } finally {
       setIsSubmitting(false)
     }
@@ -95,10 +94,14 @@ export default function AttendancePage() {
       } else {
         toast.error(err instanceof Error ? err.message : '퇴근 기록에 실패했습니다.')
       }
-      console.error(err)
     } finally {
       setIsSubmitting(false)
     }
+  }
+
+  const toggleCamera = () => {
+    setFacingMode(prev => (prev === 'user' ? 'environment' : 'user'))
+    toast.success(facingMode === 'user' ? '후면 카메라로 전환됩니다' : '전면 카메라로 전환됩니다', { duration: 1500 })
   }
 
   const hasWorked = (dateStr: string) =>
@@ -128,7 +131,21 @@ export default function AttendancePage() {
 
       {/* 오늘 현황 */}
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
-        <h2 className="text-sm font-semibold text-gray-600 mb-4">오늘 출퇴근 현황</h2>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-sm font-semibold text-gray-600">오늘 출퇴근 현황</h2>
+          {/* 카메라 전환 버튼 — 아직 출퇴근 완료 전에만 표시 */}
+          {(!todayRecord?.clock_in || !todayRecord?.clock_out) && (
+            <button
+              onClick={toggleCamera}
+              title={facingMode === 'user' ? '후면 카메라로 전환' : '전면 카메라로 전환'}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-600 bg-gray-100 rounded-xl hover:bg-gray-200 transition-colors"
+            >
+              <span className="text-base">🔄</span>
+              {facingMode === 'user' ? '전면' : '후면'}
+            </button>
+          )}
+        </div>
+
         <div className="grid grid-cols-2 gap-4 mb-5">
           <div className="text-center">
             <p className="text-xs text-gray-400 mb-1">출근</p>
@@ -143,6 +160,13 @@ export default function AttendancePage() {
             </p>
           </div>
         </div>
+
+        {/* 현재 카메라 방향 표시 */}
+        {(!todayRecord?.clock_in || !todayRecord?.clock_out) && (
+          <p className="text-xs text-gray-400 text-center mb-3">
+            카메라: {facingMode === 'user' ? '전면' : '후면'}
+          </p>
+        )}
 
         <div className="flex flex-col gap-3">
           {!todayRecord?.clock_in ? (

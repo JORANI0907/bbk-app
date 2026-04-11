@@ -19,6 +19,10 @@ export const metadata: Metadata = {
     capable: true,
     statusBarStyle: 'default',
     title: 'BBK 공간케어',
+    startupImage: '/bbk-logo.png',
+  },
+  icons: {
+    apple: '/bbk-logo.png',
   },
   other: {
     'mobile-web-app-capable': 'yes',

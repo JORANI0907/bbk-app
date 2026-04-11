@@ -1,6 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 
+/** 월의 마지막 날을 YYYY-MM-DD 형식으로 반환합니다. */
+function getMonthEndDate(yearMonth: string): string {
+  const [year, month] = yearMonth.split('-').map(Number)
+  const lastDay = new Date(year, month, 0).getDate()
+  return `${yearMonth}-${String(lastDay).padStart(2, '0')}`
+}
+
 // GET /api/admin/payroll?month=YYYY-MM
 // Returns all payroll data for month grouped by person
 export async function GET(request: NextRequest) {
@@ -19,7 +26,7 @@ export async function GET(request: NextRequest) {
       .select('id, assigned_to, business_name, service_type, construction_date, manager_pay, unit_price_per_visit')
       .not('assigned_to', 'is', null)
       .gte('construction_date', `${month}-01`)
-      .lte('construction_date', `${month}-31`)
+      .lte('construction_date', getMonthEndDate(month))
       .order('construction_date'),
 
     // 작업자 배정
@@ -27,7 +34,7 @@ export async function GET(request: NextRequest) {
       .from('work_assignments')
       .select('id, worker_id, business_name, construction_date, salary, application_id')
       .gte('construction_date', `${month}-01`)
-      .lte('construction_date', `${month}-31`)
+      .lte('construction_date', getMonthEndDate(month))
       .order('construction_date'),
 
     // 담당자 목록 (users 테이블의 worker/admin)

@@ -59,7 +59,7 @@ const NAV_ITEMS: NavItem[] = [
     children: [
       { href: '/admin/attendance', label: '출퇴근관리' },
       { href: '/admin/workers', label: '직원관리' },
-      { href: '/admin/incidents', label: '경위서' },
+      { href: '/admin/incidents', label: '경위서', badgeKey: 'incidents' },
       { href: '/admin/inventory', label: '재고관리', badgeKey: 'inventory' },
       { href: '/admin/requests', label: '요청관리', badgeKey: 'requests' },
     ],
@@ -72,7 +72,7 @@ const NAV_ITEMS: NavItem[] = [
     children: [
       { href: '/admin/attendance', label: '출퇴근관리' },
       { href: '/admin/workers', label: '직원관리' },
-      { href: '/admin/incidents', label: '경위서' },
+      { href: '/admin/incidents', label: '경위서', badgeKey: 'incidents' },
       { href: '/admin/inventory', label: '재고관리', badgeKey: 'inventory' },
       { href: '/worker/requests', label: '요청하기', badgeKey: 'worker_requests' },
     ],
