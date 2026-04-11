@@ -2,14 +2,6 @@
 
 import { useState, useEffect, useRef } from 'react'
 
-const CARE_OPTIONS = [
-  { id: 'toilet',  emoji: '🚿', label: '화장실' },
-  { id: 'kitchen', emoji: '🍳', label: '주방' },
-  { id: 'office',  emoji: '🪑', label: '객실/사무실' },
-  { id: 'glass',   emoji: '🪟', label: '유리/창문' },
-  { id: 'ac',      emoji: '❄️', label: '에어컨' },
-  { id: 'other',   emoji: '✨', label: '기타' },
-]
 
 export default function QuotePage() {
   const [splash, setSplash]           = useState(true)
@@ -24,7 +16,7 @@ export default function QuotePage() {
   const [email, setEmail]                     = useState('')
   const [phone, setPhone]                     = useState('')
   const [constructionDate, setConstructionDate] = useState('')
-  const [careScope, setCareScope]             = useState<string[]>([])
+  const [careScope, setCareScope]             = useState('')
   const [requestNotes, setRequestNotes]       = useState('')
   const [errors, setErrors]                   = useState<Record<string, string>>({})
 
@@ -40,19 +32,13 @@ export default function QuotePage() {
     return () => { clearTimeout(t1); clearTimeout(t2) }
   }, [])
 
-  function toggleCare(label: string) {
-    setCareScope(prev =>
-      prev.includes(label) ? prev.filter(x => x !== label) : [...prev, label]
-    )
-  }
-
   function validate() {
     const e: Record<string, string> = {}
     if (!ownerName.trim())    e.ownerName    = '고객명을 입력해주세요'
     if (!businessName.trim()) e.businessName = '회사명을 입력해주세요'
     if (!phone.trim())        e.phone        = '연락처를 입력해주세요'
     if (!address.trim())      e.address      = '주소를 입력해주세요'
-    if (careScope.length === 0) e.careScope  = '케어 범위를 하나 이상 선택해주세요'
+    if (!careScope.trim())    e.careScope    = '케어 범위를 입력해주세요'
     setErrors(e)
     return Object.keys(e).length === 0
   }
@@ -79,7 +65,7 @@ export default function QuotePage() {
           email,
           address,
           constructionDate: constructionDate || null,
-          careScope: careScope.join(', '),
+          careScope,
           requestNotes,
         }),
       })
@@ -199,13 +185,14 @@ export default function QuotePage() {
             position: 'absolute', bottom: 0, left: 0, right: 0, height: 3,
             background: 'linear-gradient(90deg, transparent, #2563eb, #818cf8, transparent)',
           }} />
-          <div style={{ position: 'relative', zIndex: 1 }}>
+          <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
             <img
               src="/bbk-logo.png" alt="BBK"
               style={{
                 width: 72, height: 72, borderRadius: 18, objectFit: 'cover',
                 boxShadow: '0 0 32px rgba(37,99,235,0.4)',
                 marginBottom: 18,
+                display: 'block',
                 animation: 'heroFloat 5s ease-in-out infinite',
               }}
             />
@@ -244,7 +231,7 @@ export default function QuotePage() {
                 setSubmitted(false)
                 setOwnerName(''); setBusinessName(''); setAddress('')
                 setEmail(''); setPhone(''); setConstructionDate('')
-                setCareScope([]); setRequestNotes(''); setErrors({})
+                setCareScope(''); setRequestNotes(''); setErrors({})
               }}
               className="px-8 py-3 rounded-xl text-white text-sm font-bold"
               style={{ background: 'linear-gradient(135deg,#2563eb,#4f46e5)' }}
@@ -337,32 +324,14 @@ export default function QuotePage() {
               </Field>
 
               <Field label="케어 범위" required error={errors.careScope}>
-                <p className="text-xs text-slate-400 mb-2">해당하는 항목을 모두 선택해주세요</p>
-                <div className="grid grid-cols-3 gap-2">
-                  {CARE_OPTIONS.map(opt => {
-                    const active = careScope.includes(opt.label)
-                    return (
-                      <button
-                        key={opt.id}
-                        type="button"
-                        onClick={() => toggleCare(opt.label)}
-                        className="flex flex-col items-center justify-center gap-1.5 py-3 px-2 rounded-xl border text-xs font-medium transition-all"
-                        style={{
-                          borderColor: active ? '#2563eb' : '#e2e8f0',
-                          background: active ? '#eff6ff' : '#fafafa',
-                          color: active ? '#1d4ed8' : '#64748b',
-                          boxShadow: active ? '0 0 0 2px rgba(37,99,235,0.15)' : 'none',
-                        }}
-                      >
-                        <span className="text-xl leading-none">{opt.emoji}</span>
-                        {opt.label}
-                      </button>
-                    )
-                  })}
-                </div>
-                {errors.careScope && (
-                  <p className="text-xs text-red-500 mt-1.5">{errors.careScope}</p>
-                )}
+                <p className="text-xs text-slate-400 mb-2">예) 화장실, 주방, 에어컨, 유리창 등 자유롭게 입력해주세요</p>
+                <textarea
+                  className={`${inputCls(errors.careScope)} resize-y`}
+                  style={{ minHeight: 80 }}
+                  placeholder="예) 화장실 2개, 주방, 에어컨 3대, 유리창"
+                  value={careScope}
+                  onChange={e => setCareScope(e.target.value)}
+                />
               </Field>
             </div>
 
