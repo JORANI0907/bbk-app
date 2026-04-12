@@ -8,6 +8,7 @@ import { openGoogleDrive } from '@/lib/mapUtils'
 import { useModalBackButton } from '@/hooks/useModalBackButton'
 import { MonthNavigator } from '@/components/MonthNavigator'
 import { LoadingSpinner } from '@/components/admin/LoadingSpinner'
+import { MapSelectorModal } from '@/components/MapSelectorModal'
 
 // ─── 타입 ──────────────────────────────────────────────────────
 
@@ -233,7 +234,7 @@ function CalendarGrid({
   const DAYS = ['일', '월', '화', '수', '목', '금', '토']
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 overflow-hidden flex-1">
+    <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
       <div className="grid grid-cols-7 border-b border-gray-100">
         {DAYS.map(d => (
           <div key={d} className={`text-center py-2.5 text-xs font-semibold
@@ -242,7 +243,7 @@ function CalendarGrid({
           </div>
         ))}
       </div>
-      <div className="grid grid-cols-7 auto-rows-[7rem]">
+      <div className="grid grid-cols-7 auto-rows-[5rem] sm:auto-rows-[7rem]">
         {cells.map((day, i) => {
           if (!day) return <div key={`e-${i}`} className="border-r border-b border-gray-50 bg-gray-50/40" />
           const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
@@ -295,7 +296,7 @@ function CalendarGrid({
 // ─── 상세 패널 ────────────────────────────────────────────────
 
 function DetailPanel({
-  app, users, workers, appWorkerMap, isAdmin, onClose, onAppUpdate, onDelete,
+  app, users, workers, appWorkerMap, isAdmin, onClose, onAppUpdate, onDelete, onOpenMap,
 }: {
   app: Application
   users: User[]
@@ -305,6 +306,7 @@ function DetailPanel({
   onClose: () => void
   onAppUpdate: (updates: Partial<Application>) => void
   onDelete: () => void
+  onOpenMap: (addr: string) => void
 }) {
   const [showAccount, setShowAccount] = useState(false)
   const [showBizNum, setShowBizNum] = useState(false)
@@ -344,9 +346,9 @@ function DetailPanel({
   )
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end" onClick={onClose}>
+    <div className="fixed inset-0 z-[60] flex justify-end" onClick={onClose}>
       <div
-        className="relative h-full w-full max-w-sm bg-white shadow-2xl flex flex-col"
+        className="relative h-full w-full md:max-w-sm bg-white shadow-2xl flex flex-col"
         onClick={e => e.stopPropagation()}
       >
         {/* 헤더 */}
@@ -400,7 +402,7 @@ function DetailPanel({
                   <div className="flex items-center gap-1 justify-end min-w-0">
                     <span className="truncate">{app.address}</span>
                     <button
-                      onClick={() => window.open(`https://map.naver.com/v5/search/${encodeURIComponent(app.address!)}`, '_blank')}
+                      onClick={() => onOpenMap(app.address!)}
                       className="px-1.5 py-0.5 bg-green-100 text-green-700 rounded text-xs shrink-0 hover:bg-green-200">
                       🗺️
                     </button>
@@ -595,6 +597,9 @@ export default function SchedulePage() {
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
   const [selectedDateApps, setSelectedDateApps] = useState<Application[]>([])
 
+  // 지도 앱 선택 모달
+  const [mapAddress, setMapAddress] = useState<string | null>(null)
+
   // 스크롤 복원 (모바일 뒤로가기 후 선택 행으로 돌아오기)
   const rowRefs = useRef<Record<string, HTMLTableRowElement | null>>({})
   const prevSelectedIdRef = useRef<string | null>(null)
@@ -759,6 +764,11 @@ export default function SchedulePage() {
 
   return (
     <div className="flex flex-col h-full gap-3 overflow-hidden relative">
+      {/* 지도 앱 선택 모달 */}
+      {mapAddress && (
+        <MapSelectorModal address={mapAddress} onClose={() => setMapAddress(null)} />
+      )}
+
       {/* 상세 패널 */}
       {selected && (
         <DetailPanel
@@ -768,6 +778,7 @@ export default function SchedulePage() {
           appWorkerMap={appWorkerMap}
           isAdmin={isAdmin}
           onClose={handleClose}
+          onOpenMap={(addr) => setMapAddress(addr)}
           onAppUpdate={(updates) => {
             setSelected(prev => prev ? { ...prev, ...updates } : null)
             setApplications(prev => prev.map(a => a.id === selected.id ? { ...a, ...updates } : a))
@@ -891,7 +902,7 @@ export default function SchedulePage() {
       ) : viewMode === 'list' ? (
 
         /* 목록 뷰 */
-        <div className="flex-1 bg-white rounded-xl border border-gray-200 overflow-auto">
+        <div className="flex-1 bg-white rounded-xl border border-gray-200 overflow-auto min-h-0 pb-20 md:pb-0">
           {filteredApps.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full gap-3 text-center py-20">
               <span className="text-5xl">📋</span>
@@ -985,7 +996,7 @@ export default function SchedulePage() {
       ) : (
 
         /* 캘린더 뷰 */
-        <div className="flex-1 overflow-auto">
+        <div className="flex-1 overflow-auto min-h-0 pb-20 md:pb-0">
           <CalendarGrid
             year={calYear}
             month={calMonth}

@@ -7,6 +7,7 @@ import { openGoogleDrive } from '@/lib/mapUtils'
 import { useModalBackButton } from '@/hooks/useModalBackButton'
 import { MonthNavigator } from '@/components/MonthNavigator'
 import { LoadingSpinner } from '@/components/admin/LoadingSpinner'
+import { MapSelectorModal } from '@/components/MapSelectorModal'
 
 const getDriveLib = () => import('@/lib/googleDrive')
 
@@ -382,7 +383,7 @@ function AppCalendarView({
             </div>
           ))}
         </div>
-        <div className="grid grid-cols-7 auto-rows-[7rem]">
+        <div className="grid grid-cols-7 auto-rows-[5rem] sm:auto-rows-[7rem]">
           {cells.map((day, i) => {
             if (!day) return <div key={`e-${i}`} className="border-r border-b border-gray-50 bg-gray-50/40" />
             const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
@@ -497,6 +498,9 @@ export default function ServiceManagementPage() {
   const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list')
   const [calDate, setCalDate] = useState<string | null>(null)
   const [calDateApps, setCalDateApps] = useState<Application[]>([])
+
+  // 지도 앱 선택 모달
+  const [mapAddress, setMapAddress] = useState<string | null>(null)
 
   // 월 필터
   const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7))
@@ -1152,6 +1156,10 @@ export default function ServiceManagementPage() {
 
   return (
     <>
+      {mapAddress && (
+        <MapSelectorModal address={mapAddress} onClose={() => setMapAddress(null)} />
+      )}
+
       {driveModalOpen && selected && (
         <DriveFolderModal
           businessName={selected.business_name}
@@ -1344,7 +1352,7 @@ export default function ServiceManagementPage() {
 
           {/* 목록 테이블 */}
           {(viewMode === 'list' || showUnassigned) && (
-          <div className="bg-white rounded-xl border border-gray-200 overflow-auto flex-1 flex flex-col overscroll-contain">
+          <div className="bg-white rounded-xl border border-gray-200 overflow-auto flex-1 flex flex-col overscroll-contain min-h-0 pb-20 md:pb-0">
             {loading ? (
               <LoadingSpinner />
             ) : filteredApps.length === 0 ? (
@@ -1495,9 +1503,9 @@ export default function ServiceManagementPage() {
         {/* ── 우측: 상세 패널 (오버레이) ── */}
         {selected && (
           <>
-            {/* PC 백드롭 - 패널 외 클릭 시 닫힘 */}
-            <div className="absolute inset-0 z-10 hidden md:block" onClick={closePanel} />
-          <div className="absolute right-0 top-0 bottom-0 w-[480px] bg-white rounded-xl border border-gray-200 shadow-2xl overflow-y-auto overscroll-contain z-20">
+            {/* 백드롭 - 패널 외 클릭 시 닫힘 (PC: absolute, 모바일: fixed) */}
+            <div className="fixed inset-0 z-[55] md:absolute md:inset-0 md:z-10" onClick={closePanel} />
+          <div className="fixed inset-x-0 top-0 bottom-0 z-[60] md:absolute md:inset-x-auto md:right-0 md:top-0 md:bottom-0 md:w-[480px] bg-white md:rounded-xl md:border md:border-gray-200 shadow-2xl overflow-y-auto overscroll-contain">
             {/* 헤더 */}
             <div className="p-4 border-b border-gray-100 flex items-start justify-between gap-2 sticky top-0 bg-white z-10">
               <div>
@@ -1645,7 +1653,7 @@ export default function ServiceManagementPage() {
                     <div className="flex flex-1 gap-1">
                       <input value={address} onChange={e => setAddress(e.target.value)}
                         className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                      <button onClick={() => window.open(`https://map.naver.com/v5/search/${encodeURIComponent(address)}`, '_blank')}
+                      <button onClick={() => setMapAddress(address)}
                         className="px-2 py-1.5 text-xs bg-green-50 text-green-700 rounded-lg hover:bg-green-100 shrink-0">🗺️</button>
                     </div>
                   </div>

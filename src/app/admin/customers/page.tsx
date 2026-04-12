@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import toast from 'react-hot-toast'
+import { useModalBackButton } from '@/hooks/useModalBackButton'
+import { MapSelectorModal } from '@/components/MapSelectorModal'
 
 // ─── 타입 ─────────────────────────────────────────────────────
 type CustomerType = '1회성케어' | '정기딥케어' | '정기엔드케어'
@@ -312,6 +314,15 @@ export default function AdminCustomersPage() {
   // 담당자/작업자 목록
   const [usersList, setUsersList] = useState<Array<{ id: string; name: string; role: string }>>([])
   const [workersList, setWorkersList] = useState<Array<{ id: string; name: string }>>([])
+
+  // 지도 앱 선택 모달
+  const [mapAddress, setMapAddress] = useState<string | null>(null)
+
+  // 세부화면 닫기
+  const closeDetail = useCallback(() => { setSelected(null); setIsNew(false) }, [])
+
+  // 모바일 뒤로가기 → 세부화면만 닫기
+  useModalBackButton(!!(selected || isNew), closeDetail)
 
   const toggleCheck = (id: string) =>
     setCheckedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
@@ -855,15 +866,26 @@ export default function AdminCustomersPage() {
 
       </div>
 
+      {/* 지도 앱 선택 모달 */}
+      {mapAddress && (
+        <MapSelectorModal address={mapAddress} onClose={() => setMapAddress(null)} />
+      )}
+
       {/* ── 우측: 상세 패널 (오버레이) ── */}
       {(selected || isNew) && (
-        <div className="absolute right-0 top-0 bottom-0 w-[480px] bg-white rounded-xl border border-gray-200 shadow-2xl overflow-y-auto z-20">
+        <>
+          {/* PC: 외부 클릭 시 닫기 / 모바일: full-screen 뒤 배경 */}
+          <div
+            className="fixed inset-0 z-[55] md:absolute md:inset-0 md:z-[15]"
+            onClick={closeDetail}
+          />
+        <div className="fixed inset-x-0 top-0 bottom-0 z-[60] md:absolute md:inset-x-auto md:right-0 md:top-0 md:bottom-0 md:w-[480px] bg-white md:rounded-xl md:border md:border-gray-200 shadow-2xl overflow-y-auto z-20">
 
           {/* 헤더 */}
           <div className="p-4 border-b border-gray-100 flex items-center justify-between sticky top-0 bg-white z-10">
             <h2 className="font-bold text-gray-900 break-words">{isNew ? '새 고객 추가' : selected?.business_name}</h2>
             <div className="flex items-center gap-1.5 shrink-0">
-              <button onClick={() => { setSelected(null); setIsNew(false) }} className="text-gray-400 hover:text-gray-600 text-lg leading-none">✕</button>
+              <button onClick={closeDetail} className="text-gray-400 hover:text-gray-600 text-lg leading-none">✕</button>
             </div>
           </div>
 
@@ -948,7 +970,7 @@ export default function AdminCustomersPage() {
                   <div className="flex flex-1 gap-1">
                     <input value={form.address} onChange={e => set('address')(e.target.value)}
                       className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-green-500" />
-                    <button onClick={() => window.open(`https://map.naver.com/v5/search/${encodeURIComponent(form.address)}`, '_blank')}
+                    <button onClick={() => setMapAddress(form.address)}
                       className="px-2 py-1.5 text-xs bg-green-50 text-green-700 rounded-lg hover:bg-green-100 shrink-0">🗺️</button>
                   </div>
                 </div>
@@ -1365,6 +1387,7 @@ export default function AdminCustomersPage() {
 
           </div>
         </div>
+        </>
       )}
 
     </div>
