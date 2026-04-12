@@ -206,7 +206,7 @@ function AmountInput({ label, value, onChange, hint, disabled }: {
       </label>
       <input type="number" value={value} onChange={e => onChange(e.target.value)}
         placeholder="0" disabled={disabled}
-        className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50 disabled:text-gray-400" />
+        className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50 disabled:text-gray-900" />
     </div>
   )
 }

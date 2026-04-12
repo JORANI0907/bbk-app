@@ -1334,7 +1334,7 @@ export default function AdminCustomersPage() {
               </button>
             )}
             {isWorker && (
-              <div className="w-full py-2.5 bg-gray-100 text-gray-400 text-sm font-semibold rounded-lg text-center">
+              <div className="w-full py-2.5 bg-gray-100 text-gray-600 text-sm font-semibold rounded-lg text-center">
                 읽기 전용 (수정 권한 없음)
               </div>
             )}

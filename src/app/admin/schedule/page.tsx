@@ -383,7 +383,7 @@ function DetailPanel({
 
   const Row = ({ label, value }: { label: string; value: React.ReactNode }) => (
     <div className="flex items-start gap-2 py-1.5 border-b border-gray-50 last:border-0">
-      <span className="text-xs text-gray-400 shrink-0 w-20">{label}</span>
+      <span className="text-xs text-gray-500 shrink-0 w-20">{label}</span>
       <span className="text-xs text-gray-800 flex-1 text-right">{value ?? '-'}</span>
     </div>
   )

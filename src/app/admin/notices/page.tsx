@@ -78,6 +78,7 @@ export default function NoticesPage() {
   const [saving, setSaving] = useState(false)
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const [photoUploading, setPhotoUploading] = useState(false)
+  const [expandedId, setExpandedId] = useState<string | null>(null)
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null)
 
   const fetchNotices = useCallback(async () => {
@@ -232,70 +233,90 @@ export default function NoticesPage() {
         ) : filtered.length === 0 ? (
           <div className="flex items-center justify-center py-20 text-gray-400 text-sm">공지사항이 없습니다.</div>
         ) : (
-          filtered.map(notice => (
-            <div
-              key={notice.id}
-              className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden"
-            >
-              <div className="flex items-start gap-3 p-4">
-                <div className="flex-1 min-w-0">
-                  {/* 뱃지 행 */}
-                  <div className="flex items-center gap-1.5 flex-wrap mb-1.5">
-                    {notice.pinned && (
-                      <span className="text-xs font-bold text-brand-600">📌</span>
+          filtered.map(notice => {
+            const isExpanded = expandedId === notice.id
+            return (
+              <div
+                key={notice.id}
+                className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden"
+              >
+                {/* 헤더 행 (클릭 시 펼침/접기) */}
+                <div
+                  className="flex items-start gap-3 p-4 cursor-pointer"
+                  onClick={() => setExpandedId(isExpanded ? null : notice.id)}
+                >
+                  <div className="flex-1 min-w-0">
+                    {/* 뱃지 행 */}
+                    <div className="flex items-center gap-1.5 flex-wrap mb-1.5">
+                      {notice.pinned && (
+                        <span className="text-xs font-bold text-brand-600">📌</span>
+                      )}
+                      <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${TYPE_BADGE[notice.type]}`}>
+                        {TYPE_LABELS[notice.type]}
+                      </span>
+                      <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${PRIORITY_BADGE[notice.priority]}`}>
+                        {PRIORITY_LABELS[notice.priority]}
+                      </span>
+                      <span className="text-xs text-gray-400 px-2 py-0.5 rounded-full bg-gray-50">
+                        {AUDIENCE_LABELS[notice.target_audience ?? 'all']}
+                      </span>
+                      {notice.popup && (
+                        <span className="text-xs text-orange-600 bg-orange-50 px-2 py-0.5 rounded-full font-medium">팝업</span>
+                      )}
+                      {notice.image_url && (
+                        <span className="text-xs text-gray-400 bg-gray-50 px-1.5 py-0.5 rounded-full">📷</span>
+                      )}
+                    </div>
+                    {/* 제목 */}
+                    <p className="text-sm font-semibold text-gray-900 truncate">{notice.title}</p>
+                    {!isExpanded && (
+                      <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">{notice.content}</p>
                     )}
-                    {notice.image_url && (
-                      <button
-                        onClick={() => setLightboxUrl(notice.image_url)}
-                        className="text-xs text-gray-400 bg-gray-50 px-1.5 py-0.5 rounded-full hover:bg-gray-100 transition-colors"
-                      >
-                        📷 사진
-                      </button>
-                    )}
-                    <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${TYPE_BADGE[notice.type]}`}>
-                      {TYPE_LABELS[notice.type]}
-                    </span>
-                    <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${PRIORITY_BADGE[notice.priority]}`}>
-                      {PRIORITY_LABELS[notice.priority]}
-                    </span>
-                    <span className="text-xs text-gray-400 px-2 py-0.5 rounded-full bg-gray-50">
-                      {AUDIENCE_LABELS[notice.target_audience ?? 'all']}
-                    </span>
-                    {notice.popup && (
-                      <span className="text-xs text-orange-600 bg-orange-50 px-2 py-0.5 rounded-full font-medium">팝업</span>
-                    )}
+                    {/* 날짜 */}
+                    <p className="text-xs text-gray-400 mt-1.5">
+                      {notice.type === 'event' && notice.event_date
+                        ? `이벤트일: ${notice.event_date} · `
+                        : ''}
+                      {formatDate(notice.created_at)}
+                    </p>
                   </div>
-                  {/* 제목 */}
-                  <p className="text-sm font-semibold text-gray-900 truncate">{notice.title}</p>
-                  {/* 내용 미리보기 */}
-                  <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">{notice.content}</p>
-                  {/* 날짜 */}
-                  <p className="text-xs text-gray-400 mt-1.5">
-                    {notice.type === 'event' && notice.event_date
-                      ? `이벤트일: ${notice.event_date} · `
-                      : ''}
-                    {formatDate(notice.created_at)}
-                  </p>
+                  {/* 액션 버튼 */}
+                  <div className="flex flex-col gap-1 shrink-0" onClick={e => e.stopPropagation()}>
+                    <button
+                      onClick={() => openEdit(notice)}
+                      className="px-3 py-1 text-xs font-medium text-brand-600 bg-brand-50 hover:bg-brand-100 rounded-lg transition-colors"
+                    >
+                      수정
+                    </button>
+                    <button
+                      onClick={() => handleDelete(notice.id)}
+                      disabled={deleteId === notice.id}
+                      className="px-3 py-1 text-xs font-medium text-red-500 bg-red-50 hover:bg-red-100 rounded-lg transition-colors disabled:opacity-50"
+                    >
+                      {deleteId === notice.id ? '...' : '삭제'}
+                    </button>
+                  </div>
                 </div>
-                {/* 액션 버튼 */}
-                <div className="flex flex-col gap-1 shrink-0">
-                  <button
-                    onClick={() => openEdit(notice)}
-                    className="px-3 py-1 text-xs font-medium text-brand-600 bg-brand-50 hover:bg-brand-100 rounded-lg transition-colors"
-                  >
-                    수정
-                  </button>
-                  <button
-                    onClick={() => handleDelete(notice.id)}
-                    disabled={deleteId === notice.id}
-                    className="px-3 py-1 text-xs font-medium text-red-500 bg-red-50 hover:bg-red-100 rounded-lg transition-colors disabled:opacity-50"
-                  >
-                    {deleteId === notice.id ? '...' : '삭제'}
-                  </button>
-                </div>
+
+                {/* 펼쳐진 상세 (사진 + 전체 내용 하나의 섹션) */}
+                {isExpanded && (
+                  <div className="border-t border-gray-100">
+                    {notice.image_url && (
+                      <img
+                        src={notice.image_url}
+                        alt={notice.title}
+                        className="w-full object-contain cursor-zoom-in"
+                        onClick={() => setLightboxUrl(notice.image_url)}
+                      />
+                    )}
+                    <div className="px-4 py-3">
+                      <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">{notice.content}</p>
+                    </div>
+                  </div>
+                )}
               </div>
-            </div>
-          ))
+            )
+          })
         )}
       </div>
 
