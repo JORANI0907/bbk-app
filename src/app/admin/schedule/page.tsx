@@ -137,7 +137,7 @@ async function fetchSession(): Promise<SessionUser | null> {
 // ─── 날짜 리스트 패널 ──────────────────────────────────────────
 
 function DayListPanel({
-  dateStr, apps, workers, appWorkerMap, onSelectApp, onClose,
+  dateStr, apps, workers, appWorkerMap, onSelectApp, onClose, allDates, onDateChange,
 }: {
   dateStr: string
   apps: Application[]
@@ -145,57 +145,104 @@ function DayListPanel({
   appWorkerMap: Record<string, string[]>
   onSelectApp: (app: Application) => void
   onClose: () => void
+  allDates: string[]
+  onDateChange: (date: string) => void
 }) {
+  const touchStartX = useRef<number | null>(null)
   const parts = dateStr.split('-').map(Number)
   const m = parts[1]
   const d = parts[2]
   const dow = new Date(dateStr + 'T12:00:00').getDay()
   const dayLabel = ['일', '월', '화', '수', '목', '금', '토'][dow]
 
+  const currentIdx = allDates.indexOf(dateStr)
+  const hasPrev = currentIdx > 0
+  const hasNext = currentIdx < allDates.length - 1
+
+  const goTo = (delta: number) => {
+    const newIdx = currentIdx + delta
+    if (newIdx >= 0 && newIdx < allDates.length) {
+      onDateChange(allDates[newIdx])
+    }
+  }
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX
+  }
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (touchStartX.current === null) return
+    const delta = touchStartX.current - e.changedTouches[0].clientX
+    if (Math.abs(delta) > 40) goTo(delta > 0 ? 1 : -1)
+    touchStartX.current = null
+  }
+
   return (
-    <div className="fixed inset-0 z-40 bg-black/40 flex items-end md:items-center justify-center"
+    <div className="fixed inset-0 z-[55] bg-black/40 flex items-end md:items-center justify-center"
       onClick={onClose}>
       <div
-        className="bg-white w-full max-w-md max-h-[80vh] rounded-t-2xl md:rounded-2xl flex flex-col overflow-hidden"
+        className="bg-white w-full max-w-md rounded-t-2xl md:rounded-2xl flex flex-col overflow-hidden"
+        style={{ maxHeight: 'calc(80vh - env(safe-area-inset-bottom))' }}
         onClick={e => e.stopPropagation()}
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
       >
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 shrink-0">
-          <div>
+          <button
+            onClick={() => goTo(-1)}
+            disabled={!hasPrev}
+            className={`w-8 h-8 flex items-center justify-center rounded-lg transition-colors ${hasPrev ? 'text-gray-600 hover:bg-gray-100' : 'text-gray-200 cursor-not-allowed'}`}
+          >
+            ‹
+          </button>
+          <div className="text-center">
             <h3 className="font-bold text-gray-900">{m}월 {d}일 ({dayLabel})</h3>
             <p className="text-xs text-gray-400">{apps.length}건</p>
           </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-lg leading-none">✕</button>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => goTo(1)}
+              disabled={!hasNext}
+              className={`w-8 h-8 flex items-center justify-center rounded-lg transition-colors ${hasNext ? 'text-gray-600 hover:bg-gray-100' : 'text-gray-200 cursor-not-allowed'}`}
+            >
+              ›
+            </button>
+            <button onClick={onClose} className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-600 text-lg leading-none">✕</button>
+          </div>
         </div>
-        <div className="overflow-y-auto flex-1 p-3 flex flex-col gap-2">
-          {apps.map(app => {
-            const workerNames = (appWorkerMap[app.id] ?? [])
-              .map(wid => workers.find(w => w.id === wid)?.name)
-              .filter((n): n is string => !!n)
-              .join(' · ')
-            const cfg = STATUS_CONFIG[app.status] ?? STATUS_CONFIG['신규']
-            return (
-              <button key={app.id}
-                onClick={() => { onSelectApp(app); onClose() }}
-                className="text-left bg-gray-50 hover:bg-blue-50 border border-gray-100 hover:border-blue-200 rounded-xl p-3 transition-colors"
-              >
-                <div className="flex items-center gap-2 mb-1">
-                  <span className={`w-2 h-2 rounded-full shrink-0 ${cfg.dot}`} />
-                  <span className="font-semibold text-gray-900 text-sm">{app.business_name}</span>
-                  <span className={`ml-auto text-[10px] px-2 py-0.5 rounded-full shrink-0 ${cfg.badge}`}>{app.status}</span>
-                </div>
-                <p className="text-xs text-gray-500 ml-4">{app.owner_name}</p>
-                {app.address && (
-                  <p className="text-[11px] text-gray-400 truncate ml-4 mt-0.5">{app.address}</p>
-                )}
-                {app.care_scope && (
-                  <p className="text-[11px] text-blue-500 ml-4 mt-0.5 line-clamp-1">{app.care_scope}</p>
-                )}
-                {workerNames && (
-                  <p className="text-[11px] text-indigo-500 ml-4 mt-0.5">{workerNames}</p>
-                )}
-              </button>
-            )
-          })}
+        <div className="overflow-y-auto flex-1 p-3 flex flex-col gap-2 pb-6">
+          {apps.length === 0 ? (
+            <p className="text-center text-sm text-gray-400 py-8">이 날짜에 일정이 없습니다.</p>
+          ) : (
+            apps.map(app => {
+              const workerNames = (appWorkerMap[app.id] ?? [])
+                .map(wid => workers.find(w => w.id === wid)?.name)
+                .filter((n): n is string => !!n)
+                .join(' · ')
+              const cfg = STATUS_CONFIG[app.status] ?? STATUS_CONFIG['신규']
+              return (
+                <button key={app.id}
+                  onClick={() => { onSelectApp(app); onClose() }}
+                  className="text-left bg-gray-50 hover:bg-blue-50 border border-gray-100 hover:border-blue-200 rounded-xl p-3 transition-colors"
+                >
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className={`w-2 h-2 rounded-full shrink-0 ${cfg.dot}`} />
+                    <span className="font-semibold text-gray-900 text-sm">{app.business_name}</span>
+                    <span className={`ml-auto text-[10px] px-2 py-0.5 rounded-full shrink-0 ${cfg.badge}`}>{app.status}</span>
+                  </div>
+                  <p className="text-xs text-gray-500 ml-4">{app.owner_name}</p>
+                  {app.address && (
+                    <p className="text-[11px] text-gray-400 truncate ml-4 mt-0.5">{app.address}</p>
+                  )}
+                  {app.care_scope && (
+                    <p className="text-[11px] text-blue-500 ml-4 mt-0.5 line-clamp-1">{app.care_scope}</p>
+                  )}
+                  {workerNames && (
+                    <p className="text-[11px] text-indigo-500 ml-4 mt-0.5">{workerNames}</p>
+                  )}
+                </button>
+              )
+            })
+          )}
         </div>
       </div>
     </div>
@@ -265,24 +312,20 @@ function CalendarGrid({
                 {day}
               </div>
               <div className="flex flex-col gap-0.5 overflow-hidden">
-                {apps.slice(0, 2).map(app => {
+                {apps.slice(0, 3).map(app => {
                   const cfg = STATUS_CONFIG[app.status] ?? STATUS_CONFIG['신규']
                   return (
                     <div key={app.id}
                       className="px-1 py-0.5 rounded-md bg-indigo-50 border border-indigo-100/80">
                       <div className="flex items-center gap-1 min-w-0">
-                        <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${cfg.dot}`} />
-                        <span className="text-[10px] text-indigo-800 font-semibold truncate leading-tight">{app.business_name}</span>
+                        <span className={`w-1 h-1 rounded-full shrink-0 ${cfg.dot}`} />
+                        <span className="text-[9px] text-indigo-800 font-semibold truncate leading-tight">{app.business_name}</span>
                       </div>
-                      <p className="text-[9px] text-gray-400 truncate leading-tight pl-2.5">{app.owner_name}</p>
-                      {app.address && (
-                        <p className="text-[9px] text-gray-400 truncate leading-tight pl-2.5">{app.address}</p>
-                      )}
                     </div>
                   )
                 })}
-                {apps.length > 2 && (
-                  <div className="text-[10px] text-gray-400 px-1 font-medium">+{apps.length - 2}건</div>
+                {apps.length > 3 && (
+                  <div className="text-[10px] text-gray-400 px-1 font-medium">+{apps.length - 3}건</div>
                 )}
               </div>
             </div>
@@ -728,6 +771,14 @@ export default function SchedulePage() {
       (b.construction_date ?? '').localeCompare(a.construction_date ?? ''))
   }, [applications, personFilter, workerFilter, serviceTypeFilter, isAdmin, currentUser, appWorkerMap, search])
 
+  const allDates = useMemo(() => {
+    const dateSet = new Set<string>()
+    for (const app of filteredApps) {
+      if (app.construction_date) dateSet.add(app.construction_date.slice(0, 10))
+    }
+    return Array.from(dateSet).sort()
+  }, [filteredApps])
+
   const [calYear, calMonth] = useMemo(() => {
     const [y, m] = selectedMonth.split('-').map(Number)
     return [y, m - 1]
@@ -1019,6 +1070,11 @@ export default function SchedulePage() {
           appWorkerMap={appWorkerMap}
           onSelectApp={app => setSelected(app)}
           onClose={() => setSelectedDate(null)}
+          allDates={allDates}
+          onDateChange={(newDate) => {
+            setSelectedDate(newDate)
+            setSelectedDateApps(filteredApps.filter(app => app.construction_date?.slice(0, 10) === newDate))
+          }}
         />
       )}
     </div>
