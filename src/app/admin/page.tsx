@@ -358,23 +358,26 @@ export default function AdminHomePage() {
         <div className="absolute -right-2 top-8 w-24 h-24 bg-white/10 rounded-full" />
         <div className="absolute left-1/2 -bottom-10 w-48 h-48 bg-white/5 rounded-full" />
 
-        <div className="relative z-10 flex items-center justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-bold mt-1 leading-tight">
-              {currentUser?.name ?? ''}님,<br />환영합니다!
-            </h1>
-            <p className="text-blue-200 text-xs mt-2">{dateStr}</p>
-            {/* 오늘의 명언 */}
-            <p className="mt-3 text-sm text-blue-100 italic opacity-90 max-w-xs leading-snug">
-              &ldquo;{dailyQuote}&rdquo;
-            </p>
-          </div>
-          <div className="text-right shrink-0 hidden sm:block">
-            <div className="text-4xl font-bold tabular-nums leading-none">
-              {now.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false })}
+        <div className="relative z-10">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex-1 min-w-0">
+              <h1 className="text-xl sm:text-2xl font-bold mt-1 leading-tight">
+                {currentUser?.name ?? ''}님,<br />환영합니다!
+              </h1>
+              <p className="text-blue-200 text-xs mt-2">{dateStr}</p>
             </div>
-            <p className="text-blue-200 text-xs mt-1">BBK 공간케어</p>
+            {/* 시계 — 모바일에서도 표시 */}
+            <div className="text-right shrink-0">
+              <div className="text-3xl sm:text-4xl font-bold tabular-nums leading-none">
+                {now.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false })}
+              </div>
+              <p className="text-blue-200 text-xs mt-1">BBK 공간케어</p>
+            </div>
           </div>
+          {/* 오늘의 명언 */}
+          <p className="mt-3 text-xs sm:text-sm text-blue-100 italic opacity-90 leading-snug">
+            &ldquo;{dailyQuote}&rdquo;
+          </p>
         </div>
 
         {(urgentCount > 0 || pinnedCount > 0) && (

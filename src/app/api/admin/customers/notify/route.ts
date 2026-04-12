@@ -5,6 +5,17 @@ import { createServiceClient } from '@/lib/supabase/server'
 const fmtDate = (d: string | null) => d ? d.slice(0, 10).replace(/-/g, '.') : '-'
 const fmt = (n: number | null) => n == null ? '0' : n.toLocaleString('ko-KR')
 
+// ─── 알림 발송 후 업데이트할 pipeline_status ────────────────────
+const NOTIFY_PIPELINE_STATUS: Record<string, string> = {
+  '방문견적알림': 'quote_sent',
+  '정기방문알림': 'service_scheduled',
+  '작업완료알림': 'service_done',
+  '정기결제알림': 'payment_done',
+  '건당결제알림': 'payment_done',
+  '계약갱신알림': 'renewal_pending',
+  '계정안내알림': 'subscription_active',
+}
+
 // ─── 알림톡 템플릿 ID ─────────────────────────────────────────────
 const ALIMTALK_TEMPLATES: Record<string, string> = {
   '정기결제알림': 'KA01TP260324125257636A2QdT1YNpL5',
@@ -147,7 +158,16 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    return NextResponse.json({ success: true, type, method: 'alimtalk' })
+    // 알림 발송 성공 후 pipeline_status 자동 업데이트
+    const newStatus = NOTIFY_PIPELINE_STATUS[type]
+    if (newStatus) {
+      await supabase
+        .from('customers')
+        .update({ pipeline_status: newStatus })
+        .eq('id', customer_id)
+    }
+
+    return NextResponse.json({ success: true, type, method: 'alimtalk', pipeline_status: newStatus ?? null })
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
     return NextResponse.json({ error: msg }, { status: 500 })
