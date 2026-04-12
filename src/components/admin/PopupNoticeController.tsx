@@ -112,7 +112,7 @@ export function PopupNoticeController() {
               <img
                 src={current.image_url}
                 alt={current.title}
-                className="w-full object-contain cursor-zoom-in"
+                className="w-full h-auto cursor-zoom-in"
                 onClick={() => setLightboxOpen(true)}
               />
             )}

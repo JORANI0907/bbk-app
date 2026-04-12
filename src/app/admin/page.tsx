@@ -121,18 +121,31 @@ function getDailyQuote(): string {
 
 function NoticeCard({ notice }: { notice: Notice }) {
   const [expanded, setExpanded] = useState(false)
+  const [lightbox, setLightbox] = useState<string | null>(null)
   const pc = PRIORITY_CONFIG[notice.priority]
   const tc = TYPE_CONFIG[notice.type]
 
   return (
     <div className={`border-l-4 ${pc.border} ${pc.bg} rounded-r-xl overflow-hidden transition-all`}>
-      {/* 사진이 있으면 먼저 표시 */}
+      {/* 사진 — 원본 비율 유지, 클릭 시 확대 */}
       {notice.image_url && (
-        <img
-          src={notice.image_url}
-          alt={notice.title}
-          className="w-full max-h-48 object-cover"
-        />
+        <>
+          <img
+            src={notice.image_url}
+            alt={notice.title}
+            className="w-full h-auto cursor-zoom-in"
+            onClick={() => setLightbox(notice.image_url)}
+          />
+          {lightbox && (
+            <div
+              className="fixed inset-0 z-[70] flex items-center justify-center bg-black/90 p-4"
+              onClick={() => setLightbox(null)}
+            >
+              <img src={lightbox} alt={notice.title} className="max-w-full max-h-full object-contain" />
+              <button className="absolute top-4 right-4 text-white/80 hover:text-white text-3xl leading-none" onClick={() => setLightbox(null)}>✕</button>
+            </div>
+          )}
+        </>
       )}
 
       <div className="p-4">
@@ -353,18 +366,21 @@ export default function AdminHomePage() {
     <div className="flex flex-col gap-6 h-full overflow-y-auto pb-20 md:pb-6">
 
       {/* ── 웰컴 배너 ─────────────────────────────────────────── */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-blue-600 via-blue-500 to-indigo-600 p-6 text-white shadow-lg">
-        <div className="absolute -right-8 -top-8 w-40 h-40 bg-white/10 rounded-full" />
-        <div className="absolute -right-2 top-8 w-24 h-24 bg-white/10 rounded-full" />
-        <div className="absolute left-1/2 -bottom-10 w-48 h-48 bg-white/5 rounded-full" />
+      <div className="relative rounded-2xl bg-gradient-to-br from-blue-600 via-blue-500 to-indigo-600 p-5 text-white shadow-lg">
+        {/* 장식 원: 별도 레이어에서만 overflow-hidden 적용 (content 잘림 방지) */}
+        <div className="absolute inset-0 rounded-2xl overflow-hidden pointer-events-none">
+          <div className="absolute -right-8 -top-8 w-40 h-40 bg-white/10 rounded-full" />
+          <div className="absolute -right-2 top-8 w-24 h-24 bg-white/10 rounded-full" />
+          <div className="absolute left-1/2 -bottom-10 w-48 h-48 bg-white/5 rounded-full" />
+        </div>
 
         <div className="relative z-10">
           <div className="flex items-start justify-between gap-3">
             <div className="flex-1 min-w-0">
+              <p className="text-blue-200 text-xs">{dateStr}</p>
               <h1 className="text-xl sm:text-2xl font-bold mt-1 leading-tight">
                 {currentUser?.name ?? ''}님,<br />환영합니다!
               </h1>
-              <p className="text-blue-200 text-xs mt-2">{dateStr}</p>
             </div>
             {/* 시계 — 모바일에서도 표시 */}
             <div className="text-right shrink-0">

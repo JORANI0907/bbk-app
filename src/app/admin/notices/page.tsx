@@ -305,7 +305,7 @@ export default function NoticesPage() {
                       <img
                         src={notice.image_url}
                         alt={notice.title}
-                        className="w-full object-contain cursor-zoom-in"
+                        className="w-full h-auto cursor-zoom-in"
                         onClick={() => setLightboxUrl(notice.image_url)}
                       />
                     )}
