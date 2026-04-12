@@ -127,27 +127,6 @@ function NoticeCard({ notice }: { notice: Notice }) {
 
   return (
     <div className={`border-l-4 ${pc.border} ${pc.bg} rounded-r-xl overflow-hidden transition-all`}>
-      {/* 사진 — 원본 비율 유지, 클릭 시 확대 */}
-      {notice.image_url && (
-        <>
-          <img
-            src={notice.image_url}
-            alt={notice.title}
-            className="w-full h-auto cursor-zoom-in"
-            onClick={() => setLightbox(notice.image_url)}
-          />
-          {lightbox && (
-            <div
-              className="fixed inset-0 z-[70] flex items-center justify-center bg-black/90 p-4"
-              onClick={() => setLightbox(null)}
-            >
-              <img src={lightbox} alt={notice.title} className="max-w-full max-h-full object-contain" />
-              <button className="absolute top-4 right-4 text-white/80 hover:text-white text-3xl leading-none" onClick={() => setLightbox(null)}>✕</button>
-            </div>
-          )}
-        </>
-      )}
-
       <div className="p-4">
         <div className="flex items-start gap-3">
           <span className="text-xl shrink-0 mt-0.5">{tc.icon}</span>
@@ -168,6 +147,9 @@ function NoticeCard({ notice }: { notice: Notice }) {
                   📅 {new Date(notice.event_date).toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'short' })}
                 </span>
               )}
+              {notice.image_url && !expanded && (
+                <span className="text-xs text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded-full">📷</span>
+              )}
             </div>
 
             {/* 제목 */}
@@ -178,11 +160,21 @@ function NoticeCard({ notice }: { notice: Notice }) {
               {notice.title}
             </button>
 
-            {/* 내용 (펼침) */}
+            {/* 펼쳐질 때: 사진 + 내용 */}
             {expanded && (
-              <p className="mt-2 text-sm text-gray-600 whitespace-pre-wrap leading-relaxed">
-                {notice.content}
-              </p>
+              <>
+                {notice.image_url && (
+                  <img
+                    src={notice.image_url}
+                    alt={notice.title}
+                    className="w-full h-auto mt-3 rounded-lg cursor-zoom-in"
+                    onClick={() => setLightbox(notice.image_url)}
+                  />
+                )}
+                <p className="mt-2 text-sm text-gray-600 whitespace-pre-wrap leading-relaxed">
+                  {notice.content}
+                </p>
+              </>
             )}
 
             {/* 메타 */}
