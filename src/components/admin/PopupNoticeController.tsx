@@ -53,16 +53,9 @@ export function PopupNoticeController() {
   const [queue, setQueue] = useState<PopupNotice[]>([])
   const [current, setCurrent] = useState<PopupNotice | null>(null)
   const [dontShow, setDontShow] = useState(false)
-  // 최초 로드는 건너뜀 (홈 화면 진입 시 바로 팝업 안 뜨도록)
-  const [isFirstLoad, setIsFirstLoad] = useState(true)
 
   // 탭(pathname) 변경 시 팝업 공지 fetch
   useEffect(() => {
-    if (isFirstLoad) {
-      setIsFirstLoad(false)
-      return
-    }
-
     fetch('/api/admin/notices')
       .then(r => r.json())
       .then(d => {
@@ -112,7 +105,7 @@ export function PopupNoticeController() {
       <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
         {/* 사진이 있으면 먼저 */}
         {current.image_url && (
-          <img src={current.image_url} alt={current.title} className="w-full max-h-56 object-cover" />
+          <img src={current.image_url} alt={current.title} className="w-full object-contain max-h-[60vh]" />
         )}
 
         <div className="p-5">

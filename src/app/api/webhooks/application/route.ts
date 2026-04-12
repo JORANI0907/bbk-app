@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
+import { sendSlack } from '@/lib/slack'
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -159,7 +160,7 @@ export async function POST(request: NextRequest) {
       console.error('Supabase error:', supabaseResult.reason)
     }
 
-    // Notion 미러링 (Supabase 성공 시에만, 실패해도 OK)
+    // Notion 미러링 + Slack 알림 (Supabase 성공 시에만, 실패해도 OK)
     if (insertedId) {
       try {
         const notionPageId = await syncToNotion(body)
@@ -172,6 +173,15 @@ export async function POST(request: NextRequest) {
       } catch (e) {
         console.error('Notion error:', e)
       }
+
+      sendSlack(
+        `📋 *새 공간케어 신청서 접수*\n` +
+        `• 업체명: ${businessName ?? '-'}\n` +
+        `• 대표자: ${ownerName ?? '-'}\n` +
+        `• 연락처: ${phone ?? '-'}\n` +
+        `• 주소: ${address ?? '-'}\n` +
+        `• 접수시각: ${timestamp ?? new Date().toISOString()}`
+      ).catch(() => {})
     }
 
     return NextResponse.json(

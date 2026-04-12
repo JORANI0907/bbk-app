@@ -347,17 +347,10 @@ export default function AdminHomePage() {
   const urgentCount = notices.filter(n => n.priority === 'urgent').length
   const pinnedCount = notices.filter(n => n.pinned).length
 
-  const greeting = (() => {
-    const h = now.getHours()
-    if (h < 12) return '좋은 아침이에요'
-    if (h < 18) return '좋은 오후예요'
-    return '좋은 저녁이에요'
-  })()
-
   const dateStr = now.toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' })
 
   return (
-    <div className="flex flex-col gap-6 h-full overflow-y-auto pb-6">
+    <div className="flex flex-col gap-6 h-full overflow-y-auto pb-20 md:pb-6">
 
       {/* ── 웰컴 배너 ─────────────────────────────────────────── */}
       <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-blue-600 via-blue-500 to-indigo-600 p-6 text-white shadow-lg">
@@ -367,7 +360,6 @@ export default function AdminHomePage() {
 
         <div className="relative z-10 flex items-center justify-between gap-4">
           <div>
-            <p className="text-blue-200 text-sm font-medium">{greeting} 👋</p>
             <h1 className="text-2xl font-bold mt-1 leading-tight">
               {currentUser?.name ?? ''}님,<br />환영합니다!
             </h1>

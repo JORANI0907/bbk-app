@@ -78,6 +78,7 @@ export default function NoticesPage() {
   const [saving, setSaving] = useState(false)
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const [photoUploading, setPhotoUploading] = useState(false)
+  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null)
 
   const fetchNotices = useCallback(async () => {
     setLoading(true)
@@ -236,16 +237,20 @@ export default function NoticesPage() {
               key={notice.id}
               className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden"
             >
-              {/* 사진이 있으면 먼저 표시 */}
-              {notice.image_url && (
-                <img src={notice.image_url} alt={notice.title} className="w-full max-h-40 object-cover" />
-              )}
               <div className="flex items-start gap-3 p-4">
                 <div className="flex-1 min-w-0">
                   {/* 뱃지 행 */}
                   <div className="flex items-center gap-1.5 flex-wrap mb-1.5">
                     {notice.pinned && (
                       <span className="text-xs font-bold text-brand-600">📌</span>
+                    )}
+                    {notice.image_url && (
+                      <button
+                        onClick={() => setLightboxUrl(notice.image_url)}
+                        className="text-xs text-gray-400 bg-gray-50 px-1.5 py-0.5 rounded-full hover:bg-gray-100 transition-colors"
+                      >
+                        📷 사진
+                      </button>
                     )}
                     <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${TYPE_BADGE[notice.type]}`}>
                       {TYPE_LABELS[notice.type]}
@@ -293,6 +298,27 @@ export default function NoticesPage() {
           ))
         )}
       </div>
+
+      {/* 사진 라이트박스 */}
+      {lightboxUrl && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 p-4"
+          onClick={() => setLightboxUrl(null)}
+        >
+          <img
+            src={lightboxUrl}
+            alt="공지 사진"
+            className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
+            onClick={e => e.stopPropagation()}
+          />
+          <button
+            onClick={() => setLightboxUrl(null)}
+            className="absolute top-4 right-4 text-white/80 hover:text-white text-3xl leading-none font-light"
+          >
+            ✕
+          </button>
+        </div>
+      )}
 
       {/* 작성/수정 모달 */}
       {showModal && (

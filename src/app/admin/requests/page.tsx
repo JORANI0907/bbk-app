@@ -307,14 +307,14 @@ function AdminRequestView() {
           <div className="flex items-center justify-center h-40 text-gray-400 text-sm">요청이 없습니다.</div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="w-full min-w-[560px] text-sm">
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-100">
-                  <th className="text-left px-4 py-3 font-medium text-gray-600">요청자</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-600">카테고리</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-600">내용</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-600 w-20">상태</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-600 w-24">날짜</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-600 whitespace-nowrap">요청자</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-600 whitespace-nowrap">카테고리</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-600 whitespace-nowrap">내용</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-600 whitespace-nowrap w-20">상태</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-600 whitespace-nowrap w-24">날짜</th>
                 </tr>
               </thead>
               <tbody>
