@@ -847,15 +847,6 @@ export default function AdminCustomersPage() {
                         <StatusBadges customer={c} />
                       </div>
                     </div>
-                      {/* 금액 요약 */}
-                      <div className="text-right shrink-0 space-y-0.5">
-                        {c.billing_amount != null && (
-                          <p className="text-xs font-semibold text-gray-700">{fmt(c.billing_amount)}원<span className="text-gray-400 font-normal">/{c.billing_cycle === '연간' ? '년' : '월'}</span></p>
-                        )}
-                        {type === '정기엔드케어' && c.unit_price != null && (
-                          <p className="text-xs text-purple-600 font-medium">{fmt(c.unit_price)}원/건</p>
-                        )}
-                      </div>
                     </div>
                   </div>
                 )
@@ -879,7 +870,7 @@ export default function AdminCustomersPage() {
             className="fixed inset-0 z-[55] md:absolute md:inset-0 md:z-[15]"
             onClick={closeDetail}
           />
-        <div className="fixed inset-x-0 top-0 bottom-0 z-[60] md:absolute md:inset-x-auto md:right-0 md:top-0 md:bottom-0 md:w-[480px] bg-white md:rounded-xl md:border md:border-gray-200 shadow-2xl overflow-y-auto z-20">
+        <div className="fixed inset-x-0 top-0 bottom-0 z-[60] md:absolute md:inset-x-auto md:right-0 md:top-0 md:bottom-0 md:w-[480px] bg-white md:rounded-xl md:border md:border-gray-200 shadow-2xl overflow-y-auto">
 
           {/* 헤더 */}
           <div className="p-4 border-b border-gray-100 flex items-center justify-between sticky top-0 bg-white z-10">
@@ -889,7 +880,7 @@ export default function AdminCustomersPage() {
             </div>
           </div>
 
-          <div className="p-4 space-y-5">
+          <div className="p-4 pb-24 md:pb-8 space-y-5">
             {/* 고객 유형 + 상태 */}
             <div>
               <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">고객 유형</p>

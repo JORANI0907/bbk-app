@@ -405,23 +405,19 @@ function AppCalendarView({
                   {day}
                 </div>
                 <div className="flex flex-col gap-0.5 overflow-hidden">
-                  {apps.slice(0, 2).map(app => {
+                  {apps.slice(0, 3).map(app => {
                     const cfg = STATUS_CONFIG[app.status] ?? STATUS_CONFIG['예약확정']
                     return (
                       <div key={app.id} className="px-1 py-0.5 rounded-md bg-blue-50 border border-blue-100/80">
                         <div className="flex items-center gap-1 min-w-0">
-                          <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${cfg.dot}`} />
-                          <span className="text-[10px] text-blue-800 font-semibold truncate leading-tight">{app.business_name}</span>
+                          <span className={`w-1 h-1 rounded-full shrink-0 ${cfg.dot}`} />
+                          <span className="text-[9px] text-blue-800 font-semibold truncate leading-tight">{app.business_name}</span>
                         </div>
-                        <p className="text-[9px] text-gray-400 truncate leading-tight pl-2.5">{app.owner_name}</p>
-                        {app.address && (
-                          <p className="text-[9px] text-gray-400 truncate leading-tight pl-2.5">{app.address}</p>
-                        )}
                       </div>
                     )
                   })}
-                  {apps.length > 2 && (
-                    <div className="text-[10px] text-gray-400 px-1 font-medium">+{apps.length - 2}건</div>
+                  {apps.length > 3 && (
+                    <div className="text-[10px] text-gray-400 px-1 font-medium">+{apps.length - 3}건</div>
                   )}
                 </div>
               </div>
@@ -432,10 +428,11 @@ function AppCalendarView({
 
       {/* 날짜 목록 패널 */}
       {calDate && (
-        <div className="fixed inset-0 z-40 bg-black/40 flex items-end md:items-center justify-center"
+        <div className="fixed inset-0 z-[55] bg-black/40 flex items-end md:items-center justify-center"
           onClick={onDayClose}>
           <div
-            className="bg-white w-full max-w-md max-h-[80vh] rounded-t-2xl md:rounded-2xl flex flex-col overflow-hidden"
+            className="bg-white w-full max-w-md rounded-t-2xl md:rounded-2xl flex flex-col overflow-hidden"
+            style={{ maxHeight: 'calc(80vh - env(safe-area-inset-bottom))' }}
             onClick={e => e.stopPropagation()}
           >
             <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 shrink-0">
@@ -448,7 +445,7 @@ function AppCalendarView({
               </div>
               <button onClick={onDayClose} className="text-gray-400 hover:text-gray-600 text-lg leading-none">✕</button>
             </div>
-            <div className="overflow-y-auto flex-1 p-3 flex flex-col gap-2">
+            <div className="overflow-y-auto flex-1 p-3 pb-6 flex flex-col gap-2">
               {calDateApps.map(app => {
                 const cfg = STATUS_CONFIG[app.status] ?? STATUS_CONFIG['예약확정']
                 return (
