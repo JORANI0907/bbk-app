@@ -279,7 +279,7 @@ export function WorkPanel({ app, onUpdate }: Props) {
               onBlur={saveMemos}
               placeholder="고객에게 전달할 내용 (완료 알림 SMS에 포함됩니다)"
               rows={3}
-              className="w-full text-xs border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+              className="w-full text-xs text-gray-900 border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
             />
           </div>
 
@@ -291,7 +291,7 @@ export function WorkPanel({ app, onUpdate }: Props) {
               onBlur={saveMemos}
               placeholder="내부 참고용 메모 (고객에게 발송되지 않음)"
               rows={2}
-              className="w-full text-xs border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none bg-gray-50"
+              className="w-full text-xs text-gray-900 border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none bg-gray-50"
             />
           </div>
 
@@ -374,7 +374,7 @@ export function WorkPanel({ app, onUpdate }: Props) {
               onBlur={saveMemos}
               disabled={!!app.notification_sent_at}
               rows={3}
-              className="w-full text-xs border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none disabled:bg-gray-50 disabled:text-gray-400"
+              className="w-full text-xs text-gray-900 border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none disabled:bg-gray-50 disabled:text-gray-400"
             />
           </div>
 
@@ -385,7 +385,7 @@ export function WorkPanel({ app, onUpdate }: Props) {
               onChange={e => setInternalMemo(e.target.value)}
               onBlur={saveMemos}
               rows={2}
-              className="w-full text-xs border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none bg-gray-50"
+              className="w-full text-xs text-gray-900 border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none bg-gray-50"
             />
           </div>
 

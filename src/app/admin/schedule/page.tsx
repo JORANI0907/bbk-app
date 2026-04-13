@@ -1013,7 +1013,7 @@ export default function SchedulePage() {
             value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder="업체명, 주소, 케어범위..."
-            className="pl-7 pr-7 py-1.5 text-xs border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 w-40"
+            className="pl-7 pr-7 py-1.5 text-xs text-gray-900 border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 w-40"
           />
           {search && (
             <button onClick={() => setSearch('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-xs">✕</button>

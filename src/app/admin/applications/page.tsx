@@ -193,7 +193,7 @@ function EditRow({ label, value, onChange, mono }: { label: string; value: strin
     <div className="flex items-center gap-2">
       <span className="text-xs text-gray-500 w-20 shrink-0">{label}</span>
       <input value={value} onChange={e => onChange(e.target.value)}
-        className={`flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 ${mono ? 'font-mono' : ''}`} />
+        className={`flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 ${mono ? 'font-mono' : ''}`} />
     </div>
   )
 }
@@ -207,7 +207,7 @@ function AmountInput({ label, value, onChange, hint, disabled }: {
       </label>
       <input type="number" value={value} onChange={e => onChange(e.target.value)}
         placeholder="0" disabled={disabled}
-        className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50 disabled:text-gray-900" />
+        className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50" />
     </div>
   )
 }
@@ -274,7 +274,7 @@ function DriveFolderModal({
                 <label className="text-xs font-semibold text-gray-500 block mb-2">시공일자</label>
                 <input type="date" value={constructionDate}
                   onChange={e => setConstructionDate(e.target.value)}
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500" />
               </div>
               <div>
                 <p className="text-xs font-semibold text-gray-500 mb-2">저장 위치 (상위 폴더)</p>
@@ -1361,7 +1361,7 @@ export default function ServiceManagementPage() {
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               placeholder="업체명, 대표자, 연락처, 주소, 케어범위, 계좌·사업자번호, 금액 검색..."
-              className="w-full pl-8 pr-8 py-1.5 text-xs border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full pl-8 pr-8 py-1.5 text-xs text-gray-900 border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
             {searchQuery && (
               <button onClick={() => setSearchQuery('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-sm leading-none">✕</button>
@@ -1660,7 +1660,7 @@ export default function ServiceManagementPage() {
               {/* 시공일자 */}
               <Section title="시공일자">
                 <input type="date" value={constructionDate} onChange={e => setConstructionDate(e.target.value)}
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500" />
               </Section>
 
               {/* 담당자 + 작업자 */}
@@ -1729,7 +1729,7 @@ export default function ServiceManagementPage() {
                       value={unitPricePerVisit}
                       onChange={e => setUnitPricePerVisit(e.target.value)}
                       placeholder="0"
-                      className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                     <span className="text-xs text-gray-400 shrink-0">원/건</span>
                   </div>
@@ -1751,7 +1751,7 @@ export default function ServiceManagementPage() {
                     <span className="text-xs text-gray-500 w-20 shrink-0">연락처</span>
                     <div className="flex flex-1 gap-1">
                       <input value={phone} onChange={e => setPhone(e.target.value)}
-                        className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                        className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500" />
                       <a href={`tel:${phone}`} className="px-2 py-1.5 text-xs bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100">📞</a>
                       <button onClick={() => copyText(phone, '연락처')} className="px-2 py-1.5 text-xs bg-gray-50 rounded-lg hover:bg-gray-100">📋</button>
                     </div>
@@ -1761,7 +1761,7 @@ export default function ServiceManagementPage() {
                     <span className="text-xs text-gray-500 w-20 shrink-0">주소</span>
                     <div className="flex flex-1 gap-1">
                       <input value={address} onChange={e => setAddress(e.target.value)}
-                        className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                        className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500" />
                       <button onClick={() => setMapAddress(address)}
                         className="px-2 py-1.5 text-xs bg-green-50 text-green-700 rounded-lg hover:bg-green-100 shrink-0">🗺️</button>
                     </div>
@@ -1770,10 +1770,10 @@ export default function ServiceManagementPage() {
                     <span className="text-xs text-gray-500 w-20 shrink-0">영업시간</span>
                     <div className="flex items-center gap-1 flex-1">
                       <input type="time" value={businessHoursStart} onChange={e => setBusinessHoursStart(e.target.value)}
-                        className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                        className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500" />
                       <span className="text-gray-400 text-xs">~</span>
                       <input type="time" value={businessHoursEnd} onChange={e => setBusinessHoursEnd(e.target.value)}
-                        className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                        className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500" />
                     </div>
                   </div>
                 </div>
@@ -1796,18 +1796,18 @@ export default function ServiceManagementPage() {
                     <span className="text-xs text-gray-500 w-20 shrink-0 pt-1.5">케어범위</span>
                     <textarea value={careScope} onChange={e => setCareScope(e.target.value)} rows={3}
                       placeholder="예) - 후드청소&#10;- 덕트청소&#10;- 계단청소"
-                      className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-green-500 resize-none" />
+                      className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-green-500 resize-none text-gray-900" />
                   </div>
                   <div className="flex items-start gap-2">
                     <span className="text-xs text-gray-500 w-20 shrink-0 pt-1.5">요청사항</span>
                     <textarea value={requestNotes} onChange={e => setRequestNotes(e.target.value)} rows={2}
-                      className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-green-500 resize-none" />
+                      className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-green-500 resize-none text-gray-900" />
                   </div>
                   <div className="flex items-start gap-2">
                     <span className="text-xs text-gray-500 w-20 shrink-0 pt-1.5">관리자메모</span>
                     <textarea value={adminNotes} onChange={e => setAdminNotes(e.target.value)} rows={3}
                       placeholder="내부 메모를 입력하세요..."
-                      className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-green-500 resize-none" />
+                      className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-green-500 resize-none text-gray-900" />
                   </div>
                 </div>
               </Section>

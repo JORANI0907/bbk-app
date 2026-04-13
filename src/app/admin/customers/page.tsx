@@ -254,7 +254,7 @@ function Field({ label, value, onChange, type = 'text', mono, placeholder, hint 
       <span className="text-xs text-gray-500 w-24 shrink-0">{label}</span>
       <div className="flex-1">
         <input type={type} value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder}
-          className={`w-full border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 ${mono ? 'font-mono' : ''}`} />
+          className={`w-full border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 ${mono ? 'font-mono' : ''}`} />
         {hint && <p className="text-xs text-gray-400 mt-0.5">{hint}</p>}
       </div>
     </div>
@@ -272,7 +272,7 @@ function SelectField({ label, value, options, onChange }: {
         <select
           value={isCustom ? '직접입력' : value}
           onChange={e => e.target.value === '직접입력' ? onChange('') : onChange(e.target.value)}
-          className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+          className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
         >
           <option value="">선택</option>
           {options.map(o => <option key={o} value={o}>{o}</option>)}
@@ -281,7 +281,7 @@ function SelectField({ label, value, options, onChange }: {
         {isCustom && (
           <input value={value} onChange={e => onChange(e.target.value)}
             placeholder="직접 입력"
-            className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500" />
         )}
       </div>
     </div>
@@ -801,7 +801,7 @@ export default function AdminCustomersPage() {
           </svg>
           <input type="text" value={search} onChange={e => setSearch(e.target.value)}
             placeholder="업체명, 담당자, 연락처, 주소 검색..."
-            className="w-full pl-8 pr-8 py-1.5 text-xs border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            className="w-full pl-8 pr-8 py-1.5 text-xs text-gray-900 border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500" />
           {search && <button onClick={() => setSearch('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">✕</button>}
         </div>
 
@@ -942,7 +942,7 @@ export default function AdminCustomersPage() {
                 <span className="text-xs text-gray-500 w-24 shrink-0">연락처</span>
                 <div className="flex flex-1 gap-1">
                   <input value={form.contact_phone} onChange={e => set('contact_phone')(e.target.value)}
-                    className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                    className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500" />
                   <a href={`tel:${form.contact_phone}`} className="px-2 py-1.5 text-xs bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100">📞</a>
                 </div>
               </div>
@@ -960,7 +960,7 @@ export default function AdminCustomersPage() {
                   <span className="text-xs text-gray-500 w-24 shrink-0">주소</span>
                   <div className="flex flex-1 gap-1">
                     <input value={form.address} onChange={e => set('address')(e.target.value)}
-                      className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-green-500" />
+                      className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-500" />
                     <button onClick={() => setMapAddress(form.address)}
                       className="px-2 py-1.5 text-xs bg-green-50 text-green-700 rounded-lg hover:bg-green-100 shrink-0">🗺️</button>
                   </div>
@@ -970,10 +970,10 @@ export default function AdminCustomersPage() {
                   <span className="text-xs text-gray-500 w-24 shrink-0">영업시간</span>
                   <div className="flex items-center gap-1 flex-1">
                     <input type="time" value={form.business_hours_start} onChange={e => set('business_hours_start')(e.target.value)}
-                      className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-green-500" />
+                      className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-500" />
                     <span className="text-gray-400 text-xs">~</span>
                     <input type="time" value={form.business_hours_end} onChange={e => set('business_hours_end')(e.target.value)}
-                      className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-green-500" />
+                      className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-500" />
                   </div>
                 </div>
                 <SelectField label="주차" value={form.parking_info} options={PARKING_OPTIONS} onChange={set('parking_info')} />
@@ -994,18 +994,18 @@ export default function AdminCustomersPage() {
                   <span className="text-xs text-gray-500 w-24 shrink-0 pt-1.5">케어범위</span>
                   <textarea value={form.care_scope} onChange={e => set('care_scope')(e.target.value)} rows={3}
                     placeholder="케어 범위를 입력하세요&#10;예) 주방, 화장실 2개, 사무실 전체"
-                    className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-green-500 resize-none" />
+                    className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-green-500 resize-none text-gray-900" />
                 </div>
                 <div className="flex items-start gap-2">
                   <span className="text-xs text-gray-500 w-24 shrink-0 pt-1.5">요청사항</span>
                   <textarea value={form.special_notes} onChange={e => set('special_notes')(e.target.value)} rows={2}
-                    className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-green-500 resize-none" />
+                    className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-green-500 resize-none text-gray-900" />
                 </div>
                 <div className="flex items-start gap-2">
                   <span className="text-xs text-gray-500 w-24 shrink-0 pt-1.5">관리자메모</span>
                   <textarea value={form.notes} onChange={e => set('notes')(e.target.value)} rows={2}
                     placeholder="내부 메모를 입력하세요..."
-                    className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-green-500 resize-none" />
+                    className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-green-500 resize-none text-gray-900" />
                 </div>
               </div>
             </div>
@@ -1077,7 +1077,7 @@ export default function AdminCustomersPage() {
                       <input type="number" min={1} max={31} value={form.payment_date}
                         onChange={e => set('payment_date')(e.target.value)}
                         placeholder="1~31"
-                        className="w-20 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-purple-500 text-center" />
+                        className="w-20 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-purple-500 text-center text-gray-900" />
                       <span className="text-xs text-gray-400">일</span>
                     </div>
                   </div>
@@ -1100,23 +1100,23 @@ export default function AdminCustomersPage() {
                     <div className="flex items-center gap-2">
                       <span className="text-xs text-gray-500 w-24 shrink-0">계약 시작</span>
                       <input type="date" value={form.contract_start_date} onChange={e => set('contract_start_date')(e.target.value)}
-                        className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-purple-500 bg-white" />
+                        className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-purple-500 bg-white text-gray-900" />
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="text-xs text-gray-500 w-24 shrink-0">계약 만료</span>
                       <input type="date" value={form.contract_end_date} onChange={e => set('contract_end_date')(e.target.value)}
-                        className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-purple-500 bg-white" />
+                        className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-purple-500 bg-white text-gray-900" />
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="text-xs text-gray-500 w-24 shrink-0">결제 시작일</span>
                       <input type="date" value={form.billing_start_date} onChange={e => set('billing_start_date')(e.target.value)}
-                        className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-purple-500 bg-white" />
+                        className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-purple-500 bg-white text-gray-900" />
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="text-xs text-gray-500 w-24 shrink-0">선납 기간 수</span>
                       <input type="number" min={1} max={60} value={prepaidPeriods}
                         onChange={e => setPrepaidPeriods(Math.max(1, Number(e.target.value)))}
-                        className="w-16 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-purple-500 text-center" />
+                        className="w-16 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-purple-500 text-center text-gray-900" />
                       <span className="text-xs text-gray-400">{form.billing_cycle === '연간' ? '년' : '개월'}</span>
                       {form.billing_start_date && (
                         <span className="text-xs text-purple-600 flex-1 text-right">
@@ -1127,7 +1127,7 @@ export default function AdminCustomersPage() {
                     <div className="flex items-center gap-2">
                       <span className="text-xs text-gray-500 w-24 shrink-0">다음 결제일</span>
                       <input type="date" value={form.billing_next_date} onChange={e => set('billing_next_date')(e.target.value)}
-                        className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-purple-500 bg-white" />
+                        className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-purple-500 bg-white text-gray-900" />
                       {form.billing_start_date && (
                         <button onClick={() => {
                           try { set('billing_next_date')(calcNextBillingDate(form.billing_start_date, form.billing_cycle as BillingCycle, prepaidPeriods)) }
@@ -1155,7 +1155,7 @@ export default function AdminCustomersPage() {
                         <span className="text-xs text-gray-400">매월</span>
                         <input type="number" min={1} max={31} value={form.schedule_generation_day}
                           onChange={e => set('schedule_generation_day')(e.target.value)}
-                          className="w-16 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-purple-500 text-center" />
+                          className="w-16 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-purple-500 text-center text-gray-900" />
                         <span className="text-xs text-gray-400">일에 다음달 일정 자동 생성</span>
                       </div>
                     </div>
