@@ -316,12 +316,14 @@ export default function NoticesPage() {
                 {isExpanded && (
                   <div className="border-t border-gray-100">
                     {notice.image_url && (
-                      <img
-                        src={notice.image_url}
-                        alt={notice.title}
-                        className="w-full h-auto cursor-zoom-in"
-                        onClick={() => setLightboxUrl(notice.image_url)}
-                      />
+                      <div className="flex justify-center px-4 pt-3">
+                        <img
+                          src={notice.image_url}
+                          alt={notice.title}
+                          className="max-w-full max-h-64 w-auto h-auto object-contain rounded-lg cursor-zoom-in"
+                          onClick={() => setLightboxUrl(notice.image_url)}
+                        />
+                      </div>
                     )}
                     <div className="px-4 py-3">
                       <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">{notice.content}</p>
