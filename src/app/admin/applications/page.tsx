@@ -618,6 +618,7 @@ export default function ServiceManagementPage() {
   useModalBackButton(!!selected, closePanel)
 
   const todayStr = new Date().toISOString().slice(0, 10)
+  const sevenDaysAgoStr = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
 
   const isCashNoVat = paymentMethod === '현금(부가세 X)'
   const effectiveVat = isCashNoVat ? 0 : (Number(vat) || 0)
@@ -1527,7 +1528,12 @@ export default function ServiceManagementPage() {
                             )}
                           </td>
                           <td className="px-3 py-2.5 max-w-[140px]">
-                            <div className="font-medium text-gray-900 truncate text-sm leading-tight">{app.business_name}</div>
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-medium text-gray-900 truncate text-sm leading-tight">{app.business_name}</span>
+                              {app.created_at > sevenDaysAgoStr && (
+                                <span className="text-[9px] font-bold bg-red-500 text-white px-1 py-0.5 rounded-full shrink-0">NEW</span>
+                              )}
+                            </div>
                             {app.address && (
                               <div className="text-xs text-gray-400 truncate mt-0.5 leading-tight">{app.address}</div>
                             )}

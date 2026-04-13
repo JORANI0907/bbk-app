@@ -128,14 +128,19 @@ export default function MyRequestsPage() {
         <div className="space-y-3">
           {requests.map(req => (
             <button key={req.id} onClick={() => handleOpen(req)}
-              className={`w-full text-left bg-white rounded-xl border shadow-sm p-4 hover:shadow-md transition-shadow ${!req.requester_read && req.admin_memo ? 'border-blue-200' : 'border-gray-100'}`}>
+              className={`w-full text-left bg-white rounded-xl border shadow-sm p-4 hover:shadow-md transition-shadow ${!req.requester_read && req.admin_memo ? 'border-red-300 bg-red-50/30' : 'border-gray-100'}`}>
               <div className="flex items-start justify-between gap-2 mb-1">
-                <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">
-                  {CATEGORY_LABELS[req.category] ?? req.category}
-                </span>
                 <div className="flex items-center gap-1.5">
                   {!req.requester_read && req.admin_memo && (
-                    <span className="text-[10px] bg-blue-500 text-white px-1.5 py-0.5 rounded-full">NEW</span>
+                    <span className="w-2 h-2 rounded-full bg-red-500 shrink-0" />
+                  )}
+                  <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">
+                    {CATEGORY_LABELS[req.category] ?? req.category}
+                  </span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  {!req.requester_read && req.admin_memo && (
+                    <span className="text-[10px] bg-red-500 text-white px-1.5 py-0.5 rounded-full">NEW</span>
                   )}
                   <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${STATUS_BADGE[req.status]}`}>
                     {STATUS_LABELS[req.status]}

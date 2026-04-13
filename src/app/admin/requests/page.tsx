@@ -321,9 +321,14 @@ function AdminRequestView() {
                 {filtered.map(req => (
                   <tr key={req.id}
                     onClick={() => { setSelected(req); setAdminMemo(req.admin_memo ?? '') }}
-                    className={`border-b border-gray-50 cursor-pointer hover:bg-gray-50 transition-colors ${!req.requester_read ? 'bg-blue-50/30' : ''}`}>
+                    className={`border-b border-gray-50 cursor-pointer hover:bg-gray-50 transition-colors ${req.status === 'pending' ? 'bg-red-50/30' : ''}`}>
                     <td className="px-4 py-3">
-                      <p className="font-medium text-gray-900">{req.requester_name}</p>
+                      <div className="flex items-center gap-2">
+                        {req.status === 'pending' && (
+                          <span className="w-2 h-2 rounded-full bg-red-500 shrink-0" />
+                        )}
+                        <p className="font-medium text-gray-900">{req.requester_name}</p>
+                      </div>
                     </td>
                     <td className="px-4 py-3">
                       <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">
@@ -332,8 +337,8 @@ function AdminRequestView() {
                     </td>
                     <td className="px-4 py-3 text-gray-700 max-w-xs">
                       <p className="truncate">{req.content}</p>
-                      {!req.requester_read && (
-                        <span className="text-[10px] bg-blue-500 text-white px-1.5 py-0.5 rounded-full">NEW</span>
+                      {req.status === 'pending' && (
+                        <span className="text-[10px] bg-red-500 text-white px-1.5 py-0.5 rounded-full">NEW</span>
                       )}
                     </td>
                     <td className="px-4 py-3">

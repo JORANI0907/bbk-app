@@ -190,6 +190,9 @@ export default function NoticesPage() {
 
   const filtered = tab === 'all' ? notices : notices.filter(n => n.type === tab)
 
+  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
+  const isNew = (createdAt: string) => new Date(createdAt) > sevenDaysAgo
+
   const formatDate = (iso: string) => {
     const d = new Date(iso)
     return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`
@@ -250,6 +253,9 @@ export default function NoticesPage() {
                     <div className="flex items-center gap-1.5 flex-wrap mb-1.5">
                       {notice.pinned && (
                         <span className="text-xs font-bold text-brand-600">📌</span>
+                      )}
+                      {isNew(notice.created_at) && (
+                        <span className="text-[10px] font-bold bg-red-500 text-white px-1.5 py-0.5 rounded-full">NEW</span>
                       )}
                       <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${TYPE_BADGE[notice.type]}`}>
                         {TYPE_LABELS[notice.type]}

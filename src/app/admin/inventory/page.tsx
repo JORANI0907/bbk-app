@@ -652,6 +652,7 @@ export default function AdminInventoryPage() {
             filteredItems.map(item => {
               const cfg = CATEGORY_CONFIG[item.category]
               const isSelected = selectedItem?.id === item.id
+              const isLow = item.current_qty <= item.min_qty
               return (
                 <button
                   key={item.id}
@@ -659,16 +660,21 @@ export default function AdminInventoryPage() {
                   className={`w-full text-left px-3 py-2.5 rounded-xl transition-colors border ${
                     isSelected
                       ? 'bg-blue-50 border-blue-200'
-                      : 'bg-white border-transparent hover:bg-gray-50 hover:border-gray-200'
+                      : isLow
+                        ? 'bg-red-50/40 border-red-200 hover:bg-red-50'
+                        : 'bg-white border-transparent hover:bg-gray-50 hover:border-gray-200'
                   }`}
                 >
                   <div className="flex items-center gap-2">
-                    <span className={`w-2 h-2 rounded-full shrink-0 ${cfg.dot}`} />
+                    <span className={`w-2 h-2 rounded-full shrink-0 ${isLow ? 'bg-red-500' : cfg.dot}`} />
                     <span className="flex-1 text-sm font-medium text-gray-900 truncate">{item.item_name}</span>
+                    {isLow && (
+                      <span className="text-[10px] font-bold bg-red-500 text-white px-1.5 py-0.5 rounded-full shrink-0">부족</span>
+                    )}
                   </div>
                   <div className="ml-4 flex items-center justify-between mt-0.5">
                     <span className="text-xs text-gray-400">{cfg.label}</span>
-                    <span className="text-xs font-semibold text-gray-700">
+                    <span className={`text-xs font-semibold ${isLow ? 'text-red-600' : 'text-gray-700'}`}>
                       {item.current_qty} {item.unit}
                     </span>
                   </div>

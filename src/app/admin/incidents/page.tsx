@@ -94,17 +94,21 @@ interface IncidentCardProps {
 }
 
 function IncidentCard({ report, isSelected, onClick }: IncidentCardProps) {
+  const isPending = report.status === 'pending'
   return (
     <button
       onClick={onClick}
       className={`text-left w-full bg-white rounded-2xl border shadow-sm p-4 hover:shadow-md transition-all ${
-        isSelected ? 'border-blue-500 ring-2 ring-blue-200' : 'border-gray-100'
+        isSelected ? 'border-blue-500 ring-2 ring-blue-200' : isPending ? 'border-red-200' : 'border-gray-100'
       }`}
     >
       <div className="flex items-start justify-between gap-2 mb-2">
-        <span className="text-xs font-semibold bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">
-          {TYPE_CONFIG[report.type] ?? report.type}
-        </span>
+        <div className="flex items-center gap-1.5">
+          {isPending && <span className="w-2 h-2 rounded-full bg-red-500 shrink-0" />}
+          <span className="text-xs font-semibold bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">
+            {TYPE_CONFIG[report.type] ?? report.type}
+          </span>
+        </div>
         <StatusBadge status={report.status} />
       </div>
       <p className="text-sm font-medium text-gray-900 mb-1 truncate">
