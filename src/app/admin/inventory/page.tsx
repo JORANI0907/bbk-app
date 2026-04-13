@@ -448,7 +448,7 @@ export default function AdminInventoryPage() {
   })
 
   const needsPhoto = PHOTO_REQUIRED.includes(txType)
-  const canSubmit = needsPhoto ? !!txPhoto : true
+  const canSubmit = (needsPhoto && !!inventoryFolder) ? !!txPhoto : true
 
   return (
     <div className="flex flex-col h-screen bg-gray-50 overflow-hidden">
@@ -811,7 +811,13 @@ export default function AdminInventoryPage() {
                 {(['receive', 'use', 'return', 'adjust'] as const).map(type => (
                   <button
                     key={type}
-                    onClick={() => openTxModal(type)}
+                    onClick={() => {
+                      if (role === 'worker' && (type === 'receive' || type === 'adjust')) {
+                        toast.error('직원은 사용할 수 없는 기능입니다.')
+                        return
+                      }
+                      openTxModal(type)
+                    }}
                     className={`py-2.5 rounded-lg text-sm font-medium transition-colors border ${TX_BUTTON_STYLE[type]}`}
                   >
                     <div>{TX_LABELS[type]}</div>
@@ -992,7 +998,7 @@ export default function AdminInventoryPage() {
                   value={txQty}
                   onChange={e => setTxQty(e.target.value)}
                   placeholder="0.0"
-                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-center text-lg font-bold"
+                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-center text-lg font-bold text-gray-900"
                   autoFocus
                 />
               </div>
@@ -1003,7 +1009,7 @@ export default function AdminInventoryPage() {
                   onChange={e => setTxNote(e.target.value)}
                   placeholder="(선택)"
                   rows={2}
-                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none text-gray-900"
                 />
               </div>
 
@@ -1015,26 +1021,39 @@ export default function AdminInventoryPage() {
                 </label>
 
                 {!inventoryFolder && (
-                  <p className="text-xs text-red-500 bg-red-50 rounded-lg px-2 py-1.5 mb-2">
-                    Drive 저장 위치가 설정되지 않았습니다.
-                    {role === 'admin' ? ' ⚙️ 저장 위치 버튼에서 설정해주세요.' : ' 관리자에게 문의해주세요.'}
+                  <p className="text-xs text-amber-600 bg-amber-50 rounded-lg px-2 py-1.5 mb-2">
+                    {role === 'admin'
+                      ? 'Drive 저장 위치가 설정되지 않았습니다. ⚙️ 저장 위치 버튼에서 설정해주세요.'
+                      : 'Drive 저장 위치 미설정 — 사진 없이 처리됩니다.'}
                   </p>
                 )}
 
-                <label className={`flex items-center gap-2 cursor-pointer ${!inventoryFolder ? 'opacity-50 pointer-events-none' : ''}`}>
-                  <span className="px-4 py-2 rounded-lg bg-gray-50 border border-gray-200 text-sm text-gray-600 hover:bg-gray-100 transition-colors">
-                    📷 사진 촬영 / 선택
-                  </span>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    capture="environment"
-                    onChange={handlePhotoCapture}
-                    className="hidden"
-                    disabled={!inventoryFolder}
-                  />
-                  {txPhoto && <span className="text-xs text-green-600">✓ {txPhoto.name}</span>}
-                </label>
+                <div className="flex gap-2">
+                  <label className="flex-1 cursor-pointer">
+                    <span className="flex items-center justify-center gap-1 px-3 py-2 rounded-lg bg-gray-50 border border-gray-200 text-sm text-gray-600 hover:bg-gray-100 transition-colors">
+                      📷 카메라
+                    </span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      capture="environment"
+                      onChange={handlePhotoCapture}
+                      className="hidden"
+                    />
+                  </label>
+                  <label className="flex-1 cursor-pointer">
+                    <span className="flex items-center justify-center gap-1 px-3 py-2 rounded-lg bg-gray-50 border border-gray-200 text-sm text-gray-600 hover:bg-gray-100 transition-colors">
+                      🖼️ 갤러리
+                    </span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handlePhotoCapture}
+                      className="hidden"
+                    />
+                  </label>
+                </div>
+                {txPhoto && <span className="text-xs text-green-600 mt-1 block">✓ {txPhoto.name}</span>}
 
                 {txPhotoPreview && (
                   <img src={txPhotoPreview} alt="미리보기" className="mt-2 w-full h-32 object-cover rounded-lg" />

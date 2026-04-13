@@ -11,7 +11,7 @@ export async function GET(request: NextRequest) {
 
   let query = supabase
     .from('service_applications')
-    .select('*')
+    .select('*, customer:customers(drive_folder_url)')
     .order('created_at', { ascending: false })
 
   if (status) {

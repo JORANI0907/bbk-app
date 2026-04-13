@@ -37,6 +37,7 @@ interface Application {
   business_number: string | null
   account_number: string | null
   drive_folder_url: string | null
+  customer?: { drive_folder_url: string | null } | null
   // 작업 추적
   work_status: string | null
   work_started_at: string | null
@@ -554,18 +555,23 @@ function DetailPanel({
         <div className="shrink-0 bg-white border-t border-gray-100 px-5 py-4 space-y-2"
           style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 16px)' }}>
           {/* 버튼 1: 사진보기 */}
-          <button
-            onClick={() => app.drive_folder_url
-              ? openGoogleDrive(app.drive_folder_url)
-              : toast.error('Google Drive 폴더가 아직 생성되지 않았습니다.\n서비스관리 탭에서 먼저 폴더를 생성해주세요.')}
-            className={`w-full py-3 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 transition-colors ${
-              app.drive_folder_url
-                ? 'bg-blue-600 hover:bg-blue-700 text-white'
-                : 'bg-gray-100 text-gray-400 cursor-not-allowed'
-            }`}
-          >
-            📷 사진보기 {!app.drive_folder_url && '(폴더 미연결)'}
-          </button>
+          {(() => {
+            const folderUrl = app.drive_folder_url ?? app.customer?.drive_folder_url ?? null
+            return (
+              <button
+                onClick={() => folderUrl
+                  ? openGoogleDrive(folderUrl)
+                  : toast.error('Google Drive 폴더가 아직 생성되지 않았습니다.\n서비스관리 탭에서 먼저 폴더를 생성해주세요.')}
+                className={`w-full py-3 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 transition-colors ${
+                  folderUrl
+                    ? 'bg-blue-600 hover:bg-blue-700 text-white'
+                    : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                }`}
+              >
+                📷 사진보기 {!folderUrl && '(폴더 미연결)'}
+              </button>
+            )
+          })()}
 
           {/* 버튼 2: 작업 시작/현황 */}
           <button
