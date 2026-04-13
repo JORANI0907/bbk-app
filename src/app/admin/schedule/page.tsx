@@ -5,6 +5,7 @@ import toast from 'react-hot-toast'
 
 import { WorkPanel } from '@/components/admin/WorkPanel'
 import { openGoogleDrive } from '@/lib/mapUtils'
+import { loadGoogleAPIs, requestGoogleToken, searchDriveFoldersByName, GOOGLE_CLIENT_ID } from '@/lib/googleDrive'
 import { useModalBackButton } from '@/hooks/useModalBackButton'
 import { MonthNavigator } from '@/components/MonthNavigator'
 import { LoadingSpinner } from '@/components/admin/LoadingSpinner'
@@ -358,6 +359,40 @@ function DetailPanel({
   const [showWorkPanel, setShowWorkPanel] = useState(
     app.work_status === 'in_progress' || app.work_status === 'completed'
   )
+  const [driveSearching, setDriveSearching] = useState(false)
+  const [driveFolders, setDriveFolders] = useState<Array<{ id: string; name: string; webViewLink: string }>>([])
+  const [showDriveModal, setShowDriveModal] = useState(false)
+
+  const handleViewPhotos = async () => {
+    // Google API 미설정 시 저장된 URL로 fallback
+    if (!GOOGLE_CLIENT_ID) {
+      const fallbackUrl = app.drive_folder_url ?? app.customer?.drive_folder_url ?? null
+      if (fallbackUrl) { openGoogleDrive(fallbackUrl); return }
+      toast.error('Google Drive 폴더가 연결되지 않았습니다.')
+      return
+    }
+    setDriveSearching(true)
+    try {
+      await loadGoogleAPIs()
+      const token = await requestGoogleToken()
+      const folders = await searchDriveFoldersByName(app.business_name, token)
+      if (folders.length === 0) {
+        // 검색 결과 없으면 저장된 URL로 fallback
+        const fallbackUrl = app.drive_folder_url ?? app.customer?.drive_folder_url ?? null
+        if (fallbackUrl) { openGoogleDrive(fallbackUrl); return }
+        toast.error(`"${app.business_name}" 드라이브 폴더를 찾을 수 없습니다.`)
+      } else if (folders.length === 1) {
+        window.open(folders[0].webViewLink, '_blank')
+      } else {
+        setDriveFolders(folders)
+        setShowDriveModal(true)
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Drive 검색 실패')
+    } finally {
+      setDriveSearching(false)
+    }
+  }
 
   async function handleDelete() {
     if (!confirm(`"${app.business_name}" 일정을 삭제하시겠습니까?\n서비스 신청 내용도 함께 삭제됩니다.`)) return
@@ -554,24 +589,19 @@ function DetailPanel({
         {/* 하단 액션 버튼 영역 */}
         <div className="shrink-0 bg-white border-t border-gray-100 px-5 py-4 space-y-2"
           style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 16px)' }}>
-          {/* 버튼 1: 사진보기 */}
-          {(() => {
-            const folderUrl = app.drive_folder_url ?? app.customer?.drive_folder_url ?? null
-            return (
-              <button
-                onClick={() => folderUrl
-                  ? openGoogleDrive(folderUrl)
-                  : toast.error('Google Drive 폴더가 아직 생성되지 않았습니다.\n서비스관리 탭에서 먼저 폴더를 생성해주세요.')}
-                className={`w-full py-3 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 transition-colors ${
-                  folderUrl
-                    ? 'bg-blue-600 hover:bg-blue-700 text-white'
-                    : 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                }`}
-              >
-                📷 사진보기 {!folderUrl && '(폴더 미연결)'}
-              </button>
-            )
-          })()}
+          {/* 버튼 1: 사진보기 — 업체명으로 Drive 폴더 검색 */}
+          <button
+            onClick={handleViewPhotos}
+            disabled={driveSearching}
+            className="w-full py-3 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 transition-colors bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-60"
+          >
+            {driveSearching ? (
+              <>
+                <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                드라이브 검색 중...
+              </>
+            ) : '📷 사진보기'}
+          </button>
 
           {/* 버튼 2: 작업 시작/현황 */}
           <button
@@ -614,6 +644,34 @@ function DetailPanel({
           </div>
         )}
       </div>
+
+      {/* Drive 폴더 선택 모달 (검색 결과 여러 개일 때) */}
+      {showDriveModal && (
+        <div className="fixed inset-0 bg-black/50 z-[70] flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl w-full max-w-xs p-5 shadow-xl">
+            <h3 className="font-bold text-gray-900 mb-1">폴더 선택</h3>
+            <p className="text-xs text-gray-400 mb-3">{app.business_name} 관련 폴더 {driveFolders.length}개</p>
+            <div className="space-y-2 max-h-64 overflow-y-auto">
+              {driveFolders.map(f => (
+                <button
+                  key={f.id}
+                  onClick={() => { window.open(f.webViewLink, '_blank'); setShowDriveModal(false) }}
+                  className="w-full text-left px-3 py-2.5 rounded-xl hover:bg-blue-50 text-sm text-gray-800 border border-gray-100 flex items-center gap-2"
+                >
+                  <span className="text-base shrink-0">📁</span>
+                  <span className="truncate">{f.name}</span>
+                </button>
+              ))}
+            </div>
+            <button
+              onClick={() => setShowDriveModal(false)}
+              className="mt-3 w-full py-2 text-sm text-gray-500 hover:text-gray-700"
+            >
+              취소
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

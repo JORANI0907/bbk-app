@@ -227,6 +227,30 @@ export function saveInventoryFolderCookie(folder: DriveFolder): void {
   document.cookie = `${INVENTORY_FOLDER_COOKIE_KEY}=${encodeURIComponent(JSON.stringify(folder))};expires=${exp.toUTCString()};path=/`
 }
 
+/**
+ * 업체명(이름 포함)으로 Google Drive 폴더 검색
+ * 예: "범빌드코리아" → "20260413 범빌드코리아" 형태의 폴더 검색
+ */
+export async function searchDriveFoldersByName(
+  businessName: string,
+  accessToken: string
+): Promise<Array<{ id: string; name: string; webViewLink: string }>> {
+  const safe = businessName.replace(/'/g, "\\'")
+  const q = encodeURIComponent(
+    `name contains '${safe}' and mimeType = 'application/vnd.google-apps.folder' and trashed = false`
+  )
+  const res = await fetch(
+    `https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id,name,webViewLink)&supportsAllDrives=true&includeItemsFromAllDrives=true&pageSize=20&orderBy=name desc`,
+    { headers: { Authorization: `Bearer ${accessToken}` } }
+  )
+  if (!res.ok) {
+    const err = await res.json()
+    throw new Error(err.error?.message ?? `Drive 검색 실패 (${res.status})`)
+  }
+  const data = await res.json()
+  return (data.files ?? []) as Array<{ id: string; name: string; webViewLink: string }>
+}
+
 // ─── Drive 파일 업로드 (multipart) ────────────────────────────
 export async function uploadFileToDrive(
   file: File,
