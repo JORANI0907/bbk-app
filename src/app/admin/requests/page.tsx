@@ -234,6 +234,7 @@ function AdminRequestView() {
   }, [statusFilter])
 
   useEffect(() => { fetchRequests() }, [fetchRequests])
+  useEffect(() => { fetch('/api/admin/nav-badges?key=requests', { method: 'DELETE' }).catch(() => {}) }, [])
 
   const handleStatusChange = async (newStatus: 'approved' | 'rejected') => {
     if (!selected) return

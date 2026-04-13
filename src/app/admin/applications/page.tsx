@@ -655,6 +655,7 @@ export default function ServiceManagementPage() {
   }, [])
 
   useEffect(() => { fetchAll() }, [fetchAll])
+  useEffect(() => { fetch('/api/admin/nav-badges?key=applications', { method: 'DELETE' }).catch(() => {}) }, [])
 
   const handleSelect = (app: Application) => {
     setSelected(app)

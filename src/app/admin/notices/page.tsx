@@ -104,6 +104,7 @@ export default function NoticesPage() {
   }, [])
 
   useEffect(() => { fetchNotices() }, [fetchNotices])
+  useEffect(() => { fetch('/api/admin/nav-badges?key=notices', { method: 'DELETE' }).catch(() => {}) }, [])
 
   const openCreate = () => {
     setEditTarget(null)

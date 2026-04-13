@@ -148,6 +148,7 @@ export default function AdminInventoryPage() {
     setInventoryFolder(getSavedInventoryFolder())
     fetchItems()
     fetch('/api/auth/me').then(r => r.json()).then(d => setRole(d.user?.role ?? ''))
+    fetch('/api/admin/nav-badges?key=inventory', { method: 'DELETE' }).catch(() => {})
     // Google API 스크립트 사전 로드
     loadGoogleAPIs()
       .then(() => setApisReady(true))

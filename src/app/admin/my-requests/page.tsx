@@ -65,6 +65,7 @@ export default function MyRequestsPage() {
   }, [])
 
   useEffect(() => { fetchRequests() }, [fetchRequests])
+  useEffect(() => { fetch('/api/admin/nav-badges?key=worker_requests', { method: 'DELETE' }).catch(() => {}) }, [])
 
   const markRead = useCallback(async (id: string) => {
     try {

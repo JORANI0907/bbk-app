@@ -433,6 +433,7 @@ export default function IncidentsPage() {
   useEffect(() => {
     fetchReports()
   }, [fetchReports])
+  useEffect(() => { fetch('/api/admin/nav-badges?key=incidents', { method: 'DELETE' }).catch(() => {}) }, [])
 
   // 경위서 선택
   const handleSelect = useCallback((report: IncidentReport) => {
