@@ -23,13 +23,15 @@ interface Notice {
 
 interface Schedule {
   id: string
-  scheduled_date: string
+  scheduled_date: string | null
   scheduled_time_start: string | null
+  care_scope: string | null
+  service_type: string | null
   customer: {
-    business_name: string
-    address: string
-    contact_name: string
-    contact_phone: string
+    business_name: string | null
+    address: string | null
+    contact_name: string | null
+    contact_phone: string | null
   } | null
 }
 
@@ -201,16 +203,8 @@ function TodayScheduleCard({ role, userId }: { role: string; userId: string }) {
     fetch(`/api/admin/schedules?date=${today}`)
       .then(r => r.json())
       .then(d => {
-        const all: Schedule[] = d.schedules ?? []
-        // worker는 본인에게 배정된 일정만 클라이언트 필터링
-        if (role === 'worker' && userId) {
-          setSchedules(all.filter(s => {
-            const sch = s as Schedule & { assigned_user_id?: string; customer?: { assigned_user_id?: string } }
-            return sch.assigned_user_id === userId || sch.customer?.assigned_user_id === userId
-          }))
-        } else {
-          setSchedules(all)
-        }
+        // 서버사이드에서 role/userId 기반 필터링이 완료된 결과를 그대로 사용
+        setSchedules(d.schedules ?? [])
       })
       .catch(() => {})
       .finally(() => setLoading(false))
@@ -240,8 +234,18 @@ function TodayScheduleCard({ role, userId }: { role: string; userId: string }) {
               {sch.customer?.address && (
                 <p className="text-xs text-gray-400 truncate mt-0.5">{sch.customer.address}</p>
               )}
-              {sch.scheduled_time_start && (
-                <p className="text-xs text-blue-500 mt-0.5">{sch.scheduled_time_start.slice(0, 5)}</p>
+              <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                {sch.scheduled_date && (
+                  <span className="text-xs text-gray-500">
+                    시공일: {sch.scheduled_date.slice(2).replace(/-/g, '.')}
+                  </span>
+                )}
+                {sch.scheduled_time_start && (
+                  <span className="text-xs text-blue-500">{sch.scheduled_time_start.slice(0, 5)}</span>
+                )}
+              </div>
+              {sch.care_scope && (
+                <p className="text-xs text-gray-400 mt-0.5">{sch.care_scope}</p>
               )}
             </div>
           ))}

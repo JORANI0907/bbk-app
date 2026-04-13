@@ -1,25 +1,67 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
+import { getServerSession } from '@/lib/session'
+
+interface ServiceApplication {
+  id: string
+  construction_date: string | null
+  business_hours_start: string | null
+  care_scope: string | null
+  service_type: string | null
+  business_name: string | null
+  owner_name: string | null
+  address: string | null
+  phone: string | null
+  assigned_to: string | null
+  status: string | null
+}
 
 export async function GET(request: NextRequest) {
-  const supabase = createServiceClient()
+  const session = getServerSession()
+  if (!session) {
+    return NextResponse.json({ error: '인증이 필요합니다.' }, { status: 401 })
+  }
+
   const { searchParams } = new URL(request.url)
   const date = searchParams.get('date')
 
-  let query = supabase
-    .from('service_schedules')
-    .select(`*, customer:customers(id,business_name,address,contact_name,contact_phone), worker:users(id,name)`)
-    .order('scheduled_date', { ascending: true })
-    .order('scheduled_time_start', { ascending: true })
+  if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    return NextResponse.json({ error: 'date 파라미터가 필요합니다. (YYYY-MM-DD)' }, { status: 400 })
+  }
 
-  if (date) {
-    query = query.eq('scheduled_date', date)
+  const supabase = createServiceClient()
+
+  let query = supabase
+    .from('service_applications')
+    .select('id, construction_date, business_hours_start, care_scope, service_type, business_name, owner_name, address, phone, assigned_to, status')
+    .eq('construction_date', date)
+    .order('business_hours_start', { ascending: true, nullsFirst: false })
+
+  if (session.role === 'worker') {
+    query = query.eq('assigned_to', session.userId)
   }
 
   const { data, error } = await query
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json({ schedules: data })
+
+  const schedules = (data as ServiceApplication[]).map(app => ({
+    id: app.id,
+    scheduled_date: app.construction_date,
+    scheduled_time_start: app.business_hours_start,
+    care_scope: app.care_scope,
+    service_type: app.service_type,
+    assigned_to: app.assigned_to,
+    status: app.status,
+    customer: {
+      business_name: app.business_name,
+      contact_name: app.owner_name,
+      contact_phone: app.phone,
+      address: app.address,
+    },
+  }))
+
+  return NextResponse.json({ schedules })
 }
 
 export async function POST(request: NextRequest) {
