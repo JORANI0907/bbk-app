@@ -1,11 +1,12 @@
 'use client'
 
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import toast from 'react-hot-toast'
 import {
   loadGoogleAPIs,
   requestGoogleToken,
   openFolderPicker,
+  resolveFolder,
   uploadFileToDrive,
   getSavedInventoryFolder,
   saveInventoryFolderCookie,
@@ -139,9 +140,6 @@ export default function AdminInventoryPage() {
   const [adminLogsLoading, setAdminLogsLoading] = useState(false)
   const [logMonth, setLogMonth] = useState(() => new Date().toISOString().slice(0, 7))
   const [logType, setLogType] = useState<'all' | 'use' | 'return'>('all')
-
-  // OAuth 토큰 캐시 (사진 선택 시 시작된 Promise)
-  const tokenPromiseRef = useRef<Promise<string> | null>(null)
 
   // ── 초기화 ──────────────────────────────────────────────────
   useEffect(() => {
@@ -295,25 +293,14 @@ export default function AdminInventoryPage() {
     setTxNote('')
     setTxPhoto(null)
     setTxPhotoPreview(null)
-    tokenPromiseRef.current = null
     setShowTxModal(true)
   }
 
-  // ── 사진 선택 시: 동기적으로 OAuth 시작 (user gesture 유지) ──
   const handlePhotoCapture = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
     setTxPhoto(file)
     setTxPhotoPreview(URL.createObjectURL(file))
-
-    // 사진 선택은 user gesture → 이 시점에 await 없이 OAuth 시작
-    if (apisReady && inventoryFolder && !tokenPromiseRef.current) {
-      tokenPromiseRef.current = requestGoogleToken()
-        .catch(err => {
-          tokenPromiseRef.current = null
-          throw err
-        })
-    }
   }
 
   // ── Drive 저장 위치 설정 (관리자) ─────────────────────────────
@@ -325,19 +312,20 @@ export default function AdminInventoryPage() {
     }
     // OAuth 시작 (동기, user gesture 맥락)
     requestGoogleToken()
-      .then(token => openFolderPicker(token))
-      .then(async folder => {
-        if (folder) {
-          saveInventoryFolderCookie(folder)
-          setInventoryFolder(folder)
-          // DB에 저장하여 모든 기기에서 공유
-          await fetch('/api/inventory/drive-folder', {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ folder }),
-          }).catch(() => {})
-          toast.success(`저장 위치 설정 완료: ${folder.name}`)
-        }
+      .then(async token => {
+        const picked = await openFolderPicker(token)
+        if (!picked) return
+        // 바로가기 폴더인 경우 실제 폴더 ID로 resolve
+        const folder = await resolveFolder(picked, token)
+        saveInventoryFolderCookie(folder)
+        setInventoryFolder(folder)
+        // DB에 저장하여 모든 기기에서 공유
+        await fetch('/api/inventory/drive-folder', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ folder }),
+        }).catch(() => {})
+        toast.success(`저장 위치 설정 완료: ${folder.name}`)
       })
       .catch(err => toast.error(err instanceof Error ? err.message : 'Drive 설정 실패'))
   }
@@ -367,21 +355,20 @@ export default function AdminInventoryPage() {
     try {
       let photoUrl: string | null = null
       if (txPhoto && inventoryFolder) {
-        let token: string
-        if (tokenPromiseRef.current) {
-          token = await tokenPromiseRef.current
-        } else {
-          // fallback: 직접 요청 (팝업 차단될 수 있음)
-          token = await requestGoogleToken()
+        try {
+          const token = await requestGoogleToken()
+          const ext = txPhoto.name.split('.').pop() ?? 'jpg'
+          const result = await uploadFileToDrive(
+            txPhoto,
+            inventoryFolder.id,
+            `재고_${selectedItem.item_name}_${Date.now()}.${ext}`,
+            token
+          )
+          photoUrl = result.fileUrl
+        } catch (uploadErr) {
+          const msg = uploadErr instanceof Error ? uploadErr.message : '사진 업로드 실패'
+          toast.error(`사진 업로드 실패: ${msg}\n사진 없이 처리합니다.`, { duration: 4000 })
         }
-        const ext = txPhoto.name.split('.').pop() ?? 'jpg'
-        const result = await uploadFileToDrive(
-          txPhoto,
-          inventoryFolder.id,
-          `재고_${selectedItem.item_name}_${Date.now()}.${ext}`,
-          token
-        )
-        photoUrl = result.fileUrl
       }
 
       const res = await fetch('/api/inventory/transaction', {
@@ -407,7 +394,6 @@ export default function AdminInventoryPage() {
       toast.success('처리되었습니다')
       fetchLogs(selectedItem.id)
     } catch (err) {
-      tokenPromiseRef.current = null
       toast.error(err instanceof Error ? err.message : '처리 실패')
     } finally {
       setTxLoading(false)

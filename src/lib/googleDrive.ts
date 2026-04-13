@@ -42,14 +42,14 @@ export function loadGoogleAPIs(): Promise<void> {
   })
 }
 
-/** OAuth2 액세스 토큰 요청 (Google 로그인 팝업) */
+/** OAuth2 액세스 토큰 요청 (Google 로그인 팝업) — 60초 타임아웃 */
 export function requestGoogleToken(): Promise<string> {
   if (!GOOGLE_CLIENT_ID) {
     return Promise.reject(new Error(
       'NEXT_PUBLIC_GOOGLE_CLIENT_ID가 설정되지 않았습니다.\n.env.local과 Netlify 환경변수를 확인해주세요.'
     ))
   }
-  return new Promise((resolve, reject) => {
+  const authPromise = new Promise<string>((resolve, reject) => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const g = (window as any).google
     const tokenClient = g.accounts.oauth2.initTokenClient({
@@ -62,6 +62,10 @@ export function requestGoogleToken(): Promise<string> {
     })
     tokenClient.requestAccessToken()
   })
+  const timeoutPromise = new Promise<never>((_, reject) =>
+    setTimeout(() => reject(new Error('Google 인증 시간 초과 (60초). 다시 시도해주세요.')), 60_000)
+  )
+  return Promise.race([authPromise, timeoutPromise])
 }
 
 /** OAuth2 액세스 토큰 요청 (Sheets + Drive + Gmail 스코프) */
