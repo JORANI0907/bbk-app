@@ -38,7 +38,7 @@ export async function PATCH(request: NextRequest) {
   const { data, error } = await supabase
     .from('app_settings')
     .upsert(
-      { key, value, updated_at: new Date().toISOString(), updated_by: session.userId },
+      { key, value, updated_at: new Date().toISOString() },
       { onConflict: 'key' }
     )
     .select()
