@@ -607,12 +607,14 @@ export default function AdminInventoryPage() {
                   ⚙️ 저장 위치
                 </button>
               )}
-              <button
-                onClick={() => setShowAddModal(true)}
-                className="text-xs px-3 py-1 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors font-medium"
-              >
-                + 추가
-              </button>
+              {role === 'admin' && (
+                <button
+                  onClick={() => setShowAddModal(true)}
+                  className="text-xs px-3 py-1 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors font-medium"
+                >
+                  + 추가
+                </button>
+              )}
             </div>
           </div>
 

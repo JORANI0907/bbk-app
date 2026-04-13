@@ -210,21 +210,36 @@ export function saveDriveFolderCookie(folder: DriveFolder) {
   document.cookie = `${COOKIE_KEY}=${encodeURIComponent(JSON.stringify(folder))};expires=${exp.toUTCString()};path=/`
 }
 
-// ─── 재고 사진 폴더 쿠키 ──────────────────────────────────────
-const INVENTORY_FOLDER_COOKIE_KEY = 'bbk_inventory_folder'
+// ─── 재고 사진 폴더 저장 (localStorage 우선, cookie 병행) ────────
+const INVENTORY_FOLDER_KEY = 'bbk_inventory_folder'
 
 export function getSavedInventoryFolder(): DriveFolder | null {
-  if (typeof document === 'undefined') return null
+  if (typeof window === 'undefined') return null
   try {
-    const m = document.cookie.match(new RegExp(`(?:^|; )${INVENTORY_FOLDER_COOKIE_KEY}=([^;]+)`))
-    return m ? JSON.parse(decodeURIComponent(m[1])) : null
-  } catch { return null }
+    // localStorage 우선 조회
+    const ls = localStorage.getItem(INVENTORY_FOLDER_KEY)
+    if (ls) return JSON.parse(ls)
+    // fallback: 기존 cookie 마이그레이션
+    const m = document.cookie.match(new RegExp(`(?:^|; )${INVENTORY_FOLDER_KEY}=([^;]+)`))
+    if (m) {
+      const val = JSON.parse(decodeURIComponent(m[1]))
+      localStorage.setItem(INVENTORY_FOLDER_KEY, JSON.stringify(val))
+      return val
+    }
+  } catch { /* ignore */ }
+  return null
 }
 
 export function saveInventoryFolderCookie(folder: DriveFolder): void {
-  const exp = new Date()
-  exp.setFullYear(exp.getFullYear() + 1)
-  document.cookie = `${INVENTORY_FOLDER_COOKIE_KEY}=${encodeURIComponent(JSON.stringify(folder))};expires=${exp.toUTCString()};path=/`
+  try {
+    localStorage.setItem(INVENTORY_FOLDER_KEY, JSON.stringify(folder))
+  } catch { /* ignore */ }
+  // cookie도 병행 저장 (구버전 호환)
+  try {
+    const exp = new Date()
+    exp.setFullYear(exp.getFullYear() + 1)
+    document.cookie = `${INVENTORY_FOLDER_KEY}=${encodeURIComponent(JSON.stringify(folder))};expires=${exp.toUTCString()};path=/;SameSite=Lax`
+  } catch { /* ignore */ }
 }
 
 /**
