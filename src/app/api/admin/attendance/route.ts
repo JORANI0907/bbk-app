@@ -3,11 +3,12 @@ import { createServiceClient } from '@/lib/supabase/server'
 import { getServerSession } from '@/lib/session'
 import { sendSlack } from '@/lib/slack'
 
-const ALLOWED_POST = ['worker_id', 'work_date', 'clock_in', 'clock_out', 'notes',
-  'clock_in_lat', 'clock_in_lng', 'clock_out_lat', 'clock_out_lng', 'worker_name', 'status',
-  'clock_in_photo_url', 'clock_out_photo_url']
+const ALLOWED_POST = ['worker_id', 'work_date', 'clock_in', 'clock_out', 'notes', 'status',
+  'clock_in_lat', 'clock_in_lng', 'clock_out_lat', 'clock_out_lng', 'worker_name',
+  'clock_in_photo_url', 'clock_in_photo_file_id', 'clock_out_photo_url', 'clock_out_photo_file_id']
 const ALLOWED_PATCH = ['clock_out', 'notes', 'clock_in', 'status',
-  'clock_out_lat', 'clock_out_lng', 'clock_in_photo_url', 'clock_out_photo_url']
+  'clock_out_lat', 'clock_out_lng', 'clock_in_photo_url', 'clock_in_photo_file_id',
+  'clock_out_photo_url', 'clock_out_photo_file_id']
 
 export async function GET(request: NextRequest) {
   const session = getServerSession()
@@ -69,8 +70,13 @@ export async function POST(request: NextRequest) {
 
   // Slack 알림 (fire-and-forget)
   const workerName = (insert.worker_name as string) ?? session.name
-  const clockType = insert.clock_out ? '퇴근' : '출근'
-  sendSlack(`[출퇴근] ${workerName} ${clockType}`).catch(() => {})
+  const now = new Date()
+  const timeStr = now.toLocaleTimeString('ko-KR', { timeZone: 'Asia/Seoul', hour: '2-digit', minute: '2-digit' })
+  if (insert.clock_out) {
+    sendSlack(`[퇴근] ${workerName} 퇴근 완료\n시간: ${timeStr}`).catch(() => {})
+  } else {
+    sendSlack(`[출근] ${workerName} 출근\n시간: ${timeStr}`).catch(() => {})
+  }
 
   return NextResponse.json({ data }, { status: 201 })
 }
@@ -94,11 +100,30 @@ export async function PATCH(request: NextRequest) {
   }
 
   const supabase = createServiceClient()
+
+  // 퇴근 시 worker_name 조회용
+  let workerNameForSlack: string | null = null
+  if (updates.clock_out) {
+    const { data: rec } = await supabase
+      .from('attendance')
+      .select('worker_name')
+      .eq('id', id)
+      .maybeSingle()
+    workerNameForSlack = rec?.worker_name ?? session.name
+  }
+
   const { error } = await supabase
     .from('attendance')
     .update(updates)
     .eq('id', id)
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  // 퇴근 Slack 알림 (fire-and-forget)
+  if (updates.clock_out && workerNameForSlack) {
+    const timeStr = new Date().toLocaleTimeString('ko-KR', { timeZone: 'Asia/Seoul', hour: '2-digit', minute: '2-digit' })
+    sendSlack(`[퇴근] ${workerNameForSlack} 퇴근 완료\n시간: ${timeStr}`).catch(() => {})
+  }
+
   return NextResponse.json({ success: true })
 }

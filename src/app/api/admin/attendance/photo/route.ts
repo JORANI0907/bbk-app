@@ -1,7 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from '@/lib/session'
+import { createServiceClient } from '@/lib/supabase/server'
 
-const ATTENDANCE_FOLDER_ID = '1l4xM29aSSRZvU5qWbM61zmQ2GNpH9Nv4'
+const DEFAULT_ATTENDANCE_FOLDER_ID = '1l4xM29aSSRZvU5qWbM61zmQ2GNpH9Nv4'
+
+async function getAttendanceFolderId(): Promise<string> {
+  try {
+    const supabase = createServiceClient()
+    const { data } = await supabase
+      .from('app_settings')
+      .select('value')
+      .eq('key', 'attendance_drive_folder')
+      .maybeSingle()
+    if (data?.value) {
+      const parsed = JSON.parse(data.value) as { id?: string }
+      if (parsed.id) return parsed.id
+    }
+  } catch { /* fall through */ }
+  return DEFAULT_ATTENDANCE_FOLDER_ID
+}
 
 interface ServiceAccountKey {
   client_email: string
@@ -80,9 +97,10 @@ export async function POST(request: NextRequest) {
     const name = workerName ?? session.name ?? '직원'
     const fileName = `${date}_${name}_${typeLabel}_${Date.now()}.jpg`
 
+    const folderId = await getAttendanceFolderId()
     const metadata = {
       name: fileName,
-      parents: [ATTENDANCE_FOLDER_ID],
+      parents: [folderId],
     }
 
     const fileBuffer = await file.arrayBuffer()

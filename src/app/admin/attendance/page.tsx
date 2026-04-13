@@ -90,33 +90,53 @@ function CameraCapture({ onCapture, onCancel }: CameraProps) {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [capturedBlob, setCapturedBlob] = useState<Blob | null>(null)
   const [cameraError, setCameraError] = useState<string | null>(null)
+  const [facingMode, setFacingMode] = useState<'environment' | 'user'>('environment')
+  const [flashEnabled, setFlashEnabled] = useState(false)
 
-  useEffect(() => {
-    navigator.mediaDevices.getUserMedia({
-      video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } }
-    }).then(stream => {
+  const startStream = useCallback(async (facing: 'environment' | 'user') => {
+    streamRef.current?.getTracks().forEach(t => t.stop())
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: facing }, width: { ideal: 1280 }, height: { ideal: 720 } }
+      })
       streamRef.current = stream
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream
-      }
-    }).catch(() => {
+      if (videoRef.current) videoRef.current.srcObject = stream
+    } catch {
       setCameraError('카메라 접근 권한이 필요합니다.')
-    })
-
-    return () => {
-      streamRef.current?.getTracks().forEach(t => t.stop())
     }
   }, [])
+
+  useEffect(() => {
+    startStream('environment')
+    return () => { streamRef.current?.getTracks().forEach(t => t.stop()) }
+  }, [startStream])
+
+  const toggleCamera = () => {
+    const next: 'environment' | 'user' = facingMode === 'environment' ? 'user' : 'environment'
+    setFacingMode(next)
+    setFlashEnabled(false)
+    startStream(next)
+  }
+
+  const toggleFlash = async () => {
+    const track = streamRef.current?.getVideoTracks()[0]
+    if (!track) return
+    const next = !flashEnabled
+    try {
+      await track.applyConstraints({ advanced: [{ torch: next } as MediaTrackConstraintSet] })
+      setFlashEnabled(next)
+    } catch {
+      toast.error('이 기기에서는 플래시를 지원하지 않습니다.')
+    }
+  }
 
   const capture = () => {
     const video = videoRef.current
     const canvas = canvasRef.current
     if (!video || !canvas) return
-
     canvas.width = video.videoWidth
     canvas.height = video.videoHeight
     canvas.getContext('2d')?.drawImage(video, 0, 0)
-
     canvas.toBlob(blob => {
       if (!blob) return
       const url = canvas.toDataURL('image/jpeg', 0.85)
@@ -131,12 +151,7 @@ function CameraCapture({ onCapture, onCancel }: CameraProps) {
     setPhase('preview')
     setPreviewUrl(null)
     setCapturedBlob(null)
-    navigator.mediaDevices.getUserMedia({
-      video: { facingMode: { ideal: 'environment' } }
-    }).then(stream => {
-      streamRef.current = stream
-      if (videoRef.current) videoRef.current.srcObject = stream
-    })
+    startStream(facingMode)
   }
 
   const confirm = () => {
@@ -163,6 +178,27 @@ function CameraCapture({ onCapture, onCancel }: CameraProps) {
         )}
         {phase === 'captured' && previewUrl && (
           <img src={previewUrl} alt="촬영된 사진" className="w-full h-full object-cover" />
+        )}
+        {/* 카메라 조작 버튼 (미리보기 중에만 표시) */}
+        {phase === 'preview' && (
+          <div className="absolute top-2 right-2 flex flex-col gap-2">
+            <button
+              onClick={toggleFlash}
+              title={flashEnabled ? '플래시 끄기' : '플래시 켜기'}
+              className={`w-10 h-10 rounded-full flex items-center justify-center text-lg shadow-md transition-colors ${
+                flashEnabled ? 'bg-yellow-400 text-black' : 'bg-black/60 text-white'
+              }`}
+            >
+              ⚡
+            </button>
+            <button
+              onClick={toggleCamera}
+              title="카메라 전환"
+              className="w-10 h-10 rounded-full bg-black/60 text-white flex items-center justify-center text-lg shadow-md"
+            >
+              🔄
+            </button>
+          </div>
         )}
       </div>
       <canvas ref={canvasRef} className="hidden" />
@@ -490,12 +526,51 @@ function AdminTableView() {
   const [noteValue, setNoteValue] = useState('')
   const [savingNote, setSavingNote] = useState(false)
 
+  // Drive 폴더 설정
+  const [driveFolderId, setDriveFolderId] = useState('')
+  const [driveFolderInput, setDriveFolderInput] = useState('')
+  const [savingFolder, setSavingFolder] = useState(false)
+
   useEffect(() => {
     fetch('/api/admin/workers')
       .then(r => r.json())
       .then(j => setWorkers(j.workers ?? []))
       .catch(() => {})
+    // Drive 폴더 설정 로드
+    fetch('/api/admin/app-settings?key=attendance_drive_folder')
+      .then(r => r.json())
+      .then(j => {
+        if (j.setting?.value) {
+          const parsed = JSON.parse(j.setting.value) as { id?: string }
+          if (parsed.id) { setDriveFolderId(parsed.id); setDriveFolderInput(parsed.id) }
+        }
+      })
+      .catch(() => {})
   }, [])
+
+  const saveDriveFolder = async () => {
+    let id = driveFolderInput.trim()
+    // URL에서 폴더 ID 추출
+    const match = id.match(/\/folders\/([a-zA-Z0-9_-]+)/)
+    if (match) id = match[1]
+    if (!id) { toast.error('폴더 ID를 입력해주세요.'); return }
+    setSavingFolder(true)
+    try {
+      const res = await fetch('/api/admin/app-settings', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key: 'attendance_drive_folder', value: JSON.stringify({ id }) }),
+      })
+      if (!res.ok) throw new Error()
+      setDriveFolderId(id)
+      setDriveFolderInput(id)
+      toast.success('Drive 저장 위치가 설정되었습니다.')
+    } catch {
+      toast.error('저장 실패')
+    } finally {
+      setSavingFolder(false)
+    }
+  }
 
   const fetchRecords = useCallback(async () => {
     setLoading(true)
@@ -552,6 +627,34 @@ function AdminTableView() {
 
   return (
     <div>
+      {/* Drive 사진 저장 위치 설정 */}
+      <div className="bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 mb-4 flex flex-wrap items-center gap-3">
+        <span className="text-sm font-semibold text-blue-700 shrink-0">📁 사진 저장 위치</span>
+        <input
+          type="text"
+          value={driveFolderInput}
+          onChange={e => setDriveFolderInput(e.target.value)}
+          placeholder="Google Drive 폴더 ID 또는 URL 붙여넣기"
+          className="flex-1 min-w-[180px] border border-blue-300 rounded-lg px-3 py-1.5 text-xs text-gray-800 bg-white focus:outline-none focus:ring-2 focus:ring-blue-400"
+        />
+        <button
+          onClick={saveDriveFolder}
+          disabled={savingFolder}
+          className="px-3 py-1.5 bg-blue-600 text-white text-xs font-semibold rounded-lg hover:bg-blue-700 disabled:opacity-50 shrink-0"
+        >
+          {savingFolder ? '저장 중...' : '저장'}
+        </button>
+        {driveFolderId && (
+          <a
+            href={`https://drive.google.com/drive/folders/${driveFolderId}`}
+            target="_blank" rel="noopener noreferrer"
+            className="text-xs text-blue-600 hover:underline shrink-0"
+          >
+            폴더 열기 →
+          </a>
+        )}
+      </div>
+
       {/* Filter bar */}
       <div className="flex flex-wrap items-center gap-3 mb-5">
         <MonthNavigator value={yearMonth} onChange={setYearMonth} />
@@ -577,14 +680,14 @@ function AdminTableView() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-100">
-                  <th className="text-left px-4 py-3 font-medium text-gray-600 w-20">날짜</th>
+                  <th className="text-left px-3 py-3 font-medium text-gray-600 whitespace-nowrap min-w-[110px]">날짜</th>
                   {showNameColumn && (
-                    <th className="text-left px-4 py-3 font-medium text-gray-600 w-24">이름</th>
+                    <th className="text-left px-3 py-3 font-medium text-gray-600 whitespace-nowrap min-w-[72px]">이름</th>
                   )}
-                  <th className="text-left px-4 py-3 font-medium text-gray-600">출근</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-600">퇴근</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-600 w-20">근무시간</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-600">메모</th>
+                  <th className="text-left px-3 py-3 font-medium text-gray-600 whitespace-nowrap min-w-[100px]">출근</th>
+                  <th className="text-left px-3 py-3 font-medium text-gray-600 whitespace-nowrap min-w-[100px]">퇴근</th>
+                  <th className="text-left px-3 py-3 font-medium text-gray-600 whitespace-nowrap min-w-[90px]">근무시간</th>
+                  <th className="text-left px-3 py-3 font-medium text-gray-600 min-w-[140px]">메모</th>
                 </tr>
               </thead>
               <tbody>
@@ -600,15 +703,15 @@ function AdminTableView() {
                   if (dayRecs.length === 0) {
                     return (
                       <tr key={dateStr} className={`border-b border-gray-50 ${isWeekend ? 'bg-red-50/30' : ''}`}>
-                        <td className={`px-4 py-2.5 font-medium text-sm ${weekday === 0 ? 'text-red-500' : weekday === 6 ? 'text-blue-500' : 'text-gray-700'}`}>
-                          {i + 1}일 ({dayLabel})
+                        <td className={`px-3 py-2.5 font-medium text-sm whitespace-nowrap ${weekday === 0 ? 'text-red-500' : weekday === 6 ? 'text-blue-500' : 'text-gray-700'}`}>
+                          {i + 1}일({dayLabel})
                           {isToday && <span className="ml-1 text-[10px] bg-blue-600 text-white px-1 py-0.5 rounded-full">오늘</span>}
                         </td>
-                        {showNameColumn && <td className="px-4 py-2.5 text-gray-200">-</td>}
-                        <td className="px-4 py-2.5 text-gray-200">-</td>
-                        <td className="px-4 py-2.5 text-gray-200">-</td>
-                        <td className="px-4 py-2.5 text-gray-200">-</td>
-                        <td className="px-4 py-2.5 text-gray-200">-</td>
+                        {showNameColumn && <td className="px-3 py-2.5 text-gray-200">-</td>}
+                        <td className="px-3 py-2.5 text-gray-200">-</td>
+                        <td className="px-3 py-2.5 text-gray-200">-</td>
+                        <td className="px-3 py-2.5 text-gray-200">-</td>
+                        <td className="px-3 py-2.5 text-gray-200">-</td>
                       </tr>
                     )
                   }
@@ -617,28 +720,28 @@ function AdminTableView() {
                     <tr key={rec.id} className={`border-b border-gray-50 ${isWeekend ? 'bg-red-50/30' : 'hover:bg-gray-50/50'}`}>
                       {idx === 0 && (
                         <td
-                          className={`px-4 py-2.5 font-medium align-top text-sm ${weekday === 0 ? 'text-red-500' : weekday === 6 ? 'text-blue-500' : 'text-gray-700'}`}
+                          className={`px-3 py-2.5 font-medium align-top text-sm whitespace-nowrap ${weekday === 0 ? 'text-red-500' : weekday === 6 ? 'text-blue-500' : 'text-gray-700'}`}
                           rowSpan={dayRecs.length}
                         >
-                          {i + 1}일 ({dayLabel})
+                          {i + 1}일({dayLabel})
                           {isToday && <span className="ml-1 text-[10px] bg-blue-600 text-white px-1 py-0.5 rounded-full">오늘</span>}
                         </td>
                       )}
                       {showNameColumn && (
-                        <td className="px-4 py-2.5 text-gray-700 font-medium">
+                        <td className="px-3 py-2.5 text-gray-700 font-medium whitespace-nowrap">
                           {rec.worker?.name ?? rec.worker_name ?? '-'}
                         </td>
                       )}
 
                       {/* 출근 */}
-                      <td className="px-4 py-2.5">
+                      <td className="px-3 py-2.5">
                         {rec.clock_in ? (
                           <div className="flex flex-col gap-0.5">
-                            <div className="flex items-center gap-1.5">
-                              <span className="font-medium text-gray-800">{formatTime(rec.clock_in)}</span>
+                            <div className="flex items-center gap-1.5 whitespace-nowrap">
+                              <span className="font-medium text-gray-800 text-sm">{formatTime(rec.clock_in)}</span>
                               {rec.clock_in_photo_url && (
                                 <a href={rec.clock_in_photo_url} target="_blank" rel="noopener noreferrer"
-                                  className="text-[10px] text-blue-500 hover:underline">📷</a>
+                                  className="text-blue-500 hover:text-blue-700 text-xs">📷</a>
                               )}
                             </div>
                             {(rec.clock_in_lat || rec.clock_in_lng) && (
@@ -647,18 +750,18 @@ function AdminTableView() {
                               </span>
                             )}
                           </div>
-                        ) : <span className="text-gray-300">-</span>}
+                        ) : <span className="text-gray-300 text-sm">-</span>}
                       </td>
 
                       {/* 퇴근 */}
-                      <td className="px-4 py-2.5">
+                      <td className="px-3 py-2.5">
                         {rec.clock_out ? (
                           <div className="flex flex-col gap-0.5">
-                            <div className="flex items-center gap-1.5">
-                              <span className="font-medium text-gray-800">{formatTime(rec.clock_out)}</span>
+                            <div className="flex items-center gap-1.5 whitespace-nowrap">
+                              <span className="font-medium text-gray-800 text-sm">{formatTime(rec.clock_out)}</span>
                               {rec.clock_out_photo_url && (
                                 <a href={rec.clock_out_photo_url} target="_blank" rel="noopener noreferrer"
-                                  className="text-[10px] text-blue-500 hover:underline">📷</a>
+                                  className="text-blue-500 hover:text-blue-700 text-xs">📷</a>
                               )}
                             </div>
                             {(rec.clock_out_lat || rec.clock_out_lng) && (
@@ -667,16 +770,16 @@ function AdminTableView() {
                               </span>
                             )}
                           </div>
-                        ) : <span className="text-gray-300">-</span>}
+                        ) : <span className="text-gray-300 text-sm">-</span>}
                       </td>
 
                       {/* 근무시간 */}
-                      <td className="px-4 py-2.5 text-gray-500 text-xs">
+                      <td className="px-3 py-2.5 text-gray-600 text-sm whitespace-nowrap">
                         {formatDuration(rec.clock_in, rec.clock_out)}
                       </td>
 
                       {/* 메모 */}
-                      <td className="px-4 py-2.5 min-w-[160px]">
+                      <td className="px-3 py-2.5 min-w-[140px]">
                         {editingNoteId === rec.id ? (
                           <div className="flex gap-1 items-center">
                             <input
