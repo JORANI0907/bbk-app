@@ -35,6 +35,20 @@ const ALIMTALK_TEMPLATES: Record<string, string> = {
   '방문견적알림':       'KA01TP260324125232920u1LmrtqCY0P',
 }
 
+// ─── 요청시간 계산: 마감시간 +1h ~ +4h ("~3시간 후") ──────────────
+// 예) 21:00 → "22:00 ~ 01:00 사이"
+function calcRequestTime(endTime: string | null | undefined): string {
+  if (!endTime) return '-'
+  const match = endTime.match(/^(\d{1,2}):(\d{2})/)
+  if (!match) return endTime
+  const h = parseInt(match[1], 10)
+  const m = parseInt(match[2], 10)
+  const startH = (h + 1) % 24
+  const endH   = (h + 4) % 24
+  const fmt = (hour: number) => `${String(hour).padStart(2, '0')}:${String(m).padStart(2, '0')}`
+  return `${fmt(startH)} ~ ${fmt(endH)} 사이`
+}
+
 // ─── 알림 유형별 변수 빌더 ────────────────────────────────────────
 function buildVariables(
   type: string,
@@ -48,6 +62,8 @@ function buildVariables(
   const address     = String(app.address ?? '')
   const date        = (app.construction_date as string | null)?.slice(0, 10) ?? ''
   const hoursStart  = String(app.business_hours_start ?? '-')
+  const hoursEnd    = app.business_hours_end as string | null
+  const requestTime = calcRequestTime(hoursEnd)
   const driveUrl    = String(app.drive_folder_url ?? '-')
   const bizNum      = String(app.business_number ?? '-')
   const accountNum  = String(app.account_number ?? '-')
@@ -71,7 +87,7 @@ function buildVariables(
         '담당자':     assignedUserName || '-',
         '주소':       address,
         '시공일자':   date,
-        '요청시간':   hoursStart,
+        '요청시간':   requestTime,
         '미팅여부':   'N',
         '미팅시간':   '-',
       }
@@ -84,7 +100,7 @@ function buildVariables(
         '담당자':   assignedUserName || '-',
         '주소':     address,
         '시공일자': date,
-        '요청시간': hoursStart,
+        '요청시간': requestTime,
         '미팅여부': 'N',
         '미팅시간': '-',
       }

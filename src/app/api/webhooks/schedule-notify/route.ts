@@ -11,6 +11,20 @@ import { notifySlack } from '@/lib/slack'
 // 알림 발송 대상 계약상태
 const VALID_STATUSES = ['예약확정', '배정완료', '계약완료']
 
+// 마감시간 +1h ~ +4h 범위 ("~3시간 후")
+// 예) 21:00 → "22:00 ~ 01:00 사이"
+function calcRequestTime(endTime: string | null | undefined): string {
+  if (!endTime) return ''
+  const match = endTime.match(/^(\d{1,2}):(\d{2})/)
+  if (!match) return endTime
+  const h = parseInt(match[1], 10)
+  const m = parseInt(match[2], 10)
+  const startH = (h + 1) % 24
+  const endH   = (h + 4) % 24
+  const fmt = (hour: number) => `${String(hour).padStart(2, '0')}:${String(m).padStart(2, '0')}`
+  return `${fmt(startH)} ~ ${fmt(endH)} 사이`
+}
+
 interface ServiceApplication {
   id: string
   owner_name: string
@@ -18,6 +32,7 @@ interface ServiceApplication {
   phone: string
   construction_date: string | null
   business_hours_start: string | null
+  business_hours_end: string | null
   status: string
   assigned_to: string | null
   notification_log: NotificationLogEntry[] | null
@@ -75,7 +90,7 @@ export async function POST(request: NextRequest) {
   // 배정완료 + 유효 상태인 신청서 조회 (오늘 + 내일)
   const { data: apps, error } = await supabase
     .from('service_applications')
-    .select('id, owner_name, business_name, phone, construction_date, business_hours_start, status, assigned_to, notification_log')
+    .select('id, owner_name, business_name, phone, construction_date, business_hours_start, business_hours_end, status, assigned_to, notification_log')
     .in('construction_date', [todayKST, tomorrowKST])
     .in('status', VALID_STATUSES)
     .not('assigned_to', 'is', null)
@@ -92,7 +107,7 @@ export async function POST(request: NextRequest) {
 
     const isToday = app.construction_date === todayKST
     const notifyType = isToday ? '예약당일알림' : '예약1일전알림'
-    const time = app.business_hours_start ?? ''
+    const time = calcRequestTime(app.business_hours_end) || (app.business_hours_start ?? '')
 
     const existingLog: NotificationLogEntry[] = Array.isArray(app.notification_log)
       ? (app.notification_log as NotificationLogEntry[])
