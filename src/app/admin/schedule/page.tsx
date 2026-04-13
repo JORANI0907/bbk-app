@@ -4,8 +4,6 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import toast from 'react-hot-toast'
 
 import { WorkPanel } from '@/components/admin/WorkPanel'
-import { openGoogleDrive } from '@/lib/mapUtils'
-import { loadGoogleAPIs, requestGoogleToken, searchDriveFoldersByName, GOOGLE_CLIENT_ID } from '@/lib/googleDrive'
 import { useModalBackButton } from '@/hooks/useModalBackButton'
 import { MonthNavigator } from '@/components/MonthNavigator'
 import { LoadingSpinner } from '@/components/admin/LoadingSpinner'
@@ -359,39 +357,14 @@ function DetailPanel({
   const [showWorkPanel, setShowWorkPanel] = useState(
     app.work_status === 'in_progress' || app.work_status === 'completed'
   )
-  const [driveSearching, setDriveSearching] = useState(false)
-  const [driveFolders, setDriveFolders] = useState<Array<{ id: string; name: string; webViewLink: string }>>([])
-  const [showDriveModal, setShowDriveModal] = useState(false)
 
-  const handleViewPhotos = async () => {
-    // Google API 미설정 시 저장된 URL로 fallback
-    if (!GOOGLE_CLIENT_ID) {
-      const fallbackUrl = app.drive_folder_url ?? app.customer?.drive_folder_url ?? null
-      if (fallbackUrl) { openGoogleDrive(fallbackUrl); return }
-      toast.error('Google Drive 폴더가 연결되지 않았습니다.')
+  const handleViewPhotos = () => {
+    const url = app.drive_folder_url ?? app.customer?.drive_folder_url ?? null
+    if (!url) {
+      toast.error(`"${app.business_name}" 드라이브 폴더가 연결되지 않았습니다.\n서비스관리 탭에서 폴더를 먼저 생성해주세요.`)
       return
     }
-    setDriveSearching(true)
-    try {
-      await loadGoogleAPIs()
-      const token = await requestGoogleToken()
-      const folders = await searchDriveFoldersByName(app.business_name, token)
-      if (folders.length === 0) {
-        // 검색 결과 없으면 저장된 URL로 fallback
-        const fallbackUrl = app.drive_folder_url ?? app.customer?.drive_folder_url ?? null
-        if (fallbackUrl) { openGoogleDrive(fallbackUrl); return }
-        toast.error(`"${app.business_name}" 드라이브 폴더를 찾을 수 없습니다.`)
-      } else if (folders.length === 1) {
-        openGoogleDrive(folders[0].webViewLink)
-      } else {
-        setDriveFolders(folders)
-        setShowDriveModal(true)
-      }
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Drive 검색 실패')
-    } finally {
-      setDriveSearching(false)
-    }
+    window.open(url, '_blank')
   }
 
   async function handleDelete() {
@@ -589,18 +562,12 @@ function DetailPanel({
         {/* 하단 액션 버튼 영역 */}
         <div className="shrink-0 bg-white border-t border-gray-100 px-5 py-4 space-y-2"
           style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 16px)' }}>
-          {/* 버튼 1: 사진보기 — 업체명으로 Drive 폴더 검색 */}
+          {/* 버튼 1: 사진보기 — 저장된 Drive 폴더 URL 직접 열기 */}
           <button
             onClick={handleViewPhotos}
-            disabled={driveSearching}
-            className="w-full py-3 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 transition-colors bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-60"
+            className="w-full py-3 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 transition-colors bg-blue-600 hover:bg-blue-700 text-white"
           >
-            {driveSearching ? (
-              <>
-                <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                드라이브 검색 중...
-              </>
-            ) : '📷 사진보기'}
+            📷 사진보기
           </button>
 
           {/* 버튼 2: 작업 시작/현황 */}
@@ -645,33 +612,6 @@ function DetailPanel({
         )}
       </div>
 
-      {/* Drive 폴더 선택 모달 (검색 결과 여러 개일 때) */}
-      {showDriveModal && (
-        <div className="fixed inset-0 bg-black/50 z-[70] flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl w-full max-w-xs p-5 shadow-xl">
-            <h3 className="font-bold text-gray-900 mb-1">폴더 선택</h3>
-            <p className="text-xs text-gray-400 mb-3">{app.business_name} 관련 폴더 {driveFolders.length}개</p>
-            <div className="space-y-2 max-h-64 overflow-y-auto">
-              {driveFolders.map(f => (
-                <button
-                  key={f.id}
-                  onClick={() => { openGoogleDrive(f.webViewLink); setShowDriveModal(false) }}
-                  className="w-full text-left px-3 py-2.5 rounded-xl hover:bg-blue-50 text-sm text-gray-800 border border-gray-100 flex items-center gap-2"
-                >
-                  <span className="text-base shrink-0">📁</span>
-                  <span className="truncate">{f.name}</span>
-                </button>
-              ))}
-            </div>
-            <button
-              onClick={() => setShowDriveModal(false)}
-              className="mt-3 w-full py-2 text-sm text-gray-500 hover:text-gray-700"
-            >
-              취소
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   )
 }
@@ -707,39 +647,15 @@ export default function SchedulePage() {
   // 지도 앱 선택 모달
   const [mapAddress, setMapAddress] = useState<string | null>(null)
 
-  // 리스트 사진보기 — Drive 폴더 검색
-  const [listDriveSearchingId, setListDriveSearchingId] = useState<string | null>(null)
-  const [listDriveFolders, setListDriveFolders] = useState<Array<{ id: string; name: string; webViewLink: string }>>([])
-  const [showListDriveModal, setShowListDriveModal] = useState(false)
-
-  const handleListViewPhotos = async (e: React.MouseEvent, app: Application) => {
+  // 리스트 사진보기 — 저장된 Drive 폴더 URL 직접 열기
+  const handleListViewPhotos = (e: React.MouseEvent, app: Application) => {
     e.stopPropagation()
-    if (!GOOGLE_CLIENT_ID) {
-      const fallback = app.drive_folder_url ?? app.customer?.drive_folder_url ?? null
-      if (fallback) { openGoogleDrive(fallback); return }
-      toast.error('Google Drive가 연결되지 않았습니다.')
+    const url = app.drive_folder_url ?? app.customer?.drive_folder_url ?? null
+    if (!url) {
+      toast.error(`"${app.business_name}" 드라이브 폴더가 연결되지 않았습니다.\n서비스관리 탭에서 폴더를 먼저 생성해주세요.`)
       return
     }
-    setListDriveSearchingId(app.id)
-    try {
-      await loadGoogleAPIs()
-      const token = await requestGoogleToken()
-      const folders = await searchDriveFoldersByName(app.business_name, token)
-      if (folders.length === 0) {
-        const fallback = app.drive_folder_url ?? app.customer?.drive_folder_url ?? null
-        if (fallback) { openGoogleDrive(fallback); return }
-        toast.error(`"${app.business_name}" 드라이브 폴더를 찾을 수 없습니다.`)
-      } else if (folders.length === 1) {
-        openGoogleDrive(folders[0].webViewLink)
-      } else {
-        setListDriveFolders(folders)
-        setShowListDriveModal(true)
-      }
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Drive 검색 실패')
-    } finally {
-      setListDriveSearchingId(null)
-    }
+    window.open(url, '_blank')
   }
 
   // 헤더 auto-hide (모바일 스크롤 시 필터 영역 숨기기)
@@ -1157,12 +1073,9 @@ export default function SchedulePage() {
                       <td className="px-2 py-3" onClick={e => e.stopPropagation()}>
                         <button
                           onClick={e => handleListViewPhotos(e, app)}
-                          disabled={listDriveSearchingId === app.id}
-                          className="px-2 py-1 text-xs bg-blue-50 text-blue-600 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors disabled:opacity-50 whitespace-nowrap"
+                          className="px-2 py-1 text-xs bg-blue-50 text-blue-600 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors whitespace-nowrap"
                         >
-                          {listDriveSearchingId === app.id
-                            ? <span className="w-3 h-3 border border-blue-400 border-t-transparent rounded-full animate-spin inline-block" />
-                            : '📷'}
+                          📷
                         </button>
                       </td>
                     </tr>
@@ -1207,33 +1120,6 @@ export default function SchedulePage() {
         />
       )}
 
-      {/* 리스트 사진보기 — Drive 폴더 선택 모달 */}
-      {showListDriveModal && (
-        <div className="fixed inset-0 bg-black/50 z-[70] flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl w-full max-w-xs p-5 shadow-xl">
-            <h3 className="font-bold text-gray-900 mb-1">폴더 선택</h3>
-            <p className="text-xs text-gray-400 mb-3">폴더 {listDriveFolders.length}개 발견</p>
-            <div className="space-y-2 max-h-64 overflow-y-auto">
-              {listDriveFolders.map(f => (
-                <button
-                  key={f.id}
-                  onClick={() => { openGoogleDrive(f.webViewLink); setShowListDriveModal(false) }}
-                  className="w-full text-left px-3 py-2.5 rounded-xl hover:bg-blue-50 text-sm text-gray-800 border border-gray-100 flex items-center gap-2"
-                >
-                  <span className="text-base shrink-0">📁</span>
-                  <span className="truncate">{f.name}</span>
-                </button>
-              ))}
-            </div>
-            <button
-              onClick={() => setShowListDriveModal(false)}
-              className="mt-3 w-full py-2 text-sm text-gray-500 hover:text-gray-700"
-            >
-              취소
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   )
 }
