@@ -1,5 +1,5 @@
 // P2-26: 결제 알림 자동 발송 웹훅
-// Make.com에서 매일 호출
+// Make.com에서 매일 오전 6시에 호출 (KST)
 // Case 1: 1회성케어 + 정기딥케어(월간) — 작업완료 후 결제완료 전 매일
 // Case 2: 정기엔드케어 — customers.payment_date가 오늘이고 이번달 미결제
 // Case 3: 정기딥케어(연간) — contract_end_date 30일 전부터

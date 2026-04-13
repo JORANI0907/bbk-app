@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import toast from 'react-hot-toast'
 
 // ─── 타입 ────────────────────────────────────────────────────────
 
@@ -11,6 +12,7 @@ interface AutomationItem {
   category: string
   active: boolean
   trigger: string
+  scenarioId?: number | null
 }
 
 // ─── 데이터 ────────────────────────────────────────────────────────
@@ -36,7 +38,7 @@ const INITIAL_ITEMS: AutomationItem[] = [
     description: '내일 시공 예정이고 배정완료 상태인 건에 SMS를 자동 발송합니다. 발송 후 Slack 보고.',
     category: '예약알림',
     active: true,
-    trigger: '매일 오전 8시 (Make → /api/webhooks/schedule-notify)',
+    trigger: '매일 오전 6시 (KST) (Make → /api/webhooks/schedule-notify)',
   },
   {
     id: 'schedule-notify-today',
@@ -44,7 +46,7 @@ const INITIAL_ITEMS: AutomationItem[] = [
     description: '오늘 시공 예정이고 배정완료 상태인 건에 SMS를 자동 발송합니다. 발송 후 Slack 보고.',
     category: '예약알림',
     active: true,
-    trigger: '매일 오전 8시 (Make → /api/webhooks/schedule-notify)',
+    trigger: '매일 오전 6시 (KST) (Make → /api/webhooks/schedule-notify)',
   },
 
   // ── 작업완료알림 ───────────────────────────────────────────────
@@ -139,10 +141,26 @@ export default function AutomationPage() {
   const [items, setItems] = useState<AutomationItem[]>(INITIAL_ITEMS)
   const [showAddModal, setShowAddModal] = useState(false)
 
-  const toggleActive = (id: string) => {
-    setItems(prev => prev.map(item =>
-      item.id === id ? { ...item, active: !item.active } : item
-    ))
+  const handleToggle = async (id: string) => {
+    const item = items.find(i => i.id === id)
+    if (!item) return
+
+    const newActive = !item.active
+    // UI 즉시 업데이트 (optimistic)
+    setItems(prev => prev.map(i => i.id === id ? { ...i, active: newActive } : i))
+
+    try {
+      await fetch('/api/admin/make-toggle', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ scenarioId: item.scenarioId ?? null, active: newActive }),
+      })
+      toast.success(newActive ? `${item.name} 활성화됨` : `${item.name} 비활성화됨`)
+    } catch {
+      // 네트워크 오류 시 UI 롤백
+      setItems(prev => prev.map(i => i.id === id ? { ...i, active: item.active } : i))
+      toast.error('상태 변경 실패')
+    }
   }
 
   return (
@@ -219,7 +237,7 @@ export default function AutomationPage() {
               </div>
               {/* 토글 */}
               <button
-                onClick={() => toggleActive(item.id)}
+                onClick={() => { void handleToggle(item.id) }}
                 className={`relative w-11 h-6 rounded-full transition-colors shrink-0 mt-1 ${
                   item.active ? 'bg-brand-600' : 'bg-gray-300'
                 }`}

@@ -50,6 +50,7 @@ interface Application {
   construction_date: string | null
   care_scope: string | null
   unit_price_per_visit: number | null
+  notification_log?: Array<{ type: string; sent_at: string; method?: 'auto' | 'manual' }> | null
 }
 
 interface NotifyLog { type: string; sentAt: string; method?: 'auto' | 'manual' }
@@ -674,7 +675,22 @@ export default function ServiceManagementPage() {
     setBusinessHoursEnd(app.business_hours_end ?? '')
     setUnitPricePerVisit(app.unit_price_per_visit != null ? String(app.unit_price_per_visit) : '')
     setNotifyType('')
-    setNotifyLogs(loadLogs(app.id))
+
+    // localStorage 이력 + DB notification_log 병합 후 중복 제거 + 시간순 정렬
+    const localLogs = loadLogs(app.id)
+    const dbLogs: NotifyLog[] = Array.isArray(app.notification_log)
+      ? app.notification_log.map(l => ({
+          type: l.type,
+          sentAt: l.sent_at,
+          method: l.method ?? 'auto' as const,
+        }))
+      : []
+    const merged = [...localLogs, ...dbLogs]
+      .filter((log, idx, arr) =>
+        arr.findIndex(l => l.type === log.type && l.sentAt === log.sentAt) === idx
+      )
+      .sort((a, b) => new Date(b.sentAt).getTime() - new Date(a.sentAt).getTime())
+    setNotifyLogs(merged)
     setSelectedWorkerIds([])
     setSavedAssignments([])
     setWorkerDropdownOpen(false)
