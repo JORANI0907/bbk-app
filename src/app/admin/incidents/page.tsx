@@ -393,7 +393,14 @@ export default function IncidentsPage() {
   const [adminComment, setAdminComment] = useState('')
   const [adminStatus, setAdminStatus] = useState<'pending' | 'reviewed' | 'closed'>('pending')
   const [saving, setSaving] = useState(false)
-  const [viewedIds, setViewedIds] = useState<Set<string>>(new Set())
+  const [viewedIds, setViewedIds] = useState<Set<string>>(() => {
+    try { return new Set(JSON.parse(sessionStorage.getItem('viewed_incidents') ?? '[]')) } catch { return new Set() }
+  })
+  const addViewed = (id: string) => setViewedIds(prev => {
+    const next = new Set(prev).add(id)
+    try { sessionStorage.setItem('viewed_incidents', JSON.stringify(Array.from(next))) } catch { /* ignore */ }
+    return next
+  })
 
   // 세션 로드
   useEffect(() => {
@@ -432,8 +439,8 @@ export default function IncidentsPage() {
     setSelected(report)
     setAdminComment(report.admin_comment ?? '')
     setAdminStatus(report.status)
-    setViewedIds(prev => new Set(prev).add(report.id))
-  }, [])
+    addViewed(report.id)
+  }, [addViewed])
 
   const handleCloseDetail = useCallback(() => {
     setSelected(null)

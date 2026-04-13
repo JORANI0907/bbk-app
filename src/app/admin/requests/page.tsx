@@ -207,7 +207,14 @@ function AdminRequestView() {
   const [selected, setSelected] = useState<Request | null>(null)
   const [adminMemo, setAdminMemo] = useState('')
   const [saving, setSaving] = useState(false)
-  const [viewedIds, setViewedIds] = useState<Set<string>>(new Set())
+  const [viewedIds, setViewedIds] = useState<Set<string>>(() => {
+    try { return new Set(JSON.parse(sessionStorage.getItem('viewed_requests') ?? '[]')) } catch { return new Set() }
+  })
+  const addViewed = (id: string) => setViewedIds(prev => {
+    const next = new Set(prev).add(id)
+    try { sessionStorage.setItem('viewed_requests', JSON.stringify(Array.from(next))) } catch { /* ignore */ }
+    return next
+  })
 
   const fetchRequests = useCallback(async () => {
     setLoading(true)
@@ -323,7 +330,7 @@ function AdminRequestView() {
                   const isNewItem = req.status === 'pending' && !viewedIds.has(req.id)
                   return (
                   <tr key={req.id}
-                    onClick={() => { setSelected(req); setAdminMemo(req.admin_memo ?? ''); setViewedIds(prev => new Set(prev).add(req.id)) }}
+                    onClick={() => { setSelected(req); setAdminMemo(req.admin_memo ?? ''); addViewed(req.id) }}
                     className={`border-b border-gray-50 cursor-pointer hover:bg-gray-50 transition-colors ${isNewItem ? 'bg-red-50/30' : ''}`}>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">

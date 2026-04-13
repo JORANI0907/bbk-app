@@ -529,7 +529,14 @@ export default function ServiceManagementPage() {
   const [selected, setSelected] = useState<Application | null>(null)
   const [saving, setSaving] = useState(false)
   const [sending, setSending] = useState(false)
-  const [viewedNewIds, setViewedNewIds] = useState<Set<string>>(new Set())
+  const [viewedNewIds, setViewedNewIds] = useState<Set<string>>(() => {
+    try { return new Set(JSON.parse(sessionStorage.getItem('viewed_apps_new') ?? '[]')) } catch { return new Set() }
+  })
+  const addViewedNew = (id: string) => setViewedNewIds(prev => {
+    const next = new Set(prev).add(id)
+    try { sessionStorage.setItem('viewed_apps_new', JSON.stringify(Array.from(next))) } catch { /* ignore */ }
+    return next
+  })
 
   // 정렬
   const [sortField, setSortField] = useState<SortField>('construction_date')
@@ -651,7 +658,7 @@ export default function ServiceManagementPage() {
 
   const handleSelect = (app: Application) => {
     setSelected(app)
-    setViewedNewIds(prev => new Set(prev).add(app.id))
+    addViewedNew(app.id)
     // 신청서 제출 값 우선 반영 (null이면 빈 문자열)
     setOwnerName(app.owner_name ?? '')
     setBusinessNameEdit(app.business_name ?? '')

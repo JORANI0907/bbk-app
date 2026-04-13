@@ -80,7 +80,14 @@ export default function NoticesPage() {
   const [photoUploading, setPhotoUploading] = useState(false)
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null)
-  const [viewedIds, setViewedIds] = useState<Set<string>>(new Set())
+  const [viewedIds, setViewedIds] = useState<Set<string>>(() => {
+    try { return new Set(JSON.parse(sessionStorage.getItem('viewed_notices') ?? '[]')) } catch { return new Set() }
+  })
+  const addViewed = (id: string) => setViewedIds(prev => {
+    const next = new Set(prev).add(id)
+    try { sessionStorage.setItem('viewed_notices', JSON.stringify(Array.from(next))) } catch { /* ignore */ }
+    return next
+  })
 
   const fetchNotices = useCallback(async () => {
     setLoading(true)
@@ -247,7 +254,7 @@ export default function NoticesPage() {
                 {/* 헤더 행 (클릭 시 펼침/접기) */}
                 <div
                   className="flex items-start gap-3 p-4 cursor-pointer"
-                  onClick={() => { setExpandedId(isExpanded ? null : notice.id); setViewedIds(prev => new Set(prev).add(notice.id)) }}
+                  onClick={() => { setExpandedId(isExpanded ? null : notice.id); addViewed(notice.id) }}
                 >
                   <div className="flex-1 min-w-0">
                     {/* 뱃지 행 */}

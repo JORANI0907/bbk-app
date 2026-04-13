@@ -100,7 +100,14 @@ export default function AdminInventoryPage() {
   const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [categoryFilter, setCategoryFilter] = useState<InventoryCategory | 'all'>('all')
-  const [viewedLowIds, setViewedLowIds] = useState<Set<string>>(new Set())
+  const [viewedLowIds, setViewedLowIds] = useState<Set<string>>(() => {
+    try { return new Set(JSON.parse(sessionStorage.getItem('viewed_inventory_low') ?? '[]')) } catch { return new Set() }
+  })
+  const addViewedLow = (id: string) => setViewedLowIds(prev => {
+    const next = new Set(prev).add(id)
+    try { sessionStorage.setItem('viewed_inventory_low', JSON.stringify(Array.from(next))) } catch { /* ignore */ }
+    return next
+  })
   const [role, setRole] = useState<string>('')
 
   const [editForm, setEditForm] = useState<{ item_name: string; category: InventoryCategory; unit: string }>({
@@ -204,7 +211,7 @@ export default function AdminInventoryPage() {
     fetchLogs(item.id)
     setMobileShowDetail(true)
     if (item.current_qty <= item.min_qty) {
-      setViewedLowIds(prev => new Set(prev).add(item.id))
+      addViewedLow(item.id)
     }
   }
 
