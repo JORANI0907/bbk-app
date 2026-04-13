@@ -339,6 +339,7 @@ function DriveFolderModal({
 function AppCalendarView({
   selectedMonth, applications, onSelectApp,
   calDate, calDateApps, onDaySelect, onDayClose,
+  allDates, onDateChange,
 }: {
   selectedMonth: string
   applications: Application[]
@@ -347,6 +348,8 @@ function AppCalendarView({
   calDateApps: Application[]
   onDaySelect: (dateStr: string, apps: Application[]) => void
   onDayClose: () => void
+  allDates: string[]
+  onDateChange: (date: string) => void
 }) {
   const [y, m] = selectedMonth.split('-').map(Number)
   const year = y
@@ -371,6 +374,27 @@ function AppCalendarView({
   for (let d = 1; d <= daysInMonth; d++) cells.push(d)
 
   const DAYS = ['일', '월', '화', '수', '목', '금', '토']
+
+  // 스와이프 로직
+  const touchStartX = useRef<number | null>(null)
+  const currentDateIdx = calDate ? allDates.indexOf(calDate) : -1
+  const hasPrev = currentDateIdx > 0
+  const hasNext = currentDateIdx < allDates.length - 1
+  const goToDate = (delta: number) => {
+    const newIdx = currentDateIdx + delta
+    if (newIdx >= 0 && newIdx < allDates.length) {
+      onDateChange(allDates[newIdx])
+    }
+  }
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX
+  }
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (touchStartX.current === null) return
+    const delta = touchStartX.current - e.changedTouches[0].clientX
+    if (Math.abs(delta) > 40) goToDate(delta > 0 ? 1 : -1)
+    touchStartX.current = null
+  }
 
   return (
     <>
@@ -434,16 +458,34 @@ function AppCalendarView({
             className="bg-white w-full max-w-md rounded-t-2xl md:rounded-2xl flex flex-col overflow-hidden"
             style={{ maxHeight: 'calc(80vh - env(safe-area-inset-bottom))' }}
             onClick={e => e.stopPropagation()}
+            onTouchStart={handleTouchStart}
+            onTouchEnd={handleTouchEnd}
           >
             <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 shrink-0">
-              <div>
+              <button
+                onClick={() => goToDate(-1)}
+                disabled={!hasPrev}
+                className={`w-8 h-8 flex items-center justify-center rounded-lg text-xl transition-colors ${hasPrev ? 'text-gray-600 hover:bg-gray-100' : 'text-gray-200 cursor-not-allowed'}`}
+              >
+                ‹
+              </button>
+              <div className="text-center">
                 <h3 className="font-bold text-gray-900">
                   {calDate.slice(5, 7)}월 {calDate.slice(8, 10)}일
                   ({['일','월','화','수','목','금','토'][new Date(calDate + 'T12:00:00').getDay()]})
                 </h3>
                 <p className="text-xs text-gray-400">{calDateApps.length}건</p>
               </div>
-              <button onClick={onDayClose} className="text-gray-400 hover:text-gray-600 text-lg leading-none">✕</button>
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => goToDate(1)}
+                  disabled={!hasNext}
+                  className={`w-8 h-8 flex items-center justify-center rounded-lg text-xl transition-colors ${hasNext ? 'text-gray-600 hover:bg-gray-100' : 'text-gray-200 cursor-not-allowed'}`}
+                >
+                  ›
+                </button>
+                <button onClick={onDayClose} className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-600 text-lg leading-none">✕</button>
+              </div>
             </div>
             <div className="overflow-y-auto flex-1 p-3 pb-6 flex flex-col gap-2">
               {calDateApps.map(app => {
@@ -1100,6 +1142,23 @@ export default function ServiceManagementPage() {
 
   const unassignedCount = applications.filter(a => !a.assigned_to).length
 
+  // 헤더 auto-hide
+  const [filtersVisible, setFiltersVisible] = useState(true)
+  const lastScrollY = useRef(0)
+  const listContainerRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const container = listContainerRef.current
+    if (!container) return
+    const onScroll = () => {
+      const current = container.scrollTop
+      setFiltersVisible(current < lastScrollY.current || current < 50)
+      lastScrollY.current = current
+    }
+    container.addEventListener('scroll', onScroll, { passive: true })
+    return () => container.removeEventListener('scroll', onScroll)
+  }, [])
+
   const toggleType = (t: string) => {
     setSelectedTypes(prev => {
       const next = new Set(prev)
@@ -1151,6 +1210,15 @@ export default function ServiceManagementPage() {
     return sortApplications(filtered, sortField, sortDir)
   })()
 
+  const allCalDates = useMemo(() => {
+    const dates = new Set(
+      filteredApps
+        .filter(a => a.construction_date)
+        .map(a => a.construction_date!.slice(0, 10))
+    )
+    return Array.from(dates).sort()
+  }, [filteredApps])
+
   return (
     <>
       {mapAddress && (
@@ -1182,7 +1250,8 @@ export default function ServiceManagementPage() {
             <button onClick={fetchAll} className="px-3 py-1.5 text-sm bg-white border border-gray-200 rounded-lg hover:bg-gray-50">새로고침</button>
           </div>
 
-          {/* 서비스 유형 복수 체크박스 필터 */}
+          {/* 서비스 유형 복수 체크박스 필터 — auto-hide on mobile scroll */}
+          <div className={`transition-all duration-300 overflow-hidden md:max-h-40 md:opacity-100 ${filtersVisible ? 'max-h-40 opacity-100' : 'max-h-0 opacity-0'}`}>
           <div className="flex items-center gap-2 mb-3 flex-wrap">
             {SERVICE_TYPES.map(t => {
               const active = selectedTypes.has(t)
@@ -1226,6 +1295,7 @@ export default function ServiceManagementPage() {
                 className="text-xs text-gray-400 hover:text-gray-600 underline">전체 보기</button>
             )}
           </div>
+          </div>{/* end auto-hide wrapper */}
 
           {/* 액션 바 */}
           {checkedIds.length > 0 && (
@@ -1339,17 +1409,23 @@ export default function ServiceManagementPage() {
             <AppCalendarView
               selectedMonth={selectedMonth}
               applications={filteredApps}
-              onSelectApp={app => setSelected(app)}
+              onSelectApp={app => { handleSelect(app); setCalDate(null) }}
               calDate={calDate}
               calDateApps={calDateApps}
               onDaySelect={(d, apps) => { setCalDate(d); setCalDateApps(apps) }}
               onDayClose={() => setCalDate(null)}
+              allDates={allCalDates}
+              onDateChange={d => {
+                const dayApps = filteredApps.filter(a => a.construction_date?.slice(0, 10) === d)
+                setCalDate(d)
+                setCalDateApps(dayApps)
+              }}
             />
           )}
 
           {/* 목록 테이블 */}
           {(viewMode === 'list' || showUnassigned) && (
-          <div className="bg-white rounded-xl border border-gray-200 overflow-auto flex-1 flex flex-col overscroll-contain min-h-0 pb-20 md:pb-0">
+          <div ref={listContainerRef} className="bg-white rounded-xl border border-gray-200 overflow-auto flex-1 flex flex-col overscroll-contain min-h-0 pb-20 md:pb-0">
             {loading ? (
               <LoadingSpinner />
             ) : filteredApps.length === 0 ? (
@@ -1825,14 +1901,18 @@ export default function ServiceManagementPage() {
                     className="w-full py-2.5 bg-green-600 text-white text-sm font-semibold rounded-lg hover:bg-green-700 transition-colors flex items-center justify-center gap-2">
                     <span>📁</span><span>폴더 생성/변경</span>
                   </button>
-                  {selected.drive_folder_url && (
-                    <button
-                      onClick={() => openGoogleDrive(selected.drive_folder_url!)}
-                      className="flex items-center gap-2 text-xs text-green-600 hover:text-green-700"
-                    >
-                      <span>🔗</span><span className="truncate">Drive 폴더 열기</span>
-                    </button>
-                  )}
+                  <button
+                    onClick={() => {
+                      if (selected.drive_folder_url) {
+                        openGoogleDrive(selected.drive_folder_url)
+                      } else {
+                        toast.error('폴더를 먼저 생성해주세요')
+                      }
+                    }}
+                    className={`flex items-center gap-2 text-xs ${selected.drive_folder_url ? 'text-green-600 hover:text-green-700' : 'text-gray-400 cursor-not-allowed'}`}
+                  >
+                    <span>🔗</span><span className="truncate">Drive 폴더 열기</span>
+                  </button>
                   {savedDriveFolder && (
                     <p className="text-xs text-gray-400">기본 위치: 📂 {savedDriveFolder.name}</p>
                   )}
