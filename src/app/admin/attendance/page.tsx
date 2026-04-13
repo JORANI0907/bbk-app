@@ -265,19 +265,21 @@ function WorkerClockView({ workerInfo }: WorkerClockViewProps) {
   const [capturedBlob, setCapturedBlob] = useState<Blob | null>(null)
   const [elapsed, setElapsed] = useState(0)
 
-  const todayStr = new Date().toISOString().slice(0, 10)
+  // 한국 시간(KST) 기준 오늘 날짜 (UTC+9)
+  const todayStr = new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10)
 
   const fetchToday = useCallback(async () => {
     setLoading(true)
     try {
       const params = new URLSearchParams({ month: todayStr.slice(0, 7) })
       const res = await fetch(`/api/admin/attendance?${params}`)
+      if (!res.ok) throw new Error('출퇴근 기록 조회 실패')
       const json = await res.json()
       const records: AttendanceRecord[] = json.data ?? []
       const rec = records.find(r => r.work_date === todayStr && r.worker_id === workerInfo.id) ?? null
       setTodayRecord(rec)
     } catch {
-      // ignore
+      toast.error('출퇴근 기록을 불러오지 못했습니다.')
     } finally {
       setLoading(false)
     }
@@ -718,7 +720,7 @@ function AdminTableView() {
                   const weekday = getWeekday(dateStr)
                   const isWeekend = weekday === 0 || weekday === 6
                   const dayLabel = ['일', '월', '화', '수', '목', '금', '토'][weekday]
-                  const isToday = dateStr === new Date().toISOString().slice(0, 10)
+                  const isToday = dateStr === new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10)
 
                   if (dayRecs.length === 0) {
                     return (

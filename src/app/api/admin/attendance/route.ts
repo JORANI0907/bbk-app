@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
 
   let query = supabase
     .from('attendance')
-    .select('*, worker:workers(id, name, employment_type)')
+    .select('*')
     .order('work_date', { ascending: false })
     .order('clock_in', { ascending: true })
 
