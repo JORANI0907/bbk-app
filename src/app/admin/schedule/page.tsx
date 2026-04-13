@@ -382,7 +382,7 @@ function DetailPanel({
         if (fallbackUrl) { openGoogleDrive(fallbackUrl); return }
         toast.error(`"${app.business_name}" 드라이브 폴더를 찾을 수 없습니다.`)
       } else if (folders.length === 1) {
-        window.open(folders[0].webViewLink, '_blank')
+        openGoogleDrive(folders[0].webViewLink)
       } else {
         setDriveFolders(folders)
         setShowDriveModal(true)
@@ -655,7 +655,7 @@ function DetailPanel({
               {driveFolders.map(f => (
                 <button
                   key={f.id}
-                  onClick={() => { window.open(f.webViewLink, '_blank'); setShowDriveModal(false) }}
+                  onClick={() => { openGoogleDrive(f.webViewLink); setShowDriveModal(false) }}
                   className="w-full text-left px-3 py-2.5 rounded-xl hover:bg-blue-50 text-sm text-gray-800 border border-gray-100 flex items-center gap-2"
                 >
                   <span className="text-base shrink-0">📁</span>
@@ -730,7 +730,7 @@ export default function SchedulePage() {
         if (fallback) { openGoogleDrive(fallback); return }
         toast.error(`"${app.business_name}" 드라이브 폴더를 찾을 수 없습니다.`)
       } else if (folders.length === 1) {
-        window.open(folders[0].webViewLink, '_blank')
+        openGoogleDrive(folders[0].webViewLink)
       } else {
         setListDriveFolders(folders)
         setShowListDriveModal(true)
@@ -1217,7 +1217,7 @@ export default function SchedulePage() {
               {listDriveFolders.map(f => (
                 <button
                   key={f.id}
-                  onClick={() => { window.open(f.webViewLink, '_blank'); setShowListDriveModal(false) }}
+                  onClick={() => { openGoogleDrive(f.webViewLink); setShowListDriveModal(false) }}
                   className="w-full text-left px-3 py-2.5 rounded-xl hover:bg-blue-50 text-sm text-gray-800 border border-gray-100 flex items-center gap-2"
                 >
                   <span className="text-base shrink-0">📁</span>

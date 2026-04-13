@@ -7,6 +7,7 @@ import {
   requestGoogleToken,
   uploadFileToDrive,
   getSavedInventoryFolder,
+  saveInventoryFolderCookie,
 } from '@/lib/googleDrive'
 
 type InventoryCategory = 'chemical' | 'equipment' | 'consumable' | 'other'
@@ -45,9 +46,20 @@ export default function WorkerInventoryPage() {
   const [photo, setPhoto] = useState<File | null>(null)
   const [photoPreview, setPhotoPreview] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  const [inventoryFolder, setInventoryFolder] = useState(() => getSavedInventoryFolder())
 
   useEffect(() => {
     fetchItems()
+    // DB에서 최신 Drive 폴더 정보 동기화
+    fetch('/api/inventory/drive-folder')
+      .then(r => r.json())
+      .then(d => {
+        if (d.folder) {
+          setInventoryFolder(d.folder)
+          saveInventoryFolderCookie(d.folder)
+        }
+      })
+      .catch(() => {})
   }, [])
 
   const fetchItems = async () => {
@@ -104,8 +116,6 @@ export default function WorkerInventoryPage() {
     let photoUrl: string | null = null
 
     try {
-      const inventoryFolder = getSavedInventoryFolder()
-
       if (photo && inventoryFolder) {
         try {
           await loadGoogleAPIs()

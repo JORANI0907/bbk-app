@@ -1033,6 +1033,10 @@ export default function ServiceManagementPage() {
       appendLog(selected.id, log)
       setNotifyLogs(prev => [log, ...prev])
       setAllNotifyLogs(prev => ({ ...prev, [selected.id]: [log, ...(prev[selected.id] || [])].slice(0, 50) }))
+      if (data.new_status) {
+        setSelected(prev => prev ? { ...prev, status: data.new_status } : prev)
+        setApplications(prev => prev.map(a => a.id === selected.id ? { ...a, status: data.new_status } : a))
+      }
       toast.success(`${type} 재발송 완료`)
     } catch (e) { toast.error(e instanceof Error ? e.message : '재발송 실패') }
     finally { setSending(false) }

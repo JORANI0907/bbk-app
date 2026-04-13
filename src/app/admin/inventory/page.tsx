@@ -145,7 +145,19 @@ export default function AdminInventoryPage() {
 
   // ── 초기화 ──────────────────────────────────────────────────
   useEffect(() => {
-    setInventoryFolder(getSavedInventoryFolder())
+    // localStorage 캐시 우선 표시 (빠른 렌더링)
+    const cached = getSavedInventoryFolder()
+    if (cached) setInventoryFolder(cached)
+    // DB에서 최신값 동기화
+    fetch('/api/inventory/drive-folder')
+      .then(r => r.json())
+      .then(d => {
+        if (d.folder) {
+          setInventoryFolder(d.folder)
+          saveInventoryFolderCookie(d.folder)
+        }
+      })
+      .catch(() => {})
     fetchItems()
     fetch('/api/auth/me').then(r => r.json()).then(d => setRole(d.user?.role ?? ''))
     fetch('/api/admin/nav-badges?key=inventory', { method: 'DELETE' }).catch(() => {})
@@ -314,10 +326,16 @@ export default function AdminInventoryPage() {
     // OAuth 시작 (동기, user gesture 맥락)
     requestGoogleToken()
       .then(token => openFolderPicker(token))
-      .then(folder => {
+      .then(async folder => {
         if (folder) {
           saveInventoryFolderCookie(folder)
           setInventoryFolder(folder)
+          // DB에 저장하여 모든 기기에서 공유
+          await fetch('/api/inventory/drive-folder', {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ folder }),
+          }).catch(() => {})
           toast.success(`저장 위치 설정 완료: ${folder.name}`)
         }
       })
