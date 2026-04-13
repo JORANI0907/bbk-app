@@ -3,6 +3,12 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import toast from 'react-hot-toast'
 import { MonthNavigator } from '@/components/MonthNavigator'
+import {
+  loadGoogleAPIs,
+  requestGoogleToken,
+  openFolderPicker,
+  resolveFolder,
+} from '@/lib/googleDrive'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -527,9 +533,10 @@ function AdminTableView() {
   const [savingNote, setSavingNote] = useState(false)
 
   // Drive 폴더 설정
+  const [driveFolderName, setDriveFolderName] = useState('')
   const [driveFolderId, setDriveFolderId] = useState('')
-  const [driveFolderInput, setDriveFolderInput] = useState('')
-  const [savingFolder, setSavingFolder] = useState(false)
+  const [driveApisReady, setDriveApisReady] = useState(false)
+  const [selectingFolder, setSelectingFolder] = useState(false)
 
   useEffect(() => {
     fetch('/api/admin/workers')
@@ -541,35 +548,43 @@ function AdminTableView() {
       .then(r => r.json())
       .then(j => {
         if (j.setting?.value) {
-          const parsed = JSON.parse(j.setting.value) as { id?: string }
-          if (parsed.id) { setDriveFolderId(parsed.id); setDriveFolderInput(parsed.id) }
+          const parsed = JSON.parse(j.setting.value) as { id?: string; name?: string }
+          if (parsed.id) { setDriveFolderId(parsed.id); setDriveFolderName(parsed.name ?? parsed.id) }
         }
       })
       .catch(() => {})
+    // Google API 로드
+    loadGoogleAPIs().then(() => setDriveApisReady(true)).catch(() => {})
   }, [])
 
-  const saveDriveFolder = async () => {
-    let id = driveFolderInput.trim()
-    // URL에서 폴더 ID 추출
-    const match = id.match(/\/folders\/([a-zA-Z0-9_-]+)/)
-    if (match) id = match[1]
-    if (!id) { toast.error('폴더 ID를 입력해주세요.'); return }
-    setSavingFolder(true)
-    try {
-      const res = await fetch('/api/admin/app-settings', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ key: 'attendance_drive_folder', value: JSON.stringify({ id }) }),
+  // user gesture context 유지 위해 non-async, requestGoogleToken() 즉시 호출
+  function handlePickDriveFolder() {
+    if (!driveApisReady) { toast.error('Google API 로딩 중입니다. 잠시 후 다시 시도해주세요.'); return }
+    setSelectingFolder(true)
+    let capturedToken = ''
+    requestGoogleToken()
+      .then(token => { capturedToken = token; return openFolderPicker(token) })
+      .then(picked => {
+        if (!picked) return null
+        return resolveFolder(picked, capturedToken)
       })
-      if (!res.ok) throw new Error()
-      setDriveFolderId(id)
-      setDriveFolderInput(id)
-      toast.success('Drive 저장 위치가 설정되었습니다.')
-    } catch {
-      toast.error('저장 실패')
-    } finally {
-      setSavingFolder(false)
-    }
+      .then(async folder => {
+        if (!folder) return
+        const res = await fetch('/api/admin/app-settings', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            key: 'attendance_drive_folder',
+            value: JSON.stringify({ id: folder.id, name: folder.name }),
+          }),
+        })
+        if (!res.ok) throw new Error('저장 실패')
+        setDriveFolderId(folder.id)
+        setDriveFolderName(folder.name)
+        toast.success(`📁 "${folder.name}" 저장 위치로 설정됐습니다.`)
+      })
+      .catch(e => toast.error(e instanceof Error ? e.message : 'Drive 연결 실패'))
+      .finally(() => setSelectingFolder(false))
   }
 
   const fetchRecords = useCallback(async () => {
@@ -630,19 +645,24 @@ function AdminTableView() {
       {/* Drive 사진 저장 위치 설정 */}
       <div className="bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 mb-4 flex flex-wrap items-center gap-3">
         <span className="text-sm font-semibold text-blue-700 shrink-0">📁 사진 저장 위치</span>
-        <input
-          type="text"
-          value={driveFolderInput}
-          onChange={e => setDriveFolderInput(e.target.value)}
-          placeholder="Google Drive 폴더 ID 또는 URL 붙여넣기"
-          className="flex-1 min-w-[180px] border border-blue-300 rounded-lg px-3 py-1.5 text-xs text-gray-800 bg-white focus:outline-none focus:ring-2 focus:ring-blue-400"
-        />
+        {driveFolderName ? (
+          <div className="flex items-center gap-2 bg-white border border-blue-200 rounded-lg px-3 py-1.5 flex-1 min-w-[160px]">
+            <span className="text-base shrink-0">📂</span>
+            <span className="text-xs text-blue-700 font-medium truncate">{driveFolderName}</span>
+          </div>
+        ) : (
+          <span className="text-xs text-gray-400 flex-1">저장 위치가 설정되지 않았습니다.</span>
+        )}
         <button
-          onClick={saveDriveFolder}
-          disabled={savingFolder}
-          className="px-3 py-1.5 bg-blue-600 text-white text-xs font-semibold rounded-lg hover:bg-blue-700 disabled:opacity-50 shrink-0"
+          onClick={handlePickDriveFolder}
+          disabled={selectingFolder || !driveApisReady}
+          className="px-3 py-1.5 bg-green-600 text-white text-xs font-semibold rounded-lg hover:bg-green-700 disabled:opacity-50 shrink-0 flex items-center gap-1.5"
         >
-          {savingFolder ? '저장 중...' : '저장'}
+          {selectingFolder ? (
+            <><span className="w-3 h-3 border border-white border-t-transparent rounded-full animate-spin" />선택 중...</>
+          ) : (
+            <>{driveFolderName ? '📁 위치 변경' : '📁 폴더 선택'}</>
+          )}
         </button>
         {driveFolderId && (
           <a
@@ -650,7 +670,7 @@ function AdminTableView() {
             target="_blank" rel="noopener noreferrer"
             className="text-xs text-blue-600 hover:underline shrink-0"
           >
-            폴더 열기 →
+            열기 →
           </a>
         )}
       </div>
