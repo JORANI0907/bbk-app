@@ -90,21 +90,21 @@ function StatusBadge({ status }: { status: 'pending' | 'reviewed' | 'closed' }) 
 interface IncidentCardProps {
   report: IncidentReport
   isSelected: boolean
+  isNewItem: boolean
   onClick: () => void
 }
 
-function IncidentCard({ report, isSelected, onClick }: IncidentCardProps) {
-  const isPending = report.status === 'pending'
+function IncidentCard({ report, isSelected, isNewItem, onClick }: IncidentCardProps) {
   return (
     <button
       onClick={onClick}
       className={`text-left w-full bg-white rounded-2xl border shadow-sm p-4 hover:shadow-md transition-all ${
-        isSelected ? 'border-blue-500 ring-2 ring-blue-200' : isPending ? 'border-red-200' : 'border-gray-100'
+        isSelected ? 'border-blue-500 ring-2 ring-blue-200' : isNewItem ? 'border-red-200' : 'border-gray-100'
       }`}
     >
       <div className="flex items-start justify-between gap-2 mb-2">
         <div className="flex items-center gap-1.5">
-          {isPending && <span className="w-2 h-2 rounded-full bg-red-500 shrink-0" />}
+          {isNewItem && <span className="w-2 h-2 rounded-full bg-red-500 shrink-0" />}
           <span className="text-xs font-semibold bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">
             {TYPE_CONFIG[report.type] ?? report.type}
           </span>
@@ -393,6 +393,7 @@ export default function IncidentsPage() {
   const [adminComment, setAdminComment] = useState('')
   const [adminStatus, setAdminStatus] = useState<'pending' | 'reviewed' | 'closed'>('pending')
   const [saving, setSaving] = useState(false)
+  const [viewedIds, setViewedIds] = useState<Set<string>>(new Set())
 
   // 세션 로드
   useEffect(() => {
@@ -431,6 +432,7 @@ export default function IncidentsPage() {
     setSelected(report)
     setAdminComment(report.admin_comment ?? '')
     setAdminStatus(report.status)
+    setViewedIds(prev => new Set(prev).add(report.id))
   }, [])
 
   const handleCloseDetail = useCallback(() => {
@@ -556,6 +558,7 @@ export default function IncidentsPage() {
                   key={rep.id}
                   report={rep}
                   isSelected={selected?.id === rep.id}
+                  isNewItem={rep.status === 'pending' && !viewedIds.has(rep.id)}
                   onClick={() => handleSelect(rep)}
                 />
               ))}

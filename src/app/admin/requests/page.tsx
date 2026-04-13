@@ -207,6 +207,7 @@ function AdminRequestView() {
   const [selected, setSelected] = useState<Request | null>(null)
   const [adminMemo, setAdminMemo] = useState('')
   const [saving, setSaving] = useState(false)
+  const [viewedIds, setViewedIds] = useState<Set<string>>(new Set())
 
   const fetchRequests = useCallback(async () => {
     setLoading(true)
@@ -318,13 +319,15 @@ function AdminRequestView() {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map(req => (
+                {filtered.map(req => {
+                  const isNewItem = req.status === 'pending' && !viewedIds.has(req.id)
+                  return (
                   <tr key={req.id}
-                    onClick={() => { setSelected(req); setAdminMemo(req.admin_memo ?? '') }}
-                    className={`border-b border-gray-50 cursor-pointer hover:bg-gray-50 transition-colors ${req.status === 'pending' ? 'bg-red-50/30' : ''}`}>
+                    onClick={() => { setSelected(req); setAdminMemo(req.admin_memo ?? ''); setViewedIds(prev => new Set(prev).add(req.id)) }}
+                    className={`border-b border-gray-50 cursor-pointer hover:bg-gray-50 transition-colors ${isNewItem ? 'bg-red-50/30' : ''}`}>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
-                        {req.status === 'pending' && (
+                        {isNewItem && (
                           <span className="w-2 h-2 rounded-full bg-red-500 shrink-0" />
                         )}
                         <p className="font-medium text-gray-900">{req.requester_name}</p>
@@ -337,7 +340,7 @@ function AdminRequestView() {
                     </td>
                     <td className="px-4 py-3 text-gray-700 max-w-xs">
                       <p className="truncate">{req.content}</p>
-                      {req.status === 'pending' && (
+                      {isNewItem && (
                         <span className="text-[10px] bg-red-500 text-white px-1.5 py-0.5 rounded-full">NEW</span>
                       )}
                     </td>
@@ -350,7 +353,8 @@ function AdminRequestView() {
                       {new Date(req.created_at).toLocaleDateString('ko-KR')}
                     </td>
                   </tr>
-                ))}
+                  )
+                })}
               </tbody>
             </table>
           </div>

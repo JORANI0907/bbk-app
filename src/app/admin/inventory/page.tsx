@@ -100,6 +100,7 @@ export default function AdminInventoryPage() {
   const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [categoryFilter, setCategoryFilter] = useState<InventoryCategory | 'all'>('all')
+  const [viewedLowIds, setViewedLowIds] = useState<Set<string>>(new Set())
   const [role, setRole] = useState<string>('')
 
   const [editForm, setEditForm] = useState<{ item_name: string; category: InventoryCategory; unit: string }>({
@@ -202,6 +203,9 @@ export default function AdminInventoryPage() {
     setEditForm({ item_name: item.item_name, category: item.category, unit: item.unit })
     fetchLogs(item.id)
     setMobileShowDetail(true)
+    if (item.current_qty <= item.min_qty) {
+      setViewedLowIds(prev => new Set(prev).add(item.id))
+    }
   }
 
   const handleSave = async () => {
@@ -652,7 +656,7 @@ export default function AdminInventoryPage() {
             filteredItems.map(item => {
               const cfg = CATEGORY_CONFIG[item.category]
               const isSelected = selectedItem?.id === item.id
-              const isLow = item.current_qty <= item.min_qty
+              const isLow = item.current_qty <= item.min_qty && !viewedLowIds.has(item.id)
               return (
                 <button
                   key={item.id}

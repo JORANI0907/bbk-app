@@ -80,6 +80,7 @@ export default function NoticesPage() {
   const [photoUploading, setPhotoUploading] = useState(false)
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null)
+  const [viewedIds, setViewedIds] = useState<Set<string>>(new Set())
 
   const fetchNotices = useCallback(async () => {
     setLoading(true)
@@ -246,7 +247,7 @@ export default function NoticesPage() {
                 {/* 헤더 행 (클릭 시 펼침/접기) */}
                 <div
                   className="flex items-start gap-3 p-4 cursor-pointer"
-                  onClick={() => setExpandedId(isExpanded ? null : notice.id)}
+                  onClick={() => { setExpandedId(isExpanded ? null : notice.id); setViewedIds(prev => new Set(prev).add(notice.id)) }}
                 >
                   <div className="flex-1 min-w-0">
                     {/* 뱃지 행 */}
@@ -254,7 +255,7 @@ export default function NoticesPage() {
                       {notice.pinned && (
                         <span className="text-xs font-bold text-brand-600">📌</span>
                       )}
-                      {isNew(notice.created_at) && (
+                      {isNew(notice.created_at) && !viewedIds.has(notice.id) && (
                         <span className="text-[10px] font-bold bg-red-500 text-white px-1.5 py-0.5 rounded-full">NEW</span>
                       )}
                       <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${TYPE_BADGE[notice.type]}`}>

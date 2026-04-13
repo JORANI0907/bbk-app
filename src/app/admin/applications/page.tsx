@@ -529,6 +529,7 @@ export default function ServiceManagementPage() {
   const [selected, setSelected] = useState<Application | null>(null)
   const [saving, setSaving] = useState(false)
   const [sending, setSending] = useState(false)
+  const [viewedNewIds, setViewedNewIds] = useState<Set<string>>(new Set())
 
   // 정렬
   const [sortField, setSortField] = useState<SortField>('construction_date')
@@ -650,6 +651,7 @@ export default function ServiceManagementPage() {
 
   const handleSelect = (app: Application) => {
     setSelected(app)
+    setViewedNewIds(prev => new Set(prev).add(app.id))
     // 신청서 제출 값 우선 반영 (null이면 빈 문자열)
     setOwnerName(app.owner_name ?? '')
     setBusinessNameEdit(app.business_name ?? '')
@@ -1530,7 +1532,7 @@ export default function ServiceManagementPage() {
                           <td className="px-3 py-2.5 max-w-[140px]">
                             <div className="flex items-center gap-1.5">
                               <span className="font-medium text-gray-900 truncate text-sm leading-tight">{app.business_name}</span>
-                              {app.created_at > sevenDaysAgoStr && (
+                              {app.created_at > sevenDaysAgoStr && !viewedNewIds.has(app.id) && (
                                 <span className="text-[9px] font-bold bg-red-500 text-white px-1 py-0.5 rounded-full shrink-0">NEW</span>
                               )}
                             </div>
