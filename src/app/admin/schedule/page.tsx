@@ -557,7 +557,7 @@ function DetailPanel({
           <button
             onClick={() => app.drive_folder_url
               ? openGoogleDrive(app.drive_folder_url)
-              : toast.error('Drive 폴더가 연결되지 않았습니다.')}
+              : toast.error('Google Drive 폴더가 아직 생성되지 않았습니다.\n서비스관리 탭에서 먼저 폴더를 생성해주세요.')}
             className={`w-full py-3 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 transition-colors ${
               app.drive_folder_url
                 ? 'bg-blue-600 hover:bg-blue-700 text-white'
@@ -642,6 +642,23 @@ export default function SchedulePage() {
 
   // 지도 앱 선택 모달
   const [mapAddress, setMapAddress] = useState<string | null>(null)
+
+  // 헤더 auto-hide (모바일 스크롤 시 필터 영역 숨기기)
+  const [filtersVisible, setFiltersVisible] = useState(true)
+  const lastScrollY = useRef(0)
+  const listContainerRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const container = listContainerRef.current
+    if (!container) return
+    const onScroll = () => {
+      const current = container.scrollTop
+      setFiltersVisible(current < lastScrollY.current || current < 50)
+      lastScrollY.current = current
+    }
+    container.addEventListener('scroll', onScroll, { passive: true })
+    return () => container.removeEventListener('scroll', onScroll)
+  }, [])
 
   // 스크롤 복원 (모바일 뒤로가기 후 선택 행으로 돌아오기)
   const rowRefs = useRef<Record<string, HTMLTableRowElement | null>>({})
@@ -842,7 +859,8 @@ export default function SchedulePage() {
       )}
 
       {/* ── 상단 필터 바 ── */}
-      <div className="flex items-center gap-2 flex-wrap shrink-0 bg-white border border-gray-200 rounded-xl px-4 py-3">
+      <div className={`transition-all duration-300 overflow-hidden shrink-0 ${filtersVisible ? 'max-h-48 opacity-100' : 'max-h-0 opacity-0 md:max-h-48 md:opacity-100'}`}>
+      <div className="flex items-center gap-2 flex-wrap bg-white border border-gray-200 rounded-xl px-4 py-3">
 
         {/* 월 이동 */}
         <MonthNavigator value={selectedMonth} onChange={setSelectedMonth} />
@@ -944,6 +962,7 @@ export default function SchedulePage() {
           </div>
         </div>
       </div>
+      </div>
 
       {/* ── 컨텐츠 ── */}
       {loading || !refLoaded ? (
@@ -953,7 +972,7 @@ export default function SchedulePage() {
       ) : viewMode === 'list' ? (
 
         /* 목록 뷰 */
-        <div className="flex-1 bg-white rounded-xl border border-gray-200 overflow-auto min-h-0 pb-20 md:pb-0">
+        <div ref={listContainerRef} className="flex-1 bg-white rounded-xl border border-gray-200 overflow-auto min-h-0 pb-20 md:pb-0">
           {filteredApps.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full gap-3 text-center py-20">
               <span className="text-5xl">📋</span>
