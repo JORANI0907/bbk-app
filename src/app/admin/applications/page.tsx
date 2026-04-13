@@ -2,14 +2,21 @@
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import toast from 'react-hot-toast'
-import type { DriveFolder } from '@/lib/googleDrive'
-import { openGoogleDrive } from '@/lib/mapUtils'
+import {
+  type DriveFolder,
+  loadGoogleAPIs,
+  requestGoogleToken,
+  requestGoogleTokenWithScopes,
+  openFolderPicker,
+  resolveFolder,
+  saveDriveFolderCookie,
+  getSavedDriveFolder as getDriveFolderCookie,
+  createWorkFolderStructure,
+} from '@/lib/googleDrive'
 import { useModalBackButton } from '@/hooks/useModalBackButton'
 import { MonthNavigator } from '@/components/MonthNavigator'
 import { LoadingSpinner } from '@/components/admin/LoadingSpinner'
 import { MapSelectorModal } from '@/components/MapSelectorModal'
-
-const getDriveLib = () => import('@/lib/googleDrive')
 
 type ServiceType = '1회성케어' | '정기딥케어' | '정기엔드케어'
 type ApplicationStatus = '예약확정' | '예약1일전' | '예약당일' | '작업완료' | '결제' | '결제완료' | '결제완료(잔금)' | '계산서발행완료' | '예약금환급완료' | '예약취소' | 'A/S방문' | '방문견적'
@@ -574,6 +581,7 @@ export default function ServiceManagementPage() {
   const [savedDriveFolder, setSavedDriveFolder] = useState<DriveFolder | null>(null)
   const [driveToken, setDriveToken] = useState<string | null>(null)
   const [driveCreating, setDriveCreating] = useState(false)
+  const [driveApisReady, setDriveApisReady] = useState(false)
 
   // 견적서 발송
   const [quoteSending, setQuoteSending] = useState(false)
@@ -634,7 +642,8 @@ export default function ServiceManagementPage() {
   const computedBalance = totalAmount - (Number(deposit) || 0)
 
   useEffect(() => {
-    getDriveLib().then(lib => setSavedDriveFolder(lib.getSavedDriveFolder()))
+    setSavedDriveFolder(getDriveFolderCookie())
+    loadGoogleAPIs().then(() => setDriveApisReady(true)).catch(() => {})
     setAllNotifyLogs(loadAllLogs())
   }, [])
 
@@ -1042,30 +1051,35 @@ export default function ServiceManagementPage() {
     finally { setSending(false) }
   }
 
-  const handleSelectDriveFolder = async () => {
-    try {
-      const lib = await getDriveLib()
-      await lib.loadGoogleAPIs()
-      // 항상 새 토큰 — 같은 계정으로 Picker와 폴더 생성 모두 처리
-      const token = await lib.requestGoogleToken()
-      setDriveToken(token)
-      const picked = await lib.openFolderPicker(token)
-      if (picked) {
-        // 바로가기(Shortcut)인 경우 실제 폴더 ID로 resolve (실패 시 picked 그대로)
-        const folder = await lib.resolveFolder(picked, token)
+  // user gesture context 유지를 위해 async/await 없이 즉시 requestGoogleToken() 호출
+  function handleSelectDriveFolder() {
+    if (!driveApisReady) {
+      toast.error('Google API 로딩 중입니다. 잠시 후 다시 시도해주세요.')
+      return
+    }
+    let capturedToken = ''
+    requestGoogleToken()  // ← user gesture 컨텍스트에서 즉시 호출 (await 없음)
+      .then(token => {
+        capturedToken = token
+        setDriveToken(token)
+        return openFolderPicker(token)
+      })
+      .then(picked => {
+        if (!picked) return null
+        return resolveFolder(picked, capturedToken)
+      })
+      .then(folder => {
+        if (!folder) return
         setSavedDriveFolder(folder)
-        lib.saveDriveFolderCookie(folder)
-      }
-    } catch (e) { toast.error(e instanceof Error ? e.message : 'Google Drive 연결 실패') }
+        saveDriveFolderCookie(folder)
+      })
+      .catch(e => toast.error(e instanceof Error ? e.message : 'Google Drive 연결 실패'))
   }
 
   const handleConfirmDriveCreate = async (date: string, mode: 'create' | 'link') => {
     if (!selected || !savedDriveFolder) return
     setDriveCreating(true)
     try {
-      const lib = await getDriveLib()
-      await lib.loadGoogleAPIs()
-
       let folderUrl: string
       let successMsg: string
 
@@ -1074,10 +1088,10 @@ export default function ServiceManagementPage() {
         folderUrl = `https://drive.google.com/drive/folders/${savedDriveFolder.id}`
         successMsg = `✅ "${savedDriveFolder.name}" 폴더 연결 완료!`
       } else {
-        // 새 폴더 구조 생성
-        const token = driveToken || await lib.requestGoogleToken()
+        // 새 폴더 구조 생성 (토큰은 handleSelectDriveFolder에서 이미 획득)
+        const token = driveToken || await requestGoogleToken()
         setDriveToken(token)
-        const result = await lib.createWorkFolderStructure(
+        const result = await createWorkFolderStructure(
           savedDriveFolder.id, selected.business_name, date, token
         )
         folderUrl = result.folderUrl
@@ -1130,9 +1144,7 @@ export default function ServiceManagementPage() {
     }
     setQuoteSending(true)
     try {
-      const lib = await getDriveLib()
-      await lib.loadGoogleAPIs()
-      const token = await lib.requestGoogleTokenWithScopes()
+      const token = await requestGoogleTokenWithScopes()
 
       const res = await fetch(`/api/admin/applications/${selected.id}/send-quote`, {
         method: 'POST',
@@ -1940,7 +1952,7 @@ export default function ServiceManagementPage() {
                   <button
                     onClick={() => {
                       if (selected.drive_folder_url) {
-                        openGoogleDrive(selected.drive_folder_url)
+                        window.open(selected.drive_folder_url, '_blank')
                       } else {
                         toast.error('폴더를 먼저 생성해주세요')
                       }
