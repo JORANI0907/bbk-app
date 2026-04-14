@@ -53,11 +53,12 @@ export async function GET(request: NextRequest) {
       .order('created_at'),
 
     // 정기엔드케어 매출: 고객관리 탭에서 이번달 결제현황 체크된 고객
+    // payment_status는 jsonb 배열 → cs 연산자로 직접 필터링
     supabase
       .from('customers')
-      .select('id, business_name, billing_amount, billing_cycle, payment_method')
+      .select('id, business_name, billing_amount, payment_method')
       .eq('customer_type', '정기엔드케어')
-      .contains('payment_status', [monthLabel])
+      .filter('payment_status', 'cs', `["${monthLabel}"]`)
       .not('billing_amount', 'is', null),
   ])
 
