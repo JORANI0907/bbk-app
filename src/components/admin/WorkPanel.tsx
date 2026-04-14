@@ -24,20 +24,6 @@ interface Props {
   onUpdate: (updates: Partial<WorkApp>) => void
 }
 
-function useCountdown(target: string | null) {
-  const [remaining, setRemaining] = useState<number | null>(null)
-  useEffect(() => {
-    if (!target) { setRemaining(null); return }
-    const tick = () => {
-      const diff = Math.floor((new Date(target).getTime() - Date.now()) / 1000)
-      setRemaining(diff > 0 ? diff : 0)
-    }
-    tick()
-    const id = setInterval(tick, 1000)
-    return () => clearInterval(id)
-  }, [target])
-  return remaining
-}
 
 function useElapsed(startedAt: string | null, active: boolean): number {
   const [elapsed, setElapsed] = useState(0)
@@ -64,11 +50,6 @@ function formatSeconds(sec: number): string {
   return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
 }
 
-function formatCountdown(sec: number) {
-  const m = Math.floor(sec / 60)
-  const s = sec % 60
-  return `${m}분 ${String(s).padStart(2, '0')}초`
-}
 
 export function WorkPanel({ app, onUpdate }: Props) {
   const [customerMemo, setCustomerMemo] = useState(app.customer_memo ?? '')
@@ -77,11 +58,7 @@ export function WorkPanel({ app, onUpdate }: Props) {
   const [afterChecked, setAfterChecked] = useState(false)
   const [saving, setSaving] = useState(false)
 
-  const countdown = useCountdown(app.notification_send_at)
   const status = app.work_status ?? 'pending'
-
-  // P2-24: 정기엔드케어는 작업완료알림만 사용 (예약1일전/당일알림 숨김)
-  const isEndCare = app.service_type === '정기엔드케어'
 
   const elapsed = useElapsed(app.work_started_at, status === 'in_progress')
 
@@ -128,37 +105,39 @@ export function WorkPanel({ app, onUpdate }: Props) {
     if (!canComplete) return
     setSaving(true)
     try {
+      // 1단계: 작업완료 상태 저장
       await saveMemos()
-      const res = await fetch(`/api/admin/applications/${app.id}/work`, {
+      const completeRes = await fetch(`/api/admin/applications/${app.id}/work`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'complete', customer_memo: customerMemo, internal_memo: internalMemo }),
       })
-      if (!res.ok) throw new Error((await res.json()).error)
-      const { send_at } = await res.json()
+      if (!completeRes.ok) throw new Error((await completeRes.json()).error)
+
+      // 2단계: 작업완료알림 자동 발송
+      const notifyRes = await fetch('/api/admin/notify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ application_id: app.id, type: '작업완료알림', method: 'auto' }),
+      })
+      const notifyData = await notifyRes.json()
+
+      const nowIso = new Date().toISOString()
       onUpdate({
         work_status: 'completed',
-        work_completed_at: new Date().toISOString(),
-        notification_send_at: send_at,
+        work_completed_at: nowIso,
+        notification_sent_at: notifyRes.ok ? nowIso : null,
+        notification_send_at: null,
         customer_memo: customerMemo,
         internal_memo: internalMemo,
+        ...(notifyData.new_status ? { status: notifyData.new_status } : {}),
       })
-      toast.success('작업 완료! 1시간 후 고객에게 알림이 발송됩니다.')
-    } catch (e) { toast.error(String(e)) }
-    finally { setSaving(false) }
-  }
 
-  async function handleCancelNotification() {
-    setSaving(true)
-    try {
-      const res = await fetch(`/api/admin/applications/${app.id}/work`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'cancel_notification' }),
-      })
-      if (!res.ok) throw new Error((await res.json()).error)
-      onUpdate({ notification_send_at: null })
-      toast.success('알림 발송을 취소했습니다.')
+      if (notifyRes.ok) {
+        toast.success('작업 완료! 고객에게 알림을 발송했습니다.')
+      } else {
+        toast.success('작업 완료! (알림 발송 실패 — 수동으로 재발송해주세요)')
+      }
     } catch (e) { toast.error(String(e)) }
     finally { setSaving(false) }
   }
@@ -189,14 +168,6 @@ export function WorkPanel({ app, onUpdate }: Props) {
   return (
     <section>
       <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">작업 현황</p>
-
-      {/* P2-24: 정기엔드케어 안내 배너 */}
-      {isEndCare && (
-        <div className="mb-3 px-3 py-2 bg-violet-50 border border-violet-200 rounded-lg">
-          <p className="text-xs text-violet-700 font-semibold">정기엔드케어</p>
-          <p className="text-xs text-violet-500 mt-0.5">작업완료알림만 발송됩니다 (카카오 알림톡 전용 템플릿)</p>
-        </div>
-      )}
 
       {/* 대기 중 */}
       {status === 'pending' && (
@@ -390,41 +361,26 @@ export function WorkPanel({ app, onUpdate }: Props) {
             />
           </div>
 
-          {/* P2-24: 정기엔드케어는 예약알림 버튼 없음, 작업완료알림만 표시 */}
           {app.notification_sent_at ? (
-            <div className="bg-green-50 rounded-xl px-3 py-2.5 flex items-center gap-2">
-              <p className="text-xs font-semibold text-green-700">
-                {isEndCare ? '엔드케어 작업완료 알림 발송 완료' : '고객 알림 발송 완료'}
-              </p>
-              <p className="text-xs text-green-600">
-                {new Date(app.notification_sent_at).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-              </p>
-            </div>
-          ) : app.notification_send_at && countdown !== null ? (
-            <div className="bg-amber-50 rounded-xl px-3 py-2.5 space-y-2">
-              <p className="text-xs font-semibold text-amber-700">알림 발송 대기 중</p>
-              <p className="text-xs text-amber-600 font-mono">
-                {countdown > 0 ? `${formatCountdown(countdown)} 후 자동 발송` : '곧 발송됩니다...'}
-              </p>
-              <p className="text-xs text-gray-500">발송을 누르지 않아도 1시간 후 자동 발송됩니다.</p>
-              <div className="flex gap-2">
-                <button onClick={handleSendNow} disabled={saving}
-                  className="flex-1 py-2 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white text-xs font-semibold rounded-xl border-2 border-green-400">
-                  {saving ? '발송 중...' : '📣 작업완료 알림 발송'}
-                </button>
-                <button onClick={handleCancelNotification} disabled={saving}
-                  className="flex-1 py-2 bg-white hover:bg-gray-50 disabled:opacity-50 border border-gray-200 text-gray-600 text-xs font-semibold rounded-xl">
-                  발송 취소
-                </button>
+            <div className="bg-green-50 rounded-xl px-3 py-2.5 flex items-center justify-between gap-2">
+              <div>
+                <p className="text-xs font-semibold text-green-700">작업완료 알림 발송 완료</p>
+                <p className="text-xs text-green-600 mt-0.5">
+                  {new Date(app.notification_sent_at).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                </p>
               </div>
+              <button onClick={handleSendNow} disabled={saving}
+                className="shrink-0 text-xs px-3 py-1.5 bg-white border border-green-200 text-green-600 hover:bg-green-50 rounded-lg font-semibold disabled:opacity-50">
+                {saving ? '발송 중...' : '재발송'}
+              </button>
             </div>
           ) : (
-            <div className="space-y-2">
+            <div className="bg-red-50 rounded-xl px-3 py-2.5 space-y-2">
+              <p className="text-xs font-semibold text-red-600">알림 발송 실패 — 수동으로 발송해주세요</p>
               <button onClick={handleSendNow} disabled={saving}
-                className="w-full py-2.5 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white text-xs font-semibold rounded-xl border-2 border-green-400">
-                {saving ? '발송 중...' : isEndCare ? '📣 엔드케어 작업완료 알림 발송' : '📣 작업완료 알림 발송'}
+                className="w-full py-2.5 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white text-xs font-semibold rounded-xl">
+                {saving ? '발송 중...' : '📣 작업완료 알림 발송'}
               </button>
-              <p className="text-xs text-gray-400 text-center">발송을 누르지 않아도 1시간 후 자동 발송됩니다.</p>
             </div>
           )}
 
