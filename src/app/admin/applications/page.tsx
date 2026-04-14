@@ -57,6 +57,7 @@ interface Application {
   construction_date: string | null
   care_scope: string | null
   unit_price_per_visit: number | null
+  pre_meeting_at: string | null
   notification_log?: Array<{ type: string; sent_at: string; method?: 'auto' | 'manual' }> | null
 }
 
@@ -125,7 +126,7 @@ const copyText = (text: string, label: string) =>
 const today = () => new Date().toISOString().slice(0, 10)
 const fmtDate = (d: string | null) => d ? d.slice(0, 10).replace(/-/g, '.') : '-'
 const rowTotal = (app: Application) => {
-  const noVat = app.payment_method === '현금(부가세 X)'
+  const noVat = app.payment_method === '현금(부가세 X)' || app.payment_method === '현금(계산서 미희망)'
   return (app.supply_amount ?? 0) + (noVat ? 0 : (app.vat ?? 0))
 }
 
@@ -478,6 +479,7 @@ export default function ServiceManagementPage() {
   const [careScope, setCareScope] = useState('')
   const [businessHoursStart, setBusinessHoursStart] = useState('')
   const [businessHoursEnd, setBusinessHoursEnd] = useState('')
+  const [preMeetingAt, setPreMeetingAt] = useState('')
 
   const vatManual = useRef(false)
 
@@ -503,7 +505,7 @@ export default function ServiceManagementPage() {
   const todayStr = new Date().toISOString().slice(0, 10)
   const sevenDaysAgoStr = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
 
-  const isCashNoVat = paymentMethod === '현금(부가세 X)'
+  const isCashNoVat = paymentMethod === '현금(부가세 X)' || paymentMethod === '현금(계산서 미희망)'
   const effectiveVat = isCashNoVat ? 0 : (Number(vat) || 0)
   const totalAmount = (Number(supplyAmount) || 0) + effectiveVat
   const computedBalance = totalAmount - (Number(deposit) || 0)
@@ -560,6 +562,7 @@ export default function ServiceManagementPage() {
     setBusinessHoursStart(app.business_hours_start ?? '')
     setBusinessHoursEnd(app.business_hours_end ?? '')
     setUnitPricePerVisit(app.unit_price_per_visit != null ? String(app.unit_price_per_visit) : '')
+    setPreMeetingAt(app.pre_meeting_at ? app.pre_meeting_at.slice(0, 16) : '')
     setNotifyType('')
 
     // DB notification_log를 소스로 사용 (디바이스 무관하게 동일한 이력 표시)
@@ -829,6 +832,7 @@ export default function ServiceManagementPage() {
           business_hours_start: businessHoursStart || null,
           business_hours_end: businessHoursEnd || null,
           unit_price_per_visit: unitPricePerVisit !== '' ? Number(unitPricePerVisit) : null,
+          pre_meeting_at: preMeetingAt || null,
         }),
       })
       const data = await res.json()
@@ -852,7 +856,7 @@ export default function ServiceManagementPage() {
   const handleVatChange = (val: string) => { vatManual.current = true; setVat(val) }
   const handlePaymentMethodChange = (val: string) => {
     setPaymentMethod(val)
-    if (val === '현금(부가세 X)') { setVat('0'); vatManual.current = true }
+    if (val === '현금(부가세 X)' || val === '현금(계산서 미희망)') { setVat('0'); vatManual.current = true }
     else { vatManual.current = false; if (supplyAmount) setVat(String(Math.round((Number(supplyAmount) || 0) * 0.1))) }
   }
 
@@ -1253,7 +1257,7 @@ export default function ServiceManagementPage() {
             <select value={paymentFilter} onChange={e => setPaymentFilter(e.target.value)}
               className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
               <option value="">결제방법 전체</option>
-              {['현금(부가세 O)', '현금(부가세 X)', '카드', '계좌이체'].map(p => (
+              {['현금(부가세 O)', '현금(부가세 X)', '현금(계산서 미희망)', '카드', '계좌이체'].map(p => (
                 <option key={p} value={p}>{p}</option>
               ))}
             </select>
@@ -1566,25 +1570,23 @@ export default function ServiceManagementPage() {
                 </div>
               </Section>
 
-              {/* 건당급여 */}
-              <Section title="건당급여">
-                <div className="bg-white border border-indigo-100 rounded-lg p-3 flex flex-col gap-2">
-                  <p className="text-xs font-semibold text-gray-700">건당 급여</p>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="number"
-                      value={unitPricePerVisit}
-                      onChange={e => setUnitPricePerVisit(e.target.value)}
-                      placeholder="0"
-                      className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                    <span className="text-xs text-gray-400 shrink-0">원/건</span>
-                  </div>
-                  <p className="text-xs text-gray-400">저장 시 급여정산에 반영됩니다 (이 일정에만 적용)</p>
-                  {unitPricePerVisit && (
-                    <div className="text-xs text-indigo-600 bg-indigo-50 rounded p-2">
-                      💰 이 일정 급여: {Number(unitPricePerVisit).toLocaleString('ko-KR')}원/건
+              {/* 사전미팅 */}
+              <Section title="사전미팅">
+                <div className="bg-white border border-purple-100 rounded-xl p-3 space-y-2">
+                  <p className="text-xs text-gray-500">사전 미팅 일정을 설정합니다.</p>
+                  <input
+                    type="datetime-local"
+                    value={preMeetingAt}
+                    onChange={e => setPreMeetingAt(e.target.value)}
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-purple-400"
+                  />
+                  {preMeetingAt && (
+                    <div className="text-xs text-purple-700 bg-purple-50 rounded p-2">
+                      미팅 일정: {new Date(preMeetingAt).toLocaleString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}
                     </div>
+                  )}
+                  {preMeetingAt && (
+                    <button onClick={() => setPreMeetingAt('')} className="text-xs text-gray-400 hover:text-red-500">일정 삭제</button>
                   )}
                 </div>
               </Section>
@@ -1662,7 +1664,18 @@ export default function ServiceManagementPage() {
               {/* 결제정보 */}
               <Section title="결제정보">
                 <div className="space-y-2">
-                  <EditRow label="결제방법" value={paymentMethod} onChange={handlePaymentMethodChange} />
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-gray-500 w-20 shrink-0">결제방법</span>
+                    <select value={paymentMethod} onChange={e => handlePaymentMethodChange(e.target.value)}
+                      className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+                      <option value="">선택...</option>
+                      <option value="현금(부가세 O)">현금(부가세 O)</option>
+                      <option value="현금(부가세 X)">현금(부가세 X)</option>
+                      <option value="현금(계산서 미희망)">현금(계산서 미희망)</option>
+                      <option value="카드">카드</option>
+                      <option value="계좌이체">계좌이체</option>
+                    </select>
+                  </div>
                   <div className="flex items-center gap-2">
                     <span className="text-xs text-gray-500 w-20 shrink-0">계좌번호</span>
                     <div className="flex flex-1 gap-1">
