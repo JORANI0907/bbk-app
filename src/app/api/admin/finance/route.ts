@@ -52,10 +52,10 @@ export async function GET(request: NextRequest) {
       .eq('category', 'variable')
       .order('created_at'),
 
-    // 정기엔드케어 매출: 고객관리 탭에서 이번달 결제완료 체크된 고객
+    // 정기엔드케어 매출: 고객관리 탭에서 이번달 결제현황 체크된 고객
     supabase
       .from('customers')
-      .select('id, business_name, billing_amount, billing_cycle')
+      .select('id, business_name, billing_amount, billing_cycle, payment_method')
       .eq('customer_type', '정기엔드케어')
       .contains('payment_status', [monthLabel])
       .not('billing_amount', 'is', null),
@@ -80,17 +80,22 @@ export async function GET(request: NextRequest) {
     return { ...a, total }
   })
 
-  // 정기엔드케어 매출 (고객관리 탭 billing_amount)
-  const endCareItems = endCareCustomers.map(c => ({
-    id: c.id,
-    business_name: c.business_name,
-    service_type: '정기엔드케어',
-    construction_date: null as string | null,
-    supply_amount: c.billing_amount,
-    vat: null as number | null,
-    payment_method: null as string | null,
-    total: c.billing_amount ?? 0,
-  }))
+  // 정기엔드케어 매출 (고객관리 탭 billing_amount + 결제방법별 부가세 처리)
+  const endCareItems = endCareCustomers.map(c => {
+    const supply = c.billing_amount ?? 0
+    const noVat = c.payment_method === '현금(부가세 X)'
+    const vatAmt = noVat ? 0 : Math.round(supply * 0.1)
+    return {
+      id: c.id,
+      business_name: c.business_name,
+      service_type: '정기엔드케어',
+      construction_date: null as string | null,
+      supply_amount: supply,
+      vat: vatAmt,
+      payment_method: c.payment_method as string | null,
+      total: supply + vatAmt,
+    }
+  })
 
   const allRevenueItems = [...revenueItems, ...endCareItems]
   const revenueTotal = allRevenueItems.reduce((s, a) => s + a.total, 0)
