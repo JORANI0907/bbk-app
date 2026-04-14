@@ -81,6 +81,14 @@ function alreadySentToday(
   )
 }
 
+// ─── notification_log에 해당 type이 한 번이라도 발송됐는지 확인 ───
+function alreadySentEver(
+  log: Array<{ type: string }>,
+  type: string,
+): boolean {
+  return log.some((entry) => entry.type === type)
+}
+
 // ─── 단일 알림 발송 + log 업데이트 ───────────────────────────────
 async function sendAndLog(
   supabase: ReturnType<typeof createServiceClient>,
@@ -89,10 +97,10 @@ async function sendAndLog(
   assignedName: string,
   notifyToStatus: Record<string, string>,
 ): Promise<void> {
-  const templateId  = TEMPLATES[type]
-  const phone       = String(app.phone ?? '').replace(/-/g, '')
-  const variables   = buildVariables(type, app, assignedName)
-  const fallback    = buildFallback(type, app)
+  const templateId = TEMPLATES[type]
+  const phone      = String(app.phone ?? '').replace(/-/g, '')
+  const variables  = buildVariables(type, app, assignedName)
+  const fallback   = buildFallback(type, app)
 
   await sendAlimtalk(phone, templateId, variables, fallback)
 
@@ -107,10 +115,12 @@ async function sendAndLog(
   const newStatus = notifyToStatus[type]
   if (newStatus) updates.status = newStatus
 
-  await supabase
+  const { error } = await supabase
     .from('service_applications')
     .update(updates)
     .eq('id', app.id as string)
+
+  if (error) throw new Error(`DB 업데이트 실패: ${error.message}`)
 }
 
 // ─── 메인 핸들러 ─────────────────────────────────────────────────
@@ -129,9 +139,20 @@ export async function GET(request: NextRequest) {
     '결제알림':      '결제',
   }
 
-  const results: { type: string; sent: number; failed: number; skipped: number } [] = []
+  // 담당자 이름 캐싱 (N+1 방지)
+  const userNameCache: Record<string, string> = {}
+  async function getAssignedName(userId: string | null): Promise<string> {
+    if (!userId) return '-'
+    if (userNameCache[userId]) return userNameCache[userId]
+    const { data: u } = await supabase.from('users').select('name').eq('id', userId).single()
+    const name = u?.name ?? '-'
+    userNameCache[userId] = name
+    return name
+  }
 
-  // ── 1. 예약1일전알림: 내일 시공 + 예약확정 + 배정완료 ──────────
+  const results: { type: string; sent: number; failed: number; skipped: number }[] = []
+
+  // ── 1. 예약1일전알림: 내일 시공 + 예약확정 + 담당자 배정 ──────────
   {
     const { data: apps } = await supabase
       .from('service_applications')
@@ -142,15 +163,11 @@ export async function GET(request: NextRequest) {
 
     let sent = 0, failed = 0, skipped = 0
     for (const app of (apps ?? [])) {
+      if (!app.phone) { skipped++; continue }
       const log = Array.isArray(app.notification_log) ? app.notification_log : []
       if (alreadySentToday(log, '예약1일전알림', todayKST)) { skipped++; continue }
-      if (!app.phone) { skipped++; continue }
 
-      let assignedName = '-'
-      if (app.assigned_to) {
-        const { data: u } = await supabase.from('users').select('name').eq('id', app.assigned_to).single()
-        if (u?.name) assignedName = u.name
-      }
+      const assignedName = await getAssignedName(app.assigned_to as string | null)
       try {
         await sendAndLog(supabase, app as Record<string, unknown>, '예약1일전알림', assignedName, NOTIFY_TO_STATUS)
         sent++
@@ -159,7 +176,7 @@ export async function GET(request: NextRequest) {
     results.push({ type: '예약1일전알림', sent, failed, skipped })
   }
 
-  // ── 2. 예약당일알림: 오늘 시공 + (예약확정|예약1일전) + 배정완료 ─
+  // ── 2. 예약당일알림: 오늘 시공 + (예약확정|예약1일전) + 담당자 배정 ─
   {
     const { data: apps } = await supabase
       .from('service_applications')
@@ -170,15 +187,11 @@ export async function GET(request: NextRequest) {
 
     let sent = 0, failed = 0, skipped = 0
     for (const app of (apps ?? [])) {
+      if (!app.phone) { skipped++; continue }
       const log = Array.isArray(app.notification_log) ? app.notification_log : []
       if (alreadySentToday(log, '예약당일알림', todayKST)) { skipped++; continue }
-      if (!app.phone) { skipped++; continue }
 
-      let assignedName = '-'
-      if (app.assigned_to) {
-        const { data: u } = await supabase.from('users').select('name').eq('id', app.assigned_to).single()
-        if (u?.name) assignedName = u.name
-      }
+      const assignedName = await getAssignedName(app.assigned_to as string | null)
       try {
         await sendAndLog(supabase, app as Record<string, unknown>, '예약당일알림', assignedName, NOTIFY_TO_STATUS)
         sent++
@@ -187,19 +200,18 @@ export async function GET(request: NextRequest) {
     results.push({ type: '예약당일알림', sent, failed, skipped })
   }
 
-  // ── 3. 결제알림: 작업완료 + 결제알림 미발송 ──────────────────────
+  // ── 3. 결제알림: 작업완료(딥/엔드) + 결제알림 미발송 ─────────────
   {
     const { data: apps } = await supabase
       .from('service_applications')
       .select('*')
-      .eq('status', '작업완료')
+      .in('status', ['작업완료', '작업완료(엔드)'])
 
     let sent = 0, failed = 0, skipped = 0
     for (const app of (apps ?? [])) {
       if (!app.phone) { skipped++; continue }
       const log = Array.isArray(app.notification_log) ? app.notification_log : []
-      const alreadySent = log.some((e: { type: string }) => e.type === '결제알림')
-      if (alreadySent) { skipped++; continue }
+      if (alreadySentEver(log, '결제알림')) { skipped++; continue }
 
       try {
         await sendAndLog(supabase, app as Record<string, unknown>, '결제알림', '-', NOTIFY_TO_STATUS)
