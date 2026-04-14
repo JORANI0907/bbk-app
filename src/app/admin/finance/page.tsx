@@ -136,6 +136,10 @@ function RecordRow({ record, onDelete, onUpdate }: {
   )
 }
 
+// ─── Constants ───────────────────────────────────────────────────────────────
+
+const SERVICE_TYPES = ['1회성케어', '정기딥케어', '정기엔드케어'] as const
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function FinancePage() {
@@ -143,6 +147,8 @@ export default function FinancePage() {
   const [tab, setTab] = useState<'dashboard' | 'detail'>('dashboard')
   const [loading, setLoading] = useState(false)
   const [data, setData] = useState<FinanceData | null>(null)
+  const [selectedTypes, setSelectedTypes] = useState<string[]>([])
+  const [purchaseSortDir, setPurchaseSortDir] = useState<'asc' | 'desc'>('asc')
 
   const displayMonth = (() => {
     const [y, m] = month.split('-')
@@ -250,19 +256,28 @@ export default function FinancePage() {
     URL.revokeObjectURL(url)
   }
 
+  const toggleServiceType = (type: string) => {
+    setSelectedTypes(prev =>
+      prev.includes(type) ? prev.filter(t => t !== type) : [...prev, type]
+    )
+  }
+
+  const filteredRevenue = !data ? [] : selectedTypes.length === 0
+    ? data.revenue.items
+    : data.revenue.items.filter(item => selectedTypes.includes(item.service_type ?? ''))
+
+  const sortRecords = (records: FinanceRecord[]) =>
+    [...records].sort((a, b) =>
+      purchaseSortDir === 'asc'
+        ? a.name.localeCompare(b.name, 'ko')
+        : b.name.localeCompare(a.name, 'ko')
+    )
+
   const totalExpense = data ? data.labor.total + data.fixed.total + data.variable.total : 0
   const profitRate = data && data.revenue.total > 0 ? Math.round((data.net_profit / data.revenue.total) * 100) : 0
 
   return (
     <div className="flex flex-col h-full">
-      {/* 탭 네비게이션 */}
-      <div className="flex gap-1.5 px-4 pt-4">
-        <a href="/admin/workers" className="px-4 py-2 text-gray-600 hover:bg-gray-100 text-sm font-medium rounded-xl transition-colors">👷 직원정보</a>
-        <a href="/admin/payroll" className="px-4 py-2 text-gray-600 hover:bg-gray-100 text-sm font-medium rounded-xl transition-colors">💰 급여정산</a>
-        <span className="px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-xl">📈 매출매입</span>
-        <a href="/admin/members" className="px-4 py-2 text-gray-600 hover:bg-gray-100 text-sm font-medium rounded-xl transition-colors">🔑 계정관리</a>
-      </div>
-
       <div className="flex-1 overflow-y-auto px-4 pb-6">
         {/* 월 선택기 */}
         <div className="flex items-center justify-between my-4">
@@ -387,19 +402,43 @@ export default function FinancePage() {
           /* ── 상세내역 ── */
           <div className="space-y-4">
 
-            {/* 매출 */}
+            {/* 매출 섹션 */}
             <div className="bg-white border border-gray-100 rounded-xl overflow-hidden">
               <div className="px-4 py-3 bg-blue-50 border-b border-blue-100 flex items-center justify-between">
                 <div>
                   <span className="text-sm font-bold text-blue-800">매출</span>
                   <span className="text-xs text-blue-500 ml-2">서비스통합관리 자동산정</span>
                 </div>
-                <span className="text-sm font-bold text-blue-700 font-mono">{fmt(data.revenue.total)}원</span>
+                <span className="text-sm font-bold text-blue-700 font-mono">{fmt(filteredRevenue.reduce((s, i) => s + i.total, 0))}원</span>
+              </div>
+              {/* 서비스 유형 필터 칩 */}
+              <div className="px-4 py-2.5 flex gap-2 flex-wrap border-b border-gray-100 bg-gray-50">
+                {SERVICE_TYPES.map(type => (
+                  <button
+                    key={type}
+                    onClick={() => toggleServiceType(type)}
+                    className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+                      selectedTypes.includes(type)
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-white border border-gray-200 text-gray-600 hover:border-blue-400'
+                    }`}
+                  >
+                    {type}
+                  </button>
+                ))}
+                {selectedTypes.length > 0 && (
+                  <button onClick={() => setSelectedTypes([])} className="px-2 py-1 text-xs text-gray-400 hover:text-gray-600">
+                    전체
+                  </button>
+                )}
+                <span className="ml-auto text-xs text-gray-400 self-center">{filteredRevenue.length}건</span>
               </div>
               <div className="divide-y divide-gray-50">
-                {data.revenue.items.length === 0 ? (
-                  <p className="text-xs text-gray-400 text-center py-4">{displayMonth} 매출 없음</p>
-                ) : data.revenue.items.map(item => (
+                {filteredRevenue.length === 0 ? (
+                  <p className="text-xs text-gray-400 text-center py-4">
+                    {selectedTypes.length > 0 ? '선택한 유형의 매출 없음' : `${displayMonth} 매출 없음`}
+                  </p>
+                ) : filteredRevenue.map(item => (
                   <div key={item.id} className="px-4 py-2.5 flex items-center gap-2">
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-gray-800 truncate">{item.business_name}</p>
@@ -436,10 +475,19 @@ export default function FinancePage() {
                   <span className="text-sm font-bold text-indigo-800">고정비</span>
                   <span className="text-xs text-indigo-400 ml-2">임대료, 보험료 등</span>
                 </div>
-                <span className="text-sm font-bold text-indigo-700 font-mono">{fmt(data.fixed.total)}원</span>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setPurchaseSortDir(d => d === 'asc' ? 'desc' : 'asc')}
+                    title={purchaseSortDir === 'asc' ? '이름 오름차순' : '이름 내림차순'}
+                    className="text-xs text-indigo-500 hover:text-indigo-700 font-medium flex items-center gap-0.5"
+                  >
+                    이름 {purchaseSortDir === 'asc' ? '↑' : '↓'}
+                  </button>
+                  <span className="text-sm font-bold text-indigo-700 font-mono">{fmt(data.fixed.total)}원</span>
+                </div>
               </div>
               <div className="px-4 py-2">
-                {data.fixed.records.map(r => (
+                {sortRecords(data.fixed.records).map(r => (
                   <RecordRow key={r.id} record={r}
                     onDelete={handleDeleteRecord}
                     onUpdate={handleUpdateRecord} />
@@ -458,10 +506,19 @@ export default function FinancePage() {
                   <span className="text-sm font-bold text-purple-800">변동비</span>
                   <span className="text-xs text-purple-400 ml-2">소모품, 교통비 등</span>
                 </div>
-                <span className="text-sm font-bold text-purple-700 font-mono">{fmt(data.variable.total)}원</span>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setPurchaseSortDir(d => d === 'asc' ? 'desc' : 'asc')}
+                    title={purchaseSortDir === 'asc' ? '이름 오름차순' : '이름 내림차순'}
+                    className="text-xs text-purple-500 hover:text-purple-700 font-medium flex items-center gap-0.5"
+                  >
+                    이름 {purchaseSortDir === 'asc' ? '↑' : '↓'}
+                  </button>
+                  <span className="text-sm font-bold text-purple-700 font-mono">{fmt(data.variable.total)}원</span>
+                </div>
               </div>
               <div className="px-4 py-2">
-                {data.variable.records.map(r => (
+                {sortRecords(data.variable.records).map(r => (
                   <RecordRow key={r.id} record={r}
                     onDelete={handleDeleteRecord}
                     onUpdate={handleUpdateRecord} />
