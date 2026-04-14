@@ -1053,21 +1053,21 @@ export default function AdminCustomersPage() {
                   {/* 결제현황 / 결제일자 */}
                   <div className="bg-white border border-purple-100 rounded-lg p-3 flex flex-col gap-3">
                     <p className="text-xs font-semibold text-gray-700">결제현황</p>
-                    <div className="flex flex-wrap gap-1.5">
-                      {PAYMENT_STATUS_OPTIONS.map(opt => {
-                        const checked = form.payment_status.includes(opt)
+                    <div className="grid grid-cols-6 gap-1.5">
+                      {['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'].map(mon => {
+                        const checked = form.payment_status.includes(mon)
                         return (
-                          <button key={opt}
+                          <button key={mon}
                             onClick={() => {
                               const next = checked
-                                ? form.payment_status.filter(s => s !== opt)
-                                : [...form.payment_status, opt]
+                                ? form.payment_status.filter(s => s !== mon)
+                                : [...form.payment_status, mon]
                               setForm(prev => ({ ...prev, payment_status: next }))
                             }}
-                            className={`px-3 py-1.5 text-xs rounded-lg font-medium transition-colors ${
+                            className={`py-1.5 text-xs rounded-lg font-medium transition-colors text-center ${
                               checked ? 'bg-purple-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                             }`}>
-                            {opt}
+                            {mon}
                           </button>
                         )
                       })}
@@ -1094,9 +1094,9 @@ export default function AdminCustomersPage() {
                     )}
                   </div>
 
-                  {/* 결제 일정 */}
+                  {/* 계약기간 */}
                   <div className="flex flex-col gap-2">
-                    <p className="text-xs font-semibold text-gray-700">결제 일정</p>
+                    <p className="text-xs font-semibold text-gray-700">계약기간</p>
                     <div className="flex items-center gap-2">
                       <span className="text-xs text-gray-500 w-24 shrink-0">계약 시작</span>
                       <input type="date" value={form.contract_start_date} onChange={e => set('contract_start_date')(e.target.value)}
@@ -1106,34 +1106,6 @@ export default function AdminCustomersPage() {
                       <span className="text-xs text-gray-500 w-24 shrink-0">계약 만료</span>
                       <input type="date" value={form.contract_end_date} onChange={e => set('contract_end_date')(e.target.value)}
                         className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-purple-500 bg-white text-gray-900" />
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-gray-500 w-24 shrink-0">결제 시작일</span>
-                      <input type="date" value={form.billing_start_date} onChange={e => set('billing_start_date')(e.target.value)}
-                        className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-purple-500 bg-white text-gray-900" />
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-gray-500 w-24 shrink-0">선납 기간 수</span>
-                      <input type="number" min={1} max={60} value={prepaidPeriods}
-                        onChange={e => setPrepaidPeriods(Math.max(1, Number(e.target.value)))}
-                        className="w-16 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-purple-500 text-center text-gray-900" />
-                      <span className="text-xs text-gray-400">{form.billing_cycle === '연간' ? '년' : '개월'}</span>
-                      {form.billing_start_date && (
-                        <span className="text-xs text-purple-600 flex-1 text-right">
-                          {getPrepaidMonthLabels(form.billing_start_date, form.billing_cycle as BillingCycle, prepaidPeriods)} 완료
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-gray-500 w-24 shrink-0">다음 결제일</span>
-                      <input type="date" value={form.billing_next_date} onChange={e => set('billing_next_date')(e.target.value)}
-                        className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-purple-500 bg-white text-gray-900" />
-                      {form.billing_start_date && (
-                        <button onClick={() => {
-                          try { set('billing_next_date')(calcNextBillingDate(form.billing_start_date, form.billing_cycle as BillingCycle, prepaidPeriods)) }
-                          catch { /* ignore */ }
-                        }} className="text-xs text-purple-600 border border-purple-200 rounded px-2 py-1 hover:bg-purple-50 whitespace-nowrap">자동계산</button>
-                      )}
                     </div>
                   </div>
 
@@ -1228,9 +1200,9 @@ export default function AdminCustomersPage() {
                     <p className="text-xs text-amber-600 mt-1">정기딥케어 작업자 급여는 건별로 별도 책정됩니다. 서비스 관리 &gt; 작업자 배정에서 개별 급여를 입력하세요.</p>
                   </div>
 
-                  {/* 결제 일정 */}
+                  {/* 계약기간 */}
                   <div className="flex flex-col gap-2">
-                    <p className="text-xs font-semibold text-gray-700">결제 일정</p>
+                    <p className="text-xs font-semibold text-gray-700">계약기간</p>
                     <div className="flex items-center gap-2">
                       <span className="text-xs text-gray-500 w-24 shrink-0">계약 시작</span>
                       <input type="date" value={form.contract_start_date} onChange={e => set('contract_start_date')(e.target.value)}
@@ -1240,34 +1212,6 @@ export default function AdminCustomersPage() {
                       <span className="text-xs text-gray-500 w-24 shrink-0">계약 만료</span>
                       <input type="date" value={form.contract_end_date} onChange={e => set('contract_end_date')(e.target.value)}
                         className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white" />
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-gray-500 w-24 shrink-0">결제 시작일</span>
-                      <input type="date" value={form.billing_start_date} onChange={e => set('billing_start_date')(e.target.value)}
-                        className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white" />
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-gray-500 w-24 shrink-0">선납 기간 수</span>
-                      <input type="number" min={1} max={60} value={prepaidPeriods}
-                        onChange={e => setPrepaidPeriods(Math.max(1, Number(e.target.value)))}
-                        className="w-16 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 text-center" />
-                      <span className="text-xs text-gray-400">{form.billing_cycle === '연간' ? '년' : '개월'}</span>
-                      {form.billing_start_date && (
-                        <span className="text-xs text-blue-600 flex-1 text-right">
-                          {getPrepaidMonthLabels(form.billing_start_date, form.billing_cycle as BillingCycle, prepaidPeriods)} 완료
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-gray-500 w-24 shrink-0">다음 결제일</span>
-                      <input type="date" value={form.billing_next_date} onChange={e => set('billing_next_date')(e.target.value)}
-                        className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white" />
-                      {form.billing_start_date && form.billing_cycle && (
-                        <button onClick={() => {
-                          try { set('billing_next_date')(calcNextBillingDate(form.billing_start_date, form.billing_cycle as BillingCycle, prepaidPeriods)) }
-                          catch { /* ignore */ }
-                        }} className="text-xs text-blue-600 border border-blue-200 rounded px-2 py-1 hover:bg-blue-50 whitespace-nowrap">자동계산</button>
-                      )}
                     </div>
                   </div>
 

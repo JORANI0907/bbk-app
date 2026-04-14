@@ -11,17 +11,23 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'month 파라미터가 필요합니다. (YYYY-MM)' }, { status: 400 })
   }
 
-  const [appsRes, payrollRes, fixedRes, variableRes] = await Promise.all([
-    // 매출: 해당 월 service_applications의 supply_amount + vat
+  const monthNum = parseInt(month.split('-')[1], 10)
+  const monthLabel = `${monthNum}월`
+
+  const nextMonth = (() => {
+    const [y, m] = month.split('-').map(Number)
+    return m === 12 ? `${y + 1}-01-01` : `${y}-${String(m + 1).padStart(2, '0')}-01`
+  })()
+
+  const [appsRes, payrollRes, fixedRes, variableRes, endCareRes] = await Promise.all([
+    // 매출: 해당 월 service_applications (정기엔드케어 제외)
     supabase
       .from('service_applications')
       .select('id, business_name, supply_amount, vat, payment_method, service_type, construction_date')
       .gte('construction_date', `${month}-01`)
-      .lt('construction_date', (() => {
-        const [y, m] = month.split('-').map(Number)
-        return m === 12 ? `${y + 1}-01-01` : `${y}-${String(m + 1).padStart(2, '0')}-01`
-      })())
+      .lt('construction_date', nextMonth)
       .not('supply_amount', 'is', null)
+      .neq('service_type', '정기엔드케어')
       .order('construction_date'),
 
     // 인건비: 해당 월 payroll_records
@@ -45,25 +51,49 @@ export async function GET(request: NextRequest) {
       .eq('year_month', month)
       .eq('category', 'variable')
       .order('created_at'),
+
+    // 정기엔드케어 매출: 고객관리 탭에서 이번달 결제완료 체크된 고객
+    supabase
+      .from('customers')
+      .select('id, business_name, billing_amount, billing_cycle')
+      .eq('customer_type', '정기엔드케어')
+      .contains('payment_status', [monthLabel])
+      .not('billing_amount', 'is', null),
   ])
 
   if (appsRes.error) return NextResponse.json({ error: appsRes.error.message }, { status: 500 })
   if (payrollRes.error) return NextResponse.json({ error: payrollRes.error.message }, { status: 500 })
   if (fixedRes.error) return NextResponse.json({ error: fixedRes.error.message }, { status: 500 })
   if (variableRes.error) return NextResponse.json({ error: variableRes.error.message }, { status: 500 })
+  // endCareRes 오류는 무시 (테이블이 없을 수도 있음)
 
   const apps = appsRes.data ?? []
   const payrolls = payrollRes.data ?? []
   const fixedRecords = fixedRes.data ?? []
   const variableRecords = variableRes.data ?? []
+  const endCareCustomers = endCareRes.data ?? []
 
-  // 매출 계산 (부가세 X 결제방법이면 vat 제외)
+  // 서비스관리 매출 계산 (현금(부가세 X) / 현금(계산서 미희망)이면 vat 제외)
   const revenueItems = apps.map(a => {
-    const noVat = a.payment_method === '현금(부가세 X)'
+    const noVat = a.payment_method === '현금(부가세 X)' || a.payment_method === '현금(계산서 미희망)'
     const total = (a.supply_amount ?? 0) + (noVat ? 0 : (a.vat ?? 0))
     return { ...a, total }
   })
-  const revenueTotal = revenueItems.reduce((s, a) => s + a.total, 0)
+
+  // 정기엔드케어 매출 (고객관리 탭 billing_amount)
+  const endCareItems = endCareCustomers.map(c => ({
+    id: c.id,
+    business_name: c.business_name,
+    service_type: '정기엔드케어',
+    construction_date: null as string | null,
+    supply_amount: c.billing_amount,
+    vat: null as number | null,
+    payment_method: null as string | null,
+    total: c.billing_amount ?? 0,
+  }))
+
+  const allRevenueItems = [...revenueItems, ...endCareItems]
+  const revenueTotal = allRevenueItems.reduce((s, a) => s + a.total, 0)
 
   // 인건비 계산
   const laborTotal = payrolls.reduce((s, r) => s + (r.final_amount ?? r.auto_amount), 0)
@@ -78,7 +108,7 @@ export async function GET(request: NextRequest) {
   const netProfit = revenueTotal - laborTotal - fixedTotal - variableTotal
 
   return NextResponse.json({
-    revenue: { total: revenueTotal, items: revenueItems },
+    revenue: { total: revenueTotal, items: allRevenueItems },
     labor: { total: laborTotal, records: payrolls },
     fixed: { total: fixedTotal, records: fixedRecords },
     variable: { total: variableTotal, records: variableRecords },
