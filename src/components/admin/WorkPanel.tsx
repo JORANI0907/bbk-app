@@ -24,7 +24,6 @@ interface Props {
   onUpdate: (updates: Partial<WorkApp>) => void
 }
 
-
 function useElapsed(startedAt: string | null, active: boolean): number {
   const [elapsed, setElapsed] = useState(0)
   useEffect(() => {
@@ -44,12 +43,9 @@ function formatSeconds(sec: number): string {
   const h = Math.floor(sec / 3600)
   const m = Math.floor((sec % 3600) / 60)
   const s = sec % 60
-  if (h > 0) {
-    return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
-  }
+  if (h > 0) return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
   return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
 }
-
 
 export function WorkPanel({ app, onUpdate }: Props) {
   const [customerMemo, setCustomerMemo] = useState(app.customer_memo ?? '')
@@ -59,7 +55,6 @@ export function WorkPanel({ app, onUpdate }: Props) {
   const [saving, setSaving] = useState(false)
 
   const status = app.work_status ?? 'pending'
-
   const elapsed = useElapsed(app.work_started_at, status === 'in_progress')
 
   const totalElapsed = (() => {
@@ -76,6 +71,17 @@ export function WorkPanel({ app, onUpdate }: Props) {
   const photosChecked = beforeChecked && afterChecked
   const canComplete = photosChecked && customerMemo.trim().length > 0
 
+  async function saveMemos() {
+    const res = await fetch(`/api/admin/applications/${app.id}/work`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'update', customer_memo: customerMemo, internal_memo: internalMemo }),
+    })
+    if (!res.ok) throw new Error((await res.json()).error)
+    onUpdate({ customer_memo: customerMemo, internal_memo: internalMemo })
+  }
+
+  // ── 1단계: 작업 시작 ──────────────────────────────────────────
   async function handleStart() {
     setSaving(true)
     try {
@@ -91,57 +97,31 @@ export function WorkPanel({ app, onUpdate }: Props) {
     finally { setSaving(false) }
   }
 
-  async function saveMemos() {
-    const res = await fetch(`/api/admin/applications/${app.id}/work`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'update', customer_memo: customerMemo, internal_memo: internalMemo }),
-    })
-    if (!res.ok) throw new Error((await res.json()).error)
-    onUpdate({ customer_memo: customerMemo, internal_memo: internalMemo })
-  }
-
+  // ── 2단계: 작업 완료 (알림 발송 없이 상태만 저장) ──────────────
   async function handleComplete() {
     if (!canComplete) return
     setSaving(true)
     try {
-      // 1단계: 작업완료 상태 저장
       await saveMemos()
-      const completeRes = await fetch(`/api/admin/applications/${app.id}/work`, {
+      const res = await fetch(`/api/admin/applications/${app.id}/work`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'complete', customer_memo: customerMemo, internal_memo: internalMemo }),
       })
-      if (!completeRes.ok) throw new Error((await completeRes.json()).error)
-
-      // 2단계: 작업완료알림 자동 발송
-      const notifyRes = await fetch('/api/admin/notify', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ application_id: app.id, type: '작업완료알림', method: 'auto' }),
-      })
-      const notifyData = await notifyRes.json()
-
-      const nowIso = new Date().toISOString()
+      if (!res.ok) throw new Error((await res.json()).error)
       onUpdate({
         work_status: 'completed',
-        work_completed_at: nowIso,
-        notification_sent_at: notifyRes.ok ? nowIso : null,
+        work_completed_at: new Date().toISOString(),
         notification_send_at: null,
         customer_memo: customerMemo,
         internal_memo: internalMemo,
-        ...(notifyData.new_status ? { status: notifyData.new_status } : {}),
       })
-
-      if (notifyRes.ok) {
-        toast.success('작업 완료! 고객에게 알림을 발송했습니다.')
-      } else {
-        toast.success('작업 완료! (알림 발송 실패 — 수동으로 재발송해주세요)')
-      }
+      toast.success('작업 완료! 내용을 확인한 후 알림을 발송해주세요.')
     } catch (e) { toast.error(String(e)) }
     finally { setSaving(false) }
   }
 
+  // ── 3단계: 알림 발송 ──────────────────────────────────────────
   async function handleSendNow() {
     setSaving(true)
     try {
@@ -165,14 +145,44 @@ export function WorkPanel({ app, onUpdate }: Props) {
     finally { setSaving(false) }
   }
 
+  // ─── 단계 표시줄 ─────────────────────────────────────────────
+  const step = status === 'pending' ? 1 : status === 'in_progress' ? 2 : app.notification_sent_at ? 4 : 3
+  const steps = ['작업시작', '작업중', '작업완료', '알림발송']
+
   return (
     <section>
       <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">작업 현황</p>
 
-      {/* 대기 중 */}
+      {/* 단계 표시줄 */}
+      <div className="flex items-center mb-4">
+        {steps.map((label, i) => {
+          const idx = i + 1
+          const done = step > idx
+          const active = step === idx
+          return (
+            <div key={label} className="flex items-center flex-1 last:flex-none">
+              <div className="flex flex-col items-center gap-0.5">
+                <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold
+                  ${done ? 'bg-green-500 text-white' : active ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-400'}`}>
+                  {done ? '✓' : idx}
+                </div>
+                <span className={`text-[10px] font-medium whitespace-nowrap
+                  ${done ? 'text-green-600' : active ? 'text-blue-600' : 'text-gray-400'}`}>
+                  {label}
+                </span>
+              </div>
+              {i < steps.length - 1 && (
+                <div className={`flex-1 h-0.5 mx-1 mb-4 ${done ? 'bg-green-400' : 'bg-gray-200'}`} />
+              )}
+            </div>
+          )
+        })}
+      </div>
+
+      {/* ── 1단계: 대기 중 ── */}
       {status === 'pending' && (
         <div className="space-y-2">
-          <p className="text-xs text-gray-500">작업이 아직 시작되지 않았습니다.</p>
+          <p className="text-xs text-gray-500">작업 준비가 되면 시작 버튼을 눌러주세요.</p>
           <button
             onClick={handleStart}
             disabled={saving}
@@ -183,13 +193,14 @@ export function WorkPanel({ app, onUpdate }: Props) {
         </div>
       )}
 
-      {/* 진행 중 */}
+      {/* ── 2단계: 진행 중 ── */}
       {status === 'in_progress' && (
         <div className="space-y-3">
+          {/* 진행 상태 바 */}
           <div className="flex items-center gap-2">
             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-700">
               <span className="w-1.5 h-1.5 rounded-full bg-orange-500 animate-pulse" />
-              진행 중
+              작업 진행 중
             </span>
             {app.work_started_at && (
               <span className="text-xs text-gray-400">
@@ -201,70 +212,48 @@ export function WorkPanel({ app, onUpdate }: Props) {
             )}
           </div>
 
-          {/* 사진 업로드 */}
+          {/* 사진 업로드 체크 */}
           <div className="bg-gray-50 rounded-xl p-3 space-y-2">
             <div className="flex items-center justify-between">
-              <p className="text-xs font-semibold text-gray-600">사진 업로드</p>
+              <p className="text-xs font-semibold text-gray-600">사진 업로드 확인</p>
               {app.drive_folder_url ? (
-                <a
-                  href={app.drive_folder_url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 px-2.5 py-1 rounded-lg transition-colors"
-                >
+                <a href={app.drive_folder_url} target="_blank" rel="noreferrer"
+                  className="inline-flex items-center gap-1 text-xs font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 px-2.5 py-1 rounded-lg transition-colors">
                   Google Drive 열기
                 </a>
               ) : (
                 <span className="text-xs text-amber-600">Drive 폴더 미생성</span>
               )}
             </div>
-            <p className="text-xs text-gray-400">Drive에서 작업 전/후 사진을 업로드한 후 아래를 체크해주세요.</p>
+            <p className="text-xs text-gray-400">Drive에서 전/후 사진 업로드 후 체크해주세요.</p>
             <div className="space-y-1.5">
               <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={beforeChecked}
-                  onChange={e => setBeforeChecked(e.target.checked)}
-                  className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                />
+                <input type="checkbox" checked={beforeChecked} onChange={e => setBeforeChecked(e.target.checked)}
+                  className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
                 <span className="text-xs text-gray-700">작업 전 사진 업로드 완료</span>
               </label>
               <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={afterChecked}
-                  onChange={e => setAfterChecked(e.target.checked)}
-                  className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                />
+                <input type="checkbox" checked={afterChecked} onChange={e => setAfterChecked(e.target.checked)}
+                  className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
                 <span className="text-xs text-gray-700">작업 후 사진 업로드 완료</span>
               </label>
             </div>
           </div>
 
+          {/* 메모 */}
           <div>
             <label className="text-xs font-semibold text-gray-600 mb-1 block">
               고객 전달 특이사항 <span className="text-red-400">*</span>
             </label>
-            <textarea
-              value={customerMemo}
-              onChange={e => setCustomerMemo(e.target.value)}
-              onBlur={saveMemos}
-              placeholder="고객에게 전달할 내용 (완료 알림 SMS에 포함됩니다)"
-              rows={3}
-              className="w-full text-xs text-gray-900 border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
-            />
+            <textarea value={customerMemo} onChange={e => setCustomerMemo(e.target.value)} onBlur={saveMemos}
+              placeholder="고객에게 전달할 내용 (완료 알림에 포함됩니다)" rows={3}
+              className="w-full text-xs text-gray-900 border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none" />
           </div>
-
           <div>
             <label className="text-xs font-semibold text-gray-600 mb-1 block">내부 메모</label>
-            <textarea
-              value={internalMemo}
-              onChange={e => setInternalMemo(e.target.value)}
-              onBlur={saveMemos}
-              placeholder="내부 참고용 메모 (고객에게 발송되지 않음)"
-              rows={2}
-              className="w-full text-xs text-gray-900 border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none bg-gray-50"
-            />
+            <textarea value={internalMemo} onChange={e => setInternalMemo(e.target.value)} onBlur={saveMemos}
+              placeholder="내부 참고용 (고객에게 발송되지 않음)" rows={2}
+              className="w-full text-xs text-gray-900 border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none bg-gray-50" />
           </div>
 
           {!canComplete && (
@@ -274,15 +263,10 @@ export function WorkPanel({ app, onUpdate }: Props) {
             </div>
           )}
 
-          <button
-            onClick={handleComplete}
-            disabled={!canComplete || saving}
-            className={`w-full py-3 font-semibold rounded-xl text-sm ${
-              canComplete && !saving
-                ? 'bg-green-600 hover:bg-green-700 text-white'
-                : 'bg-gray-100 text-gray-400 cursor-not-allowed'
-            }`}
-          >
+          <button onClick={handleComplete} disabled={!canComplete || saving}
+            className={`w-full py-3 font-semibold rounded-xl text-sm ${canComplete && !saving
+              ? 'bg-green-600 hover:bg-green-700 text-white'
+              : 'bg-gray-100 text-gray-400 cursor-not-allowed'}`}>
             {saving ? '처리 중...' : '✅ 작업 완료'}
           </button>
 
@@ -292,8 +276,7 @@ export function WorkPanel({ app, onUpdate }: Props) {
               setSaving(true)
               try {
                 const res = await fetch(`/api/admin/applications/${app.id}/work`, {
-                  method: 'PATCH',
-                  headers: { 'Content-Type': 'application/json' },
+                  method: 'PATCH', headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify({ action: 'cancel_start' }),
                 })
                 if (!res.ok) throw new Error((await res.json()).error)
@@ -305,14 +288,15 @@ export function WorkPanel({ app, onUpdate }: Props) {
             disabled={saving}
             className="w-full py-2 bg-white hover:bg-red-50 border border-gray-200 hover:border-red-200 text-gray-500 hover:text-red-600 text-xs font-semibold rounded-xl transition-colors"
           >
-            작업시작 취소 (뒤로)
+            작업시작 취소
           </button>
         </div>
       )}
 
-      {/* 완료 */}
+      {/* ── 3단계: 작업완료 후 알림발송 대기 ── */}
       {status === 'completed' && (
         <div className="space-y-3">
+          {/* 완료 헤더 */}
           <div className="flex items-center gap-2 flex-wrap">
             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700">
               ✅ 작업 완료
@@ -327,63 +311,55 @@ export function WorkPanel({ app, onUpdate }: Props) {
             )}
           </div>
 
+          {/* Drive 링크 */}
           {app.drive_folder_url && (
-            <a
-              href={app.drive_folder_url}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 px-2.5 py-1 rounded-lg transition-colors"
-            >
-              Google Drive 열기
+            <a href={app.drive_folder_url} target="_blank" rel="noreferrer"
+              className="inline-flex items-center gap-1 text-xs font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 px-2.5 py-1 rounded-lg transition-colors">
+              📁 Google Drive 사진 확인
             </a>
           )}
 
-          <div>
-            <label className="text-xs font-semibold text-gray-600 mb-1 block">고객 전달 특이사항</label>
-            <textarea
-              value={customerMemo}
-              onChange={e => setCustomerMemo(e.target.value)}
-              onBlur={saveMemos}
-              disabled={!!app.notification_sent_at}
-              rows={3}
-              className="w-full text-xs text-gray-900 border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none disabled:bg-gray-50 disabled:text-gray-400"
-            />
+          {/* 메모 수정 가능 (알림 발송 전까지) */}
+          <div className={`rounded-xl p-3 space-y-3 border ${app.notification_sent_at ? 'bg-gray-50 border-gray-200' : 'bg-blue-50 border-blue-200'}`}>
+            {!app.notification_sent_at && (
+              <p className="text-xs text-blue-600 font-semibold">📝 알림 발송 전 내용을 수정할 수 있습니다</p>
+            )}
+            <div>
+              <label className="text-xs font-semibold text-gray-600 mb-1 block">고객 전달 특이사항</label>
+              <textarea value={customerMemo} onChange={e => setCustomerMemo(e.target.value)} onBlur={saveMemos}
+                disabled={!!app.notification_sent_at} rows={3}
+                className="w-full text-xs text-gray-900 border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none disabled:bg-white disabled:text-gray-400" />
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-gray-600 mb-1 block">내부 메모</label>
+              <textarea value={internalMemo} onChange={e => setInternalMemo(e.target.value)} onBlur={saveMemos}
+                rows={2}
+                className="w-full text-xs text-gray-900 border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none bg-white" />
+            </div>
           </div>
 
-          <div>
-            <label className="text-xs font-semibold text-gray-600 mb-1 block">내부 메모</label>
-            <textarea
-              value={internalMemo}
-              onChange={e => setInternalMemo(e.target.value)}
-              onBlur={saveMemos}
-              rows={2}
-              className="w-full text-xs text-gray-900 border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none bg-gray-50"
-            />
-          </div>
-
+          {/* 알림 발송 버튼 or 발송 완료 표시 */}
           {app.notification_sent_at ? (
-            <div className="bg-green-50 rounded-xl px-3 py-2.5 flex items-center justify-between gap-2">
+            <div className="bg-green-50 border border-green-200 rounded-xl px-3 py-2.5 flex items-center justify-between gap-2">
               <div>
-                <p className="text-xs font-semibold text-green-700">작업완료 알림 발송 완료</p>
+                <p className="text-xs font-semibold text-green-700">✅ 알림 발송 완료</p>
                 <p className="text-xs text-green-600 mt-0.5">
                   {new Date(app.notification_sent_at).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                 </p>
               </div>
               <button onClick={handleSendNow} disabled={saving}
-                className="shrink-0 text-xs px-3 py-1.5 bg-white border border-green-200 text-green-600 hover:bg-green-50 rounded-lg font-semibold disabled:opacity-50">
+                className="shrink-0 text-xs px-3 py-1.5 bg-white border border-green-300 text-green-700 hover:bg-green-50 rounded-lg font-semibold disabled:opacity-50">
                 {saving ? '발송 중...' : '재발송'}
               </button>
             </div>
           ) : (
-            <div className="bg-red-50 rounded-xl px-3 py-2.5 space-y-2">
-              <p className="text-xs font-semibold text-red-600">알림 발송 실패 — 수동으로 발송해주세요</p>
-              <button onClick={handleSendNow} disabled={saving}
-                className="w-full py-2.5 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white text-xs font-semibold rounded-xl">
-                {saving ? '발송 중...' : '📣 작업완료 알림 발송'}
-              </button>
-            </div>
+            <button onClick={handleSendNow} disabled={saving}
+              className="w-full py-3 bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white font-bold rounded-xl text-sm">
+              {saving ? '발송 중...' : '📣 작업완료 알림 발송'}
+            </button>
           )}
 
+          {/* 작업완료 취소 (알림 미발송 시에만) */}
           {!app.notification_sent_at && (
             <button
               onClick={async () => {
@@ -391,8 +367,7 @@ export function WorkPanel({ app, onUpdate }: Props) {
                 setSaving(true)
                 try {
                   const res = await fetch(`/api/admin/applications/${app.id}/work`, {
-                    method: 'PATCH',
-                    headers: { 'Content-Type': 'application/json' },
+                    method: 'PATCH', headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ action: 'cancel_complete' }),
                   })
                   if (!res.ok) throw new Error((await res.json()).error)
@@ -404,7 +379,7 @@ export function WorkPanel({ app, onUpdate }: Props) {
               disabled={saving}
               className="w-full py-2 bg-white hover:bg-red-50 border border-gray-200 hover:border-red-200 text-gray-500 hover:text-red-600 text-xs font-semibold rounded-xl transition-colors"
             >
-              작업완료 취소
+              작업완료 취소 (내용 수정하러 가기)
             </button>
           )}
         </div>

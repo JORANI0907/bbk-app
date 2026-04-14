@@ -356,9 +356,6 @@ function DetailPanel({
   const [showAccount, setShowAccount] = useState(false)
   const [showBizNum, setShowBizNum] = useState(false)
   const [deleting, setDeleting] = useState(false)
-  const [showWorkPanel, setShowWorkPanel] = useState(
-    app.work_status === 'in_progress' || app.work_status === 'completed'
-  )
 
   const handleViewPhotos = () => {
     const url = app.drive_folder_url ?? app.customer?.drive_folder_url ?? null
@@ -559,62 +556,26 @@ function DetailPanel({
             </div>
           </section>
 
+          {/* 작업 현황 — 인라인 */}
+          <div className="border-t border-gray-100 pt-5">
+            <WorkPanel app={app} onUpdate={(updates) => {
+              const { status, ...rest } = updates as Partial<Application & { status?: string | null }>
+              onAppUpdate({ ...rest, ...(status != null ? { status } : {}) })
+            }} />
+          </div>
+
         </div>
 
         {/* 하단 액션 버튼 영역 */}
-        <div className="shrink-0 bg-white border-t border-gray-100 px-5 py-4 space-y-2"
+        <div className="shrink-0 bg-white border-t border-gray-100 px-5 py-4"
           style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 16px)' }}>
-          {/* 버튼 1: 사진보기 — 저장된 Drive 폴더 URL 직접 열기 */}
           <button
             onClick={handleViewPhotos}
             className="w-full py-3 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 transition-colors bg-blue-600 hover:bg-blue-700 text-white"
           >
-            📷 사진보기
-          </button>
-
-          {/* 버튼 2: 작업 시작/현황 */}
-          <button
-            onClick={() => setShowWorkPanel(true)}
-            className={`w-full py-3 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 transition-colors ${
-              app.work_status === 'completed'
-                ? 'bg-green-600 hover:bg-green-700 text-white'
-                : app.work_status === 'in_progress'
-                ? 'bg-orange-500 hover:bg-orange-600 text-white animate-pulse'
-                : 'bg-gray-800 hover:bg-gray-900 text-white'
-            }`}
-          >
-            {app.work_status === 'completed' ? '✅ 작업완료 (상세보기)' :
-             app.work_status === 'in_progress' ? '⚡ 작업진행중 (클릭하여 계속)' :
-             '▶ 작업 시작'}
+            📷 사진보기 (Google Drive)
           </button>
         </div>
-
-        {/* WorkPanel 전체화면 오버레이 */}
-        {showWorkPanel && (
-          <div
-            className="fixed inset-0 z-[60] bg-white overflow-y-auto flex flex-col"
-            style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 80px)' }}
-          >
-            <div className="sticky top-0 bg-white border-b border-gray-100 px-5 py-4 flex items-center gap-3 z-10">
-              <button
-                onClick={() => setShowWorkPanel(false)}
-                className="text-gray-500 hover:text-gray-700 text-sm"
-              >
-                ← 뒤로
-              </button>
-              <div>
-                <h3 className="font-bold text-gray-900">{app.business_name}</h3>
-                <p className="text-xs text-gray-400">{fmtDate(app.construction_date)} 작업현황</p>
-              </div>
-            </div>
-            <div className="px-5 py-4">
-              <WorkPanel app={app} onUpdate={(updates) => {
-                const { status, ...rest } = updates as Partial<Application & { status?: string | null }>
-                onAppUpdate({ ...rest, ...(status != null ? { status } : {}) })
-              }} />
-            </div>
-          </div>
-        )}
       </div>
 
     </div>
