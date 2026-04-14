@@ -125,9 +125,12 @@ const copyText = (text: string, label: string) =>
   navigator.clipboard.writeText(text).then(() => toast.success(`${label} 복사됨`))
 const today = () => new Date().toISOString().slice(0, 10)
 const fmtDate = (d: string | null) => d ? d.slice(0, 10).replace(/-/g, '.') : '-'
+// 부가세 미적용 여부: '비과세' 또는 '미희망' 키워드 포함 시
+const isNoVatMethod = (method: string | null | undefined): boolean =>
+  !!method && (method.includes('비과세') || method.includes('미희망') || method === '현금(부가세 X)')
+
 const rowTotal = (app: Application) => {
-  const noVat = app.payment_method === '현금(부가세 X)' || app.payment_method === '현금(계산서 미희망)'
-  return (app.supply_amount ?? 0) + (noVat ? 0 : (app.vat ?? 0))
+  return (app.supply_amount ?? 0) + (isNoVatMethod(app.payment_method) ? 0 : (app.vat ?? 0))
 }
 
 function isMigrationError(msg: string) {
@@ -505,7 +508,7 @@ export default function ServiceManagementPage() {
   const todayStr = new Date().toISOString().slice(0, 10)
   const sevenDaysAgoStr = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
 
-  const isCashNoVat = paymentMethod === '현금(부가세 X)' || paymentMethod === '현금(계산서 미희망)'
+  const isCashNoVat = isNoVatMethod(paymentMethod)
   const effectiveVat = isCashNoVat ? 0 : (Number(vat) || 0)
   const totalAmount = (Number(supplyAmount) || 0) + effectiveVat
   const computedBalance = totalAmount - (Number(deposit) || 0)
@@ -856,7 +859,7 @@ export default function ServiceManagementPage() {
   const handleVatChange = (val: string) => { vatManual.current = true; setVat(val) }
   const handlePaymentMethodChange = (val: string) => {
     setPaymentMethod(val)
-    if (val === '현금(부가세 X)' || val === '현금(계산서 미희망)') { setVat('0'); vatManual.current = true }
+    if (isNoVatMethod(val)) { setVat('0'); vatManual.current = true }
     else { vatManual.current = false; if (supplyAmount) setVat(String(Math.round((Number(supplyAmount) || 0) * 0.1))) }
   }
 
@@ -1257,7 +1260,7 @@ export default function ServiceManagementPage() {
             <select value={paymentFilter} onChange={e => setPaymentFilter(e.target.value)}
               className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
               <option value="">결제방법 전체</option>
-              {['현금(부가세 O)', '현금(부가세 X)', '현금(계산서 미희망)', '카드', '계좌이체'].map(p => (
+              {['현금(계산서 희망)', '현금(비과세)', '카드(온라인 간편결제)', '플랫폼'].map(p => (
                 <option key={p} value={p}>{p}</option>
               ))}
             </select>
@@ -1669,11 +1672,10 @@ export default function ServiceManagementPage() {
                     <select value={paymentMethod} onChange={e => handlePaymentMethodChange(e.target.value)}
                       className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
                       <option value="">선택...</option>
-                      <option value="현금(부가세 O)">현금(부가세 O)</option>
-                      <option value="현금(부가세 X)">현금(부가세 X)</option>
-                      <option value="현금(계산서 미희망)">현금(계산서 미희망)</option>
-                      <option value="카드">카드</option>
-                      <option value="계좌이체">계좌이체</option>
+                      <option value="현금(계산서 희망)">현금(계산서 희망)</option>
+                      <option value="현금(비과세)">현금(비과세)</option>
+                      <option value="카드(온라인 간편결제)">카드(온라인 간편결제)</option>
+                      <option value="플랫폼">플랫폼</option>
                     </select>
                   </div>
                   <div className="flex items-center gap-2">

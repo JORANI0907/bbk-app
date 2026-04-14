@@ -73,18 +73,20 @@ export async function GET(request: NextRequest) {
   const variableRecords = variableRes.data ?? []
   const endCareCustomers = endCareRes.data ?? []
 
-  // 서비스관리 매출 계산 (현금(부가세 X) / 현금(계산서 미희망)이면 vat 제외)
+  // 부가세 미적용 여부: '비과세' 또는 '미희망' 키워드 포함 시 (legacy '현금(부가세 X)' 포함)
+  const isNoVat = (method: string | null) =>
+    !!method && (method.includes('비과세') || method.includes('미희망') || method === '현금(부가세 X)')
+
+  // 서비스관리 매출 계산
   const revenueItems = apps.map(a => {
-    const noVat = a.payment_method === '현금(부가세 X)' || a.payment_method === '현금(계산서 미희망)'
-    const total = (a.supply_amount ?? 0) + (noVat ? 0 : (a.vat ?? 0))
+    const total = (a.supply_amount ?? 0) + (isNoVat(a.payment_method) ? 0 : (a.vat ?? 0))
     return { ...a, total }
   })
 
   // 정기엔드케어 매출 (고객관리 탭 billing_amount + 결제방법별 부가세 처리)
   const endCareItems = endCareCustomers.map(c => {
     const supply = c.billing_amount ?? 0
-    const noVat = c.payment_method === '현금(부가세 X)'
-    const vatAmt = noVat ? 0 : Math.round(supply * 0.1)
+    const vatAmt = isNoVat(c.payment_method) ? 0 : Math.round(supply * 0.1)
     return {
       id: c.id,
       business_name: c.business_name,
