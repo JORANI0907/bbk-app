@@ -5,6 +5,7 @@ import toast from 'react-hot-toast'
 
 interface WorkApp {
   id: string
+  status?: string | null
   work_status: string | null
   work_started_at: string | null
   work_completed_at: string | null
@@ -15,7 +16,6 @@ interface WorkApp {
   drive_folder_url: string | null
   business_name: string
   owner_name: string
-  // P2-24: 서비스 유형으로 엔드케어 분기
   service_type?: string | null
 }
 
@@ -167,20 +167,21 @@ export function WorkPanel({ app, onUpdate }: Props) {
     setSaving(true)
     try {
       await saveMemos()
-      const res = await fetch(`/api/admin/applications/${app.id}/work`, {
-        method: 'PATCH',
+      const res = await fetch('/api/admin/notify', {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'send_now' }),
+        body: JSON.stringify({ application_id: app.id, type: '작업완료알림', method: 'manual' }),
       })
-      if (!res.ok) throw new Error((await res.json()).error)
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error)
       onUpdate({
         notification_sent_at: new Date().toISOString(),
         notification_send_at: null,
         customer_memo: customerMemo,
         internal_memo: internalMemo,
+        ...(data.new_status ? { status: data.new_status } : {}),
       })
-      const label = isEndCare ? '엔드케어 작업완료 알림을 발송했습니다.' : '고객에게 알림을 발송했습니다.'
-      toast.success(label)
+      toast.success('고객에게 작업완료 알림을 발송했습니다.')
     } catch (e) { toast.error(String(e)) }
     finally { setSaving(false) }
   }

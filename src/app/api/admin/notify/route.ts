@@ -249,6 +249,11 @@ export async function POST(request: NextRequest) {
 
     const dbUpdates: Record<string, unknown> = { notification_log: updatedLog }
     if (newStatus) dbUpdates.status = newStatus
+    // 작업완료알림 발송 시 notification_sent_at 기록 (WorkPanel 완료 표시용)
+    if (type === '작업완료알림') {
+      dbUpdates.notification_sent_at = nowIso
+      dbUpdates.notification_send_at = null
+    }
 
     await supabase
       .from('service_applications')
