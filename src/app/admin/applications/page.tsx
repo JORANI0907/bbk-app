@@ -19,7 +19,7 @@ import { LoadingSpinner } from '@/components/admin/LoadingSpinner'
 import { MapSelectorModal } from '@/components/MapSelectorModal'
 
 type ServiceType = '1회성케어' | '정기딥케어' | '정기엔드케어'
-type ApplicationStatus = '예약확정' | '예약1일전' | '예약당일' | '작업완료' | '결제' | '결제완료' | '결제완료(잔금)' | '계산서발행완료' | '예약금환급완료' | '예약취소' | 'A/S방문' | '방문견적'
+type ApplicationStatus = '신규' | '견적발송' | '예약확정' | '예약1일전' | '예약당일' | '작업완료' | '작업완료(엔드)' | '결제' | '결제완료' | '결제완료(잔금)' | '계산서발행완료' | '예약금환급완료' | '예약취소' | 'A/S방문' | '방문견적'
 
 interface User { id: string; name: string; role: string }
 interface Worker { id: string; name: string; employment_type: string | null; phone: string | null; account_number: string | null }
@@ -68,10 +68,13 @@ type SortDir = 'asc' | 'desc'
 // ─── 상수 ────────────────────────────────────────────────────
 const SERVICE_TYPES: ServiceType[] = ['1회성케어', '정기딥케어', '정기엔드케어']
 const STATUS_CONFIG: Record<ApplicationStatus, { color: string; badge: string; dot: string; row: string }> = {
+  '신규':          { color: 'bg-blue-500 text-white',     badge: 'bg-blue-100 text-blue-700 ring-blue-300',      dot: 'bg-blue-500',   row: 'bg-blue-50' },
+  '견적발송':      { color: 'bg-indigo-500 text-white',   badge: 'bg-indigo-100 text-indigo-700 ring-indigo-300', dot: 'bg-indigo-500', row: 'bg-indigo-50' },
   '예약확정':      { color: 'bg-green-600 text-white',    badge: 'bg-green-100 text-green-800 ring-green-300',    dot: 'bg-green-600',  row: 'bg-green-50' },
   '예약1일전':     { color: 'bg-blue-500 text-white',     badge: 'bg-blue-100 text-blue-700 ring-blue-300',      dot: 'bg-blue-500',   row: 'bg-blue-50' },
   '예약당일':      { color: 'bg-blue-600 text-white',     badge: 'bg-blue-100 text-blue-800 ring-blue-300',      dot: 'bg-blue-600',   row: 'bg-sky-50' },
   '작업완료':      { color: 'bg-orange-500 text-white',   badge: 'bg-orange-100 text-orange-700 ring-orange-300', dot: 'bg-orange-500', row: 'bg-orange-50' },
+  '작업완료(엔드)': { color: 'bg-orange-600 text-white', badge: 'bg-orange-100 text-orange-800 ring-orange-300', dot: 'bg-orange-600', row: 'bg-orange-50' },
   '결제':          { color: 'bg-orange-400 text-white',   badge: 'bg-orange-100 text-orange-600 ring-orange-200', dot: 'bg-orange-400', row: 'bg-amber-50' },
   '결제완료':       { color: 'bg-gray-500 text-white',     badge: 'bg-gray-100 text-gray-600 ring-gray-300',        dot: 'bg-gray-500',   row: 'bg-gray-100' },
   '결제완료(잔금)': { color: 'bg-emerald-600 text-white', badge: 'bg-emerald-100 text-emerald-700 ring-emerald-300', dot: 'bg-emerald-600', row: 'bg-emerald-50' },

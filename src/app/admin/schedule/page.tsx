@@ -48,7 +48,7 @@ interface Application {
 }
 
 interface User { id: string; name: string; role: string }
-interface Worker { id: string; name: string; employment_type: string | null }
+interface Worker { id: string; name: string; employment_type: string | null; user_id: string | null }
 interface WorkAssignment { id: string; worker_id: string; application_id: string | null }
 interface SessionUser { userId: string; name: string; role: string }
 
@@ -775,7 +775,7 @@ export default function SchedulePage() {
 
   const isAdmin = currentUser?.role === 'admin'
 
-  // 작업자 배정 맵: application_id → worker_id[]
+  // 작업자 배정 맵: application_id → worker_id[] (workers.id 기준)
   const appWorkerMap = useMemo(() => {
     const map: Record<string, string[]> = {}
     for (const a of allAssignments) {
@@ -788,25 +788,37 @@ export default function SchedulePage() {
     return map
   }, [allAssignments])
 
+  // users.id → workers.id 변환 맵 (work_assignments는 workers.id 기준)
+  const userIdToWorkerId = useMemo(() => {
+    const map: Record<string, string> = {}
+    for (const w of workers) {
+      if (w.user_id) map[w.user_id] = w.id
+    }
+    return map
+  }, [workers])
+
   // 클라이언트 필터: 담당자 + 작업자 + 서비스 유형
   const filteredApps = useMemo(() => {
     let apps = [...applications]
 
     // 비관리자: 자신이 담당자이거나 작업자로 배정된 일정만
     if (!isAdmin && currentUser) {
+      // assigned_to는 users.id 기준, appWorkerMap은 workers.id 기준
+      const myWorkerId = userIdToWorkerId[currentUser.userId] ?? null
       apps = apps.filter(a =>
         a.assigned_to === currentUser.userId ||
-        (appWorkerMap[a.id] ?? []).includes(currentUser.userId)
+        (myWorkerId !== null && (appWorkerMap[a.id] ?? []).includes(myWorkerId))
       )
     } else if (isAdmin) {
-      // 담당자 필터 (OR 조건: 해당 worker가 담당자이거나 작업자)
+      // 담당자 필터: assigned_to는 users.id, work_assignments는 workers.id
       if (personFilter) {
+        const personWorkerId = userIdToWorkerId[personFilter] ?? null
         apps = apps.filter(a =>
           a.assigned_to === personFilter ||
-          (appWorkerMap[a.id] ?? []).includes(personFilter)
+          (personWorkerId !== null && (appWorkerMap[a.id] ?? []).includes(personWorkerId))
         )
       }
-      // 작업자 필터 (work_assignments에 해당 worker_id가 있는 일정만)
+      // 작업자 필터 (workers.id 기준 — 드롭다운이 workers.id 사용)
       if (workerFilter) {
         apps = apps.filter(a => (appWorkerMap[a.id] ?? []).includes(workerFilter))
       }
@@ -833,7 +845,7 @@ export default function SchedulePage() {
     // 시공일자 내림차순 (최신이 위)
     return apps.sort((a, b) =>
       (b.construction_date ?? '').localeCompare(a.construction_date ?? ''))
-  }, [applications, personFilter, workerFilter, serviceTypeFilter, isAdmin, currentUser, appWorkerMap, search])
+  }, [applications, personFilter, workerFilter, serviceTypeFilter, isAdmin, currentUser, appWorkerMap, userIdToWorkerId, search])
 
   const allDates = useMemo(() => {
     const dateSet = new Set<string>()
