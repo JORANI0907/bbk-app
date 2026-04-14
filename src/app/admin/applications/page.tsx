@@ -113,22 +113,9 @@ const SORT_LABELS: Record<SortField, string> = {
   total_amount: '총액',
 }
 
-// ─── 알림 이력 (localStorage) ────────────────────────────────
-const LOG_KEY = 'bbk_notify_logs'
-function loadLogs(appId: string): NotifyLog[] {
-  try { return JSON.parse(localStorage.getItem(LOG_KEY) || '{}')[appId] || [] }
-  catch { return [] }
-}
-function loadAllLogs(): Record<string, NotifyLog[]> {
-  try { return JSON.parse(localStorage.getItem(LOG_KEY) || '{}') }
-  catch { return {} }
-}
-function appendLog(appId: string, log: NotifyLog) {
-  try {
-    const all = JSON.parse(localStorage.getItem(LOG_KEY) || '{}')
-    all[appId] = [log, ...(all[appId] || [])].slice(0, 50)
-    localStorage.setItem(LOG_KEY, JSON.stringify(all))
-  } catch { /* ignore */ }
+// ─── 알림 이력 헬퍼 ─────────────────────────────────────────
+function dbLogToNotifyLog(l: { type: string; sent_at: string; method?: 'auto' | 'manual' }): NotifyLog {
+  return { type: l.type, sentAt: l.sent_at, method: l.method ?? 'auto' }
 }
 
 // ─── 헬퍼 ────────────────────────────────────────────────────
@@ -450,7 +437,6 @@ export default function ServiceManagementPage() {
   // 알림
   const [notifyType, setNotifyType] = useState('')
   const [notifyLogs, setNotifyLogs] = useState<NotifyLog[]>([])
-  const [allNotifyLogs, setAllNotifyLogs] = useState<Record<string, NotifyLog[]>>({})
 
   // 체크박스 이관
   const [checkedIds, setCheckedIds] = useState<string[]>([])
@@ -525,7 +511,6 @@ export default function ServiceManagementPage() {
   useEffect(() => {
     setSavedDriveFolder(getDriveFolderCookie())
     loadGoogleAPIs().then(() => setDriveApisReady(true)).catch(() => {})
-    setAllNotifyLogs(loadAllLogs())
   }, [])
 
   const fetchAll = useCallback(async () => {
@@ -577,21 +562,11 @@ export default function ServiceManagementPage() {
     setUnitPricePerVisit(app.unit_price_per_visit != null ? String(app.unit_price_per_visit) : '')
     setNotifyType('')
 
-    // localStorage 이력 + DB notification_log 병합 후 중복 제거 + 시간순 정렬
-    const localLogs = loadLogs(app.id)
+    // DB notification_log를 소스로 사용 (디바이스 무관하게 동일한 이력 표시)
     const dbLogs: NotifyLog[] = Array.isArray(app.notification_log)
-      ? app.notification_log.map(l => ({
-          type: l.type,
-          sentAt: l.sent_at,
-          method: l.method ?? 'auto' as const,
-        }))
+      ? app.notification_log.map(dbLogToNotifyLog)
       : []
-    const merged = [...localLogs, ...dbLogs]
-      .filter((log, idx, arr) =>
-        arr.findIndex(l => l.type === log.type && l.sentAt === log.sentAt) === idx
-      )
-      .sort((a, b) => new Date(b.sentAt).getTime() - new Date(a.sentAt).getTime())
-    setNotifyLogs(merged)
+    setNotifyLogs(dbLogs)
     setSelectedWorkerIds([])
     setSavedAssignments([])
     setWorkerDropdownOpen(false)
@@ -892,16 +867,20 @@ export default function ServiceManagementPage() {
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
-      // P2-31: method 포함하여 이력 저장
-      const log: NotifyLog = { type: notifyType, sentAt: new Date().toISOString(), method: 'manual' }
-      appendLog(selected.id, log)
+      const nowIso = new Date().toISOString()
+      const log: NotifyLog = { type: notifyType, sentAt: nowIso, method: 'manual' }
+      const dbEntry = { type: notifyType, sent_at: nowIso, method: 'manual' as const }
       setNotifyLogs(prev => [log, ...prev])
-      setAllNotifyLogs(prev => ({ ...prev, [selected.id]: [log, ...(prev[selected.id] || [])].slice(0, 50) }))
-      // P2-27/28: 계약상태 자동변경 UI 반영
-      if (data.new_status) {
-        setSelected(prev => prev ? { ...prev, status: data.new_status } : prev)
-        setApplications(prev => prev.map(a => a.id === selected.id ? { ...a, status: data.new_status } : a))
-      }
+      setSelected(prev => prev ? {
+        ...prev,
+        notification_log: [dbEntry, ...(prev.notification_log ?? [])],
+        ...(data.new_status ? { status: data.new_status } : {}),
+      } : prev)
+      setApplications(prev => prev.map(a => a.id === selected.id ? {
+        ...a,
+        notification_log: [dbEntry, ...(a.notification_log ?? [])],
+        ...(data.new_status ? { status: data.new_status } : {}),
+      } : a))
       toast.success(`${notifyType} 발송 완료`)
       setNotifyType('')
     } catch (e) { toast.error(e instanceof Error ? e.message : '발송 실패') }
@@ -919,14 +898,20 @@ export default function ServiceManagementPage() {
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
-      const log: NotifyLog = { type: `[재발송] ${type}`, sentAt: new Date().toISOString() }
-      appendLog(selected.id, log)
+      const nowIso = new Date().toISOString()
+      const log: NotifyLog = { type: `[재발송] ${type}`, sentAt: nowIso, method: 'manual' }
+      const dbEntry = { type, sent_at: nowIso, method: 'manual' as const }
       setNotifyLogs(prev => [log, ...prev])
-      setAllNotifyLogs(prev => ({ ...prev, [selected.id]: [log, ...(prev[selected.id] || [])].slice(0, 50) }))
-      if (data.new_status) {
-        setSelected(prev => prev ? { ...prev, status: data.new_status } : prev)
-        setApplications(prev => prev.map(a => a.id === selected.id ? { ...a, status: data.new_status } : a))
-      }
+      setSelected(prev => prev ? {
+        ...prev,
+        notification_log: [dbEntry, ...(prev.notification_log ?? [])],
+        ...(data.new_status ? { status: data.new_status } : {}),
+      } : prev)
+      setApplications(prev => prev.map(a => a.id === selected.id ? {
+        ...a,
+        notification_log: [dbEntry, ...(a.notification_log ?? [])],
+        ...(data.new_status ? { status: data.new_status } : {}),
+      } : a))
       toast.success(`${type} 재발송 완료`)
     } catch (e) { toast.error(e instanceof Error ? e.message : '재발송 실패') }
     finally { setSending(false) }
@@ -1378,7 +1363,8 @@ export default function ServiceManagementPage() {
                           }
                         }
 
-                      const lastLog = (allNotifyLogs[app.id] || [])[0]
+                      const lastDbLog = app.notification_log?.[0]
+                      const lastLog = lastDbLog ? { type: lastDbLog.type, sentAt: lastDbLog.sent_at, method: lastDbLog.method } : null
                       const notifyCfg = lastLog ? NOTIFY_TYPE_CONFIG[lastLog.type] : null
                       const total = rowTotal(app)
                       const statusCfg = STATUS_CONFIG[app.status]

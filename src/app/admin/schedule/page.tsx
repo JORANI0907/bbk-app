@@ -606,7 +606,10 @@ function DetailPanel({
               </div>
             </div>
             <div className="px-5 py-4">
-              <WorkPanel app={app} onUpdate={(updates) => { onAppUpdate(updates) }} />
+              <WorkPanel app={app} onUpdate={(updates) => {
+                const { status, ...rest } = updates as Partial<Application & { status?: string | null }>
+                onAppUpdate({ ...rest, ...(status != null ? { status } : {}) })
+              }} />
             </div>
           </div>
         )}
