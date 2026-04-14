@@ -77,6 +77,15 @@ function buildVariables(
   const dep     = Number(app.deposit ?? 0)
   const balance = String(((supply + vat) - dep).toLocaleString('ko-KR'))
 
+  // 사전미팅 여부 / 시간
+  const preMeetingAt = app.pre_meeting_at as string | null | undefined
+  const meetingYN = preMeetingAt ? 'Y' : 'N'
+  const meetingTime = preMeetingAt
+    ? new Date(preMeetingAt).toLocaleString('ko-KR', {
+        month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit',
+      })
+    : '-'
+
   switch (type) {
     case '예약확정알림':
       return {
@@ -88,8 +97,8 @@ function buildVariables(
         '주소':       address,
         '시공일자':   date,
         '요청시간':   requestTime,
-        '미팅여부':   'N',
-        '미팅시간':   '-',
+        '미팅여부':   meetingYN,
+        '미팅시간':   meetingTime,
       }
     case '예약1일전알림':
     case '예약당일알림':
@@ -101,8 +110,8 @@ function buildVariables(
         '주소':     address,
         '시공일자': date,
         '요청시간': requestTime,
-        '미팅여부': 'N',
-        '미팅시간': '-',
+        '미팅여부': meetingYN,
+        '미팅시간': meetingTime,
       }
     case '작업완료알림':
       return {

@@ -45,6 +45,7 @@ interface Application {
   internal_memo: string | null
   notification_send_at: string | null
   notification_sent_at: string | null
+  pre_meeting_at: string | null
 }
 
 interface User { id: string; name: string; role: string }
@@ -533,6 +534,25 @@ function DetailPanel({
               )}
             </div>
           </section>
+
+          {/* 섹션 2.5 - 사전미팅 */}
+          {app.pre_meeting_at && (
+            <section>
+              <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">사전미팅</p>
+              <div className="border-2 border-purple-200 rounded-xl px-3 py-2 bg-purple-50/40 flex items-center gap-2">
+                <span className="text-base">📅</span>
+                <div>
+                  <p className="text-xs font-semibold text-purple-700">미팅 일정</p>
+                  <p className="text-sm text-gray-800 font-medium">
+                    {new Date(app.pre_meeting_at).toLocaleString('ko-KR', {
+                      year: 'numeric', month: '2-digit', day: '2-digit',
+                      hour: '2-digit', minute: '2-digit',
+                    })}
+                  </p>
+                </div>
+              </div>
+            </section>
+          )}
 
           {/* 섹션 3 - 시공정보 */}
           <section>
