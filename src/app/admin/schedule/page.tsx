@@ -644,6 +644,38 @@ export default function SchedulePage() {
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
   const [selectedDateApps, setSelectedDateApps] = useState<Application[]>([])
 
+  // 체크박스 복제 (관리자 전용)
+  const [checkedIds, setCheckedIds] = useState<string[]>([])
+  const [bulkSaving, setBulkSaving] = useState(false)
+
+  const toggleCheck = (id: string) =>
+    setCheckedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
+
+  const handleDuplicateBulk = async () => {
+    if (checkedIds.length === 0) return
+    if (!confirm(`선택한 ${checkedIds.length}건의 일정을 복제하시겠습니까?`)) return
+    setBulkSaving(true)
+    let successCount = 0, failCount = 0
+    const newItems: Application[] = []
+    for (const id of checkedIds) {
+      try {
+        const res = await fetch(`/api/admin/applications/${id}/duplicate`, { method: 'POST' })
+        const d = await res.json()
+        if (res.ok && d.application) {
+          newItems.push(d.application as Application)
+          successCount++
+        } else failCount++
+      } catch { failCount++ }
+    }
+    if (newItems.length > 0) {
+      setApplications(prev => [...newItems, ...prev])
+    }
+    setBulkSaving(false)
+    setCheckedIds([])
+    if (failCount === 0) toast.success(`${successCount}건 복제되었습니다.`)
+    else toast.error(`${successCount}건 성공, ${failCount}건 실패`)
+  }
+
   // 지도 앱 선택 모달
   const [mapAddress, setMapAddress] = useState<string | null>(null)
 
@@ -873,6 +905,21 @@ export default function SchedulePage() {
         />
       )}
 
+      {/* 복제 액션 바 (관리자 + 항목 선택 시) */}
+      {isAdmin && checkedIds.length > 0 && (
+        <div className="shrink-0 flex items-center gap-2 bg-green-600 text-white px-4 py-2.5 rounded-xl shadow-sm">
+          <span className="text-sm font-semibold flex-1">{checkedIds.length}건 선택됨</span>
+          <button onClick={() => setCheckedIds([])}
+            className="text-xs text-green-200 hover:text-white px-2 py-1 rounded transition-colors">
+            선택 해제
+          </button>
+          <button onClick={handleDuplicateBulk} disabled={bulkSaving}
+            className="text-xs bg-yellow-500 hover:bg-yellow-400 text-white font-semibold px-3 py-1.5 rounded-lg disabled:opacity-50 transition-colors whitespace-nowrap">
+            {bulkSaving ? '처리 중...' : '복제'}
+          </button>
+        </div>
+      )}
+
       {/* ── 상단 필터 바 ── */}
       <div className={`transition-all duration-300 overflow-hidden shrink-0 ${filtersVisible ? 'max-h-48 opacity-100' : 'max-h-0 opacity-0 md:max-h-48 md:opacity-100'}`}>
       <div className="flex items-center gap-2 flex-wrap bg-white border border-gray-200 rounded-xl px-4 py-3">
@@ -997,6 +1044,7 @@ export default function SchedulePage() {
             <table className="w-full text-sm">
               <thead className="bg-gray-50 border-b border-gray-200 sticky top-0 z-10">
                 <tr>
+                  {isAdmin && <th className="px-3 py-3 w-8" />}
                   {['시공일자', '업체명', '케어범위', '대표자', '담당자', '작업자', '사진'].map(h => (
                     <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-gray-500 whitespace-nowrap">{h}</th>
                   ))}
@@ -1007,7 +1055,7 @@ export default function SchedulePage() {
                   if (item.kind === 'week') {
                     return (
                       <tr key={item.key}>
-                        <td colSpan={7} className="px-4 py-1 bg-gray-50">
+                        <td colSpan={isAdmin ? 8 : 7} className="px-4 py-1 bg-gray-50">
                           <span className="text-xs text-gray-400 font-medium">{item.label}</span>
                         </td>
                       </tr>
@@ -1027,6 +1075,16 @@ export default function SchedulePage() {
                       ref={el => { rowRefs.current[app.id] = el }}
                       onClick={() => isSelected ? handleClose() : setSelected(app)}
                       className={`cursor-pointer hover:bg-blue-50/40 transition-colors ${isSelected ? 'bg-blue-50' : isToday ? 'bg-yellow-50' : ''}`}>
+                      {isAdmin && (
+                        <td className="px-3 py-3 w-8" onClick={e => e.stopPropagation()}>
+                          <input
+                            type="checkbox"
+                            checked={checkedIds.includes(app.id)}
+                            onChange={() => toggleCheck(app.id)}
+                            className="w-4 h-4 rounded border-gray-300 text-green-600 cursor-pointer"
+                          />
+                        </td>
+                      )}
                       <td className="px-4 py-3 whitespace-nowrap">
                         <span className="font-mono text-xs text-gray-500">{fmtDate(app.construction_date)}</span>
                         {isToday && (

@@ -33,8 +33,20 @@ export async function POST(
   const duplicate: Record<string, unknown> = {
     ...rest,
     status: '신규',
-    notification_log: null,
     work_status: 'pending',
+    gcal_event_id: null,
+    work_started_at: null,
+    work_completed_at: null,
+    notification_send_at: null,
+    notification_sent_at: null,
+    remind_1day_sent_at: null,
+    remind_day_sent_at: null,
+    payment_confirmed_at: null,
+    invoice_issued_at: null,
+    deposit_paid_at: null,
+    quote_sent_at: null,
+    quote_url: null,
+    quote_pdf_url: null,
   }
 
   const { data: inserted, error: insertError } = await supabase
