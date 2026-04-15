@@ -2,9 +2,10 @@ import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { createServiceClient } from '@/lib/supabase/server'
 import { verifySession } from '@/lib/session'
+import { sendSlack } from '@/lib/slack'
 
-function getAdminSession() {
-  const cookieStore = cookies()
+async function getAdminSession() {
+  const cookieStore = await cookies()
   const token = cookieStore.get('bbk_session')?.value
   const session = token ? verifySession(token) : null
   if (!session || session.role !== 'admin') return null
@@ -12,7 +13,7 @@ function getAdminSession() {
 }
 
 export async function GET() {
-  const cookieStore = cookies()
+  const cookieStore = await cookies()
   const token = cookieStore.get('bbk_session')?.value
   const session = token ? verifySession(token) : null
   if (!session) {
@@ -31,7 +32,7 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
-  const session = getAdminSession()
+  const session = await getAdminSession()
   if (!session) {
     return NextResponse.json({ error: '관리자 권한 필요' }, { status: 403 })
   }
@@ -75,10 +76,12 @@ export async function POST(request: NextRequest) {
         }
         const { data: d2, error: e2 } = await supabase.from('inventory').insert(fallbackData).select().single()
         if (e2) return NextResponse.json({ error: e2.message }, { status: 500 })
+        sendSlack(`[재고] 품목 추가 · ${item_name} (${category}) · ${current_qty}${unit}`).catch(() => {})
         return NextResponse.json({ item: d2 }, { status: 201 })
       }
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
+    sendSlack(`[재고] 품목 추가 · ${item_name} (${category}) · ${current_qty}${unit}`).catch(() => {})
     return NextResponse.json({ item: data }, { status: 201 })
   } catch {
     return NextResponse.json({ error: '아이템 생성 실패' }, { status: 500 })
@@ -86,7 +89,7 @@ export async function POST(request: NextRequest) {
 }
 
 export async function PATCH(request: NextRequest) {
-  const session = getAdminSession()
+  const session = await getAdminSession()
   if (!session) {
     return NextResponse.json({ error: '관리자 권한 필요' }, { status: 403 })
   }
@@ -122,10 +125,12 @@ export async function PATCH(request: NextRequest) {
         delete fallback.notes
         const { data: d2, error: e2 } = await supabase.from('inventory').update(fallback).eq('id', id).select().single()
         if (e2) return NextResponse.json({ error: e2.message }, { status: 500 })
+        if (d2) sendSlack(`[재고] 품목 수정 · ${(d2 as Record<string, unknown>).item_name ?? id}`).catch(() => {})
         return NextResponse.json({ item: d2 })
       }
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
+    if (data) sendSlack(`[재고] 품목 수정 · ${(data as Record<string, unknown>).item_name ?? id}`).catch(() => {})
     return NextResponse.json({ item: data })
   } catch {
     return NextResponse.json({ error: '업데이트 실패' }, { status: 500 })
@@ -133,7 +138,7 @@ export async function PATCH(request: NextRequest) {
 }
 
 export async function DELETE(request: NextRequest) {
-  const session = getAdminSession()
+  const session = await getAdminSession()
   if (!session) {
     return NextResponse.json({ error: '관리자 권한 필요' }, { status: 403 })
   }
@@ -143,8 +148,13 @@ export async function DELETE(request: NextRequest) {
   if (!id) return NextResponse.json({ error: 'id 필요' }, { status: 400 })
 
   const supabase = createServiceClient()
+
+  // Fetch item name before deleting
+  const { data: itemRow } = await supabase.from('inventory').select('item_name').eq('id', id).maybeSingle()
+
   const { error } = await supabase.from('inventory').delete().eq('id', id)
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  sendSlack(`[재고] 품목 삭제 · ${(itemRow as Record<string, unknown> | null)?.item_name ?? id}`).catch(() => {})
   return NextResponse.json({ success: true })
 }

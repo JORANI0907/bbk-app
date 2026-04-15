@@ -2,9 +2,12 @@ import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { createServiceClient } from '@/lib/supabase/server'
 import { verifySession } from '@/lib/session'
+import { sendSlack } from '@/lib/slack'
+
+const TX_LABEL: Record<string, string> = { receive: '입고', return: '반납', use: '수령', adjust: '수량조정' }
 
 export async function POST(request: NextRequest) {
-  const cookieStore = cookies()
+  const cookieStore = await cookies()
   const token = cookieStore.get('bbk_session')?.value
   const session = token ? verifySession(token) : null
 
@@ -38,7 +41,7 @@ export async function POST(request: NextRequest) {
   // Fetch current item
   const { data: item, error: itemError } = await supabase
     .from('inventory')
-    .select('id, current_qty')
+    .select('id, item_name, current_qty')
     .eq('id', inventory_id)
     .single()
 
@@ -133,11 +136,13 @@ export async function POST(request: NextRequest) {
         .single()
 
       if (logError2) return NextResponse.json({ error: logError2.message }, { status: 500 })
+      sendSlack(`[재고 ${TX_LABEL[change_type] ?? change_type}] ${(item as Record<string, unknown>).item_name ?? inventory_id} · ${qty}개 · 잔여: ${newQty}개 · ${session.name ?? ''}`).catch(() => {})
       return NextResponse.json({ log: log2, new_qty: newQty })
     }
 
     return NextResponse.json({ error: logError.message }, { status: 500 })
   }
 
+  sendSlack(`[재고 ${TX_LABEL[change_type] ?? change_type}] ${(item as Record<string, unknown>).item_name ?? inventory_id} · ${qty}개 · 잔여: ${newQty}개 · ${session.name ?? ''}`).catch(() => {})
   return NextResponse.json({ log, new_qty: newQty })
 }

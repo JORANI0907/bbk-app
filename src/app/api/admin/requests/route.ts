@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { getServerSession } from '@/lib/session'
+import { sendSlack } from '@/lib/slack'
 
 const ALLOWED_POST = ['category', 'content', 'extra_data']
 const ALLOWED_PATCH_ADMIN = ['status', 'admin_memo']
@@ -65,6 +66,11 @@ export async function POST(request: NextRequest) {
     .single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  const roleLabel = session.role === 'worker' ? '직원' : '관리자'
+  const preview = String(insert.content ?? '').slice(0, 50)
+  sendSlack(`[요청] 새 요청 등록 · ${insert.requester_name ?? ''} (${roleLabel}) · ${insert.category ?? ''} · ${preview}`).catch(() => {})
+
   return NextResponse.json({ data }, { status: 201 })
 }
 
@@ -96,6 +102,13 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ error: '관리자 전용' }, { status: 403 })
   }
 
+  // Slack용 요청 내용 조회
+  const { data: reqRow } = await supabase
+    .from('requests')
+    .select('category, content, requester_name')
+    .eq('id', id)
+    .maybeSingle()
+
   const updates: Record<string, unknown> = {
     updated_at: new Date().toISOString(),
     checked_by: session.userId,
@@ -112,5 +125,12 @@ export async function PATCH(request: NextRequest) {
     .eq('id', id)
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  if (reqRow) {
+    const statusLabel = rest.status === 'done' ? '완료' : rest.status === 'rejected' ? '반려' : '처리'
+    const preview = String(reqRow.content ?? '').slice(0, 40)
+    sendSlack(`[요청] 요청 ${statusLabel} · ${reqRow.requester_name ?? ''} · ${reqRow.category ?? ''} · ${preview}`).catch(() => {})
+  }
+
   return NextResponse.json({ success: true })
 }
