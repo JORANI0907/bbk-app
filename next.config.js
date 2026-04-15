@@ -5,10 +5,17 @@ const withPWA = require('next-pwa')({
   skipWaiting: true,
   clientsClaim: true,
   disable: process.env.NODE_ENV === 'development',
-  workboxOptions: {
-    cacheId: 'bbk-app-v2',
-  },
   runtimeCaching: [
+    // HTML 페이지는 항상 네트워크에서 가져옴 — 배포 즉시 새 버전 반영
+    {
+      urlPattern: ({ request }) => request.mode === 'navigate',
+      handler: 'NetworkFirst',
+      options: {
+        networkTimeoutSeconds: 5,
+        cacheName: 'pages',
+        expiration: { maxAgeSeconds: 60 },
+      },
+    },
     {
       urlPattern: /^https:\/\/andmmbxhtufwvtsgdhti\.supabase\.co\/.*/,
       handler: 'NetworkFirst',
