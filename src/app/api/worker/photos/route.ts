@@ -19,7 +19,8 @@ export async function POST(request: NextRequest) {
 
   const supabase = createServiceClient()
   const ext = (file.name.split('.').pop() ?? 'jpg').toLowerCase()
-  const path = `${scheduleId}/${photoType}_${Date.now()}.${ext}`
+  const sanitize = (s: string) => s.replace(/[^a-zA-Z0-9가-힣ㄱ-ㅎㅏ-ㅣ._-]/g, '_')
+  const path = `${sanitize(scheduleId)}/${sanitize(photoType)}_${Date.now()}.${ext}`
 
   const arrayBuffer = await file.arrayBuffer()
   const buffer = Buffer.from(arrayBuffer)

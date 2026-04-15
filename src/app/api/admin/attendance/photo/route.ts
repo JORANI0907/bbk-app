@@ -26,7 +26,8 @@ export async function POST(request: NextRequest) {
   const typeLabel = type === 'clock_in' ? '출근' : '퇴근'
   const name = workerName ?? session.name ?? '직원'
   const ext = file.name.split('.').pop() ?? 'jpg'
-  const fileName = `${date}/${name}_${typeLabel}_${Date.now()}.${ext}`
+  const sanitize = (s: string) => s.replace(/[^a-zA-Z0-9가-힣ㄱ-ㅎㅏ-ㅣ._-]/g, '_')
+  const fileName = `${sanitize(date)}/${sanitize(name)}_${sanitize(typeLabel)}_${Date.now()}.${ext}`
 
   try {
     const supabase = createServiceClient()
