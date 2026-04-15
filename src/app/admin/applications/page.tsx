@@ -1033,7 +1033,6 @@ export default function ServiceManagementPage() {
     if (!email.trim()) missing.push('이메일')
     if (!address.trim()) missing.push('주소')
     if (!careScope.trim()) missing.push('케어범위')
-    if (!constructionDate) missing.push('시공일자')
     if (!supplyAmount || Number(supplyAmount) === 0) missing.push('공급가액')
     return missing
   }
