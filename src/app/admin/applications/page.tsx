@@ -280,8 +280,8 @@ function AppCalendarView({
 
   return (
     <>
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden flex-1">
-        <div className="grid grid-cols-7 border-b border-gray-100">
+      <div className="bg-white rounded-xl border border-gray-200 overflow-y-auto flex-1">
+        <div className="grid grid-cols-7 border-b border-gray-100 sticky top-0 bg-white z-10">
           {DAYS.map(d => (
             <div key={d} className={`text-center py-2.5 text-xs font-semibold
               ${d === '일' ? 'text-red-500' : d === '토' ? 'text-blue-500' : 'text-gray-500'}`}>
@@ -314,11 +314,8 @@ function AppCalendarView({
                   {apps.slice(0, 3).map(app => {
                     const cfg = STATUS_CONFIG[app.status] ?? STATUS_CONFIG['예약확정']
                     return (
-                      <div key={app.id} className="px-1 py-0.5 rounded-md bg-blue-50 border border-blue-100/80">
-                        <div className="flex items-center gap-1 min-w-0">
-                          <span className={`w-1 h-1 rounded-full shrink-0 ${cfg.dot}`} />
-                          <span className="text-[9px] text-blue-800 font-semibold truncate leading-tight">{app.business_name}</span>
-                        </div>
+                      <div key={app.id} className={`px-1 py-0.5 rounded text-[10px] font-semibold truncate leading-tight ${cfg.color}`}>
+                        {app.business_name}
                       </div>
                     )
                   })}
@@ -453,6 +450,7 @@ export default function ServiceManagementPage() {
   const [savedDriveFolder, setSavedDriveFolder] = useState<DriveFolder | null>(null)
   const [driveCreating, setDriveCreating] = useState(false)
   const [driveApisReady, setDriveApisReady] = useState(false)
+  const [driveConfirming, setDriveConfirming] = useState(false)
 
   // 견적서 발송
   const [quoteSending, setQuoteSending] = useState(false)
@@ -931,9 +929,61 @@ export default function ServiceManagementPage() {
       toast.error('Google API 로딩 중입니다. 잠시 후 다시 시도해주세요.')
       return
     }
+    // 이미 폴더가 있는 경우(위치 변경) 또는 저장된 위치 없으면 바로 피커 열기
+    if (selected.drive_folder_url || !savedDriveFolder) {
+      executeDriveCreateWithPicker()
+      return
+    }
+    // 저장된 위치가 있으면 확인 UI 표시
+    setDriveConfirming(true)
+  }
+
+  // 저장된 위치에 바로 생성 (user gesture 컨텍스트 필요)
+  function executeDriveCreateWithSaved() {
+    if (!selected || !savedDriveFolder) return
+    setDriveConfirming(false)
+    const date = constructionDate || today()
+    const folder = savedDriveFolder
+    requestGoogleToken()
+      .then(async token => {
+        setDriveCreating(true)
+        try {
+          const result = await createWorkFolderStructure(folder.id, selected.business_name, date, token)
+          const folderUrl = result.folderUrl
+          await fetch('/api/admin/applications', {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: selected.id, drive_folder_url: folderUrl, construction_date: date }),
+          })
+          setConstructionDate(date)
+          setSelected(prev => prev ? { ...prev, drive_folder_url: folderUrl, construction_date: date } : prev)
+          setApplications(prev => prev.map(a => a.id === selected.id ? { ...a, drive_folder_url: folderUrl, construction_date: date } : a))
+          toast.success(`✅ "${result.folderName}" 폴더 생성 완료!`, { duration: 5000 })
+          window.open(folderUrl, '_blank')
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : '처리 실패'
+          const isTrulyMissing = msg.includes('File not found') && !msg.toLowerCase().includes('permission')
+          if (isTrulyMissing) {
+            toast.error('Drive 폴더를 찾을 수 없습니다. 위치를 다시 지정해주세요.', { duration: 5000 })
+            setSavedDriveFolder(null)
+            document.cookie = 'bbk_drive_folder=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/'
+          } else {
+            toast.error(`처리 실패: ${msg}`, { duration: 8000 })
+          }
+        } finally {
+          setDriveCreating(false)
+        }
+      })
+      .catch(e => toast.error(e instanceof Error ? e.message : 'Google Drive 연결 실패'))
+  }
+
+  // 폴더 피커로 위치 선택 후 생성 (user gesture 컨텍스트 필요)
+  function executeDriveCreateWithPicker() {
+    if (!selected) return
+    setDriveConfirming(false)
     const date = constructionDate || today()
     let capturedToken = ''
-    requestGoogleToken()  // ← user gesture 컨텍스트에서 즉시 호출 (await 없음)
+    requestGoogleToken()
       .then(token => {
         capturedToken = token
         return openFolderPicker(token)
@@ -1795,10 +1845,26 @@ export default function ServiceManagementPage() {
               {/* Google Drive 폴더 */}
               <Section title="Google Drive 폴더">
                 <div className="space-y-2">
-                  <button onClick={handleDriveCreate} disabled={driveCreating}
-                    className="w-full py-2.5 bg-green-600 text-white text-sm font-semibold rounded-lg hover:bg-green-700 disabled:opacity-60 transition-colors flex items-center justify-center gap-2">
-                    <span>📁</span><span>{driveCreating ? '생성 중...' : (selected?.drive_folder_url ? '폴더 위치 변경' : '폴더 생성')}</span>
-                  </button>
+                  {driveConfirming ? (
+                    <div className="bg-green-50 border border-green-200 rounded-lg p-3 space-y-2">
+                      <p className="text-xs text-green-800 font-medium">📂 <span className="font-bold">{savedDriveFolder?.name}</span> 에 생성할까요?</p>
+                      <div className="flex gap-2">
+                        <button onClick={executeDriveCreateWithSaved} disabled={driveCreating}
+                          className="flex-1 py-2 bg-green-600 text-white text-xs font-semibold rounded-lg hover:bg-green-700 disabled:opacity-60 transition-colors">
+                          이 위치에 생성
+                        </button>
+                        <button onClick={executeDriveCreateWithPicker} disabled={driveCreating}
+                          className="flex-1 py-2 bg-white text-green-700 border border-green-300 text-xs font-semibold rounded-lg hover:bg-green-50 disabled:opacity-60 transition-colors">
+                          위치 변경
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <button onClick={handleDriveCreate} disabled={driveCreating}
+                      className="w-full py-2.5 bg-green-600 text-white text-sm font-semibold rounded-lg hover:bg-green-700 disabled:opacity-60 transition-colors flex items-center justify-center gap-2">
+                      <span>📁</span><span>{driveCreating ? '생성 중...' : (selected?.drive_folder_url ? '폴더 위치 변경' : '폴더 생성')}</span>
+                    </button>
+                  )}
                   <button
                     onClick={() => {
                       if (selected.drive_folder_url) {
@@ -1811,9 +1877,6 @@ export default function ServiceManagementPage() {
                   >
                     <span>🔗</span><span className="truncate">Drive 폴더 열기</span>
                   </button>
-                  {savedDriveFolder && (
-                    <p className="text-xs text-gray-400">기본 위치: 📂 {savedDriveFolder.name}</p>
-                  )}
                 </div>
               </Section>
 
