@@ -11,7 +11,8 @@ const NOTIFY_TO_STATUS: Record<string, string> = {
   '작업완료알림':       '작업완료',
   '결제알림':           '결제',
   '결제완료알림':       '결제완료',
-  '결제완료알림(잔금)': '결제완료(잔금)',
+  '결제완료알림(잔금)':   '결제완료(잔금)',
+  '예약금 입금완료 알림': '예약금 입금',
   '계산서발행완료알림': '계산서발행완료',
   '예약금환급완료알림': '예약금환급완료',
   '예약취소알림':       '예약취소',
@@ -27,7 +28,8 @@ const ALIMTALK_TEMPLATES: Record<string, string> = {
   '작업완료알림':       'KA01TP260324125200271OOXEk0LPiAS',
   '결제알림':           'KA01TP260324125232471CIIHJKDOBsf',
   '결제완료알림':       'KA01TP260324125232674HVfev9PAzUe',
-  '결제완료알림(잔금)': 'KA01TP260324125232674HVfev9PAzUe',
+  '결제완료알림(잔금)':   'KA01TP260324125232674HVfev9PAzUe',
+  '예약금 입금완료 알림': 'KA01TP260220102437819kp8ysvD4XqB',
   '계산서발행완료알림': 'KA01TP260324125232783yjmHI9u6j6j',
   '예약금환급완료알림': 'KA01TP260324125232819wDhAV1kuhAF',
   '예약취소알림':       'KA01TP260324125232854lv8CCYK3Ozu',
@@ -138,6 +140,13 @@ function buildVariables(
         '이메일아이디': emailParts[0] || '-',
         '이메일도메인': emailParts[1] || '-',
       }
+    case '예약금 입금완료 알림':
+      return {
+        '고객명':   ownerName,
+        '상호명':   businessName,
+        '예약금':   deposit,
+        '시공일자': date,
+      }
     case '예약금환급완료알림':
       return {
         '고객명':   ownerName,
@@ -181,6 +190,7 @@ function buildFallback(type: string, app: Record<string, unknown>): string {
     '결제완료알림':       `[BBK 공간케어] ${name}님, 결제가 완료되었습니다. 감사합니다.`,
     '결제완료알림(잔금)': `[BBK 공간케어] ${name}님, 잔금 결제가 완료되었습니다. 감사합니다.`,
     '계산서발행완료알림': `[BBK 공간케어] ${name}님, 세금계산서가 발행되었습니다.`,
+    '예약금 입금완료 알림': `[BBK 공간케어] ${name}님, 예약금 입금이 확인되었습니다. (${bizName})`,
     '예약금환급완료알림': `[BBK 공간케어] ${name}님, 예약금 환급이 완료되었습니다.`,
     '예약취소알림':       `[BBK 공간케어] ${name}님, 예약이 취소되었습니다.`,
     'A/S방문알림':        `[BBK 공간케어] ${name}님, A/S 방문 일정을 안내드립니다.`,

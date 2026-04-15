@@ -19,7 +19,7 @@ import { LoadingSpinner } from '@/components/admin/LoadingSpinner'
 import { MapSelectorModal } from '@/components/MapSelectorModal'
 
 type ServiceType = '1회성케어' | '정기딥케어' | '정기엔드케어'
-type ApplicationStatus = '신규' | '견적발송' | '예약확정' | '예약1일전' | '예약당일' | '작업완료' | '작업완료(엔드)' | '결제' | '결제완료' | '결제완료(잔금)' | '계산서발행완료' | '예약금환급완료' | '예약취소' | 'A/S방문' | '방문견적'
+type ApplicationStatus = '신규' | '견적발송' | '예약확정' | '예약1일전' | '예약당일' | '작업완료' | '작업완료(엔드)' | '결제' | '결제완료' | '결제완료(잔금)' | '계산서발행완료' | '예약금환급완료' | '예약금 입금' | '예약취소' | 'A/S방문' | '방문견적'
 
 interface User { id: string; name: string; role: string }
 interface Worker { id: string; name: string; employment_type: string | null; phone: string | null; account_number: string | null }
@@ -81,13 +81,15 @@ const STATUS_CONFIG: Record<ApplicationStatus, { color: string; badge: string; d
   '결제완료(잔금)': { color: 'bg-emerald-600 text-white', badge: 'bg-emerald-100 text-emerald-700 ring-emerald-300', dot: 'bg-emerald-600', row: 'bg-emerald-50' },
   '계산서발행완료': { color: 'bg-gray-300 text-gray-700', badge: 'bg-gray-50 text-gray-500 ring-gray-200',         dot: 'bg-gray-300',   row: 'bg-white' },
   '예약금환급완료': { color: 'bg-gray-300 text-gray-700', badge: 'bg-gray-50 text-gray-500 ring-gray-200',       dot: 'bg-gray-300',   row: 'bg-white' },
+  '예약금 입금':   { color: 'bg-teal-600 text-white',    badge: 'bg-teal-100 text-teal-700 ring-teal-300',      dot: 'bg-teal-600',   row: 'bg-teal-50' },
   '예약취소':      { color: 'bg-gray-400 text-white',     badge: 'bg-gray-100 text-gray-600 ring-gray-300',      dot: 'bg-gray-400',   row: 'bg-gray-50' },
   'A/S방문':       { color: 'bg-gray-400 text-white',     badge: 'bg-gray-100 text-gray-600 ring-gray-300',      dot: 'bg-gray-400',   row: 'bg-gray-50' },
   '방문견적':      { color: 'bg-gray-400 text-white',     badge: 'bg-gray-100 text-gray-600 ring-gray-300',      dot: 'bg-gray-400',   row: 'bg-gray-50' },
 }
 const NOTIFICATION_TYPES = [
   '예약확정알림', '예약1일전알림', '예약당일알림', '작업완료알림',
-  '결제알림', '결제완료알림', '결제완료알림(잔금)', '계산서발행완료알림', '예약금환급완료알림',
+  '결제알림', '결제완료알림', '결제완료알림(잔금)', '계산서발행완료알림',
+  '예약금 입금완료 알림', '예약금환급완료알림',
   '예약취소알림', 'A/S방문알림', '방문견적알림',
 ]
 const NOTIFY_TYPE_CONFIG: Record<string, { badge: string; dot: string }> = {
@@ -99,7 +101,8 @@ const NOTIFY_TYPE_CONFIG: Record<string, { badge: string; dot: string }> = {
   '결제완료알림':       { badge: 'bg-emerald-100 text-emerald-700', dot: 'bg-emerald-500' },
   '결제완료알림(잔금)': { badge: 'bg-emerald-100 text-emerald-800', dot: 'bg-emerald-600' },
   '계산서발행완료알림': { badge: 'bg-teal-100 text-teal-700',      dot: 'bg-teal-500' },
-  '예약금환급완료알림': { badge: 'bg-cyan-100 text-cyan-700',      dot: 'bg-cyan-500' },
+  '예약금환급완료알림':  { badge: 'bg-cyan-100 text-cyan-700',      dot: 'bg-cyan-500' },
+  '예약금 입금완료 알림': { badge: 'bg-teal-100 text-teal-700',   dot: 'bg-teal-500' },
   '예약취소알림':       { badge: 'bg-red-100 text-red-700',        dot: 'bg-red-500' },
   'A/S방문알림':        { badge: 'bg-yellow-100 text-yellow-700',  dot: 'bg-yellow-500' },
   '방문견적알림':       { badge: 'bg-indigo-100 text-indigo-700',  dot: 'bg-indigo-500' },
