@@ -2,13 +2,6 @@
 
 import { useState, useEffect } from 'react'
 import toast from 'react-hot-toast'
-import {
-  loadGoogleAPIs,
-  requestGoogleToken,
-  uploadFileToDrive,
-  getSavedInventoryFolder,
-  saveInventoryFolderCookie,
-} from '@/lib/googleDrive'
 
 type InventoryCategory = 'chemical' | 'equipment' | 'consumable' | 'other'
 
@@ -46,20 +39,9 @@ export default function WorkerInventoryPage() {
   const [photo, setPhoto] = useState<File | null>(null)
   const [photoPreview, setPhotoPreview] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
-  const [inventoryFolder, setInventoryFolder] = useState(() => getSavedInventoryFolder())
 
   useEffect(() => {
     fetchItems()
-    // DB에서 최신 Drive 폴더 정보 동기화
-    fetch('/api/inventory/drive-folder')
-      .then(r => r.json())
-      .then(d => {
-        if (d.folder) {
-          setInventoryFolder(d.folder)
-          saveInventoryFolderCookie(d.folder)
-        }
-      })
-      .catch(() => {})
   }, [])
 
   const fetchItems = async () => {
@@ -96,14 +78,6 @@ export default function WorkerInventoryPage() {
     setPhotoPreview(URL.createObjectURL(file))
   }
 
-  const uploadWithTimeout = <T,>(uploadFn: () => Promise<T>, timeoutMs = 30000): Promise<T> =>
-    Promise.race([
-      uploadFn(),
-      new Promise<T>((_, reject) =>
-        setTimeout(() => reject(new Error('업로드 타임아웃 (30초)')), timeoutMs)
-      ),
-    ])
-
   const handleSubmit = async () => {
     if (!selectedItem) return
     const qty = Number(quantity)
@@ -116,18 +90,21 @@ export default function WorkerInventoryPage() {
     let photoUrl: string | null = null
 
     try {
-      if (photo && inventoryFolder) {
+      if (photo) {
         try {
-          await loadGoogleAPIs()
-          const token = await requestGoogleToken()
-          const ext = photo.name.split('.').pop() ?? 'jpg'
-          const fileName = `재고_${selectedItem.item_name}_${Date.now()}.${ext}`
-          const result = await uploadWithTimeout(() =>
-            uploadFileToDrive(photo, inventoryFolder.id, fileName, token)
-          )
-          photoUrl = result.fileUrl
+          const fd = new FormData()
+          fd.append('photo', photo)
+          fd.append('item_name', selectedItem.item_name)
+          fd.append('tx_type', txType)
+          const uploadRes = await fetch('/api/inventory/photo', { method: 'POST', body: fd })
+          if (uploadRes.ok) {
+            const uploadData = await uploadRes.json()
+            photoUrl = uploadData.url ?? null
+          } else {
+            const uploadData = await uploadRes.json()
+            throw new Error(uploadData.error ?? '사진 업로드 실패')
+          }
         } catch (uploadErr) {
-          // 사진 업로드 실패 시 사진 없이 진행
           const msg = uploadErr instanceof Error ? uploadErr.message : '사진 업로드 실패'
           toast.error(`사진 업로드 실패: ${msg}\n사진 없이 처리합니다.`, { duration: 4000 })
         }
@@ -380,7 +357,7 @@ export default function WorkerInventoryPage() {
               </div>
               {submitting && (
                 <p className="text-xs text-center text-gray-400 mt-2">
-                  사진 업로드 중... 최대 30초 소요될 수 있습니다
+                  처리 중입니다...
                 </p>
               )}
             </div>
