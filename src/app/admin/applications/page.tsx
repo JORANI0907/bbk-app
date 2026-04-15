@@ -1351,7 +1351,7 @@ export default function ServiceManagementPage() {
 
           {/* 목록 테이블 */}
           {(viewMode === 'list' || showUnassigned) && (
-          <div ref={listContainerRef} className="bg-white rounded-xl border border-gray-200 overflow-auto flex-1 flex flex-col overscroll-contain min-h-0 pb-28 md:pb-8">
+          <div ref={listContainerRef} className="bg-white rounded-xl border border-gray-200 overflow-auto flex-1 flex flex-col overscroll-contain min-h-0">
             {loading ? (
               <LoadingSpinner />
             ) : filteredApps.length === 0 ? (
@@ -1489,6 +1489,18 @@ export default function ServiceManagementPage() {
                 </table>
               )
             })()}
+            {/* 합계 행 — 리스트 하단 */}
+            {!loading && filteredApps.length > 0 && (
+              <div className="border-t border-gray-200 px-4 py-2.5 flex items-center justify-between bg-gray-50">
+                <span className="text-xs text-gray-500">
+                  합계 <span className="text-gray-400 font-normal">({filteredApps.length}건)</span>
+                </span>
+                <span className="text-sm font-bold font-mono text-gray-800">
+                  {fmt(filteredApps.reduce((s, a) => s + rowTotal(a), 0))}
+                  <span className="text-gray-500 font-normal text-xs">원</span>
+                </span>
+              </div>
+            )}
           </div>
           )}
 
@@ -1913,20 +1925,6 @@ export default function ServiceManagementPage() {
         )}
       </div>
 
-      {/* 하단 고정 합계 바 */}
-      {(viewMode === 'list' || showUnassigned) && !loading && filteredApps.length > 0 && (
-        <div className="fixed bottom-14 md:bottom-0 left-0 right-0 z-[45] bg-white/95 backdrop-blur-sm border-t border-gray-200 shadow-[0_-1px_8px_rgba(0,0,0,0.06)]">
-          <div className="px-4 py-2 flex items-center justify-between">
-            <span className="text-xs text-gray-500">
-              합계 <span className="text-gray-400 font-normal">({filteredApps.length}건)</span>
-            </span>
-            <span className="text-sm font-bold font-mono text-gray-800">
-              {fmt(filteredApps.reduce((s, a) => s + rowTotal(a), 0))}
-              <span className="text-gray-500 font-normal text-xs">원</span>
-            </span>
-          </div>
-        </div>
-      )}
     </>
   )
 }
