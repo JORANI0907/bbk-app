@@ -3,6 +3,7 @@ import { Noto_Sans_KR } from 'next/font/google'
 import { Toaster } from 'react-hot-toast'
 import { AuthProvider } from '@/components/AuthProvider'
 import { SplashScreen } from '@/components/SplashScreen'
+import { SwUpdateReloader } from '@/components/SwUpdateReloader'
 import './globals.css'
 
 const notoSansKR = Noto_Sans_KR({
@@ -47,6 +48,7 @@ export default function RootLayout({
   return (
     <html lang="ko" className={notoSansKR.variable}>
       <body className={`${notoSansKR.className} antialiased`}>
+        <SwUpdateReloader />
         <SplashScreen />
         <AuthProvider>
           {children}
