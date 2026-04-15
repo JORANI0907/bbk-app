@@ -66,7 +66,20 @@ export async function POST(request: NextRequest) {
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
   // Slack 알림 (fire-and-forget)
-  sendSlack(`[신규접수] ${body.business_name} 서비스 신청`).catch(() => {})
+  const kstTime = new Date().toLocaleString('ko-KR', {
+    timeZone: 'Asia/Seoul',
+    month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit',
+  })
+  sendSlack(
+    `📋 *새 서비스 신청 (관리자 등록)*\n` +
+    `• 업체명: ${body.business_name ?? '-'}\n` +
+    `• 대표자: ${body.owner_name ?? '-'}\n` +
+    `• 연락처: ${body.phone ?? '-'}\n` +
+    `• 주소: ${body.address ?? '-'}\n` +
+    (body.service_type ? `• 서비스: ${body.service_type}\n` : '') +
+    `• 접수시각: ${kstTime}`
+  ).catch(() => {})
 
   return NextResponse.json({ application: data }, { status: 201 })
 }

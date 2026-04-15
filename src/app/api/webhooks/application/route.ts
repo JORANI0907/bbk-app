@@ -160,7 +160,24 @@ export async function POST(request: NextRequest) {
       console.error('Supabase error:', supabaseResult.reason)
     }
 
-    // Notion 미러링 + Slack 알림 (Supabase 성공 시에만, 실패해도 OK)
+    // Slack 알림 — Supabase 성공 여부와 무관하게 항상 발송
+    const kstTime = new Date().toLocaleString('ko-KR', {
+      timeZone: 'Asia/Seoul',
+      month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit',
+    })
+    sendSlack(
+      `📋 *새 공간케어 신청서 접수*\n` +
+      `• 업체명: ${businessName ?? '-'}\n` +
+      `• 대표자: ${ownerName ?? '-'}\n` +
+      `• 연락처: ${phone ?? '-'}\n` +
+      `• 주소: ${address ?? '-'}\n` +
+      (careScope ? `• 케어범위: ${careScope}\n` : '') +
+      (constructionDate ? `• 희망시공일: ${constructionDate}\n` : '') +
+      `• 접수시각: ${kstTime}`
+    ).catch(() => {})
+
+    // Notion 미러링 (Supabase 성공 시에만)
     if (insertedId) {
       try {
         const notionPageId = await syncToNotion(body)
@@ -173,15 +190,6 @@ export async function POST(request: NextRequest) {
       } catch (e) {
         console.error('Notion error:', e)
       }
-
-      sendSlack(
-        `📋 *새 공간케어 신청서 접수*\n` +
-        `• 업체명: ${businessName ?? '-'}\n` +
-        `• 대표자: ${ownerName ?? '-'}\n` +
-        `• 연락처: ${phone ?? '-'}\n` +
-        `• 주소: ${address ?? '-'}\n` +
-        `• 접수시각: ${timestamp ?? new Date().toISOString()}`
-      ).catch(() => {})
     }
 
     return NextResponse.json(
