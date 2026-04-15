@@ -265,25 +265,50 @@ function WorkerClockView({ workerInfo }: WorkerClockViewProps) {
   const [capturedBlob, setCapturedBlob] = useState<Blob | null>(null)
   const [elapsed, setElapsed] = useState(0)
 
-  // 한국 시간(KST) 기준 오늘 날짜 (UTC+9)
-  const todayStr = new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10)
+  // KST 기준 날짜 계산 (UTC+9)
+  const getKSTDate = () => new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10)
+  const getKSTHour = () => new Date(Date.now() + 9 * 60 * 60 * 1000).getUTCHours()
 
   const fetchToday = useCallback(async () => {
     setLoading(true)
     try {
-      const params = new URLSearchParams({ month: todayStr.slice(0, 7) })
-      const res = await fetch(`/api/admin/attendance?${params}`)
-      if (!res.ok) throw new Error('출퇴근 기록 조회 실패')
-      const json = await res.json()
-      const records: AttendanceRecord[] = json.data ?? []
-      const rec = records.find(r => r.work_date === todayStr && r.worker_id === workerInfo.id) ?? null
-      setTodayRecord(rec)
+      const todayKST = getKSTDate()
+      const kstHour = getKSTHour()
+
+      // 작업이 20시~다음날 12시까지 이어질 수 있으므로,
+      // 12시 이전이면 전날 미완료 기록도 함께 조회
+      const prevKST = kstHour < 12
+        ? new Date(Date.now() + 9 * 60 * 60 * 1000 - 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
+        : null
+
+      const monthsToFetch = new Set([todayKST.slice(0, 7)])
+      if (prevKST) monthsToFetch.add(prevKST.slice(0, 7))
+
+      const allRecords: AttendanceRecord[] = []
+      for (const month of monthsToFetch) {
+        const res = await fetch(`/api/admin/attendance?month=${month}`)
+        if (!res.ok) throw new Error('출퇴근 기록 조회 실패')
+        const json = await res.json()
+        allRecords.push(...(json.data ?? []))
+      }
+
+      const mine = allRecords.filter(r => r.worker_id === workerInfo.id)
+
+      // 1순위: 미완료 기록 (출근 O, 퇴근 X) — 오늘 또는 전날 야간 작업
+      const active = mine.find(r =>
+        (r.work_date === todayKST || r.work_date === prevKST) && r.clock_in && !r.clock_out
+      ) ?? null
+
+      // 2순위: 오늘 완료된 기록
+      const completed = mine.find(r => r.work_date === todayKST) ?? null
+
+      setTodayRecord(active ?? completed ?? null)
     } catch {
       toast.error('출퇴근 기록을 불러오지 못했습니다.')
     } finally {
       setLoading(false)
     }
-  }, [todayStr, workerInfo.id])
+  }, [workerInfo.id])
 
   useEffect(() => { fetchToday() }, [fetchToday])
 
@@ -340,7 +365,7 @@ function WorkerClockView({ workerInfo }: WorkerClockViewProps) {
         fd.append('photo', blob, 'photo.jpg')
         fd.append('type', flow!)
         fd.append('worker_name', workerInfo.name)
-        fd.append('date', todayStr)
+        fd.append('date', getKSTDate())
 
         const uploadRes = await fetch('/api/admin/attendance/photo', { method: 'POST', body: fd })
         if (uploadRes.ok) {
@@ -352,11 +377,11 @@ function WorkerClockView({ workerInfo }: WorkerClockViewProps) {
       const now = new Date().toISOString()
 
       if (flow === 'clock_in') {
-        // 3a. 새 출근 기록 생성
+        // 3a. 새 출근 기록 생성 (work_date = KST 기준 오늘)
         const body: Record<string, unknown> = {
           worker_id: workerInfo.id,
           worker_name: workerInfo.name,
-          work_date: todayStr,
+          work_date: getKSTDate(),
           clock_in: now,
         }
         if (lat !== null) { body.clock_in_lat = lat; body.clock_in_lng = lng }
