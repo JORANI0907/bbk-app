@@ -242,6 +242,7 @@ function CameraCapture({ onCapture, onCancel }: CameraProps) {
 
 type ClockPhase =
   | 'idle'
+  | 'confirm'
   | 'camera'
   | 'locating'
   | 'submitting'
@@ -258,25 +259,25 @@ interface WorkerClockViewProps {
 }
 
 function WorkerClockView({ workerInfo }: WorkerClockViewProps) {
-  const [todayRecord, setTodayRecord] = useState<AttendanceRecord | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [flow, setFlow] = useState<'clock_in' | 'clock_out' | null>(null)
-  const [phase, setPhase] = useState<ClockPhase>('idle')
-  const [capturedBlob, setCapturedBlob] = useState<Blob | null>(null)
-  const [elapsed, setElapsed] = useState(0)
-
-  // KST 기준 날짜 계산 (UTC+9)
+  // KST 기준 날짜/시간 계산 (UTC+9)
   const getKSTDate = () => new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10)
   const getKSTHour = () => new Date(Date.now() + 9 * 60 * 60 * 1000).getUTCHours()
+  const kstToday = getKSTDate()
 
-  const fetchToday = useCallback(async () => {
+  const [monthRecords, setMonthRecords] = useState<AttendanceRecord[]>([])
+  const [loading, setLoading] = useState(true)
+  const [selectedDate, setSelectedDate] = useState(kstToday)
+  const [flow, setFlow] = useState<'clock_in' | 'clock_out' | null>(null)
+  const [phase, setPhase] = useState<ClockPhase>('idle')
+  const [elapsed, setElapsed] = useState(0)
+
+  const fetchData = useCallback(async () => {
     setLoading(true)
     try {
       const todayKST = getKSTDate()
       const kstHour = getKSTHour()
 
-      // 작업이 20시~다음날 12시까지 이어질 수 있으므로,
-      // 12시 이전이면 전날 미완료 기록도 함께 조회
+      // 야간 근무 대응: 12시 이전이면 전날 기록도 조회
       const prevKST = kstHour < 12
         ? new Date(Date.now() + 9 * 60 * 60 * 1000 - 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
         : null
@@ -293,16 +294,7 @@ function WorkerClockView({ workerInfo }: WorkerClockViewProps) {
       }
 
       const mine = allRecords.filter(r => r.worker_id === workerInfo.id)
-
-      // 1순위: 미완료 기록 (출근 O, 퇴근 X) — 오늘 또는 전날 야간 작업
-      const active = mine.find(r =>
-        (r.work_date === todayKST || r.work_date === prevKST) && r.clock_in && !r.clock_out
-      ) ?? null
-
-      // 2순위: 오늘 완료된 기록
-      const completed = mine.find(r => r.work_date === todayKST) ?? null
-
-      setTodayRecord(active ?? completed ?? null)
+      setMonthRecords([...mine].sort((a, b) => b.work_date.localeCompare(a.work_date)))
     } catch {
       toast.error('출퇴근 기록을 불러오지 못했습니다.')
     } finally {
@@ -310,19 +302,30 @@ function WorkerClockView({ workerInfo }: WorkerClockViewProps) {
     }
   }, [workerInfo.id])
 
-  useEffect(() => { fetchToday() }, [fetchToday])
+  useEffect(() => { fetchData() }, [fetchData])
+
+  // 선택한 날짜의 기록 (야간 작업 대응: 오늘 선택 + 12시 이전 → 전날 미완료 기록 우선)
+  const selectedRecord: AttendanceRecord | null = (() => {
+    const kstHour = getKSTHour()
+    if (selectedDate === kstToday && kstHour < 12) {
+      const prevKST = new Date(Date.now() + 9 * 60 * 60 * 1000 - 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
+      const active = monthRecords.find(r => r.work_date === prevKST && r.clock_in && !r.clock_out) ?? null
+      if (active) return active
+    }
+    return monthRecords.find(r => r.work_date === selectedDate) ?? null
+  })()
 
   // Elapsed timer when clocked in but not out
   useEffect(() => {
-    if (!todayRecord?.clock_in || todayRecord?.clock_out) return
+    if (!selectedRecord?.clock_in || selectedRecord?.clock_out) return
     const update = () => {
-      const diff = Date.now() - new Date(todayRecord.clock_in!).getTime()
+      const diff = Date.now() - new Date(selectedRecord.clock_in!).getTime()
       setElapsed(Math.floor(diff / 1000))
     }
     update()
     const id = setInterval(update, 1000)
     return () => clearInterval(id)
-  }, [todayRecord])
+  }, [selectedRecord])
 
   const formatElapsed = (seconds: number) => {
     const h = Math.floor(seconds / 3600)
@@ -333,12 +336,10 @@ function WorkerClockView({ workerInfo }: WorkerClockViewProps) {
 
   const startFlow = (type: 'clock_in' | 'clock_out') => {
     setFlow(type)
-    setPhase('camera')
-    setCapturedBlob(null)
+    setPhase('confirm')  // 확인 단계 먼저
   }
 
   const handleCapture = (blob: Blob) => {
-    setCapturedBlob(blob)
     setPhase('locating')
     submitAttendance(blob)
   }
@@ -358,14 +359,14 @@ function WorkerClockView({ workerInfo }: WorkerClockViewProps) {
         )
       })
 
-      // 2. 사진 업로드 (Google Drive)
+      // 2. 사진 업로드
       let photoUrl: string | null = null
       if (blob) {
         const fd = new FormData()
         fd.append('photo', blob, 'photo.jpg')
         fd.append('type', flow!)
         fd.append('worker_name', workerInfo.name)
-        fd.append('date', getKSTDate())
+        fd.append('date', selectedDate)
 
         const uploadRes = await fetch('/api/admin/attendance/photo', { method: 'POST', body: fd })
         if (uploadRes.ok) {
@@ -377,11 +378,10 @@ function WorkerClockView({ workerInfo }: WorkerClockViewProps) {
       const now = new Date().toISOString()
 
       if (flow === 'clock_in') {
-        // 3a. 새 출근 기록 생성 (work_date = KST 기준 오늘)
         const body: Record<string, unknown> = {
           worker_id: workerInfo.id,
           worker_name: workerInfo.name,
-          work_date: getKSTDate(),
+          work_date: selectedDate,
           clock_in: now,
         }
         if (lat !== null) { body.clock_in_lat = lat; body.clock_in_lng = lng }
@@ -395,10 +395,8 @@ function WorkerClockView({ workerInfo }: WorkerClockViewProps) {
         const json = await res.json()
         if (!res.ok) { toast.error(json.error || '출근 기록 실패'); setPhase('idle'); return }
         toast.success('출근 완료!')
-        setTodayRecord(json.data)
-      } else if (flow === 'clock_out' && todayRecord) {
-        // 3b. 기존 레코드 퇴근 업데이트
-        const body: Record<string, unknown> = { id: todayRecord.id, clock_out: now }
+      } else if (flow === 'clock_out' && selectedRecord) {
+        const body: Record<string, unknown> = { id: selectedRecord.id, clock_out: now }
         if (lat !== null) { body.clock_out_lat = lat; body.clock_out_lng = lng }
         if (photoUrl) body.clock_out_photo_url = photoUrl
 
@@ -410,9 +408,9 @@ function WorkerClockView({ workerInfo }: WorkerClockViewProps) {
         const json = await res.json()
         if (!res.ok) { toast.error(json.error || '퇴근 기록 실패'); setPhase('idle'); return }
         toast.success('퇴근 완료!')
-        await fetchToday()
       }
 
+      await fetchData()
       setPhase('done')
       setTimeout(() => setPhase('idle'), 2000)
     } catch {
@@ -420,14 +418,12 @@ function WorkerClockView({ workerInfo }: WorkerClockViewProps) {
       setPhase('idle')
     } finally {
       setFlow(null)
-      setCapturedBlob(null)
     }
   }
 
   const cancelFlow = () => {
     setFlow(null)
     setPhase('idle')
-    setCapturedBlob(null)
   }
 
   if (loading) {
@@ -436,8 +432,47 @@ function WorkerClockView({ workerInfo }: WorkerClockViewProps) {
     )
   }
 
-  const isClockedIn = !!todayRecord?.clock_in
-  const isClockedOut = !!todayRecord?.clock_out
+  const isClockedIn = !!selectedRecord?.clock_in
+  const isClockedOut = !!selectedRecord?.clock_out
+
+  // 확인 단계 (취소 가능)
+  if (phase === 'confirm') {
+    return (
+      <div className="max-w-sm mx-auto px-4 pt-8">
+        <div className="bg-gray-50 border border-gray-200 rounded-2xl p-6 flex flex-col gap-4">
+          <div>
+            <p className="text-sm font-semibold text-gray-800">
+              {flow === 'clock_in' ? '🟢 출근 처리하시겠습니까?' : '🔴 퇴근 처리하시겠습니까?'}
+            </p>
+            <p className="text-xs text-gray-400 mt-1">
+              {new Date(selectedDate + 'T12:00:00').toLocaleDateString('ko-KR', {
+                year: 'numeric', month: 'long', day: 'numeric', weekday: 'short',
+              })}
+            </p>
+            {flow === 'clock_out' && selectedRecord?.clock_in && (
+              <p className="text-xs text-gray-400 mt-0.5">출근 {formatTime(selectedRecord.clock_in)}</p>
+            )}
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setPhase('camera')}
+              className={`flex-1 py-3 text-sm font-bold rounded-xl ${
+                flow === 'clock_in' ? 'bg-blue-600 text-white' : 'bg-gray-800 text-white'
+              }`}
+            >
+              {flow === 'clock_in' ? '출근 확정' : '퇴근 확정'}
+            </button>
+            <button
+              onClick={cancelFlow}
+              className="flex-1 py-3 bg-white border border-gray-200 text-gray-600 text-sm font-semibold rounded-xl"
+            >
+              취소
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   // Camera open
   if (phase === 'camera') {
@@ -475,69 +510,135 @@ function WorkerClockView({ workerInfo }: WorkerClockViewProps) {
 
   // Main UI
   return (
-    <div className="flex flex-col items-center justify-center min-h-[60vh] gap-6 px-6">
-      {/* Date display */}
-      <div className="text-center">
+    <div className="px-4 pb-6 flex flex-col gap-5">
+      {/* 헤더 */}
+      <div className="text-center pt-2">
         <p className="text-xs text-gray-400 font-medium">
-          {new Date().toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' })}
+          {new Date().toLocaleDateString('ko-KR', {
+            timeZone: 'Asia/Seoul', year: 'numeric', month: 'long', day: 'numeric', weekday: 'long',
+          })}
         </p>
-        <p className="text-2xl font-black text-gray-900 mt-1">
-          {workerInfo.name}
+        <p className="text-2xl font-black text-gray-900 mt-1">{workerInfo.name}</p>
+      </div>
+
+      {/* 날짜 선택 */}
+      <div className="bg-white rounded-2xl border border-gray-100 p-4">
+        <label className="block text-xs text-gray-400 mb-1.5">근무 날짜 선택</label>
+        <input
+          type="date"
+          value={selectedDate}
+          max={kstToday}
+          onChange={(e) => { setSelectedDate(e.target.value); setPhase('idle') }}
+          className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+        />
+        <p className="text-xs text-gray-400 mt-1.5">
+          야간 근무(22시~익일 06시)의 경우 실제 출근한 날짜를 선택해 주세요
         </p>
       </div>
 
-      {/* Status card */}
+      {/* 상태 카드 */}
       {!isClockedIn && (
-        <div className="w-full max-w-xs bg-gray-50 rounded-2xl p-6 flex flex-col items-center gap-4">
+        <div className="bg-gray-50 rounded-2xl p-6 flex flex-col items-center gap-4">
           <div className="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center text-4xl">🏢</div>
-          <p className="text-sm text-gray-500 text-center">오늘 출근 기록이 없습니다.<br />출근 버튼을 눌러 출근하세요.</p>
+          <p className="text-sm text-gray-500 text-center">출근 기록이 없습니다.<br />출근 버튼을 눌러 출근하세요.</p>
           <button
             onClick={() => startFlow('clock_in')}
-            className="w-full py-4 bg-blue-600 text-white rounded-2xl text-base font-bold hover:bg-blue-700 active:scale-95 transition-all shadow-lg shadow-blue-100"
+            className="w-full py-4 bg-blue-600 text-white rounded-2xl text-base font-bold active:scale-95 transition-all shadow-lg shadow-blue-100"
           >
-            출근하기
+            🟢 출근하기
           </button>
         </div>
       )}
 
       {isClockedIn && !isClockedOut && (
-        <div className="w-full max-w-xs bg-gray-50 rounded-2xl p-6 flex flex-col items-center gap-4">
+        <div className="bg-gray-50 rounded-2xl p-6 flex flex-col items-center gap-4">
           <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center text-4xl">✅</div>
           <div className="text-center">
             <p className="text-xs text-gray-400 mb-1">출근 시각</p>
-            <p className="text-lg font-bold text-gray-800">{formatTime(todayRecord!.clock_in)}</p>
+            <p className="text-lg font-bold text-gray-800">{formatTime(selectedRecord!.clock_in)}</p>
           </div>
-          {/* Elapsed timer */}
           <div className="bg-white border border-gray-200 rounded-xl px-6 py-3 text-center">
             <p className="text-xs text-gray-400 mb-0.5">근무 경과</p>
             <p className="text-2xl font-mono font-bold text-blue-600">{formatElapsed(elapsed)}</p>
           </div>
           <button
             onClick={() => startFlow('clock_out')}
-            className="w-full py-4 bg-orange-500 text-white rounded-2xl text-base font-bold hover:bg-orange-600 active:scale-95 transition-all shadow-lg shadow-orange-100"
+            className="w-full py-4 bg-gray-800 text-white rounded-2xl text-base font-bold active:scale-95 transition-all"
           >
-            퇴근하기
+            🔴 퇴근하기
           </button>
         </div>
       )}
 
       {isClockedIn && isClockedOut && (
-        <div className="w-full max-w-xs bg-gray-50 rounded-2xl p-6 flex flex-col items-center gap-4">
+        <div className="bg-gray-50 rounded-2xl p-6 flex flex-col items-center gap-4">
           <div className="w-20 h-20 bg-purple-100 rounded-full flex items-center justify-center text-4xl">🌙</div>
-          <p className="text-sm font-semibold text-gray-700">오늘 출퇴근 완료</p>
+          <p className="text-sm font-semibold text-gray-700">출퇴근 완료</p>
           <div className="w-full flex gap-3">
             <div className="flex-1 bg-white border border-gray-200 rounded-xl p-3 text-center">
               <p className="text-[10px] text-gray-400 mb-1">출근</p>
-              <p className="text-sm font-bold text-gray-800">{formatTime(todayRecord!.clock_in)}</p>
+              <p className="text-sm font-bold text-gray-800">{formatTime(selectedRecord!.clock_in)}</p>
             </div>
             <div className="flex-1 bg-white border border-gray-200 rounded-xl p-3 text-center">
               <p className="text-[10px] text-gray-400 mb-1">퇴근</p>
-              <p className="text-sm font-bold text-gray-800">{formatTime(todayRecord!.clock_out)}</p>
+              <p className="text-sm font-bold text-gray-800">{formatTime(selectedRecord!.clock_out)}</p>
             </div>
           </div>
           <p className="text-xs text-gray-400">
-            근무 시간 {formatDuration(todayRecord!.clock_in, todayRecord!.clock_out)}
+            근무 시간 {formatDuration(selectedRecord!.clock_in, selectedRecord!.clock_out)}
           </p>
+        </div>
+      )}
+
+      {/* 이번 달 출퇴근 내역 */}
+      {monthRecords.length > 0 && (
+        <div className="bg-white rounded-2xl border border-gray-100 p-4">
+          <h2 className="text-sm font-semibold text-gray-600 mb-3">
+            {new Date().toLocaleDateString('ko-KR', { timeZone: 'Asia/Seoul', year: 'numeric', month: 'long' })} 출퇴근 내역
+          </h2>
+          <div className="flex flex-col divide-y divide-gray-50">
+            {monthRecords.map((record) => {
+              const d = new Date(record.work_date + 'T12:00:00')
+              const dayLabel = ['일', '월', '화', '수', '목', '금', '토'][d.getDay()]
+              const done = !!record.clock_out
+              return (
+                <div key={record.id} className="py-2.5">
+                  <div className="flex items-center gap-3">
+                    <div className="w-14 shrink-0">
+                      <p className="text-sm font-bold text-gray-800">{d.getMonth() + 1}월 {d.getDate()}일</p>
+                      <p className="text-xs text-gray-400">{dayLabel}</p>
+                    </div>
+                    <div className="flex-1 flex gap-3 text-xs">
+                      <div>
+                        <span className="text-gray-400">출근 </span>
+                        <span className="font-semibold text-blue-600">{formatTime(record.clock_in)}</span>
+                      </div>
+                      <div>
+                        <span className="text-gray-400">퇴근 </span>
+                        <span className={`font-semibold ${done ? 'text-gray-700' : 'text-gray-300'}`}>
+                          {formatTime(record.clock_out)}
+                        </span>
+                      </div>
+                    </div>
+                    {done ? (
+                      <span className="text-xs text-green-500 font-medium">완료</span>
+                    ) : (
+                      <button
+                        onClick={() => {
+                          setSelectedDate(record.work_date)
+                          setPhase('idle')
+                          window.scrollTo({ top: 0, behavior: 'smooth' })
+                        }}
+                        className="px-2.5 py-1.5 bg-gray-800 text-white text-xs font-bold rounded-lg"
+                      >
+                        퇴근
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
         </div>
       )}
     </div>
