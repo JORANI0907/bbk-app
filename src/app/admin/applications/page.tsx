@@ -1173,7 +1173,9 @@ export default function ServiceManagementPage() {
       <div className="relative flex h-full gap-0 min-h-0">
         {/* ── 좌측: 목록 ── */}
         <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
-          <div className="flex items-center justify-between mb-4">
+          {/* 헤더 전체 — 아래 스크롤 시 숨김, 위 스크롤 시 즉시 표시 */}
+          <div className={`transition-all duration-300 overflow-hidden md:max-h-72 md:opacity-100 ${filtersVisible ? 'max-h-72 opacity-100' : 'max-h-0 opacity-0'}`}>
+          <div className="flex items-center justify-between mb-3">
             <div>
               <h1 className="text-2xl font-bold text-gray-900">서비스통합관리</h1>
               {showUnassigned && (
@@ -1182,9 +1184,6 @@ export default function ServiceManagementPage() {
             </div>
             <button onClick={fetchAll} className="px-3 py-1.5 text-sm bg-white border border-gray-200 rounded-lg hover:bg-gray-50">새로고침</button>
           </div>
-
-          {/* 서비스 유형 복수 체크박스 필터 — auto-hide on mobile scroll */}
-          <div className={`transition-all duration-300 overflow-hidden md:max-h-40 md:opacity-100 ${filtersVisible ? 'max-h-40 opacity-100' : 'max-h-0 opacity-0'}`}>
           <div className="flex items-center gap-2 mb-3 flex-wrap">
             {SERVICE_TYPES.map(t => {
               const active = selectedTypes.has(t)
@@ -1228,30 +1227,6 @@ export default function ServiceManagementPage() {
                 className="text-xs text-gray-400 hover:text-gray-600 underline">전체 보기</button>
             )}
           </div>
-          </div>{/* end auto-hide wrapper */}
-
-          {/* 액션 바 */}
-          {checkedIds.length > 0 && (
-            <div className="mb-3 flex items-center gap-2 bg-green-600 text-white px-4 py-2.5 rounded-xl shadow-sm">
-              <span className="text-sm font-semibold flex-1">{checkedIds.length}건 선택됨</span>
-              <button onClick={() => setCheckedIds([])}
-                className="text-xs text-green-200 hover:text-white px-2 py-1 rounded transition-colors">
-                선택 해제
-              </button>
-              <button onClick={handleDuplicateBulk} disabled={bulkSaving}
-                className="text-xs bg-yellow-500 hover:bg-yellow-400 text-white font-semibold px-3 py-1.5 rounded-lg disabled:opacity-50 transition-colors whitespace-nowrap">
-                {bulkSaving ? '처리 중...' : '복제'}
-              </button>
-              <button onClick={handleDeleteApplicationBulk} disabled={bulkSaving}
-                className="text-xs bg-red-500 hover:bg-red-400 text-white font-semibold px-3 py-1.5 rounded-lg disabled:opacity-50 transition-colors whitespace-nowrap">
-                삭제
-              </button>
-              <button onClick={handleSaveToCustomerBulk} disabled={bulkSaving}
-                className="text-xs bg-white text-green-700 font-semibold px-3 py-1.5 rounded-lg hover:bg-green-50 disabled:opacity-50 transition-colors whitespace-nowrap">
-                {bulkSaving ? '처리 중...' : '고객 DB 저장 →'}
-              </button>
-            </div>
-          )}
 
           {/* 검색 */}
           <div className="relative mb-2">
@@ -1272,12 +1247,9 @@ export default function ServiceManagementPage() {
 
           {/* 필터 + 정렬 컨트롤 */}
           <div className="flex items-center gap-2 mb-3 flex-wrap">
-            {/* 시공일자 월 네비게이터 */}
             {!showUnassigned && (
               <MonthNavigator value={selectedMonth} onChange={setSelectedMonth} />
             )}
-
-            {/* 보기 모드 토글 */}
             {!showUnassigned && (
               <div className="flex bg-gray-100 rounded-lg p-0.5 ml-1">
                 <button
@@ -1304,8 +1276,6 @@ export default function ServiceManagementPage() {
                 </button>
               </div>
             )}
-
-            {/* 결제방법 필터 */}
             <select value={paymentFilter} onChange={e => setPaymentFilter(e.target.value)}
               className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
               <option value="">결제방법 전체</option>
@@ -1313,8 +1283,6 @@ export default function ServiceManagementPage() {
                 <option key={p} value={p}>{p}</option>
               ))}
             </select>
-
-            {/* 정렬 */}
             <select value={`${sortField}:${sortDir}`}
               onChange={e => {
                 const [f, d] = e.target.value.split(':')
@@ -1327,8 +1295,6 @@ export default function ServiceManagementPage() {
                 <option key={`${f}:asc`} value={`${f}:asc`}>{l} ↑</option>,
               ])}
             </select>
-
-            {/* 필터 초기화 */}
             {paymentFilter && (
               <button onClick={() => setPaymentFilter('')}
                 className="text-xs text-blue-500 hover:text-blue-700 underline whitespace-nowrap">
@@ -1336,6 +1302,30 @@ export default function ServiceManagementPage() {
               </button>
             )}
           </div>
+          </div>{/* end auto-hide wrapper */}
+
+          {/* 액션 바 */}
+          {checkedIds.length > 0 && (
+            <div className="mb-3 flex items-center gap-2 bg-green-600 text-white px-4 py-2.5 rounded-xl shadow-sm">
+              <span className="text-sm font-semibold flex-1">{checkedIds.length}건 선택됨</span>
+              <button onClick={() => setCheckedIds([])}
+                className="text-xs text-green-200 hover:text-white px-2 py-1 rounded transition-colors">
+                선택 해제
+              </button>
+              <button onClick={handleDuplicateBulk} disabled={bulkSaving}
+                className="text-xs bg-yellow-500 hover:bg-yellow-400 text-white font-semibold px-3 py-1.5 rounded-lg disabled:opacity-50 transition-colors whitespace-nowrap">
+                {bulkSaving ? '처리 중...' : '복제'}
+              </button>
+              <button onClick={handleDeleteApplicationBulk} disabled={bulkSaving}
+                className="text-xs bg-red-500 hover:bg-red-400 text-white font-semibold px-3 py-1.5 rounded-lg disabled:opacity-50 transition-colors whitespace-nowrap">
+                삭제
+              </button>
+              <button onClick={handleSaveToCustomerBulk} disabled={bulkSaving}
+                className="text-xs bg-white text-green-700 font-semibold px-3 py-1.5 rounded-lg hover:bg-green-50 disabled:opacity-50 transition-colors whitespace-nowrap">
+                {bulkSaving ? '처리 중...' : '고객 DB 저장 →'}
+              </button>
+            </div>
+          )}
 
           {/* 캘린더 뷰 */}
           {viewMode === 'calendar' && !showUnassigned && (
@@ -1358,7 +1348,7 @@ export default function ServiceManagementPage() {
 
           {/* 목록 테이블 */}
           {(viewMode === 'list' || showUnassigned) && (
-          <div ref={listContainerRef} className="bg-white rounded-xl border border-gray-200 overflow-auto flex-1 flex flex-col overscroll-contain min-h-0 pb-20 md:pb-0">
+          <div ref={listContainerRef} className="bg-white rounded-xl border border-gray-200 overflow-auto flex-1 flex flex-col overscroll-contain min-h-0 pb-28 md:pb-8">
             {loading ? (
               <LoadingSpinner />
             ) : filteredApps.length === 0 ? (
@@ -1493,17 +1483,6 @@ export default function ServiceManagementPage() {
                     })
                   })()}
                   </tbody>
-                  <tfoot className="bg-gray-50 border-t-2 border-gray-200 sticky bottom-0">
-                    <tr>
-                      <td colSpan={7} className="px-3 py-2.5 text-xs font-semibold text-gray-500">
-                        합계 <span className="font-normal text-gray-400">({rows.length}건)</span>
-                      </td>
-                      <td className="px-3 py-2.5 text-xs font-bold text-gray-800 whitespace-nowrap font-mono">
-                        {fmt(totalSum)}<span className="text-gray-500 font-normal">원</span>
-                      </td>
-                      <td colSpan={1} />
-                    </tr>
-                  </tfoot>
                 </table>
               )
             })()}
@@ -1930,6 +1909,21 @@ export default function ServiceManagementPage() {
           </>
         )}
       </div>
+
+      {/* 하단 고정 합계 바 */}
+      {(viewMode === 'list' || showUnassigned) && !loading && filteredApps.length > 0 && (
+        <div className="fixed bottom-14 md:bottom-0 left-0 right-0 z-[45] bg-white/95 backdrop-blur-sm border-t border-gray-200 shadow-[0_-1px_8px_rgba(0,0,0,0.06)]">
+          <div className="px-4 py-2 flex items-center justify-between">
+            <span className="text-xs text-gray-500">
+              합계 <span className="text-gray-400 font-normal">({filteredApps.length}건)</span>
+            </span>
+            <span className="text-sm font-bold font-mono text-gray-800">
+              {fmt(filteredApps.reduce((s, a) => s + rowTotal(a), 0))}
+              <span className="text-gray-500 font-normal text-xs">원</span>
+            </span>
+          </div>
+        </div>
+      )}
     </>
   )
 }
