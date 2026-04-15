@@ -285,7 +285,7 @@ function WorkerClockView({ workerInfo }: WorkerClockViewProps) {
       if (prevKST) monthsToFetch.add(prevKST.slice(0, 7))
 
       const allRecords: AttendanceRecord[] = []
-      for (const month of monthsToFetch) {
+      for (const month of Array.from(monthsToFetch)) {
         const res = await fetch(`/api/admin/attendance?month=${month}`)
         if (!res.ok) throw new Error('출퇴근 기록 조회 실패')
         const json = await res.json()

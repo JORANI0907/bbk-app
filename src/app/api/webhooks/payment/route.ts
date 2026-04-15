@@ -13,7 +13,7 @@ interface PaymentPayload {
 // 한국 은행 SMS에서 금액 추출
 // 예: "300,000원 입금" | "입금 1,500,000원" | "3000000원"
 function extractAmount(text: string): number | null {
-  const matches = [...text.matchAll(/(\d{1,3}(?:,\d{3})*|\d+)\s*원/g)]
+  const matches = Array.from(text.matchAll(/(\d{1,3}(?:,\d{3})*|\d+)\s*원/g))
   for (const match of matches) {
     const n = parseInt(match[1].replace(/,/g, ''), 10)
     // 1천원 이상 3천만원 이하 — 잔액이나 잡숫자 제외
