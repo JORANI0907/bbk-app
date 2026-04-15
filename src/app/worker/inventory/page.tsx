@@ -1,7 +1,8 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import toast from 'react-hot-toast'
+import { useModalBackButton } from '@/hooks/useModalBackButton'
 
 type InventoryCategory = 'chemical' | 'equipment' | 'consumable' | 'other'
 
@@ -67,9 +68,11 @@ export default function WorkerInventoryPage() {
     setPhotoPreview(null)
   }
 
-  const closeModal = () => {
+  const closeModal = useCallback(() => {
     setSelectedItem(null)
-  }
+  }, [])
+
+  useModalBackButton(!!selectedItem, closeModal)
 
   const handlePhotoCapture = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
