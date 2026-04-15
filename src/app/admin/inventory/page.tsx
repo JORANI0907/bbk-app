@@ -7,7 +7,6 @@ import {
   requestGoogleToken,
   openFolderPicker,
   resolveFolder,
-  uploadFileToDrive,
   getSavedInventoryFolder,
   saveInventoryFolderCookie,
 } from '@/lib/googleDrive'
@@ -345,26 +344,23 @@ export default function AdminInventoryPage() {
       return
     }
 
-    // 사진은 있는데 Drive 폴더 미설정
-    if (txPhoto && !inventoryFolder) {
-      toast.error('Drive 저장 위치를 먼저 설정해주세요. (⚙️ 버튼)')
-      return
-    }
-
     setTxLoading(true)
     try {
       let photoUrl: string | null = null
-      if (txPhoto && inventoryFolder) {
+      if (txPhoto) {
         try {
-          const token = await requestGoogleToken()
-          const ext = txPhoto.name.split('.').pop() ?? 'jpg'
-          const result = await uploadFileToDrive(
-            txPhoto,
-            inventoryFolder.id,
-            `재고_${selectedItem.item_name}_${Date.now()}.${ext}`,
-            token
-          )
-          photoUrl = result.fileUrl
+          // 서버 측 서비스 계정으로 업로드 — 직원 Google 로그인 불필요
+          const form = new FormData()
+          form.append('photo', txPhoto)
+          form.append('item_name', selectedItem.item_name)
+          form.append('tx_type', txType)
+          const photoRes = await fetch('/api/inventory/photo', { method: 'POST', body: form })
+          if (!photoRes.ok) {
+            const photoErr = await photoRes.json() as { error?: string }
+            throw new Error(photoErr.error ?? '사진 업로드 실패')
+          }
+          const photoJson = await photoRes.json() as { url: string }
+          photoUrl = photoJson.url
         } catch (uploadErr) {
           const msg = uploadErr instanceof Error ? uploadErr.message : '사진 업로드 실패'
           toast.error(`사진 업로드 실패: ${msg}\n사진 없이 처리합니다.`, { duration: 4000 })
@@ -452,7 +448,7 @@ export default function AdminInventoryPage() {
   })
 
   const needsPhoto = PHOTO_REQUIRED.includes(txType)
-  const canSubmit = (needsPhoto && !!inventoryFolder) ? !!txPhoto : true
+  const canSubmit = needsPhoto ? !!txPhoto : true
 
   return (
     <div className="flex flex-col h-screen bg-gray-50 overflow-hidden">
