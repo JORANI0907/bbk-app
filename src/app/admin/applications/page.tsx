@@ -1098,6 +1098,9 @@ export default function ServiceManagementPage() {
   useEffect(() => {
     const container = listContainerRef.current
     if (!container) return
+    // viewMode가 list로 돌아올 때 스크롤 상태 초기화
+    lastScrollY.current = 0
+    setFiltersVisible(true)
     const onScroll = () => {
       const current = container.scrollTop
       setFiltersVisible(current < lastScrollY.current || current < 50)
@@ -1105,7 +1108,7 @@ export default function ServiceManagementPage() {
     }
     container.addEventListener('scroll', onScroll, { passive: true })
     return () => container.removeEventListener('scroll', onScroll)
-  }, [])
+  }, [viewMode, showUnassigned])
 
   const toggleType = (t: string) => {
     setSelectedTypes(prev => {
