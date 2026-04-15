@@ -5,6 +5,9 @@ const withPWA = require('next-pwa')({
   skipWaiting: true,
   clientsClaim: true,
   disable: process.env.NODE_ENV === 'development',
+  workboxOptions: {
+    cacheId: 'bbk-app-v2',
+  },
   runtimeCaching: [
     {
       urlPattern: /^https:\/\/andmmbxhtufwvtsgdhti\.supabase\.co\/.*/,
