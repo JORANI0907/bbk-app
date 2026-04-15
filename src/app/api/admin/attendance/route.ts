@@ -81,6 +81,28 @@ export async function POST(request: NextRequest) {
   return NextResponse.json({ data }, { status: 201 })
 }
 
+export async function DELETE(request: NextRequest) {
+  const session = getServerSession()
+  if (!session) return NextResponse.json({ error: '인증 필요' }, { status: 401 })
+
+  const { searchParams } = new URL(request.url)
+  const id = searchParams.get('id')
+  if (!id) return NextResponse.json({ error: 'id가 필요합니다.' }, { status: 400 })
+
+  const supabase = createServiceClient()
+
+  // 본인 기록만 삭제 가능 (관리자는 전체)
+  let deleteQuery = supabase.from('attendance').delete().eq('id', id)
+  if (session.role === 'worker') {
+    deleteQuery = deleteQuery.eq('worker_id', session.userId)
+  }
+
+  const { error } = await deleteQuery
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  return NextResponse.json({ success: true })
+}
+
 export async function PATCH(request: NextRequest) {
   const session = getServerSession()
   if (!session) return NextResponse.json({ error: '인증 필요' }, { status: 401 })

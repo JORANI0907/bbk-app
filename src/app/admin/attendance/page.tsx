@@ -247,6 +247,8 @@ type ClockPhase =
   | 'locating'
   | 'submitting'
   | 'done'
+  | 'cancel_in_confirm'   // 출근 기록 삭제 확인
+  | 'cancel_out_confirm'  // 퇴근 기록만 삭제 확인
 
 interface WorkerInfo {
   id: string
@@ -426,6 +428,50 @@ function WorkerClockView({ workerInfo }: WorkerClockViewProps) {
     setPhase('idle')
   }
 
+  // 출근 기록 삭제 (전체 레코드 삭제)
+  const handleDeleteClockIn = async () => {
+    if (!selectedRecord) return
+    setPhase('submitting')
+    try {
+      const res = await fetch(`/api/admin/attendance?id=${selectedRecord.id}`, { method: 'DELETE' })
+      const json = await res.json()
+      if (!res.ok) { toast.error(json.error || '출근 취소 실패'); setPhase('idle'); return }
+      toast.success('출근 기록이 취소되었습니다.')
+      await fetchData()
+      setPhase('idle')
+    } catch {
+      toast.error('처리 중 오류가 발생했습니다.')
+      setPhase('idle')
+    }
+  }
+
+  // 퇴근 기록만 삭제 (출근은 유지, clock_out → null)
+  const handleDeleteClockOut = async () => {
+    if (!selectedRecord) return
+    setPhase('submitting')
+    try {
+      const res = await fetch('/api/admin/attendance', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: selectedRecord.id,
+          clock_out: null,
+          clock_out_lat: null,
+          clock_out_lng: null,
+          clock_out_photo_url: null,
+        }),
+      })
+      const json = await res.json()
+      if (!res.ok) { toast.error(json.error || '퇴근 취소 실패'); setPhase('idle'); return }
+      toast.success('퇴근 기록이 취소되었습니다.')
+      await fetchData()
+      setPhase('idle')
+    } catch {
+      toast.error('처리 중 오류가 발생했습니다.')
+      setPhase('idle')
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64 text-gray-400 text-sm">불러오는 중...</div>
@@ -508,6 +554,66 @@ function WorkerClockView({ workerInfo }: WorkerClockViewProps) {
     )
   }
 
+  // 출근 기록 취소 확인
+  if (phase === 'cancel_in_confirm') {
+    return (
+      <div className="max-w-sm mx-auto px-4 pt-8">
+        <div className="bg-red-50 border border-red-200 rounded-2xl p-6 flex flex-col gap-4">
+          <div>
+            <p className="text-sm font-semibold text-gray-800">출근 기록을 취소하시겠습니까?</p>
+            <p className="text-xs text-gray-500 mt-1">
+              {new Date(selectedDate + 'T12:00:00').toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'short' })} 출근 기록이 삭제됩니다.
+            </p>
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={handleDeleteClockIn}
+              className="flex-1 py-3 bg-red-500 text-white text-sm font-bold rounded-xl"
+            >
+              출근 취소
+            </button>
+            <button
+              onClick={() => setPhase('idle')}
+              className="flex-1 py-3 bg-white border border-gray-200 text-gray-600 text-sm font-semibold rounded-xl"
+            >
+              닫기
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // 퇴근 기록 취소 확인
+  if (phase === 'cancel_out_confirm') {
+    return (
+      <div className="max-w-sm mx-auto px-4 pt-8">
+        <div className="bg-red-50 border border-red-200 rounded-2xl p-6 flex flex-col gap-4">
+          <div>
+            <p className="text-sm font-semibold text-gray-800">퇴근 기록을 취소하시겠습니까?</p>
+            <p className="text-xs text-gray-500 mt-1">
+              퇴근 기록만 삭제됩니다. 출근 기록({formatTime(selectedRecord?.clock_in ?? null)})은 유지됩니다.
+            </p>
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={handleDeleteClockOut}
+              className="flex-1 py-3 bg-red-500 text-white text-sm font-bold rounded-xl"
+            >
+              퇴근 취소
+            </button>
+            <button
+              onClick={() => setPhase('idle')}
+              className="flex-1 py-3 bg-white border border-gray-200 text-gray-600 text-sm font-semibold rounded-xl"
+            >
+              닫기
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   // Main UI
   return (
     <div className="px-4 pb-6 flex flex-col gap-5">
@@ -567,6 +673,12 @@ function WorkerClockView({ workerInfo }: WorkerClockViewProps) {
           >
             🔴 퇴근하기
           </button>
+          <button
+            onClick={() => setPhase('cancel_in_confirm')}
+            className="text-xs text-red-400 underline underline-offset-2"
+          >
+            출근 기록 취소
+          </button>
         </div>
       )}
 
@@ -587,6 +699,12 @@ function WorkerClockView({ workerInfo }: WorkerClockViewProps) {
           <p className="text-xs text-gray-400">
             근무 시간 {formatDuration(selectedRecord!.clock_in, selectedRecord!.clock_out)}
           </p>
+          <button
+            onClick={() => setPhase('cancel_out_confirm')}
+            className="text-xs text-red-400 underline underline-offset-2"
+          >
+            퇴근 기록 취소
+          </button>
         </div>
       )}
 
