@@ -32,7 +32,9 @@ export async function POST(request: NextRequest) {
   const typeLabel = TX_LABEL[txType] ?? txType
   const workerName = session.name ?? '직원'
   const ext = file.name.split('.').pop() ?? 'jpg'
-  const fileName = `${txType}/${itemName}_${workerName}_${Date.now()}.${ext}`
+  // 공백/특수문자 → 언더스코어 치환 (Supabase Storage key 규칙 준수)
+  const sanitize = (s: string) => s.replace(/[^a-zA-Z0-9가-힣ㄱ-ㅎㅏ-ㅣ._-]/g, '_')
+  const fileName = `${sanitize(txType)}/${sanitize(itemName)}_${sanitize(workerName)}_${Date.now()}.${ext}`
 
   try {
     const supabase = createServiceClient()
