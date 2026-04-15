@@ -2,47 +2,65 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { Attendance } from '@/types/database'
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay } from 'date-fns'
+import { format } from 'date-fns'
 import { ko } from 'date-fns/locale'
 import toast from 'react-hot-toast'
 
+type Step = 'idle' | 'confirm_clock_in' | 'confirm_clock_out'
+
+function getKSTToday() {
+  return new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Seoul' })
+}
+
+function formatTime(iso: string | null | undefined) {
+  if (!iso) return '-'
+  return new Date(iso).toLocaleTimeString('ko-KR', {
+    timeZone: 'Asia/Seoul',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
+
+function formatDisplayDate(dateStr: string) {
+  try {
+    const [y, m, d] = dateStr.split('-').map(Number)
+    return format(new Date(y, m - 1, d), 'M월 d일 (EEE)', { locale: ko })
+  } catch {
+    return dateStr
+  }
+}
+
 export default function AttendancePage() {
-  const [todayRecord, setTodayRecord] = useState<Attendance | null>(null)
+  const kstToday = getKSTToday()
+
   const [monthRecords, setMonthRecords] = useState<Attendance[]>([])
   const [loading, setLoading] = useState(true)
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [facingMode, setFacingMode] = useState<'user' | 'environment'>('user')
-
-  const today = format(new Date(), 'yyyy-MM-dd')
-  const currentMonth = new Date()
-  const monthStart = startOfMonth(currentMonth)
-  const monthEnd = endOfMonth(currentMonth)
-  const daysInMonth = eachDayOfInterval({ start: monthStart, end: monthEnd })
+  const [selectedDate, setSelectedDate] = useState(kstToday)
+  const [step, setStep] = useState<Step>('idle')
+  const [pendingRecord, setPendingRecord] = useState<Attendance | null>(null)
 
   const loadData = useCallback(async () => {
     try {
       const res = await fetch('/api/worker/attendance')
-      if (!res.ok) throw new Error('데이터를 불러올 수 없습니다.')
+      if (!res.ok) throw new Error()
       const data = await res.json()
-      setTodayRecord(data.today)
       setMonthRecords(data.month ?? [])
-    } catch (err) {
+    } catch {
       toast.error('데이터를 불러오는 데 실패했습니다.')
     } finally {
       setLoading(false)
     }
   }, [])
 
-  useEffect(() => {
-    loadData()
-  }, [loadData])
+  useEffect(() => { loadData() }, [loadData])
 
-  const getLocation = (): Promise<{ lat: number; lng: number }> =>
-    new Promise((resolve, reject) =>
+  const getLocation = (): Promise<{ lat: number; lng: number } | null> =>
+    new Promise((resolve) =>
       navigator.geolocation.getCurrentPosition(
         (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-        reject,
-        { enableHighAccuracy: true, timeout: 10000 },
+        () => resolve(null),
+        { enableHighAccuracy: true, timeout: 8000 },
       ),
     )
 
@@ -53,66 +71,69 @@ export default function AttendancePage() {
       const res = await fetch('/api/worker/attendance', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ lat: loc.lat, lng: loc.lng }),
+        body: JSON.stringify({ work_date: selectedDate, lat: loc?.lat, lng: loc?.lng }),
       })
       if (!res.ok) {
-        const data = await res.json()
-        throw new Error(data.error ?? '출근 기록 실패')
+        const d = await res.json()
+        throw new Error(d.error ?? '출근 기록 실패')
       }
-      toast.success('출근이 기록되었습니다.')
+      toast.success(`${formatDisplayDate(selectedDate)} 출근 기록 완료`)
+      setStep('idle')
       await loadData()
     } catch (err) {
-      if (err instanceof GeolocationPositionError) {
-        toast.error('위치 정보를 가져올 수 없습니다.')
-      } else {
-        toast.error(err instanceof Error ? err.message : '출근 기록에 실패했습니다.')
-      }
+      toast.error(err instanceof Error ? err.message : '출근 기록에 실패했습니다.')
     } finally {
       setIsSubmitting(false)
     }
   }
 
-  const handleClockOut = async () => {
-    if (!todayRecord) return
+  const handleClockOut = async (record: Attendance) => {
     setIsSubmitting(true)
     try {
       const loc = await getLocation()
       const res = await fetch('/api/worker/attendance', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: todayRecord.id, lat: loc.lat, lng: loc.lng }),
+        body: JSON.stringify({ id: record.id, lat: loc?.lat, lng: loc?.lng }),
       })
       if (!res.ok) {
-        const data = await res.json()
-        throw new Error(data.error ?? '퇴근 기록 실패')
+        const d = await res.json()
+        throw new Error(d.error ?? '퇴근 기록 실패')
       }
-      toast.success('퇴근이 기록되었습니다.')
+      toast.success(`${formatDisplayDate(record.work_date)} 퇴근 기록 완료`)
+      setStep('idle')
+      setPendingRecord(null)
       await loadData()
     } catch (err) {
-      if (err instanceof GeolocationPositionError) {
-        toast.error('위치 정보를 가져올 수 없습니다.')
-      } else {
-        toast.error(err instanceof Error ? err.message : '퇴근 기록에 실패했습니다.')
-      }
+      toast.error(err instanceof Error ? err.message : '퇴근 기록에 실패했습니다.')
     } finally {
       setIsSubmitting(false)
     }
   }
 
-  const toggleCamera = () => {
-    setFacingMode(prev => (prev === 'user' ? 'environment' : 'user'))
-    toast.success(facingMode === 'user' ? '후면 카메라로 전환됩니다' : '전면 카메라로 전환됩니다', { duration: 1500 })
+  const startClockOut = (record: Attendance) => {
+    setPendingRecord(record)
+    setStep('confirm_clock_out')
   }
 
-  const hasWorked = (dateStr: string) =>
-    monthRecords.some((r) => r.work_date === dateStr && r.clock_in)
-
-  const formatKoreanTime = (isoString: string | null | undefined) => {
-    if (!isoString) return '-'
-    return format(new Date(isoString), 'HH:mm')
+  const cancel = () => {
+    setStep('idle')
+    setPendingRecord(null)
   }
 
-  const firstDayOfWeek = getDay(monthStart)
+  const handleDateChange = (value: string) => {
+    setSelectedDate(value)
+    setStep('idle')
+    setPendingRecord(null)
+  }
+
+  const selectedRecord = monthRecords.find((r) => r.work_date === selectedDate) ?? null
+
+  const kstMonthLabel = new Date().toLocaleDateString('ko-KR', {
+    timeZone: 'Asia/Seoul',
+    year: 'numeric',
+    month: 'long',
+  })
 
   if (loading) {
     return (
@@ -123,127 +144,238 @@ export default function AttendancePage() {
   }
 
   return (
-    <div className="px-4 py-5 flex flex-col gap-6">
+    <div className="px-4 py-5 flex flex-col gap-5">
       <div>
         <h1 className="text-xl font-bold text-gray-900">출퇴근 관리</h1>
-        <p className="text-sm text-gray-500 mt-1">{format(new Date(), 'yyyy년 M월 d일 (EEE)', { locale: ko })}</p>
+        <p className="text-sm text-gray-500 mt-1">
+          {new Date().toLocaleDateString('ko-KR', {
+            timeZone: 'Asia/Seoul',
+            year: 'numeric', month: 'long', day: 'numeric', weekday: 'short',
+          })}
+        </p>
       </div>
 
-      {/* 오늘 현황 */}
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-sm font-semibold text-gray-600">오늘 출퇴근 현황</h2>
-          {/* 카메라 전환 버튼 — 아직 출퇴근 완료 전에만 표시 */}
-          {(!todayRecord?.clock_in || !todayRecord?.clock_out) && (
-            <button
-              onClick={toggleCamera}
-              title={facingMode === 'user' ? '후면 카메라로 전환' : '전면 카메라로 전환'}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-600 bg-gray-100 rounded-xl hover:bg-gray-200 transition-colors"
-            >
-              <span className="text-base">🔄</span>
-              {facingMode === 'user' ? '전면' : '후면'}
-            </button>
-          )}
-        </div>
+      {/* 출근 기록 섹션 */}
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 flex flex-col gap-4">
+        <h2 className="text-sm font-semibold text-gray-600">출근 기록하기</h2>
 
-        <div className="grid grid-cols-2 gap-4 mb-5">
-          <div className="text-center">
-            <p className="text-xs text-gray-400 mb-1">출근</p>
-            <p className="text-2xl font-bold text-blue-600">
-              {formatKoreanTime(todayRecord?.clock_in)}
-            </p>
-          </div>
-          <div className="text-center">
-            <p className="text-xs text-gray-400 mb-1">퇴근</p>
-            <p className="text-2xl font-bold text-gray-700">
-              {formatKoreanTime(todayRecord?.clock_out)}
-            </p>
-          </div>
-        </div>
-
-        {/* 현재 카메라 방향 표시 */}
-        {(!todayRecord?.clock_in || !todayRecord?.clock_out) && (
-          <p className="text-xs text-gray-400 text-center mb-3">
-            카메라: {facingMode === 'user' ? '전면' : '후면'}
+        {/* 날짜 선택 */}
+        <div>
+          <label className="block text-xs text-gray-400 mb-1.5">근무 날짜 선택</label>
+          <input
+            type="date"
+            value={selectedDate}
+            max={kstToday}
+            onChange={(e) => handleDateChange(e.target.value)}
+            className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+          <p className="text-xs text-gray-400 mt-1.5">
+            야간 근무(22시~익일 06시)의 경우 실제 출근한 날짜를 선택해 주세요
           </p>
-        )}
-
-        <div className="flex flex-col gap-3">
-          {!todayRecord?.clock_in ? (
-            <button
-              onClick={handleClockIn}
-              disabled={isSubmitting}
-              className="w-full py-4 bg-blue-600 text-white text-lg font-bold rounded-2xl active:scale-[0.98] transition-all disabled:opacity-60"
-            >
-              {isSubmitting ? '처리 중...' : '🟢 출근하기'}
-            </button>
-          ) : !todayRecord?.clock_out ? (
-            <button
-              onClick={handleClockOut}
-              disabled={isSubmitting}
-              className="w-full py-4 bg-gray-800 text-white text-lg font-bold rounded-2xl active:scale-[0.98] transition-all disabled:opacity-60"
-            >
-              {isSubmitting ? '처리 중...' : '🔴 퇴근하기'}
-            </button>
-          ) : (
-            <div className="text-center py-3 bg-green-50 rounded-2xl">
-              <p className="text-green-700 font-semibold">오늘 출퇴근 완료 ✅</p>
-            </div>
-          )}
         </div>
+
+        {/* 선택한 날짜의 상태에 따른 버튼 */}
+        {selectedRecord ? (
+          /* 이미 출근 기록 있음 */
+          selectedRecord.clock_out ? (
+            /* 출퇴근 모두 완료 */
+            <div className="text-center py-3 bg-green-50 rounded-xl">
+              <p className="text-green-700 font-semibold text-sm">
+                ✅ {formatDisplayDate(selectedDate)} 출퇴근 완료
+              </p>
+              <p className="text-xs text-green-500 mt-1">
+                출근 {formatTime(selectedRecord.clock_in)} · 퇴근 {formatTime(selectedRecord.clock_out)}
+              </p>
+            </div>
+          ) : step === 'confirm_clock_out' && pendingRecord?.id === selectedRecord.id ? (
+            /* 퇴근 확인 중 */
+            <ConfirmCard
+              emoji="🔴"
+              label={`${formatDisplayDate(selectedDate)} 퇴근 처리하시겠습니까?`}
+              sub={`출근 시각 ${formatTime(selectedRecord.clock_in)}`}
+              confirmLabel="퇴근 확정"
+              confirmClass="bg-gray-800 text-white"
+              isSubmitting={isSubmitting}
+              onConfirm={() => handleClockOut(selectedRecord)}
+              onCancel={cancel}
+            />
+          ) : (
+            /* 출근만 완료 → 퇴근 버튼 */
+            <div className="flex flex-col gap-2">
+              <div className="text-center py-2 bg-blue-50 rounded-xl">
+                <p className="text-xs text-blue-600">
+                  출근 완료 · {formatTime(selectedRecord.clock_in)}
+                </p>
+              </div>
+              <button
+                onClick={() => startClockOut(selectedRecord)}
+                className="w-full py-4 bg-gray-800 text-white text-lg font-bold rounded-2xl active:scale-[0.98] transition-all"
+              >
+                🔴 퇴근하기
+              </button>
+            </div>
+          )
+        ) : step === 'confirm_clock_in' ? (
+          /* 출근 확인 중 */
+          <ConfirmCard
+            emoji="🟢"
+            label={`${formatDisplayDate(selectedDate)} 출근 처리하시겠습니까?`}
+            confirmLabel="출근 확정"
+            confirmClass="bg-blue-600 text-white"
+            isSubmitting={isSubmitting}
+            onConfirm={handleClockIn}
+            onCancel={cancel}
+          />
+        ) : (
+          /* 출근 버튼 */
+          <button
+            onClick={() => setStep('confirm_clock_in')}
+            className="w-full py-4 bg-blue-600 text-white text-lg font-bold rounded-2xl active:scale-[0.98] transition-all"
+          >
+            🟢 출근하기
+          </button>
+        )}
       </div>
 
-      {/* 이번 달 달력 */}
+      {/* 이번 달 출퇴근 내역 */}
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
-        <h2 className="text-sm font-semibold text-gray-600 mb-4">
-          {format(currentMonth, 'yyyy년 M월', { locale: ko })} 출근 현황
+        <h2 className="text-sm font-semibold text-gray-600 mb-3">
+          {kstMonthLabel} 출퇴근 내역
         </h2>
 
-        <div className="grid grid-cols-7 gap-1 mb-2">
-          {['일', '월', '화', '수', '목', '금', '토'].map((d) => (
-            <div key={d} className="text-center text-xs font-medium text-gray-400 py-1">
-              {d}
-            </div>
-          ))}
-        </div>
-
-        <div className="grid grid-cols-7 gap-1">
-          {Array.from({ length: firstDayOfWeek }).map((_, i) => (
-            <div key={`empty-${i}`} />
-          ))}
-
-          {daysInMonth.map((day) => {
-            const dateStr = format(day, 'yyyy-MM-dd')
-            const isToday = dateStr === today
-            const worked = hasWorked(dateStr)
-            const isPast = day < new Date() && !isToday
-
-            return (
-              <div
-                key={dateStr}
-                className={`aspect-square flex items-center justify-center rounded-full text-xs font-medium
-                  ${isToday ? 'bg-blue-600 text-white' : ''}
-                  ${worked && !isToday ? 'bg-green-100 text-green-700' : ''}
-                  ${!worked && isPast && !isToday ? 'text-gray-300' : ''}
-                  ${!worked && !isPast && !isToday ? 'text-gray-500' : ''}
-                `}
-              >
-                {format(day, 'd')}
-              </div>
-            )
-          })}
-        </div>
-
-        <div className="mt-4 flex items-center gap-4 text-xs text-gray-500">
-          <div className="flex items-center gap-1">
-            <div className="w-3 h-3 rounded-full bg-green-100" />
-            출근
+        {monthRecords.length === 0 ? (
+          <p className="text-sm text-gray-400 text-center py-6">
+            이번 달 출퇴근 내역이 없습니다.
+          </p>
+        ) : (
+          <div className="flex flex-col divide-y divide-gray-50">
+            {[...monthRecords]
+              .sort((a, b) => b.work_date.localeCompare(a.work_date))
+              .map((record) => (
+                <RecordRow
+                  key={record.id}
+                  record={record}
+                  isConfirming={step === 'confirm_clock_out' && pendingRecord?.id === record.id}
+                  isSubmitting={isSubmitting}
+                  onClockOut={() => startClockOut(record)}
+                  onConfirm={() => handleClockOut(record)}
+                  onCancel={cancel}
+                />
+              ))}
           </div>
-          <div className="flex items-center gap-1">
-            <div className="w-3 h-3 rounded-full bg-blue-600" />
-            오늘
+        )}
+      </div>
+    </div>
+  )
+}
+
+/* ─── 확인 카드 ─── */
+function ConfirmCard({
+  emoji, label, sub, confirmLabel, confirmClass, isSubmitting, onConfirm, onCancel,
+}: {
+  emoji: string
+  label: string
+  sub?: string
+  confirmLabel: string
+  confirmClass: string
+  isSubmitting: boolean
+  onConfirm: () => void
+  onCancel: () => void
+}) {
+  return (
+    <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 flex flex-col gap-3">
+      <div>
+        <p className="text-sm font-semibold text-gray-800">{emoji} {label}</p>
+        {sub && <p className="text-xs text-gray-400 mt-0.5">{sub}</p>}
+      </div>
+      <div className="flex gap-2">
+        <button
+          onClick={onConfirm}
+          disabled={isSubmitting}
+          className={`flex-1 py-2.5 text-sm font-bold rounded-xl disabled:opacity-60 ${confirmClass}`}
+        >
+          {isSubmitting ? '처리 중...' : confirmLabel}
+        </button>
+        <button
+          onClick={onCancel}
+          disabled={isSubmitting}
+          className="flex-1 py-2.5 bg-white border border-gray-200 text-gray-600 text-sm font-semibold rounded-xl"
+        >
+          취소
+        </button>
+      </div>
+    </div>
+  )
+}
+
+/* ─── 내역 행 ─── */
+function RecordRow({
+  record, isConfirming, isSubmitting, onClockOut, onConfirm, onCancel,
+}: {
+  record: Attendance
+  isConfirming: boolean
+  isSubmitting: boolean
+  onClockOut: () => void
+  onConfirm: () => void
+  onCancel: () => void
+}) {
+  const done = !!record.clock_out
+
+  return (
+    <div className="py-3">
+      <div className="flex items-center gap-3">
+        {/* 날짜 */}
+        <div className="w-14 shrink-0">
+          <p className="text-sm font-bold text-gray-800">
+            {formatDisplayDate(record.work_date).replace(/\s*\(.*\)/, '')}
+          </p>
+          <p className="text-xs text-gray-400">
+            {formatDisplayDate(record.work_date).match(/\((.*?)\)/)?.[1]}
+          </p>
+        </div>
+
+        {/* 시간 */}
+        <div className="flex-1 flex gap-3 text-xs">
+          <div>
+            <span className="text-gray-400">출근 </span>
+            <span className="font-semibold text-blue-600">{formatTime(record.clock_in)}</span>
+          </div>
+          <div>
+            <span className="text-gray-400">퇴근 </span>
+            <span className={`font-semibold ${done ? 'text-gray-700' : 'text-gray-300'}`}>
+              {formatTime(record.clock_out)}
+            </span>
           </div>
         </div>
+
+        {/* 액션 */}
+        {done ? (
+          <span className="text-xs text-green-500 font-medium">완료</span>
+        ) : isConfirming ? (
+          <div className="flex gap-1">
+            <button
+              onClick={onConfirm}
+              disabled={isSubmitting}
+              className="px-3 py-1.5 bg-gray-800 text-white text-xs font-bold rounded-lg disabled:opacity-60"
+            >
+              {isSubmitting ? '...' : '확정'}
+            </button>
+            <button
+              onClick={onCancel}
+              disabled={isSubmitting}
+              className="px-3 py-1.5 bg-gray-100 text-gray-600 text-xs font-semibold rounded-lg"
+            >
+              취소
+            </button>
+          </div>
+        ) : (
+          <button
+            onClick={onClockOut}
+            className="px-3 py-1.5 bg-gray-800 text-white text-xs font-bold rounded-lg"
+          >
+            퇴근
+          </button>
+        )}
       </div>
     </div>
   )
