@@ -117,5 +117,38 @@ Gemini Imagen API를 통해 사진 배경 자동 생성 예정.
 
 ## 자동화 연동 (투트랙)
 
-1. **수동**: 위 스크립트 직접 실행
-2. **자동**: Make 시나리오 → `/api/marketing/generate-thumbnail` 웹훅 → 스크립트 실행 → Slack 전송
+### 1. 수동 (bbk-marketer 에이전트)
+```bash
+python scripts/marketing/generate_thumbnail.py --title "..." --region "..." --item "..."
+```
+
+### 2. 자동 (VPS — 월/수/금 06:00)
+
+**흐름:**
+```
+Make 스케줄러 (월/수/금)
+  → POST https://bbk-app.vercel.app/api/marketing/generate-thumbnail
+  → VPS /api/generate-thumbnail
+  → python scripts/marketing/generate_thumbnail.py 실행
+  → 결과 Slack 전송
+```
+
+**VPS가 받는 요청 Body:**
+```json
+{
+  "title": "성남 주방후드 청소",
+  "sub": "상업용 주방 전문 업체",
+  "region": "성남",
+  "item": "후드",
+  "bg_url": "https://...",
+  "type": "both",
+  "color": "yellow",
+  "trigger_type": "auto"
+}
+```
+
+**VPS 구현 참고사항:**
+- `scripts/marketing/generate_thumbnail.py` 실행 (repo clone 또는 symlink)
+- `--bg` 옵션: `bg_url`을 로컬에 다운로드 후 경로 전달
+- 생성 결과물은 Slack에 파일로 업로드하거나 CDN 업로드 후 URL 반환
+- 엔드포인트: `POST /api/generate-thumbnail` (Bearer 토큰 인증)
