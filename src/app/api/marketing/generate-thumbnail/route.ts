@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
   try {
     // VPS에 썸네일 생성 요청 전달
     // VPS는 scripts/marketing/generate_thumbnail.py 실행 후 결과 URL 반환
-    const res = await fetch(`${vpsUrl}/api/generate-thumbnail`, {
+    const res = await fetch(`${vpsUrl}/composite`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${vpsToken}`,
