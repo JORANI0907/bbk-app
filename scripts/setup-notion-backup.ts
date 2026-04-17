@@ -117,7 +117,10 @@ function checkboxProp(): unknown { return { checkbox: {} } }
 async function main(): Promise<void> {
   console.log('🚀 Notion 백업 DB 설정 시작...\n')
 
-  const parentPageId = await findOrCreateParentPage()
+  // NOTION_PARENT_PAGE_ID가 있으면 직접 사용, 없으면 검색/생성
+  const envParentId = process.env.NOTION_PARENT_PAGE_ID
+  const parentPageId = envParentId && envParentId !== 'PLACEHOLDER' ? envParentId : await findOrCreateParentPage()
+  console.log('✅ 부모 페이지 ID:', parentPageId)
 
   // 1. 고객관리 백업 DB
   console.log('\n📊 고객관리 백업 DB 생성 중...')
