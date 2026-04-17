@@ -942,76 +942,111 @@ export default function AdminCustomersPage() {
             </div>
 
             {/* 일반정보 */}
-            <div className="bg-gray-50 rounded-xl p-4 flex flex-col gap-3">
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">일반정보</p>
-              <Field label="업체명 *" value={form.business_name} onChange={set('business_name')} />
-              <Field label="고객명" value={form.contact_name} onChange={set('contact_name')} />
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-gray-500 w-24 shrink-0">연락처</span>
-                <div className="flex flex-1 gap-1">
-                  <input value={form.contact_phone} onChange={e => set('contact_phone')(e.target.value)}
-                    className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                  <a href={`tel:${form.contact_phone}`} className="px-2 py-1.5 text-xs bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100">📞</a>
-                </div>
-              </div>
-              <Field label="이메일" value={form.email} onChange={set('email')} />
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-gray-500 w-24 shrink-0">영업시간</span>
-                <div className="flex items-center gap-1 flex-1">
-                  <input type="time" value={form.business_hours_start} onChange={e => set('business_hours_start')(e.target.value)}
-                    className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                  <span className="text-gray-400 text-xs">~</span>
-                  <input type="time" value={form.business_hours_end} onChange={e => set('business_hours_end')(e.target.value)}
-                    className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                </div>
-              </div>
-              <Field label="플랫폼 닉네임" value={form.platform_nickname} onChange={set('platform_nickname')} placeholder="네이버, 카카오 등" />
-            </div>
-
-            {/* 작업장정보 */}
-            <div className="rounded-xl border border-green-200 overflow-hidden">
-              <div className="bg-green-50 px-4 py-2.5 border-b border-green-200">
-                <p className="text-xs font-semibold text-green-800">작업장정보</p>
-              </div>
-              <div className="p-4 flex flex-col gap-3">
+            <div>
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">일반정보</p>
+              <div className="space-y-2">
                 <div className="flex items-center gap-2">
-                  <span className="text-xs text-gray-500 w-24 shrink-0">주소</span>
+                  <span className="text-xs text-gray-500 w-20 shrink-0">고객명</span>
+                  <input value={form.contact_name} onChange={e => set('contact_name')(e.target.value)}
+                    className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-gray-500 w-20 shrink-0">업체명</span>
+                  <input value={form.business_name} onChange={e => set('business_name')(e.target.value)}
+                    className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-gray-500 w-20 shrink-0">연락처</span>
+                  <div className="flex flex-1 gap-1">
+                    <input value={form.contact_phone} onChange={e => set('contact_phone')(e.target.value)}
+                      className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                    <a href={`tel:${form.contact_phone}`} className="px-2 py-1.5 text-xs bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100">📞</a>
+                    <button onClick={() => navigator.clipboard.writeText(form.contact_phone).then(() => toast.success('연락처 복사됨'))} className="px-2 py-1.5 text-xs bg-gray-50 rounded-lg hover:bg-gray-100">📋</button>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-gray-500 w-20 shrink-0">이메일</span>
+                  <input value={form.email} onChange={e => set('email')(e.target.value)}
+                    className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-gray-500 w-20 shrink-0">주소</span>
                   <div className="flex flex-1 gap-1">
                     <input value={form.address} onChange={e => set('address')(e.target.value)}
-                      className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-500" />
+                      className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500" />
                     <button onClick={() => setMapAddress(form.address)}
                       className="px-2 py-1.5 text-xs bg-green-50 text-green-700 rounded-lg hover:bg-green-100 shrink-0">🗺️</button>
                   </div>
                 </div>
-                <SelectField label="주차" value={form.parking_info} options={PARKING_OPTIONS} onChange={set('parking_info')} />
-                <SelectField label="건물출입" value={form.building_access} options={BUILDING_ACCESS_OPTIONS} onChange={set('building_access')} />
-                <SelectField label="엘리베이터" value={form.elevator} options={ELEVATOR_OPTIONS} onChange={set('elevator')} />
-                <Field label="출입방법" value={form.access_method} onChange={set('access_method')} placeholder="출입 방법 메모" />
-                <Field label="상세주소" value={form.address_detail} onChange={set('address_detail')} />
-                <Field label="출입번호" value={form.door_password} onChange={set('door_password')} placeholder="도어락 비밀번호" />
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-gray-500 w-20 shrink-0">영업시간</span>
+                  <div className="flex items-center gap-1 flex-1">
+                    <input type="time" value={form.business_hours_start} onChange={e => set('business_hours_start')(e.target.value)}
+                      className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                    <span className="text-gray-400 text-xs">~</span>
+                    <input type="time" value={form.business_hours_end} onChange={e => set('business_hours_end')(e.target.value)}
+                      className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* 작업장정보 */}
+            <div>
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">작업장정보</p>
+              <div className="border-2 border-green-200 rounded-xl p-3 space-y-2 bg-green-50/30">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-gray-500 w-20 shrink-0">주차</span>
+                  <input value={form.parking_info} onChange={e => set('parking_info')(e.target.value)}
+                    className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-gray-500 w-20 shrink-0">건물출입</span>
+                  <input value={form.building_access} onChange={e => set('building_access')(e.target.value)}
+                    className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-gray-500 w-20 shrink-0">엘리베이터</span>
+                  <input value={form.elevator} onChange={e => set('elevator')(e.target.value)}
+                    className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-gray-500 w-20 shrink-0">출입방법</span>
+                  <input value={form.access_method} onChange={e => set('access_method')(e.target.value)}
+                    className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-gray-500 w-20 shrink-0">상세주소</span>
+                  <input value={form.address_detail} onChange={e => set('address_detail')(e.target.value)}
+                    className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-gray-500 w-20 shrink-0">출입번호</span>
+                  <input value={form.door_password} onChange={e => set('door_password')(e.target.value)}
+                    placeholder="도어락 비밀번호"
+                    className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
               </div>
             </div>
 
             {/* 시공정보 */}
-            <div className="rounded-xl border border-green-200 overflow-hidden">
-              <div className="bg-green-50 px-4 py-2.5 border-b border-green-200">
-                <p className="text-xs font-semibold text-green-800">시공정보</p>
-              </div>
-              <div className="p-4 flex flex-col gap-3">
+            <div>
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">시공정보</p>
+              <div className="border-2 border-green-200 rounded-xl p-3 space-y-2 bg-green-50/30">
                 <div className="flex items-start gap-2">
-                  <span className="text-xs text-gray-500 w-24 shrink-0 pt-1.5">케어범위</span>
+                  <span className="text-xs text-gray-500 w-20 shrink-0 pt-1.5">케어범위</span>
                   <textarea value={form.care_scope} onChange={e => set('care_scope')(e.target.value)} rows={3}
-                    placeholder="케어 범위를 입력하세요&#10;예) 주방, 화장실 2개, 사무실 전체"
+                    placeholder="예) - 후드청소&#10;- 덕트청소&#10;- 계단청소"
                     className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-green-500 resize-none text-gray-900" />
                 </div>
                 <div className="flex items-start gap-2">
-                  <span className="text-xs text-gray-500 w-24 shrink-0 pt-1.5">요청사항</span>
+                  <span className="text-xs text-gray-500 w-20 shrink-0 pt-1.5">요청사항</span>
                   <textarea value={form.special_notes} onChange={e => set('special_notes')(e.target.value)} rows={2}
                     className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-green-500 resize-none text-gray-900" />
                 </div>
                 <div className="flex items-start gap-2">
-                  <span className="text-xs text-gray-500 w-24 shrink-0 pt-1.5">관리자메모</span>
-                  <textarea value={form.notes} onChange={e => set('notes')(e.target.value)} rows={2}
+                  <span className="text-xs text-gray-500 w-20 shrink-0 pt-1.5">관리자메모</span>
+                  <textarea value={form.notes} onChange={e => set('notes')(e.target.value)} rows={3}
                     placeholder="내부 메모를 입력하세요..."
                     className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-green-500 resize-none text-gray-900" />
                 </div>
@@ -1020,11 +1055,37 @@ export default function AdminCustomersPage() {
 
             {/* 결제정보 — worker 숨김 */}
             {!isWorker && (
-            <div className="bg-gray-50 rounded-xl p-4 flex flex-col gap-3">
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">결제정보</p>
-              <SelectField label="결제방법" value={form.payment_method} options={PAYMENT_METHODS} onChange={set('payment_method')} />
-              <Field label="계좌번호" value={form.account_number} onChange={set('account_number')} mono />
-              <Field label="사업자번호" value={form.business_number} onChange={set('business_number')} mono />
+            <div>
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">결제정보</p>
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-gray-500 w-20 shrink-0">결제방법</span>
+                  <select value={form.payment_method} onChange={e => set('payment_method')(e.target.value)}
+                    className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+                    <option value="">선택...</option>
+                    <option value="현금(계산서 희망)">현금(계산서 희망)</option>
+                    <option value="현금(비과세)">현금(비과세)</option>
+                    <option value="카드(온라인 간편결제)">카드(온라인 간편결제)</option>
+                    <option value="플랫폼">플랫폼</option>
+                  </select>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-gray-500 w-20 shrink-0">계좌번호</span>
+                  <div className="flex flex-1 gap-1">
+                    <input value={form.account_number} onChange={e => set('account_number')(e.target.value)}
+                      className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono" />
+                    <button onClick={() => navigator.clipboard.writeText(form.account_number).then(() => toast.success('계좌번호 복사됨'))} className="px-2 py-1.5 text-xs bg-gray-50 rounded-lg hover:bg-gray-100">📋</button>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-gray-500 w-20 shrink-0">사업자번호</span>
+                  <div className="flex flex-1 gap-1">
+                    <input value={form.business_number} onChange={e => set('business_number')(e.target.value)}
+                      className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono" />
+                    <button onClick={() => navigator.clipboard.writeText(form.business_number).then(() => toast.success('사업자번호 복사됨'))} className="px-2 py-1.5 text-xs bg-gray-50 rounded-lg hover:bg-gray-100">📋</button>
+                  </div>
+                </div>
+              </div>
             </div>
             )}
 
