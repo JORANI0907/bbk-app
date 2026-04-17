@@ -8,7 +8,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { sendSlack } from '@/lib/slack'
 import {
-  upsertNotionPage,
+  insertNotionPage,
   customerToNotionProps,
   applicationToNotionProps,
   scheduleToNotionProps,
@@ -17,7 +17,6 @@ import {
   notionText,
   notionNumber,
   notionDate,
-  sleep,
   type CustomerRow,
   type ApplicationRow,
   type ScheduleRow,
@@ -35,11 +34,16 @@ interface BackupTableResult {
   durationMs: number
 }
 
+/**
+ * 날짜별 스냅샷 백업 — find 없이 create만 수행하여 속도 최적화
+ * ID는 "{today}_{uuid}" 형태로 생성해 중복 방지
+ */
 async function backupTable<T extends Record<string, unknown>>(
   supabase: ReturnType<typeof createServiceClient>,
   tableName: string,
   databaseId: string,
   propsFn: (row: T) => Record<string, unknown>,
+  today: string,
 ): Promise<BackupTableResult> {
   const startTime = Date.now()
 
@@ -61,7 +65,6 @@ async function backupTable<T extends Record<string, unknown>>(
 
   const rows = (data ?? []) as T[]
   let created = 0
-  let updated = 0
   let errors = 0
 
   for (const row of rows) {
@@ -70,10 +73,13 @@ async function backupTable<T extends Record<string, unknown>>(
       errors++
       continue
     }
-    const props = propsFn(row)
-    const result = await upsertNotionPage(databaseId, recordId, props)
+    // 날짜 포함 ID로 중복 방지 — 기존 title 프로퍼티를 덮어씀
+    const props = {
+      ...propsFn(row),
+      id: notionTitle(`${today}_${recordId}`),
+    }
+    const result = await insertNotionPage(databaseId, props)
     if (result === 'created') created++
-    else if (result === 'updated') updated++
     else errors++
   }
 
@@ -81,7 +87,7 @@ async function backupTable<T extends Record<string, unknown>>(
     table: tableName,
     total: rows.length,
     created,
-    updated,
+    updated: 0,
     errors,
     durationMs: Date.now() - startTime,
   }
@@ -169,32 +175,32 @@ export async function POST(request: NextRequest) {
   const supabase = createServiceClient()
   const totalStart = Date.now()
 
+  // 오늘 날짜 (KST) — ID 중복 방지용
+  const today = new Date().toLocaleDateString('ko-KR', {
+    timeZone: 'Asia/Seoul',
+    year: 'numeric', month: '2-digit', day: '2-digit',
+  }).replace(/\./g, '').replace(/\s/g, '-').replace(/-$/, '').trim()
+
   const results: BackupTableResult[] = []
 
   // 순차 실행 (Notion rate limit 준수)
   const customersResult = await backupTable<CustomerRow>(
-    supabase, 'customers', customersDbId, customerToNotionProps,
+    supabase, 'customers', customersDbId, customerToNotionProps, today,
   )
   results.push(customersResult)
 
-  await sleep(500)
-
   const applicationsResult = await backupTable<ApplicationRow>(
-    supabase, 'service_applications', applicationsDbId, applicationToNotionProps,
+    supabase, 'service_applications', applicationsDbId, applicationToNotionProps, today,
   )
   results.push(applicationsResult)
 
-  await sleep(500)
-
   const schedulesResult = await backupTable<ScheduleRow>(
-    supabase, 'service_schedules', schedulesDbId, scheduleToNotionProps,
+    supabase, 'service_schedules', schedulesDbId, scheduleToNotionProps, today,
   )
   results.push(schedulesResult)
 
-  await sleep(500)
-
   const workersResult = await backupTable<WorkerRow>(
-    supabase, 'workers', workersDbId, workerToNotionProps,
+    supabase, 'workers', workersDbId, workerToNotionProps, today,
   )
   results.push(workersResult)
 

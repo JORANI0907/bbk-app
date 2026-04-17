@@ -7,6 +7,8 @@
 const NOTION_API_BASE = 'https://api.notion.com/v1'
 const NOTION_VERSION = '2022-06-28'
 const RATE_LIMIT_DELAY_MS = 350
+// 빠른 백업용 딜레이 (find 없이 create만 할 때 사용)
+const FAST_RATE_LIMIT_MS = 120
 
 function getNotionHeaders(): Record<string, string> {
   const apiKey = process.env.NOTION_API_KEY
@@ -100,6 +102,23 @@ export async function upsertNotionPage(
       await sleep(RATE_LIMIT_DELAY_MS)
       return page ? 'created' : 'error'
     }
+  } catch {
+    return 'error'
+  }
+}
+
+/**
+ * Notion 페이지 빠른 삽입 (find 없이 항상 create)
+ * 날짜별 스냅샷 백업에 사용 — ID에 날짜를 포함해 중복 방지
+ */
+export async function insertNotionPage(
+  databaseId: string,
+  properties: Record<string, unknown>,
+): Promise<'created' | 'error'> {
+  try {
+    await sleep(FAST_RATE_LIMIT_MS)
+    const page = await createNotionPage(databaseId, properties)
+    return page ? 'created' : 'error'
   } catch {
     return 'error'
   }

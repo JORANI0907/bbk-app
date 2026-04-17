@@ -8,5 +8,16 @@
       "path": "/api/cron/work-notifications",
       "schedule": "0 0 * * *"
     }
-  ]
+  ],
+  "functions": {
+    "src/app/api/admin/backup/notion/route.ts": {
+      "maxDuration": 300
+    },
+    "src/app/api/admin/backup/storage/route.ts": {
+      "maxDuration": 60
+    },
+    "src/app/api/cron/cleanup-backups/route.ts": {
+      "maxDuration": 60
+    }
+  }
 }
