@@ -177,58 +177,64 @@ function CameraCapture({ onCapture, onCancel }: CameraProps) {
   }
 
   return (
-    <div className="flex flex-col gap-3">
-      <div className="relative w-full rounded-2xl overflow-hidden bg-black aspect-video">
-        {phase === 'preview' && (
-          <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
-        )}
-        {phase === 'captured' && previewUrl && (
-          <img src={previewUrl} alt="촬영된 사진" className="w-full h-full object-cover" />
-        )}
-        {/* 카메라 조작 버튼 (미리보기 중에만 표시) */}
-        {phase === 'preview' && (
-          <div className="absolute top-2 right-2 flex flex-col gap-2">
-            <button
-              onClick={toggleFlash}
-              title={flashEnabled ? '플래시 끄기' : '플래시 켜기'}
-              className={`w-10 h-10 rounded-full flex items-center justify-center text-lg shadow-md transition-colors ${
-                flashEnabled ? 'bg-yellow-400 text-black' : 'bg-black/60 text-white'
-              }`}
-            >
-              ⚡
-            </button>
-            <button
-              onClick={toggleCamera}
-              title="카메라 전환"
-              className="w-10 h-10 rounded-full bg-black/60 text-white flex items-center justify-center text-lg shadow-md"
-            >
-              🔄
-            </button>
-          </div>
-        )}
-      </div>
+    <div className="fixed inset-0 z-[100] bg-black">
+      {/* 비디오 / 촬영 미리보기 */}
+      {phase === 'preview' && (
+        <video ref={videoRef} autoPlay playsInline muted
+          className="w-screen h-screen object-cover" />
+      )}
+      {phase === 'captured' && previewUrl && (
+        <img src={previewUrl} alt="촬영된 사진"
+          className="w-screen h-screen object-cover" />
+      )}
+
       <canvas ref={canvasRef} className="hidden" />
 
-      <div className="flex gap-2">
+      {/* 카메라 조작 버튼 (미리보기 중에만 표시) */}
+      {phase === 'preview' && (
+        <div className="absolute flex flex-col gap-2"
+          style={{ top: 'calc(env(safe-area-inset-top, 0px) + 12px)', right: '16px' }}>
+          <button
+            onClick={toggleFlash}
+            title={flashEnabled ? '플래시 끄기' : '플래시 켜기'}
+            className={`w-11 h-11 rounded-full flex items-center justify-center text-xl shadow-lg transition-colors ${
+              flashEnabled ? 'bg-yellow-400 text-black' : 'bg-black/60 text-white'
+            }`}
+          >
+            ⚡
+          </button>
+          <button
+            onClick={toggleCamera}
+            title="카메라 전환"
+            className="w-11 h-11 rounded-full bg-black/60 text-white flex items-center justify-center text-xl shadow-lg"
+          >
+            🔄
+          </button>
+        </div>
+      )}
+
+      {/* 하단 버튼 영역 */}
+      <div className="fixed bottom-0 left-0 right-0 flex gap-3 px-4 bg-black/70"
+        style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 16px)', paddingTop: '16px' }}>
         {phase === 'preview' ? (
           <>
             <button onClick={onCancel}
-              className="flex-1 py-3 bg-gray-100 text-gray-700 rounded-xl text-sm font-semibold">
+              className="flex-1 py-4 bg-white/20 text-white rounded-2xl text-sm font-semibold backdrop-blur-sm">
               취소
             </button>
             <button onClick={capture}
-              className="flex-1 py-3 bg-blue-600 text-white rounded-xl text-sm font-semibold">
+              className="flex-1 py-4 bg-blue-600 text-white rounded-2xl text-sm font-semibold">
               촬영
             </button>
           </>
         ) : (
           <>
             <button onClick={retake}
-              className="flex-1 py-3 bg-gray-100 text-gray-700 rounded-xl text-sm font-semibold">
+              className="flex-1 py-4 bg-white/20 text-white rounded-2xl text-sm font-semibold backdrop-blur-sm">
               다시 촬영
             </button>
             <button onClick={confirm}
-              className="flex-1 py-3 bg-blue-600 text-white rounded-xl text-sm font-semibold">
+              className="flex-1 py-4 bg-blue-600 text-white rounded-2xl text-sm font-semibold">
               사용
             </button>
           </>
@@ -520,15 +526,10 @@ function WorkerClockView({ workerInfo }: WorkerClockViewProps) {
     )
   }
 
-  // Camera open
+  // Camera open (풀스크린)
   if (phase === 'camera') {
     return (
-      <div className="max-w-sm mx-auto px-4 pt-8">
-        <p className="text-center text-sm font-semibold text-gray-700 mb-4">
-          {flow === 'clock_in' ? '출근 사진 촬영' : '퇴근 사진 촬영'}
-        </p>
-        <CameraCapture onCapture={handleCapture} onCancel={cancelFlow} />
-      </div>
+      <CameraCapture onCapture={handleCapture} onCancel={cancelFlow} />
     )
   }
 
