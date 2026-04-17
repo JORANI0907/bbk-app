@@ -525,6 +525,7 @@ export default function AdminCustomersPage() {
           phone: selected.contact_phone,
           email: selected.email,
           address: selected.address,
+          detail_address: selected.address_detail,
           business_number: selected.business_number,
           account_number: selected.account_number,
           payment_method: selected.payment_method,
@@ -534,8 +535,11 @@ export default function AdminCustomersPage() {
           building_access: selected.building_access,
           parking: selected.parking_info,
           access_method: selected.access_method,
+          door_lock: selected.door_password,
+          care_scope: selected.care_scope,
           request_notes: selected.special_notes,
           service_type: serviceType,
+          unit_price_per_visit: (serviceType === '정기딥케어' || serviceType === '정기엔드케어') ? (selected.unit_price ?? null) : null,
           admin_notes: `고객 DB에서 생성 (${new Date().toLocaleDateString('ko-KR')})`,
         }),
       })
@@ -634,6 +638,7 @@ export default function AdminCustomersPage() {
             phone: c.contact_phone,
             email: c.email,
             address: c.address,
+            detail_address: c.address_detail,
             business_number: c.business_number,
             account_number: c.account_number,
             payment_method: c.payment_method,
@@ -643,8 +648,11 @@ export default function AdminCustomersPage() {
             building_access: c.building_access,
             parking: c.parking_info,
             access_method: c.access_method,
+            door_lock: c.door_password,
+            care_scope: c.care_scope,
             request_notes: c.special_notes,
             service_type: serviceType,
+            unit_price_per_visit: (serviceType === '정기딥케어' || serviceType === '정기엔드케어') ? (c.unit_price ?? null) : null,
             admin_notes: `고객 DB에서 생성 (${new Date().toLocaleDateString('ko-KR')})`,
           }),
         })
@@ -947,6 +955,16 @@ export default function AdminCustomersPage() {
                 </div>
               </div>
               <Field label="이메일" value={form.email} onChange={set('email')} />
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-gray-500 w-24 shrink-0">영업시간</span>
+                <div className="flex items-center gap-1 flex-1">
+                  <input type="time" value={form.business_hours_start} onChange={e => set('business_hours_start')(e.target.value)}
+                    className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                  <span className="text-gray-400 text-xs">~</span>
+                  <input type="time" value={form.business_hours_end} onChange={e => set('business_hours_end')(e.target.value)}
+                    className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+              </div>
               <Field label="플랫폼 닉네임" value={form.platform_nickname} onChange={set('platform_nickname')} placeholder="네이버, 카카오 등" />
             </div>
 
@@ -965,21 +983,11 @@ export default function AdminCustomersPage() {
                       className="px-2 py-1.5 text-xs bg-green-50 text-green-700 rounded-lg hover:bg-green-100 shrink-0">🗺️</button>
                   </div>
                 </div>
-                <Field label="상세주소" value={form.address_detail} onChange={set('address_detail')} />
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-gray-500 w-24 shrink-0">영업시간</span>
-                  <div className="flex items-center gap-1 flex-1">
-                    <input type="time" value={form.business_hours_start} onChange={e => set('business_hours_start')(e.target.value)}
-                      className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-500" />
-                    <span className="text-gray-400 text-xs">~</span>
-                    <input type="time" value={form.business_hours_end} onChange={e => set('business_hours_end')(e.target.value)}
-                      className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-500" />
-                  </div>
-                </div>
                 <SelectField label="주차" value={form.parking_info} options={PARKING_OPTIONS} onChange={set('parking_info')} />
                 <SelectField label="건물출입" value={form.building_access} options={BUILDING_ACCESS_OPTIONS} onChange={set('building_access')} />
                 <SelectField label="엘리베이터" value={form.elevator} options={ELEVATOR_OPTIONS} onChange={set('elevator')} />
                 <Field label="출입방법" value={form.access_method} onChange={set('access_method')} placeholder="출입 방법 메모" />
+                <Field label="상세주소" value={form.address_detail} onChange={set('address_detail')} />
                 <Field label="출입번호" value={form.door_password} onChange={set('door_password')} placeholder="도어락 비밀번호" />
               </div>
             </div>

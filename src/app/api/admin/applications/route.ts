@@ -51,6 +51,10 @@ export async function POST(request: NextRequest) {
     'owner_name', 'business_name', 'phone', 'email', 'address',
     'business_number', 'account_number', 'service_type', 'admin_notes',
     'payment_method', 'request_notes', 'platform_nickname', 'care_scope',
+    'elevator', 'building_access', 'access_method', 'parking',
+    'business_hours_start', 'business_hours_end',
+    'unit_price_per_visit', 'deposit', 'supply_amount', 'vat', 'balance',
+    'manager_pay', 'detail_address', 'door_lock',
   ]
   const insert: Record<string, unknown> = { status: '신규' }
   for (const key of ALLOWED_POST) {
