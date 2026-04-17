@@ -175,26 +175,32 @@ export function notionCheckbox(val: unknown): { checkbox: boolean } {
 
 /** Notion select property */
 export function notionSelect(val: unknown): { select: { name: string } | null } {
-  if (!val) return { select: null }
-  return { select: { name: String(val) } }
+  if (val === null || val === undefined) return { select: null }
+  const s = String(val).trim()
+  if (!s) return { select: null }
+  return { select: { name: s } }
 }
 
 /** Notion email property */
 export function notionEmail(val: unknown): { email: string | null } {
-  if (!val) return { email: null }
-  return { email: String(val) }
+  if (val === null || val === undefined) return { email: null }
+  const s = String(val).trim()
+  if (!s) return { email: null }
+  return { email: s }
 }
 
 /** Notion phone_number property */
 export function notionPhone(val: unknown): { phone_number: string | null } {
-  if (!val) return { phone_number: null }
-  return { phone_number: String(val) }
+  if (val === null || val === undefined) return { phone_number: null }
+  const s = String(val).trim()
+  if (!s) return { phone_number: null }
+  return { phone_number: s }
 }
 
 /** Notion url property */
 export function notionUrl(val: unknown): { url: string | null } {
-  if (!val) return { url: null }
-  const s = String(val)
+  if (val === null || val === undefined) return { url: null }
+  const s = String(val).trim()
   return { url: s.startsWith('http') ? s : null }
 }
 
