@@ -1,13 +1,14 @@
 import { BottomNav } from '@/components/worker/BottomNav'
 import { format } from 'date-fns'
 import { ko } from 'date-fns/locale'
+import { kstNow } from '@/lib/kst'
 
 export default function WorkerLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
-  const today = format(new Date(), 'M월 d일 (EEE)', { locale: ko })
+  const today = format(kstNow(), 'M월 d일 (EEE)', { locale: ko })
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">

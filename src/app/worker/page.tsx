@@ -6,13 +6,14 @@ import { ko } from 'date-fns/locale'
 import { ServiceSchedule } from '@/types/database'
 import { WorkerScheduleListClient } from '@/components/worker/WorkerScheduleListClient'
 import { AdminScheduleMonitor } from '@/components/worker/AdminScheduleMonitor'
+import { todayKstString, kstNow } from '@/lib/kst'
 
 export default async function WorkerHomePage() {
   const session = getServerSession()
   if (!session || (session.role !== 'worker' && session.role !== 'admin')) redirect('/login')
 
-  const today = format(new Date(), 'yyyy-MM-dd')
-  const todayLabel = format(new Date(), 'M월 d일 (EEE)', { locale: ko })
+  const today = todayKstString()
+  const todayLabel = format(kstNow(), 'M월 d일 (EEE)', { locale: ko })
 
   if (session.role === 'admin') {
     return (
