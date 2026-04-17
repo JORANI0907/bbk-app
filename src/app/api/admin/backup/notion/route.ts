@@ -1,6 +1,6 @@
 /**
  * POST /api/admin/backup/notion
- * Supabase 4개 테이블을 Notion DB에 upsert 백업
+ * Supabase 4개 테이블을 Notion DB에 날짜별 스냅샷 백업
  * CRON_SECRET 인증 필요
  */
 
@@ -16,7 +16,6 @@ import {
   notionTitle,
   notionText,
   notionNumber,
-  notionDate,
   type CustomerRow,
   type ApplicationRow,
   type ScheduleRow,
@@ -113,7 +112,7 @@ async function writeBackupLog(
   })
 
   const summary = results
-    .map((r) => `${r.table}: ${r.total}건 (생성 ${r.created} / 업데이트 ${r.updated} / 오류 ${r.errors})`)
+    .map((r) => `${r.table}: ${r.total}건 (생성 ${r.created} / 오류 ${r.errors})`)
     .join('\n')
 
   const properties: Record<string, unknown> = {
@@ -161,7 +160,7 @@ export async function POST(request: NextRequest) {
   const notionApiKey = process.env.NOTION_API_KEY
   if (!notionApiKey) {
     return NextResponse.json(
-      { error: 'NOTION_API_KEY가 설정되지 않았습니다. Notion integration 토큰을 발급하고 환경변수에 등록해주세요.' },
+      { error: 'NOTION_API_KEY가 설정되지 않았습니다.' },
       { status: 503 },
     )
   }
@@ -174,25 +173,9 @@ export async function POST(request: NextRequest) {
 
   if (!customersDbId || !applicationsDbId || !schedulesDbId || !workersDbId || !logDbId) {
     return NextResponse.json(
-      {
-        error: 'Notion DB ID 환경변수가 설정되지 않았습니다.',
-        debug: {
-          customersDbId: customersDbId ?? 'undefined',
-          applicationsDbId: applicationsDbId ?? 'undefined',
-          schedulesDbId: schedulesDbId ?? 'undefined',
-          workersDbId: workersDbId ?? 'undefined',
-          logDbId: logDbId ?? 'undefined',
-        },
-      },
+      { error: 'Notion DB ID 환경변수가 설정되지 않았습니다.' },
       { status: 503 },
     )
-  }
-
-  // 디버그: 환경변수 값 첫 8자 확인
-  const dbIdDebug = {
-    customersDbId: customersDbId.slice(0, 8),
-    applicationsDbId: applicationsDbId.slice(0, 8),
-    notionApiKeyPrefix: notionApiKey.slice(0, 10),
   }
 
   const supabase = createServiceClient()
@@ -247,6 +230,5 @@ export async function POST(request: NextRequest) {
     success: true,
     results,
     totalDurationMs,
-    debug: dbIdDebug,
   })
 }
