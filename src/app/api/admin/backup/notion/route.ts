@@ -32,6 +32,7 @@ interface BackupTableResult {
   updated: number
   errors: number
   durationMs: number
+  firstError?: string
 }
 
 /**
@@ -66,6 +67,7 @@ async function backupTable<T extends Record<string, unknown>>(
   const rows = (data ?? []) as T[]
   let created = 0
   let errors = 0
+  let firstError: string | undefined
 
   for (const row of rows) {
     const recordId = String(row.id ?? '')
@@ -79,8 +81,12 @@ async function backupTable<T extends Record<string, unknown>>(
       id: notionTitle(`${today}_${recordId}`),
     }
     const result = await insertNotionPage(databaseId, props)
-    if (result === 'created') created++
-    else errors++
+    if (result === 'created') {
+      created++
+    } else {
+      if (!firstError) firstError = `${tableName}/${recordId}: ${result}`
+      errors++
+    }
   }
 
   return {
@@ -89,6 +95,7 @@ async function backupTable<T extends Record<string, unknown>>(
     created,
     updated: 0,
     errors,
+    firstError,
     durationMs: Date.now() - startTime,
   }
 }

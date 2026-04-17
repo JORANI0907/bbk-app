@@ -114,13 +114,24 @@ export async function upsertNotionPage(
 export async function insertNotionPage(
   databaseId: string,
   properties: Record<string, unknown>,
-): Promise<'created' | 'error'> {
+): Promise<'created' | string> {
   try {
     await sleep(FAST_RATE_LIMIT_MS)
-    const page = await createNotionPage(databaseId, properties)
-    return page ? 'created' : 'error'
-  } catch {
-    return 'error'
+    const res = await fetch(`${NOTION_API_BASE}/pages`, {
+      method: 'POST',
+      headers: getNotionHeaders(),
+      body: JSON.stringify({
+        parent: { database_id: databaseId },
+        properties,
+      }),
+    })
+    if (!res.ok) {
+      const errText = await res.text()
+      return `http_${res.status}: ${errText.slice(0, 200)}`
+    }
+    return 'created'
+  } catch (e) {
+    return `exception: ${String(e).slice(0, 200)}`
   }
 }
 
