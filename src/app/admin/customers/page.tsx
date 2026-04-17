@@ -54,6 +54,11 @@ interface Customer {
   payment_date: number | null
   assigned_user_id: string | null
   assigned_worker_id: string | null
+  // 결제 금액 (서비스관리와 동기화)
+  deposit: number | null
+  supply_amount: number | null
+  vat: number | null
+  balance: number | null
   created_at: string
   updated_at: string
 }
@@ -519,27 +524,34 @@ export default function AdminCustomersPage() {
       const res = await fetch('/api/admin/applications', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          // 일반정보
           business_name: selected.business_name,
           owner_name: selected.contact_name || selected.business_name,
           platform_nickname: selected.platform_nickname,
           phone: selected.contact_phone,
           email: selected.email,
-          address: selected.address,
-          detail_address: selected.address_detail,
           business_number: selected.business_number,
           account_number: selected.account_number,
-          payment_method: selected.payment_method,
-          business_hours_start: selected.business_hours_start,
-          business_hours_end: selected.business_hours_end,
+          // 작업장정보
+          address: selected.address,
           elevator: selected.elevator,
           building_access: selected.building_access,
           parking: selected.parking_info,
           access_method: selected.access_method,
-          door_lock: selected.door_password,
+          business_hours_start: selected.business_hours_start,
+          business_hours_end: selected.business_hours_end,
+          // 시공정보
           care_scope: selected.care_scope,
           request_notes: selected.special_notes,
-          service_type: serviceType,
+          // 결제정보
+          payment_method: selected.payment_method,
           unit_price_per_visit: (serviceType === '정기딥케어' || serviceType === '정기엔드케어') ? (selected.unit_price ?? null) : null,
+          deposit: selected.deposit,
+          supply_amount: selected.supply_amount,
+          vat: selected.vat,
+          balance: selected.balance,
+          // 메타
+          service_type: serviceType,
           admin_notes: `고객 DB에서 생성 (${new Date().toLocaleDateString('ko-KR')})`,
         }),
       })
@@ -632,27 +644,34 @@ export default function AdminCustomersPage() {
         const res = await fetch('/api/admin/applications', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
+            // 일반정보
             business_name: c.business_name,
             owner_name: c.contact_name || c.business_name,
             platform_nickname: c.platform_nickname,
             phone: c.contact_phone,
             email: c.email,
-            address: c.address,
-            detail_address: c.address_detail,
             business_number: c.business_number,
             account_number: c.account_number,
-            payment_method: c.payment_method,
-            business_hours_start: c.business_hours_start,
-            business_hours_end: c.business_hours_end,
+            // 작업장정보
+            address: c.address,
             elevator: c.elevator,
             building_access: c.building_access,
             parking: c.parking_info,
             access_method: c.access_method,
-            door_lock: c.door_password,
+            business_hours_start: c.business_hours_start,
+            business_hours_end: c.business_hours_end,
+            // 시공정보
             care_scope: c.care_scope,
             request_notes: c.special_notes,
-            service_type: serviceType,
+            // 결제정보
+            payment_method: c.payment_method,
             unit_price_per_visit: (serviceType === '정기딥케어' || serviceType === '정기엔드케어') ? (c.unit_price ?? null) : null,
+            deposit: c.deposit,
+            supply_amount: c.supply_amount,
+            vat: c.vat,
+            balance: c.balance,
+            // 메타
+            service_type: serviceType,
             admin_notes: `고객 DB에서 생성 (${new Date().toLocaleDateString('ko-KR')})`,
           }),
         })

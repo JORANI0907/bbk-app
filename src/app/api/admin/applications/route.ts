@@ -48,13 +48,20 @@ export async function POST(request: NextRequest) {
   }
 
   const ALLOWED_POST = [
-    'owner_name', 'business_name', 'phone', 'email', 'address',
-    'business_number', 'account_number', 'service_type', 'admin_notes',
-    'payment_method', 'request_notes', 'platform_nickname', 'care_scope',
+    // 일반정보
+    'owner_name', 'business_name', 'phone', 'email',
+    'platform_nickname', 'business_number', 'account_number',
+    // 작업장정보
+    'address',
     'elevator', 'building_access', 'access_method', 'parking',
     'business_hours_start', 'business_hours_end',
-    'unit_price_per_visit', 'deposit', 'supply_amount', 'vat', 'balance',
-    'manager_pay', 'detail_address', 'door_lock',
+    // 시공정보
+    'care_scope', 'request_notes',
+    // 결제정보
+    'payment_method',
+    'unit_price_per_visit', 'deposit', 'supply_amount', 'vat', 'balance', 'manager_pay',
+    // 기타
+    'service_type', 'admin_notes',
   ]
   const insert: Record<string, unknown> = { status: '신규' }
   for (const key of ALLOWED_POST) {
@@ -98,12 +105,21 @@ export async function PATCH(request: NextRequest) {
   }
 
   const ALLOWED = [
+    // 일반정보
+    'owner_name', 'business_name', 'phone', 'email',
+    'platform_nickname', 'business_number', 'account_number',
+    // 작업장정보
+    'address',
+    'elevator', 'building_access', 'access_method', 'parking',
+    'business_hours_start', 'business_hours_end',
+    // 시공정보
+    'care_scope', 'request_notes',
+    // 결제정보
+    'payment_method',
+    'unit_price_per_visit', 'deposit', 'supply_amount', 'vat', 'balance', 'manager_pay',
+    // 관리 필드
     'status', 'admin_notes', 'service_type', 'assigned_to',
-    'deposit', 'supply_amount', 'vat', 'balance', 'drive_folder_url',
-    'phone', 'email', 'address', 'business_number', 'account_number',
-    'payment_method', 'elevator', 'building_access', 'access_method', 'parking', 'request_notes',
-    'construction_date', 'business_hours_start', 'business_hours_end', 'care_scope',
-    'unit_price_per_visit', 'manager_pay', 'owner_name', 'business_name',
+    'drive_folder_url', 'construction_date',
   ]
   const updates: Record<string, unknown> = {}
   for (const key of ALLOWED) {

@@ -12,6 +12,11 @@ interface CustomerRow {
   contact_phone: string | null
   email: string | null
   address: string | null
+  // 일반정보 추가
+  platform_nickname: string | null
+  business_number: string | null
+  account_number: string | null
+  // 작업장정보
   payment_method: string | null
   business_hours_start: string | null
   business_hours_end: string | null
@@ -62,8 +67,9 @@ export async function GET(request: NextRequest) {
   const { data: customers, error } = await supabase
     .from('customers')
     .select(
-      'id, business_name, contact_name, contact_phone, email, address, payment_method, ' +
-      'business_hours_start, business_hours_end, elevator, building_access, parking_info, ' +
+      'id, business_name, contact_name, contact_phone, email, address, ' +
+      'platform_nickname, business_number, account_number, ' +
+      'payment_method, business_hours_start, business_hours_end, elevator, building_access, parking_info, ' +
       'access_method, special_notes, care_scope, customer_type, ' +
       'visit_schedule_type, visit_weekdays, visit_monthly_dates, status, unit_price'
     )
@@ -116,23 +122,31 @@ export async function GET(request: NextRequest) {
       if (newDates.length > 0) {
         // 1. service_applications에 먼저 insert
         const toInsert = newDates.map((date) => ({
+          // 일반정보
           business_name: customer.business_name,
           owner_name: customer.contact_name || customer.business_name,
           phone: customer.contact_phone || '',
           email: customer.email || null,
+          platform_nickname: customer.platform_nickname || null,
+          business_number: customer.business_number || null,
+          account_number: customer.account_number || null,
+          // 작업장정보
           address: customer.address || '',
-          payment_method: customer.payment_method || null,
-          business_hours_start: customer.business_hours_start || null,
-          business_hours_end: customer.business_hours_end || null,
           elevator: customer.elevator || null,
           building_access: customer.building_access || null,
           parking: customer.parking_info || null,
           access_method: customer.access_method || null,
-          request_notes: customer.special_notes || null,
+          business_hours_start: customer.business_hours_start || null,
+          business_hours_end: customer.business_hours_end || null,
+          // 시공정보
           care_scope: customer.care_scope || null,
+          request_notes: customer.special_notes || null,
+          // 결제정보
+          payment_method: customer.payment_method || null,
+          unit_price_per_visit: customer.unit_price || null,
+          // 메타
           service_type: customer.customer_type,
           assigned_to: null,
-          unit_price_per_visit: customer.unit_price || null,
           construction_date: date,
           status: '예약확정',
           admin_notes: `cron 자동 일정 생성 (${label})`,

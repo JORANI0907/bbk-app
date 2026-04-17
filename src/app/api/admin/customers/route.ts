@@ -4,18 +4,29 @@ import { createAuthUser, updateAuthUserEmailAndPassword, customerEmail } from '@
 import crypto from 'crypto'
 
 const ALLOWED = [
+  // 일반정보
   'business_name', 'contact_name', 'contact_phone', 'email',
-  'address', 'address_detail', 'business_number', 'account_number',
-  'platform_nickname', 'payment_method', 'elevator', 'building_access',
-  'access_method', 'business_hours_start', 'business_hours_end',
-  'door_password', 'parking_info', 'special_notes', 'drive_folder_url', 'care_scope', 'pipeline_status',
-  'customer_type', 'status', 'billing_cycle', 'billing_amount',
-  'billing_start_date', 'billing_next_date', 'contract_start_date',
-  'contract_end_date', 'unit_price', 'visit_interval_days', 'next_visit_date',
-  'visit_schedule_type', 'visit_weekdays', 'visit_monthly_dates', 'notes',
-  // P0-4: 정기딥케어 / 정기엔드케어 추가 필드
-  'rotation_type', 'visit_count_per_month', 'payment_status', 'payment_date',
-  'schedule_generation_day',
+  'platform_nickname', 'business_number', 'account_number',
+  // 작업장정보
+  'address', 'address_detail',
+  'elevator', 'building_access', 'access_method',
+  'business_hours_start', 'business_hours_end',
+  'door_password', 'parking_info',
+  // 시공정보
+  'care_scope', 'special_notes',
+  // 결제정보
+  'payment_method',
+  'unit_price', 'deposit', 'supply_amount', 'vat', 'balance',
+  // 계약/정기 정보
+  'customer_type', 'status', 'pipeline_status',
+  'billing_cycle', 'billing_amount',
+  'billing_start_date', 'billing_next_date',
+  'contract_start_date', 'contract_end_date',
+  'visit_interval_days', 'next_visit_date',
+  'visit_schedule_type', 'visit_weekdays', 'visit_monthly_dates',
+  'rotation_type', 'visit_count_per_month',
+  'payment_status', 'payment_date', 'schedule_generation_day',
+  'notes', 'drive_folder_url',
   // 담당 직원/작업자
   'assigned_user_id', 'assigned_worker_id',
 ]
