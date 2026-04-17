@@ -5,20 +5,38 @@ const MIGRATION_SECRET = process.env.CRON_SECRET
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!
 
-async function execSql(sql: string): Promise<{ ok: boolean; error?: string }> {
-  // Supabase REST API를 통해 직접 SQL 실행 (service_role key 필요)
-  const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/exec_sql`, {
-    method: 'POST',
-    headers: {
-      apikey: SERVICE_KEY,
-      Authorization: `Bearer ${SERVICE_KEY}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ sql }),
+// Supabase SQL via Management API (pg_net or direct REST)
+// Supabase v2 SDK로 DDL 실행: pg 연결 필요
+// 대신 Supabase의 /pg/...  또는 fetch to /rest/v1/ with raw query
+// 실제로는 Postgres wire protocol 직접 사용 (pg 패키지)
+async function execSqlViaPg(sqls: string[]): Promise<{ sql: string; ok: boolean; error?: string }[]> {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { Client } = require('pg') as typeof import('pg')
+
+  // Supabase pooler connection (Vercel에서 접근 가능)
+  const client = new Client({
+    host: 'aws-0-ap-northeast-2.pooler.supabase.com',
+    port: 6543,
+    database: 'postgres',
+    user: `postgres.${SUPABASE_URL.replace('https://', '').replace('.supabase.co', '')}`,
+    password: SERVICE_KEY,
+    ssl: { rejectUnauthorized: false },
   })
-  if (res.ok) return { ok: true }
-  const body = await res.text()
-  return { ok: false, error: body }
+
+  await client.connect()
+
+  const results: { sql: string; ok: boolean; error?: string }[] = []
+  for (const sql of sqls) {
+    try {
+      await client.query(sql)
+      results.push({ sql: sql.slice(0, 80), ok: true })
+    } catch (e) {
+      results.push({ sql: sql.slice(0, 80), ok: false, error: (e as Error).message })
+    }
+  }
+
+  await client.end()
+  return results
 }
 
 export async function POST(request: NextRequest) {
@@ -39,11 +57,10 @@ export async function POST(request: NextRequest) {
     `CREATE INDEX IF NOT EXISTS idx_schedules_deleted_at ON service_schedules(deleted_at) WHERE deleted_at IS NOT NULL`,
   ]
 
-  const results = []
-  for (const sql of stmts) {
-    const result = await execSql(sql)
-    results.push({ sql: sql.slice(0, 80), ...result })
+  try {
+    const results = await execSqlViaPg(stmts)
+    return NextResponse.json({ results })
+  } catch (e) {
+    return NextResponse.json({ error: (e as Error).message }, { status: 500 })
   }
-
-  return NextResponse.json({ results })
 }
