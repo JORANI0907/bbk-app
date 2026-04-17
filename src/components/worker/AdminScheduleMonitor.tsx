@@ -149,7 +149,17 @@ function WorkerGroup({ group }: { group: GroupedWorker }) {
 }
 
 export function AdminScheduleMonitor({ initialDate }: { initialDate: string }) {
-  const [date, setDate] = useState(initialDate)
+  // 비어있으면 관리자 배정관리와 동일한 "오늘" 로직으로 기본값 계산
+  const resolveInitial = () => {
+    if (initialDate) return initialDate
+    const now = new Date()
+    if (now.getHours() < 12) {
+      const y = new Date(now); y.setDate(y.getDate() - 1)
+      return y.toISOString().slice(0, 10)
+    }
+    return now.toISOString().slice(0, 10)
+  }
+  const [date, setDate] = useState(resolveInitial)
   const [schedules, setSchedules] = useState<Schedule[]>([])
   const [loading, setLoading] = useState(true)
 

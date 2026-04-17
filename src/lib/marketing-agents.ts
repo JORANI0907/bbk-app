@@ -52,12 +52,17 @@ export type AgentKey = keyof typeof AGENT_CONFIG
 export const AGENT_KEYS: AgentKey[] = ['LEADER', 'MKT', 'DSN', 'STR']
 
 export const CONTENT_TYPE_META: Record<string, { label: string; icon: string; agent: AgentKey }> = {
-  blog:                { label: '블로그',        icon: '📝', agent: 'MKT'    },
-  insta:               { label: '인스타',         icon: '📸', agent: 'MKT'    },
-  thumbnail:           { label: '블로그 썸네일',   icon: '🖼️', agent: 'DSN'    },
-  image_prompt:        { label: '이미지 프롬프트', icon: '🎨', agent: 'DSN'    },
-  weekly_calendar:     { label: '주간 캘린더',     icon: '📅', agent: 'LEADER' },
-  monthly_report:      { label: '월간 리포트',     icon: '📋', agent: 'LEADER' },
-  keyword_strategy:    { label: '키워드 전략',     icon: '🔍', agent: 'STR'    },
-  competitor_analysis: { label: '경쟁사 분석',     icon: '🔎', agent: 'STR'    },
+  blog:                { label: '블로그',              icon: '📝',  agent: 'MKT'    },
+  insta:               { label: '인스타',               icon: '📸',  agent: 'MKT'    },
+  insta_tips:          { label: '인스타 Tips',          icon: '💡',  agent: 'MKT'    },
+  insta_service:       { label: '인스타 서비스',         icon: '🧹',  agent: 'MKT'    },
+  insta_lifestyle:     { label: '인스타 라이프스타일',    icon: '☕',  agent: 'MKT'    },
+  insta_beforeafter:   { label: '인스타 Before/After',  icon: '✨',  agent: 'MKT'    },
+  insta_event:         { label: '인스타 시즌/이벤트',     icon: '🎉',  agent: 'MKT'    },
+  thumbnail:           { label: '블로그 썸네일',          icon: '🖼️',  agent: 'DSN'    },
+  image_prompt:        { label: '이미지 프롬프트',        icon: '🎨',  agent: 'DSN'    },
+  weekly_calendar:     { label: '주간 캘린더',            icon: '📅',  agent: 'LEADER' },
+  monthly_report:      { label: '월간 리포트',            icon: '📋',  agent: 'LEADER' },
+  keyword_strategy:    { label: '키워드 전략',            icon: '🔍',  agent: 'STR'    },
+  competitor_analysis: { label: '경쟁사 분석',            icon: '🔎',  agent: 'STR'    },
 }
