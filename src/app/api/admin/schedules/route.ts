@@ -78,7 +78,7 @@ export async function POST(request: NextRequest) {
 
   let finalCustomerId = customer_id
 
-  // 고객 없으면 생성
+  // 고객 매칭 (기존 고객만 연결, 없으면 null 유지)
   if (!finalCustomerId && business_name) {
     const { data: existingCustomer } = await supabase
       .from('customers')
@@ -88,24 +88,13 @@ export async function POST(request: NextRequest) {
 
     if (existingCustomer) {
       finalCustomerId = existingCustomer.id
-    } else {
-      const { data: newCustomer, error: customerError } = await supabase
-        .from('customers')
-        .insert({ business_name, address, contact_name: contact_name || '담당자', contact_phone: contact_phone || '', pipeline_status: 'contracted' })
-        .select('id')
-        .single()
-      if (customerError) return NextResponse.json({ error: customerError.message }, { status: 500 })
-      finalCustomerId = newCustomer.id
     }
+    // 매칭 실패 시 자동 생성하지 않음 — finalCustomerId = null 유지
   }
 
   const toTime = (t: string | undefined) => {
     if (!t) return '09:00:00'
     return t.length === 5 ? `${t}:00` : t
-  }
-
-  if (!finalCustomerId) {
-    return NextResponse.json({ error: '고객 정보를 찾을 수 없습니다.' }, { status: 400 })
   }
 
   const { data, error } = await supabase

@@ -201,20 +201,8 @@ export async function PATCH(request: NextRequest) {
                 .update({ unit_price_per_visit: existingCustomer.unit_price })
                 .eq('id', id)
             }
-          } else {
-            const { data: newCustomer } = await supabase
-              .from('customers')
-              .insert({
-                business_name: app.business_name,
-                contact_name: app.owner_name || app.business_name,
-                contact_phone: normalizedPhone,
-                address: app.address || '',
-                pipeline_status: 'contracted',
-              })
-              .select('id')
-              .single()
-            if (newCustomer) customerId = newCustomer.id
           }
+          // 매칭 실패 시 자동 생성하지 않음 — customerId = null 유지
         }
 
         // 기존 schedule 확인 (같은 application_id)
