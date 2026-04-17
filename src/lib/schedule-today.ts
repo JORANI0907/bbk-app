@@ -7,12 +7,18 @@
  * 클라이언트(브라우저) 로컬 시각 기준. 서버에서 호출하면 UTC 기준이 되어
  * 의도와 달라지므로 반드시 'use client' 컴포넌트에서만 호출.
  */
+function formatLocalDate(d: Date): string {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
 export function getScheduleToday(): string {
   const now = new Date()
+  const target = new Date(now)
   if (now.getHours() < 12) {
-    const yesterday = new Date(now)
-    yesterday.setDate(yesterday.getDate() - 1)
-    return yesterday.toISOString().slice(0, 10)
+    target.setDate(target.getDate() - 1)
   }
-  return now.toISOString().slice(0, 10)
+  return formatLocalDate(target)
 }
