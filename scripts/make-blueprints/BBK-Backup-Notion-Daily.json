@@ -1,0 +1,43 @@
+{
+  "name": "BBK-Backup-Notion-Daily",
+  "flow": [
+    {
+      "id": 1,
+      "module": "http:ActionSendData",
+      "version": 3,
+      "parameters": {
+        "handleErrors": false
+      },
+      "mapper": {
+        "url": "https://bbk-app.vercel.app/api/admin/backup/notion",
+        "method": "post",
+        "headers": [
+          {"name": "Authorization", "value": "Bearer BBK_CRON_2024_xK9mPqR3vLwZnYeA"},
+          {"name": "Content-Type", "value": "application/json"}
+        ],
+        "bodyType": "raw",
+        "contentType": "application/json",
+        "data": "{}"
+      }
+    }
+  ],
+  "metadata": {
+    "version": 1,
+    "scenario": {
+      "roundtrips": 1,
+      "maxErrors": 3,
+      "autoCommit": true,
+      "autoCommitTriggerLast": true,
+      "sequential": false,
+      "slots": null,
+      "confidential": false,
+      "dlt": false,
+      "dlq": false,
+      "freshVariables": false
+    },
+    "designer": {
+      "orphans": []
+    },
+    "zone": "eu1.make.com"
+  }
+}
