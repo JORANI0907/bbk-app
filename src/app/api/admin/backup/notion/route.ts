@@ -174,9 +174,25 @@ export async function POST(request: NextRequest) {
 
   if (!customersDbId || !applicationsDbId || !schedulesDbId || !workersDbId || !logDbId) {
     return NextResponse.json(
-      { error: 'Notion DB ID 환경변수가 설정되지 않았습니다.' },
+      {
+        error: 'Notion DB ID 환경변수가 설정되지 않았습니다.',
+        debug: {
+          customersDbId: customersDbId ?? 'undefined',
+          applicationsDbId: applicationsDbId ?? 'undefined',
+          schedulesDbId: schedulesDbId ?? 'undefined',
+          workersDbId: workersDbId ?? 'undefined',
+          logDbId: logDbId ?? 'undefined',
+        },
+      },
       { status: 503 },
     )
+  }
+
+  // 디버그: 환경변수 값 첫 8자 확인
+  const dbIdDebug = {
+    customersDbId: customersDbId.slice(0, 8),
+    applicationsDbId: applicationsDbId.slice(0, 8),
+    notionApiKeyPrefix: notionApiKey.slice(0, 10),
   }
 
   const supabase = createServiceClient()
@@ -231,5 +247,6 @@ export async function POST(request: NextRequest) {
     success: true,
     results,
     totalDurationMs,
+    debug: dbIdDebug,
   })
 }
