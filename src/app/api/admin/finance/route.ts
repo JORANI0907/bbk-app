@@ -28,6 +28,7 @@ export async function GET(request: NextRequest) {
       .lt('construction_date', nextMonth)
       .not('supply_amount', 'is', null)
       .neq('service_type', '정기엔드케어')
+      .is('deleted_at', null)
       .order('construction_date'),
 
     // 인건비: 해당 월 payroll_records
@@ -59,7 +60,8 @@ export async function GET(request: NextRequest) {
       .select('id, business_name, billing_amount, payment_method')
       .eq('customer_type', '정기엔드케어')
       .filter('payment_status', 'cs', `["${monthLabel}"]`)
-      .not('billing_amount', 'is', null),
+      .not('billing_amount', 'is', null)
+      .is('deleted_at', null),
   ])
 
   if (appsRes.error) return NextResponse.json({ error: appsRes.error.message }, { status: 500 })

@@ -133,6 +133,7 @@ export async function POST(request: NextRequest) {
       .from('customers')
       .select('*')
       .eq('id', customer_id)
+      .is('deleted_at', null)
       .single()
 
     if (!customer) {

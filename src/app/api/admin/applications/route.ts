@@ -12,6 +12,7 @@ export async function GET(request: NextRequest) {
   let query = supabase
     .from('service_applications')
     .select('*, customer:customers(drive_folder_url)')
+    .is('deleted_at', null)
     .order('created_at', { ascending: false })
 
   if (status) {
@@ -174,6 +175,7 @@ export async function PATCH(request: NextRequest) {
             .from('customers')
             .select('id, unit_price, customer_type')
             .or(`contact_phone.eq.${normalizedPhone},contact_phone.eq.${app.phone ?? ''}`)
+            .is('deleted_at', null)
             .limit(1)
             .single()
 
@@ -182,6 +184,7 @@ export async function PATCH(request: NextRequest) {
                 .from('customers')
                 .select('id, unit_price, customer_type')
                 .eq('business_name', app.business_name)
+                .is('deleted_at', null)
                 .limit(1)
                 .single()
             : { data: null }
@@ -244,15 +247,23 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ error: 'id가 필요합니다.' }, { status: 400 })
   }
 
-  // 연결된 사진 먼저 삭제 (service_schedules는 FK SET NULL으로 자동 처리)
-  await supabase.from('application_photos').delete().eq('application_id', id)
+  const now = new Date().toISOString()
 
+  // 신청서 소프트 삭제
   const { error } = await supabase
     .from('service_applications')
-    .delete()
+    .update({ deleted_at: now })
     .eq('id', id)
+    .is('deleted_at', null)
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  // 연결된 service_schedules도 cascade 소프트 삭제
+  await supabase
+    .from('service_schedules')
+    .update({ deleted_at: now })
+    .eq('application_id', id)
+    .is('deleted_at', null)
 
   return NextResponse.json({ success: true })
 }

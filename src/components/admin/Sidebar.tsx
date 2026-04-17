@@ -121,6 +121,7 @@ const NAV_ITEMS: NavItem[] = [
       { href: '/admin/marketing/roi', label: 'ROI 성과' },
     ],
   },
+  { type: 'leaf', href: '/admin/trash', label: '휴지통', icon: '🗑️', roles: ['admin'] },
 ]
 
 // ─── Props ────────────────────────────────────────────────────

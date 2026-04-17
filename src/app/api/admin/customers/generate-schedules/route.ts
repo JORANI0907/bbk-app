@@ -75,6 +75,7 @@ export async function POST(request: NextRequest) {
       'id, business_name, contact_name, contact_phone, email, address, payment_method, business_hours_start, business_hours_end, elevator, building_access, parking_info, access_method, special_notes, care_scope, customer_type, visit_schedule_type, visit_weekdays, visit_monthly_dates, unit_price'
     )
     .in('id', customer_ids)
+    .is('deleted_at', null)
 
   if (fetchError) {
     return NextResponse.json({ error: fetchError.message }, { status: 500 })
@@ -113,6 +114,7 @@ export async function POST(request: NextRequest) {
       .select('construction_date')
       .eq('business_name', customer.business_name)
       .in('construction_date', scheduledDates)
+      .is('deleted_at', null)
 
     const existingDates = new Set((existingApps ?? []).map((a: { construction_date: string | null }) => a.construction_date))
     const newDates = scheduledDates.filter(d => !existingDates.has(d))

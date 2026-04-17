@@ -76,6 +76,7 @@ export async function GET(request: NextRequest) {
     .in('customer_type', ['정기딥케어', '정기엔드케어'])
     .eq('status', 'active')
     .not('visit_schedule_type', 'is', null)
+    .is('deleted_at', null)
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
@@ -112,6 +113,7 @@ export async function GET(request: NextRequest) {
         .select('construction_date')
         .eq('business_name', customer.business_name)
         .in('construction_date', dates)
+        .is('deleted_at', null)
 
       const existingAppDates = new Set(
         (existingApps ?? []).map((a: { construction_date: string | null }) => a.construction_date)

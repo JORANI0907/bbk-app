@@ -35,6 +35,7 @@ export async function GET(request: NextRequest) {
     .from('service_applications')
     .select('id, construction_date, business_hours_start, care_scope, service_type, business_name, owner_name, address, phone, assigned_to, status')
     .eq('construction_date', date)
+    .is('deleted_at', null)
     .order('business_hours_start', { ascending: true, nullsFirst: false })
 
   if (session.role === 'worker') {
@@ -84,6 +85,7 @@ export async function POST(request: NextRequest) {
       .from('customers')
       .select('id')
       .eq('contact_phone', contact_phone ?? '')
+      .is('deleted_at', null)
       .single()
 
     if (existingCustomer) {

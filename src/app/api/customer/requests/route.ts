@@ -8,6 +8,7 @@ async function getCustomerId(userId: string) {
     .from('customers')
     .select('id')
     .eq('user_id', userId)
+    .is('deleted_at', null)
     .single()
   return data?.id ?? null
 }

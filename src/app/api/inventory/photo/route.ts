@@ -30,11 +30,14 @@ export async function POST(request: NextRequest) {
   }
 
   const typeLabel = TX_LABEL[txType] ?? txType
-  const workerName = session.name ?? '직원'
-  const ext = file.name.split('.').pop() ?? 'jpg'
-  // 공백/특수문자 → 언더스코어 치환 (Supabase Storage key 규칙 준수)
-  const sanitize = (s: string) => s.replace(/[^a-zA-Z0-9가-힣ㄱ-ㅎㅏ-ㅣ._-]/g, '_')
-  const fileName = `${sanitize(txType)}/${sanitize(itemName)}_${sanitize(workerName)}_${Date.now()}.${ext}`
+  // Supabase Storage 키는 ASCII만 허용 (한글 등 비ASCII → Invalid key 에러)
+  // 품목명/작업자명은 DB transaction 레코드에 별도 저장되므로 파일 경로에는 포함 안 함.
+  const rawExt = file.name.split('.').pop() ?? 'jpg'
+  const ext = rawExt.toLowerCase().replace(/[^a-z0-9]/g, '') || 'jpg'
+  const safeType = /^[a-zA-Z0-9_-]+$/.test(txType) ? txType : 'other'
+  const rand = Math.random().toString(36).slice(2, 10)
+  const fileName = `${safeType}/${Date.now()}_${rand}.${ext}`
+  void itemName  // item_name은 DB에 기록 (Storage key에는 포함 안 함)
 
   try {
     const supabase = createServiceClient()

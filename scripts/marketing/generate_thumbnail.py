@@ -63,6 +63,35 @@ ITEM_SEARCH_QUERIES = {
 ITEM_SEARCH_DEFAULT = 'professional cleaning service commercial'
 
 
+# ─── 캐릭터 포즈 매핑 (Nano Banana image-to-image) ───────────────────────────
+CHAR_POSE_MAP = {
+    '후드':   'reaching upward with both hands holding a cleaning brush, scrubbing a kitchen hood overhead, dynamic action pose',
+    '주방':   'holding cleaning supplies (spray bottle and cloth) with both hands, standing confidently',
+    '바닥':   'kneeling down with a mop, wiping a tiled floor, side profile',
+    '에어컨': 'holding an air conditioner filter in one hand, inspecting it with focused expression',
+    '욕실':   'holding a foam scrubbing brush, crouching slightly as if cleaning tile',
+    '유리':   'holding a window squeegee with both hands, wiping a large glass surface',
+    '덕트':   'holding an inspection tool, looking upward as if checking ventilation duct',
+    '냉장고': 'opening a refrigerator door with one hand, cleaning cloth in the other',
+    '외벽':   'holding a pressure washer nozzle, spraying an exterior wall',
+    '화장실': 'holding a toilet cleaning wand, standing near a stall with professional posture',
+}
+CHAR_POSE_DEFAULT = 'standing confidently with cleaning supplies, friendly waving pose'
+
+# ─── 캐릭터 의상 매핑 (color 테마) ────────────────────────────────────────────
+CHAR_OUTFIT_MAP = {
+    'yellow': 'blue work cap, white gloves, dark navy work uniform with bright yellow accent stripes on sleeves',
+    'red':    'blue work cap, white gloves, dark navy work uniform with red accent stripes on sleeves',
+    'pink':   'blue work cap, white gloves, dark navy work uniform with pink accent stripes on sleeves',
+    'cyan':   'blue work cap, white gloves, light blue work uniform with cyan accent stripes',
+    'white':  'blue work cap, white gloves, clean white work uniform with subtle blue trim',
+    'green':  'blue work cap, white gloves, dark navy work uniform with neon green accent stripes',
+}
+
+# Nano Banana (Gemini 2.5 Flash Image) 모델 이름
+NANO_BANANA_MODELS = ['gemini-2.5-flash-image', 'gemini-2.5-flash-image-preview']
+
+
 def load_env_key(key_name: str) -> str:
     env_path = Path(__file__).parents[2] / '.env.local'
     if env_path.exists():
@@ -111,6 +140,165 @@ def fetch_bg_from_gemini(item: str) -> str | None:
     if result:
         print(f'  bg: Gemini Imagen 생성 완료 ({item})')
     return result
+
+
+def call_nano_banana_edit(base_png_bytes: bytes, prompt: str) -> bytes | None:
+    """
+    Nano Banana (Gemini 2.5 Flash Image) image-to-image 편집.
+    베이스 PNG + 프롬프트 → 편집된 PNG bytes 반환.
+    실패 시 None.
+    """
+    api_key = load_env_key('GEMINI_API_KEY')
+    if not api_key:
+        return None
+
+    base_b64 = base64.b64encode(base_png_bytes).decode('utf-8')
+    body = {
+        'contents': [{
+            'parts': [
+                {'text': prompt},
+                {'inlineData': {'mimeType': 'image/png', 'data': base_b64}},
+            ]
+        }],
+        'generationConfig': {'responseModalities': ['IMAGE']},
+    }
+
+    for model in NANO_BANANA_MODELS:
+        url = f'https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}'
+        try:
+            resp = requests.post(url, json=body, timeout=90)
+            if resp.status_code == 404:
+                continue  # 다음 모델 시도
+            resp.raise_for_status()
+            data = resp.json()
+            parts = data.get('candidates', [{}])[0].get('content', {}).get('parts', [])
+            for part in parts:
+                inline = part.get('inlineData') or part.get('inline_data')
+                if inline and inline.get('data'):
+                    return base64.b64decode(inline['data'])
+            print(f'  warn: Nano Banana 응답에 이미지 없음 (model: {model})')
+            return None
+        except Exception as e:
+            print(f'  warn: Nano Banana 호출 실패 ({model}): {e}')
+            continue
+
+    return None
+
+
+def generate_character_with_pose(
+    char_name: str,
+    item: str,
+    color: str,
+    script_dir: Path,
+) -> str | None:
+    """
+    Nano Banana로 캐릭터 포즈·의상 동적 변형.
+    캐시 히트 시 재사용. 실패 시 기존 정적 방식으로 fallback.
+    """
+    # 베이스 키워드 정규화 ("후드청소" → "후드")
+    item_key = (item or '').replace('청소', '').strip()
+
+    # 1. 캐시 확인
+    cache_dir = script_dir / 'characters' / 'cache'
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    cache_name = f'{char_name}_{item_key or "default"}_{color}.png'
+    cache_path = cache_dir / cache_name
+    if cache_path.exists():
+        print(f'  char: 캐시 히트 ({cache_name})')
+        return image_to_data_url(str(cache_path))
+
+    # 2. 베이스 PNG 로드 + 크롭
+    char_rel = CHAR_FILES.get(char_name)
+    if not char_rel:
+        return None
+    char_path = script_dir / char_rel
+    if not char_path.exists():
+        print(f'  warn: 캐릭터 파일 없음: {char_path}')
+        return None
+
+    try:
+        from PIL import Image
+        import io
+        import rembg
+    except ImportError as e:
+        print(f'  warn: 라이브러리 부족 ({e}) - fallback')
+        return get_char_data_url(char_name, script_dir)
+
+    try:
+        img = Image.open(char_path).convert('RGBA')
+        w, h = img.size
+        crop = CHAR_CROP[char_name]
+        box = (int(w * crop[0]), int(h * crop[1]), int(w * crop[2]), int(h * crop[3]))
+        cropped = img.crop(box)
+
+        buf_base = io.BytesIO()
+        cropped.save(buf_base, format='PNG')
+        base_bytes = buf_base.getvalue()
+    except Exception as e:
+        print(f'  warn: 베이스 크롭 실패: {e}')
+        return get_char_data_url(char_name, script_dir)
+
+    # 3. 프롬프트 구성
+    pose   = CHAR_POSE_MAP.get(item_key, CHAR_POSE_DEFAULT)
+    outfit = CHAR_OUTFIT_MAP.get(color, CHAR_OUTFIT_MAP['yellow'])
+
+    prompt = (
+        f'Edit this character image. '
+        f'CRITICAL: Keep the EXACT same character design — same face, same body proportions, '
+        f'same art style, same color palette as the reference. Do not change the character identity. '
+        f'Change ONLY the pose and outfit as described below.\n\n'
+        f'New pose: {pose}.\n'
+        f'New outfit: {outfit}.\n\n'
+        f'Output: full body or 3/4 view, high quality commercial illustration, crisp clean edges, '
+        f'no text, no logo, no watermark, no other characters.\n\n'
+        f'TRANSPARENT BACKGROUND RULES (very important): '
+        f'The background must be completely transparent. '
+        f'The EMPTY SPACES between body parts (between arms and torso, between legs, '
+        f'between head and raised arms, between fingers) MUST also be fully transparent. '
+        f'Do NOT fill those gaps with any color, white, gray, or background — they must show through. '
+        f'Only the solid parts of the character (body, clothing, tools held) should be opaque. '
+        f'Use a checkerboard-style transparency for all negative space.'
+    )
+
+    # 4. Nano Banana 호출
+    print(f'  char: Nano Banana 편집 중 (pose: {item_key or "default"}, outfit: {color})...')
+    edited_bytes = call_nano_banana_edit(base_bytes, prompt)
+    if not edited_bytes:
+        print('  warn: Nano Banana 실패 - 정적 fallback')
+        return get_char_data_url(char_name, script_dir)
+
+    # 5. rembg로 배경 제거 (투명 배경 + 내부 hole 제거)
+    #   isnet-general-use: u2net보다 세밀한 엣지/hole 감지 우수
+    #   alpha_matting: 팔 사이, 손가락 사이 등 negative space 투명화
+    try:
+        session = rembg.new_session('isnet-general-use')
+        clean_bytes = rembg.remove(
+            edited_bytes,
+            session=session,
+            alpha_matting=True,
+            alpha_matting_foreground_threshold=240,
+            alpha_matting_background_threshold=20,
+            alpha_matting_erode_size=8,
+            post_process_mask=True,
+        )
+    except Exception as e:
+        print(f'  warn: rembg isnet 실패 ({e}) - u2net fallback')
+        try:
+            clean_bytes = rembg.remove(edited_bytes, post_process_mask=True)
+        except Exception as e2:
+            print(f'  warn: rembg 완전 실패 ({e2}) - 원본 사용')
+            clean_bytes = edited_bytes
+
+    # 6. 캐시 저장
+    try:
+        with open(cache_path, 'wb') as f:
+            f.write(clean_bytes)
+        print(f'  char: 캐시 저장 ({cache_name})')
+    except Exception as e:
+        print(f'  warn: 캐시 저장 실패: {e}')
+
+    b64 = base64.b64encode(clean_bytes).decode('utf-8')
+    return f'data:image/png;base64,{b64}'
 
 
 def get_char_data_url(char_name: str, script_dir: Path) -> str | None:
@@ -246,6 +434,8 @@ def build_html(title: str, sub: str, region: str, item: str,
     padding: 60px;
     display: flex; flex-direction: column; justify-content: space-between;
     align-items: center; text-align: center;
+    z-index: 2;
+    pointer-events: none;
   }}
   .top {{ display: flex; gap: 12px; }}
   .tag {{
@@ -297,12 +487,14 @@ def build_html(title: str, sub: str, region: str, item: str,
   .brand-accent {{ color: {accent_color}; }}
   .character {{
     position: absolute;
-    bottom: 0;
-    right: 30px;
-    height: 55%;
+    bottom: 60px;
+    right: 100px;
+    height: 52%;
+    max-width: 48%;
     object-fit: contain;
-    object-position: bottom;
+    object-position: right bottom;
     filter: drop-shadow(4px 4px 14px rgba(0,0,0,0.45));
+    z-index: 1;
   }}
 </style>
 </head>
@@ -371,11 +563,13 @@ def main() -> None:
 
     bg_data_url = image_to_data_url(bg_path) if bg_path else None
 
-    # 캐릭터 처리 (로컬 PNG 크롭 + rembg 배경 제거)
+    # 캐릭터 처리 (Nano Banana 동적 포즈/의상 → 실패 시 정적 fallback)
     char_data_url = None
     if args.char:
         script_dir = Path(__file__).parent
-        char_data_url = get_char_data_url(args.char, script_dir)
+        char_data_url = generate_character_with_pose(
+            args.char, args.item, args.color, script_dir
+        )
         if not char_data_url:
             print(f'  warn: 캐릭터 처리 실패 ({args.char})')
 

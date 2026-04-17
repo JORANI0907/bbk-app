@@ -89,6 +89,7 @@ export async function POST(request: NextRequest) {
     .select('id, owner_name, business_name, phone, balance, account_number, construction_date, status, service_type, notification_log')
     .in('status', UNPAID_STATUSES)
     .in('service_type', ['1회성케어', '정기딥케어'])
+    .is('deleted_at', null)
 
   for (const raw of (unpaidApps ?? [])) {
     const app = raw as AppRow
@@ -133,6 +134,7 @@ export async function POST(request: NextRequest) {
     .select('id, business_name, contact_name, contact_phone, billing_cycle, payment_date, payment_months, contract_end_date, billing_amount, account_number, customer_type')
     .eq('customer_type', '정기엔드케어')
     .eq('payment_date', todayDayNum)
+    .is('deleted_at', null)
 
   for (const raw of (endCareCustomers ?? [])) {
     const customer = raw as CustomerRow
@@ -165,6 +167,7 @@ export async function POST(request: NextRequest) {
     .eq('customer_type', '정기딥케어')
     .eq('billing_cycle', '연간')
     .not('contract_end_date', 'is', null)
+    .is('deleted_at', null)
 
   for (const raw of (yearlyCustomers ?? [])) {
     const customer = raw as CustomerRow

@@ -88,6 +88,7 @@ export async function GET() {
   const { data, error } = await supabase
     .from('customers')
     .select('id, business_name, contact_name, contact_phone, email, address, address_detail, business_number, account_number, platform_nickname, payment_method, elevator, building_access, access_method, business_hours_start, business_hours_end, door_password, parking_info, special_notes, care_scope, pipeline_status, customer_type, status, billing_cycle, billing_amount, billing_start_date, billing_next_date, contract_start_date, contract_end_date, unit_price, visit_interval_days, next_visit_date, visit_schedule_type, visit_weekdays, visit_monthly_dates, notes, rotation_type, visit_count_per_month, payment_status, payment_date, schedule_generation_day, assigned_user_id, assigned_worker_id, created_at, updated_at')
+    .is('deleted_at', null)
     .order('business_name', { ascending: true })
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
@@ -155,7 +156,23 @@ export async function DELETE(request: NextRequest) {
 
   if (!id) return NextResponse.json({ error: 'id가 필요합니다.' }, { status: 400 })
 
-  const { error } = await supabase.from('customers').delete().eq('id', id)
+  const now = new Date().toISOString()
+
+  // 고객 소프트 삭제
+  const { error } = await supabase
+    .from('customers')
+    .update({ deleted_at: now })
+    .eq('id', id)
+    .is('deleted_at', null)
+
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  // 연결된 service_schedules도 cascade 소프트 삭제
+  await supabase
+    .from('service_schedules')
+    .update({ deleted_at: now })
+    .eq('customer_id', id)
+    .is('deleted_at', null)
+
   return NextResponse.json({ success: true })
 }
