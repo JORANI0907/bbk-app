@@ -48,7 +48,10 @@ export async function POST(request: NextRequest) {
       })
 
     if (uploadError) {
-      return NextResponse.json({ error: `업로드 실패: ${uploadError.message}` }, { status: 500 })
+      return NextResponse.json({
+        error: `업로드 실패: ${uploadError.message}`,
+        statusCode: uploadError.statusCode ?? null,
+      }, { status: 500 })
     }
 
     const { data: { publicUrl } } = supabase.storage
