@@ -1015,17 +1015,6 @@ export default function AdminCustomersPage() {
                   <input value={form.access_method} onChange={e => set('access_method')(e.target.value)}
                     className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500" />
                 </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-gray-500 w-20 shrink-0">상세주소</span>
-                  <input value={form.address_detail} onChange={e => set('address_detail')(e.target.value)}
-                    className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-gray-500 w-20 shrink-0">출입번호</span>
-                  <input value={form.door_password} onChange={e => set('door_password')(e.target.value)}
-                    placeholder="도어락 비밀번호"
-                    className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                </div>
               </div>
             </div>
 
