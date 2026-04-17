@@ -1,25 +1,27 @@
 import { createServiceClient } from '@/lib/supabase/server'
 import { getServerSession } from '@/lib/session'
 import { redirect } from 'next/navigation'
-import { format } from 'date-fns'
-import { ko } from 'date-fns/locale'
 import { ServiceSchedule } from '@/types/database'
 import { WorkerScheduleListClient } from '@/components/worker/WorkerScheduleListClient'
 import { AdminScheduleMonitor } from '@/components/worker/AdminScheduleMonitor'
-import { todayKstString, kstNow } from '@/lib/kst'
+import { TodayLabel } from '@/components/worker/TodayLabel'
+import { todayKstString } from '@/lib/kst'
+
+// 캐시 완전 비활성화 (CDN이 옛날 날짜 HTML 서빙 방지)
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
 
 export default async function WorkerHomePage() {
   const session = getServerSession()
   if (!session || (session.role !== 'worker' && session.role !== 'admin')) redirect('/login')
 
   const today = todayKstString()
-  const todayLabel = format(kstNow(), 'M월 d일 (EEE)', { locale: ko })
 
   if (session.role === 'admin') {
     return (
       <div className="px-4 py-5">
         <div className="mb-5">
-          <p className="text-xs text-gray-400 font-medium mb-1">{todayLabel}</p>
+          <TodayLabel className="text-xs text-gray-400 font-medium mb-1 block" />
           <h1 className="text-xl font-bold text-gray-900">현장 진행 현황</h1>
           <p className="text-sm text-gray-500 mt-1">날짜별 전체 직원 현장 상태를 확인합니다.</p>
         </div>
@@ -54,7 +56,7 @@ export default async function WorkerHomePage() {
     <div className="px-4 py-5">
       {/* Greeting header */}
       <div className="mb-5 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-2xl p-5 text-white shadow-lg shadow-blue-200">
-        <p className="text-blue-200 text-xs font-medium mb-1">{todayLabel}</p>
+        <TodayLabel className="text-blue-200 text-xs font-medium mb-1 block" />
         <h1 className="text-lg font-bold leading-tight">
           {workerName ? `${workerName}님, 안녕하세요 👋` : '안녕하세요 👋'}
         </h1>
