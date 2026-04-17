@@ -162,10 +162,14 @@ export function notionNumber(val: unknown): { number: number | null } {
   return { number: isNaN(n) ? null : n }
 }
 
-/** Notion date property */
+/** Notion date property — ISO 8601 형식이 아닌 값은 null 처리 */
 export function notionDate(val: unknown): { date: { start: string } | null } {
-  if (!val) return { date: null }
-  return { date: { start: String(val) } }
+  if (val === null || val === undefined) return { date: null }
+  const s = String(val).trim()
+  if (!s) return { date: null }
+  // ISO 8601 날짜/시간 형식 검증 (YYYY-MM-DD 또는 YYYY-MM-DDTHH:MM:SS...)
+  if (!/^\d{4}-\d{2}-\d{2}/.test(s)) return { date: null }
+  return { date: { start: s } }
 }
 
 /** Notion checkbox property */
