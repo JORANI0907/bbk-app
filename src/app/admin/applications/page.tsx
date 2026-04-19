@@ -790,6 +790,30 @@ export default function ServiceManagementPage() {
     else toast.error(`${successCount}건 성공, ${failCount}건 실패`)
   }
 
+  const handleTaxInvoiceBulk = async () => {
+    if (checkedIds.length === 0) return
+    if (!confirm(`선택한 ${checkedIds.length}건으로 세금계산서 파일을 생성하시겠습니까?`)) return
+    setBulkSaving(true)
+    try {
+      const res = await fetch('/api/admin/tax-invoice-manual', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ application_ids: checkedIds }),
+      })
+      const json = await res.json()
+      if (!res.ok) {
+        toast.error(json.error || '발행 요청 실패')
+        return
+      }
+      toast.success(`${json.count}건 발행 요청 완료 — 구글드라이브 폴더에 파일이 생성됩니다.`)
+      setCheckedIds([])
+    } catch {
+      toast.error('네트워크 오류가 발생했습니다.')
+    } finally {
+      setBulkSaving(false)
+    }
+  }
+
   const handleDeleteApplication = async () => {
     if (!selected) return
     if (!confirm(`"${selected.business_name}" 신청서를 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.`)) return
@@ -1349,6 +1373,10 @@ export default function ServiceManagementPage() {
               <button onClick={handleDeleteApplicationBulk} disabled={bulkSaving}
                 className="text-xs bg-red-500 hover:bg-red-400 text-white font-semibold px-3 py-1.5 rounded-lg disabled:opacity-50 transition-colors whitespace-nowrap">
                 삭제
+              </button>
+              <button onClick={handleTaxInvoiceBulk} disabled={bulkSaving}
+                className="text-xs bg-teal-500 hover:bg-teal-400 text-white font-semibold px-3 py-1.5 rounded-lg disabled:opacity-50 transition-colors whitespace-nowrap">
+                {bulkSaving ? '처리 중...' : '계산서 작성'}
               </button>
               <button onClick={handleSaveToCustomerBulk} disabled={bulkSaving}
                 className="text-xs bg-white text-green-700 font-semibold px-3 py-1.5 rounded-lg hover:bg-green-50 disabled:opacity-50 transition-colors whitespace-nowrap">
