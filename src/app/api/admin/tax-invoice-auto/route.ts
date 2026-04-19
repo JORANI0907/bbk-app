@@ -70,6 +70,7 @@ async function handler(request: NextRequest) {
     `)
     .in('status', TARGET_STATUSES)
     .in('payment_method', TARGET_PAYMENT_METHODS)
+    .gt('supply_amount', 0) // 공급가액 0원 제외 (의미없는 발행 방지)
     .order('construction_date', { ascending: true })
 
   if (error) {
