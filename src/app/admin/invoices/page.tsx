@@ -13,15 +13,20 @@ interface TaxInvoiceTarget {
   공급자주소: string
   공급자업태: string
   공급자종목: string
+  공급자이메일: string
   공급받는자등록번호: string
   공급받는자상호: string
   공급받는자대표자: string
-  작성일자: string
+  공급받는자주소: string
+  공급받는자이메일: string
   공급가액: number
   세액: number
-  품목: string
-  수량: number
-  단가: number
+  공급가액1: number
+  세액1: number
+  계산서종류: string
+  작성일자: string
+  일자1: string
+  영수청구구분: string
 }
 
 interface InvoiceLog {
@@ -70,14 +75,18 @@ function monthLabel(ym: string) {
 
 function exportTaxInvoiceCSV(targets: TaxInvoiceTarget[]) {
   const headers = [
-    '공급자등록번호', '공급자상호', '공급자대표자', '공급자주소',
-    '공급자업태', '공급자종목', '공급받는자등록번호', '공급받는자상호',
-    '공급받는자대표자', '작성일자', '공급가액', '세액', '품목', '수량', '단가',
+    '계산서종류', '작성일자', '공급자등록번호', '공급자상호', '공급자대표자',
+    '공급자주소', '공급자업태', '공급자종목', '공급자이메일',
+    '공급받는자등록번호', '공급받는자상호', '공급받는자대표자',
+    '공급받는자주소', '공급받는자이메일',
+    '공급가액', '세액', '공급가액1', '세액1', '일자1', '영수청구구분',
   ]
   const rows = targets.map(t => [
-    t.공급자등록번호, t.공급자상호, t.공급자대표자, t.공급자주소,
-    t.공급자업태, t.공급자종목, t.공급받는자등록번호, t.공급받는자상호,
-    t.공급받는자대표자, t.작성일자, t.공급가액, t.세액, t.품목, t.수량, t.단가,
+    t.계산서종류, t.작성일자, t.공급자등록번호, t.공급자상호, t.공급자대표자,
+    t.공급자주소, t.공급자업태, t.공급자종목, t.공급자이메일,
+    t.공급받는자등록번호, t.공급받는자상호, t.공급받는자대표자,
+    t.공급받는자주소, t.공급받는자이메일,
+    t.공급가액, t.세액, t.공급가액1, t.세액1, t.일자1, t.영수청구구분,
   ])
   const csvContent = [headers, ...rows]
     .map(row => row.map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(','))
@@ -106,7 +115,7 @@ export default function InvoicesPage() {
 
   // 세금계산서 자동화
   const [taxTargets, setTaxTargets] = useState<TaxInvoiceTarget[]>([])
-  const [taxPeriod, setTaxPeriod] = useState<{ from: string; to: string } | null>(null)
+  const [taxToday, setTaxToday] = useState<string | null>(null)
   const [taxLoading, setTaxLoading] = useState(false)
   const [taxChecked, setTaxChecked] = useState(false)
 
@@ -117,7 +126,7 @@ export default function InvoicesPage() {
       const json = await res.json()
       if (!res.ok) { toast.error(json.error || '조회 실패'); return }
       setTaxTargets(json.targets ?? [])
-      setTaxPeriod(json.period ?? null)
+      setTaxToday(json.today ?? null)
       setTaxChecked(true)
     } catch {
       toast.error('네트워크 오류가 발생했습니다.')
@@ -206,7 +215,7 @@ export default function InvoicesPage() {
             <div>
               <p className="text-sm font-bold text-amber-800">세금계산서 자동화 대상</p>
               <p className="text-xs text-amber-600 mt-0.5">
-                매주 토요일 자동 실행 예정 — 지난주 토~이번주 토 완료건 중 계산서 결제 대상
+                매주 토 13:00 Make 자동 실행 — 상태: 결제완료 / 결제완료(잔금) + 결제방법: 현금(계산서 희망)/(계산서)
               </p>
             </div>
             <button
@@ -220,9 +229,9 @@ export default function InvoicesPage() {
 
           {taxChecked && (
             <>
-              {taxPeriod && (
+              {taxToday && (
                 <p className="text-xs text-amber-700 mb-2">
-                  조회 기간: {taxPeriod.from} ~ {taxPeriod.to} | 총 {taxTargets.length}건
+                  작성일자: {taxToday} | 총 {taxTargets.length}건
                 </p>
               )}
               {taxTargets.length === 0 ? (
