@@ -91,6 +91,75 @@ CHAR_OUTFIT_MAP = {
 # Nano Banana (Gemini 2.5 Flash Image) 모델 이름
 NANO_BANANA_MODELS = ['gemini-2.5-flash-image', 'gemini-2.5-flash-image-preview']
 
+# ─── 라이프스타일 씬 매핑 (scene_key → pose + outfit) ────────────────────────
+# 청소 아닌 일상 씬. 인스타 라이프스타일 카테고리용.
+CHAR_SCENE_MAP = {
+    'cafe_morning': (
+        'sitting by a cozy cafe window, holding a warm latte cup with both hands, '
+        'soft morning sunlight through the window, relaxed and thoughtful expression',
+        'beige oversized cardigan over a white tee, casual autumn look',
+    ),
+    'reading_night': (
+        'reading a hardcover book on a comfortable sofa, side profile, '
+        'warm table lamp glow, calm and focused expression',
+        'navy knit sweater, cozy at-home look',
+    ),
+    'park_walk': (
+        'walking slowly through a park with autumn leaves, holding a takeaway coffee cup, '
+        'gentle smile, natural daylight',
+        'long beige trench coat, cream scarf, autumn tones',
+    ),
+    'home_cooking': (
+        'stirring a pot on a stovetop with a wooden spoon, steam rising, '
+        'happy focused expression, kitchen apron',
+        'striped apron over a simple t-shirt, sleeves rolled up',
+    ),
+    'beach_sunset': (
+        'sitting on sand watching sunset over the ocean, relaxed pose, bare feet, '
+        'soft golden hour lighting',
+        'white linen shirt, rolled-up shorts, straw hat',
+    ),
+    'workspace_laptop': (
+        'working on a laptop at a minimal desk, thoughtful expression, '
+        'a small plant and coffee cup on the side, natural window light',
+        'soft grey sweater, minimalist clean look',
+    ),
+    'bookstore_browse': (
+        'standing in a cozy bookstore aisle, browsing a book with gentle curiosity, '
+        'warm indoor lighting, shelves of books in background',
+        'wool coat over turtleneck, autumn library vibe',
+    ),
+    'morning_stretch': (
+        'stretching arms up by a bright bedroom window, peaceful smile, '
+        'soft morning light, slow lifestyle mood',
+        'oversized white pajamas, relaxed loungewear',
+    ),
+    'rain_cafe': (
+        'seated at a window seat of a cafe watching rain outside, '
+        'holding a warm mug, quiet contemplative mood, soft reflections',
+        'oversized hoodie in muted tone, cozy rainy-day outfit',
+    ),
+    'weekend_brunch': (
+        'at a brunch table with a plate of pancakes and coffee, happy about to take a bite, '
+        'natural daylight, modern cafe setting',
+        'soft pastel knit top, casual weekend style',
+    ),
+}
+
+# 씬별 배경 검색 프롬프트 (Imagen 4용, 캐릭터 포즈와 조화)
+SCENE_BG_MAP = {
+    'cafe_morning':     'cozy cafe interior with window seat, morning sunlight, warm wood tones, empty seat, no people',
+    'reading_night':    'warm cozy living room at night, soft table lamp, bookshelf background, empty sofa, no people',
+    'park_walk':        'autumn park pathway with golden leaves, soft natural light, no people in frame',
+    'home_cooking':     'modern kitchen interior with stovetop, warm bright lighting, clean countertops, no people',
+    'beach_sunset':     'quiet beach with golden sunset sky, calm ocean waves, empty sand, no people',
+    'workspace_laptop': 'minimal work desk with plant and coffee cup near window, natural light, no people',
+    'bookstore_browse': 'cozy bookstore interior with wooden bookshelves, warm lighting, empty aisle, no people',
+    'morning_stretch':  'bright minimalist bedroom with large window, soft curtains, morning sunlight, empty frame',
+    'rain_cafe':        'cafe window view with rain streaks on glass, reflective surfaces, warm interior, empty seat',
+    'weekend_brunch':   'modern bright cafe brunch setting, wooden table, empty chair, natural daylight, no people',
+}
+
 
 def load_env_key(key_name: str) -> str:
     env_path = Path(__file__).parents[2] / '.env.local'
@@ -130,8 +199,12 @@ def call_gemini_imagen(prompt: str, aspect: str = '1:1') -> str | None:
         return None
 
 
-def fetch_bg_from_gemini(item: str) -> str | None:
-    query = ITEM_SEARCH_QUERIES.get(item, ITEM_SEARCH_DEFAULT)
+def fetch_bg_from_gemini(item: str, scene: str = '') -> str | None:
+    # scene 우선: 라이프스타일 씬 배경
+    if scene and scene in SCENE_BG_MAP:
+        query = SCENE_BG_MAP[scene]
+    else:
+        query = ITEM_SEARCH_QUERIES.get(item, ITEM_SEARCH_DEFAULT)
     prompt = (
         f'{query}, professional photo, high quality, bright natural lighting, '
         f'clean commercial environment, Korea, no people, no text, photorealistic'
@@ -190,13 +263,20 @@ def generate_character_with_pose(
     item: str,
     color: str,
     script_dir: Path,
+    scene: str = '',
 ) -> str | None:
     """
     Nano Banana로 캐릭터 포즈·의상 동적 변형.
+    scene 우선: 라이프스타일 씬(CHAR_SCENE_MAP)이 주어지면 item 매핑 무시.
     캐시 히트 시 재사용. 실패 시 기존 정적 방식으로 fallback.
     """
-    # 베이스 키워드 정규화 ("후드청소" → "후드")
-    item_key = (item or '').replace('청소', '').strip()
+    # scene 모드면 item 무시, scene_key를 캐시 키로 사용
+    scene_mode = bool(scene and scene in CHAR_SCENE_MAP)
+    if scene_mode:
+        item_key = f'scene-{scene}'
+    else:
+        # 베이스 키워드 정규화 ("후드청소" → "후드")
+        item_key = (item or '').replace('청소', '').strip()
 
     # 1. 캐시 확인
     cache_dir = script_dir / 'characters' / 'cache'
@@ -239,8 +319,13 @@ def generate_character_with_pose(
         return get_char_data_url(char_name, script_dir)
 
     # 3. 프롬프트 구성
-    pose   = CHAR_POSE_MAP.get(item_key, CHAR_POSE_DEFAULT)
-    outfit = CHAR_OUTFIT_MAP.get(color, CHAR_OUTFIT_MAP['yellow'])
+    if scene_mode:
+        scene_pose, scene_outfit = CHAR_SCENE_MAP[scene]
+        pose   = scene_pose
+        outfit = scene_outfit
+    else:
+        pose   = CHAR_POSE_MAP.get(item_key, CHAR_POSE_DEFAULT)
+        outfit = CHAR_OUTFIT_MAP.get(color, CHAR_OUTFIT_MAP['yellow'])
 
     prompt = (
         f'Edit this character image. '
@@ -538,6 +623,7 @@ def main() -> None:
     parser.add_argument('--char',   default='',    choices=['', '라니', '둥이', '조라니'], help='캐릭터')
     parser.add_argument('--style',  default='bold', choices=['bold', 'vintage', 'scatter', 'clean'])
     parser.add_argument('--color',  default='yellow', choices=list(ACCENT_COLORS.keys()))
+    parser.add_argument('--scene',  default='',    choices=[''] + list(CHAR_SCENE_MAP.keys()), help='라이프스타일 씬 (item 무시)')
     parser.add_argument('--out',    default='thumbnails', help='출력 디렉토리')
     args = parser.parse_args()
 
@@ -554,7 +640,7 @@ def main() -> None:
     bg_path = args.bg
     if bg_path == 'auto':
         key = args.item or args.title.split()[0]
-        result = fetch_bg_from_gemini(key) or fetch_bg_from_pexels(key)
+        result = fetch_bg_from_gemini(key, scene=args.scene) or fetch_bg_from_pexels(key)
         if not result:
             print('  warn: 배경 생성 실패 - 플레이스홀더 사용')
         bg_path = result or ''
@@ -568,7 +654,7 @@ def main() -> None:
     if args.char:
         script_dir = Path(__file__).parent
         char_data_url = generate_character_with_pose(
-            args.char, args.item, args.color, script_dir
+            args.char, args.item, args.color, script_dir, scene=args.scene
         )
         if not char_data_url:
             print(f'  warn: 캐릭터 처리 실패 ({args.char})')

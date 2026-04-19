@@ -21,7 +21,7 @@ export const AGENT_CONFIG = {
     textClass: 'text-blue-700',
     badgeClass: 'bg-blue-100 text-blue-700',
     dotClass: 'bg-blue-400',
-    contentTypes: ['blog', 'insta'],
+    contentTypes: ['blog', 'insta', 'insta_tips', 'insta_service', 'insta_lifestyle', 'insta_beforeafter', 'insta_event'],
   },
   DSN: {
     icon: '🎨',

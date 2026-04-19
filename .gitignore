@@ -39,3 +39,10 @@ next-env.d.ts
 .env*.local
 .env.check.production
 .env.vercel.production
+
+# Python
+__pycache__/
+*.pyc
+
+# Marketing cache
+scripts/marketing/characters/cache/

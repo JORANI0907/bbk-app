@@ -88,7 +88,7 @@ export default function ContentHistoryPage() {
         </div>
         {/* 타입 필터 */}
         <div className="flex flex-wrap gap-1.5">
-          {['all', 'blog', 'insta', 'image_prompt', 'weekly_calendar', 'monthly_report', 'keyword_strategy'].map(t => (
+          {['all', 'blog', 'insta', 'insta_tips', 'insta_service', 'insta_lifestyle', 'insta_beforeafter', 'insta_event', 'thumbnail', 'image_prompt', 'weekly_calendar', 'monthly_report', 'keyword_strategy'].map(t => (
             <button key={t} onClick={() => setTypeFilter(t)}
               className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${typeFilter === t ? 'bg-brand-600 text-white' : 'bg-white border border-gray-200 text-gray-600 hover:border-brand-300'}`}>
               {t === 'all' ? '전체 타입' : `${CONTENT_TYPE_META[t]?.icon ?? ''} ${CONTENT_TYPE_META[t]?.label ?? t}`}
