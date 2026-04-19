@@ -19,15 +19,23 @@ const TARGET_PAYMENT_METHODS = ['현금(계산서 희망)', '현금(계산서)']
 
 const CRON_SECRET = process.env.CRON_SECRET
 
-// ── KST 오늘 날짜 ────────────────────────────────────────────────
-function getKSTToday(): { yyyymmdd: string; ddQuoted: string } {
-  const nowKST = new Date(Date.now() + 9 * 60 * 60 * 1000)
-  const y = nowKST.getUTCFullYear()
-  const m = String(nowKST.getUTCMonth() + 1).padStart(2, '0')
-  const d = String(nowKST.getUTCDate()).padStart(2, '0')
+// ── 작성일자 계산 (기본: KST 오늘, override 가능: ?today=YYYY-MM-DD) ─
+function getTargetDate(overrideYmd: string | null): { yyyymmdd: string; ddQuoted: string } {
+  let y: number, m: number, d: number
+  if (overrideYmd && /^\d{4}-\d{2}-\d{2}$/.test(overrideYmd)) {
+    const parts = overrideYmd.split('-').map(Number)
+    y = parts[0]; m = parts[1]; d = parts[2]
+  } else {
+    const nowKST = new Date(Date.now() + 9 * 60 * 60 * 1000)
+    y = nowKST.getUTCFullYear()
+    m = nowKST.getUTCMonth() + 1
+    d = nowKST.getUTCDate()
+  }
+  const mm = String(m).padStart(2, '0')
+  const dd = String(d).padStart(2, '0')
   return {
-    yyyymmdd: `${y}${m}${d}`,
-    ddQuoted: `'${d}`, // 선행 '  → 구글시트에서 "01" 이 "1"로 변환되는 것 방지
+    yyyymmdd: `${y}${mm}${dd}`,
+    ddQuoted: `'${dd}`, // 선행 '  → 구글시트에서 "01" 이 "1"로 변환되는 것 방지
   }
 }
 
@@ -68,7 +76,8 @@ async function handler(request: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
-  const { yyyymmdd, ddQuoted } = getKSTToday()
+  const todayOverride = new URL(request.url).searchParams.get('today')
+  const { yyyymmdd, ddQuoted } = getTargetDate(todayOverride)
 
   const targets = (data ?? []).map(row => {
     const supply = row.supply_amount ?? 0
