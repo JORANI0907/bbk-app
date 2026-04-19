@@ -153,6 +153,7 @@ export async function GET(request: NextRequest) {
   const results: { type: string; sent: number; failed: number; skipped: number }[] = []
 
   // ── 1. 예약1일전알림: 내일 시공 + 예약확정 + 담당자 배정 ──────────
+  //     정기엔드케어는 예약당일 알림만 발송 (1일전/결제 제외)
   {
     const { data: apps } = await supabase
       .from('service_applications')
@@ -160,6 +161,7 @@ export async function GET(request: NextRequest) {
       .eq('status', '예약확정')
       .eq('construction_date', tomorrowKST)
       .not('assigned_to', 'is', null)
+      .neq('service_type', '정기엔드케어')
 
     let sent = 0, failed = 0, skipped = 0
     for (const app of (apps ?? [])) {
@@ -201,11 +203,13 @@ export async function GET(request: NextRequest) {
   }
 
   // ── 3. 결제알림: 작업완료(딥/엔드) + 결제알림 미발송 ─────────────
+  //     정기엔드케어는 결제알림 발송 제외
   {
     const { data: apps } = await supabase
       .from('service_applications')
       .select('*')
       .in('status', ['작업완료', '작업완료(엔드)'])
+      .neq('service_type', '정기엔드케어')
 
     let sent = 0, failed = 0, skipped = 0
     for (const app of (apps ?? [])) {
