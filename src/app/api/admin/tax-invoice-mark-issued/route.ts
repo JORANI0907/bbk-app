@@ -48,8 +48,8 @@ export async function POST(request: NextRequest) {
       .insert({
         issued_at: issuedAt,
         count: updatedIds.length,
+        spreadsheet_id: body.spreadsheet_id ?? null,
         file_url: body.file_url ?? null,
-        notes: body.notes ?? '자동 발행 (Make)',
         application_ids: updatedIds,
         issued_by: null,
       })
