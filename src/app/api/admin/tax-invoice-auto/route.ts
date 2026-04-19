@@ -53,7 +53,13 @@ async function handler(request: NextRequest) {
 
   const supabase = createServiceClient()
 
-  const { data, error } = await supabase
+  // ids=<uuid,uuid,...>  수동 발행용 — 지정 항목만 조회 (상태/결제방법/0원 필터 건너뜀)
+  const idsParam = new URL(request.url).searchParams.get('ids')
+  const idsOverride = idsParam
+    ? idsParam.split(',').map(s => s.trim()).filter(Boolean)
+    : null
+
+  let query = supabase
     .from('service_applications')
     .select(`
       id,
@@ -68,10 +74,17 @@ async function handler(request: NextRequest) {
       construction_date,
       status
     `)
-    .in('status', TARGET_STATUSES)
-    .in('payment_method', TARGET_PAYMENT_METHODS)
-    .gt('supply_amount', 0) // 공급가액 0원 제외 (의미없는 발행 방지)
-    .order('construction_date', { ascending: true })
+
+  if (idsOverride && idsOverride.length > 0) {
+    query = query.in('id', idsOverride)
+  } else {
+    query = query
+      .in('status', TARGET_STATUSES)
+      .in('payment_method', TARGET_PAYMENT_METHODS)
+      .gt('supply_amount', 0) // 공급가액 0원 제외 (의미없는 발행 방지)
+  }
+
+  const { data, error } = await query.order('construction_date', { ascending: true })
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 })
