@@ -40,19 +40,23 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
-  // invoice_logs 에도 기록 (감사용)
+  // invoice_logs 에도 기록 (감사용) — 컬럼 모두 NOT NULL → 기본 빈값 사용
   const updatedIds = (data ?? []).map(r => r.id as string)
   if (updatedIds.length > 0) {
-    await supabase
+    const spreadsheetId: string = body.spreadsheet_id ?? ''
+    const logInsert = await supabase
       .from('invoice_logs')
       .insert({
         issued_at: issuedAt,
         count: updatedIds.length,
-        spreadsheet_id: body.spreadsheet_id ?? null,
-        file_url: body.file_url ?? null,
+        spreadsheet_id: spreadsheetId,
+        file_url: body.file_url ?? (spreadsheetId ? `https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit` : ''),
+        issued_by: session?.userId ?? 'make-auto',
         application_ids: updatedIds,
-        issued_by: null,
       })
+    if (logInsert.error) {
+      console.error('[tax-invoice-mark-issued] invoice_logs insert failed:', logInsert.error)
+    }
   }
 
   return NextResponse.json({
