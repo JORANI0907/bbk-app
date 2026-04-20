@@ -83,7 +83,7 @@ export async function POST(
     '{{시공일자}}':   construction_date || '',
     '{{공급가액}}':   fmtKr(supply_amount || 0),
     '{{부가세}}':     fmtKr(safeVat),
-    '{{총액}}':       fmtKr(total_amount || 0),
+    '{{공급대가}}':   fmtKr(total_amount || 0),
     '{{작성일자}}':   todayStr,
     '{{유효기간}}':   validUntilStr,
     '{{견적서번호}}': quoteNo,
