@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
   })()
 
   const [appsRes, payrollRes, fixedRes, variableRes, endCareRes] = await Promise.all([
-    // 매출: 해당 월 service_applications (정기엔드케어 제외)
+    // 매출: 해당 월 service_applications (정기엔드케어 및 미진행 상태 제외)
     supabase
       .from('service_applications')
       .select('id, business_name, supply_amount, vat, payment_method, service_type, construction_date')
@@ -28,6 +28,7 @@ export async function GET(request: NextRequest) {
       .lt('construction_date', nextMonth)
       .not('supply_amount', 'is', null)
       .neq('service_type', '정기엔드케어')
+      .not('status', 'in', '("신규","견적발송","방문견적","예약취소","예약금환급완료")')
       .is('deleted_at', null)
       .order('construction_date'),
 

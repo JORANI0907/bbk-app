@@ -1587,7 +1587,9 @@ export default function ServiceManagementPage() {
                   합계 <span className="text-gray-400 font-normal">({filteredApps.length}건)</span>
                 </span>
                 <span className="text-sm font-bold font-mono text-gray-800">
-                  {fmt(filteredApps.reduce((s, a) => s + rowTotal(a), 0))}
+                  {fmt(filteredApps
+                    .filter(a => !['신규','견적발송','방문견적','예약취소','예약금환급완료'].includes(a.status))
+                    .reduce((s, a) => s + rowTotal(a), 0))}
                   <span className="text-gray-500 font-normal text-xs">원</span>
                 </span>
               </div>
