@@ -11,9 +11,17 @@ interface PaymentPayload {
 }
 
 // 한국 은행 SMS에서 금액 추출
+// KB 등 일부 은행은 "613,536" 처럼 '원' 없이 마지막 줄에 금액만 옴
 function extractAmount(text: string): number | null {
-  const matches = Array.from(text.matchAll(/(\d{1,3}(?:,\d{3})*|\d+)\s*원/g))
-  for (const match of matches) {
+  // 1차: '원' 포함된 금액 (예: 613,536원)
+  const withWon = Array.from(text.matchAll(/(\d{1,3}(?:,\d{3})*|\d+)\s*원/g))
+  for (const match of withWon) {
+    const n = parseInt(match[1].replace(/,/g, ''), 10)
+    if (n >= 1_000 && n <= 30_000_000) return n
+  }
+  // 2차: '원' 없이 쉼표 포함된 숫자 (예: KB SMS 마지막 줄 "613,536")
+  const withComma = Array.from(text.matchAll(/(?<![0-9*])(\d{1,3}(?:,\d{3})+)(?![0-9원,])/g))
+  for (const match of withComma) {
     const n = parseInt(match[1].replace(/,/g, ''), 10)
     if (n >= 1_000 && n <= 30_000_000) return n
   }
