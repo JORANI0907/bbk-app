@@ -127,8 +127,12 @@ export async function POST(
       const valData = await valRes.json()
       const rows: string[][] = valData.values || []
 
-      // 4. {{변수}} 셀 찾아서 치환
+      // 4. {{변수}} 셀 찾아서 치환 + 항목 셀 위치 수집 (좌측 정렬용)
       const updates: { range: string; values: string[][] }[] = []
+      const matchedCount = careScopeItems.length
+      const itemCells: { rowIndex: number; colIndex: number }[] = []
+      const itemCellRe = /\{\{항목(\d+)\}\}/
+
       rows.forEach((row, rowIdx) => {
         row.forEach((cell, colIdx) => {
           let newVal = cell
@@ -137,6 +141,11 @@ export async function POST(
           }
           if (newVal !== cell) {
             updates.push({ range: `${sheetName}!${toColLetter(colIdx)}${rowIdx + 1}`, values: [[newVal]] })
+          }
+          // 매핑된 항목 셀 위치 기록 (좌측 정렬 적용 대상)
+          const m = cell.match(itemCellRe)
+          if (m && parseInt(m[1], 10) <= matchedCount) {
+            itemCells.push({ rowIndex: rowIdx, colIndex: colIdx })
           }
         })
       })
@@ -152,13 +161,36 @@ export async function POST(
         )
       }
 
-      // 4-1. 매핑되지 않은 {{항목N}} 행만 삭제 (matched 항목 행은 유지)
-      const matchedCount = careScopeItems.length
-      const itemPlaceholderRe = /\{\{항목(\d+)\}\}/
+      // 4-2. 항목 셀 좌측 정렬 적용
+      if (itemCells.length > 0) {
+        const alignRequests = itemCells.map(({ rowIndex, colIndex }) => ({
+          repeatCell: {
+            range: {
+              sheetId,
+              startRowIndex: rowIndex,
+              endRowIndex: rowIndex + 1,
+              startColumnIndex: colIndex,
+              endColumnIndex: colIndex + 1,
+            },
+            cell: { userEnteredFormat: { horizontalAlignment: 'LEFT' } },
+            fields: 'userEnteredFormat.horizontalAlignment',
+          },
+        }))
+        await fetch(
+          `https://sheets.googleapis.com/v4/spreadsheets/${copyId}:batchUpdate`,
+          {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ requests: alignRequests }),
+          }
+        )
+      }
+
+      // 4-3. 매핑되지 않은 {{항목N}} 행만 삭제 (matched 항목 행은 유지)
       const rowsToDelete = rows
         .map((row, rowIdx) => {
           const hasUnmatched = row.some(cell => {
-            const m = cell.match(itemPlaceholderRe)
+            const m = cell.match(itemCellRe)
             return m ? parseInt(m[1], 10) > matchedCount : false
           })
           return { rowIdx, hasUnmatched }
