@@ -3,6 +3,7 @@ import { notifySlack } from '@/lib/slack'
 import { sendAlimtalk } from '@/lib/solapi'
 
 const TEMPLATE_SPREADSHEET_ID = '1bwj2ncInTA9Vm8ac3J7YKrm4RYRSvpMVnYry-RJALu0'
+const PDF_FOLDER_ID = '1H0aglzaXAvliiLmQA3c8OjVRjcpAQPPn'
 const QUOTE_KAKAO_TEMPLATE_ID = 'KA01TP260219115331451o0aakYaJSp8'
 
 function toColLetter(n: number): string {
@@ -55,7 +56,6 @@ export async function POST(
     care_scope, construction_date, supply_amount, vat, total_amount,
   } = body
 
-  // id 사용 (향후 DB 저장 등에 활용 가능)
   void id
 
   const todayStr = new Date().toISOString().slice(0, 10)
@@ -63,26 +63,29 @@ export async function POST(
   const quoteNo = generateQuoteNo()
 
   // care_scope 파싱: '-' 기준으로 항목 분리
-  const careScopeItems = (care_scope as string)
+  const careScopeItems = (care_scope || '')
     .split('-')
     .map((s: string) => s.trim())
     .filter(Boolean)
 
   const fmtKr = (n: number) => n.toLocaleString('ko-KR')
+  const safeVat = vat ?? 0
 
-  // 변수 매핑
+  // 변수 매핑 (세부화면 필드 → 템플릿 플레이스홀더)
+  // 없는 필드는 공백, 부가세는 0으로
   const variables: Record<string, string> = {
-    '{{고객명}}': owner_name || '',
-    '{{업체명}}': business_name || '',
-    '{{연락처}}': phone || '',
-    '{{이메일}}': email || '',
-    '{{주소}}': address || '',
-    '{{시공일자}}': construction_date || '',
-    '{{공급가액}}': fmtKr(supply_amount || 0),
-    '{{부가세}}': fmtKr(vat || 0),
-    '{{총액}}': fmtKr(total_amount || 0),
-    '{{작성일자}}': todayStr,
-    '{{유효기간}}': validUntilStr,
+    '{{고객명}}':     owner_name    || '',
+    '{{상호명}}':     business_name || '',
+    '{{업체명}}':     business_name || '',
+    '{{연락처}}':     phone         || '',
+    '{{이메일}}':     email         || '',
+    '{{주소}}':       address       || '',
+    '{{시공일자}}':   construction_date || '',
+    '{{공급가액}}':   fmtKr(supply_amount || 0),
+    '{{부가세}}':     fmtKr(safeVat),
+    '{{총액}}':       fmtKr(total_amount || 0),
+    '{{작성일자}}':   todayStr,
+    '{{유효기간}}':   validUntilStr,
     '{{견적서번호}}': quoteNo,
   }
   careScopeItems.forEach((item: string, idx: number) => {
@@ -90,6 +93,7 @@ export async function POST(
   })
 
   let pdfUrl: string | undefined
+  let pdfBuffer: ArrayBuffer | undefined
 
   try {
     // 1. 템플릿 복사
@@ -106,7 +110,7 @@ export async function POST(
     const copyId = copyData.id as string
 
     try {
-      // 2. 시트 이름 가져오기
+      // 2. 시트 이름 + sheetId 가져오기
       const metaRes = await fetch(
         `https://sheets.googleapis.com/v4/spreadsheets/${copyId}?fields=sheets.properties`,
         { headers: { Authorization: `Bearer ${token}` } }
@@ -148,7 +152,7 @@ export async function POST(
         )
       }
 
-      // 4-1. 매핑되지 않은 {{항목N}} 행 삭제 (많은 쪽부터 삭제해 인덱스 보존)
+      // 4-1. 매핑되지 않은 {{항목N}} 행 삭제 (하위 인덱스부터 삭제해 위치 보존)
       const itemPlaceholderRe = /\{\{항목\d+\}\}/
       const rowsToDelete = rows
         .map((row, rowIdx) => ({ rowIdx, hasPlaceholder: row.some(cell => itemPlaceholderRe.test(cell)) }))
@@ -178,14 +182,19 @@ export async function POST(
         { headers: { Authorization: `Bearer ${token}` } }
       )
       if (!pdfRes.ok) throw new Error('PDF 내보내기 실패')
-      const pdfBuffer = await pdfRes.arrayBuffer()
+      pdfBuffer = await pdfRes.arrayBuffer()
 
-      // 6. PDF를 Drive에 업로드 (독립 파일로)
-      const uploadMeta = JSON.stringify({ name: `${quoteNo}_${business_name}.pdf`, mimeType: 'application/pdf' })
+      // 6. PDF를 지정 폴더에 업로드
+      const pdfFileName = `${quoteNo}_${business_name}.pdf`
+      const uploadMeta = JSON.stringify({
+        name: pdfFileName,
+        mimeType: 'application/pdf',
+        parents: [PDF_FOLDER_ID],
+      })
       const boundary = 'bbk_multipart_boundary'
+      const encoder = new TextEncoder()
       const pdfBodyStart = `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${uploadMeta}\r\n--${boundary}\r\nContent-Type: application/pdf\r\n\r\n`
       const pdfBodyEnd = `\r\n--${boundary}--`
-      const encoder = new TextEncoder()
       const combinedBuffer = Buffer.concat([
         Buffer.from(encoder.encode(pdfBodyStart)),
         Buffer.from(pdfBuffer),
@@ -204,7 +213,7 @@ export async function POST(
       )
       const uploadData = await uploadRes.json()
       if (uploadData.id) {
-        // 파일 공개 공유 설정
+        // 누구나 볼 수 있도록 공개 공유 설정
         await fetch(
           `https://www.googleapis.com/drive/v3/files/${uploadData.id}/permissions`,
           {
@@ -216,39 +225,57 @@ export async function POST(
         pdfUrl = `https://drive.google.com/file/d/${uploadData.id}/view`
       }
 
-      // 7. 이메일 발송 (Gmail API)
+      // 7. 이메일 발송 — HTML 본문 + PDF 첨부 + 바로보기 버튼 (Gmail API)
       if (email) {
         const subject = `[BBK 공간케어] 견적서 안내 (${quoteNo})`
-        const bodyText = [
-          `안녕하세요, ${owner_name}님.`,
-          '',
-          'BBK 공간케어 견적서를 보내드립니다.',
-          '',
-          `견적서 번호: ${quoteNo}`,
-          `시공일자: ${construction_date}`,
-          `공급가액: ${fmtKr(supply_amount)}원`,
-          `부가세: ${fmtKr(vat)}원`,
-          `합계: ${fmtKr(total_amount)}원`,
-          '',
-          ...(pdfUrl ? [`견적서 확인: ${pdfUrl}`, ''] : []),
-          `유효기간: ${validUntilStr}까지`,
-          '',
-          '감사합니다.',
-          'BBK 공간케어',
-        ].join('\n')
+        const htmlBody = `<!DOCTYPE html>
+<html>
+<body style="font-family:sans-serif;color:#333;line-height:1.7;max-width:600px;margin:0 auto;padding:24px;">
+  <p>안녕하세요, <strong>${owner_name}</strong>님.</p>
+  <p>BBK 공간케어 견적서를 보내드립니다.</p>
+  <table style="border-collapse:collapse;margin:16px 0;width:100%;">
+    <tr style="border-bottom:1px solid #eee;"><td style="padding:6px 16px 6px 0;color:#888;white-space:nowrap;">견적서 번호</td><td style="padding:6px 0;">${quoteNo}</td></tr>
+    <tr style="border-bottom:1px solid #eee;"><td style="padding:6px 16px 6px 0;color:#888;white-space:nowrap;">업체명</td><td style="padding:6px 0;">${business_name || '-'}</td></tr>
+    <tr style="border-bottom:1px solid #eee;"><td style="padding:6px 16px 6px 0;color:#888;white-space:nowrap;">시공일자</td><td style="padding:6px 0;">${construction_date || '-'}</td></tr>
+    <tr style="border-bottom:1px solid #eee;"><td style="padding:6px 16px 6px 0;color:#888;white-space:nowrap;">공급가액</td><td style="padding:6px 0;">${fmtKr(supply_amount || 0)}원</td></tr>
+    <tr style="border-bottom:1px solid #eee;"><td style="padding:6px 16px 6px 0;color:#888;white-space:nowrap;">부가세</td><td style="padding:6px 0;">${fmtKr(safeVat)}원</td></tr>
+    <tr style="border-bottom:1px solid #eee;"><td style="padding:6px 16px 6px 0;color:#888;white-space:nowrap;">합계</td><td style="padding:6px 0;"><strong>${fmtKr(total_amount || 0)}원</strong></td></tr>
+    <tr><td style="padding:6px 16px 6px 0;color:#888;white-space:nowrap;">유효기간</td><td style="padding:6px 0;">${validUntilStr}까지</td></tr>
+  </table>
+  ${pdfUrl ? `<p><a href="${pdfUrl}" style="display:inline-block;padding:11px 24px;background:#1a73e8;color:#fff;text-decoration:none;border-radius:6px;font-weight:bold;font-size:14px;">견적서 바로보기</a></p>` : ''}
+  <p style="color:#aaa;font-size:12px;margin-top:24px;">견적서 파일은 첨부파일로도 확인하실 수 있습니다.</p>
+  <hr style="border:none;border-top:1px solid #eee;margin:24px 0;">
+  <p style="margin:0;">감사합니다.<br><strong>BBK 공간케어</strong></p>
+</body>
+</html>`
 
-        // RFC 2822 형식으로 인코딩
-        const rawEmail = [
+        const emailBoundary = 'bbk_email_mixed_boundary'
+        const pdfB64 = Buffer.from(pdfBuffer).toString('base64')
+        const htmlB64 = Buffer.from(htmlBody).toString('base64')
+
+        const rawEmailParts = [
           `To: ${email}`,
           `Subject: =?UTF-8?B?${Buffer.from(subject).toString('base64')}?=`,
           'MIME-Version: 1.0',
-          'Content-Type: text/plain; charset=UTF-8',
+          `Content-Type: multipart/mixed; boundary="${emailBoundary}"`,
+          '',
+          `--${emailBoundary}`,
+          'Content-Type: text/html; charset=UTF-8',
           'Content-Transfer-Encoding: base64',
           '',
-          Buffer.from(bodyText).toString('base64'),
+          htmlB64,
+          '',
+          `--${emailBoundary}`,
+          `Content-Type: application/pdf; name="${pdfFileName}"`,
+          'Content-Transfer-Encoding: base64',
+          `Content-Disposition: attachment; filename="${pdfFileName}"`,
+          '',
+          pdfB64,
+          '',
+          `--${emailBoundary}--`,
         ].join('\r\n')
 
-        const encodedEmail = Buffer.from(rawEmail)
+        const encodedEmail = Buffer.from(rawEmailParts)
           .toString('base64')
           .replace(/\+/g, '-')
           .replace(/\//g, '_')
@@ -268,7 +295,6 @@ export async function POST(
       ).catch(() => { /* ignore cleanup errors */ })
     }
   } catch (e) {
-    // Sheets 처리 실패해도 알림은 계속 진행
     const errMsg = e instanceof Error ? e.message : String(e)
     console.error('견적서 생성 오류:', errMsg)
   }
@@ -279,13 +305,13 @@ export async function POST(
       phone,
       QUOTE_KAKAO_TEMPLATE_ID,
       {
-        '#{고객명}': owner_name,
-        '#{업체명}': business_name,
+        '#{고객명}':    owner_name,
+        '#{업체명}':    business_name,
         '#{견적서번호}': quoteNo,
-        '#{시공일자}': construction_date || '',
-        '#{총액}': `${fmtKr(total_amount)}원`,
-        '#{유효기간}': validUntilStr,
-        '#{링크}': pdfUrl || '',
+        '#{시공일자}':  construction_date || '',
+        '#{총액}':      `${fmtKr(total_amount || 0)}원`,
+        '#{유효기간}':  validUntilStr,
+        '#{링크}':      pdfUrl || '',
       },
       `[BBK 공간케어] 견적서가 발송되었습니다. 견적서 번호: ${quoteNo}`,
     )
