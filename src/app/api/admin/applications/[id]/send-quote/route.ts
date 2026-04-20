@@ -94,6 +94,8 @@ export async function POST(
 
   let pdfUrl: string | undefined
   let pdfBuffer: ArrayBuffer | undefined
+  let sheetError: string | undefined
+  let emailError: string | undefined
 
   try {
     // 1. 템플릿 복사
@@ -327,8 +329,8 @@ export async function POST(
         })
         if (!gmailRes.ok) {
           const gmailErr = await gmailRes.json().catch(() => ({}))
-          console.error('Gmail 발송 실패:', JSON.stringify(gmailErr))
-          throw new Error(`Gmail 발송 실패: ${gmailRes.status} ${JSON.stringify(gmailErr)}`)
+          emailError = `Gmail ${gmailRes.status}: ${JSON.stringify(gmailErr)}`
+          console.error('Gmail 발송 실패:', emailError)
         }
       }
     } finally {
@@ -339,29 +341,30 @@ export async function POST(
       ).catch(() => { /* ignore cleanup errors */ })
     }
   } catch (e) {
-    const errMsg = e instanceof Error ? e.message : String(e)
-    console.error('견적서 생성 오류:', errMsg)
+    sheetError = e instanceof Error ? e.message : String(e)
+    console.error('견적서 생성 오류:', sheetError)
   }
 
   // 9. 카카오 알림톡 발송 (Solapi)
+  let kakaoError: string | undefined
   try {
     await sendAlimtalk(
       phone,
       QUOTE_KAKAO_TEMPLATE_ID,
       {
-        '#{고객명}':    owner_name,
-        '#{업체명}':    business_name,
-        '#{견적서번호}': quoteNo,
-        '#{시공일자}':  construction_date || '',
-        '#{총액}':      `${fmtKr(total_amount || 0)}원`,
-        '#{유효기간}':  validUntilStr,
-        '#{링크}':      pdfUrl || '',
+        '고객명':    owner_name,
+        '업체명':    business_name,
+        '견적서번호': quoteNo,
+        '시공일자':  construction_date || '',
+        '총액':      `${fmtKr(total_amount || 0)}원`,
+        '유효기간':  validUntilStr,
+        '견적서링크': pdfUrl || '',
       },
       `[BBK 공간케어] 견적서가 발송되었습니다. 견적서 번호: ${quoteNo}`,
     )
   } catch (e) {
-    const errMsg = e instanceof Error ? e.message : String(e)
-    console.error('카카오 알림톡 발송 실패:', errMsg)
+    kakaoError = e instanceof Error ? e.message : String(e)
+    console.error('카카오 알림톡 발송 실패:', kakaoError)
   }
 
   // 10. Slack 보고
@@ -379,5 +382,12 @@ export async function POST(
     console.error('Slack 보고 실패:', errMsg)
   }
 
-  return NextResponse.json({ success: true, quote_no: quoteNo, pdf_url: pdfUrl })
+  return NextResponse.json({
+    success: true,
+    quote_no: quoteNo,
+    pdf_url: pdfUrl,
+    ...(sheetError  && { sheet_error: sheetError }),
+    ...(emailError  && { email_error: emailError }),
+    ...(kakaoError  && { kakao_error: kakaoError }),
+  })
 }
