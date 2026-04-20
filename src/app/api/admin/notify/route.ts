@@ -53,15 +53,15 @@ function calcRequestTime(endTime: string | null | undefined): string {
   return `${fmt(startH)} ~ ${fmt(endH)} 사이`
 }
 
-// ─── 시공시간 기반 요청시간 계산: -1h ~ +2h ───────────────────────
-// 예) 10:00 → "09:00 ~ 12:00 사이"
+// ─── 시공시간 기반 요청시간 계산: 0h ~ +2h ───────────────────────
+// 예) 10:00 → "10:00 ~ 12:00 사이"
 function calcConstructionRequestTime(timeStr: string | null | undefined): string {
   if (!timeStr) return '-'
   const match = timeStr.match(/^(\d{1,2}):(\d{2})/)
   if (!match) return timeStr
   const h = parseInt(match[1], 10)
   const m = parseInt(match[2], 10)
-  const startH = (h - 1 + 24) % 24
+  const startH = h % 24
   const endH   = (h + 2) % 24
   const fmt = (hour: number) => `${String(hour).padStart(2, '0')}:${String(m).padStart(2, '0')}`
   return `${fmt(startH)} ~ ${fmt(endH)} 사이`
