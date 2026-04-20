@@ -158,7 +158,7 @@ export async function POST(
           body: JSON.stringify({ valueInputOption: 'USER_ENTERED', data: updates }),
         })
       }
-      console.log('[send-quote] 4. 변수 치환 완료, 항목:', matchedCount)
+      console.log('[send-quote] 4. 변수 치환 완료, 항목:', matchedCount, '/ care_scope:', care_scope)
 
       // 4-2. 항목 셀 좌측 정렬
       if (itemCells.length > 0) {
@@ -177,8 +177,8 @@ export async function POST(
         })
       }
 
-      // 4-3. 미매핑 항목 행 삭제
-      const rowsToDelete = rows
+      // 4-3. 미매핑 항목 행 삭제 (항목이 1개 이상 매핑된 경우에만)
+      const rowsToDelete = matchedCount === 0 ? [] : rows
         .map((row, rowIdx) => ({
           rowIdx,
           hasUnmatched: row.some(cell => { const m = cell.match(itemCellRe); return m ? parseInt(m[1], 10) > matchedCount : false }),
