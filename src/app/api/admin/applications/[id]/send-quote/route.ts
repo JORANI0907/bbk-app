@@ -152,11 +152,18 @@ export async function POST(
         )
       }
 
-      // 4-1. 매핑되지 않은 {{항목N}} 행 삭제 (하위 인덱스부터 삭제해 위치 보존)
-      const itemPlaceholderRe = /\{\{항목\d+\}\}/
+      // 4-1. 매핑되지 않은 {{항목N}} 행만 삭제 (matched 항목 행은 유지)
+      const matchedCount = careScopeItems.length
+      const itemPlaceholderRe = /\{\{항목(\d+)\}\}/
       const rowsToDelete = rows
-        .map((row, rowIdx) => ({ rowIdx, hasPlaceholder: row.some(cell => itemPlaceholderRe.test(cell)) }))
-        .filter(r => r.hasPlaceholder)
+        .map((row, rowIdx) => {
+          const hasUnmatched = row.some(cell => {
+            const m = cell.match(itemPlaceholderRe)
+            return m ? parseInt(m[1], 10) > matchedCount : false
+          })
+          return { rowIdx, hasUnmatched }
+        })
+        .filter(r => r.hasUnmatched)
         .map(r => r.rowIdx)
         .sort((a, b) => b - a)
 
@@ -281,11 +288,16 @@ export async function POST(
           .replace(/\//g, '_')
           .replace(/=+$/, '')
 
-        await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
+        const gmailRes = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
           method: 'POST',
           headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
           body: JSON.stringify({ raw: encodedEmail }),
         })
+        if (!gmailRes.ok) {
+          const gmailErr = await gmailRes.json().catch(() => ({}))
+          console.error('Gmail 발송 실패:', JSON.stringify(gmailErr))
+          throw new Error(`Gmail 발송 실패: ${gmailRes.status} ${JSON.stringify(gmailErr)}`)
+        }
       }
     } finally {
       // 8. 임시 복사본 삭제
