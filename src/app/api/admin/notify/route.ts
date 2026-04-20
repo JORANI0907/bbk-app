@@ -84,7 +84,7 @@ function buildVariables(
   const constructionTime = app.construction_time as string | null | undefined
   const requestTime      = constructionTime
     ? calcConstructionRequestTime(constructionTime)
-    : calcRequestTime(hoursEnd)
+    : ''
   const driveUrl    = String(app.drive_folder_url ?? '-')
   const bizNum      = String(app.business_number ?? '-')
   const accountNum  = String(app.account_number ?? '-')

@@ -64,7 +64,7 @@ function buildVariables(
         : '-'
       const requestTime = constructionTime
         ? calcConstructionRequestTime(constructionTime)
-        : hoursStart
+        : ''
       return {
         '고객명':   ownerName,
         '상호명':   businessName,
