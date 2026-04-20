@@ -17,6 +17,7 @@ import { useModalBackButton } from '@/hooks/useModalBackButton'
 import { MonthNavigator } from '@/components/MonthNavigator'
 import { LoadingSpinner } from '@/components/admin/LoadingSpinner'
 import { MapSelectorModal } from '@/components/MapSelectorModal'
+import { ShoppingItemsSection } from '@/components/admin/ShoppingItemsSection'
 
 type ServiceType = '1회성케어' | '정기딥케어' | '정기엔드케어'
 type ApplicationStatus = '신규' | '견적발송' | '예약확정' | '예약1일전' | '예약당일' | '작업완료' | '작업완료(엔드)' | '결제' | '결제완료' | '결제완료(잔금)' | '계산서발행완료' | '비과세' | '카드결제 완료' | '예약금환급완료' | '예약금 입금' | '예약취소' | 'A/S방문' | '방문견적'
@@ -1943,6 +1944,13 @@ export default function ServiceManagementPage() {
                   )}
                 </div>
               </Section>
+
+              {/* 쇼핑 목록 */}
+              <ShoppingItemsSection
+                applicationId={selected.id}
+                businessName={selected.business_name}
+                serviceType={selected.service_type ?? null}
+              />
 
               {/* Google Drive 폴더 */}
               <Section title="Google Drive 폴더">
