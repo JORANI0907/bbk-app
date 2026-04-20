@@ -262,15 +262,14 @@ export async function POST(
 </body>
 </html>`
 
-        // RFC 2822 raw 메시지 (HTML only, no attachment — 안정성 우선)
+        // RFC 2822 raw 메시지 — 본문은 UTF-8 그대로, 전체를 base64url로 인코딩
         const rawMsg = [
           `To: ${email}`,
           `Subject: =?UTF-8?B?${Buffer.from(subject).toString('base64')}?=`,
           'MIME-Version: 1.0',
           'Content-Type: text/html; charset=UTF-8',
-          'Content-Transfer-Encoding: base64',
           '',
-          Buffer.from(htmlBody, 'utf-8').toString('base64'),
+          htmlBody,
         ].join('\r\n')
 
         const encoded = Buffer.from(rawMsg, 'utf-8')

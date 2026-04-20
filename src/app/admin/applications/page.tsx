@@ -1127,7 +1127,11 @@ export default function ServiceManagementPage() {
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || '견적서 발송 실패')
       setQuoteLog({ quoteNo: data.quote_no, sentAt: new Date().toISOString(), pdfUrl: data.pdf_url })
-      toast.success(`견적서 발송 완료! (${data.quote_no})`)
+      if (data.errors?.email) {
+        toast.success(`견적서 발송 완료! (${data.quote_no}) — 이메일 오류: ${data.errors.email}`)
+      } else {
+        toast.success(`견적서 발송 완료! (${data.quote_no})`)
+      }
     } catch (e) {
       toast.error(e instanceof Error ? e.message : '견적서 발송 실패')
     } finally { setQuoteSending(false) }
