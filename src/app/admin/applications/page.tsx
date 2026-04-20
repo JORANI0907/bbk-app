@@ -95,6 +95,7 @@ const NOTIFICATION_TYPES = [
   '결제알림', '결제완료알림', '결제완료알림(잔금)', '계산서발행완료알림',
   '예약금 입금완료 알림', '예약금환급완료알림',
   '예약취소알림', 'A/S방문알림', '방문견적알림',
+  '작업자 일정 안내',
 ]
 const NOTIFY_TYPE_CONFIG: Record<string, { badge: string; dot: string }> = {
   '예약확정알림':       { badge: 'bg-blue-100 text-blue-700',      dot: 'bg-blue-500' },
@@ -110,6 +111,7 @@ const NOTIFY_TYPE_CONFIG: Record<string, { badge: string; dot: string }> = {
   '예약취소알림':       { badge: 'bg-red-100 text-red-700',        dot: 'bg-red-500' },
   'A/S방문알림':        { badge: 'bg-yellow-100 text-yellow-700',  dot: 'bg-yellow-500' },
   '방문견적알림':       { badge: 'bg-indigo-100 text-indigo-700',  dot: 'bg-indigo-500' },
+  '작업자 일정 안내':  { badge: 'bg-slate-100 text-slate-700',    dot: 'bg-slate-500' },
 }
 const SORT_LABELS: Record<SortField, string> = {
   construction_date: '시공일자',
@@ -1850,11 +1852,18 @@ export default function ServiceManagementPage() {
                     {sending ? '발송 중...' : '📣 발송'}
                   </button>
                 </div>
-                {notifyType && (
-                  <div className="mb-3 px-3 py-2 bg-orange-50 border border-orange-200 rounded-lg text-xs text-orange-700">
-                    선택: <span className="font-semibold">{notifyType}</span> → {phone}
-                  </div>
-                )}
+                {notifyType && (() => {
+                  const isWorker = notifyType === '작업자 일정 안내'
+                  const assignedWorker = isWorker ? workers.find(w => w.id === assignedTo) : null
+                  const target = isWorker
+                    ? (assignedWorker ? `${assignedWorker.name} (${assignedWorker.phone ?? '번호 없음'})` : '작업자 미배정')
+                    : phone
+                  return (
+                    <div className={`mb-3 px-3 py-2 rounded-lg text-xs ${isWorker ? 'bg-slate-50 border border-slate-200 text-slate-700' : 'bg-orange-50 border border-orange-200 text-orange-700'}`}>
+                      선택: <span className="font-semibold">{notifyType}</span> → {target}
+                    </div>
+                  )
+                })()}
                 <div className="border border-gray-100 rounded-lg overflow-hidden">
                   <p className="text-xs font-semibold text-gray-500 px-3 py-2 bg-gray-50 border-b border-gray-100">발송 이력</p>
                   {notifyLogs.length === 0 ? (

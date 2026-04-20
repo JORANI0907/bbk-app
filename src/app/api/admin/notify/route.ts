@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { sendAlimtalk } from '@/lib/solapi'
+import { sendAlimtalk, sendSMS } from '@/lib/solapi'
 import { createServiceClient } from '@/lib/supabase/server'
 import { notifySlack } from '@/lib/slack'
+
+const WORKER_NOTIFY_TYPE = '작업자 일정 안내'
 
 // ─── 계약상태 자동변경 매핑 ────────────────────────────────────────
 const NOTIFY_TO_STATUS: Record<string, string> = {
@@ -219,12 +221,54 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '필수 항목 누락' }, { status: 400 })
     }
 
+    const supabase = createServiceClient()
+
+    // ── 작업자 일정 안내 SMS (별도 처리) ──────────────────────────
+    if (type === WORKER_NOTIFY_TYPE) {
+      const { data: app } = await supabase
+        .from('service_applications')
+        .select('*')
+        .eq('id', application_id)
+        .single()
+      if (!app) return NextResponse.json({ error: '신청서를 찾을 수 없습니다.' }, { status: 404 })
+      if (!app.assigned_to) return NextResponse.json({ error: '담당 작업자가 배정되지 않았습니다.' }, { status: 400 })
+
+      const { data: worker } = await supabase
+        .from('workers')
+        .select('name, phone')
+        .eq('id', app.assigned_to)
+        .single()
+      if (!worker?.phone) return NextResponse.json({ error: '작업자 전화번호가 없습니다.' }, { status: 400 })
+
+      const date = app.construction_date?.slice(0, 10) ?? '-'
+      const start = app.business_hours_start ?? '-'
+      const end = app.business_hours_end ?? '-'
+      const scope = app.care_scope ?? app.request_notes ?? '-'
+      const smsText =
+        `[BBK 공간케어] ${worker.name ?? ''}님 일정 안내\n` +
+        `업체: ${app.business_name ?? '-'}\n` +
+        `주소: ${app.address ?? '-'}\n` +
+        `일자: ${date}\n` +
+        `시간: ${start} ~ ${end}\n` +
+        `케어범위: ${scope}`
+
+      await sendSMS(worker.phone, smsText)
+
+      const nowIso = new Date().toISOString()
+      const existingLog = Array.isArray(app.notification_log) ? app.notification_log : []
+      const newEntry = { type, sent_at: nowIso, phone: worker.phone, method }
+      await supabase
+        .from('service_applications')
+        .update({ notification_log: [newEntry, ...existingLog] })
+        .eq('id', application_id)
+
+      return NextResponse.json({ success: true, new_status: null, worker_phone: worker.phone })
+    }
+
     const templateId = ALIMTALK_TEMPLATES[type]
     if (!templateId) {
       return NextResponse.json({ error: '알 수 없는 알림 유형입니다.' }, { status: 400 })
     }
-
-    const supabase = createServiceClient()
 
     // 신청서 + 담당자 이름 조회
     const { data: app } = await supabase
