@@ -11,6 +11,19 @@ const TEMPLATES = {
   '결제알림':      'KA01TP260324125232471CIIHJKDOBsf',
 }
 
+// ─── 시공시간 기반 요청시간 계산: -1h ~ +2h ───────────────────────
+function calcConstructionRequestTime(timeStr: string | null | undefined): string {
+  if (!timeStr) return '-'
+  const match = timeStr.match(/^(\d{1,2}):(\d{2})/)
+  if (!match) return timeStr
+  const h = parseInt(match[1], 10)
+  const m = parseInt(match[2], 10)
+  const startH = (h - 1 + 24) % 24
+  const endH   = (h + 2) % 24
+  const fmt = (hour: number) => `${String(hour).padStart(2, '0')}:${String(m).padStart(2, '0')}`
+  return `${fmt(startH)} ~ ${fmt(endH)} 사이`
+}
+
 // ─── KST 기준 오늘/내일 날짜 계산 ────────────────────────────────
 function getKSTDates() {
   const nowKST = new Date(Date.now() + 9 * 60 * 60 * 1000)
@@ -41,13 +54,17 @@ function buildVariables(
   switch (type) {
     case '예약1일전알림':
     case '예약당일알림': {
-      const preMeetingAt = app.pre_meeting_at as string | null | undefined
+      const preMeetingAt    = app.pre_meeting_at as string | null | undefined
+      const constructionTime = app.construction_time as string | null | undefined
       const meetingYN   = preMeetingAt ? '진행 예정' : '-'
       const meetingTime = preMeetingAt
         ? new Date(preMeetingAt).toLocaleString('ko-KR', {
             month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit',
           })
         : '-'
+      const requestTime = constructionTime
+        ? calcConstructionRequestTime(constructionTime)
+        : hoursStart
       return {
         '고객명':   ownerName,
         '상호명':   businessName,
@@ -55,7 +72,7 @@ function buildVariables(
         '담당자':   assignedName || '-',
         '주소':     address,
         '시공일자': date,
-        '요청시간': hoursStart,
+        '요청시간': requestTime,
         '미팅여부': meetingYN,
         '미팅시간': meetingTime,
       }

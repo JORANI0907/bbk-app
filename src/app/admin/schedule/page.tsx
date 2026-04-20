@@ -22,6 +22,7 @@ interface Application {
   service_type: string | null
   assigned_to: string | null
   construction_date: string | null
+  construction_time: string | null
   supply_amount: number | null
   vat: number | null
   payment_method: string | null
@@ -828,9 +829,16 @@ export default function SchedulePage() {
       )
     }
 
-    // 시공일자 내림차순 (최신이 위)
-    return apps.sort((a, b) =>
-      (b.construction_date ?? '').localeCompare(a.construction_date ?? ''))
+    // 시공일자 내림차순 + 시공시간 이차 정렬 (최신이 위)
+    return apps.sort((a, b) => {
+      const aKey = a.construction_date
+        ? `${a.construction_date}T${a.construction_time ?? '00:00'}`
+        : ''
+      const bKey = b.construction_date
+        ? `${b.construction_date}T${b.construction_time ?? '00:00'}`
+        : ''
+      return bKey.localeCompare(aKey)
+    })
   }, [applications, personFilter, workerFilter, serviceTypeFilter, isAdmin, currentUser, appWorkerMap, userIdToWorkerId, search])
 
   const allDates = useMemo(() => {
@@ -1087,6 +1095,13 @@ export default function SchedulePage() {
                         <span className="font-mono text-xs text-gray-500">{fmtDate(app.construction_date)}</span>
                         {isToday && (
                           <span className="ml-1.5 text-xs font-bold text-blue-600 bg-blue-100 px-1.5 py-0.5 rounded-full">오늘</span>
+                        )}
+                        {app.construction_time && (
+                          <div>
+                            <span className="text-xs text-gray-400">
+                              {app.construction_time.slice(0, 5)}시
+                            </span>
+                          </div>
                         )}
                       </td>
                       <td className="px-4 py-3 max-w-[160px]">

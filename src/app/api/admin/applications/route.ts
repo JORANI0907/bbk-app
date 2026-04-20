@@ -57,7 +57,7 @@ export async function POST(request: NextRequest) {
     'elevator', 'building_access', 'access_method', 'parking',
     'business_hours_start', 'business_hours_end',
     // 시공정보
-    'care_scope', 'request_notes',
+    'care_scope', 'request_notes', 'construction_time',
     // 결제정보
     'payment_method',
     'unit_price_per_visit', 'deposit', 'supply_amount', 'vat', 'balance', 'manager_pay',
@@ -120,7 +120,7 @@ export async function PATCH(request: NextRequest) {
     'unit_price_per_visit', 'deposit', 'supply_amount', 'vat', 'balance', 'manager_pay',
     // 관리 필드
     'status', 'admin_notes', 'service_type', 'assigned_to',
-    'drive_folder_url', 'construction_date',
+    'drive_folder_url', 'construction_date', 'construction_time',
     'pre_meeting_at',
   ]
   const updates: Record<string, unknown> = {}

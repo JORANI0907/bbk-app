@@ -55,6 +55,7 @@ interface Application {
   balance: number | null
   drive_folder_url: string | null
   construction_date: string | null
+  construction_time: string | null
   care_scope: string | null
   unit_price_per_visit: number | null
   pre_meeting_at: string | null
@@ -173,7 +174,20 @@ function sortApplications(apps: Application[], field: SortField, dir: SortDir): 
   return [...apps].sort((a, b) => {
     let va: string | null = null
     let vb: string | null = null
-    if (field === 'construction_date') { va = a.construction_date; vb = b.construction_date }
+    if (field === 'construction_date') {
+      // 날짜+시간 합산으로 이차 정렬
+      const aKey = a.construction_date
+        ? `${a.construction_date}T${a.construction_time ?? '00:00'}`
+        : null
+      const bKey = b.construction_date
+        ? `${b.construction_date}T${b.construction_time ?? '00:00'}`
+        : null
+      if (aKey == null && bKey == null) return 0
+      if (aKey == null) return 1
+      if (bKey == null) return -1
+      const cmp = aKey < bKey ? -1 : aKey > bKey ? 1 : 0
+      return dir === 'desc' ? -cmp : cmp
+    }
     else if (field === 'created_at') { va = a.created_at; vb = b.created_at }
     else if (field === 'business_name') { va = a.business_name; vb = b.business_name }
     else if (field === 'owner_name') { va = a.owner_name; vb = b.owner_name }
@@ -471,6 +485,7 @@ export default function ServiceManagementPage() {
   const [adminNotes, setAdminNotes] = useState('')
   const [assignedTo, setAssignedTo] = useState('')
   const [constructionDate, setConstructionDate] = useState('')
+  const [constructionTime, setConstructionTime] = useState('')
   const [unitPricePerVisit, setUnitPricePerVisit] = useState('')
   const [deposit, setDeposit] = useState('')
   const [supplyAmount, setSupplyAmount] = useState('')
@@ -558,6 +573,7 @@ export default function ServiceManagementPage() {
     )
     setAssignedTo(app.assigned_to ?? '')
     setConstructionDate(app.construction_date ?? '')
+    setConstructionTime(app.construction_time ?? '')
     setDeposit(String(app.deposit ?? ''))
     setSupplyAmount(String(app.supply_amount ?? ''))
     setVat(String(app.vat ?? ''))
@@ -873,6 +889,7 @@ export default function ServiceManagementPage() {
           admin_notes: adminNotes,
           assigned_to: assignedTo || null,
           construction_date: constructionDate || null,
+          construction_time: constructionTime || null,
           deposit: Number(deposit) || 0,
           supply_amount: Number(supplyAmount) || 0,
           vat: effectiveVat,
@@ -1503,6 +1520,13 @@ export default function ServiceManagementPage() {
                             {app.construction_date?.slice(0, 10) === todayStr && (
                               <span className="ml-1.5 text-xs font-bold text-blue-600 bg-blue-100 px-1.5 py-0.5 rounded-full">오늘</span>
                             )}
+                            {app.construction_time && (
+                              <div>
+                                <span className="text-xs text-gray-400">
+                                  {app.construction_time.slice(0, 5)}시
+                                </span>
+                              </div>
+                            )}
                           </td>
                           <td className="px-3 py-2.5 max-w-[140px]">
                             <div className="flex items-center gap-1.5">
@@ -1770,6 +1794,15 @@ export default function ServiceManagementPage() {
                     <textarea value={adminNotes} onChange={e => setAdminNotes(e.target.value)} rows={3}
                       placeholder="내부 메모를 입력하세요..."
                       className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-green-500 resize-none text-gray-900" />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-gray-500 w-20 shrink-0">시공시간</span>
+                    <input
+                      type="time"
+                      value={constructionTime}
+                      onChange={e => setConstructionTime(e.target.value)}
+                      className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                    />
                   </div>
                 </div>
               </Section>

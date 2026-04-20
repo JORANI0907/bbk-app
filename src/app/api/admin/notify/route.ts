@@ -53,6 +53,20 @@ function calcRequestTime(endTime: string | null | undefined): string {
   return `${fmt(startH)} ~ ${fmt(endH)} 사이`
 }
 
+// ─── 시공시간 기반 요청시간 계산: -1h ~ +2h ───────────────────────
+// 예) 10:00 → "09:00 ~ 12:00 사이"
+function calcConstructionRequestTime(timeStr: string | null | undefined): string {
+  if (!timeStr) return '-'
+  const match = timeStr.match(/^(\d{1,2}):(\d{2})/)
+  if (!match) return timeStr
+  const h = parseInt(match[1], 10)
+  const m = parseInt(match[2], 10)
+  const startH = (h - 1 + 24) % 24
+  const endH   = (h + 2) % 24
+  const fmt = (hour: number) => `${String(hour).padStart(2, '0')}:${String(m).padStart(2, '0')}`
+  return `${fmt(startH)} ~ ${fmt(endH)} 사이`
+}
+
 // ─── 알림 유형별 변수 빌더 ────────────────────────────────────────
 function buildVariables(
   type: string,
@@ -65,9 +79,12 @@ function buildVariables(
   const serviceType = String(app.service_type ?? '')
   const address     = String(app.address ?? '')
   const date        = (app.construction_date as string | null)?.slice(0, 10) ?? ''
-  const hoursStart  = String(app.business_hours_start ?? '-')
-  const hoursEnd    = app.business_hours_end as string | null
-  const requestTime = calcRequestTime(hoursEnd)
+  const hoursStart       = String(app.business_hours_start ?? '-')
+  const hoursEnd         = app.business_hours_end as string | null
+  const constructionTime = app.construction_time as string | null | undefined
+  const requestTime      = constructionTime
+    ? calcConstructionRequestTime(constructionTime)
+    : calcRequestTime(hoursEnd)
   const driveUrl    = String(app.drive_folder_url ?? '-')
   const bizNum      = String(app.business_number ?? '-')
   const accountNum  = String(app.account_number ?? '-')
@@ -244,12 +261,16 @@ export async function POST(request: NextRequest) {
       const start = app.business_hours_start ?? '-'
       const end = app.business_hours_end ?? '-'
       const scope = app.care_scope ?? app.request_notes ?? '-'
+      const ctTime = app.construction_time as string | null | undefined
+      const timeLine = ctTime
+        ? `시공시간: ${ctTime.slice(0, 5)}시`
+        : `시간: ${start} ~ ${end}`
       const smsText =
         `[BBK 공간케어] ${worker.name ?? ''}님 일정 안내\n` +
         `업체: ${app.business_name ?? '-'}\n` +
         `주소: ${app.address ?? '-'}\n` +
         `일자: ${date}\n` +
-        `시간: ${start} ~ ${end}\n` +
+        `${timeLine}\n` +
         `케어범위: ${scope}`
 
       await sendSMS(worker.phone, smsText)
