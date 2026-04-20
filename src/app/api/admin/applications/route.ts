@@ -121,6 +121,7 @@ export async function PATCH(request: NextRequest) {
     // 관리 필드
     'status', 'admin_notes', 'service_type', 'assigned_to',
     'drive_folder_url', 'construction_date',
+    'pre_meeting_at',
   ]
   const updates: Record<string, unknown> = {}
   for (const key of ALLOWED) {
