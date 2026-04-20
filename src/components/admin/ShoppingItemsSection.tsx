@@ -1,12 +1,26 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { ChevronDown, ChevronUp, X, Plus } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 // ─── 타입 정의 ──────────────────────────────────────────────────
 type ShoppingCategory = '업무' | '생활용품' | '전자' | '식료품' | '의류' | '기타'
 type ShoppingPriority = 'urgent' | 'normal' | 'later'
+
+interface SavedItem {
+  id: string
+  title: string
+  category: string
+  priority: string
+  qty: number
+  expected_price?: number | null
+  where_to_buy?: string | null
+  url?: string | null
+  memo?: string | null
+  status: string
+  created_at: string
+}
 
 interface DraftItem {
   localId: string
@@ -62,6 +76,18 @@ export function ShoppingItemsSection({
 }: ShoppingItemsSectionProps) {
   const [items, setItems] = useState<DraftItem[]>([])
   const [saving, setSaving] = useState(false)
+  const [savedItems, setSavedItems] = useState<SavedItem[]>([])
+  const [loading, setLoading] = useState(false)
+
+  useEffect(() => {
+    if (!applicationId) return
+    setLoading(true)
+    fetch(`/api/admin/shopping-items?applicationId=${applicationId}`)
+      .then(r => r.json())
+      .then(data => setSavedItems((data as { items?: SavedItem[] }).items ?? []))
+      .catch(() => {})
+      .finally(() => setLoading(false))
+  }, [applicationId])
 
   const buildMemo = () =>
     `[BBK 서비스 연동] 업체명: ${businessName} / 서비스: ${serviceType ?? '미지정'} / 신청서ID: ${applicationId}`
@@ -122,6 +148,10 @@ export function ShoppingItemsSection({
       if (!res.ok) throw new Error('저장 실패')
       toast.success(`${validItems.length}개 항목이 구매 리스트에 추가되었습니다`)
       setItems([])
+      // 저장 후 목록 새로고침
+      const refreshRes = await fetch(`/api/admin/shopping-items?applicationId=${applicationId}`)
+      const refreshData = await refreshRes.json() as { items?: SavedItem[] }
+      setSavedItems(refreshData.items ?? [])
     } catch {
       toast.error('저장 중 오류가 발생했습니다')
     } finally {
@@ -131,6 +161,37 @@ export function ShoppingItemsSection({
 
   return (
     <SectionWrapper title="필요한 물건">
+      {/* ─── 저장된 항목 ─── */}
+      {loading && <p className="text-xs text-gray-400 mb-2">불러오는 중...</p>}
+      {savedItems.length > 0 && (
+        <div className="mb-4 space-y-2">
+          <p className="text-xs font-medium text-gray-500">저장된 항목 ({savedItems.length})</p>
+          {savedItems.map(item => (
+            <div key={item.id} className="flex items-center gap-2 px-3 py-2 bg-white border border-gray-200 rounded-lg text-xs">
+              <span className="flex-1 font-medium text-gray-800">{item.title}</span>
+              <span className="text-gray-400">{item.category}</span>
+              <span className={`px-1.5 py-0.5 rounded text-white text-[10px] ${
+                item.priority === 'urgent' ? 'bg-red-500' :
+                item.priority === 'normal' ? 'bg-blue-500' : 'bg-gray-400'
+              }`}>
+                {item.priority === 'urgent' ? '긴급' : item.priority === 'normal' ? '보통' : '나중에'}
+              </span>
+              <span className="text-gray-400">×{item.qty}</span>
+              <span className={`px-1.5 py-0.5 rounded text-[10px] ${
+                item.status === 'purchased' ? 'bg-green-100 text-green-700' :
+                item.status === 'canceled' ? 'bg-red-100 text-red-700' :
+                'bg-gray-100 text-gray-600'
+              }`}>
+                {item.status === 'purchased' ? '구매완료' : item.status === 'canceled' ? '취소' : '대기중'}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+      {savedItems.length > 0 && (
+        <div className="border-t border-dashed border-gray-200 my-3" />
+      )}
+
       <div className="space-y-2">
         {/* ─── 항목 없을 때 안내 ─── */}
         {items.length === 0 && (

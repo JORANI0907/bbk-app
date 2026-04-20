@@ -2,6 +2,28 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { sendSlack } from '@/lib/slack'
 
+export async function GET(request: NextRequest) {
+  const { searchParams } = new URL(request.url)
+  const applicationId = searchParams.get('applicationId')
+
+  if (!applicationId) {
+    return NextResponse.json({ error: 'applicationId required' }, { status: 400 })
+  }
+
+  const supabase = createServiceClient()
+  const { data, error } = await supabase
+    .from('shopping_items')
+    .select('*')
+    .ilike('memo', `%신청서ID: ${applicationId}%`)
+    .order('sort_order', { ascending: true })
+
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+
+  return NextResponse.json({ items: data ?? [] })
+}
+
 interface ShoppingItemInput {
   title: string
   category: string
