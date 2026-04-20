@@ -59,6 +59,8 @@ interface Application {
   unit_price_per_visit: number | null
   pre_meeting_at: string | null
   notification_log?: Array<{ type: string; sent_at: string; method?: 'auto' | 'manual' }> | null
+  last_quote_no: string | null
+  last_quote_pdf_url: string | null
 }
 
 interface NotifyLog { type: string; sentAt: string; method?: 'auto' | 'manual' }
@@ -547,7 +549,11 @@ export default function ServiceManagementPage() {
     setOwnerName(app.owner_name ?? '')
     setBusinessNameEdit(app.business_name ?? '')
     setAdminNotes(app.admin_notes ?? '')
-    setQuoteLog(null)
+    setQuoteLog(
+      app.last_quote_no
+        ? { quoteNo: app.last_quote_no, sentAt: app.notification_log?.find(l => l.type === '견적서발송')?.sent_at ?? app.created_at, pdfUrl: app.last_quote_pdf_url ?? undefined }
+        : null
+    )
     setAssignedTo(app.assigned_to ?? '')
     setConstructionDate(app.construction_date ?? '')
     setDeposit(String(app.deposit ?? ''))

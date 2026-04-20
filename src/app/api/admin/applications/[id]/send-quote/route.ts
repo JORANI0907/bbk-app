@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { notifySlack } from '@/lib/slack'
 import { sendAlimtalk } from '@/lib/solapi'
+import { createServiceClient } from '@/lib/supabase/server'
 
 // Vercel 함수 타임아웃 60초로 확장
 export const maxDuration = 60
@@ -326,7 +327,18 @@ export async function POST(
     console.error('[send-quote] 카카오 발송 실패:', errors.kakao)
   }
 
-  // 10. Slack
+  // 10. DB에 견적서 정보 저장 (견적서 보기 버튼 복원용)
+  try {
+    const supabase = createServiceClient()
+    await supabase
+      .from('service_applications')
+      .update({ last_quote_no: quoteNo, last_quote_pdf_url: pdfUrl || null })
+      .eq('id', id)
+  } catch (e) {
+    console.error('[send-quote] DB 저장 실패:', e)
+  }
+
+  // 11. Slack
   await notifySlack({
     notifyType: '견적서발송',
     customerName: owner_name,
