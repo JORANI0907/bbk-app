@@ -571,7 +571,17 @@ function DetailPanel({
                   <p className="text-xs text-gray-700 whitespace-pre-wrap leading-relaxed">{app.request_notes}</p>
                 </div>
               )}
-              {!app.care_scope && !app.request_notes && (
+              {app.construction_time && (
+                <div>
+                  <p className="text-xs text-purple-600 font-semibold mb-1">시공시간</p>
+                  <p className="text-xs text-gray-700">{(() => {
+                    const m = app.construction_time!.match(/^(\d{1,2}):(\d{2})/)
+                    if (!m) return app.construction_time
+                    return m[2] === '00' ? `${parseInt(m[1], 10)}시` : `${parseInt(m[1], 10)}시 ${m[2]}분`
+                  })()}</p>
+                </div>
+              )}
+              {!app.care_scope && !app.request_notes && !app.construction_time && (
                 <p className="text-xs text-gray-400">시공 정보가 없습니다.</p>
               )}
             </div>
