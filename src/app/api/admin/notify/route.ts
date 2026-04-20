@@ -262,8 +262,14 @@ export async function POST(request: NextRequest) {
       const end = app.business_hours_end ?? '-'
       const scope = app.care_scope ?? app.request_notes ?? '-'
       const ctTime = app.construction_time as string | null | undefined
-      const timeLine = ctTime
-        ? `시공시간: ${ctTime.slice(0, 5)}시`
+      const ctLabel = (() => {
+        if (!ctTime) return null
+        const m = ctTime.match(/^(\d{1,2}):(\d{2})/)
+        if (!m) return ctTime
+        return m[2] === '00' ? `${parseInt(m[1], 10)}시` : `${parseInt(m[1], 10)}시 ${m[2]}분`
+      })()
+      const timeLine = ctLabel
+        ? `시공시간: ${ctLabel}`
         : `시간: ${start} ~ ${end}`
       const smsText =
         `[BBK 공간케어] ${worker.name ?? ''}님 일정 안내\n` +
