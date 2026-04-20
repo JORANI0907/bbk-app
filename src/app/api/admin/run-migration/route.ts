@@ -55,6 +55,8 @@ export async function POST(request: NextRequest) {
     `CREATE INDEX IF NOT EXISTS idx_customers_deleted_at ON customers(deleted_at) WHERE deleted_at IS NOT NULL`,
     `CREATE INDEX IF NOT EXISTS idx_applications_deleted_at ON service_applications(deleted_at) WHERE deleted_at IS NOT NULL`,
     `CREATE INDEX IF NOT EXISTS idx_schedules_deleted_at ON service_schedules(deleted_at) WHERE deleted_at IS NOT NULL`,
+    // 2025-04 시공시간 필드 추가
+    `ALTER TABLE service_applications ADD COLUMN IF NOT EXISTS construction_time TEXT`,
   ]
 
   try {
