@@ -86,7 +86,7 @@ export async function POST(
     '{{견적서번호}}': quoteNo,
   }
   careScopeItems.forEach((item: string, idx: number) => {
-    variables[`{{케어범위${idx + 1}}}`] = item
+    variables[`{{항목${idx + 1}}}`] = item
   })
 
   let pdfUrl: string | undefined
@@ -113,6 +113,7 @@ export async function POST(
       )
       const metaData = await metaRes.json()
       const sheetName = (metaData.sheets?.[0]?.properties?.title as string | undefined) || 'Sheet1'
+      const sheetId = (metaData.sheets?.[0]?.properties?.sheetId as number | undefined) ?? 0
 
       // 3. 전체 셀 값 읽기
       const valRes = await fetch(
@@ -143,6 +144,30 @@ export async function POST(
             method: 'POST',
             headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
             body: JSON.stringify({ valueInputOption: 'USER_ENTERED', data: updates }),
+          }
+        )
+      }
+
+      // 4-1. 매핑되지 않은 {{항목N}} 행 삭제 (많은 쪽부터 삭제해 인덱스 보존)
+      const itemPlaceholderRe = /\{\{항목\d+\}\}/
+      const rowsToDelete = rows
+        .map((row, rowIdx) => ({ rowIdx, hasPlaceholder: row.some(cell => itemPlaceholderRe.test(cell)) }))
+        .filter(r => r.hasPlaceholder)
+        .map(r => r.rowIdx)
+        .sort((a, b) => b - a)
+
+      if (rowsToDelete.length > 0) {
+        const deleteRequests = rowsToDelete.map(rowIdx => ({
+          deleteDimension: {
+            range: { sheetId, dimension: 'ROWS', startIndex: rowIdx, endIndex: rowIdx + 1 },
+          },
+        }))
+        await fetch(
+          `https://sheets.googleapis.com/v4/spreadsheets/${copyId}:batchUpdate`,
+          {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ requests: deleteRequests }),
           }
         )
       }
