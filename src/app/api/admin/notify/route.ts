@@ -79,10 +79,10 @@ function buildVariables(
   const dep     = Number(app.deposit ?? 0)
   const balance = String(((supply + vat) - dep).toLocaleString('ko-KR'))
 
-  // 사전미팅 여부 / 시간
+  // 사전미팅 여부 / 일정
   const preMeetingAt = app.pre_meeting_at as string | null | undefined
-  const meetingYN = preMeetingAt ? 'Y' : 'N'
-  const meetingTime = preMeetingAt
+  const meetingStatus = preMeetingAt ? '진행 예정' : '-'
+  const meetingSchedule = preMeetingAt
     ? new Date(preMeetingAt).toLocaleString('ko-KR', {
         month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit',
       })
@@ -91,29 +91,29 @@ function buildVariables(
   switch (type) {
     case '예약확정알림':
       return {
-        '고객명':     ownerName,
-        '고객연락처': phone,
-        '상호명':     businessName,
-        '케어유형':   serviceType,
-        '담당자':     assignedUserName || '-',
-        '주소':       address,
-        '시공일자':   date,
-        '요청시간':   requestTime,
-        '미팅여부':   meetingYN,
-        '미팅시간':   meetingTime,
+        '고객명':       ownerName,
+        '고객연락처':   phone,
+        '상호명':       businessName,
+        '케어유형':     serviceType,
+        '담당자':       assignedUserName || '-',
+        '주소':         address,
+        '시공일자':     date,
+        '요청시간':     requestTime,
+        '사전미팅여부': meetingStatus,
+        '미팅 일정':    meetingSchedule,
       }
     case '예약1일전알림':
     case '예약당일알림':
       return {
-        '고객명':   ownerName,
-        '상호명':   businessName,
-        '케어유형': serviceType,
-        '담당자':   assignedUserName || '-',
-        '주소':     address,
-        '시공일자': date,
-        '요청시간': requestTime,
-        '미팅여부': meetingYN,
-        '미팅시간': meetingTime,
+        '고객명':       ownerName,
+        '상호명':       businessName,
+        '케어유형':     serviceType,
+        '담당자':       assignedUserName || '-',
+        '주소':         address,
+        '시공일자':     date,
+        '요청시간':     requestTime,
+        '사전미팅여부': meetingStatus,
+        '미팅 일정':    meetingSchedule,
       }
     case '작업완료알림':
       return {

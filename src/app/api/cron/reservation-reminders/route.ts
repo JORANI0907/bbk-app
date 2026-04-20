@@ -40,18 +40,26 @@ function buildVariables(
 
   switch (type) {
     case '예약1일전알림':
-    case '예약당일알림':
+    case '예약당일알림': {
+      const preMeetingAt = app.pre_meeting_at as string | null | undefined
+      const meetingStatus   = preMeetingAt ? '진행 예정' : '-'
+      const meetingSchedule = preMeetingAt
+        ? new Date(preMeetingAt).toLocaleString('ko-KR', {
+            month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit',
+          })
+        : '-'
       return {
-        '고객명':   ownerName,
-        '상호명':   businessName,
-        '케어유형': serviceType,
-        '담당자':   assignedName || '-',
-        '주소':     address,
-        '시공일자': date,
-        '요청시간': hoursStart,
-        '미팅여부': 'N',
-        '미팅시간': '-',
+        '고객명':       ownerName,
+        '상호명':       businessName,
+        '케어유형':     serviceType,
+        '담당자':       assignedName || '-',
+        '주소':         address,
+        '시공일자':     date,
+        '요청시간':     hoursStart,
+        '사전미팅여부': meetingStatus,
+        '미팅 일정':    meetingSchedule,
       }
+    }
     case '결제알림':
       return {
         '고객명':   ownerName,
