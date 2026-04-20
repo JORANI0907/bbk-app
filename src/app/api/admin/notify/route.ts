@@ -251,11 +251,11 @@ export async function POST(request: NextRequest) {
       if (!app.assigned_to) return NextResponse.json({ error: '담당 작업자가 배정되지 않았습니다.' }, { status: 400 })
 
       const { data: worker } = await supabase
-        .from('workers')
+        .from('users')
         .select('name, phone')
         .eq('id', app.assigned_to)
         .single()
-      if (!worker?.phone) return NextResponse.json({ error: '작업자 전화번호가 없습니다.' }, { status: 400 })
+      if (!worker?.phone) return NextResponse.json({ error: '직원 전화번호가 없습니다. 직원관리 탭에서 연락처를 확인해주세요.' }, { status: 400 })
 
       const date = app.construction_date?.slice(0, 10) ?? '-'
       const start = app.business_hours_start ?? '-'
