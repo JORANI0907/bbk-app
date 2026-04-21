@@ -1182,6 +1182,13 @@ export default function ServiceManagementPage() {
     setFiltersVisible(true)
     const onScroll = () => {
       const current = container.scrollTop
+      const scrollable = container.scrollHeight - container.clientHeight
+      // 스크롤 가능 거리가 충분하지 않으면 필터 항상 표시 (짧은 목록 튕김 방지)
+      if (scrollable < 120) {
+        setFiltersVisible(true)
+        lastScrollY.current = current
+        return
+      }
       setFiltersVisible(current < lastScrollY.current || current < 50)
       lastScrollY.current = current
     }
