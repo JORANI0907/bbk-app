@@ -12,6 +12,7 @@ import {
 } from '@/lib/googleDrive'
 import type { DriveFolder } from '@/lib/googleDrive'
 import { openGoogleDrive } from '@/lib/mapUtils'
+import { useModalBackButton } from '@/hooks/useModalBackButton'
 
 type InventoryCategory = 'chemical' | 'equipment' | 'consumable' | 'other'
 type TxType = 'receive' | 'return' | 'use' | 'adjust'
@@ -214,6 +215,7 @@ export default function AdminInventoryPage() {
   }, [mainTab, logMonth, logType, role, fetchAdminLogs])
 
   const [mobileShowDetail, setMobileShowDetail] = useState(false)
+  useModalBackButton(mobileShowDetail, () => setMobileShowDetail(false))
 
   const handleSelectItem = (item: InventoryItem) => {
     setSelectedItem(item)
