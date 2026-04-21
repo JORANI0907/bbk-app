@@ -227,6 +227,49 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ matched: 'deposit', application_id: result.app.id, amount, notify_ok: ok })
     }
 
+    // ─── 예약금 이름 매칭 (fallback): deposit 미입력 상태에서 이름으로 찾기 ──
+    if (contact) {
+      const { data: preApps } = await supabase
+        .from('service_applications')
+        .select('id, business_name, owner_name, phone, deposit, balance, status')
+        .in('status', ['신규', '견적발송', '예약확정'])
+
+      if (preApps && preApps.length > 0) {
+        const { best, score, secondScore } = pickBestByName(preApps as AppRow[], contact)
+
+        if (score >= 80 && score - secondScore >= 20) {
+          // 자동 매칭: deposit 필드 업데이트 후 알림
+          await supabase
+            .from('service_applications')
+            .update({ deposit: amount })
+            .eq('id', best.id)
+
+          const { ok, newStatus } = await fireNotify(origin, best.id, '예약금 입금완료 알림')
+
+          await sendSlack(
+            `💰 *예약금 입금 확인 (이름매칭)*\n• 업체명: ${best.business_name}\n• 고객명: ${best.owner_name}\n• 입금자명: ${contact}\n• 금액: ${amount.toLocaleString('ko-KR')}원 → deposit 저장\n• 이름유사도: ${score}점\n• 알림발송: ${ok ? '✅' : '❌'}\n• 상태변경: ${newStatus ?? '예약금 입금'}`
+          ).catch(() => {})
+
+          return NextResponse.json({ matched: 'deposit_by_name', application_id: best.id, amount, notify_ok: ok })
+        }
+
+        if (score >= 50) {
+          // 점수 애매 — Slack에 후보 목록 수동 처리 요청
+          const scored = (preApps as AppRow[])
+            .map(a => ({ app: a, score: calcMatchScore(contact, a.owner_name ?? '', a.business_name ?? '') }))
+            .sort((a, b) => b.score - a.score)
+            .filter(s => s.score > 0)
+          const detail = scored.map(s => `• ${s.app.business_name} (${s.app.owner_name}) — ${s.score}점`).join('\n')
+
+          await sendSlack(
+            `⚠️ *예약금 입금 — 수동 처리 필요 (이름 불명확)*\n• 금액: ${amount.toLocaleString('ko-KR')}원\n• 입금자명: ${contact}\n• 1위 ${score}점 / 2위 ${secondScore}점\n${detail}`
+          ).catch(() => {})
+
+          return NextResponse.json({ matched: 'deposit_by_name', action: 'manual_required', score })
+        }
+      }
+    }
+
     // ─── 잔금 매칭: status='작업완료' or '결제', balance=amount ──
     const { data: balanceApps } = await supabase
       .from('service_applications')
