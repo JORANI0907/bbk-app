@@ -1070,9 +1070,9 @@ export default function SchedulePage() {
                 {listItems.map(item => {
                   if (item.kind === 'week') {
                     return (
-                      <tr key={item.key}>
-                        <td colSpan={isAdmin ? 8 : 7} className="px-4 py-1 bg-gray-50">
-                          <span className="text-xs text-gray-400 font-medium">{item.label}</span>
+                      <tr key={item.key} className="bg-gradient-to-r from-blue-50 to-indigo-50 border-t-2 border-blue-200">
+                        <td colSpan={isAdmin ? 8 : 7} className="px-4 py-1.5">
+                          <span className="text-xs font-bold text-blue-700 tracking-wide">{item.label}</span>
                         </td>
                       </tr>
                     )
