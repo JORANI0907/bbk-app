@@ -18,6 +18,7 @@ const NOTIFY_TO_STATUS: Record<string, string> = {
   '계산서발행완료알림': '계산서발행완료',
   '예약금환급완료알림': '예약금환급완료',
   '예약취소알림':       '예약취소',
+  // 신청서작성완료알림은 상태 변경 없음 (신규 유지)
   'A/S방문알림':        'A/S방문',
   '방문견적알림':       '방문견적',
 }
@@ -37,6 +38,7 @@ const ALIMTALK_TEMPLATES: Record<string, string> = {
   '예약취소알림':       'KA01TP260324125232854lv8CCYK3Ozu',
   'A/S방문알림':        'KA01TP260324125232887FY113tVp5zb',
   '방문견적알림':       'KA01TP260324125232920u1LmrtqCY0P',
+  '신청서작성완료알림': 'KA01TP260225105100279pvfbwyZDT39',
 }
 
 // ─── 요청시간 계산: 마감시간 +1h ~ +4h ("~3시간 후") ──────────────
@@ -190,6 +192,8 @@ function buildVariables(
         '시공일자': date,
         '방문시간': hoursStart,
       }
+    case '신청서작성완료알림':
+      return { '고객명': ownerName }
     default:
       return { '고객명': ownerName }
   }
@@ -214,6 +218,7 @@ function buildFallback(type: string, app: Record<string, unknown>): string {
     '예약취소알림':       `[BBK 공간케어] ${name}님, 예약이 취소되었습니다.`,
     'A/S방문알림':        `[BBK 공간케어] ${name}님, A/S 방문 일정을 안내드립니다.`,
     '방문견적알림':       `[BBK 공간케어] ${name}님, 방문견적 일정을 안내드립니다.`,
+    '신청서작성완료알림': `[BBK 공간케어] ${name}님, 신청서가 정상적으로 접수되었습니다. 담당자가 확인 후 연락드리겠습니다.`,
   }
   return fallbacks[type] ?? `[BBK 공간케어] ${name}님께 알림을 발송합니다.`
 }
@@ -305,6 +310,14 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (!app) return NextResponse.json({ error: '신청서를 찾을 수 없습니다.' }, { status: 404 })
+
+    // 신청서작성완료알림 1회 제한
+    if (type === '신청서작성완료알림') {
+      const log: NotificationLogEntry[] = Array.isArray(app.notification_log) ? app.notification_log : []
+      if (log.some(l => l.type === '신청서작성완료알림')) {
+        return NextResponse.json({ success: true, skipped: true, reason: '이미 발송된 알림입니다.' })
+      }
+    }
 
     // 담당자 이름 조회
     let assignedUserName = '-'

@@ -77,6 +77,14 @@ export async function POST(request: NextRequest) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
+  // 신청서작성완료 알림 자동 발송 (fire-and-forget)
+  const origin = new URL(request.url).origin
+  fetch(`${origin}/api/admin/notify`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ application_id: data.id, type: '신청서작성완료알림', method: 'auto' }),
+  }).catch(() => {})
+
   // Slack 알림 (fire-and-forget)
   const kstTime = new Date().toLocaleString('ko-KR', {
     timeZone: 'Asia/Seoul',

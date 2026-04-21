@@ -177,6 +177,16 @@ export async function POST(request: NextRequest) {
       `• 접수시각: ${kstTime}`
     ).catch(() => {})
 
+    // 신청서작성완료 알림 자동 발송 (Supabase 성공 시에만, fire-and-forget)
+    if (insertedId) {
+      const origin = new URL(request.url).origin
+      fetch(`${origin}/api/admin/notify`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ application_id: insertedId, type: '신청서작성완료알림', method: 'auto' }),
+      }).catch(() => {})
+    }
+
     // Notion 미러링 (Supabase 성공 시에만)
     if (insertedId) {
       try {
