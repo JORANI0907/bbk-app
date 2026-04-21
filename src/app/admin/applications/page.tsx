@@ -1398,28 +1398,32 @@ export default function ServiceManagementPage() {
 
           {/* 액션 바 */}
           {checkedIds.length > 0 && (
-            <div className="mb-3 flex items-center gap-2 bg-green-600 text-white px-4 py-2.5 rounded-xl shadow-sm">
-              <span className="text-sm font-semibold flex-1">{checkedIds.length}건 선택됨</span>
-              <button onClick={() => setCheckedIds([])}
-                className="text-xs text-green-200 hover:text-white px-2 py-1 rounded transition-colors">
-                선택 해제
-              </button>
-              <button onClick={handleDuplicateBulk} disabled={bulkSaving}
-                className="text-xs bg-yellow-500 hover:bg-yellow-400 text-white font-semibold px-3 py-1.5 rounded-lg disabled:opacity-50 transition-colors whitespace-nowrap">
-                {bulkSaving ? '처리 중...' : '복제'}
-              </button>
-              <button onClick={handleDeleteApplicationBulk} disabled={bulkSaving}
-                className="text-xs bg-red-500 hover:bg-red-400 text-white font-semibold px-3 py-1.5 rounded-lg disabled:opacity-50 transition-colors whitespace-nowrap">
-                삭제
-              </button>
-              <button onClick={handleTaxInvoiceBulk} disabled={bulkSaving}
-                className="text-xs bg-teal-500 hover:bg-teal-400 text-white font-semibold px-3 py-1.5 rounded-lg disabled:opacity-50 transition-colors whitespace-nowrap">
-                {bulkSaving ? '처리 중...' : '계산서 작성'}
-              </button>
-              <button onClick={handleSaveToCustomerBulk} disabled={bulkSaving}
-                className="text-xs bg-white text-green-700 font-semibold px-3 py-1.5 rounded-lg hover:bg-green-50 disabled:opacity-50 transition-colors whitespace-nowrap">
-                {bulkSaving ? '처리 중...' : '고객 DB 저장 →'}
-              </button>
+            <div className="mb-3 flex flex-col gap-2 bg-green-600 text-white px-4 py-3 rounded-xl shadow-sm">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-semibold">{checkedIds.length}건 선택됨</span>
+                <button onClick={() => setCheckedIds([])}
+                  className="text-xs text-green-200 hover:text-white px-2 py-1 rounded transition-colors shrink-0">
+                  선택 해제
+                </button>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <button onClick={handleDuplicateBulk} disabled={bulkSaving}
+                  className="text-xs bg-yellow-500 hover:bg-yellow-400 text-white font-semibold px-3 py-1.5 rounded-lg disabled:opacity-50 transition-colors whitespace-nowrap">
+                  {bulkSaving ? '처리 중...' : '복제'}
+                </button>
+                <button onClick={handleDeleteApplicationBulk} disabled={bulkSaving}
+                  className="text-xs bg-red-500 hover:bg-red-400 text-white font-semibold px-3 py-1.5 rounded-lg disabled:opacity-50 transition-colors whitespace-nowrap">
+                  삭제
+                </button>
+                <button onClick={handleTaxInvoiceBulk} disabled={bulkSaving}
+                  className="text-xs bg-teal-500 hover:bg-teal-400 text-white font-semibold px-3 py-1.5 rounded-lg disabled:opacity-50 transition-colors whitespace-nowrap">
+                  {bulkSaving ? '처리 중...' : '계산서 작성'}
+                </button>
+                <button onClick={handleSaveToCustomerBulk} disabled={bulkSaving}
+                  className="text-xs bg-white text-green-700 font-semibold px-3 py-1.5 rounded-lg hover:bg-green-50 disabled:opacity-50 transition-colors whitespace-nowrap">
+                  {bulkSaving ? '처리 중...' : '고객 DB 저장 →'}
+                </button>
+              </div>
             </div>
           )}
 
