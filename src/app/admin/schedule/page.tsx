@@ -422,12 +422,6 @@ function DetailPanel({
             </div>
           </div>
           <div className="flex items-center gap-2 shrink-0 mt-0.5">
-            {isAdmin && (
-              <button onClick={handleDelete} disabled={deleting}
-                className="text-xs px-2 py-1 bg-red-50 hover:bg-red-100 text-red-500 rounded-lg transition-colors disabled:opacity-50">
-                {deleting ? '삭제 중...' : '삭제'}
-              </button>
-            )}
             <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl leading-none">✕</button>
           </div>
         </div>
@@ -670,6 +664,26 @@ export default function SchedulePage() {
     setBulkSaving(false)
     setCheckedIds([])
     if (failCount === 0) toast.success(`${successCount}건 복제되었습니다.`)
+    else toast.error(`${successCount}건 성공, ${failCount}건 실패`)
+  }
+
+  const handleDeleteBulk = async () => {
+    if (checkedIds.length === 0) return
+    if (!confirm(`선택한 ${checkedIds.length}건의 일정을 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.`)) return
+    setBulkSaving(true)
+    let successCount = 0, failCount = 0
+    for (const id of checkedIds) {
+      try {
+        const res = await fetch(`/api/admin/applications?id=${id}`, { method: 'DELETE' })
+        if (res.ok) successCount++
+        else failCount++
+      } catch { failCount++ }
+    }
+    setApplications(prev => prev.filter(a => !checkedIds.includes(a.id)))
+    setSelected(null)
+    setBulkSaving(false)
+    setCheckedIds([])
+    if (failCount === 0) toast.success(`${successCount}건 삭제되었습니다.`)
     else toast.error(`${successCount}건 성공, ${failCount}건 실패`)
   }
 
@@ -923,16 +937,24 @@ export default function SchedulePage() {
 
       {/* 복제 액션 바 (관리자 + 항목 선택 시) */}
       {isAdmin && checkedIds.length > 0 && (
-        <div className="shrink-0 flex items-center gap-2 bg-green-600 text-white px-4 py-2.5 rounded-xl shadow-sm">
-          <span className="text-sm font-semibold flex-1">{checkedIds.length}건 선택됨</span>
-          <button onClick={() => setCheckedIds([])}
-            className="text-xs text-green-200 hover:text-white px-2 py-1 rounded transition-colors">
-            선택 해제
-          </button>
-          <button onClick={handleDuplicateBulk} disabled={bulkSaving}
-            className="text-xs bg-yellow-500 hover:bg-yellow-400 text-white font-semibold px-3 py-1.5 rounded-lg disabled:opacity-50 transition-colors whitespace-nowrap">
-            {bulkSaving ? '처리 중...' : '복제'}
-          </button>
+        <div className="shrink-0 flex flex-col gap-2 bg-green-600 text-white px-4 py-3 rounded-xl shadow-sm">
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-semibold">{checkedIds.length}건 선택됨</span>
+            <button onClick={() => setCheckedIds([])}
+              className="text-xs text-green-200 hover:text-white px-2 py-1 rounded transition-colors shrink-0">
+              선택 해제
+            </button>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <button onClick={handleDuplicateBulk} disabled={bulkSaving}
+              className="text-xs bg-yellow-500 hover:bg-yellow-400 text-white font-semibold px-3 py-1.5 rounded-lg disabled:opacity-50 transition-colors whitespace-nowrap">
+              {bulkSaving ? '처리 중...' : '복제'}
+            </button>
+            <button onClick={handleDeleteBulk} disabled={bulkSaving}
+              className="text-xs bg-red-500 hover:bg-red-400 text-white font-semibold px-3 py-1.5 rounded-lg disabled:opacity-50 transition-colors whitespace-nowrap">
+              삭제
+            </button>
+          </div>
         </div>
       )}
 
