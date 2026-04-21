@@ -18,6 +18,7 @@ import { MonthNavigator } from '@/components/MonthNavigator'
 import { LoadingSpinner } from '@/components/admin/LoadingSpinner'
 import { MapSelectorModal } from '@/components/MapSelectorModal'
 import { ShoppingItemsSection } from '@/components/admin/ShoppingItemsSection'
+import { getScheduleToday } from '@/lib/schedule-today'
 
 type ServiceType = '1회성케어' | '정기딥케어' | '정기엔드케어'
 type ApplicationStatus = '신규' | '견적발송' | '예약확정' | '예약1일전' | '예약당일' | '작업완료' | '작업완료(엔드)' | '결제' | '결제완료' | '결제완료(잔금)' | '계산서발행완료' | '비과세' | '카드결제 완료' | '예약금환급완료' | '예약금 입금' | '예약취소' | 'A/S방문' | '방문견적'
@@ -262,7 +263,7 @@ function AppCalendarView({
   const month = m - 1 // 0-indexed for Date
   const firstDay = new Date(year, month, 1).getDay()
   const daysInMonth = new Date(year, month + 1, 0).getDate()
-  const todayStr = new Date().toISOString().slice(0, 10)
+  const todayStr = getScheduleToday()
 
   const dayMap = useMemo(() => {
     const map: Record<string, Application[]> = {}
@@ -528,7 +529,7 @@ export default function ServiceManagementPage() {
 
   useModalBackButton(!!selected, closePanel)
 
-  const todayStr = new Date().toISOString().slice(0, 10)
+  const todayStr = getScheduleToday()
   const sevenDaysAgoStr = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
 
   const isCashNoVat = isNoVatMethod(paymentMethod)
