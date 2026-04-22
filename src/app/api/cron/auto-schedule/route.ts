@@ -33,6 +33,7 @@ interface CustomerRow {
   status: string | null
   unit_price: number | null
   assigned_user_id: string | null
+  assigned_worker_id: string | null
   billing_cycle: string | null
   billing_amount: number | null
 }
@@ -75,7 +76,7 @@ export async function GET(request: NextRequest) {
       'payment_method, business_hours_start, business_hours_end, elevator, building_access, parking_info, ' +
       'access_method, special_notes, care_scope, customer_type, ' +
       'visit_schedule_type, visit_weekdays, visit_monthly_dates, status, unit_price, ' +
-      'assigned_user_id, billing_cycle, billing_amount'
+      'assigned_user_id, assigned_worker_id, billing_cycle, billing_amount'
     )
     .in('customer_type', ['정기딥케어', '정기엔드케어'])
     .eq('status', 'active')
@@ -172,7 +173,20 @@ export async function GET(request: NextRequest) {
         if (!insertError && insertedApps) {
           inserted = insertedApps.length
 
-          // 2. assigned_to가 있는 경우 service_schedules에도 생성 (FK 연결)
+          // 2. 작업자가 있으면 work_assignments에 자동 생성
+          if (customer.assigned_worker_id && insertedApps.length > 0) {
+            const workerRows = insertedApps.map((app: { id: string; construction_date: string }) => ({
+              worker_id: customer.assigned_worker_id,
+              application_id: app.id,
+              construction_date: app.construction_date.slice(0, 10),
+              business_name: customer.business_name,
+              customer_id: customer.id,
+              service_type: customer.customer_type,
+            }))
+            await supabase.from('work_assignments').insert(workerRows)
+          }
+
+          // 3. assigned_to가 있는 경우 service_schedules에도 생성 (FK 연결)
           const toSchedule = insertedApps.filter(
             (app: { assigned_to: string | null; construction_date: string | null }) =>
               app.assigned_to && app.construction_date

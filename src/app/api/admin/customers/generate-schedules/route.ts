@@ -26,6 +26,7 @@ interface CustomerRow {
   visit_monthly_dates: number[] | null
   unit_price: number | null
   assigned_user_id: string | null
+  assigned_worker_id: string | null
   billing_cycle: string | null
   billing_amount: number | null
 }
@@ -78,7 +79,7 @@ export async function POST(request: NextRequest) {
   const { data: customersData, error: fetchError } = await supabase
     .from('customers')
     .select(
-      'id, business_name, contact_name, contact_phone, email, address, platform_nickname, business_number, account_number, payment_method, business_hours_start, business_hours_end, elevator, building_access, parking_info, access_method, special_notes, care_scope, customer_type, visit_schedule_type, visit_weekdays, visit_monthly_dates, unit_price, assigned_user_id, billing_cycle, billing_amount'
+      'id, business_name, contact_name, contact_phone, email, address, platform_nickname, business_number, account_number, payment_method, business_hours_start, business_hours_end, elevator, building_access, parking_info, access_method, special_notes, care_scope, customer_type, visit_schedule_type, visit_weekdays, visit_monthly_dates, unit_price, assigned_user_id, assigned_worker_id, billing_cycle, billing_amount'
     )
     .in('id', customer_ids)
     .is('deleted_at', null)
@@ -176,6 +177,19 @@ export async function POST(request: NextRequest) {
     const insertedApps = inserted ?? []
     const insertedCount = insertedApps.length
     totalInserted += insertedCount
+
+    // 작업자가 있으면 work_assignments에 자동 생성
+    if (customer.assigned_worker_id && insertedApps.length > 0) {
+      const workerRows = insertedApps.map((app: { id: string; construction_date: string }) => ({
+        worker_id: customer.assigned_worker_id,
+        application_id: app.id,
+        construction_date: app.construction_date.slice(0, 10),
+        business_name: customer.business_name,
+        customer_id: customer.id,
+        service_type: customer.customer_type,
+      }))
+      await supabase.from('work_assignments').insert(workerRows)
+    }
 
     // assigned_to가 있으면 service_schedules에도 자동 생성
     const toSchedule = insertedApps.filter(
