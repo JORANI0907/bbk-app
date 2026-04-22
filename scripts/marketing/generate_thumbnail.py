@@ -613,22 +613,103 @@ def take_screenshot(html: str, out_path: str) -> None:
     print(f'  saved: {out_path}')
 
 
+def generate_lifestyle_image(
+    scene: str,
+    script_dir: Path,
+    out_path: str,
+) -> bool:
+    """
+    라이프스타일 전용 파이프라인.
+    - 캐릭터: 항상 조라니(A, 실사 스타일) 고정
+    - 방식: Nano Banana에 조라니 레퍼런스 + 씬 설명 전달 → 씬 배경에 자연스럽게 합성
+    - 텍스트 오버레이/마케팅 태그 없음 → 인플루언서 실제 사진 느낌
+    """
+    char_rel = CHAR_FILES.get('조라니')
+    if not char_rel:
+        print('  warn: 조라니 캐릭터 파일 경로 없음')
+        return False
+    char_path = script_dir / char_rel
+    if not char_path.exists():
+        print(f'  warn: 조라니 파일 없음: {char_path}')
+        return False
+
+    scene_data = CHAR_SCENE_MAP.get(scene)
+    if not scene_data:
+        print(f'  warn: 씬 없음: {scene}')
+        return False
+    scene_pose, scene_outfit = scene_data
+    bg_desc = SCENE_BG_MAP.get(scene, 'cozy lifestyle setting, warm lighting, no people')
+
+    with open(char_path, 'rb') as f:
+        char_bytes = f.read()
+
+    prompt = (
+        'This image shows our brand character "조라니". '
+        'She has a distinctive look — keep her face, hair, body proportions, and art style '
+        'EXACTLY the same. Do not alter her appearance in any way.\n\n'
+        'Create a photorealistic lifestyle photo:\n'
+        f'Background scene: {bg_desc}\n'
+        f'Character pose: {scene_pose}\n'
+        f'Character outfit: {scene_outfit}\n\n'
+        'The character must be NATURALLY INTEGRATED into the scene — '
+        'she should appear as if she is genuinely present in that environment, '
+        'not composited or overlaid on top. '
+        'The result should feel like a real influencer lifestyle photo. '
+        'Square 1:1 format, high quality, warm natural lighting. '
+        'No text, no logos, no watermarks, no UI overlays.'
+    )
+
+    print(f'  lifestyle: Nano Banana 씬 합성 중 ({scene})...')
+    result_bytes = call_nano_banana_edit(char_bytes, prompt)
+    if not result_bytes:
+        print('  warn: Nano Banana 라이프스타일 합성 실패')
+        return False
+
+    Path(out_path).parent.mkdir(parents=True, exist_ok=True)
+    with open(out_path, 'wb') as f:
+        f.write(result_bytes)
+    print(f'  saved: {out_path}')
+    return True
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description='BBK 썸네일 생성기 (1:1)')
-    parser.add_argument('--title',  required=True, help='메인 타이틀')
-    parser.add_argument('--sub',    default='',    help='서브 텍스트')
-    parser.add_argument('--region', default='',    help='지역 태그')
-    parser.add_argument('--item',   default='',    help='서비스 품목 태그')
-    parser.add_argument('--bg',     default='',    help='배경 이미지 경로 또는 "auto"')
-    parser.add_argument('--char',   default='',    choices=['', '라니', '둥이', '조라니'], help='캐릭터')
-    parser.add_argument('--style',  default='bold', choices=['bold', 'vintage', 'scatter', 'clean'])
-    parser.add_argument('--color',  default='yellow', choices=list(ACCENT_COLORS.keys()))
-    parser.add_argument('--scene',  default='',    choices=[''] + list(CHAR_SCENE_MAP.keys()), help='라이프스타일 씬 (item 무시)')
-    parser.add_argument('--out',    default='thumbnails', help='출력 디렉토리')
+    parser.add_argument('--title',     default='',    help='메인 타이틀 (--lifestyle 시 생략 가능)')
+    parser.add_argument('--sub',       default='',    help='서브 텍스트')
+    parser.add_argument('--region',    default='',    help='지역 태그')
+    parser.add_argument('--item',      default='',    help='서비스 품목 태그')
+    parser.add_argument('--bg',        default='',    help='배경 이미지 경로 또는 "auto"')
+    parser.add_argument('--char',      default='',    choices=['', '라니', '둥이', '조라니'], help='캐릭터')
+    parser.add_argument('--style',     default='bold', choices=['bold', 'vintage', 'scatter', 'clean'])
+    parser.add_argument('--color',     default='yellow', choices=list(ACCENT_COLORS.keys()))
+    parser.add_argument('--scene',     default='',    choices=[''] + list(CHAR_SCENE_MAP.keys()), help='라이프스타일 씬 (item 무시)')
+    parser.add_argument('--lifestyle', action='store_true', help='라이프스타일 모드: 조라니를 씬에 자연스럽게 합성, 텍스트 오버레이 없음')
+    parser.add_argument('--out',       default='thumbnails', help='출력 디렉토리')
     args = parser.parse_args()
 
     out_dir = Path(args.out)
     out_dir.mkdir(parents=True, exist_ok=True)
+    script_dir = Path(__file__).parent
+
+    # ── 라이프스타일 전용 파이프라인 ──────────────────────────────────────
+    if args.lifestyle:
+        if not args.scene:
+            print('  error: --lifestyle 모드에는 --scene 이 필요합니다')
+            return
+        today = datetime.now().strftime('%Y%m%d')
+        out_path = str(out_dir / f'조라니_{args.scene}.png')
+        print(f'\nBBK 라이프스타일 이미지 생성 중... (scene: {args.scene})')
+        success = generate_lifestyle_image(args.scene, script_dir, out_path)
+        if success:
+            print(f'\ndone! output: {Path(out_path).resolve()}\n')
+        else:
+            print('\n라이프스타일 이미지 생성 실패\n')
+        return
+
+    # ── 일반 썸네일 파이프라인 ────────────────────────────────────────────
+    if not args.title:
+        print('  error: --title 이 필요합니다 (--lifestyle 없는 경우)')
+        return
 
     print(f'\nBBK 썸네일 생성 중... (1080x1080)')
     print(f'  title: {args.title}')
@@ -652,7 +733,6 @@ def main() -> None:
     # 캐릭터 처리 (Nano Banana 동적 포즈/의상 → 실패 시 정적 fallback)
     char_data_url = None
     if args.char:
-        script_dir = Path(__file__).parent
         char_data_url = generate_character_with_pose(
             args.char, args.item, args.color, script_dir, scene=args.scene
         )
