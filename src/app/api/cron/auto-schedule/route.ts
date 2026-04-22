@@ -114,6 +114,7 @@ export async function GET(request: NextRequest) {
     let inserted = 0
     let skipped = 0
     let smsStatus = 'skipped (dry_run)'
+    let insertedApps: Array<{ id: string; assigned_to: string | null; construction_date: string; business_hours_start?: string | null; business_hours_end?: string | null }> | null = null
 
     if (!dryRun) {
       // service_applications 중복 확인 (업체명 + 방문일자 기준)
@@ -169,12 +170,13 @@ export async function GET(request: NextRequest) {
           admin_notes: `cron 자동 일정 생성 (${label})`,
         }))
 
-        const { data: insertedApps, error: insertError } = await supabase
+        const { data: _insertedApps, error: insertError } = await supabase
           .from('service_applications')
           .insert(toInsert)
           .select('id, assigned_to, construction_date, business_hours_start, business_hours_end')
 
-        if (!insertError && insertedApps) {
+        if (!insertError && _insertedApps) {
+          insertedApps = _insertedApps
           inserted = insertedApps.length
 
           // 2. 작업자가 있으면 work_assignments에 자동 생성
@@ -202,7 +204,7 @@ export async function GET(request: NextRequest) {
 
             const scheduleRows = toSchedule.map((app: {
               id: string
-              assigned_to: string
+              assigned_to: string | null
               construction_date: string
               business_hours_start?: string | null
               business_hours_end?: string | null
