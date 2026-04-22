@@ -1,7 +1,9 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import toast from 'react-hot-toast'
+import { MarketingAgentSummary } from '@/components/admin/automation/MarketingAgentSummary'
 
 // ─── 타입 ─────────────────────────────────────────────────────────
 
@@ -199,9 +201,10 @@ const CATEGORY_ORDER = ['고객응대', '예약알림', '작업완료', '결제�
 // ─── 컴포넌트 ─────────────────────────────────────────────────────
 
 export default function AutomationPage() {
+  const router = useRouter()
   const [items, setItems] = useState<AutomationItem[]>(INITIAL_ITEMS)
   const [showAddModal, setShowAddModal] = useState(false)
-  const [activeTab, setActiveTab] = useState<'make' | 'activity'>('make')
+  const [activeTab, setActiveTab] = useState<'make' | 'activity' | 'agents' | 'marketing'>('make')
 
   const handleToggle = async (id: string) => {
     const item = items.find(i => i.id === id)
@@ -282,23 +285,25 @@ export default function AutomationPage() {
 
       {/* 탭 */}
       <div className="px-4 pb-2 shrink-0">
-        <div className="flex bg-gray-100 rounded-xl p-1 gap-1">
-          <button
-            onClick={() => setActiveTab('make')}
-            className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-colors ${
-              activeTab === 'make' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
-            }`}
-          >
-            🤖 Make.com 자동화
-          </button>
-          <button
-            onClick={() => setActiveTab('activity')}
-            className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-colors ${
-              activeTab === 'activity' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
-            }`}
-          >
-            🔔 실시간 Slack 알림
-          </button>
+        <div className="flex bg-gray-100 rounded-xl p-1 gap-1 flex-wrap">
+          {(
+            [
+              { key: 'make',      label: '🤖 Make.com'   },
+              { key: 'activity',  label: '🔔 Slack 알림'  },
+              { key: 'agents',    label: '🧠 에이전트'    },
+              { key: 'marketing', label: '📣 마케팅'      },
+            ] as const
+          ).map(({ key, label }) => (
+            <button
+              key={key}
+              onClick={() => setActiveTab(key)}
+              className={`flex-1 min-w-[80px] py-2 text-xs font-semibold rounded-lg transition-colors ${
+                activeTab === key ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
         </div>
       </div>
 
@@ -368,6 +373,52 @@ export default function AutomationPage() {
                 </div>
               </div>
             ))}
+          </div>
+        )}
+
+        {/* ── 에이전트 현황 탭 ── */}
+        {activeTab === 'agents' && (
+          <div className="space-y-3">
+            <div className="bg-violet-50 border border-violet-100 rounded-xl p-4">
+              <p className="text-sm font-semibold text-violet-800 mb-1">Claude Code 에이전트 시스템</p>
+              <p className="text-xs text-violet-600 leading-relaxed">
+                BBK Lead를 포함한 10개 에이전트의 관계도와 실시간 활동을 확인할 수 있습니다.
+              </p>
+            </div>
+            {/* 에이전트 요약 카드 */}
+            <div className="grid grid-cols-2 gap-2">
+              {[
+                { icon: '🎯', name: 'BBK Lead',    role: '요구사항 분석 / 분배', color: 'text-violet-700' },
+                { icon: '💻', name: 'Developer',   role: 'Next.js / Supabase',   color: 'text-blue-700'   },
+                { icon: '🎨', name: 'Designer',    role: 'UI/UX 컴포넌트',       color: 'text-cyan-700'   },
+                { icon: '👑', name: 'MKT Leader',  role: '마케팅 팀장',           color: 'text-amber-700'  },
+              ].map(({ icon, name, role, color }) => (
+                <div key={name} className="bg-white border border-gray-100 rounded-xl p-3">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-lg">{icon}</span>
+                    <span className={`text-xs font-bold ${color}`}>{name}</span>
+                  </div>
+                  <p className="text-[10px] text-gray-500">{role}</p>
+                </div>
+              ))}
+            </div>
+            <button
+              onClick={() => router.push('/admin/automation/agents')}
+              className="w-full flex items-center justify-between px-4 py-3 bg-violet-600 text-white rounded-xl hover:bg-violet-700 transition-colors"
+            >
+              <div className="flex items-center gap-2">
+                <span>🧠</span>
+                <span className="text-sm font-semibold">전체 에이전트 현황 보기</span>
+              </div>
+              <span className="text-sm opacity-80">→</span>
+            </button>
+          </div>
+        )}
+
+        {/* ── 마케팅 에이전트 탭 ── */}
+        {activeTab === 'marketing' && (
+          <div>
+            <MarketingAgentSummary />
           </div>
         )}
 
