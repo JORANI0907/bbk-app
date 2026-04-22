@@ -227,14 +227,17 @@ export async function GET(request: NextRequest) {
     results.push({ type: '예약당일알림', sent, failed, skipped })
   }
 
-  // ── 3. 결제알림: 작업완료(딥/엔드) + 결제알림 미발송 ─────────────
-  //     정기엔드케어는 결제알림 발송 제외
+  // ── 3. 결제알림: 작업완료 + 결제알림 미발송 ──────────────────────
+  //     '작업완료(엔드)'는 정기엔드케어 전용 상태 → 상태 필터에서 제외
+  //     service_type 필터도 추가 안전장치로 유지
+  //     공급대가(supply_amount) 0원 또는 미입력 건 발송 제외
   {
     const { data: apps } = await supabase
       .from('service_applications')
       .select('*')
-      .in('status', ['작업완료', '작업완료(엔드)'])
+      .eq('status', '작업완료')
       .neq('service_type', '정기엔드케어')
+      .gt('supply_amount', 0)
 
     let sent = 0, failed = 0, skipped = 0
     for (const app of (apps ?? [])) {
