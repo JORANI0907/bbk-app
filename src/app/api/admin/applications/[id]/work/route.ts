@@ -183,8 +183,8 @@ export async function PATCH(request: NextRequest, { params }: Params) {
         .update({
           notification_sent_at: nowIso,
           notification_send_at: null,
-          // P2-27/28: 작업완료 시 계약상태 자동변경
-          status: '작업완료',
+          // 정기엔드케어는 '작업완료(엔드)', 나머지는 '작업완료'
+          status: isEndCare ? '작업완료(엔드)' : '작업완료',
           notification_log: updatedLog,
         })
         .eq('id', id)
