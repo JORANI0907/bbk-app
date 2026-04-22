@@ -1,13 +1,15 @@
 // P2-26: 결제 알림 자동 발송 웹훅
 // Make.com에서 매일 오전 6시에 호출 (KST)
 // Case 1: 1회성케어 + 정기딥케어(월간) — 작업완료 후 결제완료 전 매일
-// Case 2: 정기엔드케어 — customers.payment_date가 오늘이고 이번달 미결제
-// Case 3: 정기딥케어(연간) — contract_end_date 30일 전부터
+// Case 2: 정기엔드케어 — service_billings 기반, due_date 3일 전부터 paid 처리될 때까지
+// Case 3: 정기딥케어(연간) — contract_end_date 30일 전부터 계약갱신 안내
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
-import { sendSMS } from '@/lib/solapi'
+import { sendSMS, sendAlimtalk } from '@/lib/solapi'
 import { notifySlack } from '@/lib/slack'
+
+const ALIMTALK_BILLING = 'KA01TP260324125257636A2QdT1YNpL5' // 정기결제알림
 
 interface NotificationLogEntry {
   type: string
@@ -36,12 +38,23 @@ interface CustomerRow {
   contact_name: string
   contact_phone: string
   billing_cycle: string | null
-  payment_date: number | null
-  payment_months: string[] | null
   contract_end_date: string | null
   billing_amount: number | null
-  account_number: string | null
   customer_type: string | null
+}
+
+interface BillingWithCustomer {
+  id: string
+  amount: number
+  due_date: string
+  last_notified_at: string | null
+  customers: {
+    contact_name: string
+    contact_phone: string
+    business_name: string
+    customer_type: string | null
+    deleted_at: string | null
+  } | null
 }
 
 function toKSTDateString(date: Date): string {
@@ -57,6 +70,12 @@ function daysDiff(from: string, to: string): number {
   const a = new Date(`${from}T00:00:00Z`)
   const b = new Date(`${to}T00:00:00Z`)
   return Math.round((b.getTime() - a.getTime()) / 86400000)
+}
+
+function isSameKSTDay(isoString: string, todayKST: string): boolean {
+  const d = new Date(isoString)
+  const kst = new Date(d.getTime() + 9 * 60 * 60 * 1000)
+  return kst.toISOString().slice(0, 10) === todayKST
 }
 
 async function appendLog(
@@ -96,14 +115,12 @@ export async function POST(request: NextRequest) {
     const phone = (app.phone ?? '').replace(/-/g, '')
     if (!phone) continue
 
-    // 시공일 다음날부터 발송
     if (!app.construction_date || daysDiff(app.construction_date, todayKST) < 1) continue
 
     const existingLog: NotificationLogEntry[] = Array.isArray(app.notification_log)
       ? (app.notification_log as NotificationLogEntry[])
       : []
 
-    // 오늘 이미 발송했으면 스킵
     const alreadySent = existingLog.some(
       (l) => l.type === '결제알림' && l.sent_at.startsWith(todayKST),
     )
@@ -124,46 +141,71 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  // ── Case 2: 정기엔드케어 — 오늘이 결제일자인 고객 ────────────────
-  const todayDay = new Date().toLocaleDateString('ko-KR', { timeZone: 'Asia/Seoul', day: 'numeric' })
-  const todayDayNum = parseInt(todayDay, 10)
-  const todayYearMonth = todayKST.slice(0, 7) // e.g. "2026-04"
+  // ── Case 2: 정기엔드케어 — service_billings 기반 결제 알림 ────────
+  // due_date 3일 전부터 status='paid'가 될 때까지 매일 발송
+  const threeDaysLaterKST = toKSTDateString(
+    new Date(Date.now() + 9 * 60 * 60 * 1000 + 3 * 24 * 60 * 60 * 1000),
+  )
 
-  const { data: endCareCustomers } = await supabase
-    .from('customers')
-    .select('id, business_name, contact_name, contact_phone, billing_cycle, payment_date, payment_months, contract_end_date, billing_amount, account_number, customer_type')
-    .eq('customer_type', '정기엔드케어')
-    .eq('payment_date', todayDayNum)
-    .is('deleted_at', null)
+  const { data: pendingBillings } = await supabase
+    .from('service_billings')
+    .select('id, amount, due_date, last_notified_at, customers(contact_name, contact_phone, business_name, customer_type, deleted_at)')
+    .eq('billing_type', 'monthly')
+    .neq('status', 'paid')
+    .lte('due_date', threeDaysLaterKST)
 
-  for (const raw of (endCareCustomers ?? [])) {
-    const customer = raw as CustomerRow
+  for (const raw of (pendingBillings ?? [])) {
+    const billing = raw as unknown as BillingWithCustomer
+    const customer = billing.customers
+    if (!customer || customer.deleted_at) continue
+    if (customer.customer_type !== '정기엔드케어') continue
+
     const phone = (customer.contact_phone ?? '').replace(/-/g, '')
     if (!phone) continue
 
-    // 이번달 결제 완료 여부 확인
-    const paymentMonths: string[] = Array.isArray(customer.payment_months)
-      ? (customer.payment_months as string[])
-      : []
-    if (paymentMonths.includes(todayYearMonth)) continue
+    // 오늘 이미 발송한 건 스킵
+    if (billing.last_notified_at && isSameKSTDay(billing.last_notified_at, todayKST)) continue
 
     try {
-      const amount = customer.billing_amount ?? 0
-      const account = customer.account_number ?? ''
-      const msg = `[BBK 공간케어] ${customer.contact_name}님, ${todayYearMonth} 정기 결제일입니다.\n금액: ${amount.toLocaleString()}원\n계좌: ${account}\n문의: 031-759-4877`
-      await sendSMS(phone, msg)
+      const amount = billing.amount ?? 0
+      const dueDate = billing.due_date
+      const contactName = customer.contact_name ?? ''
+      const variables = {
+        '#{고객명}': contactName,
+        '#{청소비용}': amount.toLocaleString('ko-KR'),
+      }
+      const fallback = `[BBK 공간케어] ${contactName}님, ${dueDate} 정기 결제일입니다.\n금액: ${amount.toLocaleString()}원\n문의: 031-759-4877`
 
-      await notifySlack({ notifyType: '정기결제알림(엔드케어)', customerName: customer.contact_name ?? '', phone, businessName: customer.business_name ?? '', constructionDate: todayKST, method: 'auto' }).catch(() => { /* 무시 */ })
+      try {
+        await sendAlimtalk(phone, ALIMTALK_BILLING, variables, fallback)
+      } catch {
+        await sendSMS(phone, fallback)
+      }
+
+      await supabase
+        .from('service_billings')
+        .update({ last_notified_at: nowIso })
+        .eq('id', billing.id)
+
+      await notifySlack({
+        notifyType: '정기결제알림(엔드케어)',
+        customerName: contactName,
+        phone,
+        businessName: customer.business_name ?? '',
+        constructionDate: dueDate,
+        method: 'auto',
+      }).catch(() => { /* 무시 */ })
+
       results.case2++
     } catch {
       results.errors++
     }
   }
 
-  // ── Case 3: 정기딥케어(연간) — 만료 30일 전부터 ─────────────────
+  // ── Case 3: 정기딥케어(연간) — 계약 만료 30일 전부터 안내 ─────────
   const { data: yearlyCustomers } = await supabase
     .from('customers')
-    .select('id, business_name, contact_name, contact_phone, billing_cycle, payment_date, payment_months, contract_end_date, billing_amount, account_number, customer_type')
+    .select('id, business_name, contact_name, contact_phone, billing_cycle, contract_end_date, billing_amount, customer_type')
     .eq('customer_type', '정기딥케어')
     .eq('billing_cycle', '연간')
     .not('contract_end_date', 'is', null)
@@ -192,6 +234,7 @@ export async function POST(request: NextRequest) {
 
   return NextResponse.json({
     success: true,
+    date: todayKST,
     sent_case1: results.case1,
     sent_case2: results.case2,
     sent_case3: results.case3,
