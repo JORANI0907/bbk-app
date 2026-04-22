@@ -8,6 +8,9 @@ interface CustomerRow {
   contact_phone: string | null
   email: string | null
   address: string | null
+  platform_nickname: string | null
+  business_number: string | null
+  account_number: string | null
   payment_method: string | null
   business_hours_start: string | null
   business_hours_end: string | null
@@ -22,6 +25,9 @@ interface CustomerRow {
   visit_weekdays: number[] | null
   visit_monthly_dates: number[] | null
   unit_price: number | null
+  assigned_worker_id: string | null
+  billing_cycle: string | null
+  billing_amount: number | null
 }
 
 interface GenerateResult {
@@ -72,7 +78,7 @@ export async function POST(request: NextRequest) {
   const { data: customersData, error: fetchError } = await supabase
     .from('customers')
     .select(
-      'id, business_name, contact_name, contact_phone, email, address, payment_method, business_hours_start, business_hours_end, elevator, building_access, parking_info, access_method, special_notes, care_scope, customer_type, visit_schedule_type, visit_weekdays, visit_monthly_dates, unit_price'
+      'id, business_name, contact_name, contact_phone, email, address, platform_nickname, business_number, account_number, payment_method, business_hours_start, business_hours_end, elevator, building_access, parking_info, access_method, special_notes, care_scope, customer_type, visit_schedule_type, visit_weekdays, visit_monthly_dates, unit_price, assigned_worker_id, billing_cycle, billing_amount'
     )
     .in('id', customer_ids)
     .is('deleted_at', null)
@@ -125,11 +131,19 @@ export async function POST(request: NextRequest) {
       continue
     }
 
+    const supplyAmount =
+      customer.customer_type === '정기딥케어' && customer.billing_cycle === '월간'
+        ? (customer.billing_amount || null)
+        : null
+
     const toInsert = newDates.map(date => ({
       business_name: customer.business_name,
       owner_name: customer.contact_name || customer.business_name,
       phone: customer.contact_phone || '',
       email: customer.email || null,
+      platform_nickname: customer.platform_nickname || null,
+      business_number: customer.business_number || null,
+      account_number: customer.account_number || null,
       address: customer.address || '',
       payment_method: customer.payment_method || null,
       business_hours_start: customer.business_hours_start || null,
@@ -141,8 +155,9 @@ export async function POST(request: NextRequest) {
       request_notes: customer.special_notes || null,
       care_scope: customer.care_scope || null,
       service_type: customer.customer_type,
-      assigned_to: null,
+      assigned_to: customer.assigned_worker_id || null,
       unit_price_per_visit: customer.unit_price || null,
+      supply_amount: supplyAmount,
       construction_date: date,
       status: '예약확정',
       admin_notes: `고객 DB 자동 일정 생성 (${label})`,

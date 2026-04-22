@@ -32,6 +32,9 @@ interface CustomerRow {
   visit_monthly_dates: number[] | null
   status: string | null
   unit_price: number | null
+  assigned_worker_id: string | null
+  billing_cycle: string | null
+  billing_amount: number | null
 }
 
 function buildSmsMessage(
@@ -71,7 +74,8 @@ export async function GET(request: NextRequest) {
       'platform_nickname, business_number, account_number, ' +
       'payment_method, business_hours_start, business_hours_end, elevator, building_access, parking_info, ' +
       'access_method, special_notes, care_scope, customer_type, ' +
-      'visit_schedule_type, visit_weekdays, visit_monthly_dates, status, unit_price'
+      'visit_schedule_type, visit_weekdays, visit_monthly_dates, status, unit_price, ' +
+      'assigned_worker_id, billing_cycle, billing_amount'
     )
     .in('customer_type', ['정기딥케어', '정기엔드케어'])
     .eq('status', 'active')
@@ -123,6 +127,11 @@ export async function GET(request: NextRequest) {
 
       if (newDates.length > 0) {
         // 1. service_applications에 먼저 insert
+        const supplyAmount =
+          customer.customer_type === '정기딥케어' && customer.billing_cycle === '월간'
+            ? (customer.billing_amount || null)
+            : null
+
         const toInsert = newDates.map((date) => ({
           // 일반정보
           business_name: customer.business_name,
@@ -146,9 +155,10 @@ export async function GET(request: NextRequest) {
           // 결제정보
           payment_method: customer.payment_method || null,
           unit_price_per_visit: customer.unit_price || null,
+          supply_amount: supplyAmount,
           // 메타
           service_type: customer.customer_type,
-          assigned_to: null,
+          assigned_to: customer.assigned_worker_id || null,
           construction_date: date,
           status: '예약확정',
           admin_notes: `cron 자동 일정 생성 (${label})`,

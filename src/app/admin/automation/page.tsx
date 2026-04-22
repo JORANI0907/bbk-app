@@ -103,6 +103,44 @@ const INITIAL_ITEMS: AutomationItem[] = [
     slackEnabled: true,
   },
 
+  // ── 서비스생성 ───────────────────────────────────────────────
+  {
+    id: 'portal-account-create',
+    name: '고객 포털 계정 자동 생성',
+    description: '고객 등록 시 연락처가 있으면 포털 계정({전화번호}@customer.bbk.co.kr)을 자동 생성합니다. auth_user → users → customers.user_id 순으로 매핑됩니다.',
+    category: '서비스생성',
+    active: true,
+    trigger: '고객 등록 시 즉시 → /api/admin/customers POST',
+    slackEnabled: false,
+  },
+  {
+    id: 'service-app-bulk-create',
+    name: '정기케어 월간 일정 수동 생성',
+    description: '관리자가 고객 선택 후 "다음달 일정 생성" 버튼 클릭 시 visit_schedule_type 기반으로 service_applications를 일괄 생성합니다. 중복 날짜는 자동 건너뜁니다.',
+    category: '서비스생성',
+    active: true,
+    trigger: '관리자 수동 실행 → /api/admin/customers/generate-schedules POST',
+    slackEnabled: false,
+  },
+  {
+    id: 'cron-auto-schedule',
+    name: '정기케어 월간 일정 Cron 자동 생성',
+    description: '활성 정기딥케어/정기엔드케어 고객 전체에 대해 다음달 일정을 자동 생성합니다. 생성 후 고객에게 SMS로 방문 일정을 안내합니다.',
+    category: '서비스생성',
+    active: true,
+    trigger: '매월 말 자동 (CRON_SECRET 인증) → /api/cron/auto-schedule GET',
+    slackEnabled: false,
+  },
+  {
+    id: 'service-schedules-sync',
+    name: 'service_schedules 자동 동기화',
+    description: '서비스 신청서에서 담당자(assigned_to) 또는 시공일자 변경 시 service_schedules 테이블에 자동으로 반영합니다. 정기엔드케어는 고객 단가도 자동 매핑합니다.',
+    category: '서비스생성',
+    active: true,
+    trigger: '신청서 수정 시 즉시 → /api/admin/applications PATCH',
+    slackEnabled: false,
+  },
+
   // ── 세금계산서 ────────────────────────────────────────────────
   {
     id: 'invoice-weekly',
@@ -191,12 +229,13 @@ const CATEGORY_BADGE: Record<string, string> = {
   '예약알림':   'bg-sky-100 text-sky-700',
   '작업완료':   'bg-green-100 text-green-700',
   '결제알림':   'bg-orange-100 text-orange-700',
+  '서비스생성': 'bg-indigo-100 text-indigo-700',
   '세금계산서': 'bg-teal-100 text-teal-700',
   '보고서':     'bg-purple-100 text-purple-700',
   '재고관리':   'bg-emerald-100 text-emerald-700',
 }
 
-const CATEGORY_ORDER = ['고객응대', '예약알림', '작업완료', '결제알림', '세금계산서', '보고서', '재고관리']
+const CATEGORY_ORDER = ['고객응대', '예약알림', '작업완료', '결제알림', '서비스생성', '세금계산서', '보고서', '재고관리']
 
 // ─── 컴포넌트 ─────────────────────────────────────────────────────
 
