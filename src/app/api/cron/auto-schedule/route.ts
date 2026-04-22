@@ -277,9 +277,16 @@ export async function GET(request: NextRequest) {
         smsStatus = 'skipped (all exists)'
       }
 
-      // ── Make 웹훅으로 구글 드라이브 폴더 자동생성 요청 ─────────────────
-      if (inserted > 0) {
-        triggerDriveFolderCreation(customer.business_name, year, month, customer.customer_type).catch(() => {})
+      // ── Make 웹훅으로 구글 드라이브 폴더 자동생성 요청 (건별) ─────────────────
+      if (insertedApps && insertedApps.length > 0) {
+        for (const app of insertedApps) {
+          triggerDriveFolderCreation(
+            app.id,
+            customer.business_name,
+            (app.construction_date as string).slice(0, 10),
+            customer.customer_type,
+          ).catch(() => {})
+        }
       }
     }
 

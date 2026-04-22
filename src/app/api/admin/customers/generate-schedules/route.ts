@@ -273,9 +273,16 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // ── Make 웹훅으로 구글 드라이브 폴더 자동생성 요청 ─────────────────
-    if (insertedCount > 0 && customer.customer_type) {
-      triggerDriveFolderCreation(customer.business_name, year, month, customer.customer_type).catch(() => {})
+    // ── Make 웹훅으로 구글 드라이브 폴더 자동생성 요청 (건별) ─────────────────
+    if (insertedApps.length > 0 && customer.customer_type) {
+      for (const app of insertedApps) {
+        triggerDriveFolderCreation(
+          app.id,
+          customer.business_name,
+          (app.construction_date as string).slice(0, 10),
+          customer.customer_type,
+        ).catch(() => {})
+      }
     }
 
     results.push({ customer_id: customer.id, inserted: insertedCount, skipped })
