@@ -887,30 +887,50 @@ export default function AdminCustomersPage() {
           ) : filtered.length === 0 ? (
             <div className="py-20 text-center text-gray-400 text-sm">{search ? `"${search}" 검색 결과 없음` : '고객이 없습니다.'}</div>
           ) : (
-            <div className="divide-y divide-gray-50">
-              {filtered.map(c => {
-                const type = (c.customer_type ?? '1회성케어') as CustomerType
-                const tStyle = TYPE_STYLE[type]
-                const sStyle = STATUS_STYLE[c.status ?? 'active']
-                const isSelected = selected?.id === c.id
-                const isChecked = checkedIds.includes(c.id)
-                return (
-                  <div key={c.id}
-                    className={`px-4 py-3 hover:bg-blue-50 transition-colors ${isSelected ? 'bg-blue-50 border-l-2 border-blue-500' : ''} ${isChecked ? 'bg-blue-50' : ''}`}>
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex items-start gap-2 min-w-0 flex-1">
-                        <div onClick={e => { e.stopPropagation(); toggleCheck(c.id) }} className="mt-0.5 shrink-0 cursor-pointer p-0.5">
-                          <input type="checkbox" checked={isChecked} readOnly
-                            className="accent-blue-600 pointer-events-none" />
-                        </div>
-                        <div className="min-w-0 flex-1 cursor-pointer" onClick={() => handleSelect(c)}>
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          <p className="text-sm font-semibold text-gray-900 truncate">{c.business_name}</p>
-                          <span className={`text-xs px-1.5 py-0.5 rounded-full ${tStyle.badge}`}>{type}</span>
-                          {c.status !== 'active' && (
-                            <span className={`text-xs px-1.5 py-0.5 rounded-full ${sStyle.badge}`}>{sStyle.label}</span>
-                          )}
-                        </div>
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50 border-b border-gray-200 sticky top-0 z-10">
+                <tr>
+                  <th className="px-3 py-3 w-8"></th>
+                  <th className="text-left px-3 py-3 text-xs font-semibold text-gray-500 whitespace-nowrap">업체명 / 연락처</th>
+                  <th className="text-left px-3 py-3 text-xs font-semibold text-gray-500 whitespace-nowrap">서비스</th>
+                  <th className="text-left px-3 py-3 text-xs font-semibold text-gray-500 whitespace-nowrap">상태</th>
+                  <th className="text-left px-3 py-3 text-xs font-semibold text-gray-500 whitespace-nowrap">계약기간</th>
+                  <th className="text-left px-3 py-3 text-xs font-semibold text-gray-500 whitespace-nowrap">방문주기</th>
+                  <th className="text-left px-3 py-3 text-xs font-semibold text-gray-500 whitespace-nowrap">방문일정</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-50">
+                {filtered.map(c => {
+                  const type = (c.customer_type ?? '1회성케어') as CustomerType
+                  const tStyle = TYPE_STYLE[type]
+                  const sStyle = STATUS_STYLE[c.status ?? 'active']
+                  const isSelected = selected?.id === c.id
+                  const isChecked = checkedIds.includes(c.id)
+                  const visitIntervalText = (() => {
+                    if (type === '정기딥케어') {
+                      const parts: string[] = []
+                      if (c.rotation_type) parts.push(`${c.rotation_type} 순환`)
+                      if (c.visit_count_per_month) parts.push(`월 ${c.visit_count_per_month}회`)
+                      return parts.join(' · ')
+                    }
+                    return ''
+                  })()
+                  const visitScheduleText = (() => {
+                    if (c.visit_schedule_type === 'weekday' && c.visit_weekdays?.length)
+                      return `매 ${WEEKDAYS.filter(w => c.visit_weekdays!.includes(w.value)).map(w => w.label).join('·')}요일`
+                    if (c.visit_schedule_type === 'monthly_date' && c.visit_monthly_dates?.length)
+                      return `매월 ${[...c.visit_monthly_dates].sort((a, b) => a - b).join('·')}일`
+                    return ''
+                  })()
+                  return (
+                    <tr key={c.id}
+                      className={`hover:bg-blue-50 transition-colors cursor-pointer ${isSelected ? 'bg-blue-50 border-l-2 border-blue-500' : ''} ${isChecked ? 'bg-blue-50' : ''}`}
+                      onClick={() => handleSelect(c)}>
+                      <td className="px-3 py-3" onClick={e => { e.stopPropagation(); toggleCheck(c.id) }}>
+                        <input type="checkbox" checked={isChecked} readOnly className="accent-blue-600 pointer-events-none cursor-pointer" />
+                      </td>
+                      <td className="px-3 py-3 min-w-[160px]">
+                        <p className="text-sm font-semibold text-gray-900">{c.business_name}</p>
                         <p className="text-xs text-gray-500 mt-0.5">{c.contact_name} · {c.contact_phone}</p>
                         {(c.billing_next_date || c.next_visit_date) && (
                           <p className="text-xs text-gray-400 mt-0.5">
@@ -919,36 +939,30 @@ export default function AdminCustomersPage() {
                             {c.next_visit_date && `방문 ${fmtDate(c.next_visit_date)}`}
                           </p>
                         )}
-                        {(c.contract_start_date || c.contract_end_date) && (
-                          <p className="text-xs text-gray-400 mt-0.5">
-                            계약 {fmtDate(c.contract_start_date)} ~ {fmtDate(c.contract_end_date)}
-                          </p>
-                        )}
-                        {type === '정기딥케어' && (c.rotation_type || c.visit_count_per_month) && (
-                          <p className="text-xs text-gray-400 mt-0.5">
-                            {c.rotation_type && `${c.rotation_type} 순환`}
-                            {c.rotation_type && c.visit_count_per_month ? ' · ' : ''}
-                            {c.visit_count_per_month && `월 ${c.visit_count_per_month}회`}
-                          </p>
-                        )}
-                        {c.visit_schedule_type === 'weekday' && c.visit_weekdays && c.visit_weekdays.length > 0 && (
-                          <p className="text-xs text-gray-400 mt-0.5">
-                            매 {WEEKDAYS.filter(w => c.visit_weekdays!.includes(w.value)).map(w => w.label).join('·')}요일
-                          </p>
-                        )}
-                        {c.visit_schedule_type === 'monthly_date' && c.visit_monthly_dates && c.visit_monthly_dates.length > 0 && (
-                          <p className="text-xs text-gray-400 mt-0.5">
-                            매월 {[...c.visit_monthly_dates].sort((a, b) => a - b).join('·')}일
-                          </p>
-                        )}
                         <StatusBadges customer={c} />
-                      </div>
-                    </div>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
+                      </td>
+                      <td className="px-3 py-3 whitespace-nowrap">
+                        <span className={`text-xs px-1.5 py-0.5 rounded-full ${tStyle.badge}`}>{type}</span>
+                      </td>
+                      <td className="px-3 py-3 whitespace-nowrap">
+                        <span className={`text-xs px-1.5 py-0.5 rounded-full ${sStyle.badge}`}>{sStyle.label}</span>
+                      </td>
+                      <td className="px-3 py-3 text-xs text-gray-500 whitespace-nowrap">
+                        {(c.contract_start_date || c.contract_end_date)
+                          ? <>{fmtDate(c.contract_start_date)} ~ {fmtDate(c.contract_end_date)}</>
+                          : <span className="text-gray-300">-</span>}
+                      </td>
+                      <td className="px-3 py-3 text-xs text-gray-500 whitespace-nowrap">
+                        {visitIntervalText || <span className="text-gray-300">-</span>}
+                      </td>
+                      <td className="px-3 py-3 text-xs text-gray-500 whitespace-nowrap">
+                        {visitScheduleText || <span className="text-gray-300">-</span>}
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
           )}
         </div>
 
