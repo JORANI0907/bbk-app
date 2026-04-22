@@ -32,7 +32,7 @@ interface CustomerRow {
   visit_monthly_dates: number[] | null
   status: string | null
   unit_price: number | null
-  assigned_worker_id: string | null
+  assigned_user_id: string | null
   billing_cycle: string | null
   billing_amount: number | null
 }
@@ -75,7 +75,7 @@ export async function GET(request: NextRequest) {
       'payment_method, business_hours_start, business_hours_end, elevator, building_access, parking_info, ' +
       'access_method, special_notes, care_scope, customer_type, ' +
       'visit_schedule_type, visit_weekdays, visit_monthly_dates, status, unit_price, ' +
-      'assigned_worker_id, billing_cycle, billing_amount'
+      'assigned_user_id, billing_cycle, billing_amount'
     )
     .in('customer_type', ['정기딥케어', '정기엔드케어'])
     .eq('status', 'active')
@@ -158,7 +158,7 @@ export async function GET(request: NextRequest) {
           supply_amount: supplyAmount,
           // 메타
           service_type: customer.customer_type,
-          assigned_to: customer.assigned_worker_id || null,
+          assigned_to: customer.assigned_user_id || null,
           construction_date: date,
           status: '예약확정',
           admin_notes: `cron 자동 일정 생성 (${label})`,

@@ -25,7 +25,7 @@ interface CustomerRow {
   visit_weekdays: number[] | null
   visit_monthly_dates: number[] | null
   unit_price: number | null
-  assigned_worker_id: string | null
+  assigned_user_id: string | null
   billing_cycle: string | null
   billing_amount: number | null
 }
@@ -78,7 +78,7 @@ export async function POST(request: NextRequest) {
   const { data: customersData, error: fetchError } = await supabase
     .from('customers')
     .select(
-      'id, business_name, contact_name, contact_phone, email, address, platform_nickname, business_number, account_number, payment_method, business_hours_start, business_hours_end, elevator, building_access, parking_info, access_method, special_notes, care_scope, customer_type, visit_schedule_type, visit_weekdays, visit_monthly_dates, unit_price, assigned_worker_id, billing_cycle, billing_amount'
+      'id, business_name, contact_name, contact_phone, email, address, platform_nickname, business_number, account_number, payment_method, business_hours_start, business_hours_end, elevator, building_access, parking_info, access_method, special_notes, care_scope, customer_type, visit_schedule_type, visit_weekdays, visit_monthly_dates, unit_price, assigned_user_id, billing_cycle, billing_amount'
     )
     .in('id', customer_ids)
     .is('deleted_at', null)
@@ -155,7 +155,7 @@ export async function POST(request: NextRequest) {
       request_notes: customer.special_notes || null,
       care_scope: customer.care_scope || null,
       service_type: customer.customer_type,
-      assigned_to: customer.assigned_worker_id || null,
+      assigned_to: customer.assigned_user_id || null,
       unit_price_per_visit: customer.unit_price || null,
       supply_amount: supplyAmount,
       construction_date: date,
