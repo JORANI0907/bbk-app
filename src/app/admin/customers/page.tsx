@@ -79,6 +79,10 @@ const NOTIFY_TYPES: Record<CustomerType, string[]> = {
   '정기엔드케어': ['정기결제알림', '정기방문알림', '계약갱신알림', '작업완료알림', '계정안내알림'],
 }
 
+// 비과세 결제방법 여부 (부가세 0)
+const isNoVatMethod = (method: string | null | undefined): boolean =>
+  !!method && (method.includes('비과세') || method.includes('미희망') || method === '현금(부가세 X)')
+
 const TYPE_STYLE: Record<CustomerType, { badge: string; accent: string }> = {
   '1회성케어':    { badge: 'bg-gray-100 text-gray-700',     accent: 'border-gray-300 bg-gray-50' },
   '정기딥케어':   { badge: 'bg-blue-100 text-blue-700',     accent: 'border-blue-200 bg-blue-50' },
@@ -103,6 +107,8 @@ const EMPTY_FORM = {
   pipeline_status: 'inquiry',
   billing_cycle: '월간' as BillingCycle,
   billing_amount: '',
+  supply_amount: '',
+  vat: '',
   billing_start_date: '', billing_next_date: '',
   contract_start_date: '', contract_end_date: '',
   unit_price: '',
@@ -378,6 +384,8 @@ export default function AdminCustomersPage() {
     pipeline_status: c.pipeline_status ?? 'inquiry',
     billing_cycle: c.billing_cycle ?? '월간',
     billing_amount: c.billing_amount?.toString() ?? '',
+    supply_amount: c.supply_amount?.toString() ?? '',
+    vat: c.vat?.toString() ?? '',
     billing_start_date: c.billing_start_date ?? '',
     billing_next_date: c.billing_next_date ?? '',
     contract_start_date: c.contract_start_date ?? '',
@@ -420,6 +428,18 @@ export default function AdminCustomersPage() {
         try { next.billing_next_date = calcNextBillingDate(next.billing_start_date, next.billing_cycle as BillingCycle) }
         catch { /* ignore */ }
       }
+      // 공급대가 변경 시 부가세 자동계산 (비과세 아닌 경우)
+      if (key === 'supply_amount' && !isNoVatMethod(next.payment_method)) {
+        next.vat = String(Math.round((Number(v) || 0) * 0.1))
+      }
+      // 결제방법 변경 시 부가세 자동 처리
+      if (key === 'payment_method') {
+        if (isNoVatMethod(v)) {
+          next.vat = '0'
+        } else if (next.supply_amount) {
+          next.vat = String(Math.round((Number(next.supply_amount) || 0) * 0.1))
+        }
+      }
       return next
     })
 
@@ -447,7 +467,16 @@ export default function AdminCustomersPage() {
     status: form.status,
     pipeline_status: form.pipeline_status || 'inquiry',
     billing_cycle: form.billing_cycle || null,
-    billing_amount: form.billing_amount ? Number(form.billing_amount) : null,
+    supply_amount: form.supply_amount ? Number(form.supply_amount) : null,
+    vat: (() => {
+      if (isNoVatMethod(form.payment_method)) return 0
+      return form.vat ? Number(form.vat) : null
+    })(),
+    billing_amount: (() => {
+      const s = Number(form.supply_amount) || 0
+      const v = isNoVatMethod(form.payment_method) ? 0 : (Number(form.vat) || 0)
+      return s > 0 ? s + v : null
+    })(),
     billing_start_date: form.billing_start_date || null,
     billing_next_date: form.billing_next_date || null,
     contract_start_date: form.contract_start_date || null,
@@ -1137,11 +1166,42 @@ export default function AdminCustomersPage() {
                         ))}
                       </div>
                     </div>
-                    <Field label="계약 금액" value={form.billing_amount} onChange={set('billing_amount')} type="number"
-                      placeholder="0" hint={form.billing_cycle === '연간' ? '연간 계약 총 금액' : '매월 결제 금액'} />
-                    {form.billing_cycle === '연간' && form.billing_amount && (
+                    {/* 금액 섹션 */}
+                    {isNoVatMethod(form.payment_method) && (
+                      <div className="px-3 py-2 bg-amber-50 border border-amber-200 rounded-lg">
+                        <p className="text-xs text-amber-700 font-semibold">💵 현금 결제 — 부가세 미적용</p>
+                      </div>
+                    )}
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="text-xs text-gray-500 mb-0.5 block">
+                          공급대가 <span className="text-gray-400">({form.billing_cycle === '연간' ? '연간' : '월간'})</span>
+                        </label>
+                        <input type="number" value={form.supply_amount} onChange={e => set('supply_amount')(e.target.value)}
+                          placeholder="0"
+                          className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-purple-400 text-gray-900" />
+                      </div>
+                      <div>
+                        <label className="text-xs text-gray-500 mb-0.5 block">
+                          부가세 {isNoVatMethod(form.payment_method) ? <span className="text-gray-400">(비적용)</span> : <span className="text-gray-400">(자동 10%)</span>}
+                        </label>
+                        <input type="number"
+                          value={isNoVatMethod(form.payment_method) ? '0' : form.vat}
+                          onChange={e => set('vat')(e.target.value)}
+                          disabled={isNoVatMethod(form.payment_method)}
+                          placeholder="0"
+                          className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-purple-400 text-gray-900 disabled:bg-gray-50 disabled:text-gray-400" />
+                      </div>
+                    </div>
+                    <div className="flex justify-between items-center text-xs pt-1 border-t border-gray-100">
+                      <span className="text-gray-500">총액 (공급대가 + 부가세)</span>
+                      <span className="font-bold text-gray-800">
+                        {((Number(form.supply_amount) || 0) + (isNoVatMethod(form.payment_method) ? 0 : (Number(form.vat) || 0))).toLocaleString('ko-KR')}원
+                      </span>
+                    </div>
+                    {form.billing_cycle === '연간' && form.supply_amount && (
                       <p className="text-xs text-purple-600 bg-purple-50 rounded p-2">
-                        월 환산: {Math.round(Number(form.billing_amount) / 12).toLocaleString('ko-KR')}원/월
+                        월 환산: {Math.round(((Number(form.supply_amount) || 0) + (isNoVatMethod(form.payment_method) ? 0 : (Number(form.vat) || 0))) / 12).toLocaleString('ko-KR')}원/월
                       </p>
                     )}
                   </div>
@@ -1253,11 +1313,42 @@ export default function AdminCustomersPage() {
                         ))}
                       </div>
                     </div>
-                    <Field label="계약 금액" value={form.billing_amount} onChange={set('billing_amount')} type="number"
-                      placeholder="0" hint={form.billing_cycle === '연간' ? '연간 계약 총 금액' : '매월 결제 금액'} />
-                    {form.billing_cycle === '연간' && form.billing_amount && (
+                    {/* 금액 섹션 */}
+                    {isNoVatMethod(form.payment_method) && (
+                      <div className="px-3 py-2 bg-amber-50 border border-amber-200 rounded-lg">
+                        <p className="text-xs text-amber-700 font-semibold">💵 현금 결제 — 부가세 미적용</p>
+                      </div>
+                    )}
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="text-xs text-gray-500 mb-0.5 block">
+                          공급대가 <span className="text-gray-400">({form.billing_cycle === '연간' ? '연간' : '월간'})</span>
+                        </label>
+                        <input type="number" value={form.supply_amount} onChange={e => set('supply_amount')(e.target.value)}
+                          placeholder="0"
+                          className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-400 text-gray-900" />
+                      </div>
+                      <div>
+                        <label className="text-xs text-gray-500 mb-0.5 block">
+                          부가세 {isNoVatMethod(form.payment_method) ? <span className="text-gray-400">(비적용)</span> : <span className="text-gray-400">(자동 10%)</span>}
+                        </label>
+                        <input type="number"
+                          value={isNoVatMethod(form.payment_method) ? '0' : form.vat}
+                          onChange={e => set('vat')(e.target.value)}
+                          disabled={isNoVatMethod(form.payment_method)}
+                          placeholder="0"
+                          className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-400 text-gray-900 disabled:bg-gray-50 disabled:text-gray-400" />
+                      </div>
+                    </div>
+                    <div className="flex justify-between items-center text-xs pt-1 border-t border-gray-100">
+                      <span className="text-gray-500">총액 (공급대가 + 부가세)</span>
+                      <span className="font-bold text-gray-800">
+                        {((Number(form.supply_amount) || 0) + (isNoVatMethod(form.payment_method) ? 0 : (Number(form.vat) || 0))).toLocaleString('ko-KR')}원
+                      </span>
+                    </div>
+                    {form.billing_cycle === '연간' && form.supply_amount && (
                       <p className="text-xs text-blue-600 bg-blue-50 rounded p-2">
-                        월 환산: {Math.round(Number(form.billing_amount) / 12).toLocaleString('ko-KR')}원/월
+                        월 환산: {Math.round(((Number(form.supply_amount) || 0) + (isNoVatMethod(form.payment_method) ? 0 : (Number(form.vat) || 0))) / 12).toLocaleString('ko-KR')}원/월
                       </p>
                     )}
                   </div>
@@ -1388,7 +1479,11 @@ export default function AdminCustomersPage() {
                 customerId={selected.id}
                 customerType={form.customer_type}
                 billingCycle={form.billing_cycle}
-                billingAmount={form.billing_amount ? Number(form.billing_amount) : null}
+                billingAmount={(() => {
+                  const s = Number(form.supply_amount) || 0
+                  const v = isNoVatMethod(form.payment_method) ? 0 : (Number(form.vat) || 0)
+                  return s > 0 ? s + v : (form.billing_amount ? Number(form.billing_amount) : null)
+                })()}
                 paymentDay={form.payment_date ? Number(form.payment_date) : null}
                 contractStartDate={form.contract_start_date || null}
                 contractEndDate={form.contract_end_date || null}
