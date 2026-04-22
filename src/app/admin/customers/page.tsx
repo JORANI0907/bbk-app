@@ -428,7 +428,7 @@ export default function AdminCustomersPage() {
         try { next.billing_next_date = calcNextBillingDate(next.billing_start_date, next.billing_cycle as BillingCycle) }
         catch { /* ignore */ }
       }
-      // 공급대가 변경 시 부가세 자동계산 (비과세 아닌 경우)
+      // 공급가액 변경 시 부가세 자동계산 (비과세 아닌 경우)
       if (key === 'supply_amount' && !isNoVatMethod(next.payment_method)) {
         next.vat = String(Math.round((Number(v) || 0) * 0.1))
       }
@@ -1175,7 +1175,7 @@ export default function AdminCustomersPage() {
                     <div className="grid grid-cols-2 gap-2">
                       <div>
                         <label className="text-xs text-gray-500 mb-0.5 block">
-                          공급대가 <span className="text-gray-400">({form.billing_cycle === '연간' ? '연간' : '월간'})</span>
+                          공급가액 <span className="text-gray-400">({form.billing_cycle === '연간' ? '연간' : '월간'})</span>
                         </label>
                         <input type="number" value={form.supply_amount} onChange={e => set('supply_amount')(e.target.value)}
                           placeholder="0"
@@ -1194,7 +1194,7 @@ export default function AdminCustomersPage() {
                       </div>
                     </div>
                     <div className="flex justify-between items-center text-xs pt-1 border-t border-gray-100">
-                      <span className="text-gray-500">총액 (공급대가 + 부가세)</span>
+                      <span className="text-gray-500">총액 (공급가액 + 부가세)</span>
                       <span className="font-bold text-gray-800">
                         {((Number(form.supply_amount) || 0) + (isNoVatMethod(form.payment_method) ? 0 : (Number(form.vat) || 0))).toLocaleString('ko-KR')}원
                       </span>
@@ -1286,7 +1286,7 @@ export default function AdminCustomersPage() {
                     <div className="grid grid-cols-2 gap-2">
                       <div>
                         <label className="text-xs text-gray-500 mb-0.5 block">
-                          공급대가 <span className="text-gray-400">({form.billing_cycle === '연간' ? '연간' : '월간'})</span>
+                          공급가액 <span className="text-gray-400">({form.billing_cycle === '연간' ? '연간' : '월간'})</span>
                         </label>
                         <input type="number" value={form.supply_amount} onChange={e => set('supply_amount')(e.target.value)}
                           placeholder="0"
@@ -1305,7 +1305,7 @@ export default function AdminCustomersPage() {
                       </div>
                     </div>
                     <div className="flex justify-between items-center text-xs pt-1 border-t border-gray-100">
-                      <span className="text-gray-500">총액 (공급대가 + 부가세)</span>
+                      <span className="text-gray-500">총액 (공급가액 + 부가세)</span>
                       <span className="font-bold text-gray-800">
                         {((Number(form.supply_amount) || 0) + (isNoVatMethod(form.payment_method) ? 0 : (Number(form.vat) || 0))).toLocaleString('ko-KR')}원
                       </span>
