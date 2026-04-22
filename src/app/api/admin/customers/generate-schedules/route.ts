@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { sendAlimtalk } from '@/lib/solapi'
 import { notifySlack } from '@/lib/slack'
-import { getServiceDriveFolderUrl } from '@/lib/drive-server'
+import { triggerDriveFolderCreation } from '@/lib/drive-server'
 
 const ALIMTALK_CONFIRM_TEMPLATE = 'KA01TP260324131935207wzarljIsiyK'
 
@@ -273,14 +273,9 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // ── 구글 드라이브 폴더 URL 저장 (서비스 유형별 정적 URL) ──────────
-    const driveFolderUrl = getServiceDriveFolderUrl(customer.customer_type ?? '')
-    if (driveFolderUrl && insertedCount > 0) {
-      supabase.from('service_applications')
-        .update({ drive_folder_url: driveFolderUrl })
-        .eq('business_name', customer.business_name)
-        .is('drive_folder_url', null)
-        .then(() => {})
+    // ── Make 웹훅으로 구글 드라이브 폴더 자동생성 요청 ─────────────────
+    if (insertedCount > 0 && customer.customer_type) {
+      triggerDriveFolderCreation(customer.business_name, year, month, customer.customer_type).catch(() => {})
     }
 
     results.push({ customer_id: customer.id, inserted: insertedCount, skipped })
