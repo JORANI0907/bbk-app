@@ -22,6 +22,7 @@ interface Props {
   billingCycle: string        // '월간' | '연간'
   billingAmount: number | null
   paymentDay: number | null   // 매월 결제일 (정기엔드케어)
+  contractStartDate: string | null
   contractEndDate: string | null
 }
 
@@ -34,67 +35,67 @@ const STATUS_STYLE: Record<BillingRecord['status'], { badge: string; label: stri
 const fmtDate = (d: string | null) => d ? d.slice(0, 10).replace(/-/g, '.') : '-'
 const fmt = (n: number) => n.toLocaleString('ko-KR')
 
-function suggestNextPeriod(
+// 계약기간 기준으로 생성해야 할 청구 기간 목록 계산
+function calcAllPeriods(
   customerType: string,
   billingCycle: string,
-  existingPeriods: string[],
-  paymentDay: number | null,
+  contractStartDate: string | null,
   contractEndDate: string | null,
-): { billing_type: 'monthly' | 'annual'; billing_period: string; due_date: string } | null {
-  const today = new Date()
+  paymentDay: number | null,
+  billingAmount: number | null,
+): Array<{ billing_type: 'monthly' | 'annual'; billing_period: string; due_date: string; amount: number }> {
+  if (!contractStartDate || !billingAmount) return []
+
+  const start = new Date(contractStartDate)
+  const end = contractEndDate ? new Date(contractEndDate) : new Date()
+  const day = paymentDay ?? 25
+  const results: Array<{ billing_type: 'monthly' | 'annual'; billing_period: string; due_date: string; amount: number }> = []
 
   if (customerType === '정기딥케어' && billingCycle === '연간') {
-    // 연간: 아직 등록되지 않은 연도 제안
-    const currentYear = today.getFullYear()
-    for (let y = currentYear; y <= currentYear + 1; y++) {
-      const period = String(y)
-      if (!existingPeriods.includes(period)) {
-        const dueDate = contractEndDate
-          ? contractEndDate.slice(0, 10)
-          : `${y}-12-31`
-        return { billing_type: 'annual', billing_period: period, due_date: dueDate }
-      }
+    const startYear = start.getFullYear()
+    const endYear = end.getFullYear()
+    for (let y = startYear; y <= endYear; y++) {
+      // 마지막 연도는 contract_end_date, 나머지는 해당 연도 12월 31일
+      const isLastYear = y === endYear
+      const dueDate = isLastYear && contractEndDate
+        ? contractEndDate.slice(0, 10)
+        : `${y}-12-31`
+      results.push({ billing_type: 'annual', billing_period: String(y), due_date: dueDate, amount: billingAmount })
     }
-    return null
+  } else if (customerType === '정기엔드케어') {
+    // 시작월부터 종료월까지 월별 생성
+    const cursor = new Date(start.getFullYear(), start.getMonth(), 1)
+    const endCursor = new Date(end.getFullYear(), end.getMonth(), 1)
+    while (cursor <= endCursor) {
+      const y = cursor.getFullYear()
+      const m = cursor.getMonth() + 1
+      const period = `${y}-${String(m).padStart(2, '0')}`
+      const lastDay = new Date(y, m, 0).getDate()
+      const dueDay = Math.min(day, lastDay)
+      const dueDate = `${y}-${String(m).padStart(2, '0')}-${String(dueDay).padStart(2, '0')}`
+      results.push({ billing_type: 'monthly', billing_period: period, due_date: dueDate, amount: billingAmount })
+      cursor.setMonth(cursor.getMonth() + 1)
+    }
   }
 
-  if (customerType === '정기엔드케어') {
-    // 월간: 이번 달 또는 다음 달 제안
-    const day = paymentDay ?? 25
-    const tryMonths = [
-      new Date(today.getFullYear(), today.getMonth(), 1),
-      new Date(today.getFullYear(), today.getMonth() + 1, 1),
-    ]
-    for (const base of tryMonths) {
-      const period = `${base.getFullYear()}-${String(base.getMonth() + 1).padStart(2, '0')}`
-      if (!existingPeriods.includes(period)) {
-        const lastDay = new Date(base.getFullYear(), base.getMonth() + 1, 0).getDate()
-        const dueDay = Math.min(day, lastDay)
-        const dueDate = `${base.getFullYear()}-${String(base.getMonth() + 1).padStart(2, '0')}-${String(dueDay).padStart(2, '0')}`
-        return { billing_type: 'monthly', billing_period: period, due_date: dueDate }
-      }
-    }
-    return null
-  }
-
-  return null
+  return results
 }
 
 export function BillingHistoryPanel({
-  customerId, customerType, billingCycle, billingAmount, paymentDay, contractEndDate,
+  customerId, customerType, billingCycle, billingAmount, paymentDay, contractStartDate, contractEndDate,
 }: Props) {
   const [billings, setBillings] = useState<BillingRecord[]>([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [markingId, setMarkingId] = useState<string | null>(null)
   const [paidDate, setPaidDate] = useState(new Date().toISOString().slice(0, 10))
+  const [autoGenerating, setAutoGenerating] = useState(false)
 
   // 신규 청구 폼
   const [newPeriod, setNewPeriod] = useState('')
   const [newDueDate, setNewDueDate] = useState('')
   const [newAmount, setNewAmount] = useState('')
   const [newNotes, setNewNotes] = useState('')
-  const [newType, setNewType] = useState<'monthly' | 'annual'>('monthly')
   const [saving, setSaving] = useState(false)
 
   const isAnnual = customerType === '정기딥케어' && billingCycle === '연간'
@@ -115,19 +116,70 @@ export function BillingHistoryPanel({
 
   useEffect(() => { fetchBillings() }, [fetchBillings])
 
-  const openForm = () => {
+  // 계약기간 기준 자동 생성
+  const handleAutoGenerate = async () => {
+    if (!contractStartDate) {
+      toast.error('계약 시작일을 먼저 설정해주세요.')
+      return
+    }
+    if (!billingAmount) {
+      toast.error('계약 금액을 먼저 설정해주세요.')
+      return
+    }
+
+    const allPeriods = calcAllPeriods(
+      customerType, billingCycle, contractStartDate, contractEndDate, paymentDay, billingAmount
+    )
+    if (allPeriods.length === 0) {
+      toast.error('생성할 청구 기간이 없습니다.')
+      return
+    }
+
+    // 이미 존재하는 기간 제외
+    const existingPeriods = new Set(billings.map(b => b.billing_period))
+    const toCreate = allPeriods.filter(p => !existingPeriods.has(p.billing_period))
+
+    if (toCreate.length === 0) {
+      toast('계약기간 내 청구가 이미 모두 등록되어 있습니다.', { icon: 'ℹ️' })
+      return
+    }
+
+    setAutoGenerating(true)
+    try {
+      let created = 0
+      for (const item of toCreate) {
+        const res = await fetch('/api/admin/billings', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ customer_id: customerId, ...item }),
+        })
+        if (res.ok) created++
+      }
+      toast.success(`${created}건의 청구가 자동 생성되었습니다.`)
+      await fetchBillings()
+    } catch {
+      toast.error('자동 생성 중 오류가 발생했습니다.')
+    } finally {
+      setAutoGenerating(false)
+    }
+  }
+
+  const openManualForm = () => {
     const existingPeriods = billings.map(b => b.billing_period)
-    const suggestion = suggestNextPeriod(customerType, billingCycle, existingPeriods, paymentDay, contractEndDate)
-    if (suggestion) {
-      setNewType(suggestion.billing_type)
-      setNewPeriod(suggestion.billing_period)
-      setNewDueDate(suggestion.due_date)
+    const allPeriods = calcAllPeriods(
+      customerType, billingCycle, contractStartDate, contractEndDate, paymentDay, billingAmount
+    )
+    const nextMissing = allPeriods.find(p => !existingPeriods.includes(p.billing_period))
+
+    if (nextMissing) {
+      setNewPeriod(nextMissing.billing_period)
+      setNewDueDate(nextMissing.due_date)
+      setNewAmount(nextMissing.amount ? String(nextMissing.amount) : '')
     } else {
-      setNewType(isAnnual ? 'annual' : 'monthly')
       setNewPeriod('')
       setNewDueDate('')
+      setNewAmount(billingAmount ? String(billingAmount) : '')
     }
-    setNewAmount(billingAmount ? String(billingAmount) : '')
     setNewNotes('')
     setShowForm(true)
   }
@@ -144,7 +196,7 @@ export function BillingHistoryPanel({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           customer_id: customerId,
-          billing_type: newType,
+          billing_type: isAnnual ? 'annual' : 'monthly',
           billing_period: newPeriod,
           amount: Number(newAmount),
           due_date: newDueDate,
@@ -208,8 +260,14 @@ export function BillingHistoryPanel({
 
   if (!isAnnual && !isEndCare) return null
 
+  // 계약 기간 기준 미생성 건수 계산
+  const allPeriods = calcAllPeriods(
+    customerType, billingCycle, contractStartDate, contractEndDate, paymentDay, billingAmount
+  )
+  const existingPeriodSet = new Set(billings.map(b => b.billing_period))
+  const missingCount = allPeriods.filter(p => !existingPeriodSet.has(p.billing_period)).length
+
   const typeLabel = isAnnual ? '연간 결제 이력' : '월간 청구 이력'
-  const accentColor = isAnnual ? 'blue' : 'purple'
   const headerBg = isAnnual ? 'bg-blue-50 border-blue-100' : 'bg-purple-50 border-purple-100'
   const addBtnColor = isAnnual ? 'bg-blue-600 hover:bg-blue-700' : 'bg-purple-600 hover:bg-purple-700'
   const periodPlaceholder = isAnnual ? '예: 2026' : '예: 2026-04'
@@ -219,18 +277,39 @@ export function BillingHistoryPanel({
     <div className="border border-gray-100 rounded-xl overflow-hidden">
       <div className={`flex items-center justify-between px-4 py-2.5 border-b ${headerBg}`}>
         <p className="text-xs font-semibold text-gray-600">{typeLabel}</p>
-        <button
-          onClick={openForm}
-          className={`px-2.5 py-1 text-xs text-white font-medium rounded-lg transition-colors ${addBtnColor}`}
-        >
-          + 청구 추가
-        </button>
+        <div className="flex items-center gap-1.5">
+          {/* 계약기간 자동 생성 버튼 */}
+          {missingCount > 0 && contractStartDate && billingAmount && (
+            <button
+              onClick={handleAutoGenerate}
+              disabled={autoGenerating}
+              className="px-2.5 py-1 text-xs text-white font-medium rounded-lg transition-colors bg-gray-600 hover:bg-gray-700 disabled:opacity-60 whitespace-nowrap"
+            >
+              {autoGenerating ? '생성 중...' : `계약기간 자동생성 (${missingCount}건)`}
+            </button>
+          )}
+          <button
+            onClick={openManualForm}
+            className={`px-2.5 py-1 text-xs text-white font-medium rounded-lg transition-colors ${addBtnColor}`}
+          >
+            + 직접 추가
+          </button>
+        </div>
       </div>
 
-      {/* 신규 청구 폼 */}
+      {/* 계약기간 미설정 안내 */}
+      {(!contractStartDate || !billingAmount) && billings.length === 0 && (
+        <div className="px-4 py-2.5 bg-amber-50 border-b border-amber-100">
+          <p className="text-xs text-amber-700">
+            계약 시작일과 계약 금액을 저장하면 청구 이력이 자동으로 생성됩니다.
+          </p>
+        </div>
+      )}
+
+      {/* 신규 청구 직접 입력 폼 */}
       {showForm && (
         <div className="p-3 border-b border-gray-100 bg-gray-50 space-y-2">
-          <p className="text-xs font-semibold text-gray-700">새 청구 등록</p>
+          <p className="text-xs font-semibold text-gray-700">청구 직접 추가</p>
           <div className="grid grid-cols-2 gap-2">
             <div>
               <label className="text-xs text-gray-500 mb-0.5 block">청구 기간 <span className="text-gray-400">({periodHint})</span></label>
@@ -308,7 +387,7 @@ export function BillingHistoryPanel({
                 <p className="text-xs text-gray-400 truncate">{b.notes}</p>
               )}
 
-              {/* 결제 완료 처리 영역 */}
+              {/* 결제 완료 처리 */}
               {b.status !== 'paid' && (
                 <div className="space-y-1.5 pt-1">
                   {markingId === b.id ? (
@@ -358,7 +437,6 @@ export function BillingHistoryPanel({
                 </div>
               )}
 
-              {/* 결제 완료된 경우 삭제만 */}
               {b.status === 'paid' && (
                 <div className="flex justify-end">
                   <button

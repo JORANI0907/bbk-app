@@ -1372,6 +1372,7 @@ export default function AdminCustomersPage() {
                 billingCycle={form.billing_cycle}
                 billingAmount={form.billing_amount ? Number(form.billing_amount) : null}
                 paymentDay={form.payment_date ? Number(form.payment_date) : null}
+                contractStartDate={form.contract_start_date || null}
                 contractEndDate={form.contract_end_date || null}
               />
             )}
