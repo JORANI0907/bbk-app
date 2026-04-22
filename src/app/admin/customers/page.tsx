@@ -47,7 +47,7 @@ interface Customer {
   visit_schedule_type: 'weekday' | 'monthly_date' | null
   visit_weekdays: number[] | null
   visit_monthly_dates: number[] | null
-  schedule_generation_day: number | null
+  schedule_generation_day?: number | null
   notes: string | null
   rotation_type: '3개월' | '6개월' | '12개월' | null
   visit_count_per_month: number | null
@@ -113,7 +113,7 @@ const EMPTY_FORM = {
   contract_start_date: '', contract_end_date: '',
   unit_price: '',
   visit_interval_days: '',
-  visit_schedule_type: '', schedule_generation_day: '23', notes: '',
+  visit_schedule_type: '', notes: '',
   next_visit_date: '',
   rotation_type: '' as '' | '3개월' | '6개월' | '12개월',
   visit_count_per_month: '',
@@ -393,7 +393,6 @@ export default function AdminCustomersPage() {
     unit_price: c.unit_price?.toString() ?? '',
     visit_interval_days: c.visit_interval_days?.toString() ?? '',
     visit_schedule_type: c.visit_schedule_type ?? '',
-    schedule_generation_day: c.schedule_generation_day?.toString() ?? '23',
     notes: c.notes ?? '',
     next_visit_date: c.next_visit_date ?? '',
     rotation_type: (c.rotation_type ?? '') as '' | '3개월' | '6개월' | '12개월',
@@ -484,7 +483,6 @@ export default function AdminCustomersPage() {
     unit_price: form.unit_price ? Number(form.unit_price) : null,
     visit_interval_days: form.visit_interval_days ? Number(form.visit_interval_days) : null,
     visit_schedule_type: form.visit_schedule_type || null,
-    schedule_generation_day: form.schedule_generation_day ? Number(form.schedule_generation_day) : 23,
     visit_weekdays: visitWeekdays,
     visit_monthly_dates: visitMonthlyDates,
     notes: form.notes || null,
@@ -1244,16 +1242,6 @@ export default function AdminCustomersPage() {
                       onMonthlyDatesChange={setVisitMonthlyDates}
                       color="purple"
                     />
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-gray-500 w-24 shrink-0">일정 생성 기준일</span>
-                      <div className="flex items-center gap-1.5 flex-1">
-                        <span className="text-xs text-gray-400">매월</span>
-                        <input type="number" min={1} max={31} value={form.schedule_generation_day}
-                          onChange={e => set('schedule_generation_day')(e.target.value)}
-                          className="w-16 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-purple-500 text-center text-gray-900" />
-                        <span className="text-xs text-gray-400">일에 다음달 일정 자동 생성</span>
-                      </div>
-                    </div>
                   </div>
                 </div>
               </div>
@@ -1381,16 +1369,6 @@ export default function AdminCustomersPage() {
                       onMonthlyDatesChange={setVisitMonthlyDates}
                       color="blue"
                     />
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-gray-500 w-24 shrink-0">일정 생성 기준일</span>
-                      <div className="flex items-center gap-1.5 flex-1">
-                        <span className="text-xs text-gray-400">매월</span>
-                        <input type="number" min={1} max={31} value={form.schedule_generation_day}
-                          onChange={e => set('schedule_generation_day')(e.target.value)}
-                          className="w-16 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 text-center" />
-                        <span className="text-xs text-gray-400">일에 다음달 일정 자동 생성</span>
-                      </div>
-                    </div>
                   </div>
                 </div>
               </div>

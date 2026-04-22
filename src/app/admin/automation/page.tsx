@@ -125,10 +125,10 @@ const INITIAL_ITEMS: AutomationItem[] = [
   {
     id: 'cron-auto-schedule',
     name: '정기케어 월간 일정 Cron 자동 생성',
-    description: '활성 정기딥케어/정기엔드케어 고객 전체에 대해 다음달 일정을 자동 생성합니다. 생성 후 고객에게 SMS로 방문 일정을 안내합니다.',
+    description: '매월 23일 09:00 KST에 활성 정기딥케어/정기엔드케어 고객 전체를 대상으로 다음달 방문 일정을 자동 생성합니다. 생성 후 고객에게 예약확정 알림톡을 발송합니다.\n※ 일정 생성 기준일은 23일로 고정되며, 고객별 별도 설정은 지원하지 않습니다.',
     category: '서비스생성',
     active: true,
-    trigger: '매월 말 자동 (CRON_SECRET 인증) → /api/cron/auto-schedule GET',
+    trigger: '매월 23일 09:00 KST (Make 시나리오 #8990139) → /api/cron/auto-schedule GET',
     slackEnabled: false,
   },
   {
