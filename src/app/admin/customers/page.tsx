@@ -147,7 +147,6 @@ function VisitScheduleEditor({ scheduleType, weekdays, monthlyDates, onScheduleT
 
   return (
     <div className="flex flex-col gap-2">
-      <p className="text-xs font-semibold text-gray-700">방문 주기 설정</p>
       <div className="flex gap-1.5">
         {[{ key: 'weekday', label: '요일별' }, { key: 'monthly_date', label: '날짜별' }].map(({ key, label }) => (
           <button key={key} onClick={() => onScheduleTypeChange(key)}
@@ -918,6 +917,28 @@ export default function AdminCustomersPage() {
                             {c.billing_next_date && `결제 ${fmtDate(c.billing_next_date)}`}
                             {c.billing_next_date && c.next_visit_date && '  '}
                             {c.next_visit_date && `방문 ${fmtDate(c.next_visit_date)}`}
+                          </p>
+                        )}
+                        {(c.contract_start_date || c.contract_end_date) && (
+                          <p className="text-xs text-gray-400 mt-0.5">
+                            계약 {fmtDate(c.contract_start_date)} ~ {fmtDate(c.contract_end_date)}
+                          </p>
+                        )}
+                        {type === '정기딥케어' && (c.rotation_type || c.visit_count_per_month) && (
+                          <p className="text-xs text-gray-400 mt-0.5">
+                            {c.rotation_type && `${c.rotation_type} 순환`}
+                            {c.rotation_type && c.visit_count_per_month ? ' · ' : ''}
+                            {c.visit_count_per_month && `월 ${c.visit_count_per_month}회`}
+                          </p>
+                        )}
+                        {c.visit_schedule_type === 'weekday' && c.visit_weekdays && c.visit_weekdays.length > 0 && (
+                          <p className="text-xs text-gray-400 mt-0.5">
+                            매 {WEEKDAYS.filter(w => c.visit_weekdays!.includes(w.value)).map(w => w.label).join('·')}요일
+                          </p>
+                        )}
+                        {c.visit_schedule_type === 'monthly_date' && c.visit_monthly_dates && c.visit_monthly_dates.length > 0 && (
+                          <p className="text-xs text-gray-400 mt-0.5">
+                            매월 {[...c.visit_monthly_dates].sort((a, b) => a - b).join('·')}일
                           </p>
                         )}
                         <StatusBadges customer={c} />
