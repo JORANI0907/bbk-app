@@ -467,6 +467,22 @@ export default function AdminCustomersPage() {
     assigned_worker_id: form.assigned_worker_id || null,
   })
 
+  const autoGenerateBillings = (customerId: string) => {
+    const eligible =
+      (form.customer_type === '정기딥케어' && form.billing_cycle === '연간') ||
+      form.customer_type === '정기엔드케어'
+    if (!eligible || !form.contract_start_date || !form.billing_amount) return
+    fetch('/api/admin/customers/generate-billings', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ customer_ids: [customerId] }),
+    }).then(async res => {
+      const data = await res.json()
+      if (res.ok && data.totalInserted > 0) {
+        toast.success(`청구 ${data.totalInserted}건이 자동 생성되었습니다.`)
+      }
+    }).catch(() => {})
+  }
+
   const handleSave = async () => {
     if (!form.business_name.trim()) { toast.error('업체명을 입력하세요.'); return }
     setSaving(true)
@@ -483,6 +499,7 @@ export default function AdminCustomersPage() {
         handleSelect(newCustomer)
         setIsNew(false)
         toast.success('고객이 추가되었습니다.')
+        autoGenerateBillings(newCustomer.id)
       } else if (selected) {
         const res = await fetch('/api/admin/customers', {
           method: 'PATCH', headers: { 'Content-Type': 'application/json' },
@@ -494,6 +511,7 @@ export default function AdminCustomersPage() {
         const updated = { ...selected, ...body } as Customer
         setCustomers(prev => prev.map(c => c.id === selected.id ? updated : c))
         setSelected(updated)
+        autoGenerateBillings(selected.id)
       }
     } catch (e) {
       toast.error(e instanceof Error ? e.message : '저장 실패')
