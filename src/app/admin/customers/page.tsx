@@ -1206,50 +1206,6 @@ export default function AdminCustomersPage() {
                     )}
                   </div>
 
-                  {/* 결제현황 / 결제일자 */}
-                  <div className="bg-white border border-purple-100 rounded-lg p-3 flex flex-col gap-3">
-                    <p className="text-xs font-semibold text-gray-700">결제현황</p>
-                    <div className="grid grid-cols-6 gap-1.5">
-                      {['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'].map(mon => {
-                        const checked = form.payment_status.includes(mon)
-                        return (
-                          <button key={mon}
-                            onClick={() => {
-                              const next = checked
-                                ? form.payment_status.filter(s => s !== mon)
-                                : [...form.payment_status, mon]
-                              setForm(prev => ({ ...prev, payment_status: next }))
-                            }}
-                            className={`py-1.5 text-xs rounded-lg font-medium transition-colors text-center ${
-                              checked ? 'bg-purple-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                            }`}>
-                            {mon}
-                          </button>
-                        )
-                      })}
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-gray-500 w-24 shrink-0">결제일자</span>
-                      <input type="number" min={1} max={31} value={form.payment_date}
-                        onChange={e => set('payment_date')(e.target.value)}
-                        placeholder="1~31"
-                        className="w-20 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-purple-500 text-center text-gray-900" />
-                      <span className="text-xs text-gray-400">일</span>
-                    </div>
-                  </div>
-
-                  {/* 작업 건당 급여 */}
-                  <div className="bg-white border border-indigo-100 rounded-lg p-3 flex flex-col gap-2">
-                    <p className="text-xs font-semibold text-gray-700">작업 건당 급여</p>
-                    <Field label="작업 건당 급여" value={form.unit_price} onChange={set('unit_price')} type="number"
-                      placeholder="0" hint="서비스 통합관리로 이관 시 1회 자동 매핑됩니다 (이후 서비스 통합관리에서 개별 수정 가능)" />
-                    {form.unit_price && (
-                      <div className="text-xs text-indigo-600 bg-indigo-50 rounded p-2">
-                        예) 5건 작업 시 → {(Number(form.unit_price) * 5).toLocaleString('ko-KR')}원
-                      </div>
-                    )}
-                  </div>
-
                   {/* 계약기간 */}
                   <div className="flex flex-col gap-2">
                     <p className="text-xs font-semibold text-gray-700">계약기간</p>
@@ -1262,6 +1218,14 @@ export default function AdminCustomersPage() {
                       <span className="text-xs text-gray-500 w-24 shrink-0">계약 만료</span>
                       <input type="date" value={form.contract_end_date} onChange={e => set('contract_end_date')(e.target.value)}
                         className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-purple-500 bg-white text-gray-900" />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-gray-500 w-24 shrink-0">결제일자</span>
+                      <input type="number" min={1} max={31} value={form.payment_date}
+                        onChange={e => set('payment_date')(e.target.value)}
+                        placeholder="1~31"
+                        className="w-20 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-purple-500 text-center text-gray-900" />
+                      <span className="text-xs text-gray-400">일</span>
                     </div>
                   </div>
 
