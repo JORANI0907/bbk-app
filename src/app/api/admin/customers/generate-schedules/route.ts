@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
+import { sendAlimtalk } from '@/lib/solapi'
+import { notifySlack } from '@/lib/slack'
+import { createScheduleDriveFolder } from '@/lib/drive-server'
+
+const ALIMTALK_CONFIRM_TEMPLATE = 'KA01TP260324131935207wzarljIsiyK'
 
 interface CustomerRow {
   id: string
@@ -222,6 +227,61 @@ export async function POST(request: NextRequest) {
 
       await supabase.from('service_schedules').insert(scheduleRows)
     }
+
+    // ── 예약확정알림 발송 (각 생성된 일정마다) ───────────────────────
+    const phone = (customer.contact_phone || '').replace(/-/g, '')
+    if (phone && insertedApps.length > 0) {
+      let assignedUserName = '-'
+      if (customer.assigned_user_id) {
+        const { data: userRow } = await supabase
+          .from('users').select('name').eq('id', customer.assigned_user_id).single()
+        if (userRow?.name) assignedUserName = userRow.name
+      }
+      const nowIso = new Date().toISOString()
+      const ownerName = customer.contact_name || customer.business_name
+
+      for (const app of insertedApps) {
+        const date = (app.construction_date as string)?.slice(0, 10) ?? ''
+        const variables: Record<string, string> = {
+          '고객명':     ownerName,
+          '고객연락처': customer.contact_phone || '',
+          '상호명':     customer.business_name,
+          '케어유형':   customer.customer_type || '',
+          '담당자':     assignedUserName,
+          '주소':       customer.address || '',
+          '시공일자':   date,
+          '요청시간':   '',
+          '미팅여부':   '-',
+          '미팅시간':   '-',
+        }
+        const fallback = `[BBK 공간케어] ${ownerName}님, ${customer.business_name} ${date} 예약이 확정되었습니다.`
+        try {
+          await sendAlimtalk(phone, ALIMTALK_CONFIRM_TEMPLATE, variables, fallback)
+          const newEntry = { type: '예약확정알림', sent_at: nowIso, phone, method: 'auto' }
+          await supabase.from('service_applications')
+            .update({ notification_log: [newEntry] })
+            .eq('id', app.id)
+          notifySlack({
+            notifyType: '예약확정알림',
+            customerName: ownerName,
+            phone,
+            businessName: customer.business_name,
+            constructionDate: date,
+            method: 'auto',
+          }).catch(() => {})
+        } catch { /* 알림 실패는 일정 생성에 영향 없음 */ }
+      }
+    }
+
+    // ── 구글 드라이브 폴더 생성 (고객별 1회, fire-and-forget) ────────
+    createScheduleDriveFolder(customer.business_name, year, month).then(result => {
+      if (!result) return
+      supabase.from('service_applications')
+        .update({ drive_folder_url: result.folderUrl })
+        .eq('business_name', customer.business_name)
+        .is('drive_folder_url', null)
+        .then(() => {})
+    }).catch(() => {})
 
     results.push({ customer_id: customer.id, inserted: insertedCount, skipped })
   }
