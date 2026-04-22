@@ -537,9 +537,12 @@ export default function AdminCustomersPage() {
         const data = await res.json()
         if (!res.ok) throw new Error(data.error || '저장 실패')
         toast.success('저장되었습니다.')
-        const updated = { ...selected, ...body } as Customer
+        const updated = (data.customer ?? { ...selected, ...body }) as Customer
         setCustomers(prev => prev.map(c => c.id === selected.id ? updated : c))
         setSelected(updated)
+        setForm(toForm(updated))
+        setVisitWeekdays(updated.visit_weekdays ?? [])
+        setVisitMonthlyDates(updated.visit_monthly_dates ?? [])
         autoGenerateBillings(selected.id)
       }
     } catch (e) {
