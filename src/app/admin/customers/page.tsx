@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import toast from 'react-hot-toast'
 import { useModalBackButton } from '@/hooks/useModalBackButton'
 import { MapSelectorModal } from '@/components/MapSelectorModal'
+import { BillingHistoryPanel } from '@/components/admin/BillingHistoryPanel'
 
 // ─── 타입 ─────────────────────────────────────────────────────
 type CustomerType = '1회성케어' | '정기딥케어' | '정기엔드케어'
@@ -1358,6 +1359,21 @@ export default function AdminCustomersPage() {
               <div className="w-full py-2.5 bg-gray-100 text-gray-600 text-sm font-semibold rounded-lg text-center">
                 읽기 전용 (수정 권한 없음)
               </div>
+            )}
+
+            {/* 청구 이력 (정기딥케어 연간 / 정기엔드케어) */}
+            {!isNew && selected && (
+              (form.customer_type === '정기딥케어' && form.billing_cycle === '연간') ||
+              form.customer_type === '정기엔드케어'
+            ) && (
+              <BillingHistoryPanel
+                customerId={selected.id}
+                customerType={form.customer_type}
+                billingCycle={form.billing_cycle}
+                billingAmount={form.billing_amount ? Number(form.billing_amount) : null}
+                paymentDay={form.payment_date ? Number(form.payment_date) : null}
+                contractEndDate={form.contract_end_date || null}
+              />
             )}
 
             {/* 알림 발송 (정기케어만, 관리자만) */}
