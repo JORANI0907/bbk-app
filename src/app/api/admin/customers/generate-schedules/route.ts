@@ -244,7 +244,8 @@ export async function POST(request: NextRequest) {
         .map((app: { construction_date: string }) => (app.construction_date as string)?.slice(0, 10) ?? '')
         .filter(Boolean)
         .sort()
-      const dateStr = sortedDates
+      const monthNum = parseInt(sortedDates[0].slice(5, 7))
+      const dateStr = `${monthNum}월 ` + sortedDates
         .map((d: string) => `${parseInt(d.slice(8, 10))}일`)
         .join(', ')
 
