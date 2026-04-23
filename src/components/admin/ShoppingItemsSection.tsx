@@ -40,6 +40,7 @@ interface ShoppingItemsSectionProps {
   applicationId: string
   businessName: string
   serviceType: string | null
+  constructionDate: string | null
 }
 
 // ─── 상수 ────────────────────────────────────────────────────────
@@ -73,6 +74,7 @@ export function ShoppingItemsSection({
   applicationId,
   businessName,
   serviceType,
+  constructionDate,
 }: ShoppingItemsSectionProps) {
   const [items, setItems] = useState<DraftItem[]>([])
   const [saving, setSaving] = useState(false)
@@ -142,6 +144,7 @@ export function ShoppingItemsSection({
           applicationId,
           businessName,
           serviceType,
+          constructionDate: constructionDate ?? null,
           items: validItems.map(({ localId, expanded, ...rest }) => rest),
         }),
       })

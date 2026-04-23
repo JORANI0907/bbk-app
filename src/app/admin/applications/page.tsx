@@ -1962,6 +1962,7 @@ export default function ServiceManagementPage() {
                 applicationId={selected.id}
                 businessName={selected.business_name}
                 serviceType={selected.service_type ?? null}
+                constructionDate={selected.construction_date ?? null}
               />
 
               {/* Google Drive 폴더 */}

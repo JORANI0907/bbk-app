@@ -39,6 +39,7 @@ interface RequestBody {
   applicationId: string
   businessName: string
   serviceType: string | null
+  constructionDate: string | null
   items: ShoppingItemInput[]
 }
 
@@ -53,6 +54,7 @@ interface ShoppingItemRow {
   memo: string | null
   status: string
   sort_order: number
+  service_date: string | null
 }
 
 export async function POST(request: NextRequest) {
@@ -65,7 +67,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: '요청 바디를 파싱할 수 없습니다.' }, { status: 400 })
   }
 
-  const { applicationId, businessName, serviceType, items } = body
+  const { applicationId, businessName, serviceType, constructionDate, items } = body
 
   if (!Array.isArray(items) || items.length === 0) {
     return NextResponse.json({ error: 'items는 비어있지 않은 배열이어야 합니다.' }, { status: 400 })
@@ -105,6 +107,7 @@ export async function POST(request: NextRequest) {
       `[BBK 서비스 연동] 업체명: ${businessName} / 서비스: ${serviceType ?? '미지정'} / 신청서ID: ${applicationId}`,
     status: 'pending',
     sort_order: baseOrder + index + 1,
+    service_date: constructionDate ?? null,
   }))
 
   const { data, error } = await supabase
