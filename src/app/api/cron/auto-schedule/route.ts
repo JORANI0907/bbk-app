@@ -225,7 +225,7 @@ export async function GET(request: NextRequest) {
         }
       }
 
-      // ── 예약확정알림 발송 (생성된 일정마다 알림톡) ─────────────────
+      // ── 예약확정알림 발송 (고객당 1건, 날짜 통합) ─────────────────
       const phone = (customer.contact_phone ?? '').replace(/-/g, '')
       if (phone && insertedApps && insertedApps.length > 0) {
         let assignedUserName = '-'
@@ -237,39 +237,48 @@ export async function GET(request: NextRequest) {
         const nowIso = new Date().toISOString()
         const ownerName = customer.contact_name || customer.business_name
 
-        for (const app of insertedApps) {
-          const date = (app.construction_date as string)?.slice(0, 10) ?? ''
-          const variables: Record<string, string> = {
-            '고객명':     ownerName,
-            '고객연락처': customer.contact_phone || '',
-            '상호명':     customer.business_name,
-            '케어유형':   customer.customer_type || '',
-            '담당자':     assignedUserName,
-            '주소':       customer.address || '',
-            '시공일자':   date,
-            '요청시간':   '',
-            '미팅여부':   '-',
-            '미팅시간':   '-',
-          }
-          const fallback = `[BBK 공간케어] ${ownerName}님, ${customer.business_name} ${date} 예약이 확정되었습니다.`
-          try {
-            await sendAlimtalk(phone, ALIMTALK_CONFIRM_TEMPLATE, variables, fallback)
-            const newEntry = { type: '예약확정알림', sent_at: nowIso, phone, method: 'auto' }
-            await supabase.from('service_applications')
-              .update({ notification_log: [newEntry] })
-              .eq('id', app.id)
-            notifySlack({
-              notifyType: '예약확정알림',
-              customerName: ownerName,
-              phone,
-              businessName: customer.business_name,
-              constructionDate: date,
-              method: 'auto',
-            }).catch(() => {})
-            smsStatus = 'alimtalk_sent'
-          } catch (e) {
-            smsStatus = `error: ${e instanceof Error ? e.message : String(e)}`
-          }
+        const sortedDates = insertedApps
+          .map((app: { construction_date: string }) => (app.construction_date as string)?.slice(0, 10) ?? '')
+          .filter(Boolean)
+          .sort()
+        const dateStr = sortedDates
+          .map((d: string) => `${parseInt(d.slice(8, 10))}일`)
+          .join(', ')
+
+        const variables: Record<string, string> = {
+          '고객명':     ownerName,
+          '고객연락처': customer.contact_phone || '',
+          '상호명':     customer.business_name,
+          '케어유형':   customer.customer_type || '',
+          '담당자':     assignedUserName,
+          '주소':       customer.address || '',
+          '시공일자':   dateStr,
+          '요청시간':   '',
+          '미팅여부':   '-',
+          '미팅시간':   '-',
+        }
+        const fallback = `[BBK 공간케어] ${ownerName}님, ${customer.business_name} ${dateStr} 예약이 확정되었습니다.`
+        try {
+          await sendAlimtalk(phone, ALIMTALK_CONFIRM_TEMPLATE, variables, fallback)
+          const newEntry = { type: '예약확정알림', sent_at: nowIso, phone, method: 'auto' }
+          await Promise.all(
+            insertedApps.map((app: { id: string }) =>
+              supabase.from('service_applications')
+                .update({ notification_log: [newEntry] })
+                .eq('id', app.id)
+            )
+          )
+          notifySlack({
+            notifyType: '예약확정알림',
+            customerName: ownerName,
+            phone,
+            businessName: customer.business_name,
+            constructionDate: dateStr,
+            method: 'auto',
+          }).catch(() => {})
+          smsStatus = 'alimtalk_sent'
+        } catch (e) {
+          smsStatus = `error: ${e instanceof Error ? e.message : String(e)}`
         }
       } else if (!phone) {
         smsStatus = 'no phone'
