@@ -5,9 +5,6 @@ import toast from 'react-hot-toast'
 import WorkerList from './WorkerList'
 import WorkerDetail from './WorkerDetail'
 import { MIGRATION_SQL, type Worker } from './constants'
-import { NotionWorkersPanel } from '@/components/admin/content/NotionWorkersPanel'
-
-type PageTab = 'app' | 'notion'
 
 function isMigrationError(msg: string) {
   return msg.includes('does not exist') || msg.includes('column') ||
@@ -20,7 +17,6 @@ const POSITION_RANK: Record<string, number> = {
 }
 
 export default function WorkersPage() {
-  const [pageTab, setPageTab] = useState<PageTab>('app')
   const [workers, setWorkers] = useState<Worker[]>([])
   const [selectedWorker, setSelectedWorker] = useState<Worker | null>(null)
   const [loading, setLoading] = useState(true)
@@ -111,29 +107,6 @@ export default function WorkersPage() {
 
   return (
     <div className="flex flex-col h-full">
-      {/* 탭 전환 */}
-      <div className="flex gap-1 px-4 pt-4 border-b border-gray-200">
-        <button
-          onClick={() => setPageTab('app')}
-          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${pageTab === 'app' ? 'border-brand-600 text-brand-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
-        >
-          👥 직원관리
-        </button>
-        <button
-          onClick={() => setPageTab('notion')}
-          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${pageTab === 'notion' ? 'border-brand-600 text-brand-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
-        >
-          📋 노션 인사기록
-        </button>
-      </div>
-
-      {pageTab === 'notion' && (
-        <div className="p-4 overflow-y-auto">
-          <NotionWorkersPanel />
-        </div>
-      )}
-
-      {pageTab === 'app' && <>
       {/* Migration Notice */}
       {showMigration && (
         <div className="mx-4 mt-4 bg-amber-50 border border-amber-200 rounded-xl p-4">
@@ -205,7 +178,6 @@ export default function WorkersPage() {
           </div>
         )}
       </div>
-      </>}
     </div>
   )
 }

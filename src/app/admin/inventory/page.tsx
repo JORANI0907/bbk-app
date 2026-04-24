@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import toast from 'react-hot-toast'
-import { NotionInventoryPanel } from '@/components/admin/content/NotionInventoryPanel'
 import {
   loadGoogleAPIs,
   requestGoogleToken,
@@ -17,7 +16,7 @@ import { useModalBackButton } from '@/hooks/useModalBackButton'
 
 type InventoryCategory = 'chemical' | 'equipment' | 'consumable' | 'other'
 type TxType = 'receive' | 'return' | 'use' | 'adjust'
-type MainTab = 'status' | 'logs' | 'notion'
+type MainTab = 'status' | 'logs'
 
 interface InventoryItem {
   id: string
@@ -471,22 +470,7 @@ export default function AdminInventoryPage() {
             변동내역
           </button>
         )}
-        {role === 'admin' && (
-          <button
-            onClick={() => setMainTab('notion')}
-            className={`px-4 py-2 text-sm font-semibold rounded-t-lg transition-colors border-b-2 ${mainTab === 'notion' ? 'border-blue-600 text-blue-700' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
-          >
-            📋 노션
-          </button>
-        )}
       </div>
-
-      {/* 노션 탭 */}
-      {mainTab === 'notion' && (
-        <div className="flex-1 overflow-y-auto p-4">
-          <NotionInventoryPanel />
-        </div>
-      )}
 
       {/* 변동내역 탭 */}
       {mainTab === 'logs' && role === 'admin' ? (

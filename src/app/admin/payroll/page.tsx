@@ -2,8 +2,6 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import toast from 'react-hot-toast'
-import { NotionFinancePanel } from '@/components/admin/content/NotionFinancePanel'
-
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface ManagerJob {
@@ -778,7 +776,7 @@ function UnitPriceSettings() {
 
 export default function PayrollPage() {
   const [month, setMonth] = useState(currentYM)
-  const [tab, setTab] = useState<'payroll' | 'unit_price' | 'notion'>('payroll')
+  const [tab, setTab] = useState<'payroll' | 'unit_price'>('payroll')
   const [loading, setLoading] = useState(false)
   const [managers, setManagers] = useState<ManagerEntry[]>([])
   const [workersPayroll, setWorkersPayroll] = useState<WorkerEntry[]>([])
@@ -845,17 +843,9 @@ export default function PayrollPage() {
           >
             🏷️ 단가 설정
           </button>
-          <button
-            onClick={() => setTab('notion')}
-            className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-colors ${tab === 'notion' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'}`}
-          >
-            📋 노션 인건비
-          </button>
         </div>
 
-        {tab === 'notion' ? (
-          <NotionFinancePanel title="인건비 기록 (노션)" categoryFilter="인건비" />
-        ) : tab === 'payroll' ? (
+        {tab === 'payroll' ? (
           <>
             {/* Month selector */}
             <div className="flex items-center justify-between mb-4">
