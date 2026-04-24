@@ -121,6 +121,18 @@ const NAV_ITEMS: NavItem[] = [
       { href: '/admin/marketing/roi', label: 'ROI 성과' },
     ],
   },
+  {
+    type: 'group',
+    label: '콘텐츠',
+    icon: '📚',
+    roles: ['admin'],
+    children: [
+      { href: '/admin/content/knowledge', label: '지식 베이스' },
+      { href: '/admin/content/public', label: '마케팅 콘텐츠' },
+      { href: '/admin/content/media', label: '미디어 콘텐츠' },
+      { href: '/admin/content/activities', label: '관내활동' },
+    ],
+  },
   { type: 'leaf', href: '/admin/trash', label: '휴지통', icon: '🗑️', roles: ['admin'] },
 ]
 
