@@ -17,6 +17,11 @@ export const NOTION_DBS = {
   회사규정: 'd31e2456-15b9-4d5f-9128-8bec2fc0a8ac',
   관내활동: 'dee6aa43-6a70-420d-b7b6-0d195c788a1c',
   서비스범위및안내: '0993151f-f22b-4158-8dc4-a4c7fdc8934f',
+  // 앱 페이지 연동 DB
+  인사관리: 'a36a3058-0d34-4964-a95d-468749e81115',
+  재고관리: '83304040-4d7c-4461-8558-5842ffeeb661',
+  회계관리: 'e004c841-665b-4b3a-a223-1e4532e0c1ef',
+  고객DB: '4e0ce1fa-aa85-40ec-ab97-354a2375f40f',
 } as const
 
 export type NotionDbKey = keyof typeof NOTION_DBS
@@ -172,4 +177,13 @@ export const notionContent = {
     queryNotionDb(NOTION_DBS.관내활동, '제목', opts),
   서비스범위및안내: (opts?: QueryOptions) =>
     queryNotionDb(NOTION_DBS.서비스범위및안내, '품목명', opts),
+  // 앱 페이지 연동
+  인사관리: (opts?: QueryOptions) =>
+    queryNotionDb(NOTION_DBS.인사관리, '이름', opts),
+  재고관리: (opts?: QueryOptions) =>
+    queryNotionDb(NOTION_DBS.재고관리, '품목명', opts),
+  회계관리: (opts?: QueryOptions) =>
+    queryNotionDb(NOTION_DBS.회계관리, '항목', opts),
+  고객DB: (opts?: QueryOptions) =>
+    queryNotionDb(NOTION_DBS.고객DB, '고객명', opts),
 }

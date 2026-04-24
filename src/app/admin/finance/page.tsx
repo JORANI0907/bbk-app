@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import toast from 'react-hot-toast'
+import { NotionFinancePanel } from '@/components/admin/content/NotionFinancePanel'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -144,7 +145,7 @@ const SERVICE_TYPES = ['1회성케어', '정기딥케어', '정기엔드케어']
 
 export default function FinancePage() {
   const [month, setMonth] = useState(currentYM)
-  const [tab, setTab] = useState<'dashboard' | 'detail'>('dashboard')
+  const [tab, setTab] = useState<'dashboard' | 'detail' | 'notion'>('dashboard')
   const [loading, setLoading] = useState(false)
   const [data, setData] = useState<FinanceData | null>(null)
   const [selectedTypes, setSelectedTypes] = useState<string[]>([])
@@ -300,6 +301,10 @@ export default function FinancePage() {
               className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-colors ${tab === 'detail' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'}`}>
               상세내역
             </button>
+            <button onClick={() => setTab('notion')}
+              className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-colors ${tab === 'notion' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'}`}>
+              📋 노션
+            </button>
           </div>
           <button onClick={downloadSheet} disabled={!data}
             className="flex items-center gap-1.5 px-3 py-2 bg-emerald-600 text-white text-xs font-semibold rounded-lg hover:bg-emerald-700 disabled:opacity-50 transition-colors whitespace-nowrap">
@@ -307,7 +312,9 @@ export default function FinancePage() {
           </button>
         </div>
 
-        {loading ? (
+        {tab === 'notion' ? (
+          <NotionFinancePanel title="회계관리 (노션)" />
+        ) : loading ? (
           <div className="text-center py-12"><p className="text-sm text-gray-400">불러오는 중...</p></div>
         ) : !data ? null : tab === 'dashboard' ? (
 
