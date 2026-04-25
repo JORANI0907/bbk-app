@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import crypto from 'crypto'
 import { createServiceClient } from '@/lib/supabase/server'
+import { sendSubscriptionPromoSMS } from '@/lib/solapi'
 
 const SOLAPI_API_KEY = process.env.SOLAPI_API_KEY!
 const SOLAPI_API_SECRET = process.env.SOLAPI_API_SECRET!
@@ -153,7 +154,7 @@ export async function POST(request: NextRequest) {
   // 전화번호로 고객 조회 (저장 포맷 차이 대응: 숫자만 / 대시 포함)
   const { data: apps } = await supabase
     .from('service_applications')
-    .select('id, owner_name, business_name, phone, business_number, account_number, status')
+    .select('id, owner_name, business_name, phone, business_number, account_number, status, service_type, notification_log')
     .or(`phone.eq.${phone},phone.eq.${phoneFormatted}`)
     .in('status', PAYMENT_STATUSES)
     .order('created_at', { ascending: false })
@@ -203,6 +204,29 @@ export async function POST(request: NextRequest) {
   await notifySlack(
     `[카드결제알림] ✅ 알림톡 발송 완료\n고객: ${app.business_name} (${app.owner_name})\n연락처: ${phoneFormatted}`,
   )
+
+  // 1회성케어인 경우 구독권유알림 자동 발송 (실패해도 메인 응답에 영향 없음)
+  if (app.service_type === '1회성케어') {
+    try {
+      const existingLog: Array<{ type: string }> = Array.isArray(app.notification_log) ? app.notification_log : []
+      const alreadySentPromo = existingLog.some(l => l.type === '구독권유알림')
+      if (!alreadySentPromo) {
+        const customerName = String(app.owner_name ?? '')
+        await sendSubscriptionPromoSMS(phone, customerName)
+        const promoNow = new Date().toISOString()
+        const promoEntry = { type: '구독권유알림', sent_at: promoNow, phone, method: 'auto' }
+        await supabase
+          .from('service_applications')
+          .update({ notification_log: [promoEntry, ...existingLog] })
+          .eq('id', app.id)
+        await notifySlack(
+          `[카드결제알림] ✅ 구독권유 SMS 자동 발송\n고객: ${app.business_name} (${app.owner_name})`,
+        )
+      }
+    } catch {
+      // 구독권유알림 실패는 메인 응답에 영향 없음
+    }
+  }
 
   return NextResponse.json(
     { ok: true, matched: app.business_name },
