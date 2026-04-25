@@ -48,7 +48,7 @@ export async function sendCompletionAlert(phone: string, customerName: string): 
 }
 
 export async function sendSubscriptionPromoSMS(phone: string, customerName: string): Promise<void> {
-  const subject = '💸 지금 바꾸면 연 최대 200만원 아낍니다 — BBK 구독 전환 안내'
+  const subject = '지금 구독하면 200만원 아낍니다.'
   const text =
     `(광고)[BBK 공간케어]\n\n` +
     `${customerName}님, 이번 케어 만족스러우셨나요?\n\n` +
@@ -61,7 +61,7 @@ export async function sendSubscriptionPromoSMS(phone: string, customerName: stri
     `◾ 3년 이상  시 25% 추가 할인\n` +
     `─────────────────────────\n\n` +
     `매월 전문 관리로 처음처럼 깨끗한\n주방을 유지해보세요.\n\n` +
-    `서비스 자세히보기 👉 https://bbkorea.co.kr/\n\n` +
+    `공간케어 서비스 자세히보기 👉 https://bbkorea.co.kr/\n\n` +
     `📞 031-759-4877 / 010-5434-4877\n` +
     `💬 카카오톡 채팅: http://pf.kakao.com/_JTNxin/chat\n\n` +
     `무료수신거부 080-500-4233`
