@@ -62,7 +62,7 @@ export async function POST(request: NextRequest) {
     'payment_method',
     'unit_price_per_visit', 'deposit', 'supply_amount', 'vat', 'balance', 'manager_pay',
     // 기타
-    'service_type', 'admin_notes',
+    'service_type', 'admin_notes', 'disposition',
   ]
   const insert: Record<string, unknown> = { status: '신규' }
   for (const key of ALLOWED_POST) {
@@ -129,7 +129,7 @@ export async function PATCH(request: NextRequest) {
     // 관리 필드
     'status', 'admin_notes', 'service_type', 'assigned_to',
     'drive_folder_url', 'construction_date', 'construction_time',
-    'pre_meeting_at',
+    'pre_meeting_at', 'disposition',
   ]
   const updates: Record<string, unknown> = {}
   for (const key of ALLOWED) {

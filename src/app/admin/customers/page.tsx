@@ -9,6 +9,7 @@ import { BillingHistoryPanel } from '@/components/admin/BillingHistoryPanel'
 // ─── 타입 ─────────────────────────────────────────────────────
 type CustomerType = '1회성케어' | '정기딥케어' | '정기엔드케어'
 type CustomerStatus = 'active' | 'paused' | 'terminated'
+type CustomerDisposition = '호의' | '보통' | '블랙'
 type BillingCycle = '월간' | '연간'
 
 interface Customer {
@@ -49,6 +50,7 @@ interface Customer {
   visit_monthly_dates: number[] | null
   schedule_generation_day?: number | null
   notes: string | null
+  disposition: CustomerDisposition | null
   rotation_type: '3개월' | '6개월' | '12개월' | null
   visit_count_per_month: number | null
   payment_status: string[] | null
@@ -95,6 +97,12 @@ const STATUS_STYLE: Record<CustomerStatus, { badge: string; label: string }> = {
   terminated: { badge: 'bg-red-100 text-red-700',         label: '해지' },
 }
 
+const DISPOSITION_STYLE: Record<CustomerDisposition, { badge: string; label: string }> = {
+  '호의': { badge: 'bg-sky-100 text-sky-700',     label: '호의' },
+  '보통': { badge: 'bg-gray-100 text-gray-600',   label: '보통' },
+  '블랙': { badge: 'bg-red-100 text-red-700',     label: '블랙' },
+}
+
 const EMPTY_FORM = {
   business_name: '', contact_name: '', contact_phone: '', email: '',
   address: '', address_detail: '', business_number: '', account_number: '',
@@ -104,6 +112,7 @@ const EMPTY_FORM = {
   door_password: '', parking_info: '', special_notes: '', care_scope: '',
   customer_type: '1회성케어' as CustomerType,
   status: 'active' as CustomerStatus,
+  disposition: '보통' as CustomerDisposition,
   pipeline_status: 'inquiry',
   billing_cycle: '월간' as BillingCycle,
   billing_amount: '',
@@ -380,6 +389,7 @@ export default function AdminCustomersPage() {
     care_scope: c.care_scope ?? '',
     customer_type: c.customer_type ?? '1회성케어',
     status: c.status ?? 'active',
+    disposition: (c.disposition ?? '보통') as CustomerDisposition,
     pipeline_status: c.pipeline_status ?? 'inquiry',
     billing_cycle: c.billing_cycle ?? '월간',
     billing_amount: c.billing_amount?.toString() ?? '',
@@ -894,7 +904,7 @@ export default function AdminCustomersPage() {
                   <th className="px-3 py-3 w-8"></th>
                   <th className="text-left px-3 py-3 text-xs font-semibold text-gray-500 whitespace-nowrap">업체명 / 연락처</th>
                   <th className="text-left px-3 py-3 text-xs font-semibold text-gray-500 whitespace-nowrap">서비스</th>
-                  <th className="text-left px-3 py-3 text-xs font-semibold text-gray-500 whitespace-nowrap">상태</th>
+                  <th className="text-left px-3 py-3 text-xs font-semibold text-gray-500 whitespace-nowrap">성향</th>
                   <th className="text-left px-3 py-3 text-xs font-semibold text-gray-500 whitespace-nowrap">계약기간</th>
                   <th className="text-left px-3 py-3 text-xs font-semibold text-gray-500 whitespace-nowrap">방문주기</th>
                   <th className="text-left px-3 py-3 text-xs font-semibold text-gray-500 whitespace-nowrap">방문일정</th>
@@ -946,7 +956,10 @@ export default function AdminCustomersPage() {
                         <span className={`text-xs px-1.5 py-0.5 rounded-full ${tStyle.badge}`}>{type}</span>
                       </td>
                       <td className="px-3 py-3 whitespace-nowrap">
-                        <span className={`text-xs px-1.5 py-0.5 rounded-full ${sStyle.badge}`}>{sStyle.label}</span>
+                        {(() => {
+                          const d = (c.disposition ?? '보통') as CustomerDisposition
+                          return <span className={`text-xs px-1.5 py-0.5 rounded-full ${DISPOSITION_STYLE[d].badge}`}>{d}</span>
+                        })()}
                       </td>
                       <td className="px-3 py-3 text-xs text-gray-500 whitespace-nowrap">
                         {(c.contract_start_date || c.contract_end_date)
@@ -1014,6 +1027,17 @@ export default function AdminCustomersPage() {
                         ? `${STATUS_STYLE[s].badge} ring-2 ring-offset-1 ring-current`
                         : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                     }`}>{STATUS_STYLE[s].label}
+                  </button>
+                ))}
+              </div>
+              <div className="flex gap-1.5 mt-2">
+                {(['호의', '보통', '블랙'] as CustomerDisposition[]).map(d => (
+                  <button key={d} onClick={() => set('disposition')(d)}
+                    className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+                      (form.disposition ?? '보통') === d
+                        ? `${DISPOSITION_STYLE[d].badge} ring-2 ring-offset-1 ring-current`
+                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    }`}>{d}
                   </button>
                 ))}
               </div>

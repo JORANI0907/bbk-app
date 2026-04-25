@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
       access_method, parking, door_password, business_hours_start,
       business_hours_end, account_number, platform_nickname,
       deposit, supply_amount, drive_folder_url, request_notes,
-      internal_memo, pre_meeting_done, meeting_time
+      internal_memo, pre_meeting_done, meeting_time, disposition
     `)
     .eq('service_type', '1회성케어')
     .gte('created_at', monthStart)
@@ -96,6 +96,7 @@ export async function POST(request: NextRequest) {
           special_notes: app.internal_memo ?? null,
           pre_meeting_done: app.pre_meeting_done ?? false,
           meeting_time: app.meeting_time ?? null,
+          disposition: app.disposition ?? '보통',
           customer_type: '1회성케어',
           status: 'active',
         })

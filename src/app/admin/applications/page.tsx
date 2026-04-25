@@ -61,6 +61,7 @@ interface Application {
   care_scope: string | null
   unit_price_per_visit: number | null
   pre_meeting_at: string | null
+  disposition: string | null
   notification_log?: Array<{ type: string; sent_at: string; method?: 'auto' | 'manual' }> | null
   last_quote_no: string | null
   last_quote_pdf_url: string | null
@@ -704,6 +705,7 @@ export default function ServiceManagementPage() {
           balance: selected.balance,
           // 메타
           customer_type: customerType,
+          disposition: selected.disposition ?? '보통',
           pipeline_status: 'inquiry',
         }),
       })
@@ -1658,6 +1660,19 @@ export default function ServiceManagementPage() {
                         (selected.service_type ?? '1회성케어') === t ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                       }`}>{t}</button>
                   ))}
+                </div>
+                <div className="flex gap-1.5 flex-wrap mt-2">
+                  {(['호의', '보통', '블랙'] as const).map(d => {
+                    const style = d === '호의' ? 'bg-sky-100 text-sky-700' : d === '블랙' ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-600'
+                    const isActive = (selected.disposition ?? '보통') === d
+                    return (
+                      <button key={d} disabled={saving}
+                        onClick={() => quickSave({ disposition: d })}
+                        className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+                          isActive ? `${style} ring-2 ring-offset-1 ring-current` : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                        }`}>{d}</button>
+                    )
+                  })}
                 </div>
               </Section>
 
