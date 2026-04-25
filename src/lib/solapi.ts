@@ -47,6 +47,39 @@ export async function sendCompletionAlert(phone: string, customerName: string): 
   await sendSMS(phone, text)
 }
 
+export async function sendSubscriptionPromoSMS(phone: string, customerName: string): Promise<void> {
+  const subject = '💸 지금 바꾸면 연 최대 200만원 아낍니다 — BBK 구독 전환 안내'
+  const text =
+    `(광고)[BBK 공간케어]\n\n` +
+    `${customerName}님, 이번 케어 만족스러우셨나요?\n\n` +
+    `지금 구독으로 전환하시면\n1회성 대비 최대 49% 절감됩니다!\n\n` +
+    `─────────────────────────\n` +
+    `[구독 요금 비교]\n` +
+    `◾ 스탠다드   월 99,000원 → 연 972,000원 절감 (45%↓)\n` +
+    `◾ 더블클리닝 월 188,000원 → 연 2,064,000원 절감 (48%↓)\n` +
+    `◾ 2년 재계약 시 15% 추가 할인\n` +
+    `◾ 3년 이상  시 25% 추가 할인\n` +
+    `─────────────────────────\n\n` +
+    `매월 전문 관리로 처음처럼 깨끗한\n주방을 유지해보세요.\n\n` +
+    `서비스 자세히보기 👉 https://bbkorea.co.kr/\n\n` +
+    `📞 031-759-4877 / 010-5434-4877\n` +
+    `💬 카카오톡 채팅: http://pf.kakao.com/_JTNxin/chat\n\n` +
+    `무료수신거부 080-500-4233`
+
+  const from = process.env.SOLAPI_SENDER_NUMBER
+  if (!from) throw new Error('발신번호(SOLAPI_SENDER_NUMBER)가 설정되지 않았습니다.')
+
+  const service = getService()
+  const normalizedPhone = phone.replace(/-/g, '')
+
+  await service.sendOne({
+    to: normalizedPhone,
+    from,
+    subject,
+    text,
+  } as Parameters<typeof service.sendOne>[0])
+}
+
 export async function sendAlimtalk(
   to: string,
   templateId: string,
