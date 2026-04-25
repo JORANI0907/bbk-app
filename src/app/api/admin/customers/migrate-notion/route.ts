@@ -5,9 +5,9 @@ const NOTION_API_BASE = 'https://api.notion.com/v1'
 const NOTION_VERSION = '2022-06-28'
 
 // ─── 이관 대상 DB ─────────────────────────────────────────────
-const DB_A_ID = '254fc2d5-65d7-803b-85a8-000b43db43e7'
-const DB_B_ID = '260fc2d5-65d7-81c2-a2d0-000bcd06c419'
-const DB_C_ID = '2b1fc2d5-65d7-8034-b8de-000b7e0583be'
+const DB_A_ID = '254fc2d565d780a1a7fdd34f5a2460bf'
+const DB_B_ID = '260fc2d565d781448affde6cc6fdea04'
+const DB_C_ID = '2b1fc2d565d780cda2c9ddcd642324dc'
 
 // DB A: 1회성케어 제외 목록 (이 상호명들은 정기 고객 → 스킵)
 const DB_A_REGULAR_NAMES = ['태수', '명가통닭', '북촌손만두 제주명가', '신전떡볶이 성신여대점']
