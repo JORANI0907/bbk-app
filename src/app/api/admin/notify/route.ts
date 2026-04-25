@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { sendAlimtalk, sendSMS } from '@/lib/solapi'
+import { sendAlimtalk, sendSMS, sendSubscriptionPromoSMS } from '@/lib/solapi'
 import { createServiceClient } from '@/lib/supabase/server'
 import { notifySlack } from '@/lib/slack'
 
@@ -245,6 +245,49 @@ export async function POST(request: NextRequest) {
 
     const supabase = createServiceClient()
 
+    // ── 구독권유알림 SMS (별도 처리) ─────────────────────────────
+    if (type === '구독권유알림') {
+      const { data: app } = await supabase
+        .from('service_applications')
+        .select('*')
+        .eq('id', application_id)
+        .single()
+      if (!app) return NextResponse.json({ error: '신청서를 찾을 수 없습니다.' }, { status: 404 })
+
+      if (app.service_type !== '1회성케어') {
+        return NextResponse.json({ error: '이미 구독 중인 고객입니다.' }, { status: 400 })
+      }
+
+      const existingLog: NotificationLogEntry[] = Array.isArray(app.notification_log) ? app.notification_log : []
+      if (existingLog.some(l => l.type === '구독권유알림')) {
+        return NextResponse.json({ success: true, skipped: true, reason: '이미 발송된 알림입니다.' })
+      }
+
+      const phone = (app.phone ?? '').replace(/-/g, '')
+      if (!phone) return NextResponse.json({ error: '전화번호가 없습니다.' }, { status: 400 })
+
+      const customerName = String(app.owner_name ?? app.contact_name ?? '')
+      await sendSubscriptionPromoSMS(phone, customerName)
+
+      const nowIso = new Date().toISOString()
+      const newEntry: NotificationLogEntry = { type: '구독권유알림', sent_at: nowIso, phone, method }
+      await supabase
+        .from('service_applications')
+        .update({ notification_log: [newEntry, ...existingLog] })
+        .eq('id', application_id)
+
+      await notifySlack({
+        notifyType: '구독권유알림',
+        customerName: app.owner_name ?? '',
+        phone,
+        businessName: app.business_name ?? '',
+        constructionDate: app.construction_date?.slice(0, 10) ?? null,
+        method,
+      }).catch(() => { /* Slack 실패는 무시 */ })
+
+      return NextResponse.json({ success: true, new_status: null })
+    }
+
     // ── 작업자 일정 안내 SMS (별도 처리) ──────────────────────────
     if (type === WORKER_NOTIFY_TYPE) {
       const { data: app } = await supabase
@@ -372,6 +415,41 @@ export async function POST(request: NextRequest) {
       constructionDate: app.construction_date?.slice(0, 10) ?? null,
       method,
     }).catch(() => { /* Slack 실패는 무시 */ })
+
+    // ── 결제완료알림 발송 직후 구독권유알림 자동 발송 ────────────
+    if (
+      (type === '결제완료알림' || type === '결제완료알림(잔금)') &&
+      app.service_type === '1회성케어'
+    ) {
+      try {
+        const latestLog: NotificationLogEntry[] = Array.isArray(app.notification_log)
+          ? (app.notification_log as NotificationLogEntry[])
+          : []
+        const alreadySentPromo = latestLog.some(l => l.type === '구독권유알림')
+        if (!alreadySentPromo) {
+          const promoCustomerName = String(app.owner_name ?? app.contact_name ?? '')
+          await sendSubscriptionPromoSMS(phone, promoCustomerName)
+          const promoNow = new Date().toISOString()
+          const promoEntry: NotificationLogEntry = { type: '구독권유알림', sent_at: promoNow, phone, method: 'auto' }
+          // notification_log는 이미 updatedLog로 업데이트됐으므로 거기에 추가
+          const promoLog = [promoEntry, ...updatedLog]
+          await supabase
+            .from('service_applications')
+            .update({ notification_log: promoLog })
+            .eq('id', application_id)
+          await notifySlack({
+            notifyType: '구독권유알림',
+            customerName: app.owner_name ?? '',
+            phone,
+            businessName: app.business_name ?? '',
+            constructionDate: app.construction_date?.slice(0, 10) ?? null,
+            method: 'auto',
+          }).catch(() => { /* Slack 실패는 무시 */ })
+        }
+      } catch {
+        // 구독권유알림 실패는 메인 응답에 영향 없음
+      }
+    }
 
     return NextResponse.json({ success: true, new_status: newStatus ?? null })
   } catch (e) {
