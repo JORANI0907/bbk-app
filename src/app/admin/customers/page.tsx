@@ -501,6 +501,7 @@ export default function AdminCustomersPage() {
     payment_date: form.payment_date ? Number(form.payment_date) : null,
     assigned_user_id: form.assigned_user_id || null,
     assigned_worker_id: form.assigned_worker_id || null,
+    disposition: form.disposition ?? '보통',
   })
 
   const autoGenerateBillings = (customerId: string) => {
