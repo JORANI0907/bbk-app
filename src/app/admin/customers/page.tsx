@@ -5,7 +5,6 @@ import toast from 'react-hot-toast'
 import { useModalBackButton } from '@/hooks/useModalBackButton'
 import { MapSelectorModal } from '@/components/MapSelectorModal'
 import { BillingHistoryPanel } from '@/components/admin/BillingHistoryPanel'
-import { NotionCustomersPanel } from '@/components/admin/content/NotionCustomersPanel'
 
 // ─── 타입 ─────────────────────────────────────────────────────
 type CustomerType = '1회성케어' | '정기딥케어' | '정기엔드케어'
@@ -803,8 +802,6 @@ export default function AdminCustomersPage() {
   const isDipCare = form.customer_type === '정기딥케어'
   const notifyOptions = form.customer_type ? NOTIFY_TYPES[form.customer_type] : []
 
-  const [customerPageTab, setCustomerPageTab] = useState<'app' | 'notion'>('app')
-
   return (
     <>
     <div className="relative flex h-full gap-0 min-h-0">
@@ -822,29 +819,6 @@ export default function AdminCustomersPage() {
           </div>
         </div>
 
-        {/* 앱/노션 탭 전환 */}
-        <div className="flex gap-1 border-b border-gray-200 mb-3">
-          <button
-            onClick={() => setCustomerPageTab('app')}
-            className={`px-3 py-1.5 text-sm font-medium border-b-2 transition-colors ${customerPageTab === 'app' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
-          >
-            앱 고객관리
-          </button>
-          <button
-            onClick={() => setCustomerPageTab('notion')}
-            className={`px-3 py-1.5 text-sm font-medium border-b-2 transition-colors ${customerPageTab === 'notion' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
-          >
-            📋 노션 1회성케어
-          </button>
-        </div>
-
-        {customerPageTab === 'notion' && (
-          <div className="flex-1 overflow-y-auto">
-            <NotionCustomersPanel typeFilter="1회성케어" />
-          </div>
-        )}
-
-        {customerPageTab === 'app' && <>
 
         {/* 서비스 유형 체크박스 복수선택 */}
         <div className="flex flex-wrap gap-1.5 mb-3">
@@ -992,7 +966,6 @@ export default function AdminCustomersPage() {
             </table>
           )}
         </div>
-        </>}
       </div>
 
       {/* 지도 앱 선택 모달 */}
