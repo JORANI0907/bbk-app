@@ -1494,6 +1494,13 @@ export default function ServiceManagementPage() {
                   </thead>
                   <tbody>
                     {(() => {
+                      const weekTotals = new Map<string, number>()
+                      for (const app of rows) {
+                        if (app.construction_date) {
+                          const { key } = getWeekInfo(app.construction_date)
+                          weekTotals.set(key, (weekTotals.get(key) ?? 0) + rowTotal(app))
+                        }
+                      }
                       let lastWeekKey = ''
                       return rows.flatMap(app => {
                         const cells: React.ReactNode[] = []
@@ -1502,10 +1509,18 @@ export default function ServiceManagementPage() {
                           const { key, label } = getWeekInfo(app.construction_date)
                           if (key !== lastWeekKey) {
                             lastWeekKey = key
+                            const weekSum = weekTotals.get(key) ?? 0
                             cells.push(
                               <tr key={`wk-${key}`} className="bg-gradient-to-r from-blue-50 to-indigo-50 border-t-2 border-blue-200">
                                 <td colSpan={10} className="px-4 py-1.5">
-                                  <span className="text-xs font-bold text-blue-700 tracking-wide">{label}</span>
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-xs font-bold text-blue-700 tracking-wide">{label}</span>
+                                    {weekSum > 0 && (
+                                      <span className="text-xs font-bold text-blue-600">
+                                        합계 <span className="font-mono">{fmt(weekSum)}</span>원
+                                      </span>
+                                    )}
+                                  </div>
                                 </td>
                               </tr>
                             )
