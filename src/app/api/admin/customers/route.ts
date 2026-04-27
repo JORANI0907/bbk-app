@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { createAuthUser, updateAuthUserEmailAndPassword, customerEmail } from '@/lib/auth-helpers'
-import crypto from 'crypto'
 
 const ALLOWED = [
   // 일반정보
@@ -33,16 +32,6 @@ const ALLOWED = [
   'disposition',
 ]
 
-// 읽기 쉬운 8자리 난수 비밀번호 (혼동하기 쉬운 I, O, 0, 1 제외)
-function generateRandomPassword(): string {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
-  let pw = ''
-  for (let i = 0; i < 8; i++) {
-    pw += chars[crypto.randomInt(chars.length)]
-  }
-  return pw
-}
-
 async function createPortalAccount(
   supabase: ReturnType<typeof createServiceClient>,
   customerId: string,
@@ -51,7 +40,7 @@ async function createPortalAccount(
 ): Promise<string> {
   const normalizedPhone = phone.replace(/-/g, '')
   const email = customerEmail(normalizedPhone)
-  const password = generateRandomPassword()
+  const password = normalizedPhone
 
   const { data: existingUser } = await supabase
     .from('users')

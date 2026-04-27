@@ -2,10 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import Link from 'next/link'
 import toast from 'react-hot-toast'
-
-type LoginTab = 'employee' | 'customer'
 
 async function setSession(user: { id: string; role: string; name: string }, session: { access_token: string; refresh_token: string }) {
   const res = await fetch('/api/auth/session', {
@@ -44,14 +41,10 @@ function EyeIcon({ open }: { open: boolean }) {
 
 export default function LoginPage() {
   const router = useRouter()
-  const [activeTab, setActiveTab] = useState<LoginTab>('employee')
-  const [empEmail, setEmpEmail] = useState('')
-  const [empPassword, setEmpPassword] = useState('')
-  const [custPhone, setCustPhone] = useState('')
-  const [custPassword, setCustPassword] = useState('')
+  const [phone, setPhone] = useState('')
+  const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
-  const [showEmpPw, setShowEmpPw] = useState(false)
-  const [showCustPw, setShowCustPw] = useState(false)
+  const [showPw, setShowPw] = useState(false)
   const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
@@ -65,40 +58,17 @@ export default function LoginPage() {
     }
   }, [router])
 
-  const handleEmployeeLogin = async () => {
-    if (!empEmail.trim() || !empPassword.trim()) {
-      toast.error('이메일과 비밀번호를 입력해주세요.')
-      return
-    }
-    setLoading(true)
-    try {
-      const res = await fetch('/api/auth/employee/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: empEmail.trim(), password: empPassword }),
-      })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error ?? '로그인 실패')
-      await setSession(data.user, data.session)
-      redirectByRole(data.user.role)
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : '로그인에 실패했습니다.')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const handleCustomerLogin = async () => {
-    if (!custPhone.trim() || !custPassword.trim()) {
+  const handleLogin = async () => {
+    if (!phone.trim() || !password.trim()) {
       toast.error('연락처와 비밀번호를 입력해주세요.')
       return
     }
     setLoading(true)
     try {
-      const res = await fetch('/api/auth/customer/login', {
+      const res = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: custPhone.trim(), password: custPassword }),
+        body: JSON.stringify({ phone: phone.trim(), password }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? '로그인 실패')
@@ -149,146 +119,62 @@ export default function LoginPage() {
             boxShadow: '0 24px 64px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.15)',
           }}>
 
-          {/* 탭 */}
-          <div className="flex p-1.5 m-4 rounded-2xl gap-1" style={{ background: 'rgba(0,0,0,0.25)' }}>
-            {([
-              { key: 'employee', label: '직원 · 관리자' },
-              { key: 'customer', label: '고객' },
-            ] as { key: LoginTab; label: string }[]).map(({ key, label }) => (
-              <button key={key} onClick={() => setActiveTab(key)}
-                className={`flex-1 py-2.5 text-sm font-semibold rounded-xl transition-all duration-200 ${
-                  activeTab === key
-                    ? 'bg-white text-blue-700 shadow-md'
-                    : 'text-white/70 hover:text-white'
-                }`}>
-                {label}
+          <div className="px-6 py-6">
+            <div className="flex flex-col gap-4">
+              <div>
+                <label className="text-xs font-semibold text-white/80 mb-1.5 block">연락처</label>
+                <div className="relative">
+                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/50">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                    </svg>
+                  </span>
+                  <input type="tel" value={phone} onChange={e => setPhone(e.target.value)}
+                    placeholder="01012345678" autoComplete="tel"
+                    onKeyDown={e => e.key === 'Enter' && handleLogin()}
+                    className="w-full pl-10 pr-4 py-3 border border-white/20 rounded-xl text-sm bg-white/15 text-white placeholder-white/40 focus:bg-white/25 focus:outline-none focus:ring-2 focus:ring-sky-400 focus:border-transparent transition-all" />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold text-white/80 mb-1.5 block">비밀번호</label>
+                <div className="relative">
+                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/50">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                    </svg>
+                  </span>
+                  <input type={showPw ? 'text' : 'password'} value={password}
+                    onChange={e => setPassword(e.target.value)} placeholder="비밀번호 입력"
+                    autoComplete="current-password"
+                    onKeyDown={e => e.key === 'Enter' && handleLogin()}
+                    className="w-full pl-10 pr-10 py-3 border border-white/20 rounded-xl text-sm bg-white/15 text-white placeholder-white/40 focus:bg-white/25 focus:outline-none focus:ring-2 focus:ring-sky-400 focus:border-transparent transition-all" />
+                  <button type="button" onClick={() => setShowPw(v => !v)}
+                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-white/40 hover:text-white/80">
+                    <EyeIcon open={showPw} />
+                  </button>
+                </div>
+              </div>
+
+              <button onClick={handleLogin} disabled={loading}
+                className="w-full py-3.5 text-white font-bold rounded-xl transition-all disabled:opacity-60 active:scale-[0.98] mt-1"
+                style={{ background: loading ? '#93c5fd' : 'linear-gradient(135deg, #2563eb, #4f46e5)' }}>
+                {loading ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                    </svg>
+                    로그인 중...
+                  </span>
+                ) : '로그인'}
               </button>
-            ))}
-          </div>
 
-          <div className="px-6 pb-6 pt-2">
-
-            {/* 직원/관리자 탭 */}
-            {activeTab === 'employee' && (
-              <div className="flex flex-col gap-4">
-                <div>
-                  <label className="text-xs font-semibold text-white/80 mb-1.5 block">이메일</label>
-                  <div className="relative">
-                    <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/50">
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                      </svg>
-                    </span>
-                    <input type="email" value={empEmail} onChange={e => setEmpEmail(e.target.value)}
-                      placeholder="example@email.com" autoComplete="email"
-                      onKeyDown={e => e.key === 'Enter' && handleEmployeeLogin()}
-                      className="w-full pl-10 pr-4 py-3 border border-white/20 rounded-xl text-sm bg-white/15 text-white placeholder-white/40 focus:bg-white/25 focus:outline-none focus:ring-2 focus:ring-sky-400 focus:border-transparent transition-all" />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="text-xs font-semibold text-white/80 mb-1.5 block">비밀번호</label>
-                  <div className="relative">
-                    <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/50">
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                      </svg>
-                    </span>
-                    <input type={showEmpPw ? 'text' : 'password'} value={empPassword}
-                      onChange={e => setEmpPassword(e.target.value)} placeholder="비밀번호 입력"
-                      autoComplete="current-password"
-                      onKeyDown={e => e.key === 'Enter' && handleEmployeeLogin()}
-                      className="w-full pl-10 pr-10 py-3 border border-white/20 rounded-xl text-sm bg-white/15 text-white placeholder-white/40 focus:bg-white/25 focus:outline-none focus:ring-2 focus:ring-sky-400 focus:border-transparent transition-all" />
-                    <button type="button" onClick={() => setShowEmpPw(v => !v)}
-                      className="absolute right-3.5 top-1/2 -translate-y-1/2 text-white/40 hover:text-white/80">
-                      <EyeIcon open={showEmpPw} />
-                    </button>
-                  </div>
-                </div>
-
-                <button onClick={handleEmployeeLogin} disabled={loading}
-                  className="w-full py-3.5 text-white font-bold rounded-xl transition-all disabled:opacity-60 active:scale-[0.98] mt-1"
-                  style={{ background: loading ? '#93c5fd' : 'linear-gradient(135deg, #2563eb, #4f46e5)' }}>
-                  {loading ? (
-                    <span className="flex items-center justify-center gap-2">
-                      <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                      </svg>
-                      로그인 중...
-                    </span>
-                  ) : '로그인'}
-                </button>
-
-                <div className="flex items-center justify-between text-xs pt-1">
-                  <Link href="/forgot-password" className="text-white/50 hover:text-white transition-colors">
-                    비밀번호 찾기
-                  </Link>
-                  <Link href="/signup" className="text-sky-300 font-semibold hover:text-sky-200 transition-colors">
-                    직원 회원가입 →
-                  </Link>
-                </div>
-              </div>
-            )}
-
-            {/* 고객 탭 */}
-            {activeTab === 'customer' && (
-              <div className="flex flex-col gap-4">
-                <div>
-                  <label className="text-xs font-semibold text-white/80 mb-1.5 block">연락처</label>
-                  <div className="relative">
-                    <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/50">
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-                      </svg>
-                    </span>
-                    <input type="tel" value={custPhone} onChange={e => setCustPhone(e.target.value)}
-                      placeholder="01012345678" autoComplete="tel"
-                      onKeyDown={e => e.key === 'Enter' && handleCustomerLogin()}
-                      className="w-full pl-10 pr-4 py-3 border border-white/20 rounded-xl text-sm bg-white/15 text-white placeholder-white/40 focus:bg-white/25 focus:outline-none focus:ring-2 focus:ring-sky-400 focus:border-transparent transition-all" />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="text-xs font-semibold text-white/80 mb-1.5 block">비밀번호</label>
-                  <div className="relative">
-                    <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/50">
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                      </svg>
-                    </span>
-                    <input type={showCustPw ? 'text' : 'password'} value={custPassword}
-                      onChange={e => setCustPassword(e.target.value)} placeholder="비밀번호 입력"
-                      autoComplete="current-password"
-                      onKeyDown={e => e.key === 'Enter' && handleCustomerLogin()}
-                      className="w-full pl-10 pr-10 py-3 border border-white/20 rounded-xl text-sm bg-white/15 text-white placeholder-white/40 focus:bg-white/25 focus:outline-none focus:ring-2 focus:ring-sky-400 focus:border-transparent transition-all" />
-                    <button type="button" onClick={() => setShowCustPw(v => !v)}
-                      className="absolute right-3.5 top-1/2 -translate-y-1/2 text-white/40 hover:text-white/80">
-                      <EyeIcon open={showCustPw} />
-                    </button>
-                  </div>
-                </div>
-
-                <button onClick={handleCustomerLogin} disabled={loading}
-                  className="w-full py-3.5 text-white font-bold rounded-xl transition-all disabled:opacity-60 active:scale-[0.98] mt-1"
-                  style={{ background: loading ? '#93c5fd' : 'linear-gradient(135deg, #2563eb, #4f46e5)' }}>
-                  {loading ? (
-                    <span className="flex items-center justify-center gap-2">
-                      <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                      </svg>
-                      로그인 중...
-                    </span>
-                  ) : '로그인'}
-                </button>
-
-                <p className="text-center text-xs text-white/50 pt-1">
-                  로그인 정보는{' '}
-                  <span className="text-sky-300 font-medium">031-759-4877</span>로 문의하세요
-                </p>
-              </div>
-            )}
+              <p className="text-center text-xs text-white/50 pt-1">
+                로그인 정보는{' '}
+                <span className="text-sky-300 font-medium">031-759-4877</span>로 문의하세요
+              </p>
+            </div>
           </div>
         </div>
 

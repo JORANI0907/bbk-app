@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
-import { createAuthUser, updateAuthUserPassword } from '@/lib/auth-helpers'
+import { createAuthUser, updateAuthUserPassword, customerEmail } from '@/lib/auth-helpers'
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -33,7 +33,7 @@ export async function GET(request: NextRequest) {
 // POST: 새 사용자 등록 (관리자만)
 export async function POST(request: NextRequest) {
   const supabase = createServiceClient()
-  const { role, name, phone, email } = await request.json()
+  const { role, name, phone } = await request.json()
 
   if (!role || !name || !phone) {
     return NextResponse.json({ error: '역할, 이름, 전화번호는 필수입니다.' }, { status: 400 })
@@ -55,13 +55,29 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: '이미 등록된 전화번호입니다.' }, { status: 409 })
   }
 
+  const virtualEmail = customerEmail(normalized)
+
+  // Auth 계정 생성 (초기 비밀번호 = 전화번호)
+  let authId: string | null = null
+  try {
+    const authUser = await createAuthUser(virtualEmail, normalized, { role, name })
+    authId = authUser.id
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : 'Auth 계정 생성 실패'
+    return NextResponse.json({ error: msg }, { status: 500 })
+  }
+
   const { data, error } = await supabase
     .from('users')
-    .insert({ role, name, phone: normalized, email: email || null, is_active: true })
+    .insert({ role, name, phone: normalized, email: virtualEmail, auth_id: authId, is_active: true })
     .select()
     .single()
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) {
+    // users 테이블 삽입 실패 시 생성된 Auth 계정도 정리
+    await deleteAuthUser(authId!).catch(() => {})
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
   return NextResponse.json({ user: data }, { status: 201 })
 }
 
