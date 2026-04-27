@@ -33,7 +33,7 @@ export async function GET(request: NextRequest) {
 // POST: 새 사용자 등록 (관리자만)
 export async function POST(request: NextRequest) {
   const supabase = createServiceClient()
-  const { role, name, phone } = await request.json()
+  const { role, name, phone, customer_id } = await request.json()
 
   if (!role || !name || !phone) {
     return NextResponse.json({ error: '역할, 이름, 전화번호는 필수입니다.' }, { status: 400 })
@@ -78,6 +78,12 @@ export async function POST(request: NextRequest) {
     await deleteAuthUser(authId!).catch(() => {})
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
+
+  // 고객 DB와 연결 (customer_id가 제공된 경우)
+  if (customer_id && role === 'customer') {
+    await supabase.from('customers').update({ user_id: data.id }).eq('id', customer_id)
+  }
+
   return NextResponse.json({ user: data }, { status: 201 })
 }
 

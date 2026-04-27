@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Card } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
@@ -19,14 +19,27 @@ const ROLE_BADGE: Record<UserRole, 'info' | 'success' | 'warning'> = {
   customer: 'success',
 }
 
+interface CustomerItem {
+  id: string
+  business_name: string
+  contact_name: string
+  contact_phone: string
+  email?: string
+}
+
 interface FormData {
   role: UserRole
   name: string
   phone: string
   email: string
+  customer_id?: string
 }
 
 const EMPTY_FORM: FormData = { role: 'worker', name: '', phone: '', email: '' }
+
+function normalizePhone(phone: string) {
+  return phone.replace(/-/g, '')
+}
 
 export default function MembersPage() {
   const [users, setUsers] = useState<User[]>([])
@@ -42,6 +55,12 @@ export default function MembersPage() {
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [approvingId, setApprovingId] = useState<string | null>(null)
   const [sendingId, setSendingId] = useState<string | null>(null)
+
+  // 고객 검색 드롭다운
+  const [customers, setCustomers] = useState<CustomerItem[]>([])
+  const [customerSearch, setCustomerSearch] = useState('')
+  const [showCustomerDropdown, setShowCustomerDropdown] = useState(false)
+  const customerInputRef = useRef<HTMLInputElement>(null)
 
   // 현재 로그인 사용자
   const [currentRole, setCurrentRole] = useState<string>('admin')
@@ -72,13 +91,30 @@ export default function MembersPage() {
     fetchUsers()
   }, [])
 
-  // 현재 사용자 정보 추출 (worker 뷰용)
   useEffect(() => {
     if (currentUserId && users.length > 0) {
       const me = users.find(u => u.id === currentUserId) ?? null
       setCurrentUser(me)
     }
   }, [currentUserId, users])
+
+  // 역할이 customer로 변경되면 고객 목록 불러오기
+  useEffect(() => {
+    if (showForm && form.role === 'customer') {
+      fetch('/api/admin/customers')
+        .then(r => r.json())
+        .then(d => setCustomers(d.customers ?? []))
+        .catch(() => {})
+    }
+  }, [showForm, form.role])
+
+  const closeForm = () => {
+    setShowForm(false)
+    setEditingId(null)
+    setForm(EMPTY_FORM)
+    setCustomerSearch('')
+    setShowCustomerDropdown(false)
+  }
 
   const handleApprove = async (user: User) => {
     setApprovingId(user.id)
@@ -117,8 +153,6 @@ export default function MembersPage() {
     }
   }
 
-  useEffect(() => { fetchUsers() }, [])
-
   const handleSubmit = async () => {
     if (!form.name.trim() || !form.phone.trim()) {
       toast.error('이름과 전화번호를 입력해주세요.')
@@ -136,9 +170,7 @@ export default function MembersPage() {
       if (!res.ok) throw new Error(data.error)
 
       toast.success(isEdit ? '수정되었습니다.' : `${ROLE_LABELS[form.role]} 등록 완료!`)
-      setShowForm(false)
-      setForm(EMPTY_FORM)
-      setEditingId(null)
+      closeForm()
       fetchUsers()
     } catch (err) {
       toast.error(err instanceof Error ? err.message : '저장 실패')
@@ -254,6 +286,23 @@ export default function MembersPage() {
     }
   }
 
+  // 선택된 고객과 phone이 일치하는 기존 users 계정 확인
+  const normalizedFormPhone = normalizePhone(form.phone)
+  const existingCustomerUser = form.role === 'customer' && normalizedFormPhone
+    ? users.find(u => u.role === 'customer' && normalizePhone(u.phone ?? '') === normalizedFormPhone)
+    : null
+
+  const showCredentials = normalizedFormPhone.length >= 10 && !editingId
+
+  const filteredCustomers = customers.filter(c => {
+    const q = customerSearch.toLowerCase()
+    return (
+      c.business_name.toLowerCase().includes(q) ||
+      (c.contact_name ?? '').toLowerCase().includes(q) ||
+      (c.contact_phone ?? '').replace(/-/g, '').includes(q)
+    )
+  }).slice(0, 50)
+
   const pendingWorkers = users.filter(u => u.role === 'worker' && !u.is_active)
   const filtered = filterRole === 'all'
     ? users.filter(u => u.is_active || u.role !== 'worker')
@@ -270,7 +319,6 @@ export default function MembersPage() {
           <div className="text-center py-12 text-gray-400 text-sm">불러오는 중...</div>
         ) : currentUser ? (
           <div className="space-y-4">
-            {/* 계정 정보 */}
             <Card className="p-5">
               <div className="flex items-center gap-4 mb-4">
                 <div className="w-14 h-14 rounded-full bg-blue-100 flex items-center justify-center font-bold text-blue-600 text-xl">
@@ -309,7 +357,6 @@ export default function MembersPage() {
               </div>
             </Card>
 
-            {/* 비밀번호 변경 */}
             <Card className="p-5">
               <h2 className="font-semibold text-gray-900 mb-4">비밀번호 변경</h2>
               <div className="space-y-3">
@@ -336,11 +383,7 @@ export default function MembersPage() {
                 {selfNewPw && selfConfirmPw && selfNewPw !== selfConfirmPw && (
                   <p className="text-xs text-red-500">비밀번호가 일치하지 않습니다.</p>
                 )}
-                <Button
-                  onClick={handleSelfPasswordChange}
-                  isLoading={selfSaving}
-                  className="w-full"
-                >
+                <Button onClick={handleSelfPasswordChange} isLoading={selfSaving} className="w-full">
                   비밀번호 변경
                 </Button>
               </div>
@@ -432,13 +475,19 @@ export default function MembersPage() {
             {editingId ? '회원 수정' : '새 회원 등록'}
           </h2>
           <div className="space-y-3">
+
+            {/* 역할 선택 */}
             <div>
               <label className="text-xs font-medium text-gray-600 mb-1.5 block">역할</label>
               <div className="flex gap-2">
                 {(['admin', 'worker', 'customer'] as UserRole[]).map(r => (
                   <button
                     key={r}
-                    onClick={() => setForm(f => ({ ...f, role: r }))}
+                    onClick={() => {
+                      setForm({ ...EMPTY_FORM, role: r })
+                      setCustomerSearch('')
+                      setShowCustomerDropdown(false)
+                    }}
                     className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${
                       form.role === r
                         ? 'bg-blue-600 text-white'
@@ -451,48 +500,157 @@ export default function MembersPage() {
               </div>
             </div>
 
-            <div>
-              <label className="text-xs font-medium text-gray-600 mb-1.5 block">이름 *</label>
-              <input
-                type="text"
-                value={form.name}
-                onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-                placeholder="홍길동"
-                className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-              />
-            </div>
+            {/* 고객 역할: 기존 고객DB 검색·선택 */}
+            {form.role === 'customer' && !editingId ? (
+              <>
+                <div className="relative">
+                  <label className="text-xs font-medium text-gray-600 mb-1.5 block">
+                    고객 검색 *
+                    <span className="text-gray-400 font-normal ml-1">— 업체명, 담당자명, 전화번호</span>
+                  </label>
+                  <input
+                    ref={customerInputRef}
+                    type="text"
+                    value={customerSearch}
+                    onChange={e => { setCustomerSearch(e.target.value); setShowCustomerDropdown(true) }}
+                    onFocus={() => setShowCustomerDropdown(true)}
+                    onBlur={() => setTimeout(() => setShowCustomerDropdown(false), 150)}
+                    placeholder="예: 스타벅스, 홍길동, 01012345678"
+                    className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                  />
+                  {showCustomerDropdown && (
+                    <div className="absolute z-20 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-56 overflow-y-auto">
+                      {filteredCustomers.length === 0 ? (
+                        <p className="px-3 py-3 text-xs text-gray-400 text-center">
+                          {customers.length === 0 ? '고객 목록 불러오는 중...' : '검색 결과 없음'}
+                        </p>
+                      ) : filteredCustomers.map(c => (
+                        <button
+                          key={c.id}
+                          type="button"
+                          onMouseDown={() => {
+                            const normalized = normalizePhone(c.contact_phone ?? '')
+                            setForm(f => ({
+                              ...f,
+                              name: c.contact_name || c.business_name,
+                              phone: normalized,
+                              email: c.email ?? '',
+                              customer_id: c.id,
+                            }))
+                            setCustomerSearch(c.business_name)
+                            setShowCustomerDropdown(false)
+                          }}
+                          className="w-full text-left px-3 py-2.5 hover:bg-blue-50 text-sm border-b border-gray-100 last:border-0"
+                        >
+                          <span className="font-medium text-gray-900">{c.business_name}</span>
+                          {c.contact_name && (
+                            <span className="text-gray-500 ml-2 text-xs">{c.contact_name}</span>
+                          )}
+                          {c.contact_phone && (
+                            <span className="text-gray-400 ml-2 text-xs">{c.contact_phone}</span>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
 
-            <div>
-              <label className="text-xs font-medium text-gray-600 mb-1.5 block">전화번호 *</label>
-              <input
-                type="tel"
-                value={form.phone}
-                onChange={e => setForm(f => ({ ...f, phone: e.target.value }))}
-                placeholder="01012345678"
-                className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-              />
-            </div>
+                {/* 선택된 고객 정보 */}
+                {form.phone && (
+                  <div className="bg-white border border-gray-200 rounded-lg p-3 space-y-1.5 text-xs">
+                    <p className="text-xs font-semibold text-gray-600 mb-1">선택된 고객 정보</p>
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">이름</span>
+                      <span className="font-medium text-gray-800">{form.name}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">전화번호</span>
+                      <span className="font-medium text-gray-800">{form.phone}</span>
+                    </div>
+                    {form.email && (
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">이메일</span>
+                        <span className="font-medium text-gray-800">{form.email}</span>
+                      </div>
+                    )}
+                  </div>
+                )}
 
-            <div>
-              <label className="text-xs font-medium text-gray-600 mb-1.5 block">이메일 (선택)</label>
-              <input
-                type="email"
-                value={form.email}
-                onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
-                placeholder="example@email.com"
-                className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-              />
-            </div>
+                {/* 이미 계정이 있는 경우 경고 */}
+                {existingCustomerUser && (
+                  <div className="bg-orange-50 border border-orange-200 rounded-lg p-3">
+                    <p className="text-xs text-orange-700 font-semibold">이미 계정이 존재합니다</p>
+                    <p className="text-xs text-orange-600 mt-0.5">
+                      이 고객은 이미 로그인 계정이 있습니다. 목록에서 PW 변경을 사용하세요.
+                    </p>
+                  </div>
+                )}
+              </>
+            ) : (
+              /* 관리자/직원 역할 또는 편집 모드: 수동 입력 */
+              <>
+                <div>
+                  <label className="text-xs font-medium text-gray-600 mb-1.5 block">이름 *</label>
+                  <input
+                    type="text"
+                    value={form.name}
+                    onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+                    placeholder="홍길동"
+                    className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs font-medium text-gray-600 mb-1.5 block">전화번호 *</label>
+                  <input
+                    type="tel"
+                    value={form.phone}
+                    onChange={e => setForm(f => ({ ...f, phone: e.target.value }))}
+                    placeholder="01012345678"
+                    className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs font-medium text-gray-600 mb-1.5 block">이메일 (선택)</label>
+                  <input
+                    type="email"
+                    value={form.email}
+                    onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
+                    placeholder="example@email.com"
+                    className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                  />
+                </div>
+              </>
+            )}
+
+            {/* 자동 생성 로그인 정보 미리보기 */}
+            {showCredentials && normalizedFormPhone.length >= 10 && !existingCustomerUser && (
+              <div className="bg-green-50 border border-green-200 rounded-lg p-3 space-y-1.5">
+                <p className="text-xs font-semibold text-green-700 mb-1">자동 생성 로그인 정보</p>
+                <div className="flex justify-between text-xs">
+                  <span className="text-gray-500">아이디</span>
+                  <span className="font-mono font-medium text-gray-800 text-[11px]">
+                    {normalizedFormPhone}@bbkorea.app
+                  </span>
+                </div>
+                <div className="flex justify-between text-xs">
+                  <span className="text-gray-500">초기 비밀번호</span>
+                  <span className="font-mono font-medium text-gray-800">{normalizedFormPhone}</span>
+                </div>
+              </div>
+            )}
 
             <div className="flex gap-2 pt-1">
-              <Button onClick={handleSubmit} isLoading={saving} className="flex-1">
+              <Button
+                onClick={handleSubmit}
+                isLoading={saving}
+                className="flex-1"
+                disabled={!!existingCustomerUser}
+              >
                 {editingId ? '저장' : '등록하기'}
               </Button>
-              <Button
-                variant="secondary"
-                onClick={() => { setShowForm(false); setEditingId(null) }}
-                className="flex-1"
-              >
+              <Button variant="secondary" onClick={closeForm} className="flex-1">
                 취소
               </Button>
             </div>
@@ -561,12 +719,11 @@ export default function MembersPage() {
                   </div>
                 </div>
                 <div className="flex items-center gap-1 shrink-0 flex-wrap justify-end">
-                  {/* 계정 발송 — admin/worker 역할에만 */}
                   {(user.role === 'admin' || user.role === 'worker') && (
                     <button
                       onClick={() => handleSendAccount(user)}
                       disabled={sendingId === user.id}
-                      className="px-2.5 py-1 text-xs bg-kakao text-yellow-900 bg-yellow-300 hover:bg-yellow-400 rounded-lg font-medium disabled:opacity-40 whitespace-nowrap"
+                      className="px-2.5 py-1 text-xs bg-yellow-300 text-yellow-900 hover:bg-yellow-400 rounded-lg font-medium disabled:opacity-40 whitespace-nowrap"
                     >
                       {sendingId === user.id ? '발송 중...' : '계정 발송'}
                     </button>
