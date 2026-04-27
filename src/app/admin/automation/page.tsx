@@ -87,11 +87,22 @@ const INITIAL_ITEMS: AutomationItem[] = [
   {
     id: 'payment-notify-end-care',
     name: '정기엔드케어 결제알림',
-    description: '결제일자가 오늘이고 이번달 미결제인 고객에게 정기결제 SMS를 발송합니다.',
+    description: '매월 결제일 도래 후 이번 달 미결제 고객에게 알림톡(SMS fallback)을 발송합니다. 결제 완료될 때까지 매일 반복.',
     category: '결제알림',
     active: true,
-    trigger: '매일 자동 → /api/webhooks/payment-notify',
+    trigger: '매일 14:00 KST → /api/webhooks/payment-notify (type: afternoon)',
     slackEnabled: true,
+    scenarioId: 9132732,
+  },
+  {
+    id: 'payment-notify-annual-billing',
+    name: '정기딥케어(연간) 결제알림',
+    description: '연간 결제 예정일이 도래한 미결제 건에 알림톡(SMS fallback)을 발송합니다. 결제 완료될 때까지 매일 반복.',
+    category: '결제알림',
+    active: true,
+    trigger: '매일 14:00 KST → /api/webhooks/payment-notify (type: afternoon)',
+    slackEnabled: true,
+    scenarioId: 9132732,
   },
   {
     id: 'payment-notify-yearly',
@@ -99,8 +110,9 @@ const INITIAL_ITEMS: AutomationItem[] = [
     description: '계약 만료 30일 전부터 매일 연장 안내 SMS를 발송합니다. Slack 보고.',
     category: '결제알림',
     active: true,
-    trigger: '매일 자동 → /api/webhooks/payment-notify',
+    trigger: '매일 14:00 KST → /api/webhooks/payment-notify (type: afternoon)',
     slackEnabled: true,
+    scenarioId: 9132732,
   },
 
   // ── 서비스생성 ───────────────────────────────────────────────
