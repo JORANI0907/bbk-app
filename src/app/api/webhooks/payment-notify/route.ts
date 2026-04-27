@@ -1,8 +1,11 @@
 // P2-26: 결제 알림 자동 발송 웹훅
-// Make.com에서 매일 오전 6시에 호출 (KST)
-// Case 1: 1회성케어 + 정기딥케어(월간) — 작업완료 후 결제완료 전 매일
-// Case 2: 정기엔드케어 — service_billings 기반, due_date 3일 전부터 paid 처리될 때까지
-// Case 3: 정기딥케어(연간) — contract_end_date 30일 전부터 계약갱신 안내
+// Make.com에서 type 파라미터로 시간대별 분기 호출
+// - type: "morning" (기본값) → 06:00 KST
+//   Case 1: 1회성케어 + 정기딥케어(월간) — 작업완료 후 결제완료 전 매일 SMS
+// - type: "afternoon" → 14:00 KST
+//   Case 3: 정기딥케어(연간) — contract_end_date 30일 전부터 계약갱신 안내 SMS
+//   Case 4: 정기엔드케어 — payment_date 도래 후 이번 달 미결제 시 알림톡 (결제완료까지)
+//   Case 5: 정기딥케어(연간) — annual due_date 도래 후 미결제 시 알림톡 (결제완료까지)
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
@@ -10,6 +13,7 @@ import { sendSMS, sendAlimtalk } from '@/lib/solapi'
 import { notifySlack } from '@/lib/slack'
 
 const ALIMTALK_BILLING = 'KA01TP260324125257636A2QdT1YNpL5' // 정기결제알림
+const ALIMTALK_RENEWAL = 'KA01TP260324125257737g0vuFScqrCv' // 연간계약갱신안내
 
 interface NotificationLogEntry {
   type: string
@@ -43,16 +47,32 @@ interface CustomerRow {
   customer_type: string | null
 }
 
-interface BillingWithCustomer {
+interface EndcareCustomerRow {
+  id: string
+  business_name: string | null
+  contact_name: string | null
+  contact_phone: string | null
+  payment_date: number | null
+}
+
+interface SimpleBillingRow {
+  id: string
+  amount: number
+  due_date: string
+  last_notified_at: string | null
+}
+
+interface AnnualBillingRow {
   id: string
   amount: number
   due_date: string
   last_notified_at: string | null
   customers: {
-    contact_name: string
-    contact_phone: string
-    business_name: string
+    contact_name: string | null
+    contact_phone: string | null
+    business_name: string | null
     customer_type: string | null
+    billing_cycle: string | null
     deleted_at: string | null
   } | null
 }
@@ -96,148 +116,220 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: '인증 실패' }, { status: 401 })
   }
 
+  const body = await request.json().catch(() => ({}))
+  const callType: string = (body as { type?: string }).type ?? 'morning'
+
   const supabase = createServiceClient()
   const todayKST = toKSTDateString(new Date())
   const nowIso = new Date().toISOString()
-  const results = { case1: 0, case2: 0, case3: 0, errors: 0 }
+  const results = { case1: 0, case3: 0, case4: 0, case5: 0, errors: 0 }
 
-  // ── Case 1: 1회성케어 + 정기딥케어(월간) 결제 미완료 건 ─────────
-  const UNPAID_STATUSES = ['작업완료', '결제']
-  const { data: unpaidApps } = await supabase
-    .from('service_applications')
-    .select('id, owner_name, business_name, phone, balance, account_number, construction_date, status, service_type, notification_log')
-    .in('status', UNPAID_STATUSES)
-    .in('service_type', ['1회성케어', '정기딥케어'])
-    .is('deleted_at', null)
+  // ── MORNING (06:00 KST) ───────────────────────────────────────────────
+  if (callType === 'morning') {
 
-  for (const raw of (unpaidApps ?? [])) {
-    const app = raw as AppRow
-    const phone = (app.phone ?? '').replace(/-/g, '')
-    if (!phone) continue
+    // Case 1: 1회성케어 + 정기딥케어(월간) 결제 미완료 건
+    const UNPAID_STATUSES = ['작업완료', '결제']
+    const { data: unpaidApps } = await supabase
+      .from('service_applications')
+      .select('id, owner_name, business_name, phone, balance, account_number, construction_date, status, service_type, notification_log')
+      .in('status', UNPAID_STATUSES)
+      .in('service_type', ['1회성케어', '정기딥케어'])
+      .is('deleted_at', null)
 
-    if (!app.construction_date || daysDiff(app.construction_date, todayKST) < 1) continue
+    for (const raw of (unpaidApps ?? [])) {
+      const app = raw as AppRow
+      const phone = (app.phone ?? '').replace(/-/g, '')
+      if (!phone) continue
 
-    const existingLog: NotificationLogEntry[] = Array.isArray(app.notification_log)
-      ? (app.notification_log as NotificationLogEntry[])
-      : []
+      if (!app.construction_date || daysDiff(app.construction_date, todayKST) < 1) continue
 
-    const alreadySent = existingLog.some(
-      (l) => l.type === '결제알림' && l.sent_at.startsWith(todayKST),
-    )
-    if (alreadySent) continue
+      const existingLog: NotificationLogEntry[] = Array.isArray(app.notification_log)
+        ? (app.notification_log as NotificationLogEntry[])
+        : []
 
-    try {
-      const balance = app.balance ?? 0
-      const account = app.account_number ?? ''
-      const msg = `[BBK 공간케어] ${app.owner_name}님, 잔금 ${balance.toLocaleString()}원 결제를 요청드립니다.\n계좌: ${account} 문의: 031-759-4877`
-      await sendSMS(phone, msg)
-
-      const entry: NotificationLogEntry = { type: '결제알림', sent_at: nowIso, phone, method: 'auto' }
-      await appendLog(supabase, app.id, existingLog, entry)
-      await notifySlack({ notifyType: '결제알림', customerName: app.owner_name ?? '', phone, businessName: app.business_name ?? '', constructionDate: app.construction_date, method: 'auto' }).catch(() => { /* 무시 */ })
-      results.case1++
-    } catch {
-      results.errors++
-    }
-  }
-
-  // ── Case 2: 정기엔드케어 — service_billings 기반 결제 알림 ────────
-  // due_date 3일 전부터 status='paid'가 될 때까지 매일 발송
-  const threeDaysLaterKST = toKSTDateString(
-    new Date(Date.now() + 9 * 60 * 60 * 1000 + 3 * 24 * 60 * 60 * 1000),
-  )
-
-  const { data: pendingBillings } = await supabase
-    .from('service_billings')
-    .select('id, amount, due_date, last_notified_at, customers(contact_name, contact_phone, business_name, customer_type, deleted_at)')
-    .eq('billing_type', 'monthly')
-    .neq('status', 'paid')
-    .lte('due_date', threeDaysLaterKST)
-
-  for (const raw of (pendingBillings ?? [])) {
-    const billing = raw as unknown as BillingWithCustomer
-    const customer = billing.customers
-    if (!customer || customer.deleted_at) continue
-    if (customer.customer_type !== '정기엔드케어') continue
-
-    const phone = (customer.contact_phone ?? '').replace(/-/g, '')
-    if (!phone) continue
-
-    // 오늘 이미 발송한 건 스킵
-    if (billing.last_notified_at && isSameKSTDay(billing.last_notified_at, todayKST)) continue
-
-    try {
-      const amount = billing.amount ?? 0
-      const dueDate = billing.due_date
-      const contactName = customer.contact_name ?? ''
-      const variables = {
-        '#{고객명}': contactName,
-        '#{청소비용}': amount.toLocaleString('ko-KR'),
-      }
-      const fallback = `[BBK 공간케어] ${contactName}님, ${dueDate} 정기 결제일입니다.\n금액: ${amount.toLocaleString()}원\n문의: 031-759-4877`
+      const alreadySent = existingLog.some(
+        (l) => l.type === '결제알림' && l.sent_at.startsWith(todayKST),
+      )
+      if (alreadySent) continue
 
       try {
-        await sendAlimtalk(phone, ALIMTALK_BILLING, variables, fallback)
+        const balance = app.balance ?? 0
+        const account = app.account_number ?? ''
+        const msg = `[BBK 공간케어] ${app.owner_name}님, 잔금 ${balance.toLocaleString()}원 결제를 요청드립니다.\n계좌: ${account} 문의: 031-759-4877`
+        await sendSMS(phone, msg)
+
+        const entry: NotificationLogEntry = { type: '결제알림', sent_at: nowIso, phone, method: 'auto' }
+        await appendLog(supabase, app.id, existingLog, entry)
+        await notifySlack({ notifyType: '결제알림', customerName: app.owner_name ?? '', phone, businessName: app.business_name ?? '', constructionDate: app.construction_date, method: 'auto' }).catch(() => { /* 무시 */ })
+        results.case1++
       } catch {
-        await sendSMS(phone, fallback)
+        results.errors++
       }
-
-      await supabase
-        .from('service_billings')
-        .update({ last_notified_at: nowIso })
-        .eq('id', billing.id)
-
-      await notifySlack({
-        notifyType: '정기결제알림(엔드케어)',
-        customerName: contactName,
-        phone,
-        businessName: customer.business_name ?? '',
-        constructionDate: dueDate,
-        method: 'auto',
-      }).catch(() => { /* 무시 */ })
-
-      results.case2++
-    } catch {
-      results.errors++
     }
   }
 
-  // ── Case 3: 정기딥케어(연간) — 계약 만료 30일 전부터 안내 ─────────
-  const { data: yearlyCustomers } = await supabase
-    .from('customers')
-    .select('id, business_name, contact_name, contact_phone, billing_cycle, contract_end_date, billing_amount, customer_type')
-    .eq('customer_type', '정기딥케어')
-    .eq('billing_cycle', '연간')
-    .not('contract_end_date', 'is', null)
-    .is('deleted_at', null)
+  // ── AFTERNOON (14:00 KST) ─────────────────────────────────────────────
+  if (callType === 'afternoon') {
 
-  for (const raw of (yearlyCustomers ?? [])) {
-    const customer = raw as CustomerRow
-    if (!customer.contract_end_date) continue
+    // Case 3: 정기딥케어(연간) — contract_end_date 30일 전부터 계약갱신 안내
+    const { data: yearlyCustomers } = await supabase
+      .from('customers')
+      .select('id, business_name, contact_name, contact_phone, billing_cycle, contract_end_date, billing_amount, customer_type')
+      .eq('customer_type', '정기딥케어')
+      .eq('billing_cycle', '연간')
+      .not('contract_end_date', 'is', null)
+      .is('deleted_at', null)
 
-    const daysUntilExpiry = daysDiff(todayKST, customer.contract_end_date)
-    if (daysUntilExpiry < 0 || daysUntilExpiry > 30) continue
+    for (const raw of (yearlyCustomers ?? [])) {
+      const customer = raw as CustomerRow
+      if (!customer.contract_end_date) continue
 
-    const phone = (customer.contact_phone ?? '').replace(/-/g, '')
-    if (!phone) continue
+      const daysUntilExpiry = daysDiff(todayKST, customer.contract_end_date)
+      if (daysUntilExpiry < 0 || daysUntilExpiry > 30) continue
 
-    try {
-      const msg = `[BBK 공간케어] ${customer.contact_name}님, 연간 계약 만료가 ${daysUntilExpiry}일 후(${customer.contract_end_date})입니다.\n연장 관련 문의: 031-759-4877`
-      await sendSMS(phone, msg)
+      const phone = (customer.contact_phone ?? '').replace(/-/g, '')
+      if (!phone) continue
 
-      await notifySlack({ notifyType: '연간계약만료알림', customerName: customer.contact_name ?? '', phone, businessName: customer.business_name ?? '', constructionDate: customer.contract_end_date, method: 'auto' }).catch(() => { /* 무시 */ })
-      results.case3++
-    } catch {
-      results.errors++
+      try {
+        const msg = `[BBK 공간케어] ${customer.contact_name}님, 연간 계약 만료가 ${daysUntilExpiry}일 후(${customer.contract_end_date})입니다.\n연장 관련 문의: 031-759-4877`
+        await sendSMS(phone, msg)
+
+        await notifySlack({ notifyType: '연간계약만료알림', customerName: customer.contact_name ?? '', phone, businessName: customer.business_name ?? '', constructionDate: customer.contract_end_date, method: 'auto' }).catch(() => { /* 무시 */ })
+        results.case3++
+      } catch {
+        results.errors++
+      }
+    }
+
+    // Case 4: 정기엔드케어 — payment_date 도래 후 이번 달 미결제 시 알림톡
+    const todayDayKST = parseInt(todayKST.split('-')[2], 10)
+    const currentPeriod = todayKST.slice(0, 7) // 'YYYY-MM'
+
+    const { data: endcareCustomers } = await supabase
+      .from('customers')
+      .select('id, business_name, contact_name, contact_phone, payment_date')
+      .eq('customer_type', '정기엔드케어')
+      .eq('status', 'active')
+      .lte('payment_date', todayDayKST)
+      .is('deleted_at', null)
+
+    for (const raw of (endcareCustomers ?? [])) {
+      const customer = raw as EndcareCustomerRow
+      const phone = (customer.contact_phone ?? '').replace(/-/g, '')
+      if (!phone) continue
+
+      const { data: billing } = await supabase
+        .from('service_billings')
+        .select('id, amount, due_date, last_notified_at')
+        .eq('customer_id', customer.id)
+        .eq('billing_period', currentPeriod)
+        .neq('status', 'paid')
+        .maybeSingle()
+
+      const b = billing as SimpleBillingRow | null
+      if (!b) continue
+
+      if (b.last_notified_at && isSameKSTDay(b.last_notified_at, todayKST)) continue
+
+      try {
+        const amount = b.amount ?? 0
+        const contactName = customer.contact_name ?? ''
+        const variables = {
+          '#{고객명}': contactName,
+          '#{청소비용}': amount.toLocaleString('ko-KR'),
+        }
+        const fallback = `[BBK 공간케어] ${contactName}님, ${b.due_date} 정기 결제일입니다.\n금액: ${amount.toLocaleString()}원\n문의: 031-759-4877`
+
+        try {
+          await sendAlimtalk(phone, ALIMTALK_BILLING, variables, fallback)
+        } catch {
+          await sendSMS(phone, fallback)
+        }
+
+        await supabase
+          .from('service_billings')
+          .update({ last_notified_at: nowIso })
+          .eq('id', b.id)
+
+        await notifySlack({
+          notifyType: '정기결제알림(엔드케어)',
+          customerName: contactName,
+          phone,
+          businessName: customer.business_name ?? '',
+          constructionDate: b.due_date,
+          method: 'auto',
+        }).catch(() => { /* 무시 */ })
+
+        results.case4++
+      } catch {
+        results.errors++
+      }
+    }
+
+    // Case 5: 정기딥케어(연간) — annual due_date 도래 후 미결제 시 알림톡
+    const { data: annualBillings } = await supabase
+      .from('service_billings')
+      .select('id, amount, due_date, last_notified_at, customers(contact_name, contact_phone, business_name, customer_type, billing_cycle, deleted_at)')
+      .eq('billing_type', 'annual')
+      .neq('status', 'paid')
+      .lte('due_date', todayKST)
+
+    for (const raw of (annualBillings ?? [])) {
+      const billing = raw as unknown as AnnualBillingRow
+      const customer = billing.customers
+      if (!customer || customer.deleted_at) continue
+      if (customer.customer_type !== '정기딥케어') continue
+      if (customer.billing_cycle !== '연간') continue
+
+      const phone = (customer.contact_phone ?? '').replace(/-/g, '')
+      if (!phone) continue
+
+      if (billing.last_notified_at && isSameKSTDay(billing.last_notified_at, todayKST)) continue
+
+      try {
+        const amount = billing.amount ?? 0
+        const contactName = customer.contact_name ?? ''
+        const variables = {
+          '#{고객명}': contactName,
+          '#{청소비용}': amount.toLocaleString('ko-KR'),
+        }
+        const fallback = `[BBK 공간케어] ${contactName}님, ${billing.due_date} 연간 결제일입니다.\n금액: ${amount.toLocaleString()}원\n문의: 031-759-4877`
+
+        try {
+          await sendAlimtalk(phone, ALIMTALK_BILLING, variables, fallback)
+        } catch {
+          await sendSMS(phone, fallback)
+        }
+
+        await supabase
+          .from('service_billings')
+          .update({ last_notified_at: nowIso })
+          .eq('id', billing.id)
+
+        await notifySlack({
+          notifyType: '정기결제알림(딥케어연간)',
+          customerName: contactName,
+          phone,
+          businessName: customer.business_name ?? '',
+          constructionDate: billing.due_date,
+          method: 'auto',
+        }).catch(() => { /* 무시 */ })
+
+        results.case5++
+      } catch {
+        results.errors++
+      }
     }
   }
 
   return NextResponse.json({
     success: true,
     date: todayKST,
+    call_type: callType,
     sent_case1: results.case1,
-    sent_case2: results.case2,
     sent_case3: results.case3,
+    sent_case4: results.case4,
+    sent_case5: results.case5,
     errors: results.errors,
   })
 }
