@@ -15,9 +15,9 @@ export default async function WorkerHomePage() {
     return (
       <div className="px-4 py-5">
         <div className="mb-5">
-          <TodayLabel className="text-xs text-gray-400 font-medium mb-1 block" />
-          <h1 className="text-xl font-bold text-gray-900">현장 진행 현황</h1>
-          <p className="text-sm text-gray-500 mt-1">날짜별 전체 직원 현장 상태를 확인합니다.</p>
+          <TodayLabel className="text-xs text-text-tertiary font-medium mb-1 block" />
+          <h1 className="text-xl font-bold text-text-primary">현장 진행 현황</h1>
+          <p className="text-sm text-text-secondary mt-1">날짜별 전체 직원 현장 상태를 확인합니다.</p>
         </div>
         <AdminScheduleMonitor initialDate="" />
       </div>

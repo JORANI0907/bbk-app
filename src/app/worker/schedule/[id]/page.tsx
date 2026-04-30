@@ -153,7 +153,7 @@ export default function ScheduleDetailPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <div className="text-gray-400 text-sm">불러오는 중...</div>
+        <div className="text-text-tertiary text-sm">불러오는 중...</div>
       </div>
     )
   }
@@ -161,8 +161,8 @@ export default function ScheduleDetailPage() {
   if (!schedule) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen gap-4">
-        <p className="text-gray-500">일정을 찾을 수 없습니다.</p>
-        <button onClick={() => router.back()} className="text-blue-600 underline text-sm">
+        <p className="text-text-secondary">일정을 찾을 수 없습니다.</p>
+        <button onClick={() => router.back()} className="text-brand-600 underline text-sm">
           돌아가기
         </button>
       </div>
@@ -171,21 +171,21 @@ export default function ScheduleDetailPage() {
 
   return (
     <div className="flex flex-col">
-      <div className="bg-white px-4 py-4 border-b border-gray-100">
-        <button onClick={() => router.back()} className="text-blue-600 text-sm mb-2 flex items-center gap-1">
+      <div className="bg-surface px-4 py-4 border-b border-border-subtle">
+        <button onClick={() => router.back()} className="text-brand-600 text-sm mb-2 flex items-center gap-1">
           ← 목록으로
         </button>
-        <h1 className="text-lg font-bold text-gray-900">
+        <h1 className="text-lg font-bold text-text-primary">
           {schedule.customer?.business_name ?? '현장 작업'}
         </h1>
-        <p className="text-sm text-gray-500">{schedule.customer?.address}</p>
+        <p className="text-sm text-text-secondary">{schedule.customer?.address}</p>
       </div>
 
       {isAdmin && schedule.worker && (
-        <div className="bg-blue-50 border-b border-blue-100 px-4 py-2 flex items-center gap-2">
-          <span className="text-blue-600 text-sm">👷 담당:</span>
-          <span className="text-blue-800 text-sm font-semibold">{(schedule.worker as { name?: string }).name ?? '미배정'}</span>
-          <span className="ml-auto text-xs text-blue-400">[관리자 모니터링]</span>
+        <div className="bg-brand-50 border-b border-brand-100 px-4 py-2 flex items-center gap-2">
+          <span className="text-brand-600 text-sm">👷 담당:</span>
+          <span className="text-brand-700 text-sm font-semibold">{(schedule.worker as { name?: string }).name ?? '미배정'}</span>
+          <span className="ml-auto text-xs text-brand-400">[관리자 모니터링]</span>
         </div>
       )}
 
@@ -196,8 +196,8 @@ export default function ScheduleDetailPage() {
           <div className="flex flex-col items-center gap-4 py-8">
             <span className="text-5xl">🚀</span>
             <div className="text-center">
-              <h2 className="text-xl font-bold text-gray-900">작업을 시작할 준비가 되셨나요?</h2>
-              <p className="text-sm text-gray-500 mt-2">
+              <h2 className="text-xl font-bold text-text-primary">작업을 시작할 준비가 되셨나요?</h2>
+              <p className="text-sm text-text-secondary mt-2">
                 {schedule.scheduled_time_start.slice(0, 5)} ~{' '}
                 {schedule.scheduled_time_end.slice(0, 5)} 예정
               </p>
@@ -205,7 +205,7 @@ export default function ScheduleDetailPage() {
             <button
               onClick={() => updateStep(1)}
               disabled={isSubmitting}
-              className="mt-4 w-full max-w-xs py-4 bg-blue-600 text-white text-lg font-bold rounded-2xl active:scale-[0.98] transition-all disabled:opacity-60"
+              className="mt-4 w-full max-w-xs py-4 bg-brand-600 text-white text-lg font-bold rounded-2xl active:scale-[0.98] transition-all disabled:opacity-60"
             >
               {isSubmitting ? '처리 중...' : '작업 시작'}
             </button>
@@ -216,12 +216,12 @@ export default function ScheduleDetailPage() {
           <div className="flex flex-col items-center gap-4 py-8">
             <span className="text-5xl">📍</span>
             <div className="text-center">
-              <h2 className="text-xl font-bold text-gray-900">현장에 도착하셨나요?</h2>
-              <p className="text-sm text-gray-500 mt-2">GPS 위치가 자동으로 기록됩니다.</p>
+              <h2 className="text-xl font-bold text-text-primary">현장에 도착하셨나요?</h2>
+              <p className="text-sm text-text-secondary mt-2">GPS 위치가 자동으로 기록됩니다.</p>
             </div>
             {schedule.customer?.door_password && (
-              <div className="w-full max-w-xs bg-yellow-50 border border-yellow-200 rounded-xl p-3">
-                <p className="text-xs text-yellow-700 font-medium">비밀번호: {schedule.customer.door_password}</p>
+              <div className="w-full max-w-xs bg-state-warning-bg border border-state-warning rounded-xl p-3">
+                <p className="text-xs text-state-warning font-medium">비밀번호: {schedule.customer.door_password}</p>
               </div>
             )}
             <button
@@ -237,8 +237,8 @@ export default function ScheduleDetailPage() {
         {currentStep === 2 && (
           <div className="flex flex-col gap-4">
             <div className="text-center">
-              <h2 className="text-lg font-bold text-gray-900">작업 전 사진을 촬영해주세요</h2>
-              <p className="text-sm text-gray-500 mt-1">현장 상태를 꼼꼼히 기록해주세요.</p>
+              <h2 className="text-lg font-bold text-text-primary">작업 전 사진을 촬영해주세요</h2>
+              <p className="text-sm text-text-secondary mt-1">현장 상태를 꼼꼼히 기록해주세요.</p>
             </div>
             <PhotoUploader
               scheduleId={scheduleId}
@@ -251,8 +251,8 @@ export default function ScheduleDetailPage() {
         {currentStep === 3 && (
           <div className="flex flex-col gap-4">
             <div className="text-center">
-              <h2 className="text-lg font-bold text-gray-900">작업을 수행해주세요</h2>
-              <p className="text-sm text-gray-500 mt-1">각 항목을 순서대로 완료해주세요.</p>
+              <h2 className="text-lg font-bold text-text-primary">작업을 수행해주세요</h2>
+              <p className="text-sm text-text-secondary mt-1">각 항목을 순서대로 완료해주세요.</p>
             </div>
             <ChecklistForm
               scheduleId={scheduleId}
@@ -265,8 +265,8 @@ export default function ScheduleDetailPage() {
         {currentStep === 4 && (
           <div className="flex flex-col gap-4">
             <div className="text-center">
-              <h2 className="text-lg font-bold text-gray-900">작업 후 사진을 촬영해주세요</h2>
-              <p className="text-sm text-gray-500 mt-1">깨끗해진 현장을 기록해주세요.</p>
+              <h2 className="text-lg font-bold text-text-primary">작업 후 사진을 촬영해주세요</h2>
+              <p className="text-sm text-text-secondary mt-1">깨끗해진 현장을 기록해주세요.</p>
             </div>
             <PhotoUploader
               scheduleId={scheduleId}
@@ -279,23 +279,23 @@ export default function ScheduleDetailPage() {
         {currentStep >= 5 && (
           <div className="flex flex-col gap-4">
             <div className="text-center">
-              <h2 className="text-lg font-bold text-gray-900">마감 체크리스트</h2>
-              <p className="text-sm text-gray-500 mt-1">퇴장 전 모든 항목을 확인해주세요.</p>
+              <h2 className="text-lg font-bold text-text-primary">마감 체크리스트</h2>
+              <p className="text-sm text-text-secondary mt-1">퇴장 전 모든 항목을 확인해주세요.</p>
             </div>
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+            <div className="bg-surface rounded-2xl shadow-soft border border-border-subtle overflow-hidden">
               {CLOSING_ITEMS.map((item) => (
                 <button
                   key={item.key}
                   onClick={() =>
                     setClosingState((prev) => ({ ...prev, [item.key]: !prev[item.key] }))
                   }
-                  className="w-full flex items-center gap-3 px-4 py-4 border-b border-gray-50 last:border-0 hover:bg-gray-50 transition-colors"
+                  className="w-full flex items-center gap-3 px-4 py-4 border-b border-border-subtle last:border-0 hover:bg-surface-sunken transition-colors"
                 >
                   <div
                     className={`w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors ${
                       closingState[item.key]
-                        ? 'bg-blue-600 border-blue-600'
-                        : 'border-gray-300'
+                        ? 'bg-brand-600 border-brand-600'
+                        : 'border-border-strong'
                     }`}
                   >
                     {closingState[item.key] && (
@@ -304,7 +304,7 @@ export default function ScheduleDetailPage() {
                       </svg>
                     )}
                   </div>
-                  <span className={`text-sm ${closingState[item.key] ? 'text-gray-400 line-through' : 'text-gray-700'}`}>
+                  <span className={`text-sm ${closingState[item.key] ? 'text-text-tertiary line-through' : 'text-text-primary'}`}>
                     {item.label}
                   </span>
                 </button>

@@ -152,11 +152,11 @@ export default function WorkerInventoryPage() {
   })
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-24">
+    <div className="min-h-screen bg-surface-sunken pb-24">
       {/* Header */}
-      <div className="sticky top-0 bg-white border-b border-gray-200 z-10">
+      <div className="sticky top-0 bg-surface border-b border-border z-10">
         <div className="px-4 pt-4 pb-3">
-          <h1 className="text-lg font-bold text-gray-900 mb-3">재고 수령/반납</h1>
+          <h1 className="text-lg font-bold text-text-primary mb-3">재고 수령/반납</h1>
 
           {/* Search */}
           <input
@@ -164,7 +164,7 @@ export default function WorkerInventoryPage() {
             placeholder="재고 검색..."
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
-            className="w-full px-4 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 mb-3 bg-gray-50"
+            className="w-full px-4 py-2.5 text-sm border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 mb-3 bg-surface-sunken"
           />
 
           {/* Category filter pills */}
@@ -175,8 +175,8 @@ export default function WorkerInventoryPage() {
                 onClick={() => setCategoryFilter(cat)}
                 className={`shrink-0 text-sm px-4 py-1.5 rounded-full border transition-colors font-medium ${
                   categoryFilter === cat
-                    ? 'bg-blue-600 text-white border-blue-600'
-                    : 'bg-white text-gray-600 border-gray-200'
+                    ? 'bg-brand-600 text-white border-brand-600'
+                    : 'bg-surface text-text-secondary border-border'
                 }`}
               >
                 {cat === 'all' ? '전체' : CATEGORY_CONFIG[cat].label}
@@ -189,9 +189,9 @@ export default function WorkerInventoryPage() {
       {/* Content */}
       <div className="px-4 pt-4">
         {loading ? (
-          <div className="text-center text-gray-400 py-12">불러오는 중...</div>
+          <div className="text-center text-text-tertiary py-12">불러오는 중...</div>
         ) : filteredItems.length === 0 ? (
-          <div className="text-center text-gray-400 py-12">
+          <div className="text-center text-text-tertiary py-12">
             <div className="text-4xl mb-2">📦</div>
             <p>항목이 없습니다</p>
           </div>
@@ -204,24 +204,24 @@ export default function WorkerInventoryPage() {
                 <button
                   key={item.id}
                   onClick={() => openModal(item)}
-                  className="text-left bg-white rounded-2xl shadow-sm p-4 border border-gray-100 hover:shadow-md active:scale-[0.98] transition-all"
+                  className="text-left bg-surface rounded-2xl shadow-soft p-4 border border-border-subtle hover:shadow-card active:scale-[0.98] transition-all"
                 >
                   <div className="flex items-center gap-2 mb-2">
                     <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${cfg.dot}`} />
-                    <span className="text-xs text-gray-400 font-medium">{cfg.label}</span>
+                    <span className="text-xs text-text-tertiary font-medium">{cfg.label}</span>
                     {isLow && (
-                      <span className="ml-auto text-xs px-1.5 py-0.5 rounded-full bg-red-100 text-red-600 font-semibold shrink-0">
+                      <span className="ml-auto text-xs px-1.5 py-0.5 rounded-full bg-state-danger-bg text-state-danger font-semibold shrink-0">
                         부족
                       </span>
                     )}
                   </div>
-                  <p className="font-semibold text-gray-900 text-sm leading-tight mb-1">{item.item_name}</p>
+                  <p className="font-semibold text-text-primary text-sm leading-tight mb-1">{item.item_name}</p>
                   {item.storage_location && (
-                    <p className="text-xs text-gray-400 mb-1 truncate">{item.storage_location}</p>
+                    <p className="text-xs text-text-tertiary mb-1 truncate">{item.storage_location}</p>
                   )}
-                  <p className={`text-xl font-bold ${isLow ? 'text-red-600' : 'text-blue-600'}`}>
+                  <p className={`text-xl font-bold ${isLow ? 'text-state-danger' : 'text-brand-600'}`}>
                     {item.current_qty}
-                    <span className="text-sm font-normal text-gray-500 ml-0.5">{item.unit}</span>
+                    <span className="text-sm font-normal text-text-secondary ml-0.5">{item.unit}</span>
                   </p>
                 </button>
               )
@@ -233,24 +233,24 @@ export default function WorkerInventoryPage() {
       {/* Transaction Modal */}
       {selectedItem && (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
-          <div className="bg-white rounded-t-3xl sm:rounded-2xl shadow-2xl w-full sm:max-w-sm max-h-[90vh] overflow-y-auto">
+          <div className="bg-surface rounded-t-3xl sm:rounded-2xl shadow-modal w-full sm:max-w-sm max-h-[90vh] overflow-y-auto">
             <div className="p-5">
               {/* Handle bar for mobile */}
-              <div className="w-10 h-1 rounded-full bg-gray-200 mx-auto mb-4 sm:hidden" />
+              <div className="w-10 h-1 rounded-full bg-border mx-auto mb-4 sm:hidden" />
 
-              <h2 className="text-lg font-bold text-gray-900 mb-0.5">{selectedItem.item_name}</h2>
-              <p className="text-sm text-gray-400 mb-4">
-                현재 재고: <span className="font-semibold text-gray-700">{selectedItem.current_qty}{selectedItem.unit}</span>
+              <h2 className="text-lg font-bold text-text-primary mb-0.5">{selectedItem.item_name}</h2>
+              <p className="text-sm text-text-tertiary mb-4">
+                현재 재고: <span className="font-semibold text-text-primary">{selectedItem.current_qty}{selectedItem.unit}</span>
               </p>
 
               {/* Type toggle */}
-              <div className="flex gap-2 mb-4 p-1 bg-gray-100 rounded-xl">
+              <div className="flex gap-2 mb-4 p-1 bg-surface-sunken rounded-xl">
                 <button
                   onClick={() => setTxType('receive')}
                   className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-all ${
                     txType === 'receive'
-                      ? 'bg-white text-green-700 shadow-sm'
-                      : 'text-gray-500'
+                      ? 'bg-surface text-green-700 shadow-flat'
+                      : 'text-text-secondary'
                   }`}
                 >
                   수령 받기
@@ -259,8 +259,8 @@ export default function WorkerInventoryPage() {
                   onClick={() => setTxType('return')}
                   className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-all ${
                     txType === 'return'
-                      ? 'bg-white text-blue-700 shadow-sm'
-                      : 'text-gray-500'
+                      ? 'bg-surface text-brand-700 shadow-flat'
+                      : 'text-text-secondary'
                   }`}
                 >
                   반납 하기
@@ -269,26 +269,26 @@ export default function WorkerInventoryPage() {
 
               {/* Quantity */}
               <div className="mb-3">
-                <label className="block text-xs font-medium text-gray-500 mb-1">수량</label>
+                <label className="block text-xs font-medium text-text-secondary mb-1">수량</label>
                 <input
                   type="number"
                   inputMode="numeric"
                   min={1}
                   value={quantity}
                   onChange={e => setQuantity(e.target.value)}
-                  className="w-full px-4 py-3 text-center text-2xl font-bold border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                  className="w-full px-4 py-3 text-center text-2xl font-bold border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-text-primary"
                 />
               </div>
 
               {/* Note */}
               <div className="mb-3">
-                <label className="block text-xs font-medium text-gray-500 mb-1">메모 (선택)</label>
+                <label className="block text-xs font-medium text-text-secondary mb-1">메모 (선택)</label>
                 <textarea
                   value={note}
                   onChange={e => setNote(e.target.value)}
                   placeholder="비고를 입력하세요..."
                   rows={2}
-                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none text-gray-900"
+                  className="w-full px-3 py-2 text-sm border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none text-text-primary"
                 />
               </div>
 
@@ -296,7 +296,7 @@ export default function WorkerInventoryPage() {
               <div className="mb-5">
                 <div className="flex gap-2">
                   <label className="flex-1 cursor-pointer">
-                    <div className="flex items-center justify-center gap-2 px-3 py-2 border border-dashed border-gray-300 rounded-xl text-gray-500 hover:border-blue-400 hover:text-blue-500 transition-colors">
+                    <div className="flex items-center justify-center gap-2 px-3 py-2 border border-dashed border-border rounded-xl text-text-secondary hover:border-brand-400 hover:text-brand-500 transition-colors">
                       <span className="text-lg">📷</span>
                       <span className="text-sm font-medium">카메라</span>
                     </div>
@@ -309,7 +309,7 @@ export default function WorkerInventoryPage() {
                     />
                   </label>
                   <label className="flex-1 cursor-pointer">
-                    <div className="flex items-center justify-center gap-2 px-3 py-2 border border-dashed border-gray-300 rounded-xl text-gray-500 hover:border-blue-400 hover:text-blue-500 transition-colors">
+                    <div className="flex items-center justify-center gap-2 px-3 py-2 border border-dashed border-border rounded-xl text-text-secondary hover:border-brand-400 hover:text-brand-500 transition-colors">
                       <span className="text-lg">🖼️</span>
                       <span className="text-sm font-medium">갤러리</span>
                     </div>
@@ -339,7 +339,7 @@ export default function WorkerInventoryPage() {
                 <button
                   onClick={submitting ? undefined : closeModal}
                   disabled={submitting}
-                  className="flex-1 py-3 rounded-xl border border-gray-200 text-gray-600 text-sm font-semibold hover:bg-gray-50 transition-colors disabled:opacity-40"
+                  className="flex-1 py-3 rounded-xl border border-border text-text-secondary text-sm font-semibold hover:bg-surface-sunken transition-colors disabled:opacity-40"
                 >
                   취소
                 </button>
@@ -347,7 +347,7 @@ export default function WorkerInventoryPage() {
                   onClick={handleSubmit}
                   disabled={submitting}
                   className={`flex-1 py-3 rounded-xl text-white text-sm font-semibold transition-colors disabled:opacity-50 ${
-                    txType === 'receive' ? 'bg-green-600 hover:bg-green-700' : 'bg-blue-600 hover:bg-blue-700'
+                    txType === 'receive' ? 'bg-green-600 hover:bg-green-700' : 'bg-brand-600 hover:bg-brand-700'
                   }`}
                 >
                   {submitting ? (
@@ -359,7 +359,7 @@ export default function WorkerInventoryPage() {
                 </button>
               </div>
               {submitting && (
-                <p className="text-xs text-center text-gray-400 mt-2">
+                <p className="text-xs text-center text-text-tertiary mt-2">
                   처리 중입니다...
                 </p>
               )}
