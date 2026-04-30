@@ -114,17 +114,17 @@ function getWeekLabel(dateStr: string): { key: string; label: string } {
 }
 
 const STATUS_CONFIG: Record<string, { badge: string; dot: string }> = {
-  '신규':     { badge: 'bg-blue-100 text-blue-700',       dot: 'bg-blue-500' },
-  '검토중':   { badge: 'bg-amber-100 text-amber-700',     dot: 'bg-amber-500' },
-  '계약완료': { badge: 'bg-emerald-100 text-emerald-700', dot: 'bg-emerald-500' },
-  '보류':     { badge: 'bg-gray-100 text-gray-600',       dot: 'bg-gray-400' },
-  '거절':     { badge: 'bg-red-100 text-red-700',         dot: 'bg-red-500' },
+  '신규':     { badge: 'bg-brand-100 text-brand-700',       dot: 'bg-brand-500' },
+  '검토중':   { badge: 'bg-amber-100 text-amber-700',       dot: 'bg-amber-500' },
+  '계약완료': { badge: 'bg-emerald-100 text-emerald-700',   dot: 'bg-emerald-500' },
+  '보류':     { badge: 'bg-surface-sunken text-text-secondary', dot: 'bg-gray-400' },
+  '거절':     { badge: 'bg-state-danger-bg text-state-danger', dot: 'bg-red-500' },
 }
 
 /** 서비스 유형 뱃지 색상 */
 const SERVICE_TYPE_CONFIG: Record<string, string> = {
-  '1회성케어':  'bg-gray-100 text-gray-700',
-  '정기딥케어': 'bg-blue-100 text-blue-700',
+  '1회성케어':  'bg-surface-sunken text-text-primary',
+  '정기딥케어': 'bg-brand-100 text-brand-700',
   '정기엔드케어': 'bg-purple-100 text-purple-700',
 }
 
@@ -184,38 +184,38 @@ function DayListPanel({
     <div className="fixed inset-0 z-[55] bg-black/40 flex items-end md:items-center justify-center"
       onClick={onClose}>
       <div
-        className="bg-white w-full max-w-md rounded-t-2xl md:rounded-2xl flex flex-col overflow-hidden"
+        className="bg-surface w-full max-w-md rounded-t-2xl md:rounded-2xl flex flex-col overflow-hidden"
         style={{ maxHeight: 'calc(80vh - env(safe-area-inset-bottom))' }}
         onClick={e => e.stopPropagation()}
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
       >
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 shrink-0">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-border-subtle shrink-0">
           <button
             onClick={() => goTo(-1)}
             disabled={!hasPrev}
-            className={`w-8 h-8 flex items-center justify-center rounded-lg transition-colors ${hasPrev ? 'text-gray-600 hover:bg-gray-100' : 'text-gray-200 cursor-not-allowed'}`}
+            className={`w-8 h-8 flex items-center justify-center rounded-lg transition-colors ${hasPrev ? 'text-text-secondary hover:bg-surface-sunken' : 'text-text-tertiary cursor-not-allowed'}`}
           >
             ‹
           </button>
           <div className="text-center">
-            <h3 className="font-bold text-gray-900">{m}월 {d}일 ({dayLabel})</h3>
-            <p className="text-xs text-gray-400">{apps.length}건</p>
+            <h3 className="font-bold text-text-primary">{m}월 {d}일 ({dayLabel})</h3>
+            <p className="text-xs text-text-tertiary">{apps.length}건</p>
           </div>
           <div className="flex items-center gap-1">
             <button
               onClick={() => goTo(1)}
               disabled={!hasNext}
-              className={`w-8 h-8 flex items-center justify-center rounded-lg transition-colors ${hasNext ? 'text-gray-600 hover:bg-gray-100' : 'text-gray-200 cursor-not-allowed'}`}
+              className={`w-8 h-8 flex items-center justify-center rounded-lg transition-colors ${hasNext ? 'text-text-secondary hover:bg-surface-sunken' : 'text-text-tertiary cursor-not-allowed'}`}
             >
               ›
             </button>
-            <button onClick={onClose} className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-600 text-lg leading-none">✕</button>
+            <button onClick={onClose} className="w-8 h-8 flex items-center justify-center text-text-tertiary hover:text-text-secondary text-lg leading-none">✕</button>
           </div>
         </div>
         <div className="overflow-y-auto flex-1 p-3 flex flex-col gap-2 pb-6">
           {apps.length === 0 ? (
-            <p className="text-center text-sm text-gray-400 py-8">이 날짜에 일정이 없습니다.</p>
+            <p className="text-center text-sm text-text-tertiary py-8">이 날짜에 일정이 없습니다.</p>
           ) : (
             apps.map(app => {
               const workerNames = (appWorkerMap[app.id] ?? [])
@@ -226,19 +226,19 @@ function DayListPanel({
               return (
                 <button key={app.id}
                   onClick={() => { onSelectApp(app); onClose() }}
-                  className="text-left bg-gray-50 hover:bg-blue-50 border border-gray-100 hover:border-blue-200 rounded-xl p-3 transition-colors"
+                  className="text-left bg-surface-sunken hover:bg-brand-50 border border-border-subtle hover:border-brand-200 rounded-xl p-3 transition-colors"
                 >
                   <div className="flex items-center gap-2 mb-1">
                     <span className={`w-2 h-2 rounded-full shrink-0 ${cfg.dot}`} />
-                    <span className="font-semibold text-gray-900 text-sm">{app.business_name}</span>
+                    <span className="font-semibold text-text-primary text-sm">{app.business_name}</span>
                     <span className={`ml-auto text-[10px] px-2 py-0.5 rounded-full shrink-0 ${cfg.badge}`}>{app.status}</span>
                   </div>
-                  <p className="text-xs text-gray-500 ml-4">{app.owner_name}</p>
+                  <p className="text-xs text-text-secondary ml-4">{app.owner_name}</p>
                   {app.address && (
-                    <p className="text-[11px] text-gray-400 truncate ml-4 mt-0.5">{app.address}</p>
+                    <p className="text-[11px] text-text-tertiary truncate ml-4 mt-0.5">{app.address}</p>
                   )}
                   {app.care_scope && (
-                    <p className="text-[11px] text-blue-500 ml-4 mt-0.5 line-clamp-1">{app.care_scope}</p>
+                    <p className="text-[11px] text-brand-500 ml-4 mt-0.5 line-clamp-1">{app.care_scope}</p>
                   )}
                   {workerNames && (
                     <p className="text-[11px] text-indigo-500 ml-4 mt-0.5">{workerNames}</p>
@@ -285,18 +285,18 @@ function CalendarGrid({
   const DAYS = ['일', '월', '화', '수', '목', '금', '토']
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-      <div className="grid grid-cols-7 border-b border-gray-100">
+    <div className="bg-surface rounded-xl border border-border overflow-hidden">
+      <div className="grid grid-cols-7 border-b border-border-subtle">
         {DAYS.map(d => (
           <div key={d} className={`text-center py-2.5 text-xs font-semibold
-            ${d === '일' ? 'text-red-500' : d === '토' ? 'text-blue-500' : 'text-gray-500'}`}>
+            ${d === '일' ? 'text-red-500' : d === '토' ? 'text-brand-500' : 'text-text-secondary'}`}>
             {d}
           </div>
         ))}
       </div>
       <div className="grid grid-cols-7 auto-rows-[5rem] sm:auto-rows-[7rem]">
         {cells.map((day, i) => {
-          if (!day) return <div key={`e-${i}`} className="border-r border-b border-gray-50 bg-gray-50/40" />
+          if (!day) return <div key={`e-${i}`} className="border-r border-b border-border-subtle bg-surface-sunken/40" />
           const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
           const apps = dayMap[dateStr] ?? []
           const isToday = dateStr === todayStr
@@ -307,12 +307,12 @@ function CalendarGrid({
             <div
               key={day}
               onClick={() => hasApps && onDaySelect(dateStr, apps)}
-              className={`border-r border-b border-gray-50 p-1.5 flex flex-col gap-0.5
-                ${isToday ? 'bg-blue-50' : (dow === 0 || dow === 6) ? 'bg-gray-50/50' : ''}
+              className={`border-r border-b border-border-subtle p-1.5 flex flex-col gap-0.5
+                ${isToday ? 'bg-brand-50' : (dow === 0 || dow === 6) ? 'bg-surface-sunken/50' : ''}
                 ${hasApps ? 'cursor-pointer hover:bg-indigo-50/40 transition-colors' : ''}`}
             >
               <div className={`text-xs font-bold w-6 h-6 flex items-center justify-center rounded-full shrink-0
-                ${isToday ? 'bg-blue-600 text-white' : dow === 0 ? 'text-red-500' : dow === 6 ? 'text-blue-500' : 'text-gray-700'}`}>
+                ${isToday ? 'bg-brand-600 text-white' : dow === 0 ? 'text-red-500' : dow === 6 ? 'text-brand-500' : 'text-text-primary'}`}>
                 {day}
               </div>
               <div className="flex flex-col gap-0.5 overflow-hidden">
@@ -329,7 +329,7 @@ function CalendarGrid({
                   )
                 })}
                 {apps.length > 3 && (
-                  <div className="text-[10px] text-gray-400 px-1 font-medium">+{apps.length - 3}건</div>
+                  <div className="text-[10px] text-text-tertiary px-1 font-medium">+{apps.length - 3}건</div>
                 )}
               </div>
             </div>
@@ -392,37 +392,37 @@ function DetailPanel({
     val ? val.slice(0, 4) + '****' + val.slice(-2) : '-'
 
   const Row = ({ label, value }: { label: string; value: React.ReactNode }) => (
-    <div className="flex items-start gap-2 py-1.5 border-b border-gray-50 last:border-0">
-      <span className="text-xs text-gray-500 shrink-0 w-20">{label}</span>
-      <span className="text-xs text-gray-800 flex-1 text-right">{value ?? '-'}</span>
+    <div className="flex items-start gap-2 py-1.5 border-b border-border-subtle last:border-0">
+      <span className="text-xs text-text-secondary shrink-0 w-20">{label}</span>
+      <span className="text-xs text-text-primary flex-1 text-right">{value ?? '-'}</span>
     </div>
   )
 
   return (
     <div className="fixed inset-0 z-[60] flex justify-end" onClick={onClose}>
       <div
-        className="relative h-full w-full md:max-w-sm bg-white shadow-2xl flex flex-col"
+        className="relative h-full w-full md:max-w-sm bg-surface shadow-2xl flex flex-col"
         onClick={e => e.stopPropagation()}
       >
         {/* 헤더 */}
-        <div className="sticky top-0 bg-white z-10 px-5 py-4 border-b border-gray-100 flex items-start justify-between gap-2 shrink-0">
+        <div className="sticky top-0 bg-surface z-10 px-5 py-4 border-b border-border-subtle flex items-start justify-between gap-2 shrink-0">
           <div>
-            <h2 className="font-bold text-gray-900 text-base leading-tight">{app.business_name}</h2>
+            <h2 className="font-bold text-text-primary text-base leading-tight">{app.business_name}</h2>
             <div className="flex items-center gap-2 mt-1 flex-wrap">
               <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${cfg.badge}`}>
                 <span className={`w-1.5 h-1.5 rounded-full ${cfg.dot}`} />
                 {app.status}
               </span>
-              <span className="text-xs text-gray-400">{fmtDate(app.construction_date)}</span>
+              <span className="text-xs text-text-tertiary">{fmtDate(app.construction_date)}</span>
               {app.service_type && (
-                <span className={`text-xs px-2 py-0.5 rounded-full font-medium whitespace-nowrap ${SERVICE_TYPE_CONFIG[app.service_type] ?? 'bg-gray-100 text-gray-700'}`}>
+                <span className={`text-xs px-2 py-0.5 rounded-full font-medium whitespace-nowrap ${SERVICE_TYPE_CONFIG[app.service_type] ?? 'bg-surface-sunken text-text-primary'}`}>
                   {app.service_type}
                 </span>
               )}
             </div>
           </div>
           <div className="flex items-center gap-2 shrink-0 mt-0.5">
-            <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl leading-none">✕</button>
+            <button onClick={onClose} className="text-text-tertiary hover:text-text-secondary text-xl leading-none">✕</button>
           </div>
         </div>
 
@@ -431,15 +431,15 @@ function DetailPanel({
 
           {/* 섹션 1 - 일반정보 */}
           <section>
-            <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">일반정보</p>
-            <div className="bg-gray-50 rounded-xl px-3 py-1 space-y-0">
+            <p className="text-xs font-bold text-text-secondary uppercase tracking-wider mb-2">일반정보</p>
+            <div className="bg-surface-sunken rounded-xl px-3 py-1 space-y-0">
               <Row label="고객명" value={app.owner_name} />
               <Row label="업체명" value={app.business_name} />
               <Row label="연락처" value={
                 app.phone ? (
                   <div className="flex items-center gap-1 justify-end">
                     <span>{app.phone}</span>
-                    <a href={`tel:${app.phone}`} className="px-1.5 py-0.5 bg-blue-100 text-blue-600 rounded text-xs hover:bg-blue-200">📞</a>
+                    <a href={`tel:${app.phone}`} className="px-1.5 py-0.5 bg-brand-100 text-brand-600 rounded text-xs hover:bg-brand-200">📞</a>
                   </div>
                 ) : null
               } />
@@ -450,7 +450,7 @@ function DetailPanel({
                     <span className="truncate">{app.address}</span>
                     <button
                       onClick={() => onOpenMap(app.address!)}
-                      className="px-1.5 py-0.5 bg-green-100 text-green-700 rounded text-xs shrink-0 hover:bg-green-200">
+                      className="px-1.5 py-0.5 bg-state-success-bg text-state-success rounded text-xs shrink-0 hover:bg-green-200">
                       🗺️
                     </button>
                   </div>
@@ -464,8 +464,8 @@ function DetailPanel({
 
           {/* 배정 정보 */}
           <section>
-            <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">배정 정보</p>
-            <div className="bg-gray-50 rounded-xl px-3 py-1">
+            <p className="text-xs font-bold text-text-secondary uppercase tracking-wider mb-2">배정 정보</p>
+            <div className="bg-surface-sunken rounded-xl px-3 py-1">
               <Row label="담당자" value={manager?.name ?? '미배정'} />
               <Row label="작업자" value={
                 workerNames.length > 0
@@ -482,31 +482,31 @@ function DetailPanel({
           {/* 민감 정보 (관리자만, 블라인드) */}
           {isAdmin && (
             <section>
-              <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">사업자 정보</p>
-              <div className="bg-gray-50 rounded-xl px-3 py-1">
-                <div className="flex items-start gap-2 py-1.5 border-b border-gray-50">
-                  <span className="text-xs text-gray-400 shrink-0 w-20">사업자번호</span>
+              <p className="text-xs font-bold text-text-secondary uppercase tracking-wider mb-2">사업자 정보</p>
+              <div className="bg-surface-sunken rounded-xl px-3 py-1">
+                <div className="flex items-start gap-2 py-1.5 border-b border-border-subtle">
+                  <span className="text-xs text-text-tertiary shrink-0 w-20">사업자번호</span>
                   <div className="flex items-center gap-1.5 flex-1 justify-end">
-                    <span className="text-xs text-gray-800 font-mono">
+                    <span className="text-xs text-text-primary font-mono">
                       {showBizNum ? (app.business_number ?? '-') : mask(app.business_number)}
                     </span>
                     {app.business_number && (
                       <button onClick={() => setShowBizNum(v => !v)}
-                        className="text-xs px-1.5 py-0.5 bg-gray-200 hover:bg-gray-300 text-gray-600 rounded transition-colors">
+                        className="text-xs px-1.5 py-0.5 bg-surface-sunken hover:bg-gray-200 text-text-secondary rounded transition-colors">
                         {showBizNum ? '숨김' : '보기'}
                       </button>
                     )}
                   </div>
                 </div>
                 <div className="flex items-start gap-2 py-1.5">
-                  <span className="text-xs text-gray-400 shrink-0 w-20">계좌번호</span>
+                  <span className="text-xs text-text-tertiary shrink-0 w-20">계좌번호</span>
                   <div className="flex items-center gap-1.5 flex-1 justify-end">
-                    <span className="text-xs text-gray-800 font-mono">
+                    <span className="text-xs text-text-primary font-mono">
                       {showAccount ? (app.account_number ?? '-') : mask(app.account_number)}
                     </span>
                     {app.account_number && (
                       <button onClick={() => setShowAccount(v => !v)}
-                        className="text-xs px-1.5 py-0.5 bg-gray-200 hover:bg-gray-300 text-gray-600 rounded transition-colors">
+                        className="text-xs px-1.5 py-0.5 bg-surface-sunken hover:bg-gray-200 text-text-secondary rounded transition-colors">
                         {showAccount ? '숨김' : '보기'}
                       </button>
                     )}
@@ -518,14 +518,14 @@ function DetailPanel({
 
           {/* 섹션 2 - 작업장정보 */}
           <section>
-            <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">작업장정보</p>
+            <p className="text-xs font-bold text-text-secondary uppercase tracking-wider mb-2">작업장정보</p>
             <div className="border-2 border-green-200 rounded-xl px-3 py-1 bg-green-50/30">
               {app.parking && <Row label="주차" value={app.parking} />}
               {app.building_access && <Row label="건물출입" value={app.building_access} />}
               {app.elevator && <Row label="엘리베이터" value={app.elevator} />}
               {app.access_method && <Row label="출입방법" value={app.access_method} />}
               {!app.parking && !app.building_access && !app.elevator && !app.access_method && (
-                <p className="text-xs text-gray-400 py-2">작업장 정보가 없습니다.</p>
+                <p className="text-xs text-text-tertiary py-2">작업장 정보가 없습니다.</p>
               )}
             </div>
           </section>
@@ -551,24 +551,24 @@ function DetailPanel({
 
           {/* 섹션 3 - 시공정보 */}
           <section>
-            <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">시공정보</p>
+            <p className="text-xs font-bold text-text-secondary uppercase tracking-wider mb-2">시공정보</p>
             <div className="border-2 border-green-200 rounded-xl p-3 bg-green-50/30 space-y-2">
               {app.care_scope && (
                 <div>
-                  <p className="text-xs text-green-600 font-semibold mb-1">케어 범위</p>
-                  <p className="text-xs text-gray-700 whitespace-pre-wrap leading-relaxed">{app.care_scope}</p>
+                  <p className="text-xs text-state-success font-semibold mb-1">케어 범위</p>
+                  <p className="text-xs text-text-primary whitespace-pre-wrap leading-relaxed">{app.care_scope}</p>
                 </div>
               )}
               {app.request_notes && (
                 <div>
-                  <p className="text-xs text-gray-500 font-semibold mb-1">요청사항</p>
-                  <p className="text-xs text-gray-700 whitespace-pre-wrap leading-relaxed">{app.request_notes}</p>
+                  <p className="text-xs text-text-secondary font-semibold mb-1">요청사항</p>
+                  <p className="text-xs text-text-primary whitespace-pre-wrap leading-relaxed">{app.request_notes}</p>
                 </div>
               )}
               {app.construction_time && (
                 <div>
                   <p className="text-xs text-purple-600 font-semibold mb-1">시공시간</p>
-                  <p className="text-xs text-gray-700">{(() => {
+                  <p className="text-xs text-text-primary">{(() => {
                     const m = app.construction_time!.match(/^(\d{1,2}):(\d{2})/)
                     if (!m) return app.construction_time
                     return m[2] === '00' ? `${parseInt(m[1], 10)}시` : `${parseInt(m[1], 10)}시 ${m[2]}분`
@@ -576,13 +576,13 @@ function DetailPanel({
                 </div>
               )}
               {!app.care_scope && !app.request_notes && !app.construction_time && (
-                <p className="text-xs text-gray-400">시공 정보가 없습니다.</p>
+                <p className="text-xs text-text-tertiary">시공 정보가 없습니다.</p>
               )}
             </div>
           </section>
 
           {/* 작업 현황 — 인라인 */}
-          <div className="border-t border-gray-100 pt-5">
+          <div className="border-t border-border-subtle pt-5">
             <WorkPanel app={app} onUpdate={(updates) => {
               const { status, ...rest } = updates as Partial<Application & { status?: string | null }>
               onAppUpdate({ ...rest, ...(status != null ? { status } : {}) })
@@ -592,11 +592,11 @@ function DetailPanel({
         </div>
 
         {/* 하단 액션 버튼 영역 */}
-        <div className="shrink-0 bg-white border-t border-gray-100 px-5 py-4"
+        <div className="shrink-0 bg-surface border-t border-border-subtle px-5 py-4"
           style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 16px)' }}>
           <button
             onClick={handleViewPhotos}
-            className="w-full py-3 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 transition-colors bg-blue-600 hover:bg-blue-700 text-white"
+            className="w-full py-3 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 transition-colors bg-brand-600 hover:bg-brand-700 text-white"
           >
             📷 사진보기 (Google Drive)
           </button>
@@ -960,7 +960,7 @@ export default function SchedulePage() {
 
       {/* ── 상단 필터 바 ── */}
       <div className={`transition-all duration-300 overflow-hidden shrink-0 ${filtersVisible ? 'max-h-48 opacity-100' : 'max-h-0 opacity-0 md:max-h-48 md:opacity-100'}`}>
-      <div className="flex items-center gap-2 flex-wrap bg-white border border-gray-200 rounded-xl px-4 py-3">
+      <div className="flex items-center gap-2 flex-wrap bg-surface border border-border rounded-xl px-4 py-3">
 
         {/* 월 이동 */}
         <MonthNavigator value={selectedMonth} onChange={setSelectedMonth} />
@@ -969,7 +969,7 @@ export default function SchedulePage() {
         <select
           value={serviceTypeFilter}
           onChange={e => setServiceTypeFilter(e.target.value)}
-          className="border border-gray-200 rounded-lg px-3 py-1.5 text-xs text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 min-w-[110px]"
+          className="border border-border rounded-lg px-3 py-1.5 text-xs text-text-primary bg-surface focus:outline-none focus:ring-2 focus:ring-blue-500 min-w-[110px]"
         >
           {SERVICE_TYPE_OPTIONS.map(opt => (
             <option key={opt} value={opt}>{opt}</option>
@@ -981,13 +981,13 @@ export default function SchedulePage() {
           <select
             value={personFilter}
             onChange={e => setPersonFilter(e.target.value)}
-            className="border border-gray-200 rounded-lg px-3 py-1.5 text-xs text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 min-w-[110px]"
+            className="border border-border rounded-lg px-3 py-1.5 text-xs text-text-primary bg-surface focus:outline-none focus:ring-2 focus:ring-blue-500 min-w-[110px]"
           >
             <option value="">담당자 전체</option>
             {users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
           </select>
         ) : (
-          <span className="px-3 py-1.5 text-xs bg-gray-100 rounded-lg text-gray-600 border border-gray-200">
+          <span className="px-3 py-1.5 text-xs bg-surface-sunken rounded-lg text-text-secondary border border-border">
             {currentUser?.name ?? '내 일정'}
           </span>
         )}
@@ -997,7 +997,7 @@ export default function SchedulePage() {
           <select
             value={workerFilter}
             onChange={e => setWorkerFilter(e.target.value)}
-            className="border border-gray-200 rounded-lg px-3 py-1.5 text-xs text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 min-w-[110px]"
+            className="border border-border rounded-lg px-3 py-1.5 text-xs text-text-primary bg-surface focus:outline-none focus:ring-2 focus:ring-blue-500 min-w-[110px]"
           >
             <option value="">작업자 전체</option>
             {workers.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
@@ -1006,7 +1006,7 @@ export default function SchedulePage() {
 
         {/* 검색 */}
         <div className="relative">
-          <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-text-tertiary pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" />
           </svg>
           <input
@@ -1014,15 +1014,15 @@ export default function SchedulePage() {
             value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder="업체명, 주소, 케어범위..."
-            className="pl-7 pr-7 py-1.5 text-xs text-gray-900 border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 w-40"
+            className="pl-7 pr-7 py-1.5 text-xs text-text-primary border border-border rounded-lg bg-surface focus:outline-none focus:ring-2 focus:ring-blue-500 w-40"
           />
           {search && (
-            <button onClick={() => setSearch('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-xs">✕</button>
+            <button onClick={() => setSearch('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-text-tertiary hover:text-text-secondary text-xs">✕</button>
           )}
         </div>
 
         {/* 건수 */}
-        <span className="text-xs text-gray-400 font-medium">
+        <span className="text-xs text-text-tertiary font-medium">
           {loading ? '...' : `${filteredApps.length}건`}
         </span>
 
@@ -1030,17 +1030,17 @@ export default function SchedulePage() {
         <div className="ml-auto flex items-center gap-2">
           <button
             onClick={() => fetchMonthData(selectedMonth)}
-            className="px-3 py-1.5 text-xs text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+            className="px-3 py-1.5 text-xs text-text-secondary bg-surface border border-border rounded-lg hover:bg-surface-sunken transition-colors"
           >
             새로고침
           </button>
 
           {/* 목록/캘린더 토글 */}
-          <div className="flex bg-gray-100 rounded-lg p-0.5">
+          <div className="flex bg-surface-sunken rounded-lg p-0.5">
             <button
               onClick={() => setViewMode('list')}
               className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
-                viewMode === 'list' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+                viewMode === 'list' ? 'bg-surface text-text-primary shadow-soft' : 'text-text-secondary hover:text-text-primary'
               }`}
             >
               <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -1051,7 +1051,7 @@ export default function SchedulePage() {
             <button
               onClick={() => setViewMode('calendar')}
               className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
-                viewMode === 'calendar' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+                viewMode === 'calendar' ? 'bg-surface text-text-primary shadow-soft' : 'text-text-secondary hover:text-text-primary'
               }`}
             >
               <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -1072,29 +1072,29 @@ export default function SchedulePage() {
       ) : viewMode === 'list' ? (
 
         /* 목록 뷰 */
-        <div ref={listContainerRef} className="flex-1 bg-white rounded-xl border border-gray-200 overflow-auto min-h-0 pb-20 md:pb-0">
+        <div ref={listContainerRef} className="flex-1 bg-surface rounded-xl border border-border overflow-auto min-h-0 pb-20 md:pb-0">
           {filteredApps.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full gap-3 text-center py-20">
               <span className="text-5xl">📋</span>
-              <p className="text-gray-400 text-sm">해당 조건의 일정이 없습니다.</p>
+              <p className="text-text-tertiary text-sm">해당 조건의 일정이 없습니다.</p>
             </div>
           ) : (
             <table className="w-full text-sm">
-              <thead className="bg-gray-50 border-b border-gray-200 sticky top-0 z-10">
+              <thead className="bg-surface-sunken border-b border-border sticky top-0 z-10">
                 <tr>
                   {isAdmin && <th className="px-3 py-3 w-8" />}
                   {['시공일자', '업체명', '케어범위', '대표자', '담당자', '작업자', '사진'].map(h => (
-                    <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-gray-500 whitespace-nowrap">{h}</th>
+                    <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-text-secondary whitespace-nowrap">{h}</th>
                   ))}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-50">
+              <tbody className="divide-y divide-border-subtle">
                 {listItems.map(item => {
                   if (item.kind === 'week') {
                     return (
-                      <tr key={item.key} className="bg-gradient-to-r from-blue-50 to-indigo-50 border-t-2 border-blue-200">
+                      <tr key={item.key} className="bg-gradient-to-r from-brand-50 to-indigo-50 border-t-2 border-brand-200">
                         <td colSpan={isAdmin ? 8 : 7} className="px-4 py-1.5">
-                          <span className="text-xs font-bold text-blue-700 tracking-wide">{item.label}</span>
+                          <span className="text-xs font-bold text-brand-700 tracking-wide">{item.label}</span>
                         </td>
                       </tr>
                     )
@@ -1107,12 +1107,12 @@ export default function SchedulePage() {
                   const isSelected = selected?.id === app.id
                   const todayStr = getScheduleToday()
                   const isToday = app.construction_date?.slice(0, 10) === todayStr
-                  const svcColor = app.service_type ? (SERVICE_TYPE_CONFIG[app.service_type] ?? 'bg-gray-100 text-gray-700') : ''
+                  const svcColor = app.service_type ? (SERVICE_TYPE_CONFIG[app.service_type] ?? 'bg-surface-sunken text-text-primary') : ''
                   return (
                     <tr key={app.id}
                       ref={el => { rowRefs.current[app.id] = el }}
                       onClick={() => isSelected ? handleClose() : setSelected(app)}
-                      className={`cursor-pointer hover:bg-blue-50/40 transition-colors ${isSelected ? 'bg-blue-50' : isToday ? 'bg-yellow-50' : ''}`}>
+                      className={`cursor-pointer hover:bg-brand-50/40 transition-colors ${isSelected ? 'bg-brand-50' : isToday ? 'bg-yellow-50' : ''}`}>
                       {isAdmin && (
                         <td className="px-3 py-3 w-8" onClick={e => e.stopPropagation()}>
                           <input
@@ -1124,13 +1124,13 @@ export default function SchedulePage() {
                         </td>
                       )}
                       <td className="px-4 py-3 whitespace-nowrap">
-                        <span className="font-mono text-xs text-gray-500">{fmtDate(app.construction_date)}</span>
+                        <span className="font-mono text-xs text-text-secondary">{fmtDate(app.construction_date)}</span>
                         {isToday && (
-                          <span className="ml-1.5 text-xs font-bold text-blue-600 bg-blue-100 px-1.5 py-0.5 rounded-full">오늘</span>
+                          <span className="ml-1.5 text-xs font-bold text-brand-600 bg-brand-100 px-1.5 py-0.5 rounded-full">오늘</span>
                         )}
                         {app.construction_time && (
                           <div>
-                            <span className="text-xs text-gray-400">
+                            <span className="text-xs text-text-tertiary">
                               {app.construction_time.slice(0, 5)}시
                             </span>
                           </div>
@@ -1138,29 +1138,29 @@ export default function SchedulePage() {
                       </td>
                       <td className="px-4 py-3 max-w-[160px]">
                         <div className="flex items-center gap-1.5">
-                          <span className="font-medium text-gray-900 truncate text-sm">{app.business_name}</span>
-                          {app.drive_folder_url && <span className="text-blue-400 text-xs shrink-0">📷</span>}
+                          <span className="font-medium text-text-primary truncate text-sm">{app.business_name}</span>
+                          {app.drive_folder_url && <span className="text-brand-400 text-xs shrink-0">📷</span>}
                           {app.work_status === 'in_progress' && (
                             <span className="w-1.5 h-1.5 rounded-full bg-orange-500 animate-pulse shrink-0" />
                           )}
                           {app.work_status === 'completed' && (
-                            <span className="text-xs text-green-600 shrink-0">✓</span>
+                            <span className="text-xs text-state-success shrink-0">✓</span>
                           )}
                         </div>
                         {app.address && (
-                          <div className="text-xs text-gray-400 truncate mt-0.5">{app.address}</div>
+                          <div className="text-xs text-text-tertiary truncate mt-0.5">{app.address}</div>
                         )}
                       </td>
                       <td className="px-4 py-3 max-w-[130px]">
                         {app.care_scope
-                          ? <span className="text-xs text-gray-600 line-clamp-2 leading-tight">{app.care_scope}</span>
-                          : <span className="text-gray-300 text-xs">-</span>}
+                          ? <span className="text-xs text-text-secondary line-clamp-2 leading-tight">{app.care_scope}</span>
+                          : <span className="text-text-tertiary text-xs">-</span>}
                       </td>
-                      <td className="px-4 py-3 text-gray-600 text-xs whitespace-nowrap">{app.owner_name}</td>
+                      <td className="px-4 py-3 text-text-secondary text-xs whitespace-nowrap">{app.owner_name}</td>
                       <td className="px-4 py-3 text-xs whitespace-nowrap">
                         {manager
-                          ? <span className="text-gray-700">{manager.name}</span>
-                          : <span className="text-gray-300">미배정</span>}
+                          ? <span className="text-text-primary">{manager.name}</span>
+                          : <span className="text-text-tertiary">미배정</span>}
                       </td>
                       <td className="px-4 py-3 text-xs">
                         {workerNames.length > 0
@@ -1171,12 +1171,12 @@ export default function SchedulePage() {
                                 </span>
                               ))}
                             </div>
-                          : <span className="text-gray-300">-</span>}
+                          : <span className="text-text-tertiary">-</span>}
                       </td>
                       <td className="px-2 py-3" onClick={e => e.stopPropagation()}>
                         <button
                           onClick={e => handleListViewPhotos(e, app)}
-                          className="px-2 py-1 text-xs bg-blue-50 text-blue-600 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors whitespace-nowrap"
+                          className="px-2 py-1 text-xs bg-brand-50 text-brand-600 border border-brand-200 rounded-lg hover:bg-brand-100 transition-colors whitespace-nowrap"
                         >
                           📷
                         </button>
