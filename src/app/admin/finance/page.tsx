@@ -307,87 +307,87 @@ export default function FinancePage() {
         </div>
 
         {loading ? (
-          <div className="text-center py-12"><p className="text-sm text-gray-400">불러오는 중...</p></div>
+          <div className="text-center py-12"><p className="text-sm text-text-tertiary">불러오는 중...</p></div>
         ) : !data ? null : tab === 'dashboard' ? (
 
           /* ── 대시보드 ── */
           <div className="space-y-4">
             {/* 핵심 지표 카드 */}
             <div className="grid grid-cols-2 gap-3">
-              <div className="bg-blue-50 border border-blue-100 rounded-xl p-4">
-                <p className="text-xs text-blue-500 font-medium mb-1">매출</p>
-                <p className="text-xl font-bold text-blue-700">{fmt(data.revenue.total)}원</p>
-                <p className="text-xs text-blue-400 mt-0.5">{data.revenue.items.length}건</p>
+              <div className="bg-brand-50 border border-brand-100 rounded-xl p-4">
+                <p className="text-xs text-brand-500 font-medium mb-1">매출</p>
+                <p className="text-xl font-bold text-brand-700">{fmt(data.revenue.total)}원</p>
+                <p className="text-xs text-brand-500 mt-0.5">{data.revenue.items.length}건</p>
               </div>
-              <div className="bg-red-50 border border-red-100 rounded-xl p-4">
-                <p className="text-xs text-red-500 font-medium mb-1">총 지출</p>
-                <p className="text-xl font-bold text-red-700">{fmt(totalExpense)}원</p>
-                <p className="text-xs text-red-400 mt-0.5">인건비+고정비+변동비</p>
+              <div className="bg-state-danger-bg border border-red-100 rounded-xl p-4">
+                <p className="text-xs text-state-danger font-medium mb-1">총 지출</p>
+                <p className="text-xl font-bold text-state-danger">{fmt(totalExpense)}원</p>
+                <p className="text-xs text-state-danger mt-0.5">인건비+고정비+변동비</p>
               </div>
             </div>
 
             {/* 순이익 대형 카드 */}
             <div className={`rounded-2xl p-5 border-2 ${data.net_profit >= 0 ? 'bg-emerald-50 border-emerald-200' : 'bg-red-50 border-red-200'}`}>
-              <p className={`text-sm font-semibold mb-1 ${data.net_profit >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+              <p className={`text-sm font-semibold mb-1 ${data.net_profit >= 0 ? 'text-emerald-600' : 'text-state-danger'}`}>
                 {data.net_profit >= 0 ? '순이익' : '순손실'}
               </p>
-              <p className={`text-3xl font-bold ${data.net_profit >= 0 ? 'text-emerald-700' : 'text-red-700'}`}>
+              <p className={`text-3xl font-bold ${data.net_profit >= 0 ? 'text-emerald-700' : 'text-state-danger'}`}>
                 {data.net_profit >= 0 ? '+' : ''}{fmt(data.net_profit)}원
               </p>
-              <p className={`text-sm mt-1 ${data.net_profit >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>
+              <p className={`text-sm mt-1 ${data.net_profit >= 0 ? 'text-emerald-500' : 'text-state-danger'}`}>
                 수익률 {profitRate}%
               </p>
             </div>
 
             {/* 지출 구성 차트 */}
-            <div className="bg-white border border-gray-100 rounded-xl p-4 space-y-3">
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">지출 구성</p>
+            <div className="bg-surface border border-border-subtle rounded-xl p-4 space-y-3">
+              <p className="text-xs font-semibold text-text-secondary uppercase tracking-wide">지출 구성</p>
               {totalExpense > 0 ? (
                 <>
                   <div>
-                    <div className="flex justify-between text-xs text-gray-600 mb-1">
+                    <div className="flex justify-between text-xs text-text-secondary mb-1">
                       <span>인건비</span><span className="font-mono">{fmt(data.labor.total)}원</span>
                     </div>
                     <Bar value={data.labor.total} total={totalExpense} color="bg-orange-400" />
                   </div>
                   <div>
-                    <div className="flex justify-between text-xs text-gray-600 mb-1">
+                    <div className="flex justify-between text-xs text-text-secondary mb-1">
                       <span>고정비</span><span className="font-mono">{fmt(data.fixed.total)}원</span>
                     </div>
                     <Bar value={data.fixed.total} total={totalExpense} color="bg-indigo-400" />
                   </div>
                   <div>
-                    <div className="flex justify-between text-xs text-gray-600 mb-1">
+                    <div className="flex justify-between text-xs text-text-secondary mb-1">
                       <span>변동비</span><span className="font-mono">{fmt(data.variable.total)}원</span>
                     </div>
                     <Bar value={data.variable.total} total={totalExpense} color="bg-purple-400" />
                   </div>
                 </>
               ) : (
-                <p className="text-xs text-gray-400 text-center py-2">지출 데이터 없음</p>
+                <p className="text-xs text-text-tertiary text-center py-2">지출 데이터 없음</p>
               )}
             </div>
 
             {/* 요약 테이블 */}
-            <div className="bg-white border border-gray-100 rounded-xl overflow-hidden">
+            <div className="bg-surface border border-border-subtle rounded-xl overflow-hidden">
               <table className="w-full text-sm">
-                <tbody className="divide-y divide-gray-50">
+                <tbody className="divide-y divide-border-subtle">
                   {[
-                    { label: '매출', value: data.revenue.total, color: 'text-blue-700', sign: '+' },
+                    { label: '매출', value: data.revenue.total, color: 'text-brand-700', sign: '+' },
                     { label: '인건비', value: data.labor.total, color: 'text-orange-600', sign: '-' },
                     { label: '고정비', value: data.fixed.total, color: 'text-indigo-600', sign: '-' },
                     { label: '변동비', value: data.variable.total, color: 'text-purple-600', sign: '-' },
                   ].map(({ label, value, color, sign }) => (
                     <tr key={label}>
-                      <td className="px-4 py-3 text-gray-600 font-medium">{label}</td>
+                      <td className="px-4 py-3 text-text-secondary font-medium">{label}</td>
                       <td className={`px-4 py-3 text-right font-mono font-semibold ${color}`}>
                         {sign} {fmt(value)}원
                       </td>
                     </tr>
                   ))}
-                  <tr className={`border-t-2 border-gray-200 ${data.net_profit >= 0 ? 'bg-emerald-50' : 'bg-red-50'}`}>
-                    <td className="px-4 py-3 font-bold text-gray-900">순이익</td>
-                    <td className={`px-4 py-3 text-right font-mono font-bold text-lg ${data.net_profit >= 0 ? 'text-emerald-700' : 'text-red-700'}`}>
+                  <tr className={`border-t-2 border-border ${data.net_profit >= 0 ? 'bg-emerald-50' : 'bg-state-danger-bg'}`}>
+                    <td className="px-4 py-3 font-bold text-text-primary">순이익</td>
+                    <td className={`px-4 py-3 text-right font-mono font-bold text-lg ${data.net_profit >= 0 ? 'text-emerald-700' : 'text-state-danger'}`}>
                       {data.net_profit >= 0 ? '+ ' : ''}{fmt(data.net_profit)}원
                     </td>
                   </tr>
@@ -402,55 +402,55 @@ export default function FinancePage() {
           <div className="space-y-4">
 
             {/* 매출 섹션 */}
-            <div className="bg-white border border-gray-100 rounded-xl overflow-hidden">
-              <div className="px-4 py-3 bg-blue-50 border-b border-blue-100 flex items-center justify-between">
+            <div className="bg-surface border border-border-subtle rounded-xl overflow-hidden">
+              <div className="px-4 py-3 bg-brand-50 border-b border-brand-100 flex items-center justify-between">
                 <div>
-                  <span className="text-sm font-bold text-blue-800">매출</span>
-                  <span className="text-xs text-blue-500 ml-2">서비스통합관리 자동산정</span>
+                  <span className="text-sm font-bold text-brand-700">매출</span>
+                  <span className="text-xs text-brand-500 ml-2">서비스통합관리 자동산정</span>
                 </div>
-                <span className="text-sm font-bold text-blue-700 font-mono">{fmt(filteredRevenue.reduce((s, i) => s + i.total, 0))}원</span>
+                <span className="text-sm font-bold text-brand-700 font-mono">{fmt(filteredRevenue.reduce((s, i) => s + i.total, 0))}원</span>
               </div>
               {/* 서비스 유형 필터 칩 */}
-              <div className="px-4 py-2.5 flex gap-2 flex-wrap border-b border-gray-100 bg-gray-50">
+              <div className="px-4 py-2.5 flex gap-2 flex-wrap border-b border-border-subtle bg-surface-sunken">
                 {SERVICE_TYPES.map(type => (
                   <button
                     key={type}
                     onClick={() => toggleServiceType(type)}
                     className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
                       selectedTypes.includes(type)
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-white border border-gray-200 text-gray-600 hover:border-blue-400'
+                        ? 'bg-brand-600 text-white'
+                        : 'bg-surface border border-border text-text-secondary hover:border-blue-400'
                     }`}
                   >
                     {type}
                   </button>
                 ))}
                 {selectedTypes.length > 0 && (
-                  <button onClick={() => setSelectedTypes([])} className="px-2 py-1 text-xs text-gray-400 hover:text-gray-600">
+                  <button onClick={() => setSelectedTypes([])} className="px-2 py-1 text-xs text-text-tertiary hover:text-text-secondary">
                     전체
                   </button>
                 )}
-                <span className="ml-auto text-xs text-gray-400 self-center">{filteredRevenue.length}건</span>
+                <span className="ml-auto text-xs text-text-tertiary self-center">{filteredRevenue.length}건</span>
               </div>
-              <div className="divide-y divide-gray-50">
+              <div className="divide-y divide-border-subtle">
                 {filteredRevenue.length === 0 ? (
-                  <p className="text-xs text-gray-400 text-center py-4">
+                  <p className="text-xs text-text-tertiary text-center py-4">
                     {selectedTypes.length > 0 ? '선택한 유형의 매출 없음' : `${displayMonth} 매출 없음`}
                   </p>
                 ) : filteredRevenue.map(item => (
                   <div key={item.id} className="px-4 py-2.5 flex items-center gap-2">
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-800 truncate">{item.business_name}</p>
-                      <p className="text-xs text-gray-400">{fmtDate(item.construction_date)} · {item.service_type} · {item.payment_method ?? '-'}</p>
+                      <p className="text-sm font-medium text-text-primary truncate">{item.business_name}</p>
+                      <p className="text-xs text-text-tertiary">{fmtDate(item.construction_date)} · {item.service_type} · {item.payment_method ?? '-'}</p>
                     </div>
-                    <span className="text-sm font-semibold text-blue-600 font-mono whitespace-nowrap">{fmt(item.total)}원</span>
+                    <span className="text-sm font-semibold text-brand-600 font-mono whitespace-nowrap">{fmt(item.total)}원</span>
                   </div>
                 ))}
               </div>
             </div>
 
             {/* 인건비 */}
-            <div className="bg-white border border-gray-100 rounded-xl overflow-hidden">
+            <div className="bg-surface border border-border-subtle rounded-xl overflow-hidden">
               <div className="px-4 py-3 bg-orange-50 border-b border-orange-100 flex items-center justify-between">
                 <div>
                   <span className="text-sm font-bold text-orange-800">인건비</span>
@@ -460,15 +460,15 @@ export default function FinancePage() {
               </div>
               <div className="px-4 py-3">
                 {data.labor.records.length === 0 ? (
-                  <p className="text-xs text-gray-400 text-center py-2">{displayMonth} 급여정산 데이터 없음</p>
+                  <p className="text-xs text-text-tertiary text-center py-2">{displayMonth} 급여정산 데이터 없음</p>
                 ) : (
-                  <p className="text-xs text-gray-500">{data.labor.records.length}명 합계 (담당자+작업자 최종지급액 기준)</p>
+                  <p className="text-xs text-text-secondary">{data.labor.records.length}명 합계 (담당자+작업자 최종지급액 기준)</p>
                 )}
               </div>
             </div>
 
             {/* 고정비 */}
-            <div className="bg-white border border-gray-100 rounded-xl overflow-hidden">
+            <div className="bg-surface border border-border-subtle rounded-xl overflow-hidden">
               <div className="px-4 py-3 bg-indigo-50 border-b border-indigo-100 flex items-center justify-between">
                 <div>
                   <span className="text-sm font-bold text-indigo-800">고정비</span>
@@ -492,14 +492,14 @@ export default function FinancePage() {
                     onUpdate={handleUpdateRecord} />
                 ))}
                 {data.fixed.records.length === 0 && (
-                  <p className="text-xs text-gray-400 text-center py-3">항목 없음</p>
+                  <p className="text-xs text-text-tertiary text-center py-3">항목 없음</p>
                 )}
                 <AddItemForm onAdd={(name, amount, note) => handleAddRecord('fixed', name, amount, note)} />
               </div>
             </div>
 
             {/* 변동비 */}
-            <div className="bg-white border border-gray-100 rounded-xl overflow-hidden">
+            <div className="bg-surface border border-border-subtle rounded-xl overflow-hidden">
               <div className="px-4 py-3 bg-purple-50 border-b border-purple-100 flex items-center justify-between">
                 <div>
                   <span className="text-sm font-bold text-purple-800">변동비</span>
@@ -523,7 +523,7 @@ export default function FinancePage() {
                     onUpdate={handleUpdateRecord} />
                 ))}
                 {data.variable.records.length === 0 && (
-                  <p className="text-xs text-gray-400 text-center py-3">항목 없음</p>
+                  <p className="text-xs text-text-tertiary text-center py-3">항목 없음</p>
                 )}
                 <AddItemForm onAdd={(name, amount, note) => handleAddRecord('variable', name, amount, note)} />
               </div>
