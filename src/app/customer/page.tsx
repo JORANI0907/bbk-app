@@ -11,7 +11,7 @@ import { NoticesSection } from '@/components/customer/NoticesSection'
 const CUSTOMER_TYPE_COLORS: Record<string, string> = {
   '정기딥케어': 'bg-indigo-100 text-indigo-700',
   '정기엔드케어': 'bg-sky-100 text-sky-700',
-  '1회성케어': 'bg-gray-100 text-gray-600',
+  '1회성케어': 'bg-surface-sunken text-text-secondary',
 }
 
 function getDday(date: string): number {
@@ -126,36 +126,36 @@ export default async function CustomerHomePage() {
 
       {/* 다음 방문 카드 */}
       {nextSchedule ? (
-        <div className="bg-white rounded-2xl border border-blue-100 shadow-sm overflow-hidden">
+        <div className="bg-surface rounded-2xl border border-brand-100 shadow-soft overflow-hidden">
           <div className="px-4 pt-4 pb-1 flex items-center justify-between">
-            <span className="text-xs font-semibold text-blue-600 uppercase tracking-wide">다음 서비스</span>
+            <span className="text-xs font-semibold text-brand-600 uppercase tracking-wide">다음 서비스</span>
             {dday !== null && (
-              <span className={`text-sm font-black ${dday === 0 ? 'text-red-500' : 'text-blue-600'}`}>
+              <span className={`text-sm font-black ${dday === 0 ? 'text-state-danger' : 'text-brand-600'}`}>
                 {dday === 0 ? '오늘!' : `D-${dday}`}
               </span>
             )}
           </div>
           <div className="px-4 pb-4">
-            <p className="text-lg font-bold text-gray-900 mt-1">
+            <p className="text-lg font-bold text-text-primary mt-1">
               {format(new Date(nextSchedule.scheduled_date), 'M월 d일 (EEE)', { locale: ko })}
             </p>
             {(nextSchedule.scheduled_time_start || nextSchedule.scheduled_time_end) && (
-              <p className="text-sm text-gray-500 mt-0.5">
+              <p className="text-sm text-text-secondary mt-0.5">
                 {nextSchedule.scheduled_time_start}
                 {nextSchedule.scheduled_time_end ? ` ~ ${nextSchedule.scheduled_time_end}` : ''}
               </p>
             )}
             {nextSchedule.items_this_visit?.length > 0 && (
-              <p className="text-sm text-gray-600 mt-2 bg-gray-50 rounded-lg px-3 py-2">
+              <p className="text-sm text-text-secondary mt-2 bg-surface-sunken rounded-lg px-3 py-2">
                 {nextSchedule.items_this_visit.map((i: { name: string }) => i.name).join(', ')}
               </p>
             )}
           </div>
         </div>
       ) : (
-        <div className="bg-white rounded-2xl border border-gray-100 p-5 text-center">
-          <p className="text-sm text-gray-500 font-medium">예정된 서비스가 없습니다</p>
-          <p className="text-xs text-gray-400 mt-1">담당자에게 문의해주세요.</p>
+        <div className="bg-surface rounded-2xl border border-border-subtle p-5 text-center">
+          <p className="text-sm text-text-secondary font-medium">예정된 서비스가 없습니다</p>
+          <p className="text-xs text-text-tertiary mt-1">담당자에게 문의해주세요.</p>
         </div>
       )}
 
@@ -168,10 +168,10 @@ export default async function CustomerHomePage() {
           <Link
             key={item.href}
             href={item.href}
-            className="bg-white rounded-2xl border border-gray-100 p-4 flex flex-col items-center gap-2 active:scale-[0.97] transition-transform shadow-sm"
+            className="bg-surface rounded-2xl border border-border-subtle p-4 flex flex-col items-center gap-2 active:scale-[0.97] transition-transform shadow-soft"
           >
             <span className="text-2xl">{item.icon}</span>
-            <span className="text-xs font-semibold text-gray-700">{item.label}</span>
+            <span className="text-xs font-semibold text-text-primary">{item.label}</span>
           </Link>
         ))}
       </div>
@@ -183,8 +183,8 @@ export default async function CustomerHomePage() {
       {completed.length > 0 && (
         <div className="flex flex-col gap-3">
           <div className="flex items-center justify-between">
-            <h2 className="text-sm font-bold text-gray-800">최근 완료 서비스</h2>
-            <Link href="/customer/schedule" className="text-xs text-blue-600 font-medium">
+            <h2 className="text-sm font-bold text-text-primary">최근 완료 서비스</h2>
+            <Link href="/customer/schedule" className="text-xs text-brand-600 font-medium">
               전체 보기
             </Link>
           </div>
@@ -192,13 +192,13 @@ export default async function CustomerHomePage() {
             <Link
               key={s.id}
               href={`/customer/reports/${s.id}`}
-              className="bg-white rounded-2xl border border-gray-100 p-4 flex items-center justify-between active:scale-[0.98] transition-transform shadow-sm"
+              className="bg-surface rounded-2xl border border-border-subtle p-4 flex items-center justify-between active:scale-[0.98] transition-transform shadow-soft"
             >
               <div>
-                <p className="text-sm font-semibold text-gray-800">
+                <p className="text-sm font-semibold text-text-primary">
                   {format(new Date(s.scheduled_date), 'M월 d일 (EEE)', { locale: ko })}
                 </p>
-                <p className="text-xs text-gray-400 mt-0.5">
+                <p className="text-xs text-text-tertiary mt-0.5">
                   {s.items_this_visit?.map((i: { name: string }) => i.name).join(', ') || '청소 서비스'}
                 </p>
               </div>
@@ -206,7 +206,7 @@ export default async function CustomerHomePage() {
                 <span className={`text-xs px-2 py-1 rounded-full ${SCHEDULE_STATUS_COLORS[s.status]}`}>
                   {SCHEDULE_STATUS_LABELS[s.status]}
                 </span>
-                <span className="text-gray-300 text-sm">›</span>
+                <span className="text-text-tertiary text-sm">›</span>
               </div>
             </Link>
           ))}
@@ -214,10 +214,10 @@ export default async function CustomerHomePage() {
       )}
 
       {!customer && (
-        <div className="flex flex-col items-center justify-center py-10 gap-3 text-center bg-white rounded-2xl border border-gray-100">
+        <div className="flex flex-col items-center justify-center py-10 gap-3 text-center bg-surface rounded-2xl border border-border-subtle">
           <span className="text-4xl">🏢</span>
-          <p className="text-sm font-semibold text-gray-700">연결된 고객 정보가 없습니다</p>
-          <p className="text-xs text-gray-400">관리자에게 문의해주세요.</p>
+          <p className="text-sm font-semibold text-text-primary">연결된 고객 정보가 없습니다</p>
+          <p className="text-xs text-text-tertiary">관리자에게 문의해주세요.</p>
         </div>
       )}
     </div>

@@ -34,22 +34,22 @@ function formatPhone(phone: string): string {
 
 const CUSTOMER_TYPE_LABELS: Record<string, { label: string; color: string }> = {
   '정기딥케어': { label: '정기딥케어', color: 'bg-indigo-100 text-indigo-700' },
-  '정기엔드케어': { label: '정기엔드케어', color: 'bg-blue-100 text-blue-700' },
-  '1회성케어': { label: '1회성케어', color: 'bg-gray-100 text-gray-600' },
+  '정기엔드케어': { label: '정기엔드케어', color: 'bg-brand-100 text-brand-700' },
+  '1회성케어': { label: '1회성케어', color: 'bg-surface-sunken text-text-secondary' },
 }
 
 const STATUS_LABELS: Record<string, { label: string; color: string }> = {
-  active: { label: '서비스 이용중', color: 'bg-green-100 text-green-700' },
-  inactive: { label: '비활성', color: 'bg-gray-100 text-gray-500' },
-  pending: { label: '대기중', color: 'bg-yellow-100 text-yellow-700' },
+  active: { label: '서비스 이용중', color: 'bg-state-success-bg text-state-success' },
+  inactive: { label: '비활성', color: 'bg-surface-sunken text-text-tertiary' },
+  pending: { label: '대기중', color: 'bg-state-warning-bg text-state-warning' },
 }
 
 function InfoRow({ label, value }: { label: string; value?: string | null }) {
   if (!value) return null
   return (
-    <div className="flex items-start gap-3 py-2.5 border-b border-gray-50 last:border-0">
-      <span className="text-xs text-gray-400 w-20 shrink-0 pt-0.5">{label}</span>
-      <span className="text-sm text-gray-800 font-medium flex-1">{value}</span>
+    <div className="flex items-start gap-3 py-2.5 border-b border-border-subtle last:border-0">
+      <span className="text-xs text-text-tertiary w-20 shrink-0 pt-0.5">{label}</span>
+      <span className="text-sm text-text-primary font-medium flex-1">{value}</span>
     </div>
   )
 }
@@ -96,9 +96,9 @@ export default async function CustomerMyPage() {
     <div className="px-4 py-5 flex flex-col gap-4">
 
       {/* 계정 정보 */}
-      <section className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-        <div className="px-5 py-3.5 border-b border-gray-50 flex items-center gap-2">
-          <span className="text-sm font-bold text-gray-900">계정 정보</span>
+      <section className="bg-surface rounded-2xl border border-border-subtle shadow-soft overflow-hidden">
+        <div className="px-5 py-3.5 border-b border-border-subtle flex items-center gap-2">
+          <span className="text-sm font-bold text-text-primary">계정 정보</span>
         </div>
         <div className="px-5 py-1">
           <InfoRow label="이름" value={user.name} />
@@ -111,9 +111,9 @@ export default async function CustomerMyPage() {
 
       {/* 계약 정보 */}
       {customer && (
-        <section className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-          <div className="px-5 py-3.5 border-b border-gray-50 flex items-center justify-between">
-            <span className="text-sm font-bold text-gray-900">계약 정보</span>
+        <section className="bg-surface rounded-2xl border border-border-subtle shadow-soft overflow-hidden">
+          <div className="px-5 py-3.5 border-b border-border-subtle flex items-center justify-between">
+            <span className="text-sm font-bold text-text-primary">계약 정보</span>
             <div className="flex items-center gap-2">
               {typeInfo && (
                 <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${typeInfo.color}`}>
@@ -146,9 +146,9 @@ export default async function CustomerMyPage() {
             )}
           </div>
           {customer.care_scope && (
-            <div className="mx-5 mb-4 mt-1 bg-gray-50 rounded-xl p-3">
-              <p className="text-xs text-gray-400 mb-1">케어 범위</p>
-              <p className="text-sm text-gray-700 whitespace-pre-wrap">{customer.care_scope}</p>
+            <div className="mx-5 mb-4 mt-1 bg-surface-sunken rounded-xl p-3">
+              <p className="text-xs text-text-tertiary mb-1">케어 범위</p>
+              <p className="text-sm text-text-secondary whitespace-pre-wrap">{customer.care_scope}</p>
             </div>
           )}
         </section>
@@ -156,9 +156,9 @@ export default async function CustomerMyPage() {
 
       {/* 업체 정보 */}
       {customer && (
-        <section className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-          <div className="px-5 py-3.5 border-b border-gray-50">
-            <span className="text-sm font-bold text-gray-900">업체 정보</span>
+        <section className="bg-surface rounded-2xl border border-border-subtle shadow-soft overflow-hidden">
+          <div className="px-5 py-3.5 border-b border-border-subtle">
+            <span className="text-sm font-bold text-text-primary">업체 정보</span>
           </div>
           <div className="px-5 py-1">
             <InfoRow label="업체명" value={customer.business_name} />
@@ -176,15 +176,15 @@ export default async function CustomerMyPage() {
       )}
 
       {!customer && (
-        <div className="flex flex-col items-center justify-center py-12 gap-3 text-center bg-white rounded-2xl border border-gray-100">
+        <div className="flex flex-col items-center justify-center py-12 gap-3 text-center bg-surface rounded-2xl border border-border-subtle">
           <span className="text-4xl">🏢</span>
-          <p className="text-sm font-semibold text-gray-700">연결된 업체 정보가 없습니다</p>
-          <p className="text-xs text-gray-400">관리자에게 문의해주세요.</p>
+          <p className="text-sm font-semibold text-text-primary">연결된 업체 정보가 없습니다</p>
+          <p className="text-xs text-text-tertiary">관리자에게 문의해주세요.</p>
         </div>
       )}
 
-      <p className="text-center text-xs text-gray-400 pb-2">
-        정보 변경은 담당자(<span className="text-gray-500 font-medium">031-759-4877</span>)에게 문의하세요.
+      <p className="text-center text-xs text-text-tertiary pb-2">
+        정보 변경은 담당자(<span className="text-text-secondary font-medium">031-759-4877</span>)에게 문의하세요.
       </p>
     </div>
   )
