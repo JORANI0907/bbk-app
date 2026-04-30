@@ -5,9 +5,10 @@ import { usePathname } from 'next/navigation'
 
 const NAV_ITEMS = [
   { href: '/customer', label: '홈', exact: true },
-  { href: '/customer/schedule', label: '서비스 일정', exact: false },
+  { href: '/customer/schedule', label: '일정', exact: false },
   { href: '/customer/reports', label: '리포트', exact: false },
   { href: '/customer/requests', label: '요청사항', exact: false },
+  { href: '/customer/mypage', label: '마이페이지', exact: false },
 ]
 
 export function CustomerNav() {
