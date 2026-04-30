@@ -11,7 +11,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '연락처와 비밀번호를 입력해주세요.' }, { status: 400 })
     }
 
-    const normalizedPhone = phone.replace(/-/g, '')
+    // phone@bbkorea.app 형식으로 직접 입력해도 허용
+    const rawId = phone.trim()
+    const normalizedPhone = rawId.includes('@bbkorea.app')
+      ? rawId.split('@')[0].replace(/-/g, '')
+      : rawId.replace(/-/g, '')
     const email = customerEmail(normalizedPhone)
 
     const session = await signInWithPassword(email, password)
