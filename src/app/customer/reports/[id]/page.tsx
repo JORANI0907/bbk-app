@@ -66,18 +66,18 @@ export default async function CustomerReportDetailPage({ params }: PageProps) {
   return (
     <div className="px-4 py-5 flex flex-col gap-6">
       {/* 헤더 */}
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
-        <p className="text-xs text-gray-400 mb-1">서비스 완료</p>
-        <h1 className="text-xl font-bold text-gray-900">
+      <div className="bg-surface rounded-2xl shadow-soft border border-border-subtle p-5">
+        <p className="text-xs text-text-tertiary mb-1">서비스 완료</p>
+        <h1 className="text-xl font-bold text-text-primary">
           {format(new Date(typedSchedule.scheduled_date), 'yyyy년 M월 d일 (EEE)', {
             locale: ko,
           })}
         </h1>
-        <p className="text-sm text-gray-500 mt-1">
+        <p className="text-sm text-text-secondary mt-1">
           {typedSchedule.items_this_visit.map((i) => i.name).join(', ') || '청소 서비스'}
         </p>
         {typedSchedule.actual_arrival && typedSchedule.actual_completion && (
-          <p className="text-xs text-gray-400 mt-2">
+          <p className="text-xs text-text-tertiary mt-2">
             {format(new Date(typedSchedule.actual_arrival), 'HH:mm')} ~{' '}
             {format(new Date(typedSchedule.actual_completion), 'HH:mm')} 작업
           </p>
@@ -87,7 +87,7 @@ export default async function CustomerReportDetailPage({ params }: PageProps) {
       {/* Before/After 슬라이더 */}
       {beforePhotos.length > 0 && afterPhotos.length > 0 && (
         <div className="flex flex-col gap-4">
-          <h2 className="text-base font-bold text-gray-900">작업 전/후 비교</h2>
+          <h2 className="text-base font-bold text-text-primary">작업 전/후 비교</h2>
           {beforePhotos.map((beforePhoto, idx) => {
             const afterPhoto = afterPhotos[idx]
             if (!afterPhoto) return null
@@ -110,25 +110,25 @@ export default async function CustomerReportDetailPage({ params }: PageProps) {
       {/* 작업 체크리스트 결과 */}
       {typedChecklists.length > 0 && (
         <div className="flex flex-col gap-3">
-          <h2 className="text-base font-bold text-gray-900">작업 체크리스트</h2>
+          <h2 className="text-base font-bold text-text-primary">작업 체크리스트</h2>
           {typedChecklists.map((cl) => (
             <div
               key={cl.id}
-              className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden"
+              className="bg-surface rounded-2xl shadow-soft border border-border-subtle overflow-hidden"
             >
-              <div className="px-4 py-3 bg-gray-50 flex items-center justify-between">
-                <h3 className="text-sm font-semibold text-gray-800">{cl.item_name}</h3>
+              <div className="px-4 py-3 bg-surface-sunken flex items-center justify-between">
+                <h3 className="text-sm font-semibold text-text-primary">{cl.item_name}</h3>
                 {cl.is_completed ? (
                   <span className="text-xs bg-green-500 text-white px-2 py-0.5 rounded-full">
                     완료
                   </span>
                 ) : (
-                  <span className="text-xs bg-gray-200 text-gray-500 px-2 py-0.5 rounded-full">
+                  <span className="text-xs bg-surface-sunken text-text-secondary px-2 py-0.5 rounded-full">
                     미완료
                   </span>
                 )}
               </div>
-              <div className="divide-y divide-gray-50">
+              <div className="divide-y divide-border-subtle">
                 {cl.checklist_items.map((item) => (
                   <div
                     key={item.step}
@@ -137,8 +137,8 @@ export default async function CustomerReportDetailPage({ params }: PageProps) {
                     <div
                       className={`w-5 h-5 rounded-full border flex items-center justify-center shrink-0 ${
                         item.done
-                          ? 'bg-blue-600 border-blue-600'
-                          : 'border-gray-300'
+                          ? 'bg-brand-600 border-brand-600'
+                          : 'border-border'
                       }`}
                     >
                       {item.done && (
@@ -159,7 +159,7 @@ export default async function CustomerReportDetailPage({ params }: PageProps) {
                     </div>
                     <span
                       className={`text-sm ${
-                        item.done ? 'text-gray-500' : 'text-red-400'
+                        item.done ? 'text-text-secondary' : 'text-state-danger'
                       }`}
                     >
                       {item.step}
@@ -174,17 +174,17 @@ export default async function CustomerReportDetailPage({ params }: PageProps) {
 
       {/* 담당자 메모 (관리자 공개 승인된 경우만) */}
       {typedSchedule.worker_memo && typedSchedule.memo_visible && (
-        <div className="bg-amber-50 rounded-2xl border border-amber-100 p-4">
-          <p className="text-xs font-semibold text-amber-600 mb-2">📋 담당자 메모</p>
-          <p className="text-sm text-gray-700 whitespace-pre-wrap">{typedSchedule.worker_memo}</p>
+        <div className="bg-state-warning-bg rounded-2xl border border-amber-100 p-4">
+          <p className="text-xs font-semibold text-state-warning mb-2">📋 담당자 메모</p>
+          <p className="text-sm text-text-primary whitespace-pre-wrap">{typedSchedule.worker_memo}</p>
         </div>
       )}
 
       {/* 만족도 평가 */}
       <div>
-        <h2 className="text-base font-bold text-gray-900 mb-3">서비스 평가</h2>
+        <h2 className="text-base font-bold text-text-primary mb-3">서비스 평가</h2>
         {hasRating && closing ? (
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+          <div className="bg-surface rounded-2xl shadow-soft border border-border-subtle p-5">
             <div className="flex items-center gap-2 mb-3">
               <div className="flex gap-0.5">
                 {[1, 2, 3, 4, 5].map((s) => (
@@ -193,19 +193,19 @@ export default async function CustomerReportDetailPage({ params }: PageProps) {
                     className={`text-2xl ${
                       closing.customer_rating && s <= closing.customer_rating
                         ? 'text-yellow-400'
-                        : 'text-gray-200'
+                        : 'text-text-tertiary'
                     }`}
                   >
                     ★
                   </span>
                 ))}
               </div>
-              <span className="text-lg font-bold text-gray-700">
+              <span className="text-lg font-bold text-text-primary">
                 {closing.customer_rating}점
               </span>
             </div>
             {closing.customer_comment && (
-              <p className="text-sm text-gray-600 bg-gray-50 rounded-xl px-4 py-3">
+              <p className="text-sm text-text-secondary bg-surface-sunken rounded-xl px-4 py-3">
                 {closing.customer_comment}
               </p>
             )}
