@@ -199,7 +199,7 @@ export default function InvoicesPage() {
     <div className="flex flex-col h-full">
       {/* 헤더 */}
       <div className="flex items-center justify-between px-4 pt-4 pb-3">
-        <h1 className="text-lg font-bold text-gray-900">세금계산서</h1>
+        <h1 className="text-lg font-bold text-text-primary">세금계산서</h1>
         <button
           onClick={openModal}
           className="flex items-center gap-1.5 px-4 py-2 bg-brand-600 text-white text-sm font-semibold rounded-xl hover:bg-brand-700 transition-colors"
@@ -235,10 +235,10 @@ export default function InvoicesPage() {
                 </p>
               )}
               {taxTargets.length === 0 ? (
-                <p className="text-xs text-gray-500 py-2">이번 주 발행 대상이 없습니다.</p>
+                <p className="text-xs text-text-secondary py-2">이번 주 발행 대상이 없습니다.</p>
               ) : (
                 <>
-                  <div className="bg-white rounded-xl border border-amber-100 overflow-hidden mb-2">
+                  <div className="bg-surface rounded-xl border border-amber-100 overflow-hidden mb-2">
                     <div className="grid grid-cols-4 gap-2 px-3 py-2 bg-amber-100 text-xs font-semibold text-amber-700">
                       <span>업체명</span>
                       <span>대표자</span>
@@ -247,10 +247,10 @@ export default function InvoicesPage() {
                     </div>
                     {taxTargets.map(t => (
                       <div key={t.application_id} className="grid grid-cols-4 gap-2 px-3 py-2 border-t border-amber-50 text-xs">
-                        <span className="text-gray-800 font-medium truncate">{t.공급받는자상호}</span>
-                        <span className="text-gray-600 truncate">{t.공급받는자대표자}</span>
-                        <span className="text-right text-gray-800">{t.공급가액.toLocaleString('ko-KR')}원</span>
-                        <span className="text-right text-gray-600">{t.세액.toLocaleString('ko-KR')}원</span>
+                        <span className="text-text-primary font-medium truncate">{t.공급받는자상호}</span>
+                        <span className="text-text-secondary truncate">{t.공급받는자대표자}</span>
+                        <span className="text-right text-text-primary">{t.공급가액.toLocaleString('ko-KR')}원</span>
+                        <span className="text-right text-text-secondary">{t.세액.toLocaleString('ko-KR')}원</span>
                       </div>
                     ))}
                   </div>
@@ -271,16 +271,16 @@ export default function InvoicesPage() {
       <div className="flex items-center gap-3 px-4 pb-3">
         <button
           onClick={() => handleMonthChange(-1)}
-          className="w-8 h-8 flex items-center justify-center rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-600 transition-colors"
+          className="w-8 h-8 flex items-center justify-center rounded-lg bg-surface-sunken hover:bg-surface-sunken text-text-secondary transition-colors"
         >
           ‹
         </button>
-        <span className="text-sm font-semibold text-gray-800 min-w-[90px] text-center">
+        <span className="text-sm font-semibold text-text-primary min-w-[90px] text-center">
           {monthLabel(month)}
         </span>
         <button
           onClick={() => handleMonthChange(1)}
-          className="w-8 h-8 flex items-center justify-center rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-600 transition-colors"
+          className="w-8 h-8 flex items-center justify-center rounded-lg bg-surface-sunken hover:bg-surface-sunken text-text-secondary transition-colors"
         >
           ›
         </button>
@@ -288,7 +288,7 @@ export default function InvoicesPage() {
           type="month"
           value={month}
           onChange={e => setMonth(e.target.value)}
-          className="ml-2 border border-gray-200 rounded-xl px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+          className="ml-2 border border-border rounded-xl px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
         />
       </div>
 
@@ -300,8 +300,8 @@ export default function InvoicesPage() {
             <p className="text-2xl font-bold text-brand-700">{totalCount}건</p>
           </div>
           <div className="ml-auto text-right">
-            <p className="text-xs text-gray-500">발행 횟수</p>
-            <p className="text-lg font-semibold text-gray-700">{invoices.length}회</p>
+            <p className="text-xs text-text-secondary">발행 횟수</p>
+            <p className="text-lg font-semibold text-text-primary">{invoices.length}회</p>
           </div>
         </div>
       </div>
@@ -309,15 +309,15 @@ export default function InvoicesPage() {
       {/* 테이블 */}
       <div className="flex-1 overflow-y-auto px-4 pb-4">
         {loading ? (
-          <div className="flex items-center justify-center py-20 text-gray-400 text-sm">로딩 중...</div>
+          <div className="flex items-center justify-center py-20 text-text-tertiary text-sm">로딩 중...</div>
         ) : invoices.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-20 text-gray-400">
+          <div className="flex flex-col items-center justify-center py-20 text-text-tertiary">
             <p className="text-sm">발행 기록이 없습니다.</p>
           </div>
         ) : (
-          <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+          <div className="bg-surface rounded-xl border border-border-subtle shadow-soft overflow-hidden">
             {/* 테이블 헤더 */}
-            <div className="grid grid-cols-4 gap-2 px-4 py-3 bg-gray-50 border-b border-gray-100 text-xs font-semibold text-gray-500">
+            <div className="grid grid-cols-4 gap-2 px-4 py-3 bg-surface-sunken border-b border-border-subtle text-xs font-semibold text-text-secondary">
               <span>발행일시</span>
               <span className="text-center">건수</span>
               <span className="text-center">파일</span>
@@ -327,10 +327,10 @@ export default function InvoicesPage() {
             {invoices.map((inv, idx) => (
               <div
                 key={inv.id}
-                className={`grid grid-cols-4 gap-2 px-4 py-3 text-sm items-center ${idx !== invoices.length - 1 ? 'border-b border-gray-50' : ''}`}
+                className={`grid grid-cols-4 gap-2 px-4 py-3 text-sm items-center ${idx !== invoices.length - 1 ? 'border-b border-border-subtle' : ''}`}
               >
-                <span className="text-gray-700 text-xs">{formatDateTime(inv.issued_at)}</span>
-                <span className="text-center font-semibold text-gray-900">{inv.count}건</span>
+                <span className="text-text-primary text-xs">{formatDateTime(inv.issued_at)}</span>
+                <span className="text-center font-semibold text-text-primary">{inv.count}건</span>
                 <span className="text-center">
                   {inv.file_url ? (
                     <a
@@ -342,10 +342,10 @@ export default function InvoicesPage() {
                       파일 보기
                     </a>
                   ) : (
-                    <span className="text-gray-300 text-xs">-</span>
+                    <span className="text-text-tertiary text-xs">-</span>
                   )}
                 </span>
-                <span className="text-gray-500 text-xs truncate">{inv.notes || '-'}</span>
+                <span className="text-text-secondary text-xs truncate">{inv.notes || '-'}</span>
               </div>
             ))}
           </div>
@@ -355,57 +355,57 @@ export default function InvoicesPage() {
       {/* 등록 모달 */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 p-4">
-          <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl">
-            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
-              <h2 className="text-base font-bold text-gray-900">새 발행 기록</h2>
-              <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-700 text-xl leading-none p-1">✕</button>
+          <div className="bg-surface rounded-2xl w-full max-w-md shadow-pop">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-border-subtle">
+              <h2 className="text-base font-bold text-text-primary">새 발행 기록</h2>
+              <button onClick={() => setShowModal(false)} className="text-text-tertiary hover:text-text-primary text-xl leading-none p-1">✕</button>
             </div>
             <div className="p-5 space-y-4">
               <div>
-                <label className="block text-xs font-semibold text-gray-600 mb-1">발행일시 *</label>
+                <label className="block text-xs font-semibold text-text-secondary mb-1">발행일시 *</label>
                 <input
                   type="datetime-local"
                   value={form.issued_at}
                   onChange={e => setForm(prev => ({ ...prev, issued_at: e.target.value }))}
-                  className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+                  className="w-full border border-border rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
                 />
               </div>
               <div>
-                <label className="block text-xs font-semibold text-gray-600 mb-1">건수 *</label>
+                <label className="block text-xs font-semibold text-text-secondary mb-1">건수 *</label>
                 <input
                   type="number"
                   min={1}
                   value={form.count}
                   onChange={e => setForm(prev => ({ ...prev, count: e.target.value }))}
                   placeholder="발행 건수"
-                  className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+                  className="w-full border border-border rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
                 />
               </div>
               <div>
-                <label className="block text-xs font-semibold text-gray-600 mb-1">파일 URL</label>
+                <label className="block text-xs font-semibold text-text-secondary mb-1">파일 URL</label>
                 <input
                   type="url"
                   value={form.file_url}
                   onChange={e => setForm(prev => ({ ...prev, file_url: e.target.value }))}
                   placeholder="https://..."
-                  className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+                  className="w-full border border-border rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
                 />
               </div>
               <div>
-                <label className="block text-xs font-semibold text-gray-600 mb-1">비고</label>
+                <label className="block text-xs font-semibold text-text-secondary mb-1">비고</label>
                 <input
                   type="text"
                   value={form.notes}
                   onChange={e => setForm(prev => ({ ...prev, notes: e.target.value }))}
                   placeholder="메모 (선택)"
-                  className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+                  className="w-full border border-border rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
                 />
               </div>
             </div>
             <div className="flex gap-2 px-5 pb-5">
               <button
                 onClick={() => setShowModal(false)}
-                className="flex-1 py-2.5 rounded-xl border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors"
+                className="flex-1 py-2.5 rounded-xl border border-border text-sm font-medium text-text-secondary hover:bg-surface-sunken transition-colors"
               >
                 취소
               </button>
