@@ -120,8 +120,8 @@ export default function NavSettingsPage() {
       {/* 헤더 */}
       <div className="flex items-center justify-between px-4 pt-4 pb-3">
         <div>
-          <h1 className="text-lg font-bold text-gray-900">하단 메뉴 설정</h1>
-          <p className="text-xs text-gray-400 mt-0.5">모바일 앱 하단 탭 퀵 메뉴를 설정합니다.</p>
+          <h1 className="text-lg font-bold text-text-primary">하단 메뉴 설정</h1>
+          <p className="text-xs text-text-tertiary mt-0.5">모바일 앱 하단 탭 퀵 메뉴를 설정합니다.</p>
         </div>
         <button
           onClick={handleSave}
@@ -137,7 +137,7 @@ export default function NavSettingsPage() {
         <button
           onClick={() => setRole('admin')}
           className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
-            role === 'admin' ? 'bg-brand-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+            role === 'admin' ? 'bg-brand-600 text-white' : 'bg-surface-sunken text-text-secondary hover:bg-surface-sunken'
           }`}
         >
           관리자
@@ -145,7 +145,7 @@ export default function NavSettingsPage() {
         <button
           onClick={() => setRole('worker')}
           className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
-            role === 'worker' ? 'bg-brand-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+            role === 'worker' ? 'bg-brand-600 text-white' : 'bg-surface-sunken text-text-secondary hover:bg-surface-sunken'
           }`}
         >
           직원
@@ -154,24 +154,24 @@ export default function NavSettingsPage() {
 
       {/* 안내 배너 */}
       <div className="px-4 pb-3">
-        <div className="bg-amber-50 border border-amber-100 rounded-xl px-4 py-3 text-xs text-amber-700">
+        <div className="bg-state-warning-bg border border-amber-100 rounded-xl px-4 py-3 text-xs text-state-warning">
           <strong>최대 {MAX_QUICK}개</strong>를 선택하세요. 선택된 항목이 하단 탭에 표시됩니다.
           현재 <strong>{selected.length}/{MAX_QUICK}개</strong> 선택됨.
         </div>
       </div>
 
       {loading ? (
-        <div className="flex items-center justify-center py-20 text-gray-400 text-sm">로딩 중...</div>
+        <div className="flex items-center justify-center py-20 text-text-tertiary text-sm">로딩 중...</div>
       ) : (
         <div className="flex-1 overflow-y-auto px-4 pb-4">
           {/* 선택된 퀵탭 순서 표시 */}
-          <div className="bg-white rounded-xl border border-gray-100 shadow-sm mb-4">
-            <div className="px-4 py-3 border-b border-gray-50">
-              <h2 className="text-sm font-bold text-gray-900">현재 퀵탭 순서</h2>
+          <div className="bg-surface rounded-xl border border-border-subtle shadow-soft mb-4">
+            <div className="px-4 py-3 border-b border-border-subtle">
+              <h2 className="text-sm font-bold text-text-primary">현재 퀵탭 순서</h2>
             </div>
             <div className="p-4 flex gap-2 flex-wrap">
               {selected.length === 0 ? (
-                <p className="text-xs text-gray-400">선택된 메뉴가 없습니다.</p>
+                <p className="text-xs text-text-tertiary">선택된 메뉴가 없습니다.</p>
               ) : (
                 selected.map((href, idx) => {
                   const item = allItems.find(i => i.href === href)
@@ -194,9 +194,9 @@ export default function NavSettingsPage() {
           </div>
 
           {/* 전체 메뉴 목록 */}
-          <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
-            <div className="px-4 py-3 border-b border-gray-50">
-              <h2 className="text-sm font-bold text-gray-900">전체 메뉴 목록</h2>
+          <div className="bg-surface rounded-xl border border-border-subtle shadow-soft overflow-hidden">
+            <div className="px-4 py-3 border-b border-border-subtle">
+              <h2 className="text-sm font-bold text-text-primary">전체 메뉴 목록</h2>
             </div>
             {allItems.map((item, idx) => {
               const isSelected = selected.includes(item.href)
@@ -205,8 +205,8 @@ export default function NavSettingsPage() {
                 <label
                   key={item.href}
                   className={`flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors ${
-                    idx !== allItems.length - 1 ? 'border-b border-gray-50' : ''
-                  } ${isSelected ? 'bg-brand-50' : 'hover:bg-gray-50'}`}
+                    idx !== allItems.length - 1 ? 'border-b border-border-subtle' : ''
+                  } ${isSelected ? 'bg-brand-50' : 'hover:bg-surface-sunken'}`}
                 >
                   <input
                     type="checkbox"
@@ -214,8 +214,8 @@ export default function NavSettingsPage() {
                     onChange={() => toggleItem(item.href)}
                     className="w-4 h-4 rounded accent-brand-600"
                   />
-                  <span className="flex-1 text-sm font-medium text-gray-800">{item.label}</span>
-                  <span className="text-xs text-gray-400">{item.href}</span>
+                  <span className="flex-1 text-sm font-medium text-text-primary">{item.label}</span>
+                  <span className="text-xs text-text-tertiary">{item.href}</span>
                   {isSelected && (
                     <span className="text-xs font-bold text-brand-600 bg-brand-100 w-5 h-5 rounded-full flex items-center justify-center">
                       {order + 1}
