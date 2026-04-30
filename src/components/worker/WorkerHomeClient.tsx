@@ -52,7 +52,7 @@ export function WorkerHomeClient() {
       </div>
 
       {loading ? (
-        <div className="py-12 text-center text-sm text-gray-400">불러오는 중...</div>
+        <div className="py-12 text-center text-sm text-text-tertiary">불러오는 중...</div>
       ) : (
         <WorkerScheduleListClient schedules={schedules} />
       )}
