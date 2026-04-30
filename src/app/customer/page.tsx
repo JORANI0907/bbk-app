@@ -95,7 +95,7 @@ export default async function CustomerHomePage() {
   const eventList = allNotices.filter(n => n.type === 'event').slice(0, 5)
 
   const dday = nextSchedule ? getDday(nextSchedule.scheduled_date) : null
-  const typeColor = customer?.customer_type ? CUSTOMER_TYPE_COLORS[customer.customer_type] : 'bg-gray-100 text-gray-600'
+  const typeColor = customer?.customer_type ? CUSTOMER_TYPE_COLORS[customer.customer_type] : 'bg-surface-sunken text-text-secondary'
 
   return (
     <div className="px-4 py-5 flex flex-col gap-5">

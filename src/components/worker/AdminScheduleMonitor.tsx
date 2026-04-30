@@ -63,7 +63,7 @@ function StepProgressBar({ step }: { step: number }) {
 }
 
 function ScheduleRow({ s }: { s: Schedule }) {
-  const statusColor = SCHEDULE_STATUS_COLORS[s.status as keyof typeof SCHEDULE_STATUS_COLORS] ?? 'bg-gray-100 text-gray-600'
+  const statusColor = SCHEDULE_STATUS_COLORS[s.status as keyof typeof SCHEDULE_STATUS_COLORS] ?? 'bg-surface-sunken text-text-secondary'
   const statusLabel = SCHEDULE_STATUS_LABELS[s.status as keyof typeof SCHEDULE_STATUS_LABELS] ?? s.status
   const stepInfo = s.work_step > 0 ? WORK_STEPS.find((w) => w.step === s.work_step) : null
 

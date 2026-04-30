@@ -19,8 +19,8 @@ export function SatisfactionFormWrapper({ scheduleId }: Props) {
 
   if (submitted) {
     return (
-      <div className="bg-green-50 border border-green-200 rounded-2xl p-5 text-center">
-        <p className="text-green-700 font-semibold">평가해주셔서 감사합니다! 🙏</p>
+      <div className="bg-state-success-bg border border-state-success rounded-2xl p-5 text-center">
+        <p className="text-state-success font-semibold">평가해주셔서 감사합니다! 🙏</p>
       </div>
     )
   }
