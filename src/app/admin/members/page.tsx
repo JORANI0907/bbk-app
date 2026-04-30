@@ -314,45 +314,45 @@ export default function MembersPage() {
   if (isWorker) {
     return (
       <div className="p-6 max-w-md mx-auto">
-        <h1 className="text-2xl font-bold text-gray-900 mb-1">내 계정</h1>
-        <p className="text-sm text-gray-500 mb-6">내 계정 정보를 확인하고 비밀번호를 변경할 수 있습니다.</p>
+        <h1 className="text-2xl font-bold text-text-primary mb-1">내 계정</h1>
+        <p className="text-sm text-text-secondary mb-6">내 계정 정보를 확인하고 비밀번호를 변경할 수 있습니다.</p>
 
         {loading ? (
-          <div className="text-center py-12 text-gray-400 text-sm">불러오는 중...</div>
+          <div className="text-center py-12 text-text-tertiary text-sm">불러오는 중...</div>
         ) : currentUser ? (
           <div className="space-y-4">
             <Card className="p-5">
               <div className="flex items-center gap-4 mb-4">
-                <div className="w-14 h-14 rounded-full bg-blue-100 flex items-center justify-center font-bold text-blue-600 text-xl">
+                <div className="w-14 h-14 rounded-full bg-brand-100 flex items-center justify-center font-bold text-brand-600 text-xl">
                   {currentUser.name[0]}
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <span className="font-bold text-gray-900">{currentUser.name}</span>
+                    <span className="font-bold text-text-primary">{currentUser.name}</span>
                     <Badge variant={ROLE_BADGE[currentUser.role]}>{ROLE_LABELS[currentUser.role]}</Badge>
                   </div>
-                  <p className="text-sm text-gray-500 mt-0.5">{currentUser.phone}</p>
-                  {currentUser.email && <p className="text-xs text-gray-400">{currentUser.email}</p>}
+                  <p className="text-sm text-text-secondary mt-0.5">{currentUser.phone}</p>
+                  {currentUser.email && <p className="text-xs text-text-tertiary">{currentUser.email}</p>}
                 </div>
               </div>
-              <div className="bg-gray-50 rounded-xl p-3 space-y-2">
+              <div className="bg-surface-sunken rounded-xl p-3 space-y-2">
                 <div className="flex justify-between text-sm">
-                  <span className="text-gray-500">이름</span>
-                  <span className="font-medium text-gray-800">{currentUser.name}</span>
+                  <span className="text-text-secondary">이름</span>
+                  <span className="font-medium text-text-primary">{currentUser.name}</span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span className="text-gray-500">전화번호</span>
-                  <span className="font-medium text-gray-800">{currentUser.phone}</span>
+                  <span className="text-text-secondary">전화번호</span>
+                  <span className="font-medium text-text-primary">{currentUser.phone}</span>
                 </div>
                 {currentUser.email && (
                   <div className="flex justify-between text-sm">
-                    <span className="text-gray-500">이메일</span>
-                    <span className="font-medium text-gray-800">{currentUser.email}</span>
+                    <span className="text-text-secondary">이메일</span>
+                    <span className="font-medium text-text-primary">{currentUser.email}</span>
                   </div>
                 )}
                 <div className="flex justify-between text-sm">
-                  <span className="text-gray-500">로그인 계정</span>
-                  <span className={`font-medium ${currentUser.auth_id ? 'text-green-600' : 'text-gray-400'}`}>
+                  <span className="text-text-secondary">로그인 계정</span>
+                  <span className={`font-medium ${currentUser.auth_id ? 'text-state-success' : 'text-text-tertiary'}`}>
                     {currentUser.auth_id ? '활성' : '미설정'}
                   </span>
                 </div>
@@ -360,30 +360,30 @@ export default function MembersPage() {
             </Card>
 
             <Card className="p-5">
-              <h2 className="font-semibold text-gray-900 mb-4">비밀번호 변경</h2>
+              <h2 className="font-semibold text-text-primary mb-4">비밀번호 변경</h2>
               <div className="space-y-3">
                 <div>
-                  <label className="text-xs font-medium text-gray-600 mb-1.5 block">새 비밀번호 (8자 이상)</label>
+                  <label className="text-xs font-medium text-text-secondary mb-1.5 block">새 비밀번호 (8자 이상)</label>
                   <input
                     type="password"
                     value={selfNewPw}
                     onChange={e => setSelfNewPw(e.target.value)}
                     placeholder="새 비밀번호"
-                    className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
                 <div>
-                  <label className="text-xs font-medium text-gray-600 mb-1.5 block">비밀번호 확인</label>
+                  <label className="text-xs font-medium text-text-secondary mb-1.5 block">비밀번호 확인</label>
                   <input
                     type="password"
                     value={selfConfirmPw}
                     onChange={e => setSelfConfirmPw(e.target.value)}
                     placeholder="비밀번호 재입력"
-                    className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
                 {selfNewPw && selfConfirmPw && selfNewPw !== selfConfirmPw && (
-                  <p className="text-xs text-red-500">비밀번호가 일치하지 않습니다.</p>
+                  <p className="text-xs text-state-danger">비밀번호가 일치하지 않습니다.</p>
                 )}
                 <Button onClick={handleSelfPasswordChange} isLoading={selfSaving} className="w-full">
                   비밀번호 변경
@@ -392,7 +392,7 @@ export default function MembersPage() {
             </Card>
           </div>
         ) : (
-          <div className="text-center py-12 text-gray-400 text-sm">계정 정보를 불러올 수 없습니다.</div>
+          <div className="text-center py-12 text-text-tertiary text-sm">계정 정보를 불러올 수 없습니다.</div>
         )}
       </div>
     )
@@ -403,8 +403,8 @@ export default function MembersPage() {
     <div className="p-6 max-w-2xl mx-auto">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">회원 관리</h1>
-          <p className="text-sm text-gray-500 mt-0.5">전체 계정을 등록·수정·삭제하고 비밀번호를 초기화할 수 있습니다</p>
+          <h1 className="text-2xl font-bold text-text-primary">회원 관리</h1>
+          <p className="text-sm text-text-secondary mt-0.5">전체 계정을 등록·수정·삭제하고 비밀번호를 초기화할 수 있습니다</p>
         </div>
         <Button onClick={() => { setShowForm(true); setForm(EMPTY_FORM); setEditingId(null) }}>
           + 등록
@@ -427,9 +427,9 @@ export default function MembersPage() {
                       {user.name[0]}
                     </div>
                     <div>
-                      <p className="font-semibold text-gray-900 text-sm">{user.name}</p>
-                      <p className="text-xs text-gray-500">{user.phone}</p>
-                      {user.email && <p className="text-xs text-gray-400">{user.email}</p>}
+                      <p className="font-semibold text-text-primary text-sm">{user.name}</p>
+                      <p className="text-xs text-text-secondary">{user.phone}</p>
+                      {user.email && <p className="text-xs text-text-tertiary">{user.email}</p>}
                     </div>
                   </div>
                   <div className="flex gap-2">
@@ -443,7 +443,7 @@ export default function MembersPage() {
                     <button
                       onClick={() => handleRejectSignup(user)}
                       disabled={deletingId === user.id}
-                      className="px-3 py-1.5 text-xs text-red-600 border border-red-200 rounded-lg hover:bg-red-50 disabled:opacity-40 font-medium"
+                      className="px-3 py-1.5 text-xs text-state-danger border border-red-200 rounded-lg hover:bg-state-danger-bg disabled:opacity-40 font-medium"
                     >
                       거절
                     </button>
@@ -462,7 +462,7 @@ export default function MembersPage() {
             key={r}
             onClick={() => setFilterRole(r)}
             className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
-              filterRole === r ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600'
+              filterRole === r ? 'bg-brand-600 text-white' : 'bg-surface-sunken text-text-secondary'
             }`}
           >
             {r === 'all' ? `전체 (${users.length})` : `${ROLE_LABELS[r]} (${users.filter(u => u.role === r).length})`}
@@ -472,15 +472,15 @@ export default function MembersPage() {
 
       {/* 등록/수정 폼 */}
       {showForm && (
-        <Card className="p-5 mb-4 border-blue-200 bg-blue-50">
-          <h2 className="font-semibold text-gray-900 mb-4">
+        <Card className="p-5 mb-4 border-brand-200 bg-brand-50">
+          <h2 className="font-semibold text-text-primary mb-4">
             {editingId ? '회원 수정' : '새 회원 등록'}
           </h2>
           <div className="space-y-3">
 
             {/* 역할 선택 */}
             <div>
-              <label className="text-xs font-medium text-gray-600 mb-1.5 block">역할</label>
+              <label className="text-xs font-medium text-text-secondary mb-1.5 block">역할</label>
               <div className="flex gap-2">
                 {(['admin', 'worker', 'customer'] as UserRole[]).map(r => (
                   <button
@@ -492,8 +492,8 @@ export default function MembersPage() {
                     }}
                     className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${
                       form.role === r
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-white text-gray-600 border border-gray-200'
+                        ? 'bg-brand-600 text-white'
+                        : 'bg-surface text-text-secondary border border-border'
                     }`}
                   >
                     {ROLE_LABELS[r]}
@@ -506,9 +506,9 @@ export default function MembersPage() {
             {form.role === 'customer' && !editingId ? (
               <>
                 <div className="relative">
-                  <label className="text-xs font-medium text-gray-600 mb-1.5 block">
+                  <label className="text-xs font-medium text-text-secondary mb-1.5 block">
                     고객 검색 *
-                    <span className="text-gray-400 font-normal ml-1">— 업체명, 담당자명, 전화번호</span>
+                    <span className="text-text-tertiary font-normal ml-1">— 업체명, 담당자명, 전화번호</span>
                   </label>
                   <input
                     ref={customerInputRef}
@@ -518,12 +518,12 @@ export default function MembersPage() {
                     onFocus={() => setShowCustomerDropdown(true)}
                     onBlur={() => setTimeout(() => setShowCustomerDropdown(false), 150)}
                     placeholder="예: 스타벅스, 홍길동, 01012345678"
-                    className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                    className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-surface"
                   />
                   {showCustomerDropdown && (
-                    <div className="absolute z-20 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-56 overflow-y-auto">
+                    <div className="absolute z-20 mt-1 w-full bg-surface border border-border rounded-lg shadow-pop max-h-56 overflow-y-auto">
                       {filteredCustomers.length === 0 ? (
-                        <p className="px-3 py-3 text-xs text-gray-400 text-center">
+                        <p className="px-3 py-3 text-xs text-text-tertiary text-center">
                           {customers.length === 0 ? '고객 목록 불러오는 중...' : '검색 결과 없음'}
                         </p>
                       ) : filteredCustomers.map(c => (
@@ -543,14 +543,14 @@ export default function MembersPage() {
                             setCustomerSearch(c.business_name)
                             setShowCustomerDropdown(false)
                           }}
-                          className="w-full text-left px-3 py-2.5 hover:bg-blue-50 text-sm border-b border-gray-100 last:border-0"
+                          className="w-full text-left px-3 py-2.5 hover:bg-brand-50 text-sm border-b border-border-subtle last:border-0"
                         >
-                          <span className="font-medium text-gray-900">{c.business_name}</span>
+                          <span className="font-medium text-text-primary">{c.business_name}</span>
                           {c.contact_name && (
-                            <span className="text-gray-500 ml-2 text-xs">{c.contact_name}</span>
+                            <span className="text-text-secondary ml-2 text-xs">{c.contact_name}</span>
                           )}
                           {c.contact_phone && (
-                            <span className="text-gray-400 ml-2 text-xs">{c.contact_phone}</span>
+                            <span className="text-text-tertiary ml-2 text-xs">{c.contact_phone}</span>
                           )}
                         </button>
                       ))}
@@ -560,26 +560,26 @@ export default function MembersPage() {
 
                 {/* 선택된 고객 정보 */}
                 {form.phone && (
-                  <div className="bg-white border border-gray-200 rounded-lg p-3 space-y-1.5 text-xs">
-                    <p className="text-xs font-semibold text-gray-600 mb-1">선택된 고객 정보</p>
+                  <div className="bg-surface border border-border rounded-lg p-3 space-y-1.5 text-xs">
+                    <p className="text-xs font-semibold text-text-secondary mb-1">선택된 고객 정보</p>
                     <div className="flex justify-between">
-                      <span className="text-gray-500">이름</span>
-                      <span className="font-medium text-gray-800">{form.name}</span>
+                      <span className="text-text-secondary">이름</span>
+                      <span className="font-medium text-text-primary">{form.name}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-gray-500">전화번호</span>
-                      <span className="font-medium text-gray-800">{form.phone}</span>
+                      <span className="text-text-secondary">전화번호</span>
+                      <span className="font-medium text-text-primary">{form.phone}</span>
                     </div>
                     {form.business_number && (
                       <div className="flex justify-between">
-                        <span className="text-gray-500">사업자등록번호</span>
-                        <span className="font-medium text-gray-800">{form.business_number}</span>
+                        <span className="text-text-secondary">사업자등록번호</span>
+                        <span className="font-medium text-text-primary">{form.business_number}</span>
                       </div>
                     )}
                     {form.email && (
                       <div className="flex justify-between">
-                        <span className="text-gray-500">이메일</span>
-                        <span className="font-medium text-gray-800">{form.email}</span>
+                        <span className="text-text-secondary">이메일</span>
+                        <span className="font-medium text-text-primary">{form.email}</span>
                       </div>
                     )}
                   </div>
@@ -599,35 +599,35 @@ export default function MembersPage() {
               /* 관리자/직원 역할 또는 편집 모드: 수동 입력 */
               <>
                 <div>
-                  <label className="text-xs font-medium text-gray-600 mb-1.5 block">이름 *</label>
+                  <label className="text-xs font-medium text-text-secondary mb-1.5 block">이름 *</label>
                   <input
                     type="text"
                     value={form.name}
                     onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
                     placeholder="홍길동"
-                    className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                    className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-surface"
                   />
                 </div>
 
                 <div>
-                  <label className="text-xs font-medium text-gray-600 mb-1.5 block">전화번호 *</label>
+                  <label className="text-xs font-medium text-text-secondary mb-1.5 block">전화번호 *</label>
                   <input
                     type="tel"
                     value={form.phone}
                     onChange={e => setForm(f => ({ ...f, phone: e.target.value }))}
                     placeholder="01012345678"
-                    className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                    className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-surface"
                   />
                 </div>
 
                 <div>
-                  <label className="text-xs font-medium text-gray-600 mb-1.5 block">이메일 (선택)</label>
+                  <label className="text-xs font-medium text-text-secondary mb-1.5 block">이메일 (선택)</label>
                   <input
                     type="email"
                     value={form.email}
                     onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
                     placeholder="example@email.com"
-                    className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                    className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-surface"
                   />
                 </div>
               </>
@@ -635,19 +635,19 @@ export default function MembersPage() {
 
             {/* 자동 생성 로그인 정보 미리보기 */}
             {showCredentials && normalizedFormPhone.length >= 10 && !existingCustomerUser && (
-              <div className="bg-green-50 border border-green-200 rounded-lg p-3 space-y-1.5">
-                <p className="text-xs font-semibold text-green-700 mb-1">자동 생성 로그인 정보</p>
+              <div className="bg-state-success-bg border border-green-200 rounded-lg p-3 space-y-1.5">
+                <p className="text-xs font-semibold text-state-success mb-1">자동 생성 로그인 정보</p>
                 <div className="flex justify-between text-xs">
-                  <span className="text-gray-500">아이디</span>
-                  <span className="font-mono font-medium text-gray-800 text-[11px]">
+                  <span className="text-text-secondary">아이디</span>
+                  <span className="font-mono font-medium text-text-primary text-[11px]">
                     {form.role === 'customer'
                       ? normalizedFormPhone
                       : `${normalizedFormPhone}@bbkorea.co.kr`}
                   </span>
                 </div>
                 <div className="flex justify-between text-xs">
-                  <span className="text-gray-500">초기 비밀번호</span>
-                  <span className="font-mono font-medium text-gray-800">
+                  <span className="text-text-secondary">초기 비밀번호</span>
+                  <span className="font-mono font-medium text-text-primary">
                     {form.role === 'customer'
                       ? (form.business_number || normalizedFormPhone)
                       : normalizedFormPhone}
@@ -677,10 +677,10 @@ export default function MembersPage() {
       {pwModal && (
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center px-4">
           <Card className="p-6 w-full max-w-sm">
-            <h3 className="font-bold text-gray-900 mb-1">
+            <h3 className="font-bold text-text-primary mb-1">
               {pwModal.hasAuth ? '비밀번호 변경' : '비밀번호 설정'}
             </h3>
-            <p className="text-sm text-gray-500 mb-4">
+            <p className="text-sm text-text-secondary mb-4">
               {pwModal.hasAuth
                 ? `${pwModal.name} 계정의 비밀번호를 변경합니다.`
                 : `${pwModal.name} 계정에 로그인 비밀번호를 새로 설정합니다.`}
@@ -690,7 +690,7 @@ export default function MembersPage() {
               value={newPassword}
               onChange={e => setNewPassword(e.target.value)}
               placeholder="새 비밀번호 (8자 이상)"
-              className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 mb-3"
+              className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 mb-3"
               onKeyDown={e => e.key === 'Enter' && handleResetPassword()}
             />
             <div className="flex gap-2">
@@ -707,9 +707,9 @@ export default function MembersPage() {
 
       {/* 사용자 목록 */}
       {loading ? (
-        <div className="text-center py-12 text-gray-400">불러오는 중...</div>
+        <div className="text-center py-12 text-text-tertiary">불러오는 중...</div>
       ) : filtered.length === 0 ? (
-        <div className="text-center py-12 text-gray-400">
+        <div className="text-center py-12 text-text-tertiary">
           <p className="text-lg mb-2">등록된 회원이 없습니다</p>
           <p className="text-sm">+ 등록 버튼으로 추가하세요</p>
         </div>
@@ -719,18 +719,18 @@ export default function MembersPage() {
             <Card key={user.id} className="p-4">
               <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-3 min-w-0">
-                  <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center font-semibold text-blue-600 text-sm shrink-0">
+                  <div className="w-10 h-10 rounded-full bg-brand-100 flex items-center justify-center font-semibold text-brand-600 text-sm shrink-0">
                     {user.name[0]}
                   </div>
                   <div className="min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-semibold text-gray-900 text-sm">{user.name}</span>
+                      <span className="font-semibold text-text-primary text-sm">{user.name}</span>
                       <Badge variant={ROLE_BADGE[user.role]}>{ROLE_LABELS[user.role]}</Badge>
                       {!user.is_active && <Badge variant="default">비활성</Badge>}
-                      <span className={`text-xs ${user.auth_id ? 'text-green-500' : 'text-gray-300'}`} title={user.auth_id ? '로그인 계정 있음' : '로그인 계정 없음'}>●</span>
+                      <span className={`text-xs ${user.auth_id ? 'text-state-success' : 'text-text-tertiary'}`} title={user.auth_id ? '로그인 계정 있음' : '로그인 계정 없음'}>●</span>
                     </div>
-                    <p className="text-xs text-gray-500 mt-0.5">{user.phone}</p>
-                    {user.email && <p className="text-xs text-gray-400">{user.email}</p>}
+                    <p className="text-xs text-text-secondary mt-0.5">{user.phone}</p>
+                    {user.email && <p className="text-xs text-text-tertiary">{user.email}</p>}
                   </div>
                 </div>
                 <div className="flex items-center gap-1 shrink-0 flex-wrap justify-end">
@@ -745,13 +745,13 @@ export default function MembersPage() {
                   )}
                   <button
                     onClick={() => handleEdit(user)}
-                    className="px-2.5 py-1 text-xs text-gray-500 hover:bg-gray-100 rounded-lg"
+                    className="px-2.5 py-1 text-xs text-text-secondary hover:bg-surface-sunken rounded-lg"
                   >
                     수정
                   </button>
                   <button
                     onClick={() => { setPwModal({ id: user.id, name: user.name, hasAuth: !!user.auth_id }); setNewPassword('') }}
-                    className="px-2.5 py-1 text-xs text-blue-500 hover:bg-blue-50 rounded-lg"
+                    className="px-2.5 py-1 text-xs text-brand-500 hover:bg-brand-50 rounded-lg"
                   >
                     {user.auth_id ? 'PW 변경' : 'PW 설정'}
                   </button>
@@ -760,7 +760,7 @@ export default function MembersPage() {
                     className={`px-2.5 py-1 text-xs rounded-lg ${
                       user.is_active
                         ? 'text-orange-500 hover:bg-orange-50'
-                        : 'text-green-600 hover:bg-green-50'
+                        : 'text-state-success hover:bg-state-success-bg'
                     }`}
                   >
                     {user.is_active ? '비활성화' : '활성화'}
@@ -768,7 +768,7 @@ export default function MembersPage() {
                   <button
                     onClick={() => handleDelete(user)}
                     disabled={deletingId === user.id}
-                    className="px-2.5 py-1 text-xs text-red-500 hover:bg-red-50 rounded-lg disabled:opacity-40"
+                    className="px-2.5 py-1 text-xs text-state-danger hover:bg-state-danger-bg rounded-lg disabled:opacity-40"
                   >
                     삭제
                   </button>
