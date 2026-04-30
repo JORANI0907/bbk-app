@@ -168,8 +168,8 @@ function CameraCapture({ onCapture, onCancel }: CameraProps) {
     return (
       <div className="flex flex-col items-center gap-4 py-8">
         <div className="text-4xl">📷</div>
-        <p className="text-sm text-red-500">{cameraError}</p>
-        <button onClick={onCancel} className="px-4 py-2 bg-gray-100 text-gray-700 rounded-xl text-sm font-medium">
+        <p className="text-sm text-state-danger">{cameraError}</p>
+        <button onClick={onCancel} className="px-4 py-2 bg-surface-sunken text-text-primary rounded-xl text-sm font-medium">
           취소
         </button>
       </div>
@@ -480,7 +480,7 @@ function WorkerClockView({ workerInfo }: WorkerClockViewProps) {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64 text-gray-400 text-sm">불러오는 중...</div>
+      <div className="flex items-center justify-center h-64 text-text-tertiary text-sm">불러오는 중...</div>
     )
   }
 
@@ -491,32 +491,32 @@ function WorkerClockView({ workerInfo }: WorkerClockViewProps) {
   if (phase === 'confirm') {
     return (
       <div className="max-w-sm mx-auto px-4 pt-8">
-        <div className="bg-gray-50 border border-gray-200 rounded-2xl p-6 flex flex-col gap-4">
+        <div className="bg-surface-sunken border border-border rounded-2xl p-6 flex flex-col gap-4">
           <div>
-            <p className="text-sm font-semibold text-gray-800">
+            <p className="text-sm font-semibold text-text-primary">
               {flow === 'clock_in' ? '🟢 출근 처리하시겠습니까?' : '🔴 퇴근 처리하시겠습니까?'}
             </p>
-            <p className="text-xs text-gray-400 mt-1">
+            <p className="text-xs text-text-tertiary mt-1">
               {new Date(selectedDate + 'T12:00:00').toLocaleDateString('ko-KR', {
                 year: 'numeric', month: 'long', day: 'numeric', weekday: 'short',
               })}
             </p>
             {flow === 'clock_out' && selectedRecord?.clock_in && (
-              <p className="text-xs text-gray-400 mt-0.5">출근 {formatTime(selectedRecord.clock_in)}</p>
+              <p className="text-xs text-text-tertiary mt-0.5">출근 {formatTime(selectedRecord.clock_in)}</p>
             )}
           </div>
           <div className="flex gap-2">
             <button
               onClick={() => setPhase('camera')}
               className={`flex-1 py-3 text-sm font-bold rounded-xl ${
-                flow === 'clock_in' ? 'bg-blue-600 text-white' : 'bg-gray-800 text-white'
+                flow === 'clock_in' ? 'bg-brand-600 text-white' : 'bg-gray-800 text-white'
               }`}
             >
               {flow === 'clock_in' ? '출근 확정' : '퇴근 확정'}
             </button>
             <button
               onClick={cancelFlow}
-              className="flex-1 py-3 bg-white border border-gray-200 text-gray-600 text-sm font-semibold rounded-xl"
+              className="flex-1 py-3 bg-surface border border-border text-text-secondary text-sm font-semibold rounded-xl"
             >
               취소
             </button>
@@ -537,8 +537,8 @@ function WorkerClockView({ workerInfo }: WorkerClockViewProps) {
   if (phase === 'locating' || phase === 'submitting') {
     return (
       <div className="flex flex-col items-center justify-center h-64 gap-3">
-        <div className="w-12 h-12 rounded-full border-4 border-blue-500 border-t-transparent animate-spin" />
-        <p className="text-sm text-gray-500 font-medium">
+        <div className="w-12 h-12 rounded-full border-4 border-brand-500 border-t-transparent animate-spin" />
+        <p className="text-sm text-text-secondary font-medium">
           {phase === 'locating' ? '위치 확인 중...' : '기록 저장 중...'}
         </p>
       </div>
@@ -549,8 +549,8 @@ function WorkerClockView({ workerInfo }: WorkerClockViewProps) {
   if (phase === 'done') {
     return (
       <div className="flex flex-col items-center justify-center h-64 gap-3">
-        <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center text-3xl">✓</div>
-        <p className="text-sm text-green-600 font-semibold">완료!</p>
+        <div className="w-16 h-16 bg-state-success-bg rounded-full flex items-center justify-center text-3xl">✓</div>
+        <p className="text-sm text-state-success font-semibold">완료!</p>
       </div>
     )
   }
@@ -561,8 +561,8 @@ function WorkerClockView({ workerInfo }: WorkerClockViewProps) {
       <div className="max-w-sm mx-auto px-4 pt-8">
         <div className="bg-red-50 border border-red-200 rounded-2xl p-6 flex flex-col gap-4">
           <div>
-            <p className="text-sm font-semibold text-gray-800">출근 기록을 취소하시겠습니까?</p>
-            <p className="text-xs text-gray-500 mt-1">
+            <p className="text-sm font-semibold text-text-primary">출근 기록을 취소하시겠습니까?</p>
+            <p className="text-xs text-text-secondary mt-1">
               {new Date(selectedDate + 'T12:00:00').toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'short' })} 출근 기록이 삭제됩니다.
             </p>
           </div>
@@ -575,7 +575,7 @@ function WorkerClockView({ workerInfo }: WorkerClockViewProps) {
             </button>
             <button
               onClick={() => setPhase('idle')}
-              className="flex-1 py-3 bg-white border border-gray-200 text-gray-600 text-sm font-semibold rounded-xl"
+              className="flex-1 py-3 bg-surface border border-border text-text-secondary text-sm font-semibold rounded-xl"
             >
               닫기
             </button>
@@ -591,8 +591,8 @@ function WorkerClockView({ workerInfo }: WorkerClockViewProps) {
       <div className="max-w-sm mx-auto px-4 pt-8">
         <div className="bg-red-50 border border-red-200 rounded-2xl p-6 flex flex-col gap-4">
           <div>
-            <p className="text-sm font-semibold text-gray-800">퇴근 기록을 취소하시겠습니까?</p>
-            <p className="text-xs text-gray-500 mt-1">
+            <p className="text-sm font-semibold text-text-primary">퇴근 기록을 취소하시겠습니까?</p>
+            <p className="text-xs text-text-secondary mt-1">
               퇴근 기록만 삭제됩니다. 출근 기록({formatTime(selectedRecord?.clock_in ?? null)})은 유지됩니다.
             </p>
           </div>
@@ -605,7 +605,7 @@ function WorkerClockView({ workerInfo }: WorkerClockViewProps) {
             </button>
             <button
               onClick={() => setPhase('idle')}
-              className="flex-1 py-3 bg-white border border-gray-200 text-gray-600 text-sm font-semibold rounded-xl"
+              className="flex-1 py-3 bg-surface border border-border text-text-secondary text-sm font-semibold rounded-xl"
             >
               닫기
             </button>
@@ -620,37 +620,37 @@ function WorkerClockView({ workerInfo }: WorkerClockViewProps) {
     <div className="px-4 pb-6 flex flex-col gap-5">
       {/* 헤더 */}
       <div className="text-center pt-2">
-        <p className="text-xs text-gray-400 font-medium">
+        <p className="text-xs text-text-tertiary font-medium">
           {new Date().toLocaleDateString('ko-KR', {
             timeZone: 'Asia/Seoul', year: 'numeric', month: 'long', day: 'numeric', weekday: 'long',
           })}
         </p>
-        <p className="text-2xl font-black text-gray-900 mt-1">{workerInfo.name}</p>
+        <p className="text-2xl font-black text-text-primary mt-1">{workerInfo.name}</p>
       </div>
 
       {/* 날짜 선택 */}
-      <div className="bg-white rounded-2xl border border-gray-100 p-4">
-        <label className="block text-xs text-gray-400 mb-1.5">근무 날짜 선택</label>
+      <div className="bg-surface rounded-2xl border border-border-subtle p-4">
+        <label className="block text-xs text-text-tertiary mb-1.5">근무 날짜 선택</label>
         <input
           type="date"
           value={selectedDate}
           max={kstToday}
           onChange={(e) => { setSelectedDate(e.target.value); setPhase('idle') }}
-          className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="w-full px-3 py-2.5 border border-border rounded-xl text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
-        <p className="text-xs text-gray-400 mt-1.5">
+        <p className="text-xs text-text-tertiary mt-1.5">
           야간 근무(22시~익일 06시)의 경우 실제 출근한 날짜를 선택해 주세요
         </p>
       </div>
 
       {/* 상태 카드 */}
       {!isClockedIn && (
-        <div className="bg-gray-50 rounded-2xl p-6 flex flex-col items-center gap-4">
-          <div className="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center text-4xl">🏢</div>
-          <p className="text-sm text-gray-500 text-center">출근 기록이 없습니다.<br />출근 버튼을 눌러 출근하세요.</p>
+        <div className="bg-surface-sunken rounded-2xl p-6 flex flex-col items-center gap-4">
+          <div className="w-20 h-20 bg-brand-100 rounded-full flex items-center justify-center text-4xl">🏢</div>
+          <p className="text-sm text-text-secondary text-center">출근 기록이 없습니다.<br />출근 버튼을 눌러 출근하세요.</p>
           <button
             onClick={() => startFlow('clock_in')}
-            className="w-full py-4 bg-blue-600 text-white rounded-2xl text-base font-bold active:scale-95 transition-all shadow-lg shadow-blue-100"
+            className="w-full py-4 bg-brand-600 text-white rounded-2xl text-base font-bold active:scale-95 transition-all shadow-lg shadow-blue-100"
           >
             🟢 출근하기
           </button>
@@ -658,15 +658,15 @@ function WorkerClockView({ workerInfo }: WorkerClockViewProps) {
       )}
 
       {isClockedIn && !isClockedOut && (
-        <div className="bg-gray-50 rounded-2xl p-6 flex flex-col items-center gap-4">
-          <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center text-4xl">✅</div>
+        <div className="bg-surface-sunken rounded-2xl p-6 flex flex-col items-center gap-4">
+          <div className="w-20 h-20 bg-state-success-bg rounded-full flex items-center justify-center text-4xl">✅</div>
           <div className="text-center">
-            <p className="text-xs text-gray-400 mb-1">출근 시각</p>
-            <p className="text-lg font-bold text-gray-800">{formatTime(selectedRecord!.clock_in)}</p>
+            <p className="text-xs text-text-tertiary mb-1">출근 시각</p>
+            <p className="text-lg font-bold text-text-primary">{formatTime(selectedRecord!.clock_in)}</p>
           </div>
-          <div className="bg-white border border-gray-200 rounded-xl px-6 py-3 text-center">
-            <p className="text-xs text-gray-400 mb-0.5">근무 경과</p>
-            <p className="text-2xl font-mono font-bold text-blue-600">{formatElapsed(elapsed)}</p>
+          <div className="bg-surface border border-border rounded-xl px-6 py-3 text-center">
+            <p className="text-xs text-text-tertiary mb-0.5">근무 경과</p>
+            <p className="text-2xl font-mono font-bold text-brand-600">{formatElapsed(elapsed)}</p>
           </div>
           <button
             onClick={() => startFlow('clock_out')}
@@ -684,20 +684,20 @@ function WorkerClockView({ workerInfo }: WorkerClockViewProps) {
       )}
 
       {isClockedIn && isClockedOut && (
-        <div className="bg-gray-50 rounded-2xl p-6 flex flex-col items-center gap-4">
+        <div className="bg-surface-sunken rounded-2xl p-6 flex flex-col items-center gap-4">
           <div className="w-20 h-20 bg-purple-100 rounded-full flex items-center justify-center text-4xl">🌙</div>
-          <p className="text-sm font-semibold text-gray-700">출퇴근 완료</p>
+          <p className="text-sm font-semibold text-text-primary">출퇴근 완료</p>
           <div className="w-full flex gap-3">
-            <div className="flex-1 bg-white border border-gray-200 rounded-xl p-3 text-center">
-              <p className="text-[10px] text-gray-400 mb-1">출근</p>
-              <p className="text-sm font-bold text-gray-800">{formatTime(selectedRecord!.clock_in)}</p>
+            <div className="flex-1 bg-surface border border-border rounded-xl p-3 text-center">
+              <p className="text-[10px] text-text-tertiary mb-1">출근</p>
+              <p className="text-sm font-bold text-text-primary">{formatTime(selectedRecord!.clock_in)}</p>
             </div>
-            <div className="flex-1 bg-white border border-gray-200 rounded-xl p-3 text-center">
-              <p className="text-[10px] text-gray-400 mb-1">퇴근</p>
-              <p className="text-sm font-bold text-gray-800">{formatTime(selectedRecord!.clock_out)}</p>
+            <div className="flex-1 bg-surface border border-border rounded-xl p-3 text-center">
+              <p className="text-[10px] text-text-tertiary mb-1">퇴근</p>
+              <p className="text-sm font-bold text-text-primary">{formatTime(selectedRecord!.clock_out)}</p>
             </div>
           </div>
-          <p className="text-xs text-gray-400">
+          <p className="text-xs text-text-tertiary">
             근무 시간 {formatDuration(selectedRecord!.clock_in, selectedRecord!.clock_out)}
           </p>
           <button
@@ -711,11 +711,11 @@ function WorkerClockView({ workerInfo }: WorkerClockViewProps) {
 
       {/* 이번 달 출퇴근 내역 */}
       {monthRecords.length > 0 && (
-        <div className="bg-white rounded-2xl border border-gray-100 p-4">
-          <h2 className="text-sm font-semibold text-gray-600 mb-3">
+        <div className="bg-surface rounded-2xl border border-border-subtle p-4">
+          <h2 className="text-sm font-semibold text-text-secondary mb-3">
             {new Date().toLocaleDateString('ko-KR', { timeZone: 'Asia/Seoul', year: 'numeric', month: 'long' })} 출퇴근 내역
           </h2>
-          <div className="flex flex-col divide-y divide-gray-50">
+          <div className="flex flex-col divide-y divide-border-subtle">
             {monthRecords.map((record) => {
               const d = new Date(record.work_date + 'T12:00:00')
               const dayLabel = ['일', '월', '화', '수', '목', '금', '토'][d.getDay()]
@@ -724,23 +724,23 @@ function WorkerClockView({ workerInfo }: WorkerClockViewProps) {
                 <div key={record.id} className="py-2.5">
                   <div className="flex items-center gap-3">
                     <div className="w-14 shrink-0">
-                      <p className="text-sm font-bold text-gray-800">{d.getMonth() + 1}월 {d.getDate()}일</p>
-                      <p className="text-xs text-gray-400">{dayLabel}</p>
+                      <p className="text-sm font-bold text-text-primary">{d.getMonth() + 1}월 {d.getDate()}일</p>
+                      <p className="text-xs text-text-tertiary">{dayLabel}</p>
                     </div>
                     <div className="flex-1 flex gap-3 text-xs">
                       <div>
-                        <span className="text-gray-400">출근 </span>
-                        <span className="font-semibold text-blue-600">{formatTime(record.clock_in)}</span>
+                        <span className="text-text-tertiary">출근 </span>
+                        <span className="font-semibold text-brand-600">{formatTime(record.clock_in)}</span>
                       </div>
                       <div>
-                        <span className="text-gray-400">퇴근 </span>
-                        <span className={`font-semibold ${done ? 'text-gray-700' : 'text-gray-300'}`}>
+                        <span className="text-text-tertiary">퇴근 </span>
+                        <span className={`font-semibold ${done ? 'text-text-primary' : 'text-text-tertiary'}`}>
                           {formatTime(record.clock_out)}
                         </span>
                       </div>
                     </div>
                     {done ? (
-                      <span className="text-xs text-green-500 font-medium">완료</span>
+                      <span className="text-xs text-state-success font-medium">완료</span>
                     ) : (
                       <button
                         onClick={() => {
@@ -890,15 +890,15 @@ function AdminTableView() {
   return (
     <div>
       {/* Drive 사진 저장 위치 설정 */}
-      <div className="bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 mb-4 flex flex-wrap items-center gap-3">
-        <span className="text-sm font-semibold text-blue-700 shrink-0">📁 사진 저장 위치</span>
+      <div className="bg-brand-50 border border-brand-200 rounded-xl px-4 py-3 mb-4 flex flex-wrap items-center gap-3">
+        <span className="text-sm font-semibold text-brand-700 shrink-0">📁 사진 저장 위치</span>
         {driveFolderName ? (
-          <div className="flex items-center gap-2 bg-white border border-blue-200 rounded-lg px-3 py-1.5 flex-1 min-w-[160px]">
+          <div className="flex items-center gap-2 bg-surface border border-brand-200 rounded-lg px-3 py-1.5 flex-1 min-w-[160px]">
             <span className="text-base shrink-0">📂</span>
-            <span className="text-xs text-blue-700 font-medium truncate">{driveFolderName}</span>
+            <span className="text-xs text-brand-700 font-medium truncate">{driveFolderName}</span>
           </div>
         ) : (
-          <span className="text-xs text-gray-400 flex-1">저장 위치가 설정되지 않았습니다.</span>
+          <span className="text-xs text-text-tertiary flex-1">저장 위치가 설정되지 않았습니다.</span>
         )}
         <button
           onClick={handlePickDriveFolder}
@@ -915,7 +915,7 @@ function AdminTableView() {
           <a
             href={`https://drive.google.com/drive/folders/${driveFolderId}`}
             target="_blank" rel="noopener noreferrer"
-            className="text-xs text-blue-600 hover:underline shrink-0"
+            className="text-xs text-brand-600 hover:underline shrink-0"
           >
             열기 →
           </a>
@@ -929,7 +929,7 @@ function AdminTableView() {
         <select
           value={selectedWorkerId}
           onChange={e => setSelectedWorkerId(e.target.value)}
-          className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ml-auto"
+          className="border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ml-auto"
         >
           <option value="">전체 직원</option>
           {workers.map(w => (
@@ -939,22 +939,22 @@ function AdminTableView() {
       </div>
 
       {/* Table */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+      <div className="bg-surface rounded-xl shadow-soft border border-border-subtle overflow-hidden">
         {loading ? (
-          <div className="flex items-center justify-center h-40 text-gray-400 text-sm">불러오는 중...</div>
+          <div className="flex items-center justify-center h-40 text-text-tertiary text-sm">불러오는 중...</div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="bg-gray-50 border-b border-gray-100">
-                  <th className="text-left px-3 py-3 font-medium text-gray-600 whitespace-nowrap min-w-[110px]">날짜</th>
+                <tr className="bg-surface-sunken border-b border-border-subtle">
+                  <th className="text-left px-3 py-3 font-medium text-text-secondary whitespace-nowrap min-w-[110px]">날짜</th>
                   {showNameColumn && (
-                    <th className="text-left px-3 py-3 font-medium text-gray-600 whitespace-nowrap min-w-[72px]">이름</th>
+                    <th className="text-left px-3 py-3 font-medium text-text-secondary whitespace-nowrap min-w-[72px]">이름</th>
                   )}
-                  <th className="text-left px-3 py-3 font-medium text-gray-600 whitespace-nowrap min-w-[100px]">출근</th>
-                  <th className="text-left px-3 py-3 font-medium text-gray-600 whitespace-nowrap min-w-[100px]">퇴근</th>
-                  <th className="text-left px-3 py-3 font-medium text-gray-600 whitespace-nowrap min-w-[90px]">근무시간</th>
-                  <th className="text-left px-3 py-3 font-medium text-gray-600 min-w-[140px]">메모</th>
+                  <th className="text-left px-3 py-3 font-medium text-text-secondary whitespace-nowrap min-w-[100px]">출근</th>
+                  <th className="text-left px-3 py-3 font-medium text-text-secondary whitespace-nowrap min-w-[100px]">퇴근</th>
+                  <th className="text-left px-3 py-3 font-medium text-text-secondary whitespace-nowrap min-w-[90px]">근무시간</th>
+                  <th className="text-left px-3 py-3 font-medium text-text-secondary min-w-[140px]">메모</th>
                 </tr>
               </thead>
               <tbody>
@@ -969,33 +969,33 @@ function AdminTableView() {
 
                   if (dayRecs.length === 0) {
                     return (
-                      <tr key={dateStr} className={`border-b border-gray-50 ${isWeekend ? 'bg-red-50/30' : ''}`}>
-                        <td className={`px-3 py-2.5 font-medium text-sm whitespace-nowrap ${weekday === 0 ? 'text-red-500' : weekday === 6 ? 'text-blue-500' : 'text-gray-700'}`}>
+                      <tr key={dateStr} className={`border-b border-border-subtle ${isWeekend ? 'bg-red-50/30' : ''}`}>
+                        <td className={`px-3 py-2.5 font-medium text-sm whitespace-nowrap ${weekday === 0 ? 'text-red-500' : weekday === 6 ? 'text-brand-500' : 'text-text-primary'}`}>
                           {i + 1}일({dayLabel})
-                          {isToday && <span className="ml-1 text-[10px] bg-blue-600 text-white px-1 py-0.5 rounded-full">오늘</span>}
+                          {isToday && <span className="ml-1 text-[10px] bg-brand-600 text-white px-1 py-0.5 rounded-full">오늘</span>}
                         </td>
-                        {showNameColumn && <td className="px-3 py-2.5 text-gray-200">-</td>}
-                        <td className="px-3 py-2.5 text-gray-200">-</td>
-                        <td className="px-3 py-2.5 text-gray-200">-</td>
-                        <td className="px-3 py-2.5 text-gray-200">-</td>
-                        <td className="px-3 py-2.5 text-gray-200">-</td>
+                        {showNameColumn && <td className="px-3 py-2.5 text-text-tertiary">-</td>}
+                        <td className="px-3 py-2.5 text-text-tertiary">-</td>
+                        <td className="px-3 py-2.5 text-text-tertiary">-</td>
+                        <td className="px-3 py-2.5 text-text-tertiary">-</td>
+                        <td className="px-3 py-2.5 text-text-tertiary">-</td>
                       </tr>
                     )
                   }
 
                   return dayRecs.map((rec, idx) => (
-                    <tr key={rec.id} className={`border-b border-gray-50 ${isWeekend ? 'bg-red-50/30' : 'hover:bg-gray-50/50'}`}>
+                    <tr key={rec.id} className={`border-b border-border-subtle ${isWeekend ? 'bg-red-50/30' : 'hover:bg-surface-sunken/50'}`}>
                       {idx === 0 && (
                         <td
-                          className={`px-3 py-2.5 font-medium align-top text-sm whitespace-nowrap ${weekday === 0 ? 'text-red-500' : weekday === 6 ? 'text-blue-500' : 'text-gray-700'}`}
+                          className={`px-3 py-2.5 font-medium align-top text-sm whitespace-nowrap ${weekday === 0 ? 'text-red-500' : weekday === 6 ? 'text-brand-500' : 'text-text-primary'}`}
                           rowSpan={dayRecs.length}
                         >
                           {i + 1}일({dayLabel})
-                          {isToday && <span className="ml-1 text-[10px] bg-blue-600 text-white px-1 py-0.5 rounded-full">오늘</span>}
+                          {isToday && <span className="ml-1 text-[10px] bg-brand-600 text-white px-1 py-0.5 rounded-full">오늘</span>}
                         </td>
                       )}
                       {showNameColumn && (
-                        <td className="px-3 py-2.5 text-gray-700 font-medium whitespace-nowrap">
+                        <td className="px-3 py-2.5 text-text-primary font-medium whitespace-nowrap">
                           {rec.worker?.name ?? rec.worker_name ?? '-'}
                         </td>
                       )}
@@ -1005,19 +1005,19 @@ function AdminTableView() {
                         {rec.clock_in ? (
                           <div className="flex flex-col gap-0.5">
                             <div className="flex items-center gap-1.5 whitespace-nowrap">
-                              <span className="font-medium text-gray-800 text-sm">{formatTime(rec.clock_in)}</span>
+                              <span className="font-medium text-text-primary text-sm">{formatTime(rec.clock_in)}</span>
                               {rec.clock_in_photo_url && (
                                 <a href={rec.clock_in_photo_url} target="_blank" rel="noopener noreferrer"
-                                  className="text-blue-500 hover:text-blue-700 text-xs">📷</a>
+                                  className="text-brand-500 hover:text-brand-700 text-xs">📷</a>
                               )}
                             </div>
                             {(rec.clock_in_lat || rec.clock_in_lng) && (
-                              <span className="text-[10px] text-gray-400 leading-tight">
+                              <span className="text-[10px] text-text-tertiary leading-tight">
                                 {formatLocationText(rec.clock_in_lat, rec.clock_in_lng)}
                               </span>
                             )}
                           </div>
-                        ) : <span className="text-gray-300 text-sm">-</span>}
+                        ) : <span className="text-text-tertiary text-sm">-</span>}
                       </td>
 
                       {/* 퇴근 */}
@@ -1025,23 +1025,23 @@ function AdminTableView() {
                         {rec.clock_out ? (
                           <div className="flex flex-col gap-0.5">
                             <div className="flex items-center gap-1.5 whitespace-nowrap">
-                              <span className="font-medium text-gray-800 text-sm">{formatTime(rec.clock_out)}</span>
+                              <span className="font-medium text-text-primary text-sm">{formatTime(rec.clock_out)}</span>
                               {rec.clock_out_photo_url && (
                                 <a href={rec.clock_out_photo_url} target="_blank" rel="noopener noreferrer"
-                                  className="text-blue-500 hover:text-blue-700 text-xs">📷</a>
+                                  className="text-brand-500 hover:text-brand-700 text-xs">📷</a>
                               )}
                             </div>
                             {(rec.clock_out_lat || rec.clock_out_lng) && (
-                              <span className="text-[10px] text-gray-400 leading-tight">
+                              <span className="text-[10px] text-text-tertiary leading-tight">
                                 {formatLocationText(rec.clock_out_lat, rec.clock_out_lng)}
                               </span>
                             )}
                           </div>
-                        ) : <span className="text-gray-300 text-sm">-</span>}
+                        ) : <span className="text-text-tertiary text-sm">-</span>}
                       </td>
 
                       {/* 근무시간 */}
-                      <td className="px-3 py-2.5 text-gray-600 text-sm whitespace-nowrap">
+                      <td className="px-3 py-2.5 text-text-secondary text-sm whitespace-nowrap">
                         {formatDuration(rec.clock_in, rec.clock_out)}
                       </td>
 
@@ -1053,27 +1053,27 @@ function AdminTableView() {
                               value={noteValue}
                               onChange={e => setNoteValue(e.target.value)}
                               onKeyDown={e => { if (e.key === 'Enter') saveNote(rec.id) }}
-                              className="border border-gray-200 rounded-lg px-2 py-1 text-xs flex-1 focus:outline-none focus:ring-1 focus:ring-blue-400"
+                              className="border border-border rounded-lg px-2 py-1 text-xs flex-1 focus:outline-none focus:ring-1 focus:ring-blue-400"
                               placeholder="메모 입력"
                               autoFocus
                             />
                             <button onClick={() => saveNote(rec.id)} disabled={savingNote}
-                              className="text-xs bg-blue-600 text-white px-2 py-1 rounded-lg hover:bg-blue-700 disabled:opacity-50">
+                              className="text-xs bg-brand-600 text-white px-2 py-1 rounded-lg hover:bg-brand-700 disabled:opacity-50">
                               저장
                             </button>
                             <button onClick={() => setEditingNoteId(null)}
-                              className="text-xs text-gray-400 hover:text-gray-600">
+                              className="text-xs text-text-tertiary hover:text-text-secondary">
                               ✕
                             </button>
                           </div>
                         ) : (
                           <button
                             onClick={() => startNoteEdit(rec)}
-                            className="text-left w-full text-xs text-gray-600 hover:text-blue-600 group"
+                            className="text-left w-full text-xs text-text-secondary hover:text-brand-600 group"
                           >
                             {rec.notes
                               ? <span>{rec.notes}</span>
-                              : <span className="text-gray-300 group-hover:text-blue-400">메모 추가...</span>
+                              : <span className="text-text-tertiary group-hover:text-brand-400">메모 추가...</span>
                             }
                           </button>
                         )}
@@ -1104,7 +1104,7 @@ export default function AttendancePage() {
 
   if (!userInfo) {
     return (
-      <div className="flex items-center justify-center h-64 text-gray-400 text-sm">불러오는 중...</div>
+      <div className="flex items-center justify-center h-64 text-text-tertiary text-sm">불러오는 중...</div>
     )
   }
 
@@ -1113,8 +1113,8 @@ export default function AttendancePage() {
   return (
     <div className="flex flex-col h-full">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">출퇴근 관리</h1>
-        <p className="text-sm text-gray-500 mt-1">
+        <h1 className="text-2xl font-bold text-text-primary">출퇴근 관리</h1>
+        <p className="text-sm text-text-secondary mt-1">
           {isWorker ? '출퇴근을 기록하세요.' : '직원별 출퇴근 기록을 조회하고 관리합니다.'}
         </p>
       </div>
