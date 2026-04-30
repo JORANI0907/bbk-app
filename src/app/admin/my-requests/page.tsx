@@ -29,9 +29,9 @@ const CATEGORY_LABELS: Record<string, string> = {
 }
 
 const STATUS_BADGE: Record<string, string> = {
-  pending: 'bg-amber-100 text-amber-700',
-  approved: 'bg-green-100 text-green-700',
-  rejected: 'bg-red-100 text-red-700',
+  pending: 'bg-state-warning-bg text-state-warning',
+  approved: 'bg-state-success-bg text-state-success',
+  rejected: 'bg-state-danger-bg text-state-danger',
 }
 
 const STATUS_LABELS: Record<string, string> = {
@@ -114,28 +114,28 @@ export default function MyRequestsPage() {
   return (
     <div className="flex flex-col h-full relative">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">내 요청</h1>
-        <p className="text-sm text-gray-500 mt-1">관리자에게 요청을 보내고 답변을 확인합니다.</p>
+        <h1 className="text-2xl font-bold text-text-primary">내 요청</h1>
+        <p className="text-sm text-text-secondary mt-1">관리자에게 요청을 보내고 답변을 확인합니다.</p>
         {newReplyCount > 0 && (
-          <p className="text-xs text-blue-600 font-medium mt-1">새 답변 {newReplyCount}건이 있습니다.</p>
+          <p className="text-xs text-brand-600 font-medium mt-1">새 답변 {newReplyCount}건이 있습니다.</p>
         )}
       </div>
 
       {loading ? (
-        <div className="flex items-center justify-center h-40 text-gray-400 text-sm">불러오는 중...</div>
+        <div className="flex items-center justify-center h-40 text-text-tertiary text-sm">불러오는 중...</div>
       ) : requests.length === 0 ? (
-        <div className="flex items-center justify-center h-40 text-gray-400 text-sm">요청 내역이 없습니다.</div>
+        <div className="flex items-center justify-center h-40 text-text-tertiary text-sm">요청 내역이 없습니다.</div>
       ) : (
         <div className="space-y-3">
           {requests.map(req => (
             <button key={req.id} onClick={() => handleOpen(req)}
-              className={`w-full text-left bg-white rounded-xl border shadow-sm p-4 hover:shadow-md transition-shadow ${!req.requester_read && req.admin_memo ? 'border-red-300 bg-red-50/30' : 'border-gray-100'}`}>
+              className={`w-full text-left bg-surface rounded-xl border shadow-soft p-4 hover:shadow-card transition-shadow ${!req.requester_read && req.admin_memo ? 'border-red-300 bg-state-danger-bg/30' : 'border-border-subtle'}`}>
               <div className="flex items-start justify-between gap-2 mb-1">
                 <div className="flex items-center gap-1.5">
                   {!req.requester_read && req.admin_memo && (
                     <span className="w-2 h-2 rounded-full bg-red-500 shrink-0" />
                   )}
-                  <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">
+                  <span className="text-xs bg-surface-sunken text-text-secondary px-2 py-0.5 rounded-full">
                     {CATEGORY_LABELS[req.category] ?? req.category}
                   </span>
                 </div>
@@ -148,11 +148,11 @@ export default function MyRequestsPage() {
                   </span>
                 </div>
               </div>
-              <p className="text-sm text-gray-800 line-clamp-2 mt-1">{req.content}</p>
+              <p className="text-sm text-text-primary line-clamp-2 mt-1">{req.content}</p>
               {req.admin_memo && (
-                <p className="text-xs text-blue-600 mt-1.5 line-clamp-1">답변: {req.admin_memo}</p>
+                <p className="text-xs text-brand-600 mt-1.5 line-clamp-1">답변: {req.admin_memo}</p>
               )}
-              <p className="text-xs text-gray-400 mt-1.5">{new Date(req.created_at).toLocaleDateString('ko-KR')}</p>
+              <p className="text-xs text-text-tertiary mt-1.5">{new Date(req.created_at).toLocaleDateString('ko-KR')}</p>
             </button>
           ))}
         </div>
@@ -160,38 +160,38 @@ export default function MyRequestsPage() {
 
       {/* FAB */}
       <button onClick={() => setShowForm(true)}
-        className="fixed bottom-8 right-8 w-14 h-14 bg-blue-600 text-white rounded-full shadow-lg hover:bg-blue-700 flex items-center justify-center text-2xl transition-colors z-20">
+        className="fixed bottom-8 right-8 w-14 h-14 bg-brand-600 text-white rounded-full shadow-soft hover:bg-brand-700 flex items-center justify-center text-2xl transition-colors z-20">
         +
       </button>
 
       {/* 작성 모달 */}
       {showForm && (
         <div className="fixed inset-0 bg-black/40 flex items-end md:items-center justify-center z-30 p-4">
-          <div className="bg-white rounded-2xl w-full max-w-lg shadow-xl">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-              <h2 className="text-base font-bold text-gray-900">새 요청</h2>
-              <button onClick={() => setShowForm(false)} className="text-gray-400 hover:text-gray-600 text-xl">&times;</button>
+          <div className="bg-surface rounded-2xl w-full max-w-lg shadow-pop">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-border-subtle">
+              <h2 className="text-base font-bold text-text-primary">새 요청</h2>
+              <button onClick={() => setShowForm(false)} className="text-text-tertiary hover:text-text-secondary text-xl">&times;</button>
             </div>
             <div className="p-6 space-y-4">
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">카테고리</label>
+                <label className="block text-xs font-medium text-text-secondary mb-1">카테고리</label>
                 <select value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))}
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                  className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
                   {CATEGORY_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                 </select>
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">내용 <span className="text-red-500">*</span></label>
+                <label className="block text-xs font-medium text-text-secondary mb-1">내용 <span className="text-state-danger">*</span></label>
                 <textarea rows={5} value={form.content} placeholder="요청 내용을 상세히 작성해주세요"
                   onChange={e => setForm(f => ({ ...f, content: e.target.value }))}
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none" />
+                  className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none" />
               </div>
             </div>
-            <div className="px-6 py-4 border-t border-gray-100 flex gap-2 justify-end">
+            <div className="px-6 py-4 border-t border-border-subtle flex gap-2 justify-end">
               <button onClick={() => setShowForm(false)}
-                className="px-4 py-2 text-sm text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200">취소</button>
+                className="px-4 py-2 text-sm text-text-secondary bg-surface-sunken rounded-lg hover:bg-surface-sunken">취소</button>
               <button onClick={handleSubmit} disabled={submitting}
-                className="px-4 py-2 text-sm text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50">
+                className="px-4 py-2 text-sm text-white bg-brand-600 rounded-lg hover:bg-brand-700 disabled:opacity-50">
                 {submitting ? '제출 중...' : '요청하기'}
               </button>
             </div>
@@ -202,32 +202,32 @@ export default function MyRequestsPage() {
       {/* 상세 모달 */}
       {selected && (
         <div className="fixed inset-0 bg-black/40 flex items-end md:items-center justify-center z-30 p-4">
-          <div className="bg-white rounded-2xl w-full max-w-lg shadow-xl">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+          <div className="bg-surface rounded-2xl w-full max-w-lg shadow-pop">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-border-subtle">
               <div className="flex items-center gap-2">
-                <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">
+                <span className="text-xs bg-surface-sunken text-text-secondary px-2 py-0.5 rounded-full">
                   {CATEGORY_LABELS[selected.category] ?? selected.category}
                 </span>
                 <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${STATUS_BADGE[selected.status]}`}>
                   {STATUS_LABELS[selected.status]}
                 </span>
               </div>
-              <button onClick={() => setSelected(null)} className="text-gray-400 hover:text-gray-600 text-xl">&times;</button>
+              <button onClick={() => setSelected(null)} className="text-text-tertiary hover:text-text-secondary text-xl">&times;</button>
             </div>
             <div className="p-6 space-y-4">
               <div>
-                <p className="text-xs text-gray-400 mb-1">요청 내용</p>
-                <p className="text-sm text-gray-800 whitespace-pre-wrap bg-gray-50 rounded-lg p-3">{selected.content}</p>
+                <p className="text-xs text-text-tertiary mb-1">요청 내용</p>
+                <p className="text-sm text-text-primary whitespace-pre-wrap bg-surface-sunken rounded-lg p-3">{selected.content}</p>
               </div>
               {selected.admin_memo ? (
                 <div>
-                  <p className="text-xs text-gray-400 mb-1">관리자 답변</p>
-                  <p className="text-sm text-blue-800 bg-blue-50 rounded-lg p-3">{selected.admin_memo}</p>
+                  <p className="text-xs text-text-tertiary mb-1">관리자 답변</p>
+                  <p className="text-sm text-brand-700 bg-brand-50 rounded-lg p-3">{selected.admin_memo}</p>
                 </div>
               ) : (
-                <p className="text-sm text-gray-400 text-center py-2">아직 답변이 없습니다.</p>
+                <p className="text-sm text-text-tertiary text-center py-2">아직 답변이 없습니다.</p>
               )}
-              <p className="text-xs text-gray-400 text-right">{new Date(selected.created_at).toLocaleDateString('ko-KR')}</p>
+              <p className="text-xs text-text-tertiary text-right">{new Date(selected.created_at).toLocaleDateString('ko-KR')}</p>
             </div>
           </div>
         </div>
