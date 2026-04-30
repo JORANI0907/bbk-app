@@ -75,11 +75,11 @@ type SortDir = 'asc' | 'desc'
 // ─── 상수 ────────────────────────────────────────────────────
 const SERVICE_TYPES: ServiceType[] = ['1회성케어', '정기딥케어', '정기엔드케어']
 const STATUS_CONFIG: Record<ApplicationStatus, { color: string; badge: string; dot: string; row: string }> = {
-  '신규':          { color: 'bg-blue-500 text-white',     badge: 'bg-blue-100 text-blue-700 ring-blue-300',      dot: 'bg-blue-500',   row: 'bg-blue-50' },
+  '신규':          { color: 'bg-brand-500 text-white',    badge: 'bg-brand-100 text-brand-700 ring-brand-300',   dot: 'bg-brand-500',  row: 'bg-brand-50' },
   '견적발송':      { color: 'bg-indigo-500 text-white',   badge: 'bg-indigo-100 text-indigo-700 ring-indigo-300', dot: 'bg-indigo-500', row: 'bg-indigo-50' },
   '예약확정':      { color: 'bg-green-600 text-white',    badge: 'bg-green-100 text-green-800 ring-green-300',    dot: 'bg-green-600',  row: 'bg-green-50' },
-  '예약1일전':     { color: 'bg-blue-500 text-white',     badge: 'bg-blue-100 text-blue-700 ring-blue-300',      dot: 'bg-blue-500',   row: 'bg-blue-50' },
-  '예약당일':      { color: 'bg-blue-600 text-white',     badge: 'bg-blue-100 text-blue-800 ring-blue-300',      dot: 'bg-blue-600',   row: 'bg-sky-50' },
+  '예약1일전':     { color: 'bg-brand-500 text-white',    badge: 'bg-brand-100 text-brand-700 ring-brand-300',   dot: 'bg-brand-500',  row: 'bg-brand-50' },
+  '예약당일':      { color: 'bg-brand-600 text-white',    badge: 'bg-brand-100 text-brand-800 ring-brand-300',   dot: 'bg-brand-600',  row: 'bg-sky-50' },
   '작업완료':      { color: 'bg-orange-500 text-white',   badge: 'bg-orange-100 text-orange-700 ring-orange-300', dot: 'bg-orange-500', row: 'bg-orange-50' },
   '작업완료(엔드)': { color: 'bg-orange-600 text-white', badge: 'bg-orange-100 text-orange-800 ring-orange-300', dot: 'bg-orange-600', row: 'bg-orange-50' },
   '결제':          { color: 'bg-orange-400 text-white',   badge: 'bg-orange-100 text-orange-600 ring-orange-200', dot: 'bg-orange-400', row: 'bg-amber-50' },
@@ -102,7 +102,7 @@ const NOTIFICATION_TYPES = [
   '작업자 일정 안내', '구독권유알림',
 ]
 const NOTIFY_TYPE_CONFIG: Record<string, { badge: string; dot: string }> = {
-  '예약확정알림':       { badge: 'bg-blue-100 text-blue-700',      dot: 'bg-blue-500' },
+  '예약확정알림':       { badge: 'bg-brand-100 text-brand-700',    dot: 'bg-brand-500' },
   '예약1일전알림':      { badge: 'bg-sky-100 text-sky-700',        dot: 'bg-sky-400' },
   '예약당일알림':       { badge: 'bg-violet-100 text-violet-700',  dot: 'bg-violet-500' },
   '작업완료알림':       { badge: 'bg-green-100 text-green-700',    dot: 'bg-green-500' },
@@ -1283,9 +1283,9 @@ export default function ServiceManagementPage() {
             {SERVICE_TYPES.map(t => {
               const active = selectedTypes.has(t)
               const TYPE_COLOR: Record<string, string> = {
-                '1회성케어': active ? 'bg-gray-700 text-white border-gray-700' : 'bg-white text-gray-600 border-gray-300 hover:border-gray-500',
-                '정기딥케어': active ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-blue-600 border-blue-300 hover:border-blue-500',
-                '정기엔드케어': active ? 'bg-purple-600 text-white border-purple-600' : 'bg-white text-purple-600 border-purple-300 hover:border-purple-500',
+                '1회성케어': active ? 'bg-gray-700 text-white border-gray-700' : 'bg-surface text-text-secondary border-border hover:border-border-strong',
+                '정기딥케어': active ? 'bg-brand-600 text-white border-brand-600' : 'bg-surface text-brand-600 border-brand-200 hover:border-brand-500',
+                '정기엔드케어': active ? 'bg-purple-600 text-white border-purple-600' : 'bg-surface text-purple-600 border-purple-300 hover:border-purple-500',
               }
               return (
                 <button key={t}
@@ -1304,7 +1304,7 @@ export default function ServiceManagementPage() {
             <button
               onClick={() => { setShowUnassigned(v => !v); setSelectedTypes(new Set()) }}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all ${
-                showUnassigned ? 'bg-orange-500 text-white border-orange-500' : 'bg-white text-orange-600 border-orange-300 hover:border-orange-500'
+                showUnassigned ? 'bg-orange-500 text-white border-orange-500' : 'bg-surface text-orange-600 border-orange-300 hover:border-orange-500'
               }`}
             >
               <span className={`w-3.5 h-3.5 rounded border flex items-center justify-center text-xs shrink-0 ${
@@ -1319,7 +1319,7 @@ export default function ServiceManagementPage() {
             </button>
             {(selectedTypes.size > 0 || showUnassigned) && (
               <button onClick={() => { setSelectedTypes(new Set()); setShowUnassigned(false) }}
-                className="text-xs text-gray-400 hover:text-gray-600 underline">전체 보기</button>
+                className="text-xs text-text-tertiary hover:text-text-secondary underline">전체 보기</button>
             )}
           </div>
 
@@ -1346,11 +1346,11 @@ export default function ServiceManagementPage() {
               <MonthNavigator value={selectedMonth} onChange={setSelectedMonth} />
             )}
             {!showUnassigned && (
-              <div className="flex bg-gray-100 rounded-lg p-0.5 ml-1">
+              <div className="flex bg-surface-sunken rounded-lg p-0.5 ml-1">
                 <button
                   onClick={() => setViewMode('list')}
                   className={`flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-md transition-all ${
-                    viewMode === 'list' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+                    viewMode === 'list' ? 'bg-surface text-text-primary shadow-sm' : 'text-text-secondary hover:text-text-primary'
                   }`}
                 >
                   <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -1361,7 +1361,7 @@ export default function ServiceManagementPage() {
                 <button
                   onClick={() => setViewMode('calendar')}
                   className={`flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-md transition-all ${
-                    viewMode === 'calendar' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+                    viewMode === 'calendar' ? 'bg-surface text-text-primary shadow-sm' : 'text-text-secondary hover:text-text-primary'
                   }`}
                 >
                   <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -1423,7 +1423,7 @@ export default function ServiceManagementPage() {
                   {bulkSaving ? '처리 중...' : '계산서 작성'}
                 </button>
                 <button onClick={handleSaveToCustomerBulk} disabled={bulkSaving}
-                  className="text-xs bg-white text-green-700 font-semibold px-3 py-1.5 rounded-lg hover:bg-green-50 disabled:opacity-50 transition-colors whitespace-nowrap">
+                  className="text-xs bg-surface text-green-700 font-semibold px-3 py-1.5 rounded-lg hover:bg-green-50 disabled:opacity-50 transition-colors whitespace-nowrap">
                   {bulkSaving ? '처리 중...' : '고객 DB 저장 →'}
                 </button>
               </div>
@@ -1461,7 +1461,7 @@ export default function ServiceManagementPage() {
               const totalSum = rows.reduce((s, a) => s + rowTotal(a), 0)
               return (
                 <table className="w-full text-sm">
-                  <thead className="bg-gray-50 border-b border-gray-200 sticky top-0 z-10">
+                  <thead className="bg-surface-sunken border-b border-border sticky top-0 z-10">
                     <tr>
                       <th className="px-3 py-3 w-8">
                         <input type="checkbox"
@@ -1485,7 +1485,7 @@ export default function ServiceManagementPage() {
                       ].map(({ label, field }) => (
                         <th key={label}
                           onClick={field ? () => toggleSort(field) : undefined}
-                          className={`text-left px-3 py-3 text-xs font-semibold text-gray-500 whitespace-nowrap ${field ? 'cursor-pointer hover:text-gray-700 select-none' : ''}`}>
+                          className={`text-left px-3 py-3 text-xs font-semibold text-text-secondary whitespace-nowrap ${field ? 'cursor-pointer hover:text-text-primary select-none' : ''}`}>
                           {label}
                           {field && sortField === field && <span className="ml-1">{sortDir === 'desc' ? '↓' : '↑'}</span>}
                         </th>
@@ -1511,12 +1511,12 @@ export default function ServiceManagementPage() {
                             lastWeekKey = key
                             const weekSum = weekTotals.get(key) ?? 0
                             cells.push(
-                              <tr key={`wk-${key}`} className="bg-gradient-to-r from-blue-50 to-indigo-50 border-t-2 border-blue-200">
+                              <tr key={`wk-${key}`} className="bg-gradient-to-r from-brand-50 to-indigo-50 border-t-2 border-brand-200">
                                 <td colSpan={10} className="px-4 py-1.5">
                                   <div className="flex items-center justify-between">
-                                    <span className="text-xs font-bold text-blue-700 tracking-wide">{label}</span>
+                                    <span className="text-xs font-bold text-brand-700 tracking-wide">{label}</span>
                                     {weekSum > 0 && (
-                                      <span className="text-xs font-bold text-blue-600">
+                                      <span className="text-xs font-bold text-brand-600">
                                         합계 <span className="font-mono">{fmt(weekSum)}</span>원
                                       </span>
                                     )}
@@ -1533,27 +1533,27 @@ export default function ServiceManagementPage() {
                       const total = rowTotal(app)
                       const statusCfg = STATUS_CONFIG[app.status]
                       const isSelected = selected?.id === app.id || checkedIds.includes(app.id)
-                      const rowBg = isSelected ? 'bg-blue-100' : (statusCfg?.row ?? 'bg-white')
+                      const rowBg = isSelected ? 'bg-brand-100' : (statusCfg?.row ?? 'bg-surface')
                       cells.push(
                         <tr key={app.id}
                           ref={el => { rowRefs.current[app.id] = el }}
                           onClick={() => handleSelect(app)}
-                          className={`border-b border-gray-100 last:border-0 cursor-pointer hover:brightness-95 transition-all ${rowBg}`}>
+                          className={`border-b border-border-subtle last:border-0 cursor-pointer hover:brightness-95 transition-all ${rowBg}`}>
                           <td className="px-3 py-2.5 w-8" onClick={e => e.stopPropagation()}>
                             <input type="checkbox" checked={checkedIds.includes(app.id)}
                               onChange={() => toggleCheck(app.id)}
                               className="accent-blue-600 cursor-pointer" />
                           </td>
                           <td className="px-3 py-2.5 whitespace-nowrap">
-                            <span className="font-mono text-xs text-gray-500">
-                              {app.construction_date ? fmtDate(app.construction_date) : <span className="text-gray-300">미설정</span>}
+                            <span className="font-mono text-xs text-text-secondary">
+                              {app.construction_date ? fmtDate(app.construction_date) : <span className="text-text-tertiary">미설정</span>}
                             </span>
                             {app.construction_date?.slice(0, 10) === todayStr && (
-                              <span className="ml-1.5 text-xs font-bold text-blue-600 bg-blue-100 px-1.5 py-0.5 rounded-full">오늘</span>
+                              <span className="ml-1.5 text-xs font-bold text-brand-600 bg-brand-100 px-1.5 py-0.5 rounded-full">오늘</span>
                             )}
                             {app.construction_time && (
                               <div>
-                                <span className="text-xs text-gray-400">
+                                <span className="text-xs text-text-tertiary">
                                   {app.construction_time.slice(0, 5)}시
                                 </span>
                               </div>
@@ -1561,31 +1561,31 @@ export default function ServiceManagementPage() {
                           </td>
                           <td className="px-3 py-2.5 max-w-[140px]">
                             <div className="flex items-center gap-1.5">
-                              <span className="font-medium text-gray-900 truncate text-sm leading-tight">{app.business_name}</span>
+                              <span className="font-medium text-text-primary truncate text-sm leading-tight">{app.business_name}</span>
                               {app.created_at > sevenDaysAgoStr && !viewedNewIds.has(app.id) && (
                                 <span className="text-[9px] font-bold bg-red-500 text-white px-1 py-0.5 rounded-full shrink-0">NEW</span>
                               )}
                             </div>
                             {app.address && (
-                              <div className="text-xs text-gray-400 truncate mt-0.5 leading-tight">{app.address}</div>
+                              <div className="text-xs text-text-tertiary truncate mt-0.5 leading-tight">{app.address}</div>
                             )}
                           </td>
                           <td className="px-3 py-2.5 max-w-[130px]">
                             {app.care_scope ? (
-                              <span className="text-xs text-gray-600 line-clamp-2 leading-tight">{app.care_scope}</span>
-                            ) : <span className="text-gray-300 text-xs">-</span>}
+                              <span className="text-xs text-text-secondary line-clamp-2 leading-tight">{app.care_scope}</span>
+                            ) : <span className="text-text-tertiary text-xs">-</span>}
                           </td>
-                          <td className="px-3 py-2.5 text-gray-700 text-xs whitespace-nowrap">{app.owner_name}</td>
-                          <td className="px-3 py-2.5 text-gray-500 text-xs whitespace-nowrap">
-                            {users.find(u => u.id === app.assigned_to)?.name ?? <span className="text-gray-300">미배정</span>}
+                          <td className="px-3 py-2.5 text-text-primary text-xs whitespace-nowrap">{app.owner_name}</td>
+                          <td className="px-3 py-2.5 text-text-secondary text-xs whitespace-nowrap">
+                            {users.find(u => u.id === app.assigned_to)?.name ?? <span className="text-text-tertiary">미배정</span>}
                           </td>
-                          <td className="px-3 py-2.5 text-gray-500 text-xs whitespace-nowrap">{app.payment_method ?? '-'}</td>
-                          <td className="px-3 py-2.5 text-xs font-mono font-semibold text-gray-700 whitespace-nowrap">
-                            {total > 0 ? <>{fmt(total)}<span className="text-gray-400 font-normal">원</span></> : <span className="text-gray-300">-</span>}
+                          <td className="px-3 py-2.5 text-text-secondary text-xs whitespace-nowrap">{app.payment_method ?? '-'}</td>
+                          <td className="px-3 py-2.5 text-xs font-mono font-semibold text-text-primary whitespace-nowrap">
+                            {total > 0 ? <>{fmt(total)}<span className="text-text-tertiary font-normal">원</span></> : <span className="text-text-tertiary">-</span>}
                           </td>
                           <td className="px-3 py-2.5">
-                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold whitespace-nowrap ${statusCfg?.badge ?? 'bg-gray-100 text-gray-600'}`}>
-                              <span className={`w-1.5 h-1.5 rounded-full ${statusCfg?.dot ?? 'bg-gray-400'} shrink-0`} />
+                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold whitespace-nowrap ${statusCfg?.badge ?? 'bg-surface-sunken text-text-secondary'}`}>
+                              <span className={`w-1.5 h-1.5 rounded-full ${statusCfg?.dot ?? 'bg-text-tertiary'} shrink-0`} />
                               {app.status}
                             </span>
                           </td>
@@ -1600,7 +1600,7 @@ export default function ServiceManagementPage() {
                                   <span className="truncate max-w-[80px]">{lastLog.type.replace('알림', '')}</span>
                                 </span>
                               </div>
-                            ) : <span className="text-gray-300 text-xs">-</span>}
+                            ) : <span className="text-text-tertiary text-xs">-</span>}
                           </td>
                         </tr>
                       )
@@ -1613,15 +1613,15 @@ export default function ServiceManagementPage() {
             })()}
             {/* 합계 행 — 리스트 하단 */}
             {!loading && filteredApps.length > 0 && (
-              <div className="border-t border-gray-200 px-4 py-2.5 flex items-center justify-between bg-gray-50">
-                <span className="text-xs text-gray-500">
-                  합계 <span className="text-gray-400 font-normal">({filteredApps.length}건)</span>
+              <div className="border-t border-border px-4 py-2.5 flex items-center justify-between bg-surface-sunken">
+                <span className="text-xs text-text-secondary">
+                  합계 <span className="text-text-tertiary font-normal">({filteredApps.length}건)</span>
                 </span>
-                <span className="text-sm font-bold font-mono text-gray-800">
+                <span className="text-sm font-bold font-mono text-text-primary">
                   {fmt(filteredApps
                     .filter(a => !['신규','견적발송','방문견적','예약취소','예약금환급완료'].includes(a.status))
                     .reduce((s, a) => s + rowTotal(a), 0))}
-                  <span className="text-gray-500 font-normal text-xs">원</span>
+                  <span className="text-text-secondary font-normal text-xs">원</span>
                 </span>
               </div>
             )}
@@ -1635,15 +1635,15 @@ export default function ServiceManagementPage() {
           <>
             {/* 백드롭 - 패널 외 클릭 시 닫힘 (PC: absolute, 모바일: fixed) */}
             <div className="fixed inset-0 z-[55] md:absolute md:inset-0 md:z-10" onClick={closePanel} />
-          <div className="fixed inset-x-0 top-0 bottom-0 z-[60] md:absolute md:inset-x-auto md:right-0 md:top-0 md:bottom-0 md:w-[480px] bg-white md:rounded-xl md:border md:border-gray-200 shadow-2xl overflow-y-auto overscroll-contain">
+          <div className="fixed inset-x-0 top-0 bottom-0 z-[60] md:absolute md:inset-x-auto md:right-0 md:top-0 md:bottom-0 md:w-[480px] bg-surface md:rounded-xl md:border md:border-border shadow-2xl overflow-y-auto overscroll-contain">
             {/* 헤더 */}
-            <div className="p-4 border-b border-gray-100 flex items-start justify-between gap-2 sticky top-0 bg-white z-10">
+            <div className="p-4 border-b border-border-subtle flex items-start justify-between gap-2 sticky top-0 bg-surface z-10">
               <div>
-                <h2 className="font-bold text-gray-900">{selected.business_name}</h2>
-                <p className="text-xs text-gray-400 mt-0.5">신청일: {new Date(selected.created_at).toLocaleString('ko-KR')}</p>
+                <h2 className="font-bold text-text-primary">{selected.business_name}</h2>
+                <p className="text-xs text-text-tertiary mt-0.5">신청일: {new Date(selected.created_at).toLocaleString('ko-KR')}</p>
               </div>
               <div className="flex items-center gap-1.5 shrink-0">
-                <button onClick={closePanel} className="text-gray-400 hover:text-gray-600 text-lg leading-none">✕</button>
+                <button onClick={closePanel} className="text-text-tertiary hover:text-text-secondary text-lg leading-none">✕</button>
               </div>
             </div>
 
@@ -1651,12 +1651,12 @@ export default function ServiceManagementPage() {
               {/* 계약상태 */}
               <Section title="계약상태">
                 <div className="flex items-center gap-2">
-                  <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${STATUS_CONFIG[selected.status]?.dot ?? 'bg-gray-400'}`} />
+                  <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${STATUS_CONFIG[selected.status]?.dot ?? 'bg-text-tertiary'}`} />
                   <select
                     value={selected.status}
                     disabled={saving}
                     onChange={e => quickSave({ status: e.target.value as ApplicationStatus })}
-                    className={`flex-1 border rounded-lg px-3 py-2 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500 ${STATUS_CONFIG[selected.status]?.badge ?? 'bg-gray-100 text-gray-600'}`}
+                    className={`flex-1 border rounded-lg px-3 py-2 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500 ${STATUS_CONFIG[selected.status]?.badge ?? 'bg-surface-sunken text-text-secondary'}`}
                   >
                     {(Object.keys(STATUS_CONFIG) as ApplicationStatus[]).map(s => (
                       <option key={s} value={s}>{s}</option>
@@ -1672,19 +1672,19 @@ export default function ServiceManagementPage() {
                     <button key={t} disabled={saving}
                       onClick={() => quickSave({ service_type: t })}
                       className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
-                        (selected.service_type ?? '1회성케어') === t ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                        (selected.service_type ?? '1회성케어') === t ? 'bg-brand-600 text-white' : 'bg-surface-sunken text-text-secondary hover:bg-surface-sunken'
                       }`}>{t}</button>
                   ))}
                 </div>
                 <div className="flex gap-1.5 flex-wrap mt-2">
                   {(['호의', '보통', '블랙'] as const).map(d => {
-                    const style = d === '호의' ? 'bg-sky-100 text-sky-700' : d === '블랙' ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-600'
+                    const style = d === '호의' ? 'bg-sky-100 text-sky-700' : d === '블랙' ? 'bg-red-100 text-red-700' : 'bg-surface-sunken text-text-secondary'
                     const isActive = (selected.disposition ?? '보통') === d
                     return (
                       <button key={d} disabled={saving}
                         onClick={() => quickSave({ disposition: d })}
                         className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
-                          isActive ? `${style} ring-2 ring-offset-1 ring-current` : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                          isActive ? `${style} ring-2 ring-offset-1 ring-current` : 'bg-surface-sunken text-text-secondary hover:bg-surface-sunken'
                         }`}>{d}</button>
                     )
                   })}
@@ -1694,13 +1694,13 @@ export default function ServiceManagementPage() {
               {/* 시공일자 */}
               <Section title="시공일자">
                 <input type="date" value={constructionDate} onChange={e => setConstructionDate(e.target.value)}
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                  className="w-full border border-border rounded-lg px-3 py-2 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-blue-500" />
               </Section>
 
               {/* 담당자 + 작업자 */}
               <Section title="담당자 / 작업자">
                 <select value={assignedTo} onChange={e => setAssignedTo(e.target.value)}
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white mb-2">
+                  className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-surface mb-2">
                   <option value="">담당자 미배정</option>
                   {users.map(u => (
                     <option key={u.id} value={u.id}>{u.name} ({u.role === 'admin' ? '관리자' : '직원'})</option>
@@ -1710,10 +1710,10 @@ export default function ServiceManagementPage() {
                 <div className="relative">
                   <button type="button"
                     onClick={() => setWorkerDropdownOpen(o => !o)}
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-left bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 flex items-center justify-between">
+                    className="w-full border border-border rounded-lg px-3 py-2 text-sm text-left bg-surface focus:outline-none focus:ring-2 focus:ring-blue-500 flex items-center justify-between">
                     <span className="flex flex-wrap gap-1">
                       {selectedWorkerIds.length === 0
-                        ? <span className="text-gray-400">작업자 선택 (복수 가능)</span>
+                        ? <span className="text-text-tertiary">작업자 선택 (복수 가능)</span>
                         : selectedWorkerIds.map(wid => {
                             const w = workers.find(x => x.id === wid)
                             return w ? (
@@ -1724,27 +1724,27 @@ export default function ServiceManagementPage() {
                             ) : null
                           })}
                     </span>
-                    <span className="text-gray-400 text-xs ml-1 shrink-0">{workerDropdownOpen ? '▲' : '▼'}</span>
+                    <span className="text-text-tertiary text-xs ml-1 shrink-0">{workerDropdownOpen ? '▲' : '▼'}</span>
                   </button>
                   {workerDropdownOpen && (
-                    <div className="absolute z-20 mt-1 w-full bg-white border border-gray-200 rounded-xl shadow-lg max-h-52 overflow-y-auto">
+                    <div className="absolute z-20 mt-1 w-full bg-surface border border-border rounded-xl shadow-lg max-h-52 overflow-y-auto">
                       {workers.length === 0
-                        ? <p className="px-3 py-4 text-xs text-gray-400 text-center">직원 관리에서 작업자를 먼저 추가하세요</p>
+                        ? <p className="px-3 py-4 text-xs text-text-tertiary text-center">직원 관리에서 작업자를 먼저 추가하세요</p>
                         : workers.map(w => {
                           const checked = selectedWorkerIds.includes(w.id)
                           const EMP_COLOR: Record<string, string> = { '정직원': 'bg-green-100 text-green-700', '인턴': 'bg-red-100 text-red-700', '일용직': 'bg-yellow-100 text-yellow-700' }
                           return (
                             <button key={w.id} type="button"
                               onClick={() => handleWorkerToggle(w.id)}
-                              className={`w-full flex items-center gap-2 px-3 py-2 text-sm text-left hover:bg-gray-50 transition-colors ${checked ? 'bg-indigo-50' : ''}`}>
-                              <span className={`w-4 h-4 rounded border flex items-center justify-center text-xs shrink-0 ${checked ? 'bg-indigo-600 border-indigo-600 text-white' : 'border-gray-300'}`}>
+                              className={`w-full flex items-center gap-2 px-3 py-2 text-sm text-left hover:bg-surface-sunken transition-colors ${checked ? 'bg-indigo-50' : ''}`}>
+                              <span className={`w-4 h-4 rounded border flex items-center justify-center text-xs shrink-0 ${checked ? 'bg-indigo-600 border-indigo-600 text-white' : 'border-border'}`}>
                                 {checked && '✓'}
                               </span>
-                              <span className="font-medium text-gray-900 flex-1">{w.name}</span>
+                              <span className="font-medium text-text-primary flex-1">{w.name}</span>
                               {w.employment_type && (
-                                <span className={`text-xs px-1.5 py-0.5 rounded ${EMP_COLOR[w.employment_type] ?? 'bg-gray-100 text-gray-600'}`}>{w.employment_type}</span>
+                                <span className={`text-xs px-1.5 py-0.5 rounded ${EMP_COLOR[w.employment_type] ?? 'bg-surface-sunken text-text-secondary'}`}>{w.employment_type}</span>
                               )}
-                              {w.phone && <span className="text-xs text-gray-400">{w.phone}</span>}
+                              {w.phone && <span className="text-xs text-text-tertiary">{w.phone}</span>}
                             </button>
                           )
                         })}
@@ -1755,13 +1755,13 @@ export default function ServiceManagementPage() {
 
               {/* 사전미팅 */}
               <Section title="사전미팅">
-                <div className="bg-white border border-purple-100 rounded-xl p-3 space-y-2">
-                  <p className="text-xs text-gray-500">사전 미팅 일정을 설정합니다.</p>
+                <div className="bg-surface border border-purple-100 rounded-xl p-3 space-y-2">
+                  <p className="text-xs text-text-secondary">사전 미팅 일정을 설정합니다.</p>
                   <input
                     type="datetime-local"
                     value={preMeetingAt}
                     onChange={e => setPreMeetingAt(e.target.value)}
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-purple-400"
+                    className="w-full border border-border rounded-lg px-3 py-2 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-purple-400"
                   />
                   {preMeetingAt && (
                     <div className="text-xs text-purple-700 bg-purple-50 rounded p-2">
@@ -1769,7 +1769,7 @@ export default function ServiceManagementPage() {
                     </div>
                   )}
                   {preMeetingAt && (
-                    <button onClick={() => setPreMeetingAt('')} className="text-xs text-gray-400 hover:text-red-500">일정 삭제</button>
+                    <button onClick={() => setPreMeetingAt('')} className="text-xs text-text-tertiary hover:text-red-500">일정 삭제</button>
                   )}
                 </div>
               </Section>
@@ -1780,32 +1780,32 @@ export default function ServiceManagementPage() {
                   <EditRow label="고객명" value={ownerName} onChange={setOwnerName} />
                   <EditRow label="업체명" value={businessNameEdit} onChange={setBusinessNameEdit} />
                   <div className="flex items-center gap-2">
-                    <span className="text-xs text-gray-500 w-20 shrink-0">연락처</span>
+                    <span className="text-xs text-text-secondary w-20 shrink-0">연락처</span>
                     <div className="flex flex-1 gap-1">
                       <input value={phone} onChange={e => setPhone(e.target.value)}
-                        className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                      <a href={`tel:${phone}`} className="px-2 py-1.5 text-xs bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100">📞</a>
-                      <button onClick={() => copyText(phone, '연락처')} className="px-2 py-1.5 text-xs bg-gray-50 rounded-lg hover:bg-gray-100">📋</button>
+                        className="flex-1 border border-border rounded-lg px-2 py-1.5 text-xs text-text-primary focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                      <a href={`tel:${phone}`} className="px-2 py-1.5 text-xs bg-brand-50 text-brand-600 rounded-lg hover:bg-brand-100">📞</a>
+                      <button onClick={() => copyText(phone, '연락처')} className="px-2 py-1.5 text-xs bg-surface-sunken rounded-lg hover:bg-surface-sunken">📋</button>
                     </div>
                   </div>
                   <EditRow label="이메일" value={email} onChange={setEmail} />
                   <div className="flex items-center gap-2">
-                    <span className="text-xs text-gray-500 w-20 shrink-0">주소</span>
+                    <span className="text-xs text-text-secondary w-20 shrink-0">주소</span>
                     <div className="flex flex-1 gap-1">
                       <input value={address} onChange={e => setAddress(e.target.value)}
-                        className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                        className="flex-1 border border-border rounded-lg px-2 py-1.5 text-xs text-text-primary focus:outline-none focus:ring-2 focus:ring-blue-500" />
                       <button onClick={() => setMapAddress(address)}
                         className="px-2 py-1.5 text-xs bg-green-50 text-green-700 rounded-lg hover:bg-green-100 shrink-0">🗺️</button>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="text-xs text-gray-500 w-20 shrink-0">영업시간</span>
+                    <span className="text-xs text-text-secondary w-20 shrink-0">영업시간</span>
                     <div className="flex items-center gap-1 flex-1">
                       <input type="time" value={businessHoursStart} onChange={e => setBusinessHoursStart(e.target.value)}
-                        className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                      <span className="text-gray-400 text-xs">~</span>
+                        className="flex-1 border border-border rounded-lg px-2 py-1.5 text-xs text-text-primary focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                      <span className="text-text-tertiary text-xs">~</span>
                       <input type="time" value={businessHoursEnd} onChange={e => setBusinessHoursEnd(e.target.value)}
-                        className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                        className="flex-1 border border-border rounded-lg px-2 py-1.5 text-xs text-text-primary focus:outline-none focus:ring-2 focus:ring-blue-500" />
                     </div>
                   </div>
                 </div>
@@ -1825,29 +1825,29 @@ export default function ServiceManagementPage() {
               <Section title="시공정보">
                 <div className="border-2 border-green-200 rounded-xl p-3 space-y-2 bg-green-50/30">
                   <div className="flex items-start gap-2">
-                    <span className="text-xs text-gray-500 w-20 shrink-0 pt-1.5">케어범위</span>
+                    <span className="text-xs text-text-secondary w-20 shrink-0 pt-1.5">케어범위</span>
                     <textarea value={careScope} onChange={e => setCareScope(e.target.value)} rows={3}
                       placeholder="예) - 후드청소&#10;- 덕트청소&#10;- 계단청소"
-                      className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-green-500 resize-none text-gray-900" />
+                      className="flex-1 border border-border rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-green-500 resize-none text-text-primary" />
                   </div>
                   <div className="flex items-start gap-2">
-                    <span className="text-xs text-gray-500 w-20 shrink-0 pt-1.5">요청사항</span>
+                    <span className="text-xs text-text-secondary w-20 shrink-0 pt-1.5">요청사항</span>
                     <textarea value={requestNotes} onChange={e => setRequestNotes(e.target.value)} rows={2}
-                      className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-green-500 resize-none text-gray-900" />
+                      className="flex-1 border border-border rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-green-500 resize-none text-text-primary" />
                   </div>
                   <div className="flex items-start gap-2">
-                    <span className="text-xs text-gray-500 w-20 shrink-0 pt-1.5">관리자메모</span>
+                    <span className="text-xs text-text-secondary w-20 shrink-0 pt-1.5">관리자메모</span>
                     <textarea value={adminNotes} onChange={e => setAdminNotes(e.target.value)} rows={3}
                       placeholder="내부 메모를 입력하세요..."
-                      className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-green-500 resize-none text-gray-900" />
+                      className="flex-1 border border-border rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-green-500 resize-none text-text-primary" />
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="text-xs text-gray-500 w-20 shrink-0">시공시간</span>
+                    <span className="text-xs text-text-secondary w-20 shrink-0">시공시간</span>
                     <input
                       type="time"
                       value={constructionTime}
                       onChange={e => setConstructionTime(e.target.value)}
-                      className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                      className="flex-1 border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
                     />
                   </div>
                 </div>
@@ -1857,9 +1857,9 @@ export default function ServiceManagementPage() {
               <Section title="결제정보">
                 <div className="space-y-2">
                   <div className="flex items-center gap-2">
-                    <span className="text-xs text-gray-500 w-20 shrink-0">결제방법</span>
+                    <span className="text-xs text-text-secondary w-20 shrink-0">결제방법</span>
                     <select value={paymentMethod} onChange={e => handlePaymentMethodChange(e.target.value)}
-                      className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+                      className="flex-1 border border-border rounded-lg px-2 py-1.5 text-xs text-text-primary focus:outline-none focus:ring-2 focus:ring-blue-500 bg-surface">
                       <option value="">선택...</option>
                       <option value="현금(계산서 희망)">현금(계산서 희망)</option>
                       <option value="현금(비과세)">현금(비과세)</option>
@@ -1868,19 +1868,19 @@ export default function ServiceManagementPage() {
                     </select>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="text-xs text-gray-500 w-20 shrink-0">계좌번호</span>
+                    <span className="text-xs text-text-secondary w-20 shrink-0">계좌번호</span>
                     <div className="flex flex-1 gap-1">
                       <input value={accountNumber} onChange={e => setAccountNumber(e.target.value)}
-                        className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono" />
-                      <button onClick={() => copyText(accountNumber, '계좌번호')} className="px-2 py-1.5 text-xs bg-gray-50 rounded-lg hover:bg-gray-100">📋</button>
+                        className="flex-1 border border-border rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono" />
+                      <button onClick={() => copyText(accountNumber, '계좌번호')} className="px-2 py-1.5 text-xs bg-surface-sunken rounded-lg hover:bg-surface-sunken">📋</button>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="text-xs text-gray-500 w-20 shrink-0">사업자번호</span>
+                    <span className="text-xs text-text-secondary w-20 shrink-0">사업자번호</span>
                     <div className="flex flex-1 gap-1">
                       <input value={businessNumber} onChange={e => setBusinessNumber(e.target.value)}
-                        className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono" />
-                      <button onClick={() => copyText(businessNumber, '사업자번호')} className="px-2 py-1.5 text-xs bg-gray-50 rounded-lg hover:bg-gray-100">📋</button>
+                        className="flex-1 border border-border rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono" />
+                      <button onClick={() => copyText(businessNumber, '사업자번호')} className="px-2 py-1.5 text-xs bg-surface-sunken rounded-lg hover:bg-surface-sunken">📋</button>
                     </div>
                   </div>
                 </div>
@@ -1905,15 +1905,15 @@ export default function ServiceManagementPage() {
                       onChange={handleVatChange} disabled={isCashNoVat}
                     />
                     <div>
-                      <label className="text-xs text-gray-500 mb-1 block">잔금 <span className="text-green-500">(자동계산)</span></label>
+                      <label className="text-xs text-text-secondary mb-1 block">잔금 <span className="text-green-500">(자동계산)</span></label>
                       <div className={`w-full border rounded-lg px-3 py-2 text-sm font-semibold ${
-                        computedBalance < 0 ? 'border-red-200 bg-red-50 text-red-600' : 'border-gray-100 bg-gray-50 text-gray-700'
+                        computedBalance < 0 ? 'border-red-200 bg-red-50 text-red-600' : 'border-border-subtle bg-surface-sunken text-text-primary'
                       }`}>{fmt(computedBalance)}원</div>
                     </div>
                   </div>
-                  <div className="pt-2 border-t border-gray-100 flex justify-between text-xs">
-                    <span className="text-gray-500">총액 (공급가액 + 부가세)</span>
-                    <span className="font-bold text-gray-800">{fmt(totalAmount)}원</span>
+                  <div className="pt-2 border-t border-border-subtle flex justify-between text-xs">
+                    <span className="text-text-secondary">총액 (공급가액 + 부가세)</span>
+                    <span className="font-bold text-text-primary">{fmt(totalAmount)}원</span>
                   </div>
                 </div>
               </Section>
@@ -1922,7 +1922,7 @@ export default function ServiceManagementPage() {
               <Section title="알림 발송">
                 <div className="flex gap-2 mb-3">
                   <select value={notifyType} onChange={e => setNotifyType(e.target.value)}
-                    className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400 bg-white">
+                    className="flex-1 border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400 bg-surface">
                     <option value="">알림 유형 선택...</option>
                     {NOTIFICATION_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
                   </select>
@@ -1943,12 +1943,12 @@ export default function ServiceManagementPage() {
                     </div>
                   )
                 })()}
-                <div className="border border-gray-100 rounded-lg overflow-hidden">
-                  <p className="text-xs font-semibold text-gray-500 px-3 py-2 bg-gray-50 border-b border-gray-100">발송 이력</p>
+                <div className="border border-border-subtle rounded-lg overflow-hidden">
+                  <p className="text-xs font-semibold text-text-secondary px-3 py-2 bg-surface-sunken border-b border-border-subtle">발송 이력</p>
                   {notifyLogs.length === 0 ? (
-                    <p className="text-xs text-gray-400 text-center py-4">발송 이력이 없습니다.</p>
+                    <p className="text-xs text-text-tertiary text-center py-4">발송 이력이 없습니다.</p>
                   ) : (
-                    <div className="max-h-52 overflow-y-auto divide-y divide-gray-50">
+                    <div className="max-h-52 overflow-y-auto divide-y divide-border-subtle">
                       {notifyLogs.map((log, i) => {
                         const isResent = log.type.startsWith('[재발송] ')
                         const baseType = isResent ? log.type.replace('[재발송] ', '') : log.type
@@ -1957,19 +1957,19 @@ export default function ServiceManagementPage() {
                           <div key={i} className="flex items-center justify-between px-3 py-2 gap-2">
                             <div className="flex items-center gap-1.5 min-w-0">
                               {isResent && (
-                                <span className="text-xs px-1.5 py-0.5 bg-gray-100 text-gray-500 rounded font-medium shrink-0">재발송</span>
+                                <span className="text-xs px-1.5 py-0.5 bg-surface-sunken text-text-secondary rounded font-medium shrink-0">재발송</span>
                               )}
                               {/* P2-31: 자동/수동 구분 태그 */}
                               {log.method === 'auto' && (
                                 <span className="text-xs px-1.5 py-0.5 bg-indigo-100 text-indigo-600 rounded font-medium shrink-0">[자동]</span>
                               )}
-                              <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium ${cfg?.badge ?? 'bg-gray-100 text-gray-600'}`}>
-                                <span className={`w-1.5 h-1.5 rounded-full ${cfg?.dot ?? 'bg-gray-400'} shrink-0`} />
+                              <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium ${cfg?.badge ?? 'bg-surface-sunken text-text-secondary'}`}>
+                                <span className={`w-1.5 h-1.5 rounded-full ${cfg?.dot ?? 'bg-text-tertiary'} shrink-0`} />
                                 <span className="truncate">{baseType}</span>
                               </span>
                             </div>
                             <div className="flex items-center gap-2 shrink-0">
-                              <span className="text-xs text-gray-400">{new Date(log.sentAt).toLocaleString('ko-KR', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}</span>
+                              <span className="text-xs text-text-tertiary">{new Date(log.sentAt).toLocaleString('ko-KR', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}</span>
                               {!isResent && (
                                 <button
                                   onClick={() => handleResend(baseType)}
@@ -2008,7 +2008,7 @@ export default function ServiceManagementPage() {
                           이 위치에 생성
                         </button>
                         <button onClick={executeDriveCreateWithPicker} disabled={driveCreating}
-                          className="flex-1 py-2 bg-white text-green-700 border border-green-300 text-xs font-semibold rounded-lg hover:bg-green-50 disabled:opacity-60 transition-colors">
+                          className="flex-1 py-2 bg-surface text-green-700 border border-green-300 text-xs font-semibold rounded-lg hover:bg-green-50 disabled:opacity-60 transition-colors">
                           위치 변경
                         </button>
                       </div>
@@ -2027,7 +2027,7 @@ export default function ServiceManagementPage() {
                         toast.error('폴더를 먼저 생성해주세요')
                       }
                     }}
-                    className={`flex items-center gap-2 text-xs ${selected.drive_folder_url ? 'text-green-600 hover:text-green-700' : 'text-gray-400 cursor-not-allowed'}`}
+                    className={`flex items-center gap-2 text-xs ${selected.drive_folder_url ? 'text-green-600 hover:text-green-700' : 'text-text-tertiary cursor-not-allowed'}`}
                   >
                     <span>🔗</span><span className="truncate">Drive 폴더 열기</span>
                   </button>
@@ -2038,7 +2038,7 @@ export default function ServiceManagementPage() {
               {selected.notion_page_id && (
                 <a href={`https://notion.so/${selected.notion_page_id.replace(/-/g, '')}`}
                   target="_blank" rel="noopener noreferrer"
-                  className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-800">
+                  className="flex items-center gap-2 text-sm text-text-secondary hover:text-text-primary">
                   <span>📝</span> Notion에서 보기
                 </a>
               )}
@@ -2055,18 +2055,18 @@ export default function ServiceManagementPage() {
                     ) : null
                   })()}
                   <button onClick={handleSendQuote} disabled={quoteSending}
-                    className="w-full py-2.5 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors flex items-center justify-center gap-2">
+                    className="w-full py-2.5 bg-brand-600 text-white text-sm font-semibold rounded-lg hover:bg-brand-700 disabled:opacity-50 transition-colors flex items-center justify-center gap-2">
                     <span>📄</span>
                     <span>{quoteSending ? '발송 중...' : '견적서 보내기'}</span>
                   </button>
                   {quoteLog && (
                     <div className="space-y-1">
-                      <div className="text-xs text-gray-500 px-1">
+                      <div className="text-xs text-text-secondary px-1">
                         마지막 발송: {new Date(quoteLog.sentAt).toLocaleString('ko-KR', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })} ({quoteLog.quoteNo})
                       </div>
                       {quoteLog.pdfUrl && (
                         <a href={quoteLog.pdfUrl} target="_blank" rel="noopener noreferrer"
-                          className="flex items-center gap-1.5 text-xs text-blue-600 hover:text-blue-800 underline px-1">
+                          className="flex items-center gap-1.5 text-xs text-brand-600 hover:text-brand-700 underline px-1">
                           <span>📄</span>견적서 확인
                         </a>
                       )}
@@ -2077,7 +2077,7 @@ export default function ServiceManagementPage() {
 
               {/* 전체 저장 */}
               <button onClick={handleSave} disabled={saving}
-                className="w-full py-3 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 disabled:opacity-60 transition-colors">
+                className="w-full py-3 bg-brand-600 text-white text-sm font-semibold rounded-lg hover:bg-brand-700 disabled:opacity-60 transition-colors">
                 {saving ? '저장 중...' : '💾 전체 저장'}
               </button>
             </div>
