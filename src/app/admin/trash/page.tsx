@@ -37,12 +37,12 @@ function calcDaysLeft(deletedAt: string): number {
 function DaysBadge({ deletedAt }: { deletedAt: string }) {
   const days = calcDaysLeft(deletedAt)
   if (days <= 3) {
-    return <span className="text-red-600 font-bold text-sm">D-{days}</span>
+    return <span className="text-state-danger font-bold text-sm">D-{days}</span>
   }
   if (days <= 7) {
     return <span className="text-orange-600 font-semibold text-sm">D-{days}</span>
   }
-  return <span className="text-gray-500 text-sm">D-{days}</span>
+  return <span className="text-text-secondary text-sm">D-{days}</span>
 }
 
 function fmtDate(iso: string): string {
@@ -193,20 +193,20 @@ export default function TrashPage() {
     <div className="max-w-6xl mx-auto">
       {/* 헤더 */}
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">🗑️ 휴지통</h1>
-        <p className="text-sm text-gray-500 mt-1">
+        <h1 className="text-2xl font-bold text-text-primary">🗑️ 휴지통</h1>
+        <p className="text-sm text-text-secondary mt-1">
           삭제된 항목은 60일 후 자동으로 영구 삭제됩니다.
         </p>
       </div>
 
       {/* 탭 */}
-      <div className="flex gap-2 mb-6 border-b border-gray-200">
+      <div className="flex gap-2 mb-6 border-b border-border">
         <button
           onClick={() => setActiveTab('customers')}
           className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
             activeTab === 'customers'
               ? 'border-brand-600 text-brand-600'
-              : 'border-transparent text-gray-500 hover:text-gray-700'
+              : 'border-transparent text-text-secondary hover:text-text-primary'
           }`}
         >
           고객관리
@@ -221,7 +221,7 @@ export default function TrashPage() {
           className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
             activeTab === 'applications'
               ? 'border-brand-600 text-brand-600'
-              : 'border-transparent text-gray-500 hover:text-gray-700'
+              : 'border-transparent text-text-secondary hover:text-text-primary'
           }`}
         >
           서비스관리
@@ -234,7 +234,7 @@ export default function TrashPage() {
       </div>
 
       {loading ? (
-        <div className="flex items-center justify-center py-20 text-gray-400">
+        <div className="flex items-center justify-center py-20 text-text-tertiary">
           <span>불러오는 중...</span>
         </div>
       ) : activeTab === 'customers' ? (
@@ -283,7 +283,7 @@ function CustomersTab({
 
   if (customers.length === 0) {
     return (
-      <div className="text-center py-20 text-gray-400">
+      <div className="text-center py-20 text-text-tertiary">
         <p className="text-4xl mb-3">🗑️</p>
         <p>휴지통이 비어 있습니다.</p>
       </div>
@@ -294,8 +294,8 @@ function CustomersTab({
     <div>
       {/* 일괄 액션 바 */}
       {selected.size > 0 && (
-        <div className="flex items-center gap-3 mb-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
-          <span className="text-sm text-blue-700 font-medium">{selected.size}건 선택됨</span>
+        <div className="flex items-center gap-3 mb-4 p-3 bg-brand-50 rounded-lg border border-brand-200">
+          <span className="text-sm text-brand-700 font-medium">{selected.size}건 선택됨</span>
           <button
             onClick={() => onRestore(Array.from(selected))}
             className="px-3 py-1.5 text-xs font-medium bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
@@ -312,42 +312,42 @@ function CustomersTab({
       )}
 
       {/* 테이블 */}
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+      <div className="bg-surface rounded-xl border border-border overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
-            <thead className="bg-gray-50 border-b border-gray-200">
+            <thead className="bg-surface-sunken border-b border-border">
               <tr>
                 <th className="w-10 px-4 py-3 text-left">
                   <input
                     type="checkbox"
                     checked={allSelected}
                     onChange={onToggleAll}
-                    className="rounded border-gray-300"
+                    className="rounded border-border"
                   />
                 </th>
-                <th className="px-4 py-3 text-left font-medium text-gray-600">업체명</th>
-                <th className="px-4 py-3 text-left font-medium text-gray-600">담당자</th>
-                <th className="px-4 py-3 text-left font-medium text-gray-600">서비스유형</th>
-                <th className="px-4 py-3 text-left font-medium text-gray-600">삭제일</th>
-                <th className="px-4 py-3 text-left font-medium text-gray-600">남은 기간</th>
-                <th className="px-4 py-3 text-right font-medium text-gray-600">액션</th>
+                <th className="px-4 py-3 text-left font-medium text-text-secondary">업체명</th>
+                <th className="px-4 py-3 text-left font-medium text-text-secondary">담당자</th>
+                <th className="px-4 py-3 text-left font-medium text-text-secondary">서비스유형</th>
+                <th className="px-4 py-3 text-left font-medium text-text-secondary">삭제일</th>
+                <th className="px-4 py-3 text-left font-medium text-text-secondary">남은 기간</th>
+                <th className="px-4 py-3 text-right font-medium text-text-secondary">액션</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody className="divide-y divide-border-subtle">
               {customers.map(c => (
-                <tr key={c.id} className={selected.has(c.id) ? 'bg-blue-50' : 'hover:bg-gray-50'}>
+                <tr key={c.id} className={selected.has(c.id) ? 'bg-brand-50' : 'hover:bg-surface-sunken'}>
                   <td className="px-4 py-3">
                     <input
                       type="checkbox"
                       checked={selected.has(c.id)}
                       onChange={() => onToggle(c.id)}
-                      className="rounded border-gray-300"
+                      className="rounded border-border"
                     />
                   </td>
-                  <td className="px-4 py-3 font-medium text-gray-900">{c.business_name}</td>
-                  <td className="px-4 py-3 text-gray-600">{c.contact_name ?? '-'}</td>
-                  <td className="px-4 py-3 text-gray-600">{c.customer_type ?? '-'}</td>
-                  <td className="px-4 py-3 text-gray-500">{fmtDate(c.deleted_at)}</td>
+                  <td className="px-4 py-3 font-medium text-text-primary">{c.business_name}</td>
+                  <td className="px-4 py-3 text-text-secondary">{c.contact_name ?? '-'}</td>
+                  <td className="px-4 py-3 text-text-secondary">{c.customer_type ?? '-'}</td>
+                  <td className="px-4 py-3 text-text-secondary">{fmtDate(c.deleted_at)}</td>
                   <td className="px-4 py-3">
                     <DaysBadge deletedAt={c.deleted_at} />
                   </td>
@@ -355,13 +355,13 @@ function CustomersTab({
                     <div className="flex items-center justify-end gap-2">
                       <button
                         onClick={() => onRestore([c.id])}
-                        className="px-2.5 py-1 text-xs font-medium text-green-700 bg-green-100 rounded-md hover:bg-green-200 transition-colors"
+                        className="px-2.5 py-1 text-xs font-medium text-state-success bg-state-success-bg rounded-md hover:bg-green-200 transition-colors"
                       >
                         복원
                       </button>
                       <button
                         onClick={() => onPurge([c.id])}
-                        className="px-2.5 py-1 text-xs font-medium text-red-700 bg-red-100 rounded-md hover:bg-red-200 transition-colors"
+                        className="px-2.5 py-1 text-xs font-medium text-state-danger bg-state-danger-bg rounded-md hover:bg-red-200 transition-colors"
                       >
                         완전삭제
                       </button>
@@ -400,7 +400,7 @@ function ApplicationsTab({
 
   if (applications.length === 0) {
     return (
-      <div className="text-center py-20 text-gray-400">
+      <div className="text-center py-20 text-text-tertiary">
         <p className="text-4xl mb-3">🗑️</p>
         <p>휴지통이 비어 있습니다.</p>
       </div>
@@ -411,8 +411,8 @@ function ApplicationsTab({
     <div>
       {/* 일괄 액션 바 */}
       {selected.size > 0 && (
-        <div className="flex items-center gap-3 mb-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
-          <span className="text-sm text-blue-700 font-medium">{selected.size}건 선택됨</span>
+        <div className="flex items-center gap-3 mb-4 p-3 bg-brand-50 rounded-lg border border-brand-200">
+          <span className="text-sm text-brand-700 font-medium">{selected.size}건 선택됨</span>
           <button
             onClick={() => onRestore(Array.from(selected))}
             className="px-3 py-1.5 text-xs font-medium bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
@@ -429,42 +429,42 @@ function ApplicationsTab({
       )}
 
       {/* 테이블 */}
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+      <div className="bg-surface rounded-xl border border-border overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
-            <thead className="bg-gray-50 border-b border-gray-200">
+            <thead className="bg-surface-sunken border-b border-border">
               <tr>
                 <th className="w-10 px-4 py-3 text-left">
                   <input
                     type="checkbox"
                     checked={allSelected}
                     onChange={onToggleAll}
-                    className="rounded border-gray-300"
+                    className="rounded border-border"
                   />
                 </th>
-                <th className="px-4 py-3 text-left font-medium text-gray-600">업체명</th>
-                <th className="px-4 py-3 text-left font-medium text-gray-600">담당자</th>
-                <th className="px-4 py-3 text-left font-medium text-gray-600">서비스유형</th>
-                <th className="px-4 py-3 text-left font-medium text-gray-600">삭제일</th>
-                <th className="px-4 py-3 text-left font-medium text-gray-600">남은 기간</th>
-                <th className="px-4 py-3 text-right font-medium text-gray-600">액션</th>
+                <th className="px-4 py-3 text-left font-medium text-text-secondary">업체명</th>
+                <th className="px-4 py-3 text-left font-medium text-text-secondary">담당자</th>
+                <th className="px-4 py-3 text-left font-medium text-text-secondary">서비스유형</th>
+                <th className="px-4 py-3 text-left font-medium text-text-secondary">삭제일</th>
+                <th className="px-4 py-3 text-left font-medium text-text-secondary">남은 기간</th>
+                <th className="px-4 py-3 text-right font-medium text-text-secondary">액션</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody className="divide-y divide-border-subtle">
               {applications.map(a => (
-                <tr key={a.id} className={selected.has(a.id) ? 'bg-blue-50' : 'hover:bg-gray-50'}>
+                <tr key={a.id} className={selected.has(a.id) ? 'bg-brand-50' : 'hover:bg-surface-sunken'}>
                   <td className="px-4 py-3">
                     <input
                       type="checkbox"
                       checked={selected.has(a.id)}
                       onChange={() => onToggle(a.id)}
-                      className="rounded border-gray-300"
+                      className="rounded border-border"
                     />
                   </td>
-                  <td className="px-4 py-3 font-medium text-gray-900">{a.business_name}</td>
-                  <td className="px-4 py-3 text-gray-600">{a.owner_name ?? '-'}</td>
-                  <td className="px-4 py-3 text-gray-600">{a.service_type ?? '-'}</td>
-                  <td className="px-4 py-3 text-gray-500">{fmtDate(a.deleted_at)}</td>
+                  <td className="px-4 py-3 font-medium text-text-primary">{a.business_name}</td>
+                  <td className="px-4 py-3 text-text-secondary">{a.owner_name ?? '-'}</td>
+                  <td className="px-4 py-3 text-text-secondary">{a.service_type ?? '-'}</td>
+                  <td className="px-4 py-3 text-text-secondary">{fmtDate(a.deleted_at)}</td>
                   <td className="px-4 py-3">
                     <DaysBadge deletedAt={a.deleted_at} />
                   </td>
@@ -472,13 +472,13 @@ function ApplicationsTab({
                     <div className="flex items-center justify-end gap-2">
                       <button
                         onClick={() => onRestore([a.id])}
-                        className="px-2.5 py-1 text-xs font-medium text-green-700 bg-green-100 rounded-md hover:bg-green-200 transition-colors"
+                        className="px-2.5 py-1 text-xs font-medium text-state-success bg-state-success-bg rounded-md hover:bg-green-200 transition-colors"
                       >
                         복원
                       </button>
                       <button
                         onClick={() => onPurge([a.id])}
-                        className="px-2.5 py-1 text-xs font-medium text-red-700 bg-red-100 rounded-md hover:bg-red-200 transition-colors"
+                        className="px-2.5 py-1 text-xs font-medium text-state-danger bg-state-danger-bg rounded-md hover:bg-red-200 transition-colors"
                       >
                         완전삭제
                       </button>
