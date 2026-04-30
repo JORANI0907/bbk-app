@@ -1325,7 +1325,7 @@ export default function ServiceManagementPage() {
 
           {/* 검색 */}
           <div className="relative mb-2">
-            <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-text-tertiary pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" />
             </svg>
             <input
@@ -1333,10 +1333,10 @@ export default function ServiceManagementPage() {
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               placeholder="업체명, 대표자, 연락처, 주소, 케어범위, 계좌·사업자번호, 금액 검색..."
-              className="w-full pl-8 pr-8 py-1.5 text-xs text-gray-900 border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full pl-8 pr-8 py-1.5 text-xs text-text-primary border border-border rounded-lg bg-surface focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
             {searchQuery && (
-              <button onClick={() => setSearchQuery('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-sm leading-none">✕</button>
+              <button onClick={() => setSearchQuery('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-text-tertiary hover:text-text-secondary text-sm leading-none">✕</button>
             )}
           </div>
 
@@ -1372,7 +1372,7 @@ export default function ServiceManagementPage() {
               </div>
             )}
             <select value={paymentFilter} onChange={e => setPaymentFilter(e.target.value)}
-              className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+              className="text-xs border border-border rounded-lg px-2 py-1.5 bg-surface focus:outline-none focus:ring-2 focus:ring-blue-500">
               <option value="">결제방법 전체</option>
               {['현금(계산서 희망)', '현금(비과세)', '카드(온라인 간편결제)', '플랫폼'].map(p => (
                 <option key={p} value={p}>{p}</option>
@@ -1384,7 +1384,7 @@ export default function ServiceManagementPage() {
                 setSortField(f as SortField)
                 setSortDir(d as SortDir)
               }}
-              className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 ml-auto">
+              className="text-xs border border-border rounded-lg px-2 py-1.5 bg-surface focus:outline-none focus:ring-2 focus:ring-blue-500 ml-auto">
               {(Object.entries(SORT_LABELS) as [SortField, string][]).flatMap(([f, l]) => [
                 <option key={`${f}:desc`} value={`${f}:desc`}>{l} ↓</option>,
                 <option key={`${f}:asc`} value={`${f}:asc`}>{l} ↑</option>,
@@ -1392,7 +1392,7 @@ export default function ServiceManagementPage() {
             </select>
             {paymentFilter && (
               <button onClick={() => setPaymentFilter('')}
-                className="text-xs text-blue-500 hover:text-blue-700 underline whitespace-nowrap">
+                className="text-xs text-brand-500 hover:text-brand-700 underline whitespace-nowrap">
                 초기화
               </button>
             )}
@@ -1451,11 +1451,11 @@ export default function ServiceManagementPage() {
 
           {/* 목록 테이블 */}
           {(viewMode === 'list' || showUnassigned) && (
-          <div ref={listContainerRef} className="bg-white rounded-xl border border-gray-200 overflow-auto flex-1 flex flex-col overscroll-contain min-h-0">
+          <div ref={listContainerRef} className="bg-surface rounded-xl border border-border overflow-auto flex-1 flex flex-col overscroll-contain min-h-0">
             {loading ? (
               <LoadingSpinner />
             ) : filteredApps.length === 0 ? (
-              <div className="py-20 text-center text-gray-400 text-sm">신청서가 없습니다.</div>
+              <div className="py-20 text-center text-text-tertiary text-sm">신청서가 없습니다.</div>
             ) : (() => {
               const rows = filteredApps
               const totalSum = rows.reduce((s, a) => s + rowTotal(a), 0)
