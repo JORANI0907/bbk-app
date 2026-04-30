@@ -249,7 +249,7 @@ export default function WorkerInventoryPage() {
                   onClick={() => setTxType('receive')}
                   className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-all ${
                     txType === 'receive'
-                      ? 'bg-surface text-green-700 shadow-flat'
+                      ? 'bg-surface text-state-success shadow-flat'
                       : 'text-text-secondary'
                   }`}
                 >
