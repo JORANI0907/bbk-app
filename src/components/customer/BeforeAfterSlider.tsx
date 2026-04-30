@@ -15,9 +15,9 @@ export function BeforeAfterSlider({ beforeUrl, afterUrl, label }: Props) {
   return (
     <div className="flex flex-col gap-2">
       {label && (
-        <h3 className="text-sm font-semibold text-gray-700">{label}</h3>
+        <h3 className="text-sm font-semibold text-text-primary">{label}</h3>
       )}
-      <div className="rounded-2xl overflow-hidden border border-gray-100 shadow-sm">
+      <div className="rounded-2xl overflow-hidden border border-border-subtle shadow-soft">
         <ReactCompareSlider
           itemOne={
             <ReactCompareSliderImage
@@ -39,9 +39,9 @@ export function BeforeAfterSlider({ beforeUrl, afterUrl, label }: Props) {
           }}
         />
       </div>
-      <div className="flex justify-between text-xs text-gray-400 px-1">
-        <span className="bg-gray-100 px-2 py-0.5 rounded-full">◀ Before</span>
-        <span className="bg-blue-100 text-blue-600 px-2 py-0.5 rounded-full">After ▶</span>
+      <div className="flex justify-between text-xs text-text-tertiary px-1">
+        <span className="bg-surface-sunken px-2 py-0.5 rounded-full">◀ Before</span>
+        <span className="bg-brand-100 text-brand-600 px-2 py-0.5 rounded-full">After ▶</span>
       </div>
     </div>
   )
