@@ -13,7 +13,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const userName = session.name
 
   return (
-    <div className="flex h-screen overflow-hidden bg-gray-50">
+    <div className="flex h-screen overflow-hidden bg-surface-sunken">
       {/* 데스크탑 사이드바 (badges 포함) */}
       <SidebarWithBadges role={role} userName={userName} />
 

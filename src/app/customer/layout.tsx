@@ -9,12 +9,12 @@ export default async function CustomerLayout({
   children: React.ReactNode
 }) {
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
-      <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-sm border-b border-gray-100 safe-area-pt shadow-sm">
+    <div className="min-h-screen bg-surface-sunken flex flex-col">
+      <header className="sticky top-0 z-40 bg-surface/95 backdrop-blur-sm border-b border-border-subtle safe-area-pt shadow-flat">
         <div className="flex items-center justify-between px-4 h-14">
           <Link href="/customer" className="flex items-center gap-1.5">
-            <span className="text-xl font-black text-blue-600 tracking-tight">BBK</span>
-            <span className="text-[10px] text-gray-400 font-semibold uppercase tracking-widest">Korea</span>
+            <span className="text-xl font-black text-brand-600 tracking-tight">BBK</span>
+            <span className="text-[10px] text-text-tertiary font-semibold uppercase tracking-widest">Korea</span>
           </Link>
 
           <form
@@ -29,7 +29,7 @@ export default async function CustomerLayout({
           >
             <button
               type="submit"
-              className="text-xs text-gray-500 hover:text-gray-700 transition-colors px-3 py-1.5 rounded-lg hover:bg-gray-100 font-medium"
+              className="text-xs text-text-tertiary hover:text-text-primary transition-colors px-3 py-1.5 rounded-lg hover:bg-surface-sunken font-medium"
             >
               로그아웃
             </button>
