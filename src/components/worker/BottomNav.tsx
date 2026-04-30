@@ -66,7 +66,7 @@ export function BottomNav() {
   }
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-sm border-t border-gray-100 safe-area-pb shadow-[0_-1px_12px_rgba(0,0,0,0.06)]">
+    <nav className="fixed bottom-0 left-0 right-0 z-50 bg-surface/95 backdrop-blur-sm border-t border-border-subtle safe-area-pb shadow-[0_-1px_12px_rgba(0,0,0,0.06)]">
       <div className="flex items-stretch h-16 max-w-lg mx-auto">
         {NAV_ITEMS.map((item) => {
           const active = isActive(item.href, item.exact)
@@ -75,16 +75,16 @@ export function BottomNav() {
               key={item.href}
               href={item.href}
               className={`relative flex flex-col items-center justify-center flex-1 gap-1 transition-colors ${
-                active ? 'text-blue-600' : 'text-gray-400 hover:text-gray-600'
+                active ? 'text-brand-600' : 'text-text-tertiary hover:text-text-secondary'
               }`}
             >
               {active && (
-                <span className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 bg-blue-600 rounded-full" />
+                <span className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 bg-brand-600 rounded-full" />
               )}
-              <span className={active ? 'text-blue-600' : 'text-gray-400'}>
+              <span className={active ? 'text-brand-600' : 'text-text-tertiary'}>
                 {item.icon}
               </span>
-              <span className={`text-[10px] font-medium leading-none ${active ? 'text-blue-600' : 'text-gray-400'}`}>
+              <span className={`text-[10px] font-medium leading-none ${active ? 'text-brand-600' : 'text-text-tertiary'}`}>
                 {item.label}
               </span>
             </Link>
