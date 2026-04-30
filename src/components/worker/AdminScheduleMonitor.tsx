@@ -45,17 +45,17 @@ function StepProgressBar({ step }: { step: number }) {
   const pct = Math.round((step / total) * 100)
 
   const color =
-    step === 0 ? 'bg-gray-300' :
+    step === 0 ? 'bg-border' :
     step < 3 ? 'bg-blue-500' :
     step < 5 ? 'bg-orange-500' :
     'bg-green-500'
 
   return (
     <div className="flex items-center gap-2 mt-1">
-      <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+      <div className="flex-1 h-1.5 bg-surface-sunken rounded-full overflow-hidden">
         <div className={`h-full rounded-full transition-all ${color}`} style={{ width: `${pct}%` }} />
       </div>
-      <span className="text-xs text-gray-500 shrink-0 w-12 text-right">
+      <span className="text-xs text-text-secondary shrink-0 w-12 text-right">
         {STEP_LABELS[step] ?? '완료'}
       </span>
     </div>
@@ -70,14 +70,14 @@ function ScheduleRow({ s }: { s: Schedule }) {
   return (
     <Link
       href={`/worker/schedule/${s.id}`}
-      className="block bg-white rounded-xl border border-gray-100 p-3 hover:border-blue-200 hover:shadow-sm transition-all"
+      className="block bg-surface rounded-xl border border-border-subtle p-3 hover:border-brand-200 hover:shadow-soft transition-all"
     >
       <div className="flex items-start justify-between gap-2">
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold text-gray-900 truncate">
+          <p className="text-sm font-semibold text-text-primary truncate">
             {s.customer?.business_name ?? '고객 정보 없음'}
           </p>
-          <p className="text-xs text-gray-500 truncate mt-0.5">{s.customer?.address ?? '-'}</p>
+          <p className="text-xs text-text-secondary truncate mt-0.5">{s.customer?.address ?? '-'}</p>
         </div>
         <span className={`shrink-0 text-xs font-medium px-2 py-1 rounded-full ${statusColor}`}>
           {statusLabel}
@@ -85,7 +85,7 @@ function ScheduleRow({ s }: { s: Schedule }) {
       </div>
 
       <div className="flex items-center gap-2 mt-2 flex-wrap">
-        <span className="text-xs text-gray-500">
+        <span className="text-xs text-text-secondary">
           🕐 {s.scheduled_time_start.slice(0, 5)} ~ {s.scheduled_time_end.slice(0, 5)}
         </span>
         {stepInfo && (
@@ -94,12 +94,12 @@ function ScheduleRow({ s }: { s: Schedule }) {
           </span>
         )}
         {s.actual_arrival && (
-          <span className="text-xs text-blue-600">
+          <span className="text-xs text-brand-600">
             도착 {format(new Date(s.actual_arrival), 'HH:mm')}
           </span>
         )}
         {s.actual_completion && (
-          <span className="text-xs text-green-600">
+          <span className="text-xs text-state-success">
             완료 {format(new Date(s.actual_completion), 'HH:mm')}
           </span>
         )}
@@ -108,7 +108,7 @@ function ScheduleRow({ s }: { s: Schedule }) {
       <StepProgressBar step={s.work_step ?? 0} />
 
       {s.worker_memo && (
-        <p className="text-xs text-gray-400 mt-1.5 truncate">📝 {s.worker_memo}</p>
+        <p className="text-xs text-text-tertiary mt-1.5 truncate">📝 {s.worker_memo}</p>
       )}
     </Link>
   )
@@ -124,7 +124,7 @@ function WorkerGroup({ group }: { group: GroupedWorker }) {
       <div className="flex items-center justify-between mb-2 px-1">
         <div className="flex items-center gap-2">
           <span className="text-base">👷</span>
-          <span className="text-sm font-bold text-gray-800">
+          <span className="text-sm font-bold text-text-primary">
             {group.worker?.name ?? '미배정'}
           </span>
         </div>
@@ -134,7 +134,7 @@ function WorkerGroup({ group }: { group: GroupedWorker }) {
               진행 {inProgress}
             </span>
           )}
-          <span className="bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-medium">
+          <span className="bg-state-success-bg text-state-success px-2 py-0.5 rounded-full font-medium">
             완료 {done}/{total}
           </span>
         </div>
@@ -209,7 +209,7 @@ export function AdminScheduleMonitor({ initialDate }: { initialDate: string }) {
       <div className="flex items-center justify-between mb-4">
         <button
           onClick={() => changeDate(-1)}
-          className="p-2 rounded-lg hover:bg-gray-100 transition-colors text-gray-600 text-lg"
+          className="p-2 rounded-lg hover:bg-surface-sunken transition-colors text-text-secondary text-lg"
         >
           ←
         </button>
@@ -218,15 +218,15 @@ export function AdminScheduleMonitor({ initialDate }: { initialDate: string }) {
             type="date"
             value={date}
             onChange={(e) => setDate(e.target.value)}
-            className="text-base font-bold text-gray-900 bg-transparent text-center cursor-pointer focus:outline-none"
+            className="text-base font-bold text-text-primary bg-transparent text-center cursor-pointer focus:outline-none"
           />
-          <p className="text-xs text-gray-400 mt-0.5">
+          <p className="text-xs text-text-tertiary mt-0.5">
             {format(new Date(date), 'M월 d일 (EEEE)', { locale: ko })}
           </p>
         </div>
         <button
           onClick={() => changeDate(1)}
-          className="p-2 rounded-lg hover:bg-gray-100 transition-colors text-gray-600 text-lg"
+          className="p-2 rounded-lg hover:bg-surface-sunken transition-colors text-text-secondary text-lg"
         >
           →
         </button>
@@ -235,7 +235,7 @@ export function AdminScheduleMonitor({ initialDate }: { initialDate: string }) {
       {/* 요약 배지 */}
       {!loading && schedules.length > 0 && (
         <div className="flex gap-2 mb-4">
-          <span className="text-xs bg-gray-100 text-gray-700 px-3 py-1 rounded-full">
+          <span className="text-xs bg-surface-sunken text-text-primary px-3 py-1 rounded-full">
             전체 {schedules.length}건
           </span>
           {totalInProgress > 0 && (
@@ -243,7 +243,7 @@ export function AdminScheduleMonitor({ initialDate }: { initialDate: string }) {
               진행 중 {totalInProgress}
             </span>
           )}
-          <span className="text-xs bg-green-100 text-green-700 px-3 py-1 rounded-full">
+          <span className="text-xs bg-state-success-bg text-state-success px-3 py-1 rounded-full">
             완료 {totalDone}
           </span>
         </div>
@@ -251,13 +251,13 @@ export function AdminScheduleMonitor({ initialDate }: { initialDate: string }) {
 
       {/* 목록 */}
       {loading ? (
-        <div className="flex items-center justify-center py-20 text-gray-400 text-sm">
+        <div className="flex items-center justify-center py-20 text-text-tertiary text-sm">
           불러오는 중...
         </div>
       ) : groups.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 gap-3 text-center">
           <span className="text-5xl">📋</span>
-          <p className="text-gray-500 text-sm">이날 배정된 일정이 없습니다.</p>
+          <p className="text-text-secondary text-sm">이날 배정된 일정이 없습니다.</p>
         </div>
       ) : (
         groups.map((g) => (
