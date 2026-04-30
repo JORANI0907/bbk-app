@@ -53,14 +53,14 @@ const EMPTY_FORM: NoticeFormData = {
 
 const TYPE_LABELS: Record<NoticeType, string> = { notice: '공지', event: '이벤트' }
 const TYPE_BADGE: Record<NoticeType, string> = {
-  notice: 'bg-blue-100 text-blue-700',
+  notice: 'bg-brand-100 text-brand-700',
   event: 'bg-purple-100 text-purple-700',
 }
 const PRIORITY_LABELS: Record<Priority, string> = { normal: '일반', high: '중요', urgent: '긴급' }
 const PRIORITY_BADGE: Record<Priority, string> = {
-  normal: 'bg-gray-100 text-gray-600',
-  high: 'bg-yellow-100 text-yellow-700',
-  urgent: 'bg-red-100 text-red-700',
+  normal: 'bg-surface-sunken text-text-secondary',
+  high: 'bg-state-warning-bg text-state-warning',
+  urgent: 'bg-state-danger-bg text-state-danger',
 }
 const AUDIENCE_LABELS: Record<Audience, string> = {
   all: '전체', admin: '관리자', worker: '직원', customer: '고객',
@@ -211,7 +211,7 @@ export default function NoticesPage() {
     <div className="flex flex-col h-full">
       {/* 헤더 */}
       <div className="flex items-center justify-between px-4 pt-4 pb-2">
-        <h1 className="text-lg font-bold text-gray-900">공지·이벤트관리</h1>
+        <h1 className="text-lg font-bold text-text-primary">공지·이벤트관리</h1>
         <button
           onClick={openCreate}
           className="flex items-center gap-1.5 px-4 py-2 bg-brand-600 text-white text-sm font-semibold rounded-xl hover:bg-brand-700 transition-colors"
@@ -227,7 +227,7 @@ export default function NoticesPage() {
             key={t}
             onClick={() => setTab(t)}
             className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
-              tab === t ? 'bg-brand-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              tab === t ? 'bg-brand-600 text-white' : 'bg-surface-sunken text-text-secondary hover:bg-surface-sunken'
             }`}
           >
             {t === 'all' ? '전체' : t === 'notice' ? '공지' : '이벤트'}
@@ -241,16 +241,16 @@ export default function NoticesPage() {
       {/* 목록 */}
       <div className="flex-1 overflow-y-auto px-4 pb-4 space-y-2">
         {loading ? (
-          <div className="flex items-center justify-center py-20 text-gray-400 text-sm">로딩 중...</div>
+          <div className="flex items-center justify-center py-20 text-text-tertiary text-sm">로딩 중...</div>
         ) : filtered.length === 0 ? (
-          <div className="flex items-center justify-center py-20 text-gray-400 text-sm">공지사항이 없습니다.</div>
+          <div className="flex items-center justify-center py-20 text-text-tertiary text-sm">공지사항이 없습니다.</div>
         ) : (
           filtered.map(notice => {
             const isExpanded = expandedId === notice.id
             return (
               <div
                 key={notice.id}
-                className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden"
+                className="bg-surface rounded-xl border border-border-subtle shadow-soft overflow-hidden"
               >
                 {/* 헤더 행 (클릭 시 펼침/접기) */}
                 <div
@@ -272,23 +272,23 @@ export default function NoticesPage() {
                       <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${PRIORITY_BADGE[notice.priority]}`}>
                         {PRIORITY_LABELS[notice.priority]}
                       </span>
-                      <span className="text-xs text-gray-400 px-2 py-0.5 rounded-full bg-gray-50">
+                      <span className="text-xs text-text-tertiary px-2 py-0.5 rounded-full bg-surface-sunken">
                         {AUDIENCE_LABELS[notice.target_audience ?? 'all']}
                       </span>
                       {notice.popup && (
                         <span className="text-xs text-orange-600 bg-orange-50 px-2 py-0.5 rounded-full font-medium">팝업</span>
                       )}
                       {notice.image_url && (
-                        <span className="text-xs text-gray-400 bg-gray-50 px-1.5 py-0.5 rounded-full">📷</span>
+                        <span className="text-xs text-text-tertiary bg-surface-sunken px-1.5 py-0.5 rounded-full">📷</span>
                       )}
                     </div>
                     {/* 제목 */}
-                    <p className="text-sm font-semibold text-gray-900 truncate">{notice.title}</p>
+                    <p className="text-sm font-semibold text-text-primary truncate">{notice.title}</p>
                     {!isExpanded && (
-                      <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">{notice.content}</p>
+                      <p className="text-xs text-text-secondary mt-0.5 line-clamp-2">{notice.content}</p>
                     )}
                     {/* 날짜 */}
-                    <p className="text-xs text-gray-400 mt-1.5">
+                    <p className="text-xs text-text-tertiary mt-1.5">
                       {notice.type === 'event' && notice.event_date
                         ? `이벤트일: ${notice.event_date} · `
                         : ''}
@@ -315,7 +315,7 @@ export default function NoticesPage() {
 
                 {/* 펼쳐진 상세 (사진 + 전체 내용 하나의 섹션) */}
                 {isExpanded && (
-                  <div className="border-t border-gray-100">
+                  <div className="border-t border-border-subtle">
                     {notice.image_url && (
                       <div className="flex justify-center px-4 pt-3">
                         <img
@@ -327,7 +327,7 @@ export default function NoticesPage() {
                       </div>
                     )}
                     <div className="px-4 py-3">
-                      <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">{notice.content}</p>
+                      <p className="text-sm text-text-primary whitespace-pre-wrap leading-relaxed">{notice.content}</p>
                     </div>
                   </div>
                 )}
@@ -361,15 +361,15 @@ export default function NoticesPage() {
       {/* 작성/수정 모달 */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 p-4">
-          <div className="bg-white rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-2xl">
+          <div className="bg-surface rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-pop">
             {/* 모달 헤더 */}
-            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
-              <h2 className="text-base font-bold text-gray-900">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-border-subtle">
+              <h2 className="text-base font-bold text-text-primary">
                 {editTarget ? '공지 수정' : '새 공지 작성'}
               </h2>
               <button
                 onClick={() => setShowModal(false)}
-                className="text-gray-400 hover:text-gray-700 text-xl leading-none p-1"
+                className="text-text-tertiary hover:text-text-primary text-xl leading-none p-1"
               >
                 ✕
               </button>
@@ -380,22 +380,22 @@ export default function NoticesPage() {
               {/* 타입 + 중요도 */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-gray-600 mb-1">타입</label>
+                  <label className="block text-xs font-semibold text-text-secondary mb-1">타입</label>
                   <select
                     value={form.type}
                     onChange={e => setForm(prev => ({ ...prev, type: e.target.value as NoticeType }))}
-                    className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+                    className="w-full border border-border rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
                   >
                     <option value="notice">공지</option>
                     <option value="event">이벤트</option>
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-gray-600 mb-1">중요도</label>
+                  <label className="block text-xs font-semibold text-text-secondary mb-1">중요도</label>
                   <select
                     value={form.priority}
                     onChange={e => setForm(prev => ({ ...prev, priority: e.target.value as Priority }))}
-                    className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+                    className="w-full border border-border rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
                   >
                     <option value="normal">일반</option>
                     <option value="high">중요</option>
@@ -407,11 +407,11 @@ export default function NoticesPage() {
               {/* 대상 + 이벤트 날짜 */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-gray-600 mb-1">대상</label>
+                  <label className="block text-xs font-semibold text-text-secondary mb-1">대상</label>
                   <select
                     value={form.target_audience}
                     onChange={e => setForm(prev => ({ ...prev, target_audience: e.target.value as Audience }))}
-                    className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+                    className="w-full border border-border rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
                   >
                     <option value="all">전체</option>
                     <option value="admin">관리자</option>
@@ -421,12 +421,12 @@ export default function NoticesPage() {
                 </div>
                 {form.type === 'event' && (
                   <div>
-                    <label className="block text-xs font-semibold text-gray-600 mb-1">이벤트 날짜</label>
+                    <label className="block text-xs font-semibold text-text-secondary mb-1">이벤트 날짜</label>
                     <input
                       type="date"
                       value={form.event_date}
                       onChange={e => setForm(prev => ({ ...prev, event_date: e.target.value }))}
-                      className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+                      className="w-full border border-border rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
                     />
                   </div>
                 )}
@@ -434,31 +434,31 @@ export default function NoticesPage() {
 
               {/* 제목 */}
               <div>
-                <label className="block text-xs font-semibold text-gray-600 mb-1">제목 *</label>
+                <label className="block text-xs font-semibold text-text-secondary mb-1">제목 *</label>
                 <input
                   type="text"
                   value={form.title}
                   onChange={e => setForm(prev => ({ ...prev, title: e.target.value }))}
                   placeholder="공지 제목을 입력하세요"
-                  className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+                  className="w-full border border-border rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
                 />
               </div>
 
               {/* 내용 */}
               <div>
-                <label className="block text-xs font-semibold text-gray-600 mb-1">내용 *</label>
+                <label className="block text-xs font-semibold text-text-secondary mb-1">내용 *</label>
                 <textarea
                   value={form.content}
                   onChange={e => setForm(prev => ({ ...prev, content: e.target.value }))}
                   placeholder="내용을 입력하세요"
                   rows={5}
-                  className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 resize-none"
+                  className="w-full border border-border rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 resize-none"
                 />
               </div>
 
               {/* 사진 업로드 */}
               <div>
-                <label className="block text-xs font-semibold text-gray-600 mb-1">사진 (선택)</label>
+                <label className="block text-xs font-semibold text-text-secondary mb-1">사진 (선택)</label>
                 {form.image_url && (
                   <div className="mb-2 relative">
                     <img src={form.image_url} alt="미리보기" className="w-full max-h-32 object-cover rounded-lg" />
@@ -471,7 +471,7 @@ export default function NoticesPage() {
                     </button>
                   </div>
                 )}
-                <label className={`flex items-center justify-center gap-2 w-full border-2 border-dashed border-gray-200 rounded-xl py-3 cursor-pointer text-sm text-gray-500 hover:bg-gray-50 transition-colors ${photoUploading ? 'opacity-50 pointer-events-none' : ''}`}>
+                <label className={`flex items-center justify-center gap-2 w-full border-2 border-dashed border-border rounded-xl py-3 cursor-pointer text-sm text-text-secondary hover:bg-surface-sunken transition-colors ${photoUploading ? 'opacity-50 pointer-events-none' : ''}`}>
                   <input
                     type="file"
                     accept="image/*"
@@ -495,7 +495,7 @@ export default function NoticesPage() {
                     onChange={e => setForm(prev => ({ ...prev, pinned: e.target.checked }))}
                     className="w-4 h-4 rounded accent-brand-600"
                   />
-                  <span className="text-sm text-gray-700">상단 고정</span>
+                  <span className="text-sm text-text-primary">상단 고정</span>
                 </label>
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input
@@ -504,7 +504,7 @@ export default function NoticesPage() {
                     onChange={e => setForm(prev => ({ ...prev, popup: e.target.checked }))}
                     className="w-4 h-4 rounded accent-brand-600"
                   />
-                  <span className="text-sm text-gray-700">팝업 표시</span>
+                  <span className="text-sm text-text-primary">팝업 표시</span>
                 </label>
               </div>
             </div>
@@ -513,7 +513,7 @@ export default function NoticesPage() {
             <div className="flex gap-2 px-5 pb-5">
               <button
                 onClick={() => setShowModal(false)}
-                className="flex-1 py-2.5 rounded-xl border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors"
+                className="flex-1 py-2.5 rounded-xl border border-border text-sm font-medium text-text-secondary hover:bg-surface-sunken transition-colors"
               >
                 취소
               </button>
