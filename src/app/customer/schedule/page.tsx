@@ -1,6 +1,7 @@
 import { createServiceClient } from '@/lib/supabase/server'
 import { getServerSession } from '@/lib/session'
 import { redirect } from 'next/navigation'
+import Link from 'next/link'
 import { format, isPast, isToday } from 'date-fns'
 import { ko } from 'date-fns/locale'
 import { ServiceSchedule } from '@/types/database'
@@ -131,15 +132,40 @@ export default async function CustomerSchedulePage() {
         <section>
           <h2 className="text-base font-bold text-gray-900 mb-3">지난 서비스</h2>
           <div className="flex flex-col gap-3">
-            {past.slice(0, 10).map((s) => (
-              <ScheduleCard key={s.id} schedule={s} />
+            {past.map((s) => (
+              s.status === 'completed' ? (
+                <Link
+                  key={s.id}
+                  href={`/customer/reports/${s.id}`}
+                  className="bg-white rounded-2xl border border-gray-100 p-4 flex flex-col gap-2 active:scale-[0.98] transition-transform"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <p className="text-sm font-bold text-gray-900">
+                        {format(new Date(s.scheduled_date), 'yyyy년 M월 d일 (EEE)', { locale: ko })}
+                      </p>
+                      {(s.scheduled_time_start || s.scheduled_time_end) && (
+                        <p className="text-xs text-gray-400 mt-0.5">
+                          {s.scheduled_time_start}{s.scheduled_time_end ? ` ~ ${s.scheduled_time_end}` : ''}
+                        </p>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span className={`text-xs px-2.5 py-1 rounded-full font-medium whitespace-nowrap ${SCHEDULE_STATUS_COLORS[s.status] ?? 'bg-gray-100 text-gray-600'}`}>
+                        {SCHEDULE_STATUS_LABELS[s.status] ?? s.status}
+                      </span>
+                      <span className="text-gray-300 text-sm">›</span>
+                    </div>
+                  </div>
+                  <p className="text-sm text-gray-600">
+                    {s.items_this_visit?.map((i) => i.name).join(', ') || '청소 서비스'}
+                  </p>
+                </Link>
+              ) : (
+                <ScheduleCard key={s.id} schedule={s} />
+              )
             ))}
           </div>
-          {past.length > 10 && (
-            <p className="text-center text-xs text-gray-400 mt-3">
-              최근 10건만 표시됩니다. 전체 이력은 서비스 리포트에서 확인하세요.
-            </p>
-          )}
         </section>
       )}
     </div>
