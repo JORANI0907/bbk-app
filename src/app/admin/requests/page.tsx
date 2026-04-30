@@ -55,9 +55,9 @@ const ALL_CATEGORY_LABELS: Record<string, string> = {
 }
 
 const STATUS_BADGE: Record<string, string> = {
-  pending: 'bg-amber-100 text-amber-700',
-  approved: 'bg-green-100 text-green-700',
-  rejected: 'bg-red-100 text-red-700',
+  pending: 'bg-state-warning-bg text-state-warning',
+  approved: 'bg-state-success-bg text-state-success',
+  rejected: 'bg-state-danger-bg text-state-danger',
 }
 
 const STATUS_LABELS: Record<string, string> = {
@@ -98,8 +98,8 @@ function WorkerSubmitForm({ onSubmitted }: { onSubmitted: () => void }) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 flex flex-col gap-4">
-      <h2 className="text-sm font-bold text-gray-800">새 요청 작성</h2>
+    <form onSubmit={handleSubmit} className="bg-surface rounded-2xl border border-border-subtle shadow-soft p-5 flex flex-col gap-4">
+      <h2 className="text-sm font-bold text-text-primary">새 요청 작성</h2>
 
       {/* 카테고리 선택 */}
       <div className="flex gap-2 flex-wrap">
@@ -110,8 +110,8 @@ function WorkerSubmitForm({ onSubmitted }: { onSubmitted: () => void }) {
             onClick={() => setCategory(cat.value)}
             className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
               category === cat.value
-                ? 'bg-blue-600 text-white'
-                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                ? 'bg-brand-600 text-white'
+                : 'bg-surface-sunken text-text-secondary hover:bg-surface-sunken'
             }`}
           >
             {cat.label}
@@ -130,13 +130,13 @@ function WorkerSubmitForm({ onSubmitted }: { onSubmitted: () => void }) {
           category === 'material' ? '필요한 자료 종류와 목적을 입력하세요.' :
           '내용을 자유롭게 입력하세요.'
         }
-        className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+        className="w-full border border-border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
       />
 
       <button
         type="submit"
         disabled={submitting}
-        className="self-end px-5 py-2 text-sm font-semibold text-white bg-blue-600 rounded-xl hover:bg-blue-700 disabled:opacity-50 transition-colors"
+        className="self-end px-5 py-2 text-sm font-semibold text-white bg-brand-600 rounded-xl hover:bg-brand-700 disabled:opacity-50 transition-colors"
       >
         {submitting ? '제출 중...' : '요청 제출'}
       </button>
@@ -165,31 +165,31 @@ function WorkerRequestList({ refreshKey }: { refreshKey: number }) {
 
   useEffect(() => { fetchMyRequests() }, [fetchMyRequests, refreshKey])
 
-  if (loading) return <div className="text-center py-8 text-sm text-gray-400">불러오는 중...</div>
+  if (loading) return <div className="text-center py-8 text-sm text-text-tertiary">불러오는 중...</div>
   if (requests.length === 0) return (
-    <div className="text-center py-12 text-sm text-gray-400">아직 제출한 요청이 없습니다.</div>
+    <div className="text-center py-12 text-sm text-text-tertiary">아직 제출한 요청이 없습니다.</div>
   )
 
   return (
     <div className="flex flex-col gap-2">
       {requests.map(req => (
-        <div key={req.id} className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
+        <div key={req.id} className="bg-surface rounded-2xl border border-border-subtle shadow-soft p-4">
           <div className="flex items-start justify-between gap-2 mb-2">
-            <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">
+            <span className="text-xs bg-surface-sunken text-text-secondary px-2 py-0.5 rounded-full">
               {ALL_CATEGORY_LABELS[req.category] ?? req.category}
             </span>
             <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${STATUS_BADGE[req.status]}`}>
               {STATUS_LABELS[req.status]}
             </span>
           </div>
-          <p className="text-sm text-gray-800">{req.content}</p>
+          <p className="text-sm text-text-primary">{req.content}</p>
           {req.admin_memo && (
-            <div className="mt-2 bg-blue-50 rounded-lg p-2.5">
-              <p className="text-xs text-blue-500 font-medium mb-0.5">관리자 답변</p>
-              <p className="text-xs text-blue-800">{req.admin_memo}</p>
+            <div className="mt-2 bg-brand-50 rounded-lg p-2.5">
+              <p className="text-xs text-brand-500 font-medium mb-0.5">관리자 답변</p>
+              <p className="text-xs text-brand-700">{req.admin_memo}</p>
             </div>
           )}
-          <p className="text-xs text-gray-400 mt-2">{new Date(req.created_at).toLocaleDateString('ko-KR')}</p>
+          <p className="text-xs text-text-tertiary mt-2">{new Date(req.created_at).toLocaleDateString('ko-KR')}</p>
         </div>
       ))}
     </div>
@@ -286,44 +286,44 @@ function AdminRequestView() {
       </div>
 
       {/* 요청자 탭 */}
-      <div className="flex gap-1 mb-3 bg-gray-100 rounded-xl p-1 w-fit">
+      <div className="flex gap-1 mb-3 bg-surface-sunken rounded-xl p-1 w-fit">
         {([
           { key: 'worker', label: `직원 (${requests.filter(r => r.requester_role === 'worker' || r.requester_role === 'admin').length})` },
           { key: 'customer', label: `고객 (${requests.filter(r => r.requester_role === 'customer').length})` },
         ] as const).map(tab => (
           <button key={tab.key} onClick={() => setRequesterTab(tab.key)}
-            className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${requesterTab === tab.key ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
+            className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${requesterTab === tab.key ? 'bg-surface text-text-primary shadow-flat' : 'text-text-secondary hover:text-text-primary'}`}>
             {tab.label}
           </button>
         ))}
       </div>
 
       {/* 상태 필터 */}
-      <div className="flex gap-1 mb-4 bg-gray-100 rounded-xl p-1 w-fit">
+      <div className="flex gap-1 mb-4 bg-surface-sunken rounded-xl p-1 w-fit">
         {(['all', 'pending', 'approved', 'rejected'] as StatusFilter[]).map(s => (
           <button key={s} onClick={() => setStatusFilter(s)}
-            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${statusFilter === s ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
+            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${statusFilter === s ? 'bg-surface text-text-primary shadow-flat' : 'text-text-secondary hover:text-text-primary'}`}>
             {s === 'all' ? '전체' : STATUS_LABELS[s]}
           </button>
         ))}
       </div>
 
       {/* 테이블 */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+      <div className="bg-surface rounded-2xl shadow-soft border border-border-subtle overflow-hidden">
         {loading ? (
-          <div className="flex items-center justify-center h-40 text-gray-400 text-sm">불러오는 중...</div>
+          <div className="flex items-center justify-center h-40 text-text-tertiary text-sm">불러오는 중...</div>
         ) : filtered.length === 0 ? (
-          <div className="flex items-center justify-center h-40 text-gray-400 text-sm">요청이 없습니다.</div>
+          <div className="flex items-center justify-center h-40 text-text-tertiary text-sm">요청이 없습니다.</div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full min-w-[560px] text-sm">
               <thead>
-                <tr className="bg-gray-50 border-b border-gray-100">
-                  <th className="text-left px-4 py-3 font-medium text-gray-600 whitespace-nowrap">요청자</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-600 whitespace-nowrap">카테고리</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-600 whitespace-nowrap">내용</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-600 whitespace-nowrap w-20">상태</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-600 whitespace-nowrap w-24">날짜</th>
+                <tr className="bg-surface-sunken border-b border-border-subtle">
+                  <th className="text-left px-4 py-3 font-medium text-text-secondary whitespace-nowrap">요청자</th>
+                  <th className="text-left px-4 py-3 font-medium text-text-secondary whitespace-nowrap">카테고리</th>
+                  <th className="text-left px-4 py-3 font-medium text-text-secondary whitespace-nowrap">내용</th>
+                  <th className="text-left px-4 py-3 font-medium text-text-secondary whitespace-nowrap w-20">상태</th>
+                  <th className="text-left px-4 py-3 font-medium text-text-secondary whitespace-nowrap w-24">날짜</th>
                 </tr>
               </thead>
               <tbody>
@@ -332,24 +332,24 @@ function AdminRequestView() {
                   return (
                   <tr key={req.id}
                     onClick={() => { setSelected(req); setAdminMemo(req.admin_memo ?? ''); addViewed(req.id) }}
-                    className={`border-b border-gray-50 cursor-pointer hover:bg-gray-50 transition-colors ${isNewItem ? 'bg-red-50/30' : ''}`}>
+                    className={`border-b border-border-subtle cursor-pointer hover:bg-surface-sunken transition-colors ${isNewItem ? 'bg-state-danger-bg/30' : ''}`}>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
                         {isNewItem && (
-                          <span className="w-2 h-2 rounded-full bg-red-500 shrink-0" />
+                          <span className="w-2 h-2 rounded-full bg-state-danger shrink-0" />
                         )}
-                        <p className="font-medium text-gray-900">{req.requester_name}</p>
+                        <p className="font-medium text-text-primary">{req.requester_name}</p>
                       </div>
                     </td>
                     <td className="px-4 py-3">
-                      <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">
+                      <span className="text-xs bg-surface-sunken text-text-secondary px-2 py-0.5 rounded-full">
                         {ALL_CATEGORY_LABELS[req.category] ?? req.category}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-gray-700 max-w-xs">
+                    <td className="px-4 py-3 text-text-primary max-w-xs">
                       <p className="truncate">{req.content}</p>
                       {isNewItem && (
-                        <span className="text-[10px] bg-red-500 text-white px-1.5 py-0.5 rounded-full">NEW</span>
+                        <span className="text-[10px] bg-state-danger text-white px-1.5 py-0.5 rounded-full">NEW</span>
                       )}
                     </td>
                     <td className="px-4 py-3">
@@ -357,7 +357,7 @@ function AdminRequestView() {
                         {STATUS_LABELS[req.status]}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-gray-400 text-xs">
+                    <td className="px-4 py-3 text-text-tertiary text-xs">
                       {new Date(req.created_at).toLocaleDateString('ko-KR')}
                     </td>
                   </tr>
@@ -372,52 +372,52 @@ function AdminRequestView() {
       {/* 상세 모달 */}
       {selected && (
         <div className="fixed inset-0 bg-black/40 flex items-end md:items-center justify-center z-30 p-4">
-          <div className="bg-white rounded-2xl w-full max-w-lg shadow-xl">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+          <div className="bg-surface rounded-2xl w-full max-w-lg shadow-modal">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-border-subtle">
               <div className="flex items-center gap-2">
-                <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">
+                <span className="text-xs bg-surface-sunken text-text-secondary px-2 py-0.5 rounded-full">
                   {ALL_CATEGORY_LABELS[selected.category] ?? selected.category}
                 </span>
                 <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${STATUS_BADGE[selected.status]}`}>
                   {STATUS_LABELS[selected.status]}
                 </span>
               </div>
-              <button onClick={() => setSelected(null)} className="text-gray-400 hover:text-gray-600 text-xl">&times;</button>
+              <button onClick={() => setSelected(null)} className="text-text-tertiary hover:text-text-secondary text-xl">&times;</button>
             </div>
             <div className="p-6 space-y-4 max-h-[60vh] overflow-y-auto">
               <div className="grid grid-cols-2 gap-3 text-sm">
                 <div>
-                  <p className="text-xs text-gray-400 mb-0.5">요청자</p>
-                  <p className="font-medium text-gray-800">{selected.requester_name}</p>
-                  <p className="text-xs text-gray-400">
+                  <p className="text-xs text-text-tertiary mb-0.5">요청자</p>
+                  <p className="font-medium text-text-primary">{selected.requester_name}</p>
+                  <p className="text-xs text-text-tertiary">
                     {selected.requester_role === 'customer' ? '고객' : '직원'}
                   </p>
                 </div>
                 <div>
-                  <p className="text-xs text-gray-400 mb-0.5">요청일</p>
-                  <p className="font-medium text-gray-800">{new Date(selected.created_at).toLocaleDateString('ko-KR')}</p>
+                  <p className="text-xs text-text-tertiary mb-0.5">요청일</p>
+                  <p className="font-medium text-text-primary">{new Date(selected.created_at).toLocaleDateString('ko-KR')}</p>
                 </div>
               </div>
               <div>
-                <p className="text-xs text-gray-400 mb-1">요청 내용</p>
-                <p className="text-sm text-gray-800 whitespace-pre-wrap bg-gray-50 rounded-lg p-3">{selected.content}</p>
+                <p className="text-xs text-text-tertiary mb-1">요청 내용</p>
+                <p className="text-sm text-text-primary whitespace-pre-wrap bg-surface-sunken rounded-lg p-3">{selected.content}</p>
               </div>
               <div>
-                <p className="text-xs text-gray-400 mb-1">관리자 메모</p>
+                <p className="text-xs text-text-tertiary mb-1">관리자 메모</p>
                 <textarea rows={3} value={adminMemo}
                   onChange={e => setAdminMemo(e.target.value)}
                   placeholder="승인/거절 사유 또는 답변을 입력하세요"
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none" />
+                  className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none" />
               </div>
             </div>
             {selected.status === 'pending' && (
-              <div className="px-6 py-4 border-t border-gray-100 flex gap-2 justify-end">
+              <div className="px-6 py-4 border-t border-border-subtle flex gap-2 justify-end">
                 <button onClick={() => handleStatusChange('rejected')} disabled={saving}
-                  className="px-4 py-2 text-sm text-white bg-red-500 rounded-lg hover:bg-red-600 disabled:opacity-50">
+                  className="px-4 py-2 text-sm text-white bg-state-danger rounded-lg hover:opacity-90 disabled:opacity-50">
                   거절
                 </button>
                 <button onClick={() => handleStatusChange('approved')} disabled={saving}
-                  className="px-4 py-2 text-sm text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50">
+                  className="px-4 py-2 text-sm text-white bg-brand-600 rounded-lg hover:bg-brand-700 disabled:opacity-50">
                   {saving ? '처리 중...' : '승인'}
                 </button>
               </div>
@@ -449,14 +449,14 @@ export default function RequestsPage() {
     return (
       <div className="flex flex-col gap-5">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">요청하기</h1>
-          <p className="text-sm text-gray-500 mt-1">건의사항, 휴가신청, 자료요청 등을 제출하세요.</p>
+          <h1 className="text-2xl font-bold text-text-primary">요청하기</h1>
+          <p className="text-sm text-text-secondary mt-1">건의사항, 휴가신청, 자료요청 등을 제출하세요.</p>
         </div>
 
         <WorkerSubmitForm onSubmitted={() => setRefreshKey(k => k + 1)} />
 
         <div>
-          <h2 className="text-sm font-bold text-gray-700 mb-3">내 요청 내역</h2>
+          <h2 className="text-sm font-bold text-text-primary mb-3">내 요청 내역</h2>
           <WorkerRequestList refreshKey={refreshKey} />
         </div>
       </div>
@@ -467,8 +467,8 @@ export default function RequestsPage() {
   return (
     <div className="flex flex-col gap-4">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">요청 관리</h1>
-        <p className="text-sm text-gray-500 mt-1">직원 및 고객의 요청을 확인하고 처리합니다.</p>
+        <h1 className="text-2xl font-bold text-text-primary">요청 관리</h1>
+        <p className="text-sm text-text-secondary mt-1">직원 및 고객의 요청을 확인하고 처리합니다.</p>
       </div>
       <AdminRequestView />
     </div>

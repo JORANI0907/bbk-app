@@ -34,9 +34,9 @@ const STATUS_CONFIG: Record<
   'pending' | 'reviewed' | 'closed',
   { label: string; badge: string; option: string }
 > = {
-  pending:  { label: '검토중',   badge: 'bg-yellow-100 text-yellow-800', option: '검토중으로 변경' },
-  reviewed: { label: '확인완료', badge: 'bg-blue-100 text-blue-800',     option: '확인완료로 변경' },
-  closed:   { label: '처리완료', badge: 'bg-gray-100 text-gray-600',     option: '처리완료로 변경' },
+  pending:  { label: '검토중',   badge: 'bg-state-warning-bg text-state-warning', option: '검토중으로 변경' },
+  reviewed: { label: '확인완료', badge: 'bg-brand-100 text-brand-700',             option: '확인완료로 변경' },
+  closed:   { label: '처리완료', badge: 'bg-surface-sunken text-text-secondary',   option: '처리완료로 변경' },
 }
 
 const TYPE_CONFIG: Record<string, string> = {
@@ -98,24 +98,24 @@ function IncidentCard({ report, isSelected, isNewItem, onClick }: IncidentCardPr
   return (
     <button
       onClick={onClick}
-      className={`text-left w-full bg-white rounded-2xl border shadow-sm p-4 hover:shadow-md transition-all ${
-        isSelected ? 'border-blue-500 ring-2 ring-blue-200' : isNewItem ? 'border-red-200' : 'border-gray-100'
+      className={`text-left w-full bg-surface rounded-2xl border shadow-soft p-4 hover:shadow-card transition-all ${
+        isSelected ? 'border-brand-500 ring-2 ring-brand-200' : isNewItem ? 'border-state-danger' : 'border-border-subtle'
       }`}
     >
       <div className="flex items-start justify-between gap-2 mb-2">
         <div className="flex items-center gap-1.5">
-          {isNewItem && <span className="w-2 h-2 rounded-full bg-red-500 shrink-0" />}
-          <span className="text-xs font-semibold bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">
+          {isNewItem && <span className="w-2 h-2 rounded-full bg-state-danger shrink-0" />}
+          <span className="text-xs font-semibold bg-brand-100 text-brand-700 px-2 py-0.5 rounded-full">
             {TYPE_CONFIG[report.type] ?? report.type}
           </span>
         </div>
         <StatusBadge status={report.status} />
       </div>
-      <p className="text-sm font-medium text-gray-900 mb-1 truncate">
+      <p className="text-sm font-medium text-text-primary mb-1 truncate">
         {report.incident_date} · {report.location || '장소 미기재'}
       </p>
-      <p className="text-xs text-gray-500 line-clamp-2">{report.description}</p>
-      <p className="text-xs text-gray-400 mt-2">
+      <p className="text-xs text-text-secondary line-clamp-2">{report.description}</p>
+      <p className="text-xs text-text-tertiary mt-2">
         {report.author_name} · {formatDate(report.created_at)}
       </p>
     </button>
@@ -135,19 +135,19 @@ interface WriteModalProps {
 function WriteModal({ form, submitting, onChange, onSubmit, onClose }: WriteModalProps) {
   return (
     <div className="fixed inset-0 bg-black/40 flex items-end md:items-center justify-center z-30 p-4">
-      <div className="bg-white rounded-2xl w-full max-w-lg shadow-xl">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-          <h2 className="text-base font-bold text-gray-900">경위서 작성</h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl leading-none">&times;</button>
+      <div className="bg-surface rounded-2xl w-full max-w-lg shadow-modal">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-border-subtle">
+          <h2 className="text-base font-bold text-text-primary">경위서 작성</h2>
+          <button onClick={onClose} className="text-text-tertiary hover:text-text-secondary text-xl leading-none">&times;</button>
         </div>
 
         <div className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">유형</label>
+            <label className="block text-xs font-medium text-text-secondary mb-1">유형</label>
             <select
               value={form.type}
               onChange={e => onChange({ type: e.target.value })}
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               {TYPE_OPTIONS.map(o => (
                 <option key={o.value} value={o.value}>{o.label}</option>
@@ -156,68 +156,68 @@ function WriteModal({ form, submitting, onChange, onSubmit, onClose }: WriteModa
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">
-              발생 일자 <span className="text-red-500">*</span>
+            <label className="block text-xs font-medium text-text-secondary mb-1">
+              발생 일자 <span className="text-state-danger">*</span>
             </label>
             <input
               type="date"
               value={form.incident_date}
               onChange={e => onChange({ incident_date: e.target.value })}
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">발생 장소 / 현장명</label>
+            <label className="block text-xs font-medium text-text-secondary mb-1">발생 장소 / 현장명</label>
             <input
               type="text"
               value={form.location}
               placeholder="예: OO빌딩 3층"
               onChange={e => onChange({ location: e.target.value })}
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">
-              경위 내용 <span className="text-red-500">*</span>
-              <span className="text-gray-400 font-normal ml-1">(100자 이상 권장)</span>
+            <label className="block text-xs font-medium text-text-secondary mb-1">
+              경위 내용 <span className="text-state-danger">*</span>
+              <span className="text-text-tertiary font-normal ml-1">(100자 이상 권장)</span>
             </label>
             <textarea
               rows={5}
               value={form.description}
               placeholder="사건 경위를 상세히 기술하세요"
               onChange={e => onChange({ description: e.target.value })}
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+              className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
             />
-            <p className={`text-xs mt-1 ${form.description.length < 100 ? 'text-gray-400' : 'text-green-600'}`}>
+            <p className={`text-xs mt-1 ${form.description.length < 100 ? 'text-text-tertiary' : 'text-state-success'}`}>
               {form.description.length}자 입력됨
             </p>
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">조치 사항</label>
+            <label className="block text-xs font-medium text-text-secondary mb-1">조치 사항</label>
             <textarea
               rows={3}
               value={form.action_taken}
               placeholder="취한 조치 내용을 입력하세요"
               onChange={e => onChange({ action_taken: e.target.value })}
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+              className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
             />
           </div>
         </div>
 
-        <div className="px-6 py-4 border-t border-gray-100 flex gap-2 justify-end">
+        <div className="px-6 py-4 border-t border-border-subtle flex gap-2 justify-end">
           <button
             onClick={onClose}
-            className="px-4 py-2 text-sm text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+            className="px-4 py-2 text-sm text-text-secondary bg-surface-sunken rounded-lg hover:bg-surface-sunken transition-colors"
           >
             취소
           </button>
           <button
             onClick={onSubmit}
             disabled={submitting}
-            className="px-4 py-2 text-sm text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
+            className="px-4 py-2 text-sm text-white bg-brand-600 rounded-lg hover:bg-brand-700 disabled:opacity-50 transition-colors"
           >
             {submitting ? '제출 중...' : '제출'}
           </button>
@@ -255,54 +255,54 @@ function DetailPanel({
   inline = false,
 }: DetailPanelProps) {
   const containerClass = inline
-    ? 'bg-white rounded-2xl border border-gray-100 shadow-sm flex flex-col h-full'
-    : 'bg-white rounded-2xl w-full max-w-lg shadow-xl'
+    ? 'bg-surface rounded-2xl border border-border-subtle shadow-soft flex flex-col h-full'
+    : 'bg-surface rounded-2xl w-full max-w-lg shadow-modal'
 
   const content = (
     <>
       {/* 헤더 */}
-      <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 flex-shrink-0">
+      <div className="flex items-center justify-between px-6 py-4 border-b border-border-subtle flex-shrink-0">
         <div className="flex items-center gap-2">
-          <span className="text-xs font-semibold bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">
+          <span className="text-xs font-semibold bg-brand-100 text-brand-700 px-2 py-0.5 rounded-full">
             {TYPE_CONFIG[report.type] ?? report.type}
           </span>
           <StatusBadge status={report.status} />
         </div>
-        <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl leading-none">&times;</button>
+        <button onClick={onClose} className="text-text-tertiary hover:text-text-secondary text-xl leading-none">&times;</button>
       </div>
 
       {/* 본문 */}
       <div className="p-6 space-y-4 overflow-y-auto flex-1">
         <div className="grid grid-cols-2 gap-3 text-sm">
           <div>
-            <p className="text-xs text-gray-400 mb-0.5">발생 일자</p>
-            <p className="text-gray-800 font-medium">{report.incident_date}</p>
+            <p className="text-xs text-text-tertiary mb-0.5">발생 일자</p>
+            <p className="text-text-primary font-medium">{report.incident_date}</p>
           </div>
           <div>
-            <p className="text-xs text-gray-400 mb-0.5">장소</p>
-            <p className="text-gray-800 font-medium">{report.location || '-'}</p>
+            <p className="text-xs text-text-tertiary mb-0.5">장소</p>
+            <p className="text-text-primary font-medium">{report.location || '-'}</p>
           </div>
           <div>
-            <p className="text-xs text-gray-400 mb-0.5">작성자</p>
-            <p className="text-gray-800 font-medium">{report.author_name}</p>
+            <p className="text-xs text-text-tertiary mb-0.5">작성자</p>
+            <p className="text-text-primary font-medium">{report.author_name}</p>
           </div>
           <div>
-            <p className="text-xs text-gray-400 mb-0.5">작성일</p>
-            <p className="text-gray-800 font-medium">{formatDate(report.created_at)}</p>
+            <p className="text-xs text-text-tertiary mb-0.5">작성일</p>
+            <p className="text-text-primary font-medium">{formatDate(report.created_at)}</p>
           </div>
         </div>
 
         <div>
-          <p className="text-xs text-gray-400 mb-1">경위 내용</p>
-          <p className="text-sm text-gray-800 whitespace-pre-wrap bg-gray-50 rounded-lg p-3 leading-relaxed">
+          <p className="text-xs text-text-tertiary mb-1">경위 내용</p>
+          <p className="text-sm text-text-primary whitespace-pre-wrap bg-surface-sunken rounded-lg p-3 leading-relaxed">
             {report.description}
           </p>
         </div>
 
         {report.action_taken && (
           <div>
-            <p className="text-xs text-gray-400 mb-1">조치 사항</p>
-            <p className="text-sm text-gray-800 whitespace-pre-wrap bg-gray-50 rounded-lg p-3 leading-relaxed">
+            <p className="text-xs text-text-tertiary mb-1">조치 사항</p>
+            <p className="text-sm text-text-primary whitespace-pre-wrap bg-surface-sunken rounded-lg p-3 leading-relaxed">
               {report.action_taken}
             </p>
           </div>
@@ -312,11 +312,11 @@ function DetailPanel({
         {userRole === 'admin' && (
           <>
             <div>
-              <p className="text-xs text-gray-400 mb-1">상태 변경</p>
+              <p className="text-xs text-text-tertiary mb-1">상태 변경</p>
               <select
                 value={adminStatus}
                 onChange={e => onStatusChange(e.target.value as 'pending' | 'reviewed' | 'closed')}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 {(Object.keys(STATUS_CONFIG) as Array<'pending' | 'reviewed' | 'closed'>).map(s => (
                   <option key={s} value={s}>{STATUS_CONFIG[s].label}</option>
@@ -325,13 +325,13 @@ function DetailPanel({
             </div>
 
             <div>
-              <p className="text-xs text-gray-400 mb-1">관리자 코멘트</p>
+              <p className="text-xs text-text-tertiary mb-1">관리자 코멘트</p>
               <textarea
                 rows={3}
                 value={adminComment}
                 onChange={e => onCommentChange(e.target.value)}
                 placeholder="처리 내용, 피드백 등을 입력하세요"
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
               />
             </div>
           </>
@@ -340,8 +340,8 @@ function DetailPanel({
         {/* 직원: 관리자 코멘트 읽기 전용 */}
         {userRole !== 'admin' && report.admin_comment && (
           <div>
-            <p className="text-xs text-gray-400 mb-1">관리자 코멘트</p>
-            <p className="text-sm text-gray-800 bg-blue-50 rounded-lg p-3 leading-relaxed">
+            <p className="text-xs text-text-tertiary mb-1">관리자 코멘트</p>
+            <p className="text-sm text-text-primary bg-brand-50 rounded-lg p-3 leading-relaxed">
               {report.admin_comment}
             </p>
           </div>
@@ -350,11 +350,11 @@ function DetailPanel({
 
       {/* 관리자 저장 버튼 */}
       {userRole === 'admin' && (
-        <div className="px-6 py-4 border-t border-gray-100 flex justify-end flex-shrink-0">
+        <div className="px-6 py-4 border-t border-border-subtle flex justify-end flex-shrink-0">
           <button
             onClick={onSave}
             disabled={saving}
-            className="px-4 py-2 text-sm text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
+            className="px-4 py-2 text-sm text-white bg-brand-600 rounded-lg hover:bg-brand-700 disabled:opacity-50 transition-colors"
           >
             {saving ? '저장 중...' : '저장'}
           </button>
@@ -523,21 +523,21 @@ export default function IncidentsPage() {
     <div className="flex flex-col h-full relative">
       {/* 헤더 */}
       <div className="mb-5">
-        <h1 className="text-2xl font-bold text-gray-900">경위서</h1>
-        <p className="text-sm text-gray-500 mt-1">사고, 고객불만 등 현장 경위를 기록합니다.</p>
+        <h1 className="text-2xl font-bold text-text-primary">경위서</h1>
+        <p className="text-sm text-text-secondary mt-1">사고, 고객불만 등 현장 경위를 기록합니다.</p>
       </div>
 
       {/* 상태 필터 탭 (관리자만) */}
       {isAdmin && (
-        <div className="flex gap-1 mb-5 bg-gray-100 rounded-xl p-1 w-fit flex-shrink-0">
+        <div className="flex gap-1 mb-5 bg-surface-sunken rounded-xl p-1 w-fit flex-shrink-0">
           {STATUS_FILTER_TABS.map(t => (
             <button
               key={t.value}
               onClick={() => setStatusFilter(t.value)}
               className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${
                 statusFilter === t.value
-                  ? 'bg-white text-gray-900 shadow-sm'
-                  : 'text-gray-500 hover:text-gray-700'
+                  ? 'bg-surface text-text-primary shadow-flat'
+                  : 'text-text-secondary hover:text-text-primary'
               }`}
             >
               {t.value === 'all' ? `${t.label} (${total})` : t.label}
@@ -551,11 +551,11 @@ export default function IncidentsPage() {
         {/* 목록 */}
         <div className="flex-1 min-h-0 overflow-y-auto">
           {loading ? (
-            <div className="flex items-center justify-center h-40 text-gray-400 text-sm">
+            <div className="flex items-center justify-center h-40 text-text-tertiary text-sm">
               불러오는 중...
             </div>
           ) : reports.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-40 text-gray-400 text-sm gap-1">
+            <div className="flex flex-col items-center justify-center h-40 text-text-tertiary text-sm gap-1">
               <span className="text-2xl">📋</span>
               <span>경위서가 없습니다.</span>
             </div>
@@ -614,7 +614,7 @@ export default function IncidentsPage() {
       {!isAdmin && (
         <button
           onClick={() => setShowForm(true)}
-          className="fixed bottom-20 right-4 md:bottom-6 w-14 h-14 bg-blue-600 text-white rounded-full shadow-lg hover:bg-blue-700 flex items-center justify-center text-2xl transition-colors z-40"
+          className="fixed bottom-20 right-4 md:bottom-6 w-14 h-14 bg-brand-600 text-white rounded-full shadow-pop hover:bg-brand-700 flex items-center justify-center text-2xl transition-colors z-40"
           aria-label="경위서 작성"
         >
           +
