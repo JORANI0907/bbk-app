@@ -83,16 +83,16 @@ const STATUS_CONFIG: Record<ApplicationStatus, { color: string; badge: string; d
   '작업완료':      { color: 'bg-orange-500 text-white',   badge: 'bg-orange-100 text-orange-700 ring-orange-300', dot: 'bg-orange-500', row: 'bg-orange-50' },
   '작업완료(엔드)': { color: 'bg-orange-600 text-white', badge: 'bg-orange-100 text-orange-800 ring-orange-300', dot: 'bg-orange-600', row: 'bg-orange-50' },
   '결제':          { color: 'bg-orange-400 text-white',   badge: 'bg-orange-100 text-orange-600 ring-orange-200', dot: 'bg-orange-400', row: 'bg-amber-50' },
-  '결제완료':       { color: 'bg-gray-500 text-white',     badge: 'bg-gray-100 text-gray-600 ring-gray-300',        dot: 'bg-gray-500',   row: 'bg-gray-100' },
+  '결제완료':       { color: 'bg-gray-500 text-white',     badge: 'bg-surface-sunken text-text-secondary ring-gray-300',        dot: 'bg-gray-500',   row: 'bg-surface-sunken' },
   '결제완료(잔금)': { color: 'bg-emerald-600 text-white', badge: 'bg-emerald-100 text-emerald-700 ring-emerald-300', dot: 'bg-emerald-600', row: 'bg-emerald-50' },
-  '계산서발행완료': { color: 'bg-gray-300 text-gray-700', badge: 'bg-gray-50 text-gray-500 ring-gray-200',         dot: 'bg-gray-300',   row: 'bg-white' },
-  '비과세':         { color: 'bg-gray-300 text-gray-700', badge: 'bg-gray-50 text-gray-500 ring-gray-200',         dot: 'bg-gray-300',   row: 'bg-white' },
-  '카드결제 완료':  { color: 'bg-gray-300 text-gray-700', badge: 'bg-gray-50 text-gray-500 ring-gray-200',         dot: 'bg-gray-300',   row: 'bg-white' },
-  '예약금환급완료': { color: 'bg-gray-300 text-gray-700', badge: 'bg-gray-50 text-gray-500 ring-gray-200',       dot: 'bg-gray-300',   row: 'bg-white' },
+  '계산서발행완료': { color: 'bg-gray-300 text-gray-700', badge: 'bg-surface-sunken text-text-tertiary ring-gray-200',         dot: 'bg-gray-300',   row: 'bg-surface' },
+  '비과세':         { color: 'bg-gray-300 text-gray-700', badge: 'bg-surface-sunken text-text-tertiary ring-gray-200',         dot: 'bg-gray-300',   row: 'bg-surface' },
+  '카드결제 완료':  { color: 'bg-gray-300 text-gray-700', badge: 'bg-surface-sunken text-text-tertiary ring-gray-200',         dot: 'bg-gray-300',   row: 'bg-surface' },
+  '예약금환급완료': { color: 'bg-gray-300 text-gray-700', badge: 'bg-surface-sunken text-text-tertiary ring-gray-200',       dot: 'bg-gray-300',   row: 'bg-surface' },
   '예약금 입금':   { color: 'bg-teal-600 text-white',    badge: 'bg-teal-100 text-teal-700 ring-teal-300',      dot: 'bg-teal-600',   row: 'bg-teal-50' },
-  '예약취소':      { color: 'bg-gray-400 text-white',     badge: 'bg-gray-100 text-gray-600 ring-gray-300',      dot: 'bg-gray-400',   row: 'bg-gray-50' },
-  'A/S방문':       { color: 'bg-gray-400 text-white',     badge: 'bg-gray-100 text-gray-600 ring-gray-300',      dot: 'bg-gray-400',   row: 'bg-gray-50' },
-  '방문견적':      { color: 'bg-gray-400 text-white',     badge: 'bg-gray-100 text-gray-600 ring-gray-300',      dot: 'bg-gray-400',   row: 'bg-gray-50' },
+  '예약취소':      { color: 'bg-gray-400 text-white',     badge: 'bg-surface-sunken text-text-secondary ring-gray-300',      dot: 'bg-gray-400',   row: 'bg-surface-sunken' },
+  'A/S방문':       { color: 'bg-gray-400 text-white',     badge: 'bg-surface-sunken text-text-secondary ring-gray-300',      dot: 'bg-gray-400',   row: 'bg-surface-sunken' },
+  '방문견적':      { color: 'bg-gray-400 text-white',     badge: 'bg-surface-sunken text-text-secondary ring-gray-300',      dot: 'bg-gray-400',   row: 'bg-surface-sunken' },
 }
 const NOTIFICATION_TYPES = [
   '예약확정알림', '예약1일전알림', '예약당일알림', '작업완료알림',
@@ -211,7 +211,7 @@ function sortApplications(apps: Application[], field: SortField, dir: SortDir): 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div>
-      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">{title}</p>
+      <p className="text-xs font-semibold text-text-secondary uppercase tracking-wide mb-2">{title}</p>
       {children}
     </div>
   )
@@ -219,9 +219,9 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 function EditRow({ label, value, onChange, mono }: { label: string; value: string; onChange: (v: string) => void; mono?: boolean }) {
   return (
     <div className="flex items-center gap-2">
-      <span className="text-xs text-gray-500 w-20 shrink-0">{label}</span>
+      <span className="text-xs text-text-secondary w-20 shrink-0">{label}</span>
       <input value={value} onChange={e => onChange(e.target.value)}
-        className={`flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 ${mono ? 'font-mono' : ''}`} />
+        className={`flex-1 border border-border rounded-lg px-2 py-1.5 text-xs text-text-primary focus:outline-none focus:ring-2 focus:ring-blue-500 ${mono ? 'font-mono' : ''}`} />
     </div>
   )
 }
@@ -230,12 +230,12 @@ function AmountInput({ label, value, onChange, hint, disabled }: {
 }) {
   return (
     <div>
-      <label className="text-xs text-gray-500 mb-1 block">
-        {label}{hint && <span className="ml-1 text-blue-500">{hint}</span>}
+      <label className="text-xs text-text-secondary mb-1 block">
+        {label}{hint && <span className="ml-1 text-brand-500">{hint}</span>}
       </label>
       <input type="number" value={value} onChange={e => onChange(e.target.value)}
         placeholder="0" disabled={disabled}
-        className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50" />
+        className="w-full border border-border rounded-lg px-3 py-2 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-surface-sunken" />
     </div>
   )
 }
@@ -307,18 +307,18 @@ function AppCalendarView({
 
   return (
     <>
-      <div className="bg-white rounded-xl border border-gray-200 overflow-y-auto flex-1">
-        <div className="grid grid-cols-7 border-b border-gray-100 sticky top-0 bg-white z-10">
+      <div className="bg-surface rounded-xl border border-border overflow-y-auto flex-1">
+        <div className="grid grid-cols-7 border-b border-border-subtle sticky top-0 bg-surface z-10">
           {DAYS.map(d => (
             <div key={d} className={`text-center py-2.5 text-xs font-semibold
-              ${d === '일' ? 'text-red-500' : d === '토' ? 'text-blue-500' : 'text-gray-500'}`}>
+              ${d === '일' ? 'text-red-500' : d === '토' ? 'text-brand-500' : 'text-text-secondary'}`}>
               {d}
             </div>
           ))}
         </div>
         <div className="grid grid-cols-7 auto-rows-[5rem] sm:auto-rows-[7rem]">
           {cells.map((day, i) => {
-            if (!day) return <div key={`e-${i}`} className="border-r border-b border-gray-50 bg-gray-50/40" />
+            if (!day) return <div key={`e-${i}`} className="border-r border-b border-border-subtle bg-surface-sunken/40" />
             const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
             const apps = dayMap[dateStr] ?? []
             const isToday = dateStr === todayStr
@@ -329,12 +329,12 @@ function AppCalendarView({
               <div
                 key={day}
                 onClick={() => hasApps && onDaySelect(dateStr, apps)}
-                className={`border-r border-b border-gray-50 p-1.5 flex flex-col gap-0.5
-                  ${isToday ? 'bg-blue-50' : (dow === 0 || dow === 6) ? 'bg-gray-50/50' : ''}
-                  ${hasApps ? 'cursor-pointer hover:bg-blue-50/30 transition-colors' : ''}`}
+                className={`border-r border-b border-border-subtle p-1.5 flex flex-col gap-0.5
+                  ${isToday ? 'bg-brand-50' : (dow === 0 || dow === 6) ? 'bg-surface-sunken/50' : ''}
+                  ${hasApps ? 'cursor-pointer hover:bg-brand-50/30 transition-colors' : ''}`}
               >
                 <div className={`text-xs font-bold w-6 h-6 flex items-center justify-center rounded-full shrink-0
-                  ${isToday ? 'bg-blue-600 text-white' : dow === 0 ? 'text-red-500' : dow === 6 ? 'text-blue-500' : 'text-gray-700'}`}>
+                  ${isToday ? 'bg-brand-600 text-white' : dow === 0 ? 'text-red-500' : dow === 6 ? 'text-brand-500' : 'text-text-primary'}`}>
                   {day}
                 </div>
                 <div className="flex flex-col gap-0.5 overflow-hidden">
@@ -347,7 +347,7 @@ function AppCalendarView({
                     )
                   })}
                   {apps.length > 3 && (
-                    <div className="text-[10px] text-gray-400 px-1 font-medium">+{apps.length - 3}건</div>
+                    <div className="text-[10px] text-text-tertiary px-1 font-medium">+{apps.length - 3}건</div>
                   )}
                 </div>
               </div>
@@ -361,36 +361,36 @@ function AppCalendarView({
         <div className="fixed inset-0 z-[55] bg-black/40 flex items-end md:items-center justify-center"
           onClick={onDayClose}>
           <div
-            className="bg-white w-full max-w-md rounded-t-2xl md:rounded-2xl flex flex-col overflow-hidden"
+            className="bg-surface w-full max-w-md rounded-t-2xl md:rounded-2xl flex flex-col overflow-hidden"
             style={{ maxHeight: 'calc(80vh - env(safe-area-inset-bottom))' }}
             onClick={e => e.stopPropagation()}
             onTouchStart={handleTouchStart}
             onTouchEnd={handleTouchEnd}
           >
-            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 shrink-0">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-border-subtle shrink-0">
               <button
                 onClick={() => goToDate(-1)}
                 disabled={!hasPrev}
-                className={`w-8 h-8 flex items-center justify-center rounded-lg text-xl transition-colors ${hasPrev ? 'text-gray-600 hover:bg-gray-100' : 'text-gray-200 cursor-not-allowed'}`}
+                className={`w-8 h-8 flex items-center justify-center rounded-lg text-xl transition-colors ${hasPrev ? 'text-text-secondary hover:bg-surface-sunken' : 'text-text-tertiary cursor-not-allowed'}`}
               >
                 ‹
               </button>
               <div className="text-center">
-                <h3 className="font-bold text-gray-900">
+                <h3 className="font-bold text-text-primary">
                   {calDate.slice(5, 7)}월 {calDate.slice(8, 10)}일
                   ({['일','월','화','수','목','금','토'][new Date(calDate + 'T12:00:00').getDay()]})
                 </h3>
-                <p className="text-xs text-gray-400">{calDateApps.length}건</p>
+                <p className="text-xs text-text-tertiary">{calDateApps.length}건</p>
               </div>
               <div className="flex items-center gap-1">
                 <button
                   onClick={() => goToDate(1)}
                   disabled={!hasNext}
-                  className={`w-8 h-8 flex items-center justify-center rounded-lg text-xl transition-colors ${hasNext ? 'text-gray-600 hover:bg-gray-100' : 'text-gray-200 cursor-not-allowed'}`}
+                  className={`w-8 h-8 flex items-center justify-center rounded-lg text-xl transition-colors ${hasNext ? 'text-text-secondary hover:bg-surface-sunken' : 'text-text-tertiary cursor-not-allowed'}`}
                 >
                   ›
                 </button>
-                <button onClick={onDayClose} className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-600 text-lg leading-none">✕</button>
+                <button onClick={onDayClose} className="w-8 h-8 flex items-center justify-center text-text-tertiary hover:text-text-secondary text-lg leading-none">✕</button>
               </div>
             </div>
             <div className="overflow-y-auto flex-1 p-3 pb-6 flex flex-col gap-2">
@@ -399,16 +399,16 @@ function AppCalendarView({
                 return (
                   <button key={app.id}
                     onClick={() => { onSelectApp(app); onDayClose() }}
-                    className="text-left bg-gray-50 hover:bg-blue-50 border border-gray-100 hover:border-blue-200 rounded-xl p-3 transition-colors"
+                    className="text-left bg-surface-sunken hover:bg-brand-50 border border-border-subtle hover:border-brand-200 rounded-xl p-3 transition-colors"
                   >
                     <div className="flex items-center gap-2 mb-1">
                       <span className={`w-2 h-2 rounded-full shrink-0 ${cfg.dot}`} />
-                      <span className="font-semibold text-gray-900 text-sm">{app.business_name}</span>
+                      <span className="font-semibold text-text-primary text-sm">{app.business_name}</span>
                       <span className={`ml-auto text-[10px] px-2 py-0.5 rounded-full shrink-0 ${cfg.badge}`}>{app.status}</span>
                     </div>
-                    <p className="text-xs text-gray-500 ml-4">{app.owner_name}</p>
-                    {app.address && <p className="text-[11px] text-gray-400 truncate ml-4 mt-0.5">{app.address}</p>}
-                    {app.care_scope && <p className="text-[11px] text-blue-500 ml-4 mt-0.5 line-clamp-1">{app.care_scope}</p>}
+                    <p className="text-xs text-text-secondary ml-4">{app.owner_name}</p>
+                    {app.address && <p className="text-[11px] text-text-tertiary truncate ml-4 mt-0.5">{app.address}</p>}
+                    {app.care_scope && <p className="text-[11px] text-brand-500 ml-4 mt-0.5 line-clamp-1">{app.care_scope}</p>}
                   </button>
                 )
               })}
@@ -1272,12 +1272,12 @@ export default function ServiceManagementPage() {
           <div className={`transition-all duration-300 overflow-hidden md:max-h-72 md:opacity-100 ${filtersVisible ? 'max-h-72 opacity-100' : 'max-h-0 opacity-0'}`}>
           <div className="flex items-center justify-between mb-3">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">서비스통합관리</h1>
+              <h1 className="text-2xl font-bold text-text-primary">서비스통합관리</h1>
               {showUnassigned && (
                 <p className="text-sm text-orange-600 mt-0.5">담당자가 배정되지 않은 일정입니다. 클릭하여 담당자를 지정하세요.</p>
               )}
             </div>
-            <button onClick={fetchAll} className="px-3 py-1.5 text-sm bg-white border border-gray-200 rounded-lg hover:bg-gray-50">새로고침</button>
+            <button onClick={fetchAll} className="px-3 py-1.5 text-sm bg-surface border border-border rounded-lg hover:bg-surface-sunken">새로고침</button>
           </div>
           <div className="flex items-center gap-2 mb-3 flex-wrap">
             {SERVICE_TYPES.map(t => {

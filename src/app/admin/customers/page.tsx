@@ -86,21 +86,21 @@ const isNoVatMethod = (method: string | null | undefined): boolean =>
   !!method && (method.includes('비과세') || method.includes('미희망') || method === '현금(부가세 X)')
 
 const TYPE_STYLE: Record<CustomerType, { badge: string; accent: string }> = {
-  '1회성케어':    { badge: 'bg-gray-100 text-gray-700',     accent: 'border-gray-300 bg-gray-50' },
-  '정기딥케어':   { badge: 'bg-blue-100 text-blue-700',     accent: 'border-blue-200 bg-blue-50' },
+  '1회성케어':    { badge: 'bg-surface-sunken text-text-primary',     accent: 'border-border bg-surface-sunken' },
+  '정기딥케어':   { badge: 'bg-brand-100 text-brand-700',     accent: 'border-brand-200 bg-brand-50' },
   '정기엔드케어': { badge: 'bg-purple-100 text-purple-700', accent: 'border-purple-200 bg-purple-50' },
 }
 
 const STATUS_STYLE: Record<CustomerStatus, { badge: string; label: string }> = {
   active:     { badge: 'bg-emerald-100 text-emerald-700', label: '활성' },
   paused:     { badge: 'bg-amber-100 text-amber-700',     label: '일시중지' },
-  terminated: { badge: 'bg-red-100 text-red-700',         label: '해지' },
+  terminated: { badge: 'bg-state-danger-bg text-state-danger',         label: '해지' },
 }
 
 const DISPOSITION_STYLE: Record<CustomerDisposition, { badge: string; label: string }> = {
   '호의': { badge: 'bg-sky-100 text-sky-700',     label: '호의' },
-  '보통': { badge: 'bg-gray-100 text-gray-600',   label: '보통' },
-  '블랙': { badge: 'bg-red-100 text-red-700',     label: '블랙' },
+  '보통': { badge: 'bg-surface-sunken text-text-secondary',   label: '보통' },
+  '블랙': { badge: 'bg-state-danger-bg text-state-danger',     label: '블랙' },
 }
 
 const EMPTY_FORM = {
@@ -249,15 +249,15 @@ function StatusBadges({ customer }: { customer: Customer }) {
 
   if (billingDays != null) {
     if (billingDays < 0)
-      badges.push(<span key="b0" className="text-xs px-1.5 py-0.5 bg-red-100 text-red-700 rounded-full font-medium">결제지연 {Math.abs(billingDays)}일</span>)
+      badges.push(<span key="b0" className="text-xs px-1.5 py-0.5 bg-state-danger-bg text-state-danger rounded-full font-medium">결제지연 {Math.abs(billingDays)}일</span>)
     else if (billingDays <= 7)
       badges.push(<span key="b1" className="text-xs px-1.5 py-0.5 bg-orange-100 text-orange-700 rounded-full font-medium">결제 {billingDays}일 후</span>)
   }
   if (visitDays != null && visitDays >= 0 && visitDays <= 5)
-    badges.push(<span key="v" className="text-xs px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded-full font-medium">방문 {visitDays}일 후</span>)
+    badges.push(<span key="v" className="text-xs px-1.5 py-0.5 bg-brand-100 text-brand-700 rounded-full font-medium">방문 {visitDays}일 후</span>)
   if (contractDays != null) {
     if (contractDays < 0)
-      badges.push(<span key="c0" className="text-xs px-1.5 py-0.5 bg-red-100 text-red-700 rounded-full font-medium">계약만료</span>)
+      badges.push(<span key="c0" className="text-xs px-1.5 py-0.5 bg-state-danger-bg text-state-danger rounded-full font-medium">계약만료</span>)
     else if (contractDays <= 30)
       badges.push(<span key="c1" className="text-xs px-1.5 py-0.5 bg-yellow-100 text-yellow-700 rounded-full font-medium">갱신 {contractDays}일 후</span>)
   }
@@ -271,11 +271,11 @@ function Field({ label, value, onChange, type = 'text', mono, placeholder, hint 
 }) {
   return (
     <div className="flex items-center gap-2">
-      <span className="text-xs text-gray-500 w-24 shrink-0">{label}</span>
+      <span className="text-xs text-text-secondary w-24 shrink-0">{label}</span>
       <div className="flex-1">
         <input type={type} value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder}
-          className={`w-full border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 ${mono ? 'font-mono' : ''}`} />
-        {hint && <p className="text-xs text-gray-400 mt-0.5">{hint}</p>}
+          className={`w-full border border-border rounded-lg px-2 py-1.5 text-xs text-text-primary focus:outline-none focus:ring-2 focus:ring-blue-500 ${mono ? 'font-mono' : ''}`} />
+        {hint && <p className="text-xs text-text-tertiary mt-0.5">{hint}</p>}
       </div>
     </div>
   )
@@ -287,12 +287,12 @@ function SelectField({ label, value, options, onChange }: {
   const isCustom = value !== '' && !options.includes(value)
   return (
     <div className="flex items-start gap-2">
-      <span className="text-xs text-gray-500 w-24 shrink-0 pt-1.5">{label}</span>
+      <span className="text-xs text-text-secondary w-24 shrink-0 pt-1.5">{label}</span>
       <div className="flex-1 space-y-1.5">
         <select
           value={isCustom ? '직접입력' : value}
           onChange={e => e.target.value === '직접입력' ? onChange('') : onChange(e.target.value)}
-          className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+          className="w-full border border-border rounded-lg px-2 py-1.5 text-xs text-text-primary focus:outline-none focus:ring-2 focus:ring-blue-500 bg-surface"
         >
           <option value="">선택</option>
           {options.map(o => <option key={o} value={o}>{o}</option>)}
@@ -301,7 +301,7 @@ function SelectField({ label, value, options, onChange }: {
         {isCustom && (
           <input value={value} onChange={e => onChange(e.target.value)}
             placeholder="직접 입력"
-            className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            className="w-full border border-border rounded-lg px-2 py-1.5 text-xs text-text-primary focus:outline-none focus:ring-2 focus:ring-blue-500" />
         )}
       </div>
     </div>
@@ -819,11 +819,11 @@ export default function AdminCustomersPage() {
       {/* ── 좌측: 목록 ── */}
       <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
         <div className="flex items-center justify-between mb-3">
-          <h1 className="text-2xl font-bold text-gray-900">고객 관리</h1>
+          <h1 className="text-2xl font-bold text-text-primary">고객 관리</h1>
           <div className="flex gap-2">
-            <button onClick={fetchAll} className="px-3 py-1.5 text-sm bg-white border border-gray-200 rounded-lg hover:bg-gray-50">새로고침</button>
+            <button onClick={fetchAll} className="px-3 py-1.5 text-sm bg-surface border border-border rounded-lg hover:bg-surface-sunken">새로고침</button>
             {!isWorker && (
-              <button onClick={handleNew} className="px-3 py-1.5 text-sm bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors">
+              <button onClick={handleNew} className="px-3 py-1.5 text-sm bg-brand-600 text-white font-semibold rounded-lg hover:bg-brand-700 transition-colors">
                 + 고객 추가
               </button>
             )}
@@ -833,16 +833,16 @@ export default function AdminCustomersPage() {
 
         {/* 서비스 유형 체크박스 복수선택 */}
         <div className="flex flex-wrap gap-1.5 mb-3">
-          <span className="text-xs text-gray-500 self-center mr-0.5">유형</span>
+          <span className="text-xs text-text-secondary self-center mr-0.5">유형</span>
           {CUSTOMER_TYPES.map(t => {
             const checked = selectedTypes.has(t)
             return (
               <button key={t} onClick={() => toggleType(t)}
                 className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium border transition-colors ${
-                  checked ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-200 hover:border-blue-400'
+                  checked ? 'bg-brand-600 text-white border-brand-600' : 'bg-surface text-text-secondary border-border hover:border-blue-400'
                 }`}>
                 <span>{t}</span>
-                <span className={`text-xs px-1 py-0.5 rounded-full ${checked ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-500'}`}>
+                <span className={`text-xs px-1 py-0.5 rounded-full ${checked ? 'bg-brand-500 text-white' : 'bg-surface-sunken text-text-secondary'}`}>
                   {typeCounts[t] ?? 0}
                 </span>
               </button>
@@ -850,7 +850,7 @@ export default function AdminCustomersPage() {
           })}
           {selectedTypes.size > 0 && (
             <button onClick={() => setSelectedTypes(new Set())}
-              className="px-2 py-1 text-xs text-gray-400 hover:text-gray-600 border border-gray-200 rounded-lg bg-white">
+              className="px-2 py-1 text-xs text-text-tertiary hover:text-text-secondary border border-border rounded-lg bg-surface">
               전체 ({typeCounts['전체'] ?? 0})
             </button>
           )}
@@ -883,35 +883,35 @@ export default function AdminCustomersPage() {
 
         {/* 검색 */}
         <div className="relative mb-3">
-          <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-text-tertiary pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" />
           </svg>
           <input type="text" value={search} onChange={e => setSearch(e.target.value)}
             placeholder="업체명, 담당자, 연락처, 주소 검색..."
-            className="w-full pl-8 pr-8 py-1.5 text-xs text-gray-900 border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500" />
-          {search && <button onClick={() => setSearch('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">✕</button>}
+            className="w-full pl-8 pr-8 py-1.5 text-xs text-text-primary border border-border rounded-lg bg-surface focus:outline-none focus:ring-2 focus:ring-blue-500" />
+          {search && <button onClick={() => setSearch('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-text-tertiary hover:text-text-secondary">✕</button>}
         </div>
 
         {/* 목록 */}
-        <div className="bg-white rounded-xl border border-gray-200 overflow-auto flex-1">
+        <div className="bg-surface rounded-xl border border-border overflow-auto flex-1">
           {loading ? (
-            <div className="py-20 text-center text-gray-400 text-sm">불러오는 중...</div>
+            <div className="py-20 text-center text-text-tertiary text-sm">불러오는 중...</div>
           ) : filtered.length === 0 ? (
-            <div className="py-20 text-center text-gray-400 text-sm">{search ? `"${search}" 검색 결과 없음` : '고객이 없습니다.'}</div>
+            <div className="py-20 text-center text-text-tertiary text-sm">{search ? `"${search}" 검색 결과 없음` : '고객이 없습니다.'}</div>
           ) : (
             <table className="w-full text-sm">
-              <thead className="bg-gray-50 border-b border-gray-200 sticky top-0 z-10">
+              <thead className="bg-surface-sunken border-b border-border sticky top-0 z-10">
                 <tr>
                   <th className="px-3 py-3 w-8"></th>
-                  <th className="text-left px-3 py-3 text-xs font-semibold text-gray-500 whitespace-nowrap">업체명 / 연락처</th>
-                  <th className="text-left px-3 py-3 text-xs font-semibold text-gray-500 whitespace-nowrap">서비스</th>
-                  <th className="text-left px-3 py-3 text-xs font-semibold text-gray-500 whitespace-nowrap">성향</th>
-                  <th className="text-left px-3 py-3 text-xs font-semibold text-gray-500 whitespace-nowrap">계약기간</th>
-                  <th className="text-left px-3 py-3 text-xs font-semibold text-gray-500 whitespace-nowrap">방문주기</th>
-                  <th className="text-left px-3 py-3 text-xs font-semibold text-gray-500 whitespace-nowrap">방문일정</th>
+                  <th className="text-left px-3 py-3 text-xs font-semibold text-text-secondary whitespace-nowrap">업체명 / 연락처</th>
+                  <th className="text-left px-3 py-3 text-xs font-semibold text-text-secondary whitespace-nowrap">서비스</th>
+                  <th className="text-left px-3 py-3 text-xs font-semibold text-text-secondary whitespace-nowrap">성향</th>
+                  <th className="text-left px-3 py-3 text-xs font-semibold text-text-secondary whitespace-nowrap">계약기간</th>
+                  <th className="text-left px-3 py-3 text-xs font-semibold text-text-secondary whitespace-nowrap">방문주기</th>
+                  <th className="text-left px-3 py-3 text-xs font-semibold text-text-secondary whitespace-nowrap">방문일정</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-50">
+              <tbody className="divide-y divide-border-subtle">
                 {filtered.map(c => {
                   const type = (c.customer_type ?? '1회성케어') as CustomerType
                   const tStyle = TYPE_STYLE[type]
@@ -936,16 +936,16 @@ export default function AdminCustomersPage() {
                   })()
                   return (
                     <tr key={c.id}
-                      className={`hover:bg-blue-50 transition-colors cursor-pointer ${isSelected ? 'bg-blue-50 border-l-2 border-blue-500' : ''} ${isChecked ? 'bg-blue-50' : ''}`}
+                      className={`hover:bg-brand-50 transition-colors cursor-pointer ${isSelected ? 'bg-brand-50 border-l-2 border-brand-600' : ''} ${isChecked ? 'bg-brand-50' : ''}`}
                       onClick={() => handleSelect(c)}>
                       <td className="px-3 py-3" onClick={e => { e.stopPropagation(); toggleCheck(c.id) }}>
                         <input type="checkbox" checked={isChecked} readOnly className="accent-blue-600 pointer-events-none cursor-pointer" />
                       </td>
                       <td className="px-3 py-3 min-w-[160px]">
-                        <p className="text-sm font-semibold text-gray-900">{c.business_name}</p>
-                        <p className="text-xs text-gray-500 mt-0.5">{c.contact_name} · {c.contact_phone}</p>
+                        <p className="text-sm font-semibold text-text-primary">{c.business_name}</p>
+                        <p className="text-xs text-text-secondary mt-0.5">{c.contact_name} · {c.contact_phone}</p>
                         {(c.billing_next_date || c.next_visit_date) && (
-                          <p className="text-xs text-gray-400 mt-0.5">
+                          <p className="text-xs text-text-tertiary mt-0.5">
                             {c.billing_next_date && `결제 ${fmtDate(c.billing_next_date)}`}
                             {c.billing_next_date && c.next_visit_date && '  '}
                             {c.next_visit_date && `방문 ${fmtDate(c.next_visit_date)}`}
@@ -962,16 +962,16 @@ export default function AdminCustomersPage() {
                           return <span className={`text-xs px-1.5 py-0.5 rounded-full ${DISPOSITION_STYLE[d].badge}`}>{d}</span>
                         })()}
                       </td>
-                      <td className="px-3 py-3 text-xs text-gray-500 whitespace-nowrap">
+                      <td className="px-3 py-3 text-xs text-text-secondary whitespace-nowrap">
                         {(c.contract_start_date || c.contract_end_date)
                           ? <>{fmtDate(c.contract_start_date)} ~ {fmtDate(c.contract_end_date)}</>
-                          : <span className="text-gray-300">-</span>}
+                          : <span className="text-text-tertiary">-</span>}
                       </td>
-                      <td className="px-3 py-3 text-xs text-gray-500 whitespace-nowrap">
-                        {visitIntervalText || <span className="text-gray-300">-</span>}
+                      <td className="px-3 py-3 text-xs text-text-secondary whitespace-nowrap">
+                        {visitIntervalText || <span className="text-text-tertiary">-</span>}
                       </td>
-                      <td className="px-3 py-3 text-xs text-gray-500 whitespace-nowrap">
-                        {visitScheduleText || <span className="text-gray-300">-</span>}
+                      <td className="px-3 py-3 text-xs text-text-secondary whitespace-nowrap">
+                        {visitScheduleText || <span className="text-text-tertiary">-</span>}
                       </td>
                     </tr>
                   )
@@ -995,27 +995,27 @@ export default function AdminCustomersPage() {
             className="fixed inset-0 z-[55] md:absolute md:inset-0 md:z-[15]"
             onClick={closeDetail}
           />
-        <div className="fixed inset-x-0 top-0 bottom-0 z-[60] md:absolute md:inset-x-auto md:right-0 md:top-0 md:bottom-0 md:w-[480px] bg-white md:rounded-xl md:border md:border-gray-200 shadow-2xl overflow-y-auto">
+        <div className="fixed inset-x-0 top-0 bottom-0 z-[60] md:absolute md:inset-x-auto md:right-0 md:top-0 md:bottom-0 md:w-[480px] bg-surface md:rounded-xl md:border md:border-border shadow-2xl overflow-y-auto">
 
           {/* 헤더 */}
-          <div className="p-4 border-b border-gray-100 flex items-center justify-between sticky top-0 bg-white z-10">
-            <h2 className="font-bold text-gray-900 break-words">{isNew ? '새 고객 추가' : selected?.business_name}</h2>
+          <div className="p-4 border-b border-border-subtle flex items-center justify-between sticky top-0 bg-surface z-10">
+            <h2 className="font-bold text-text-primary break-words">{isNew ? '새 고객 추가' : selected?.business_name}</h2>
             <div className="flex items-center gap-1.5 shrink-0">
-              <button onClick={closeDetail} className="text-gray-400 hover:text-gray-600 text-lg leading-none">✕</button>
+              <button onClick={closeDetail} className="text-text-tertiary hover:text-text-secondary text-lg leading-none">✕</button>
             </div>
           </div>
 
           <div className="p-4 pb-24 md:pb-8 space-y-5">
             {/* 고객 유형 + 상태 */}
             <div>
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">고객 유형</p>
+              <p className="text-xs font-semibold text-text-secondary uppercase tracking-wide mb-2">고객 유형</p>
               <div className="flex gap-1.5 flex-wrap mb-2">
                 {CUSTOMER_TYPES.map(t => (
                   <button key={t} onClick={() => set('customer_type')(t)}
                     className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
                       form.customer_type === t
                         ? `${TYPE_STYLE[t].badge} ring-2 ring-offset-1 ring-current`
-                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                        : 'bg-surface-sunken text-text-secondary hover:bg-surface-sunken'
                     }`}>{t}
                   </button>
                 ))}
@@ -1026,7 +1026,7 @@ export default function AdminCustomersPage() {
                     className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
                       form.status === s
                         ? `${STATUS_STYLE[s].badge} ring-2 ring-offset-1 ring-current`
-                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                        : 'bg-surface-sunken text-text-secondary hover:bg-surface-sunken'
                     }`}>{STATUS_STYLE[s].label}
                   </button>
                 ))}
@@ -1037,7 +1037,7 @@ export default function AdminCustomersPage() {
                     className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
                       (form.disposition ?? '보통') === d
                         ? `${DISPOSITION_STYLE[d].badge} ring-2 ring-offset-1 ring-current`
-                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                        : 'bg-surface-sunken text-text-secondary hover:bg-surface-sunken'
                     }`}>{d}
                   </button>
                 ))}
@@ -1045,12 +1045,12 @@ export default function AdminCustomersPage() {
             </div>
 
             {/* 담당직원 */}
-            <div className="bg-gray-50 rounded-xl p-4 flex flex-col gap-3">
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">담당직원</p>
+            <div className="bg-surface-sunken rounded-xl p-4 flex flex-col gap-3">
+              <p className="text-xs font-semibold text-text-secondary uppercase tracking-wide">담당직원</p>
               <div className="flex items-center gap-2">
-                <span className="text-xs text-gray-500 w-24 shrink-0">담당자</span>
+                <span className="text-xs text-text-secondary w-24 shrink-0">담당자</span>
                 <select value={form.assigned_user_id} onChange={e => set('assigned_user_id')(e.target.value)}
-                  className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+                  className="flex-1 border border-border rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 bg-surface">
                   <option value="">담당자 없음</option>
                   {usersList.map(u => (
                     <option key={u.id} value={u.id}>{u.name} ({u.role === 'admin' ? '관리자' : '직원'})</option>
@@ -1058,9 +1058,9 @@ export default function AdminCustomersPage() {
                 </select>
               </div>
               <div className="flex items-center gap-2">
-                <span className="text-xs text-gray-500 w-24 shrink-0">작업자</span>
+                <span className="text-xs text-text-secondary w-24 shrink-0">작업자</span>
                 <select value={form.assigned_worker_id} onChange={e => set('assigned_worker_id')(e.target.value)}
-                  className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+                  className="flex-1 border border-border rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 bg-surface">
                   <option value="">작업자 없음</option>
                   {workersList.map(w => (
                     <option key={w.id} value={w.id}>{w.name}</option>
@@ -1071,49 +1071,49 @@ export default function AdminCustomersPage() {
 
             {/* 일반정보 */}
             <div>
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">일반정보</p>
+              <p className="text-xs font-semibold text-text-secondary uppercase tracking-wide mb-2">일반정보</p>
               <div className="space-y-2">
                 <div className="flex items-center gap-2">
-                  <span className="text-xs text-gray-500 w-20 shrink-0">고객명</span>
+                  <span className="text-xs text-text-secondary w-20 shrink-0">고객명</span>
                   <input value={form.contact_name} onChange={e => set('contact_name')(e.target.value)}
-                    className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                    className="flex-1 border border-border rounded-lg px-2 py-1.5 text-xs text-text-primary focus:outline-none focus:ring-2 focus:ring-blue-500" />
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-xs text-gray-500 w-20 shrink-0">업체명</span>
+                  <span className="text-xs text-text-secondary w-20 shrink-0">업체명</span>
                   <input value={form.business_name} onChange={e => set('business_name')(e.target.value)}
-                    className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                    className="flex-1 border border-border rounded-lg px-2 py-1.5 text-xs text-text-primary focus:outline-none focus:ring-2 focus:ring-blue-500" />
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-xs text-gray-500 w-20 shrink-0">연락처</span>
+                  <span className="text-xs text-text-secondary w-20 shrink-0">연락처</span>
                   <div className="flex flex-1 gap-1">
                     <input value={form.contact_phone} onChange={e => set('contact_phone')(e.target.value)}
-                      className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                    <a href={`tel:${form.contact_phone}`} className="px-2 py-1.5 text-xs bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100">📞</a>
-                    <button onClick={() => navigator.clipboard.writeText(form.contact_phone).then(() => toast.success('연락처 복사됨'))} className="px-2 py-1.5 text-xs bg-gray-50 rounded-lg hover:bg-gray-100">📋</button>
+                      className="flex-1 border border-border rounded-lg px-2 py-1.5 text-xs text-text-primary focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                    <a href={`tel:${form.contact_phone}`} className="px-2 py-1.5 text-xs bg-brand-50 text-brand-600 rounded-lg hover:bg-brand-100">📞</a>
+                    <button onClick={() => navigator.clipboard.writeText(form.contact_phone).then(() => toast.success('연락처 복사됨'))} className="px-2 py-1.5 text-xs bg-surface-sunken rounded-lg hover:bg-surface-sunken">📋</button>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-xs text-gray-500 w-20 shrink-0">이메일</span>
+                  <span className="text-xs text-text-secondary w-20 shrink-0">이메일</span>
                   <input value={form.email} onChange={e => set('email')(e.target.value)}
-                    className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                    className="flex-1 border border-border rounded-lg px-2 py-1.5 text-xs text-text-primary focus:outline-none focus:ring-2 focus:ring-blue-500" />
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-xs text-gray-500 w-20 shrink-0">주소</span>
+                  <span className="text-xs text-text-secondary w-20 shrink-0">주소</span>
                   <div className="flex flex-1 gap-1">
                     <input value={form.address} onChange={e => set('address')(e.target.value)}
-                      className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                      className="flex-1 border border-border rounded-lg px-2 py-1.5 text-xs text-text-primary focus:outline-none focus:ring-2 focus:ring-blue-500" />
                     <button onClick={() => setMapAddress(form.address)}
                       className="px-2 py-1.5 text-xs bg-green-50 text-green-700 rounded-lg hover:bg-green-100 shrink-0">🗺️</button>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-xs text-gray-500 w-20 shrink-0">영업시간</span>
+                  <span className="text-xs text-text-secondary w-20 shrink-0">영업시간</span>
                   <div className="flex items-center gap-1 flex-1">
                     <input type="time" value={form.business_hours_start} onChange={e => set('business_hours_start')(e.target.value)}
-                      className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                    <span className="text-gray-400 text-xs">~</span>
+                      className="flex-1 border border-border rounded-lg px-2 py-1.5 text-xs text-text-primary focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                    <span className="text-text-tertiary text-xs">~</span>
                     <input type="time" value={form.business_hours_end} onChange={e => set('business_hours_end')(e.target.value)}
-                      className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                      className="flex-1 border border-border rounded-lg px-2 py-1.5 text-xs text-text-primary focus:outline-none focus:ring-2 focus:ring-blue-500" />
                   </div>
                 </div>
               </div>
@@ -1121,51 +1121,51 @@ export default function AdminCustomersPage() {
 
             {/* 작업장정보 */}
             <div>
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">작업장정보</p>
+              <p className="text-xs font-semibold text-text-secondary uppercase tracking-wide mb-2">작업장정보</p>
               <div className="border-2 border-green-200 rounded-xl p-3 space-y-2 bg-green-50/30">
                 <div className="flex items-center gap-2">
-                  <span className="text-xs text-gray-500 w-20 shrink-0">주차</span>
+                  <span className="text-xs text-text-secondary w-20 shrink-0">주차</span>
                   <input value={form.parking_info} onChange={e => set('parking_info')(e.target.value)}
-                    className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                    className="flex-1 border border-border rounded-lg px-2 py-1.5 text-xs text-text-primary focus:outline-none focus:ring-2 focus:ring-blue-500" />
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-xs text-gray-500 w-20 shrink-0">건물출입</span>
+                  <span className="text-xs text-text-secondary w-20 shrink-0">건물출입</span>
                   <input value={form.building_access} onChange={e => set('building_access')(e.target.value)}
-                    className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                    className="flex-1 border border-border rounded-lg px-2 py-1.5 text-xs text-text-primary focus:outline-none focus:ring-2 focus:ring-blue-500" />
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-xs text-gray-500 w-20 shrink-0">엘리베이터</span>
+                  <span className="text-xs text-text-secondary w-20 shrink-0">엘리베이터</span>
                   <input value={form.elevator} onChange={e => set('elevator')(e.target.value)}
-                    className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                    className="flex-1 border border-border rounded-lg px-2 py-1.5 text-xs text-text-primary focus:outline-none focus:ring-2 focus:ring-blue-500" />
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-xs text-gray-500 w-20 shrink-0">출입방법</span>
+                  <span className="text-xs text-text-secondary w-20 shrink-0">출입방법</span>
                   <input value={form.access_method} onChange={e => set('access_method')(e.target.value)}
-                    className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                    className="flex-1 border border-border rounded-lg px-2 py-1.5 text-xs text-text-primary focus:outline-none focus:ring-2 focus:ring-blue-500" />
                 </div>
               </div>
             </div>
 
             {/* 시공정보 */}
             <div>
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">시공정보</p>
+              <p className="text-xs font-semibold text-text-secondary uppercase tracking-wide mb-2">시공정보</p>
               <div className="border-2 border-green-200 rounded-xl p-3 space-y-2 bg-green-50/30">
                 <div className="flex items-start gap-2">
-                  <span className="text-xs text-gray-500 w-20 shrink-0 pt-1.5">케어범위</span>
+                  <span className="text-xs text-text-secondary w-20 shrink-0 pt-1.5">케어범위</span>
                   <textarea value={form.care_scope} onChange={e => set('care_scope')(e.target.value)} rows={3}
                     placeholder="예) - 후드청소&#10;- 덕트청소&#10;- 계단청소"
-                    className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-green-500 resize-none text-gray-900" />
+                    className="flex-1 border border-border rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-green-500 resize-none text-text-primary" />
                 </div>
                 <div className="flex items-start gap-2">
-                  <span className="text-xs text-gray-500 w-20 shrink-0 pt-1.5">요청사항</span>
+                  <span className="text-xs text-text-secondary w-20 shrink-0 pt-1.5">요청사항</span>
                   <textarea value={form.special_notes} onChange={e => set('special_notes')(e.target.value)} rows={2}
-                    className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-green-500 resize-none text-gray-900" />
+                    className="flex-1 border border-border rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-green-500 resize-none text-text-primary" />
                 </div>
                 <div className="flex items-start gap-2">
-                  <span className="text-xs text-gray-500 w-20 shrink-0 pt-1.5">관리자메모</span>
+                  <span className="text-xs text-text-secondary w-20 shrink-0 pt-1.5">관리자메모</span>
                   <textarea value={form.notes} onChange={e => set('notes')(e.target.value)} rows={3}
                     placeholder="내부 메모를 입력하세요..."
-                    className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-green-500 resize-none text-gray-900" />
+                    className="flex-1 border border-border rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-green-500 resize-none text-text-primary" />
                 </div>
               </div>
             </div>
@@ -1173,12 +1173,12 @@ export default function AdminCustomersPage() {
             {/* 결제정보 — worker 숨김 */}
             {!isWorker && (
             <div>
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">결제정보</p>
+              <p className="text-xs font-semibold text-text-secondary uppercase tracking-wide mb-2">결제정보</p>
               <div className="space-y-2">
                 <div className="flex items-center gap-2">
-                  <span className="text-xs text-gray-500 w-20 shrink-0">결제방법</span>
+                  <span className="text-xs text-text-secondary w-20 shrink-0">결제방법</span>
                   <select value={form.payment_method} onChange={e => set('payment_method')(e.target.value)}
-                    className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+                    className="flex-1 border border-border rounded-lg px-2 py-1.5 text-xs text-text-primary focus:outline-none focus:ring-2 focus:ring-blue-500 bg-surface">
                     <option value="">선택...</option>
                     <option value="현금(계산서 희망)">현금(계산서 희망)</option>
                     <option value="현금(비과세)">현금(비과세)</option>
@@ -1187,19 +1187,19 @@ export default function AdminCustomersPage() {
                   </select>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-xs text-gray-500 w-20 shrink-0">계좌번호</span>
+                  <span className="text-xs text-text-secondary w-20 shrink-0">계좌번호</span>
                   <div className="flex flex-1 gap-1">
                     <input value={form.account_number} onChange={e => set('account_number')(e.target.value)}
-                      className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono" />
-                    <button onClick={() => navigator.clipboard.writeText(form.account_number).then(() => toast.success('계좌번호 복사됨'))} className="px-2 py-1.5 text-xs bg-gray-50 rounded-lg hover:bg-gray-100">📋</button>
+                      className="flex-1 border border-border rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono" />
+                    <button onClick={() => navigator.clipboard.writeText(form.account_number).then(() => toast.success('계좌번호 복사됨'))} className="px-2 py-1.5 text-xs bg-surface-sunken rounded-lg hover:bg-surface-sunken">📋</button>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-xs text-gray-500 w-20 shrink-0">사업자번호</span>
+                  <span className="text-xs text-text-secondary w-20 shrink-0">사업자번호</span>
                   <div className="flex flex-1 gap-1">
                     <input value={form.business_number} onChange={e => set('business_number')(e.target.value)}
-                      className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono" />
-                    <button onClick={() => navigator.clipboard.writeText(form.business_number).then(() => toast.success('사업자번호 복사됨'))} className="px-2 py-1.5 text-xs bg-gray-50 rounded-lg hover:bg-gray-100">📋</button>
+                      className="flex-1 border border-border rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono" />
+                    <button onClick={() => navigator.clipboard.writeText(form.business_number).then(() => toast.success('사업자번호 복사됨'))} className="px-2 py-1.5 text-xs bg-surface-sunken rounded-lg hover:bg-surface-sunken">📋</button>
                   </div>
                 </div>
               </div>
@@ -1214,10 +1214,10 @@ export default function AdminCustomersPage() {
                 </div>
                 <div className="p-4 flex flex-col gap-4">
                   {/* 고객 → 범빌드코리아 */}
-                  <div className="bg-white border border-purple-100 rounded-lg p-3 flex flex-col gap-3">
-                    <p className="text-xs font-semibold text-gray-700">고객 → 범빌드코리아</p>
+                  <div className="bg-surface border border-purple-100 rounded-lg p-3 flex flex-col gap-3">
+                    <p className="text-xs font-semibold text-text-primary">고객 → 범빌드코리아</p>
                     <div className="flex items-center gap-2">
-                      <span className="text-xs text-gray-500 w-24 shrink-0">결제 주기</span>
+                      <span className="text-xs text-text-secondary w-24 shrink-0">결제 주기</span>
                       <div className="flex gap-1.5 flex-1">
                         {(['월간', '연간'] as BillingCycle[]).map(c => (
                           <button key={c} onClick={() => set('billing_cycle')(c)}
@@ -1235,28 +1235,28 @@ export default function AdminCustomersPage() {
                     )}
                     <div className="grid grid-cols-2 gap-2">
                       <div>
-                        <label className="text-xs text-gray-500 mb-0.5 block">
-                          공급가액 <span className="text-gray-400">({form.billing_cycle === '연간' ? '연간' : '월간'})</span>
+                        <label className="text-xs text-text-secondary mb-0.5 block">
+                          공급가액 <span className="text-text-tertiary">({form.billing_cycle === '연간' ? '연간' : '월간'})</span>
                         </label>
                         <input type="number" value={form.supply_amount} onChange={e => set('supply_amount')(e.target.value)}
                           placeholder="0"
-                          className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-purple-400 text-gray-900" />
+                          className="w-full border border-border rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-purple-400 text-text-primary" />
                       </div>
                       <div>
-                        <label className="text-xs text-gray-500 mb-0.5 block">
-                          부가세 {isNoVatMethod(form.payment_method) ? <span className="text-gray-400">(비적용)</span> : <span className="text-gray-400">(자동 10%)</span>}
+                        <label className="text-xs text-text-secondary mb-0.5 block">
+                          부가세 {isNoVatMethod(form.payment_method) ? <span className="text-text-tertiary">(비적용)</span> : <span className="text-text-tertiary">(자동 10%)</span>}
                         </label>
                         <input type="number"
                           value={isNoVatMethod(form.payment_method) ? '0' : form.vat}
                           onChange={e => set('vat')(e.target.value)}
                           disabled={isNoVatMethod(form.payment_method)}
                           placeholder="0"
-                          className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-purple-400 text-gray-900 disabled:bg-gray-50 disabled:text-gray-400" />
+                          className="w-full border border-border rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-purple-400 text-text-primary disabled:bg-surface-sunken disabled:text-text-tertiary" />
                       </div>
                     </div>
-                    <div className="flex justify-between items-center text-xs pt-1 border-t border-gray-100">
-                      <span className="text-gray-500">총액 (공급가액 + 부가세)</span>
-                      <span className="font-bold text-gray-800">
+                    <div className="flex justify-between items-center text-xs pt-1 border-t border-border-subtle">
+                      <span className="text-text-secondary">총액 (공급가액 + 부가세)</span>
+                      <span className="font-bold text-text-primary">
                         {((Number(form.supply_amount) || 0) + (isNoVatMethod(form.payment_method) ? 0 : (Number(form.vat) || 0))).toLocaleString('ko-KR')}원
                       </span>
                     </div>
@@ -1269,24 +1269,24 @@ export default function AdminCustomersPage() {
 
                   {/* 계약기간 */}
                   <div className="flex flex-col gap-2">
-                    <p className="text-xs font-semibold text-gray-700">계약기간</p>
+                    <p className="text-xs font-semibold text-text-primary">계약기간</p>
                     <div className="flex items-center gap-2">
-                      <span className="text-xs text-gray-500 w-24 shrink-0">계약 시작</span>
+                      <span className="text-xs text-text-secondary w-24 shrink-0">계약 시작</span>
                       <input type="date" value={form.contract_start_date} onChange={e => set('contract_start_date')(e.target.value)}
-                        className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-purple-500 bg-white text-gray-900" />
+                        className="flex-1 border border-border rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-purple-500 bg-surface text-text-primary" />
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="text-xs text-gray-500 w-24 shrink-0">계약 만료</span>
+                      <span className="text-xs text-text-secondary w-24 shrink-0">계약 만료</span>
                       <input type="date" value={form.contract_end_date} onChange={e => set('contract_end_date')(e.target.value)}
-                        className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-purple-500 bg-white text-gray-900" />
+                        className="flex-1 border border-border rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-purple-500 bg-surface text-text-primary" />
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="text-xs text-gray-500 w-24 shrink-0">결제일자</span>
+                      <span className="text-xs text-text-secondary w-24 shrink-0">결제일자</span>
                       <input type="number" min={1} max={31} value={form.payment_date}
                         onChange={e => set('payment_date')(e.target.value)}
                         placeholder="1~31"
-                        className="w-20 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-purple-500 text-center text-gray-900" />
-                      <span className="text-xs text-gray-400">일</span>
+                        className="w-20 border border-border rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-purple-500 text-center text-text-primary" />
+                      <span className="text-xs text-text-tertiary">일</span>
                     </div>
                   </div>
 
@@ -1315,10 +1315,10 @@ export default function AdminCustomersPage() {
                 </div>
                 <div className="p-4 flex flex-col gap-4">
                   {/* 고객 → 범빌드코리아 */}
-                  <div className="bg-white border border-blue-100 rounded-lg p-3 flex flex-col gap-3">
-                    <p className="text-xs font-semibold text-gray-700">고객 → 범빌드코리아</p>
+                  <div className="bg-surface border border-brand-100 rounded-lg p-3 flex flex-col gap-3">
+                    <p className="text-xs font-semibold text-text-primary">고객 → 범빌드코리아</p>
                     <div className="flex items-center gap-2">
-                      <span className="text-xs text-gray-500 w-24 shrink-0">결제 주기</span>
+                      <span className="text-xs text-text-secondary w-24 shrink-0">결제 주기</span>
                       <div className="flex gap-1.5 flex-1">
                         {(['월간', '연간'] as BillingCycle[]).map(c => (
                           <button key={c} onClick={() => set('billing_cycle')(c)}
@@ -1336,28 +1336,28 @@ export default function AdminCustomersPage() {
                     )}
                     <div className="grid grid-cols-2 gap-2">
                       <div>
-                        <label className="text-xs text-gray-500 mb-0.5 block">
-                          공급가액 <span className="text-gray-400">({form.billing_cycle === '연간' ? '연간' : '월간'})</span>
+                        <label className="text-xs text-text-secondary mb-0.5 block">
+                          공급가액 <span className="text-text-tertiary">({form.billing_cycle === '연간' ? '연간' : '월간'})</span>
                         </label>
                         <input type="number" value={form.supply_amount} onChange={e => set('supply_amount')(e.target.value)}
                           placeholder="0"
-                          className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-400 text-gray-900" />
+                          className="w-full border border-border rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-400 text-text-primary" />
                       </div>
                       <div>
-                        <label className="text-xs text-gray-500 mb-0.5 block">
-                          부가세 {isNoVatMethod(form.payment_method) ? <span className="text-gray-400">(비적용)</span> : <span className="text-gray-400">(자동 10%)</span>}
+                        <label className="text-xs text-text-secondary mb-0.5 block">
+                          부가세 {isNoVatMethod(form.payment_method) ? <span className="text-text-tertiary">(비적용)</span> : <span className="text-text-tertiary">(자동 10%)</span>}
                         </label>
                         <input type="number"
                           value={isNoVatMethod(form.payment_method) ? '0' : form.vat}
                           onChange={e => set('vat')(e.target.value)}
                           disabled={isNoVatMethod(form.payment_method)}
                           placeholder="0"
-                          className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-400 text-gray-900 disabled:bg-gray-50 disabled:text-gray-400" />
+                          className="w-full border border-border rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-400 text-text-primary disabled:bg-surface-sunken disabled:text-text-tertiary" />
                       </div>
                     </div>
-                    <div className="flex justify-between items-center text-xs pt-1 border-t border-gray-100">
-                      <span className="text-gray-500">총액 (공급가액 + 부가세)</span>
-                      <span className="font-bold text-gray-800">
+                    <div className="flex justify-between items-center text-xs pt-1 border-t border-border-subtle">
+                      <span className="text-text-secondary">총액 (공급가액 + 부가세)</span>
+                      <span className="font-bold text-text-primary">
                         {((Number(form.supply_amount) || 0) + (isNoVatMethod(form.payment_method) ? 0 : (Number(form.vat) || 0))).toLocaleString('ko-KR')}원
                       </span>
                     </div>
@@ -1369,10 +1369,10 @@ export default function AdminCustomersPage() {
                   </div>
 
                   {/* 순환식 / 월 회수 */}
-                  <div className="bg-white border border-blue-100 rounded-lg p-3 flex flex-col gap-3">
-                    <p className="text-xs font-semibold text-gray-700">방문 주기 설정</p>
+                  <div className="bg-surface border border-brand-100 rounded-lg p-3 flex flex-col gap-3">
+                    <p className="text-xs font-semibold text-text-primary">방문 주기 설정</p>
                     <div className="flex items-center gap-2">
-                      <span className="text-xs text-gray-500 w-24 shrink-0">순환식</span>
+                      <span className="text-xs text-text-secondary w-24 shrink-0">순환식</span>
                       <div className="flex gap-1.5 flex-1">
                         {ROTATION_TYPES.map(r => (
                           <button key={r} onClick={() => set('rotation_type')(r)}
@@ -1387,12 +1387,12 @@ export default function AdminCustomersPage() {
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="text-xs text-gray-500 w-24 shrink-0">월 회수</span>
+                      <span className="text-xs text-text-secondary w-24 shrink-0">월 회수</span>
                       <input type="number" min={1} max={31} value={form.visit_count_per_month}
                         onChange={e => set('visit_count_per_month')(e.target.value)}
                         placeholder="0"
-                        className="w-20 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 text-center" />
-                      <span className="text-xs text-gray-400">회/월</span>
+                        className="w-20 border border-border rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 text-center" />
+                      <span className="text-xs text-text-tertiary">회/월</span>
                     </div>
                   </div>
 
@@ -1404,22 +1404,22 @@ export default function AdminCustomersPage() {
 
                   {/* 계약기간 */}
                   <div className="flex flex-col gap-2">
-                    <p className="text-xs font-semibold text-gray-700">계약기간</p>
+                    <p className="text-xs font-semibold text-text-primary">계약기간</p>
                     <div className="flex items-center gap-2">
-                      <span className="text-xs text-gray-500 w-24 shrink-0">계약 시작</span>
+                      <span className="text-xs text-text-secondary w-24 shrink-0">계약 시작</span>
                       <input type="date" value={form.contract_start_date} onChange={e => set('contract_start_date')(e.target.value)}
-                        className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white" />
+                        className="flex-1 border border-border rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 bg-surface" />
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="text-xs text-gray-500 w-24 shrink-0">계약 만료</span>
+                      <span className="text-xs text-text-secondary w-24 shrink-0">계약 만료</span>
                       <input type="date" value={form.contract_end_date} onChange={e => set('contract_end_date')(e.target.value)}
-                        className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white" />
+                        className="flex-1 border border-border rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 bg-surface" />
                     </div>
                   </div>
 
                   {/* 방문 주기 */}
                   <div className="flex flex-col gap-2">
-                    <p className="text-xs font-semibold text-gray-700">방문 일정</p>
+                    <p className="text-xs font-semibold text-text-primary">방문 일정</p>
                     <VisitScheduleEditor
                       scheduleType={form.visit_schedule_type}
                       weekdays={visitWeekdays}
@@ -1436,13 +1436,13 @@ export default function AdminCustomersPage() {
 
             {/* D-day 요약 (정기케어) */}
             {isRegular && (form.billing_next_date || form.contract_end_date) && (
-              <div className="bg-gray-50 rounded-xl p-3 space-y-1.5">
+              <div className="bg-surface-sunken rounded-xl p-3 space-y-1.5">
                 {form.billing_next_date && (() => {
                   const days = daysUntil(form.billing_next_date)
                   return (
                     <div className="flex justify-between text-xs">
-                      <span className="text-gray-500">다음 결제까지</span>
-                      <span className={`font-semibold ${days != null && days < 0 ? 'text-red-600' : days != null && days <= 7 ? 'text-orange-600' : 'text-gray-700'}`}>
+                      <span className="text-text-secondary">다음 결제까지</span>
+                      <span className={`font-semibold ${days != null && days < 0 ? 'text-state-danger' : days != null && days <= 7 ? 'text-orange-600' : 'text-text-primary'}`}>
                         {days == null ? '-' : days < 0 ? `${Math.abs(days)}일 지남` : `${days}일 후 (${fmtDate(form.billing_next_date)})`}
                       </span>
                     </div>
@@ -1452,8 +1452,8 @@ export default function AdminCustomersPage() {
                   const days = daysUntil(form.contract_end_date)
                   return (
                     <div className="flex justify-between text-xs">
-                      <span className="text-gray-500">계약 만료까지</span>
-                      <span className={`font-semibold ${days != null && days < 0 ? 'text-red-600' : days != null && days <= 30 ? 'text-yellow-600' : 'text-gray-700'}`}>
+                      <span className="text-text-secondary">계약 만료까지</span>
+                      <span className={`font-semibold ${days != null && days < 0 ? 'text-state-danger' : days != null && days <= 30 ? 'text-yellow-600' : 'text-text-primary'}`}>
                         {days == null ? '-' : days < 0 ? '계약 만료됨' : `${days}일 후 (${fmtDate(form.contract_end_date)})`}
                       </span>
                     </div>
@@ -1465,12 +1465,12 @@ export default function AdminCustomersPage() {
             {/* 저장 버튼 — worker는 읽기 전용 */}
             {!isWorker && (
               <button onClick={handleSave} disabled={saving}
-                className="w-full py-2.5 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 disabled:opacity-60 transition-colors">
+                className="w-full py-2.5 bg-brand-600 text-white text-sm font-semibold rounded-lg hover:bg-brand-700 disabled:opacity-60 transition-colors">
                 {saving ? '저장 중...' : isNew ? '✚ 고객 추가' : '💾 저장'}
               </button>
             )}
             {isWorker && (
-              <div className="w-full py-2.5 bg-gray-100 text-gray-600 text-sm font-semibold rounded-lg text-center">
+              <div className="w-full py-2.5 bg-surface-sunken text-text-secondary text-sm font-semibold rounded-lg text-center">
                 읽기 전용 (수정 권한 없음)
               </div>
             )}
@@ -1497,12 +1497,12 @@ export default function AdminCustomersPage() {
 
             {/* 알림 발송 (정기케어만, 관리자만) */}
             {!isWorker && !isNew && selected && isRegular && (
-              <div className="border border-gray-100 rounded-xl overflow-hidden">
-                <p className="text-xs font-semibold text-gray-500 px-4 py-2.5 bg-gray-50 border-b border-gray-100">고객 알림 발송</p>
+              <div className="border border-border-subtle rounded-xl overflow-hidden">
+                <p className="text-xs font-semibold text-text-secondary px-4 py-2.5 bg-surface-sunken border-b border-border-subtle">고객 알림 발송</p>
                 <div className="p-4 space-y-3">
                   <div className="flex gap-2">
                     <select value={notifyType} onChange={e => setNotifyType(e.target.value)}
-                      className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400 bg-white">
+                      className="flex-1 border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400 bg-surface">
                       <option value="">알림 유형 선택...</option>
                       {notifyOptions.map(t => <option key={t} value={t}>{t}</option>)}
                     </select>
