@@ -90,6 +90,25 @@ design: UI/UX 변경
 
 ---
 
+## UI 작업 시 필수 준수 (디자인 시스템)
+
+UI/UX 변경 작업 시 아래 두 문서를 **반드시 먼저 읽고** 작업한다.
+
+1. `docs/UI_REFINEMENT_PLAN.md` — 3개 포털 UI 완성도 개선 단계별 계획
+2. `apps/CLAUDE.md` — 공통 디자인 시스템 규칙 (BBK 전체 앱 공통)
+
+### 핵심 금지 사항 (UI 작업 중)
+- 기능·로직·라우트·props 시그니처 변경 금지
+- 임의값(`text-[13px]`, `rounded-[9px]`) 사용 금지 → 토큰만 사용
+- raw `<button>`, raw `<input>` 사용 금지 → `<Button>`, `<Input>` 컴포넌트 사용
+- 하드코딩 색 신규 도입 금지 → 시멘틱 토큰(`text-text-secondary` 등) 사용
+- 페이지마다 다른 카드 둥글기/shadow 사용 금지 → `rounded-2xl shadow-soft` 통일
+
+### 기능 회귀 발생 시
+즉시 작업 중단 → 사용자에게 보고 → 같은 Phase 내 변경분 revert.
+
+---
+
 ## 현재 알려진 미구현 항목 (재개발 필요)
 
 아래 페이지들은 사이드바 메뉴는 있으나 파일이 없음:
