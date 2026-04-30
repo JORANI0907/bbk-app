@@ -6,6 +6,7 @@ import { format, isPast, isToday } from 'date-fns'
 import { ko } from 'date-fns/locale'
 import { ServiceSchedule } from '@/types/database'
 import { SCHEDULE_STATUS_LABELS, SCHEDULE_STATUS_COLORS } from '@/lib/constants'
+import { NoticesSection } from '@/components/customer/NoticesSection'
 
 const CUSTOMER_TYPE_COLORS: Record<string, string> = {
   '정기딥케어': 'bg-indigo-100 text-indigo-700',
@@ -74,6 +75,24 @@ export default async function CustomerHomePage() {
     : { data: null }
 
   const completed = (recentSchedules ?? []) as ServiceSchedule[]
+
+  // 공지·이벤트 조회 (대상: 전체 또는 고객)
+  const { data: noticesRaw } = await supabase
+    .from('notices')
+    .select('id, title, content, type, priority, pinned, event_date, image_url, created_at')
+    .in('target_audience', ['all', 'customer'])
+    .order('pinned', { ascending: false })
+    .order('created_at', { ascending: false })
+    .limit(10)
+
+  type NoticeItem = {
+    id: string; title: string; content: string
+    type: 'notice' | 'event'; priority: 'normal' | 'high' | 'urgent'
+    pinned: boolean; event_date: string | null; image_url: string | null; created_at: string
+  }
+  const allNotices = (noticesRaw ?? []) as NoticeItem[]
+  const noticeList = allNotices.filter(n => n.type === 'notice').slice(0, 5)
+  const eventList = allNotices.filter(n => n.type === 'event').slice(0, 5)
 
   const dday = nextSchedule ? getDday(nextSchedule.scheduled_date) : null
   const typeColor = customer?.customer_type ? CUSTOMER_TYPE_COLORS[customer.customer_type] : 'bg-gray-100 text-gray-600'
@@ -157,12 +176,15 @@ export default async function CustomerHomePage() {
         ))}
       </div>
 
+      {/* 공지 & 이벤트 */}
+      <NoticesSection notices={noticeList} events={eventList} />
+
       {/* 최근 완료 서비스 */}
       {completed.length > 0 && (
         <div className="flex flex-col gap-3">
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-bold text-gray-800">최근 완료 서비스</h2>
-            <Link href="/customer/reports" className="text-xs text-blue-600 font-medium">
+            <Link href="/customer/schedule" className="text-xs text-blue-600 font-medium">
               전체 보기
             </Link>
           </div>
