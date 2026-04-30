@@ -1,3 +1,5 @@
+@import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.css');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -5,17 +7,50 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+
+  /* BBK 디자인 시스템 토큰 (CSS 변수 미러)
+     Tailwind 토큰과 동일 의미 — 인라인 style이 필요한 곳에서 사용 */
+  --color-surface: #ffffff;
+  --color-surface-sunken: #f8fafc;
+  --color-text-primary: #0f172a;
+  --color-text-secondary: #475569;
+  --color-text-tertiary: #94a3b8;
+  --color-border: #e2e8f0;
+  --color-border-subtle: #f1f5f9;
+
+  --shadow-soft: 0 2px 8px -2px rgba(15, 23, 42, 0.06), 0 1px 2px -1px rgba(15, 23, 42, 0.04);
+  --shadow-card: 0 4px 16px -4px rgba(15, 23, 42, 0.08), 0 2px 4px -2px rgba(15, 23, 42, 0.04);
 }
 
 body {
   color: #171717;
   background: #ffffff;
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: 'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont,
+               system-ui, Roboto, 'Helvetica Neue', 'Segoe UI',
+               'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif;
+  font-feature-settings: 'tnum';
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
 @layer utilities {
   .text-balance {
     text-wrap: balance;
+  }
+
+  /* 한글 단어 잘림 방지 — 긴 한글 라벨용 */
+  .break-keep {
+    word-break: keep-all;
+    overflow-wrap: break-word;
+  }
+
+  /* iOS safe area 대응 */
+  .safe-area-pt {
+    padding-top: env(safe-area-inset-top);
+  }
+  .safe-area-pb {
+    padding-bottom: env(safe-area-inset-bottom);
   }
 }
 
