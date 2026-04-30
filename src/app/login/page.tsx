@@ -122,10 +122,7 @@ export default function LoginPage() {
           <div className="px-6 py-6">
             <div className="flex flex-col gap-4">
               <div>
-                <label className="text-xs font-semibold text-white/80 mb-1.5 block">
-                  아이디
-                  <span className="font-normal text-white/45 ml-1.5">(전화번호)</span>
-                </label>
+                <label className="text-xs font-semibold text-white/80 mb-1.5 block">아이디</label>
                 <div className="relative">
                   <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/50">
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -133,7 +130,7 @@ export default function LoginPage() {
                     </svg>
                   </span>
                   <input type="text" value={phone} onChange={e => setPhone(e.target.value)}
-                    placeholder="01012345678" autoComplete="username"
+                    placeholder="아이디 입력" autoComplete="username"
                     onKeyDown={e => e.key === 'Enter' && handleLogin()}
                     className="w-full pl-10 pr-4 py-3 border border-white/20 rounded-xl text-sm bg-white/15 text-white placeholder-white/40 focus:bg-white/25 focus:outline-none focus:ring-2 focus:ring-sky-400 focus:border-transparent transition-all" />
                 </div>

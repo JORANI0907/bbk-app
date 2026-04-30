@@ -8,15 +8,19 @@ export async function POST(request: NextRequest) {
     const { phone, password } = await request.json()
 
     if (!phone?.trim() || !password?.trim()) {
-      return NextResponse.json({ error: '연락처와 비밀번호를 입력해주세요.' }, { status: 400 })
+      return NextResponse.json({ error: '아이디와 비밀번호를 입력해주세요.' }, { status: 400 })
     }
 
-    // phone@bbkorea.app 형식으로 직접 입력해도 허용
     const rawId = phone.trim()
-    const normalizedPhone = rawId.includes('@bbkorea.app')
-      ? rawId.split('@')[0].replace(/-/g, '')
-      : rawId.replace(/-/g, '')
-    const email = customerEmail(normalizedPhone)
+    let email: string
+
+    if (rawId.includes('@')) {
+      // 관리자/직원: 전화번호@bbkorea.co.kr 형식 직접 입력
+      email = rawId.toLowerCase()
+    } else {
+      // 고객: 전화번호만 입력 → phone@bbkorea.app 으로 변환
+      email = customerEmail(rawId.replace(/-/g, ''))
+    }
 
     const session = await signInWithPassword(email, password)
 
@@ -50,7 +54,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error)
     if (msg.includes('Invalid login credentials')) {
-      return NextResponse.json({ error: '연락처 또는 비밀번호가 올바르지 않습니다.' }, { status: 401 })
+      return NextResponse.json({ error: '아이디 또는 비밀번호가 올바르지 않습니다.' }, { status: 401 })
     }
     return NextResponse.json({ error: msg }, { status: 500 })
   }

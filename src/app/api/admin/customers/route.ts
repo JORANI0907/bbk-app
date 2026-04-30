@@ -37,10 +37,13 @@ async function createPortalAccount(
   customerId: string,
   phone: string,
   name: string,
+  businessNumber?: string,
 ): Promise<string> {
   const normalizedPhone = phone.replace(/-/g, '')
   const email = customerEmail(normalizedPhone)
-  const password = normalizedPhone
+  // 초기 비밀번호: 사업자등록번호 (없으면 전화번호)
+  const normalizedBN = (businessNumber ?? '').replace(/-/g, '')
+  const password = normalizedBN || normalizedPhone
 
   const { data: existingUser } = await supabase
     .from('users')
@@ -124,7 +127,7 @@ export async function POST(request: NextRequest) {
   if (body.contact_phone) {
     try {
       const name = (body.contact_name || body.business_name || '').trim()
-      generatedPassword = await createPortalAccount(supabase, data.id, body.contact_phone, name)
+      generatedPassword = await createPortalAccount(supabase, data.id, body.contact_phone, name, body.business_number)
     } catch (e) {
       // 포털 계정 생성 실패해도 고객 등록은 성공 처리
       console.error('포털 계정 자동 생성 실패:', e instanceof Error ? e.message : e)

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
-import { createAuthUser, updateAuthUserPassword, customerEmail } from '@/lib/auth-helpers'
+import { createAuthUser, updateAuthUserPassword, customerEmail, staffEmail } from '@/lib/auth-helpers'
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -55,12 +55,27 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: '이미 등록된 전화번호입니다.' }, { status: 409 })
   }
 
-  const virtualEmail = customerEmail(normalized)
+  // 역할별 이메일 도메인: 관리자/직원 → @bbkorea.co.kr, 고객 → @bbkorea.app
+  const virtualEmail = role === 'customer'
+    ? customerEmail(normalized)
+    : staffEmail(normalized)
 
-  // Auth 계정 생성 (초기 비밀번호 = 전화번호)
+  // 초기 비밀번호 결정: 고객은 사업자등록번호, 관리자/직원은 전화번호
+  let initialPassword = normalized
+  if (role === 'customer' && customer_id) {
+    const { data: customerData } = await supabase
+      .from('customers')
+      .select('business_number')
+      .eq('id', customer_id)
+      .single()
+    const bn = (customerData?.business_number ?? '').replace(/-/g, '')
+    if (bn) initialPassword = bn
+  }
+
+  // Auth 계정 생성
   let authId: string | null = null
   try {
-    const authUser = await createAuthUser(virtualEmail, normalized, { role, name })
+    const authUser = await createAuthUser(virtualEmail, initialPassword, { role, name })
     authId = authUser.id
   } catch (e) {
     const msg = e instanceof Error ? e.message : 'Auth 계정 생성 실패'
@@ -74,12 +89,11 @@ export async function POST(request: NextRequest) {
     .single()
 
   if (error) {
-    // users 테이블 삽입 실패 시 생성된 Auth 계정도 정리
     await deleteAuthUser(authId!).catch(() => {})
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
-  // 고객 DB와 연결 (customer_id가 제공된 경우)
+  // 고객 DB와 연결
   if (customer_id && role === 'customer') {
     await supabase.from('customers').update({ user_id: data.id }).eq('id', customer_id)
   }
@@ -110,17 +124,15 @@ export async function PATCH(request: NextRequest) {
 
     try {
       if (user.auth_id) {
-        // 기존 Auth 계정 비밀번호 변경
         await updateAuthUserPassword(user.auth_id, new_password)
       } else {
-        // Auth 계정 없음 → 신규 생성
-        const email = user.email ?? `${(user.phone ?? '').replace(/-/g, '')}@bbkorea.app`
+        // Auth 계정 없음 → 역할에 맞는 이메일로 신규 생성
+        const phone = (user.phone ?? '').replace(/-/g, '')
+        const email = user.email ?? (user.role === 'customer'
+          ? customerEmail(phone)
+          : staffEmail(phone))
         const newAuthUser = await createAuthUser(email, new_password, { role: user.role, name: user.name })
-        // users 테이블에 auth_id + email 연결
-        await supabase
-          .from('users')
-          .update({ auth_id: newAuthUser.id, email })
-          .eq('id', id)
+        await supabase.from('users').update({ auth_id: newAuthUser.id, email }).eq('id', id)
       }
       return NextResponse.json({ success: true })
     } catch (e) {
@@ -159,7 +171,6 @@ export async function DELETE(request: NextRequest) {
 
   if (!user) return NextResponse.json({ error: '사용자를 찾을 수 없습니다.' }, { status: 404 })
 
-  // Auth 계정 삭제
   if (user.auth_id) {
     try {
       await deleteAuthUser(user.auth_id)
@@ -169,7 +180,6 @@ export async function DELETE(request: NextRequest) {
     }
   }
 
-  // users 테이블에서 삭제
   const { error } = await supabase.from('users').delete().eq('id', id)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 

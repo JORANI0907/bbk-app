@@ -25,6 +25,7 @@ interface CustomerItem {
   contact_name: string
   contact_phone: string
   email?: string
+  business_number?: string
 }
 
 interface FormData {
@@ -33,6 +34,7 @@ interface FormData {
   phone: string
   email: string
   customer_id?: string
+  business_number?: string
 }
 
 const EMPTY_FORM: FormData = { role: 'worker', name: '', phone: '', email: '' }
@@ -536,6 +538,7 @@ export default function MembersPage() {
                               phone: normalized,
                               email: c.email ?? '',
                               customer_id: c.id,
+                              business_number: (c.business_number ?? '').replace(/-/g, ''),
                             }))
                             setCustomerSearch(c.business_name)
                             setShowCustomerDropdown(false)
@@ -567,6 +570,12 @@ export default function MembersPage() {
                       <span className="text-gray-500">전화번호</span>
                       <span className="font-medium text-gray-800">{form.phone}</span>
                     </div>
+                    {form.business_number && (
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">사업자등록번호</span>
+                        <span className="font-medium text-gray-800">{form.business_number}</span>
+                      </div>
+                    )}
                     {form.email && (
                       <div className="flex justify-between">
                         <span className="text-gray-500">이메일</span>
@@ -631,12 +640,18 @@ export default function MembersPage() {
                 <div className="flex justify-between text-xs">
                   <span className="text-gray-500">아이디</span>
                   <span className="font-mono font-medium text-gray-800 text-[11px]">
-                    {normalizedFormPhone}@bbkorea.app
+                    {form.role === 'customer'
+                      ? normalizedFormPhone
+                      : `${normalizedFormPhone}@bbkorea.co.kr`}
                   </span>
                 </div>
                 <div className="flex justify-between text-xs">
                   <span className="text-gray-500">초기 비밀번호</span>
-                  <span className="font-mono font-medium text-gray-800">{normalizedFormPhone}</span>
+                  <span className="font-mono font-medium text-gray-800">
+                    {form.role === 'customer'
+                      ? (form.business_number || normalizedFormPhone)
+                      : normalizedFormPhone}
+                  </span>
                 </div>
               </div>
             )}

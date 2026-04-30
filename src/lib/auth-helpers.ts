@@ -66,3 +66,8 @@ export async function signInWithPassword(email: string, password: string) {
 export function customerEmail(phone: string) {
   return `${phone.replace(/-/g, '')}@bbkorea.app`
 }
+
+/** 관리자/직원용 가상 이메일 (전화번호 기반) */
+export function staffEmail(phone: string) {
+  return `${phone.replace(/-/g, '')}@bbkorea.co.kr`
+}
