@@ -46,10 +46,10 @@ function Bar({ value, total, color }: { value: number; total: number; color: str
   const pct = total > 0 ? Math.round((value / total) * 100) : 0
   return (
     <div className="flex items-center gap-2">
-      <div className="flex-1 bg-gray-100 rounded-full h-2">
+      <div className="flex-1 bg-surface-sunken rounded-full h-2">
         <div className={`h-2 rounded-full ${color} transition-all duration-500`} style={{ width: `${pct}%` }} />
       </div>
-      <span className="text-xs text-gray-500 w-8 text-right">{pct}%</span>
+      <span className="text-xs text-text-secondary w-8 text-right">{pct}%</span>
     </div>
   )
 }
@@ -73,13 +73,13 @@ function AddItemForm({ onAdd }: { onAdd: (name: string, amount: string, note: st
   return (
     <div className="flex gap-2 mt-3">
       <input value={name} onChange={e => setName(e.target.value)}
-        placeholder="항목명" className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        placeholder="항목명" className="flex-1 border border-border rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500" />
       <input type="number" value={amount} onChange={e => setAmount(e.target.value)}
-        placeholder="금액" className="w-28 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        placeholder="금액" className="w-28 border border-border rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500" />
       <input value={note} onChange={e => setNote(e.target.value)}
-        placeholder="메모" className="w-24 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        placeholder="메모" className="w-24 border border-border rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500" />
       <button onClick={handleSubmit} disabled={adding || !name.trim() || !amount}
-        className="px-3 py-1.5 bg-blue-600 text-white text-xs font-semibold rounded-lg hover:bg-blue-700 disabled:opacity-50 whitespace-nowrap">
+        className="px-3 py-1.5 bg-brand-600 text-white text-xs font-semibold rounded-lg hover:bg-brand-700 disabled:opacity-50 whitespace-nowrap">
         {adding ? '...' : '+ 추가'}
       </button>
     </div>
@@ -108,7 +108,7 @@ function RecordRow({ record, onDelete, onUpdate }: {
 
   if (editing) {
     return (
-      <div className="flex gap-2 items-center py-2 border-b border-gray-50 last:border-0">
+      <div className="flex gap-2 items-center py-2 border-b border-border-subtle last:border-0">
         <input value={name} onChange={e => setName(e.target.value)}
           className="flex-1 border border-blue-300 rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500" />
         <input type="number" value={amount} onChange={e => setAmount(e.target.value)}
@@ -116,21 +116,21 @@ function RecordRow({ record, onDelete, onUpdate }: {
         <input value={note} onChange={e => setNote(e.target.value)}
           className="w-24 border border-blue-300 rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500" />
         <button onClick={handleSave} disabled={saving}
-          className="text-xs bg-blue-600 text-white px-2 py-1 rounded-lg disabled:opacity-50">저장</button>
-        <button onClick={() => setEditing(false)} className="text-xs text-gray-400 hover:text-gray-600">취소</button>
+          className="text-xs bg-brand-600 text-white px-2 py-1 rounded-lg disabled:opacity-50">저장</button>
+        <button onClick={() => setEditing(false)} className="text-xs text-text-tertiary hover:text-text-secondary">취소</button>
       </div>
     )
   }
 
   return (
-    <div className="flex items-center gap-2 py-2 border-b border-gray-50 last:border-0 group">
-      <span className="flex-1 text-sm text-gray-800">{record.name}</span>
-      {record.note && <span className="text-xs text-gray-400 truncate max-w-[80px]">{record.note}</span>}
-      <span className="text-sm font-semibold text-gray-700 font-mono whitespace-nowrap">{fmt(record.amount)}원</span>
+    <div className="flex items-center gap-2 py-2 border-b border-border-subtle last:border-0 group">
+      <span className="flex-1 text-sm text-text-primary">{record.name}</span>
+      {record.note && <span className="text-xs text-text-tertiary truncate max-w-[80px]">{record.note}</span>}
+      <span className="text-sm font-semibold text-text-primary font-mono whitespace-nowrap">{fmt(record.amount)}원</span>
       <button onClick={() => setEditing(true)}
-        className="text-xs text-gray-300 hover:text-blue-500 opacity-0 group-hover:opacity-100 transition-opacity">✏️</button>
+        className="text-xs text-text-tertiary hover:text-brand-500 opacity-0 group-hover:opacity-100 transition-opacity">✏️</button>
       <button onClick={() => onDelete(record.id)}
-        className="text-xs text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity">✕</button>
+        className="text-xs text-text-tertiary hover:text-state-danger opacity-0 group-hover:opacity-100 transition-opacity">✕</button>
     </div>
   )
 }
@@ -280,23 +280,23 @@ export default function FinancePage() {
       <div className="flex-1 overflow-y-auto px-4 pb-6">
         {/* 월 선택기 */}
         <div className="flex items-center justify-between my-4">
-          <button onClick={prevMonth} className="p-2 rounded-lg hover:bg-gray-100 text-gray-500 transition-colors">‹</button>
+          <button onClick={prevMonth} className="p-2 rounded-lg hover:bg-surface-sunken text-text-secondary transition-colors">‹</button>
           <div className="text-center">
-            <h2 className="text-base font-bold text-gray-900">{displayMonth}</h2>
-            <p className="text-xs text-gray-400">매출매입 현황</p>
+            <h2 className="text-base font-bold text-text-primary">{displayMonth}</h2>
+            <p className="text-xs text-text-tertiary">매출매입 현황</p>
           </div>
-          <button onClick={nextMonth} className="p-2 rounded-lg hover:bg-gray-100 text-gray-500 transition-colors">›</button>
+          <button onClick={nextMonth} className="p-2 rounded-lg hover:bg-surface-sunken text-text-secondary transition-colors">›</button>
         </div>
 
         {/* 탭 + 시트 버튼 */}
         <div className="flex items-center gap-2 mb-4">
-          <div className="flex gap-1 bg-gray-100 rounded-xl p-1 flex-1">
+          <div className="flex gap-1 bg-surface-sunken rounded-xl p-1 flex-1">
             <button onClick={() => setTab('dashboard')}
-              className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-colors ${tab === 'dashboard' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'}`}>
+              className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-colors ${tab === 'dashboard' ? 'bg-surface text-text-primary shadow-soft' : 'text-text-secondary'}`}>
               대시보드
             </button>
             <button onClick={() => setTab('detail')}
-              className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-colors ${tab === 'detail' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'}`}>
+              className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-colors ${tab === 'detail' ? 'bg-surface text-text-primary shadow-soft' : 'text-text-secondary'}`}>
               상세내역
             </button>
           </div>

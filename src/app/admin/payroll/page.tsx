@@ -88,17 +88,17 @@ function SummaryCards({ entries, label }: {
 
   return (
     <div className="grid grid-cols-3 gap-3 mb-4">
-      <div className="bg-white rounded-xl border border-gray-100 p-3 text-center">
-        <p className="text-xs text-gray-400 mb-1">{label} 자동합계</p>
-        <p className="text-base font-bold text-gray-800">{autoTotal.toLocaleString('ko-KR')}원</p>
+      <div className="bg-surface rounded-xl border border-border-subtle p-3 text-center">
+        <p className="text-xs text-text-tertiary mb-1">{label} 자동합계</p>
+        <p className="text-base font-bold text-text-primary">{autoTotal.toLocaleString('ko-KR')}원</p>
       </div>
-      <div className="bg-white rounded-xl border border-blue-100 p-3 text-center">
-        <p className="text-xs text-blue-400 mb-1">{label} 최종합계</p>
-        <p className="text-base font-bold text-blue-700">{finalTotal.toLocaleString('ko-KR')}원</p>
+      <div className="bg-surface rounded-xl border border-brand-200 p-3 text-center">
+        <p className="text-xs text-brand-500 mb-1">{label} 최종합계</p>
+        <p className="text-base font-bold text-brand-700">{finalTotal.toLocaleString('ko-KR')}원</p>
       </div>
-      <div className="bg-white rounded-xl border border-green-100 p-3 text-center">
-        <p className="text-xs text-green-400 mb-1">지급완료</p>
-        <p className="text-base font-bold text-green-700">{paidCount}/{entries.length}명</p>
+      <div className="bg-surface rounded-xl border border-state-success-bg p-3 text-center">
+        <p className="text-xs text-state-success mb-1">지급완료</p>
+        <p className="text-base font-bold text-state-success">{paidCount}/{entries.length}명</p>
       </div>
     </div>
   )
@@ -206,48 +206,48 @@ function ManagerCard({
   }
 
   return (
-    <div className={`bg-white rounded-xl border ${isPaid ? 'border-green-200' : 'border-gray-100'} shadow-sm overflow-hidden`}>
+    <div className={`bg-surface rounded-xl border ${isPaid ? 'border-state-success-bg' : 'border-border-subtle'} shadow-soft overflow-hidden`}>
       <div className="p-4">
         <div className="flex items-start justify-between mb-3">
           <div>
             <div className="flex items-center gap-2">
-              <span className="font-semibold text-gray-900">{entry.person.name}</span>
-              <span className="text-xs px-2 py-0.5 rounded-full bg-blue-50 text-blue-600">{entry.person.role === 'admin' ? '관리자' : '직원'}</span>
-              {isPaid && <span className="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700">💳 지급완료</span>}
+              <span className="font-semibold text-text-primary">{entry.person.name}</span>
+              <span className="text-xs px-2 py-0.5 rounded-full bg-brand-50 text-brand-600">{entry.person.role === 'admin' ? '관리자' : '직원'}</span>
+              {isPaid && <span className="text-xs px-2 py-0.5 rounded-full bg-state-success-bg text-state-success">💳 지급완료</span>}
             </div>
-            <p className="text-xs text-gray-400 mt-0.5">{entry.jobs.length}건 · 자동 {fmt(entry.auto_amount)}</p>
+            <p className="text-xs text-text-tertiary mt-0.5">{entry.jobs.length}건 · 자동 {fmt(entry.auto_amount)}</p>
             {(entry.person.phone || entry.person.account_number) && (
-              <p className="text-xs text-gray-400 mt-0.5">
+              <p className="text-xs text-text-tertiary mt-0.5">
                 {entry.person.phone && <span>{entry.person.phone}</span>}
                 {entry.person.phone && entry.person.account_number && <span className="mx-1">·</span>}
                 {entry.person.account_number && <span className="font-mono">{entry.person.account_number}</span>}
               </p>
             )}
           </div>
-          <button onClick={() => setExpanded(v => !v)} className="text-gray-400 hover:text-gray-600 text-lg leading-none p-1">
+          <button onClick={() => setExpanded(v => !v)} className="text-text-tertiary hover:text-text-secondary text-lg leading-none p-1">
             {expanded ? '▲' : '▼'}
           </button>
         </div>
 
         <div className="flex gap-2 mb-3">
           <div className="flex-1">
-            <label className="text-xs text-gray-400 mb-1 block">최종 지급액</label>
+            <label className="text-xs text-text-tertiary mb-1 block">최종 지급액</label>
             <input
               type="number"
               value={finalInput}
               onChange={e => setFinalInput(e.target.value)}
               placeholder={`${entry.auto_amount.toLocaleString('ko-KR')} (자동)`}
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
           <div className="flex-1">
-            <label className="text-xs text-gray-400 mb-1 block">메모</label>
+            <label className="text-xs text-text-tertiary mb-1 block">메모</label>
             <input
               type="text"
               value={noteInput}
               onChange={e => setNoteInput(e.target.value)}
               placeholder="조정 사유 등"
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
         </div>
@@ -265,7 +265,7 @@ function ManagerCard({
             disabled={paying}
             className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-colors disabled:opacity-60 ${
               isPaid
-                ? 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                ? 'bg-surface-sunken text-text-secondary hover:bg-surface-sunken'
                 : 'bg-green-600 text-white hover:bg-green-700'
             }`}
           >
@@ -275,11 +275,11 @@ function ManagerCard({
       </div>
 
       {expanded && (
-        <div className="border-t border-gray-100">
+        <div className="border-t border-border-subtle">
           {entry.jobs.length === 0 ? (
-            <p className="text-xs text-gray-400 text-center py-4">일정 없음</p>
+            <p className="text-xs text-text-tertiary text-center py-4">일정 없음</p>
           ) : (
-            <div className="divide-y divide-gray-50">
+            <div className="divide-y divide-border-subtle">
               {entry.jobs.map(job => {
                 const editVal = jobPayEdits[job.id]
                 const isEditing = editVal !== undefined
@@ -287,11 +287,11 @@ function ManagerCard({
                   <div key={job.id} className="px-4 py-2.5 flex items-center gap-2">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-1.5">
-                        <span className="text-xs text-gray-400 font-mono">{fmtDate(job.construction_date)}</span>
-                        <span className="text-xs text-gray-300">·</span>
-                        <span className="text-xs text-gray-500">{job.service_type}</span>
+                        <span className="text-xs text-text-tertiary font-mono">{fmtDate(job.construction_date)}</span>
+                        <span className="text-xs text-text-tertiary">·</span>
+                        <span className="text-xs text-text-secondary">{job.service_type}</span>
                       </div>
-                      <p className="text-sm font-medium text-gray-800 truncate">{job.business_name}</p>
+                      <p className="text-sm font-medium text-text-primary truncate">{job.business_name}</p>
                     </div>
                     <div className="flex items-center gap-1.5 shrink-0">
                       {isEditing ? (
@@ -307,25 +307,25 @@ function ManagerCard({
                           <button
                             onClick={() => handleJobPaySave(job)}
                             disabled={savingJob === job.id}
-                            className="text-xs bg-blue-600 text-white px-2 py-1 rounded hover:bg-blue-700 disabled:opacity-60"
+                            className="text-xs bg-brand-600 text-white px-2 py-1 rounded hover:bg-brand-700 disabled:opacity-60"
                           >
                             {savingJob === job.id ? '...' : '저장'}
                           </button>
                           <button
                             onClick={() => setJobPayEdits(prev => { const n = { ...prev }; delete n[job.id]; return n })}
-                            className="text-xs text-gray-400 hover:text-gray-600"
+                            className="text-xs text-text-tertiary hover:text-text-secondary"
                           >
                             취소
                           </button>
                         </>
                       ) : (
                         <>
-                          <span className={`text-sm font-semibold ${job.resolved_pay > 0 ? 'text-orange-600' : 'text-gray-300'}`}>
+                          <span className={`text-sm font-semibold ${job.resolved_pay > 0 ? 'text-orange-600' : 'text-text-tertiary'}`}>
                             {job.resolved_pay > 0 ? job.resolved_pay.toLocaleString('ko-KR') + '원' : '미설정'}
                           </span>
                           <button
                             onClick={() => setJobPayEdits(prev => ({ ...prev, [job.id]: String(job.manager_pay ?? job.unit_price_per_visit ?? '') }))}
-                            className="text-xs text-gray-400 hover:text-blue-600 px-1"
+                            className="text-xs text-text-tertiary hover:text-brand-600 px-1"
                           >
                             ✏️
                           </button>
@@ -448,25 +448,25 @@ function WorkerCard({
   }
 
   return (
-    <div className={`bg-white rounded-xl border ${isPaid ? 'border-green-200' : 'border-gray-100'} shadow-sm overflow-hidden`}>
+    <div className={`bg-surface rounded-xl border ${isPaid ? 'border-state-success-bg' : 'border-border-subtle'} shadow-soft overflow-hidden`}>
       <div className="p-4">
         <div className="flex items-start justify-between mb-3">
           <div>
             <div className="flex items-center gap-2">
-              <span className="font-semibold text-gray-900">{entry.person.name}</span>
+              <span className="font-semibold text-text-primary">{entry.person.name}</span>
               <span className="text-xs px-2 py-0.5 rounded-full bg-amber-50 text-amber-600">{entry.person.employment_type ?? '기타'}</span>
-              {isPaid && <span className="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700">💳 지급완료</span>}
+              {isPaid && <span className="text-xs px-2 py-0.5 rounded-full bg-state-success-bg text-state-success">💳 지급완료</span>}
             </div>
-            <p className="text-xs text-gray-400 mt-0.5">{entry.jobs.length}건 · 자동 {fmt(entry.auto_amount)}</p>
+            <p className="text-xs text-text-tertiary mt-0.5">{entry.jobs.length}건 · 자동 {fmt(entry.auto_amount)}</p>
             {(entry.person.phone || entry.person.account_number) && (
-              <p className="text-xs text-gray-400 mt-0.5">
+              <p className="text-xs text-text-tertiary mt-0.5">
                 {entry.person.phone && <span>{entry.person.phone}</span>}
                 {entry.person.phone && entry.person.account_number && <span className="mx-1">·</span>}
                 {entry.person.account_number && <span className="font-mono">{entry.person.account_number}</span>}
               </p>
             )}
           </div>
-          <button onClick={() => setExpanded(v => !v)} className="text-gray-400 hover:text-gray-600 text-lg leading-none p-1">
+          <button onClick={() => setExpanded(v => !v)} className="text-text-tertiary hover:text-text-secondary text-lg leading-none p-1">
             {expanded ? '▲' : '▼'}
           </button>
         </div>
@@ -488,23 +488,23 @@ function WorkerCard({
 
         <div className="flex gap-2 mb-3">
           <div className="flex-1">
-            <label className="text-xs text-gray-400 mb-1 block">최종 지급액</label>
+            <label className="text-xs text-text-tertiary mb-1 block">최종 지급액</label>
             <input
               type="number"
               value={finalInput}
               onChange={e => setFinalInput(e.target.value)}
               placeholder={`${entry.auto_amount.toLocaleString('ko-KR')} (자동)`}
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
           <div className="flex-1">
-            <label className="text-xs text-gray-400 mb-1 block">메모</label>
+            <label className="text-xs text-text-tertiary mb-1 block">메모</label>
             <input
               type="text"
               value={noteInput}
               onChange={e => setNoteInput(e.target.value)}
               placeholder="조정 사유 등"
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
         </div>
@@ -522,7 +522,7 @@ function WorkerCard({
             disabled={paying}
             className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-colors disabled:opacity-60 ${
               isPaid
-                ? 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                ? 'bg-surface-sunken text-text-secondary hover:bg-surface-sunken'
                 : 'bg-green-600 text-white hover:bg-green-700'
             }`}
           >
@@ -532,19 +532,19 @@ function WorkerCard({
       </div>
 
       {expanded && (
-        <div className="border-t border-gray-100">
+        <div className="border-t border-border-subtle">
           {entry.jobs.length === 0 ? (
-            <p className="text-xs text-gray-400 text-center py-4">배정 없음</p>
+            <p className="text-xs text-text-tertiary text-center py-4">배정 없음</p>
           ) : (
-            <div className="divide-y divide-gray-50">
+            <div className="divide-y divide-border-subtle">
               {entry.jobs.map(job => {
                 const editVal = jobSalaryEdits[job.id]
                 const isEditing = editVal !== undefined
                 return (
                   <div key={job.id} className="px-4 py-2.5 flex items-center gap-2">
                     <div className="flex-1 min-w-0">
-                      <span className="text-xs text-gray-400 font-mono">{fmtDate(job.construction_date)}</span>
-                      <p className="text-sm font-medium text-gray-800 truncate">{job.business_name}</p>
+                      <span className="text-xs text-text-tertiary font-mono">{fmtDate(job.construction_date)}</span>
+                      <p className="text-sm font-medium text-text-primary truncate">{job.business_name}</p>
                     </div>
                     <div className="flex items-center gap-1.5 shrink-0">
                       {isEditing ? (
@@ -560,25 +560,25 @@ function WorkerCard({
                           <button
                             onClick={() => handleJobSalarySave(job)}
                             disabled={savingJob === job.id}
-                            className="text-xs bg-blue-600 text-white px-2 py-1 rounded hover:bg-blue-700 disabled:opacity-60"
+                            className="text-xs bg-brand-600 text-white px-2 py-1 rounded hover:bg-brand-700 disabled:opacity-60"
                           >
                             {savingJob === job.id ? '...' : '저장'}
                           </button>
                           <button
                             onClick={() => setJobSalaryEdits(prev => { const n = { ...prev }; delete n[job.id]; return n })}
-                            className="text-xs text-gray-400 hover:text-gray-600"
+                            className="text-xs text-text-tertiary hover:text-text-secondary"
                           >
                             취소
                           </button>
                         </>
                       ) : (
                         <>
-                          <span className={`text-sm font-semibold ${(job.salary ?? 0) > 0 ? 'text-orange-600' : 'text-gray-300'}`}>
+                          <span className={`text-sm font-semibold ${(job.salary ?? 0) > 0 ? 'text-orange-600' : 'text-text-tertiary'}`}>
                             {(job.salary ?? 0) > 0 ? (job.salary!).toLocaleString('ko-KR') + '원' : '미설정'}
                           </span>
                           <button
                             onClick={() => setJobSalaryEdits(prev => ({ ...prev, [job.id]: String(job.salary ?? '') }))}
-                            className="text-xs text-gray-400 hover:text-blue-600 px-1"
+                            className="text-xs text-text-tertiary hover:text-brand-600 px-1"
                           >
                             ✏️
                           </button>
@@ -687,26 +687,26 @@ function UnitPriceSettings() {
   )
 
   if (loading) {
-    return <div className="text-center py-12 text-sm text-gray-400">불러오는 중...</div>
+    return <div className="text-center py-12 text-sm text-text-tertiary">불러오는 중...</div>
   }
 
   return (
     <div>
       <div className="mb-4 px-1">
-        <p className="text-xs text-gray-500 mb-3">정기딥케어 · 정기엔드케어 계약의 방문당 단가를 설정합니다. (업체별 일괄 적용)</p>
+        <p className="text-xs text-text-secondary mb-3">정기딥케어 · 정기엔드케어 계약의 방문당 단가를 설정합니다. (업체별 일괄 적용)</p>
         <input
           type="text"
           value={search}
           onChange={e => setSearch(e.target.value)}
           placeholder="업체명 검색..."
-          className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
       </div>
 
       {filtered.length === 0 ? (
         <div className="text-center py-12">
           <p className="text-2xl mb-2">💰</p>
-          <p className="text-sm text-gray-400">정기 서비스 계약이 없습니다.</p>
+          <p className="text-sm text-text-tertiary">정기 서비스 계약이 없습니다.</p>
         </div>
       ) : (
         <div className="flex flex-col gap-2">
@@ -714,13 +714,13 @@ function UnitPriceSettings() {
             const editVal = edits[group.business_name]
             const isEditing = editVal !== undefined
             return (
-              <div key={group.business_name} className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
+              <div key={group.business_name} className="bg-surface rounded-xl border border-border-subtle shadow-soft p-4">
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-gray-900 truncate">{group.business_name}</p>
+                    <p className="text-sm font-semibold text-text-primary truncate">{group.business_name}</p>
                     <div className="flex items-center gap-2 mt-0.5">
-                      <span className="text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full">{group.service_type}</span>
-                      <span className="text-xs text-gray-400">{group.applicationIds.length}건</span>
+                      <span className="text-xs bg-brand-50 text-brand-600 px-2 py-0.5 rounded-full">{group.service_type}</span>
+                      <span className="text-xs text-text-tertiary">{group.applicationIds.length}건</span>
                     </div>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
@@ -737,25 +737,25 @@ function UnitPriceSettings() {
                         <button
                           onClick={() => handleSave(group)}
                           disabled={saving === group.business_name}
-                          className="px-3 py-1.5 bg-blue-600 text-white text-xs font-semibold rounded-lg hover:bg-blue-700 disabled:opacity-60"
+                          className="px-3 py-1.5 bg-brand-600 text-white text-xs font-semibold rounded-lg hover:bg-brand-700 disabled:opacity-60"
                         >
                           {saving === group.business_name ? '...' : '저장'}
                         </button>
                         <button
                           onClick={() => setEdits(prev => { const n = { ...prev }; delete n[group.business_name]; return n })}
-                          className="text-xs text-gray-400 hover:text-gray-600"
+                          className="text-xs text-text-tertiary hover:text-text-secondary"
                         >
                           취소
                         </button>
                       </>
                     ) : (
                       <>
-                        <span className={`text-sm font-bold ${group.unit_price_per_visit ? 'text-orange-600' : 'text-gray-300'}`}>
+                        <span className={`text-sm font-bold ${group.unit_price_per_visit ? 'text-orange-600' : 'text-text-tertiary'}`}>
                           {group.unit_price_per_visit ? group.unit_price_per_visit.toLocaleString('ko-KR') + '원' : '미설정'}
                         </span>
                         <button
                           onClick={() => setEdits(prev => ({ ...prev, [group.business_name]: String(group.unit_price_per_visit ?? '') }))}
-                          className="text-xs text-gray-400 hover:text-blue-600 px-1"
+                          className="text-xs text-text-tertiary hover:text-brand-600 px-1"
                         >
                           ✏️
                         </button>
@@ -830,16 +830,16 @@ export default function PayrollPage() {
     <div className="flex flex-col h-full">
       <div className="flex-1 overflow-y-auto px-4 pb-6">
         {/* Sub-tab selector */}
-        <div className="flex gap-1 bg-gray-100 rounded-xl p-1 my-4">
+        <div className="flex gap-1 bg-surface-sunken rounded-xl p-1 my-4">
           <button
             onClick={() => setTab('payroll')}
-            className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-colors ${tab === 'payroll' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'}`}
+            className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-colors ${tab === 'payroll' ? 'bg-surface text-text-primary shadow-soft' : 'text-text-secondary'}`}
           >
             💰 급여정산
           </button>
           <button
             onClick={() => setTab('unit_price')}
-            className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-colors ${tab === 'unit_price' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'}`}
+            className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-colors ${tab === 'unit_price' ? 'bg-surface text-text-primary shadow-soft' : 'text-text-secondary'}`}
           >
             🏷️ 단가 설정
           </button>
@@ -849,17 +849,17 @@ export default function PayrollPage() {
           <>
             {/* Month selector */}
             <div className="flex items-center justify-between mb-4">
-              <button onClick={prevMonth} className="p-2 rounded-lg hover:bg-gray-100 text-gray-500 transition-colors">‹</button>
+              <button onClick={prevMonth} className="p-2 rounded-lg hover:bg-surface-sunken text-text-secondary transition-colors">‹</button>
               <div className="text-center">
-                <h2 className="text-base font-bold text-gray-900">{displayMonth}</h2>
-                <p className="text-xs text-gray-400">급여 정산</p>
+                <h2 className="text-base font-bold text-text-primary">{displayMonth}</h2>
+                <p className="text-xs text-text-tertiary">급여 정산</p>
               </div>
-              <button onClick={nextMonth} className="p-2 rounded-lg hover:bg-gray-100 text-gray-500 transition-colors">›</button>
+              <button onClick={nextMonth} className="p-2 rounded-lg hover:bg-surface-sunken text-text-secondary transition-colors">›</button>
             </div>
 
             {loading ? (
               <div className="text-center py-12">
-                <p className="text-sm text-gray-400">불러오는 중...</p>
+                <p className="text-sm text-text-tertiary">불러오는 중...</p>
               </div>
             ) : (
               <>
@@ -867,8 +867,8 @@ export default function PayrollPage() {
                 {managers.length > 0 && (
                   <>
                     <div className="flex items-center gap-2 mb-3">
-                      <h3 className="text-sm font-bold text-gray-700">담당자</h3>
-                      <span className="text-xs bg-blue-100 text-blue-600 px-2 py-0.5 rounded-full">{managers.length}명</span>
+                      <h3 className="text-sm font-bold text-text-primary">담당자</h3>
+                      <span className="text-xs bg-brand-100 text-brand-600 px-2 py-0.5 rounded-full">{managers.length}명</span>
                     </div>
                     <SummaryCards entries={managers} label="담당자" />
                     <div className="flex flex-col gap-3 mb-6">
@@ -884,7 +884,7 @@ export default function PayrollPage() {
                   </>
                 )}
                 {managers.length === 0 && (
-                  <div className="text-center py-6 text-sm text-gray-400 mb-4">
+                  <div className="text-center py-6 text-sm text-text-tertiary mb-4">
                     {displayMonth} 담당자 배정 없음
                   </div>
                 )}
@@ -893,8 +893,8 @@ export default function PayrollPage() {
                 {workersPayroll.length > 0 && (
                   <>
                     <div className="flex items-center gap-2 mb-3">
-                      <h3 className="text-sm font-bold text-gray-700">작업자</h3>
-                      <span className="text-xs bg-amber-100 text-amber-600 px-2 py-0.5 rounded-full">{workersPayroll.length}명</span>
+                      <h3 className="text-sm font-bold text-text-primary">작업자</h3>
+                      <span className="text-xs bg-state-warning-bg text-state-warning px-2 py-0.5 rounded-full">{workersPayroll.length}명</span>
                     </div>
                     <SummaryCards entries={workersPayroll} label="작업자" />
                     <div className="flex flex-col gap-3">
@@ -910,7 +910,7 @@ export default function PayrollPage() {
                   </>
                 )}
                 {workersPayroll.length === 0 && (
-                  <div className="text-center py-6 text-sm text-gray-400">
+                  <div className="text-center py-6 text-sm text-text-tertiary">
                     {displayMonth} 작업자 배정 없음
                   </div>
                 )}
@@ -918,7 +918,7 @@ export default function PayrollPage() {
                 {managers.length === 0 && workersPayroll.length === 0 && (
                   <div className="text-center py-12">
                     <p className="text-2xl mb-2">📋</p>
-                    <p className="text-sm text-gray-400">{displayMonth} 급여 데이터가 없습니다.</p>
+                    <p className="text-sm text-text-tertiary">{displayMonth} 급여 데이터가 없습니다.</p>
                   </div>
                 )}
               </>

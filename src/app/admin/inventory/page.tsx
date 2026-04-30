@@ -453,19 +453,19 @@ export default function AdminInventoryPage() {
   const canSubmit = needsPhoto ? !!txPhoto : true
 
   return (
-    <div className="flex flex-col h-screen bg-gray-50 overflow-hidden">
+    <div className="flex flex-col h-screen bg-surface-sunken overflow-hidden">
       {/* 탭 바 */}
-      <div className="flex items-center gap-1 px-4 pt-3 pb-0 bg-white border-b border-gray-200 shrink-0">
+      <div className="flex items-center gap-1 px-4 pt-3 pb-0 bg-surface border-b border-border shrink-0">
         <button
           onClick={() => setMainTab('status')}
-          className={`px-4 py-2 text-sm font-semibold rounded-t-lg transition-colors border-b-2 ${mainTab === 'status' ? 'border-blue-600 text-blue-700' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+          className={`px-4 py-2 text-sm font-semibold rounded-t-lg transition-colors border-b-2 ${mainTab === 'status' ? 'border-brand-600 text-brand-700' : 'border-transparent text-text-secondary hover:text-text-primary'}`}
         >
           재고 현황
         </button>
         {role === 'admin' && (
           <button
             onClick={() => setMainTab('logs')}
-            className={`px-4 py-2 text-sm font-semibold rounded-t-lg transition-colors border-b-2 ${mainTab === 'logs' ? 'border-blue-600 text-blue-700' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+            className={`px-4 py-2 text-sm font-semibold rounded-t-lg transition-colors border-b-2 ${mainTab === 'logs' ? 'border-brand-600 text-brand-700' : 'border-transparent text-text-secondary hover:text-text-primary'}`}
           >
             변동내역
           </button>
@@ -481,14 +481,14 @@ export default function AdminInventoryPage() {
               type="month"
               value={logMonth}
               onChange={e => setLogMonth(e.target.value)}
-              className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
             <div className="flex gap-1">
               {(['all', 'use', 'return'] as const).map(t => (
                 <button
                   key={t}
                   onClick={() => setLogType(t)}
-                  className={`px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors ${logType === t ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300'}`}
+                  className={`px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors ${logType === t ? 'bg-brand-600 text-white border-brand-600' : 'bg-surface text-text-secondary border-border hover:border-border'}`}
                 >
                   {t === 'all' ? '전체' : t === 'use' ? '수령' : '반납'}
                 </button>
@@ -504,7 +504,7 @@ export default function AdminInventoryPage() {
           </div>
 
           {adminLogsLoading ? (
-            <div className="text-center text-gray-400 text-sm py-12">불러오는 중...</div>
+            <div className="text-center text-text-tertiary text-sm py-12">불러오는 중...</div>
           ) : (
             <>
               {/* 월간 요약 카드 */}
@@ -514,10 +514,10 @@ export default function AdminInventoryPage() {
                   <p className="text-2xl font-bold text-orange-700 mt-1">{adminLogs.filter(l => l.change_type === 'use').length}건</p>
                   <p className="text-xs text-orange-500 mt-0.5">수량 합계 {totalUse}</p>
                 </div>
-                <div className="bg-blue-50 rounded-xl p-4">
-                  <p className="text-xs text-blue-600 font-medium">총 반납 건수</p>
-                  <p className="text-2xl font-bold text-blue-700 mt-1">{adminLogs.filter(l => l.change_type === 'return').length}건</p>
-                  <p className="text-xs text-blue-500 mt-0.5">수량 합계 {totalReturn}</p>
+                <div className="bg-brand-50 rounded-xl p-4">
+                  <p className="text-xs text-brand-600 font-medium">총 반납 건수</p>
+                  <p className="text-2xl font-bold text-brand-700 mt-1">{adminLogs.filter(l => l.change_type === 'return').length}건</p>
+                  <p className="text-xs text-brand-500 mt-0.5">수량 합계 {totalReturn}</p>
                 </div>
                 <div className="bg-purple-50 rounded-xl p-4">
                   <p className="text-xs text-purple-600 font-medium">순 소비량</p>
@@ -528,21 +528,21 @@ export default function AdminInventoryPage() {
 
               {/* 품목별 사용량 막대그래프 */}
               {Object.keys(itemUsageMap).length > 0 && (
-                <div className="bg-white rounded-xl shadow-sm p-5">
-                  <h3 className="font-semibold text-gray-800 mb-3">품목별 수령량</h3>
+                <div className="bg-surface rounded-xl shadow-soft p-5">
+                  <h3 className="font-semibold text-text-primary mb-3">품목별 수령량</h3>
                   <div className="space-y-2">
                     {Object.entries(itemUsageMap)
                       .sort(([, a], [, b]) => b - a)
                       .map(([name, qty]) => (
                         <div key={name} className="flex items-center gap-3">
-                          <span className="text-xs text-gray-600 w-28 shrink-0 truncate">{name}</span>
-                          <div className="flex-1 bg-gray-100 rounded-full h-4 overflow-hidden">
+                          <span className="text-xs text-text-secondary w-28 shrink-0 truncate">{name}</span>
+                          <div className="flex-1 bg-surface-sunken rounded-full h-4 overflow-hidden">
                             <div
                               className="bg-orange-400 h-4 rounded-full transition-all"
                               style={{ width: `${(qty / maxUsage) * 100}%` }}
                             />
                           </div>
-                          <span className="text-xs font-semibold text-gray-700 w-10 text-right">{qty}</span>
+                          <span className="text-xs font-semibold text-text-primary w-10 text-right">{qty}</span>
                         </div>
                       ))}
                   </div>
@@ -550,15 +550,15 @@ export default function AdminInventoryPage() {
               )}
 
               {/* 직원별 사용량 테이블 */}
-              <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-                <h3 className="font-semibold text-gray-800 px-5 py-4 border-b border-gray-100">직원별 사용량</h3>
+              <div className="bg-surface rounded-xl shadow-soft overflow-hidden">
+                <h3 className="font-semibold text-text-primary px-5 py-4 border-b border-border-subtle">직원별 사용량</h3>
                 {Object.keys(workerLogMap).length === 0 ? (
-                  <div className="text-center text-gray-400 text-sm py-8">내역이 없습니다.</div>
+                  <div className="text-center text-text-tertiary text-sm py-8">내역이 없습니다.</div>
                 ) : (
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm">
                       <thead>
-                        <tr className="bg-gray-50 text-xs font-semibold text-gray-500">
+                        <tr className="bg-surface-sunken text-xs font-semibold text-text-secondary">
                           <th className="text-left px-4 py-3">직원명</th>
                           <th className="text-left px-4 py-3">품목</th>
                           <th className="text-right px-4 py-3">수령</th>
@@ -570,13 +570,13 @@ export default function AdminInventoryPage() {
                       <tbody>
                         {Object.entries(workerLogMap).flatMap(([worker, items]) =>
                           Object.entries(items).map(([item, stat], idx) => (
-                            <tr key={`${worker}-${item}`} className="border-t border-gray-50 hover:bg-gray-50">
-                              <td className="px-4 py-2.5 text-gray-800 font-medium">{idx === 0 ? worker : ''}</td>
-                              <td className="px-4 py-2.5 text-gray-600">{item}</td>
+                            <tr key={`${worker}-${item}`} className="border-t border-border-subtle hover:bg-surface-sunken">
+                              <td className="px-4 py-2.5 text-text-primary font-medium">{idx === 0 ? worker : ''}</td>
+                              <td className="px-4 py-2.5 text-text-secondary">{item}</td>
                               <td className="px-4 py-2.5 text-right text-orange-600">{stat.use}</td>
-                              <td className="px-4 py-2.5 text-right text-blue-600">{stat.return}</td>
+                              <td className="px-4 py-2.5 text-right text-brand-600">{stat.return}</td>
                               <td className="px-4 py-2.5 text-right font-semibold text-purple-700">{(stat.use - stat.return).toFixed(1)}</td>
-                              <td className="px-4 py-2.5 text-right text-gray-400 text-xs">
+                              <td className="px-4 py-2.5 text-right text-text-tertiary text-xs">
                                 {stat.lastDate ? new Date(stat.lastDate).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' }) : '-'}
                               </td>
                             </tr>
@@ -594,17 +594,17 @@ export default function AdminInventoryPage() {
 
       <div className="flex flex-1 overflow-hidden relative">
       {/* Left Panel */}
-      <div className={`${mobileShowDetail ? 'hidden md:flex' : 'flex'} w-full md:w-80 flex-col bg-white border-r border-gray-200 md:shrink-0`}>
+      <div className={`${mobileShowDetail ? 'hidden md:flex' : 'flex'} w-full md:w-80 flex-col bg-surface border-r border-border md:shrink-0`}>
         {/* Header */}
-        <div className="p-4 border-b border-gray-200">
+        <div className="p-4 border-b border-border">
           <div className="flex items-center justify-between mb-3">
-            <h1 className="text-lg font-bold text-gray-900">재고 관리</h1>
+            <h1 className="text-lg font-bold text-text-primary">재고 관리</h1>
             <div className="flex gap-2">
               {role === 'admin' && (
                 <button
                   onClick={handleDriveSetup}
                   title="Drive 저장 위치 설정"
-                  className="text-xs px-2 py-1 rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
+                  className="text-xs px-2 py-1 rounded-lg bg-surface-sunken text-text-secondary hover:bg-surface-sunken transition-colors"
                 >
                   ⚙️ 저장 위치
                 </button>
@@ -612,7 +612,7 @@ export default function AdminInventoryPage() {
               {role === 'admin' && (
                 <button
                   onClick={() => setShowAddModal(true)}
-                  className="text-xs px-3 py-1 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors font-medium"
+                  className="text-xs px-3 py-1 rounded-lg bg-brand-600 text-white hover:bg-brand-700 transition-colors font-medium"
                 >
                   + 추가
                 </button>
@@ -621,13 +621,13 @@ export default function AdminInventoryPage() {
           </div>
 
           {inventoryFolder ? (
-            <div className="text-xs text-green-600 bg-green-50 rounded-lg px-2 py-1 mb-2 flex items-center gap-1">
+            <div className="text-xs text-state-success bg-state-success-bg rounded-lg px-2 py-1 mb-2 flex items-center gap-1">
               <span>📁</span>
               <span className="truncate">{inventoryFolder.name}</span>
             </div>
           ) : (
             role === 'admin' && (
-              <div className="text-xs text-amber-600 bg-amber-50 rounded-lg px-2 py-1 mb-2">
+              <div className="text-xs text-state-warning bg-state-warning-bg rounded-lg px-2 py-1 mb-2">
                 ⚠ 수령/반납 사진 저장을 위해 Drive 저장 위치를 설정해주세요
               </div>
             )
@@ -638,7 +638,7 @@ export default function AdminInventoryPage() {
             placeholder="아이템 검색..."
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
-            className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 mb-2"
+            className="w-full px-3 py-2 text-sm border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 mb-2"
           />
 
           <div className="flex gap-1 flex-wrap">
@@ -648,8 +648,8 @@ export default function AdminInventoryPage() {
                 onClick={() => setCategoryFilter(cat)}
                 className={`text-xs px-2 py-1 rounded-full border transition-colors ${
                   categoryFilter === cat
-                    ? 'bg-blue-600 text-white border-blue-600'
-                    : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300'
+                    ? 'bg-brand-600 text-white border-brand-600'
+                    : 'bg-surface text-text-secondary border-border hover:border-border'
                 }`}
               >
                 {cat === 'all' ? '전체' : CATEGORY_CONFIG[cat].label}
@@ -661,9 +661,9 @@ export default function AdminInventoryPage() {
         {/* Item list */}
         <div className="flex-1 overflow-y-auto p-3 space-y-1">
           {loading ? (
-            <div className="text-center text-gray-400 text-sm py-8">불러오는 중...</div>
+            <div className="text-center text-text-tertiary text-sm py-8">불러오는 중...</div>
           ) : filteredItems.length === 0 ? (
-            <div className="text-center text-gray-400 text-sm py-8">항목 없음</div>
+            <div className="text-center text-text-tertiary text-sm py-8">항목 없음</div>
           ) : (
             filteredItems.map(item => {
               const cfg = CATEGORY_CONFIG[item.category]
@@ -675,22 +675,22 @@ export default function AdminInventoryPage() {
                   onClick={() => handleSelectItem(item)}
                   className={`w-full text-left px-3 py-2.5 rounded-xl transition-colors border ${
                     isSelected
-                      ? 'bg-blue-50 border-blue-200'
+                      ? 'bg-brand-50 border-brand-200'
                       : isLow
                         ? 'bg-red-50/40 border-red-200 hover:bg-red-50'
-                        : 'bg-white border-transparent hover:bg-gray-50 hover:border-gray-200'
+                        : 'bg-surface border-transparent hover:bg-surface-sunken hover:border-border'
                   }`}
                 >
                   <div className="flex items-center gap-2">
                     <span className={`w-2 h-2 rounded-full shrink-0 ${isLow ? 'bg-red-500' : cfg.dot}`} />
-                    <span className="flex-1 text-sm font-medium text-gray-900 truncate">{item.item_name}</span>
+                    <span className="flex-1 text-sm font-medium text-text-primary truncate">{item.item_name}</span>
                     {isLow && (
                       <span className="text-[10px] font-bold bg-red-500 text-white px-1.5 py-0.5 rounded-full shrink-0">부족</span>
                     )}
                   </div>
                   <div className="ml-4 flex items-center justify-between mt-0.5">
-                    <span className="text-xs text-gray-400">{cfg.label}</span>
-                    <span className={`text-xs font-semibold ${isLow ? 'text-red-600' : 'text-gray-700'}`}>
+                    <span className="text-xs text-text-tertiary">{cfg.label}</span>
+                    <span className={`text-xs font-semibold ${isLow ? 'text-state-danger' : 'text-text-primary'}`}>
                       {item.current_qty} {item.unit}
                     </span>
                   </div>
@@ -702,9 +702,9 @@ export default function AdminInventoryPage() {
       </div>
 
       {/* Right Panel — 모바일: 전체화면 오버레이 */}
-      <div className={`${mobileShowDetail ? 'flex' : 'hidden md:flex'} flex-col flex-1 overflow-y-auto md:relative absolute inset-0 bg-white z-20 md:z-auto`}>
+      <div className={`${mobileShowDetail ? 'flex' : 'hidden md:flex'} flex-col flex-1 overflow-y-auto md:relative absolute inset-0 bg-surface z-20 md:z-auto`}>
         {!selectedItem ? (
-          <div className="flex items-center justify-center h-full text-gray-400">
+          <div className="flex items-center justify-center h-full text-text-tertiary">
             <div className="text-center">
               <div className="text-5xl mb-3">📦</div>
               <p className="text-lg">아이템을 선택하세요</p>
@@ -715,47 +715,47 @@ export default function AdminInventoryPage() {
             {/* 모바일 뒤로가기 버튼 */}
             <button
               onClick={() => { setMobileShowDetail(false) }}
-              className="md:hidden flex items-center gap-1.5 text-sm text-blue-600 font-medium -mb-2"
+              className="md:hidden flex items-center gap-1.5 text-sm text-brand-600 font-medium -mb-2"
             >
               ← 목록으로
             </button>
             {/* Item header */}
             <div className="flex items-center gap-3">
               <span className={`w-3 h-3 rounded-full ${CATEGORY_CONFIG[selectedItem.category].dot}`} />
-              <h2 className="text-xl font-bold text-gray-900">{selectedItem.item_name}</h2>
+              <h2 className="text-xl font-bold text-text-primary">{selectedItem.item_name}</h2>
               <span className={`text-xs px-2 py-0.5 rounded-full ${CATEGORY_CONFIG[selectedItem.category].badge}`}>
                 {CATEGORY_CONFIG[selectedItem.category].label}
               </span>
             </div>
 
             {/* Edit form — 기본정보는 admin만 수정 가능 (P1-19) */}
-            <div className="bg-white rounded-xl shadow-sm p-5 space-y-4">
+            <div className="bg-surface rounded-xl shadow-soft p-5 space-y-4">
               <div className="flex items-center justify-between">
-                <h3 className="font-semibold text-gray-800">기본 정보</h3>
+                <h3 className="font-semibold text-text-primary">기본 정보</h3>
                 {role !== 'admin' && (
-                  <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">읽기 전용</span>
+                  <span className="text-xs text-text-tertiary bg-surface-sunken px-2 py-0.5 rounded-full">읽기 전용</span>
                 )}
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-1">아이템명</label>
+                  <label className="block text-xs font-medium text-text-secondary mb-1">아이템명</label>
                   {role === 'admin' ? (
                     <input
                       value={editForm.item_name}
                       onChange={e => setEditForm(f => ({ ...f, item_name: e.target.value }))}
-                      className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 text-sm border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   ) : (
-                    <p className="px-3 py-2 text-sm text-gray-800 bg-gray-50 rounded-lg">{editForm.item_name}</p>
+                    <p className="px-3 py-2 text-sm text-text-primary bg-surface-sunken rounded-lg">{editForm.item_name}</p>
                   )}
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-1">카테고리</label>
+                  <label className="block text-xs font-medium text-text-secondary mb-1">카테고리</label>
                   {role === 'admin' ? (
                     <select
                       value={editForm.category}
                       onChange={e => setEditForm(f => ({ ...f, category: e.target.value as InventoryCategory }))}
-                      className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 text-sm border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
                       <option value="chemical">약품</option>
                       <option value="equipment">장비</option>
@@ -763,21 +763,21 @@ export default function AdminInventoryPage() {
                       <option value="other">기타</option>
                     </select>
                   ) : (
-                    <p className="px-3 py-2 text-sm text-gray-800 bg-gray-50 rounded-lg">
+                    <p className="px-3 py-2 text-sm text-text-primary bg-surface-sunken rounded-lg">
                       {CATEGORY_CONFIG[editForm.category].label}
                     </p>
                   )}
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-1">단위</label>
+                  <label className="block text-xs font-medium text-text-secondary mb-1">단위</label>
                   {role === 'admin' ? (
                     <input
                       value={editForm.unit}
                       onChange={e => setEditForm(f => ({ ...f, unit: e.target.value }))}
-                      className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 text-sm border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   ) : (
-                    <p className="px-3 py-2 text-sm text-gray-800 bg-gray-50 rounded-lg">{editForm.unit}</p>
+                    <p className="px-3 py-2 text-sm text-text-primary bg-surface-sunken rounded-lg">{editForm.unit}</p>
                   )}
                 </div>
               </div>
@@ -785,14 +785,14 @@ export default function AdminInventoryPage() {
                 <div className="flex gap-2 justify-between">
                   <button
                     onClick={handleDelete}
-                    className="px-4 py-2 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 text-sm font-medium transition-colors"
+                    className="px-4 py-2 rounded-lg bg-state-danger-bg text-state-danger hover:bg-state-danger-bg text-sm font-medium transition-colors"
                   >
                     🗑️ 삭제
                   </button>
                   <button
                     onClick={handleSave}
                     disabled={editLoading}
-                    className="px-6 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 text-sm font-medium transition-colors disabled:opacity-50"
+                    className="px-6 py-2 rounded-lg bg-brand-600 text-white hover:bg-brand-700 text-sm font-medium transition-colors disabled:opacity-50"
                   >
                     {editLoading ? '저장 중...' : '💾 저장'}
                   </button>
@@ -801,14 +801,14 @@ export default function AdminInventoryPage() {
             </div>
 
             {/* Current stock & transactions */}
-            <div className="bg-white rounded-xl shadow-sm p-5">
+            <div className="bg-surface rounded-xl shadow-soft p-5">
               <div className="mb-4">
-                <h3 className="font-semibold text-gray-800">현재 재고</h3>
-                <p className="text-3xl font-bold mt-1 text-gray-900">
+                <h3 className="font-semibold text-text-primary">현재 재고</h3>
+                <p className="text-3xl font-bold mt-1 text-text-primary">
                   {selectedItem.current_qty}
-                  <span className="text-base font-normal text-gray-500 ml-1">{selectedItem.unit}</span>
+                  <span className="text-base font-normal text-text-secondary ml-1">{selectedItem.unit}</span>
                 </p>
-                <p className="text-xs text-gray-400 mt-0.5">수량은 0.1 단위로 입력할 수 있습니다</p>
+                <p className="text-xs text-text-tertiary mt-0.5">수량은 0.1 단위로 입력할 수 있습니다</p>
               </div>
 
               <div className="grid grid-cols-4 gap-2 mb-3">
@@ -832,8 +832,8 @@ export default function AdminInventoryPage() {
 
               <div className="grid grid-cols-2 gap-2">
                 {(['receive', 'use', 'return', 'adjust'] as const).map(type => (
-                  <div key={type} className="text-xs text-gray-500 bg-gray-50 rounded-lg px-3 py-2">
-                    <span className="font-medium text-gray-700">{TX_LABELS[type]}</span>
+                  <div key={type} className="text-xs text-text-secondary bg-surface-sunken rounded-lg px-3 py-2">
+                    <span className="font-medium text-text-primary">{TX_LABELS[type]}</span>
                     <span className="mx-1">·</span>
                     {TX_DESCRIPTIONS[type]}
                     {PHOTO_REQUIRED.includes(type) && (
@@ -845,12 +845,12 @@ export default function AdminInventoryPage() {
             </div>
 
             {/* Transaction history */}
-            <div className="bg-white rounded-xl shadow-sm p-5">
-              <h3 className="font-semibold text-gray-800 mb-3">변동 내역 (최근 20건)</h3>
+            <div className="bg-surface rounded-xl shadow-soft p-5">
+              <h3 className="font-semibold text-text-primary mb-3">변동 내역 (최근 20건)</h3>
               {logsLoading ? (
-                <div className="text-center text-gray-400 text-sm py-4">불러오는 중...</div>
+                <div className="text-center text-text-tertiary text-sm py-4">불러오는 중...</div>
               ) : logs.length === 0 ? (
-                <div className="text-center text-gray-400 text-sm py-4">변동 내역이 없습니다</div>
+                <div className="text-center text-text-tertiary text-sm py-4">변동 내역이 없습니다</div>
               ) : (
                 <div className="space-y-2">
                   {logs.map(log => {
@@ -859,34 +859,34 @@ export default function AdminInventoryPage() {
                     const workerName = log.worker_name ?? noteData.worker
                     const noteText = noteData.text
                     return (
-                      <div key={log.id} className="flex items-start gap-3 text-sm border-b border-gray-50 pb-2 last:border-0">
+                      <div key={log.id} className="flex items-start gap-3 text-sm border-b border-border-subtle pb-2 last:border-0">
                         <span className={`shrink-0 text-xs px-2 py-0.5 rounded font-medium ${
-                          log.change_type === 'receive' ? 'bg-green-100 text-green-700' :
+                          log.change_type === 'receive' ? 'bg-state-success-bg text-state-success' :
                           log.change_type === 'use'     ? 'bg-orange-100 text-orange-700' :
-                          log.change_type === 'return'  ? 'bg-blue-100 text-blue-700' :
-                          'bg-gray-100 text-gray-600'
+                          log.change_type === 'return'  ? 'bg-brand-100 text-brand-700' :
+                          'bg-surface-sunken text-text-secondary'
                         }`}>
                           {TX_LABELS[log.change_type]}
                         </span>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2">
-                            <span className="font-medium text-gray-800">
+                            <span className="font-medium text-text-primary">
                               {log.change_type === 'receive' || log.change_type === 'return' ? '+' :
                                log.change_type === 'use' ? '−' : '='}{log.quantity}
                             </span>
-                            {workerName && <span className="text-xs text-gray-400">{workerName}</span>}
+                            {workerName && <span className="text-xs text-text-tertiary">{workerName}</span>}
                           </div>
-                          {noteText && <p className="text-xs text-gray-500 truncate">{noteText}</p>}
+                          {noteText && <p className="text-xs text-text-secondary truncate">{noteText}</p>}
                           {photoUrl && (
                             <button
                               onClick={() => openGoogleDrive(photoUrl)}
-                              className="text-xs text-blue-500 hover:underline text-left"
+                              className="text-xs text-brand-500 hover:underline text-left"
                             >
                               📷 사진 보기
                             </button>
                           )}
                         </div>
-                        <span className="shrink-0 text-xs text-gray-400 whitespace-nowrap">
+                        <span className="shrink-0 text-xs text-text-tertiary whitespace-nowrap">
                           {new Date(log.created_at).toLocaleDateString('ko-KR', {
                             month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
                           })}
@@ -904,25 +904,25 @@ export default function AdminInventoryPage() {
       {/* Add Item Modal */}
       {showAddModal && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
-            <h2 className="text-lg font-bold text-gray-900 mb-4">아이템 추가</h2>
+          <div className="bg-surface rounded-2xl shadow-xl w-full max-w-md p-6">
+            <h2 className="text-lg font-bold text-text-primary mb-4">아이템 추가</h2>
             <div className="space-y-3">
               <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1">아이템명 *</label>
+                <label className="block text-xs font-medium text-text-secondary mb-1">아이템명 *</label>
                 <input
                   value={addForm.item_name}
                   onChange={e => setAddForm(f => ({ ...f, item_name: e.target.value }))}
-                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 text-sm border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   placeholder="예: 에탄올 70%"
                 />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-1">카테고리 *</label>
+                  <label className="block text-xs font-medium text-text-secondary mb-1">카테고리 *</label>
                   <select
                     value={addForm.category}
                     onChange={e => setAddForm(f => ({ ...f, category: e.target.value as InventoryCategory }))}
-                    className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 text-sm border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
                     <option value="chemical">약품</option>
                     <option value="equipment">장비</option>
@@ -931,39 +931,39 @@ export default function AdminInventoryPage() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-1">단위 *</label>
+                  <label className="block text-xs font-medium text-text-secondary mb-1">단위 *</label>
                   <input
                     value={addForm.unit}
                     onChange={e => setAddForm(f => ({ ...f, unit: e.target.value }))}
                     placeholder="예: L, 개, kg"
-                    className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 text-sm border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1">초기 수량</label>
+                <label className="block text-xs font-medium text-text-secondary mb-1">초기 수량</label>
                 <input
                   type="number"
                   min={0}
                   step={0.1}
                   value={addForm.current_qty}
                   onChange={e => setAddForm(f => ({ ...f, current_qty: Number(e.target.value) }))}
-                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 text-sm border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
-                <p className="text-xs text-gray-400 mt-1">0.1 단위로 입력 가능합니다</p>
+                <p className="text-xs text-text-tertiary mt-1">0.1 단위로 입력 가능합니다</p>
               </div>
             </div>
             <div className="flex gap-3 mt-5">
               <button
                 onClick={() => { setShowAddModal(false); setAddForm({ item_name: '', category: 'chemical', unit: '', current_qty: 0 }) }}
-                className="flex-1 py-2 rounded-xl border border-gray-200 text-gray-600 text-sm font-medium hover:bg-gray-50 transition-colors"
+                className="flex-1 py-2 rounded-xl border border-border text-text-secondary text-sm font-medium hover:bg-surface-sunken transition-colors"
               >
                 취소
               </button>
               <button
                 onClick={handleAddItem}
                 disabled={addLoading}
-                className="flex-1 py-2 rounded-xl bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 transition-colors disabled:opacity-50"
+                className="flex-1 py-2 rounded-xl bg-brand-600 text-white text-sm font-medium hover:bg-brand-700 transition-colors disabled:opacity-50"
               >
                 {addLoading ? '추가 중...' : '추가'}
               </button>
@@ -975,24 +975,24 @@ export default function AdminInventoryPage() {
       {/* Transaction Modal — outside the two-panel wrapper but inside the ternary block */}
       {showTxModal && selectedItem && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6">
-            <h2 className="text-lg font-bold text-gray-900 mb-1">{TX_LABELS[txType]}</h2>
-            <p className="text-sm text-gray-500 mb-1">
+          <div className="bg-surface rounded-2xl shadow-xl w-full max-w-sm p-6">
+            <h2 className="text-lg font-bold text-text-primary mb-1">{TX_LABELS[txType]}</h2>
+            <p className="text-sm text-text-secondary mb-1">
               {selectedItem.item_name} · 현재 {selectedItem.current_qty}{selectedItem.unit}
             </p>
 
             <div className={`text-xs rounded-lg px-3 py-2 mb-4 ${
-              txType === 'receive' ? 'bg-green-50 text-green-700' :
+              txType === 'receive' ? 'bg-state-success-bg text-state-success' :
               txType === 'use'     ? 'bg-orange-50 text-orange-700' :
-              txType === 'return'  ? 'bg-blue-50 text-blue-700' :
-              'bg-gray-50 text-gray-600'
+              txType === 'return'  ? 'bg-brand-50 text-brand-700' :
+              'bg-surface-sunken text-text-secondary'
             }`}>
               {TX_DESCRIPTIONS[txType]}
             </div>
 
             <div className="space-y-3">
               <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1">
+                <label className="block text-xs font-medium text-text-secondary mb-1">
                   {txType === 'adjust' ? '새 재고 수량 (절대값)' : '수량'} · 0.1 단위 입력 가능
                 </label>
                 <input
@@ -1002,18 +1002,18 @@ export default function AdminInventoryPage() {
                   value={txQty}
                   onChange={e => setTxQty(e.target.value)}
                   placeholder="0.0"
-                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-center text-lg font-bold text-gray-900"
+                  className="w-full px-3 py-2 text-sm border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-center text-lg font-bold text-text-primary"
                   autoFocus
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1">메모</label>
+                <label className="block text-xs font-medium text-text-secondary mb-1">메모</label>
                 <textarea
                   value={txNote}
                   onChange={e => setTxNote(e.target.value)}
                   placeholder="(선택)"
                   rows={2}
-                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none text-gray-900"
+                  className="w-full px-3 py-2 text-sm border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none text-text-primary"
                 />
               </div>
 
@@ -1034,7 +1034,7 @@ export default function AdminInventoryPage() {
 
                 <div className="flex gap-2">
                   <label className="flex-1 cursor-pointer">
-                    <span className="flex items-center justify-center gap-1 px-3 py-2 rounded-lg bg-gray-50 border border-gray-200 text-sm text-gray-600 hover:bg-gray-100 transition-colors">
+                    <span className="flex items-center justify-center gap-1 px-3 py-2 rounded-lg bg-surface-sunken border border-border text-sm text-text-secondary hover:bg-surface-sunken transition-colors">
                       📷 카메라
                     </span>
                     <input
@@ -1046,7 +1046,7 @@ export default function AdminInventoryPage() {
                     />
                   </label>
                   <label className="flex-1 cursor-pointer">
-                    <span className="flex items-center justify-center gap-1 px-3 py-2 rounded-lg bg-gray-50 border border-gray-200 text-sm text-gray-600 hover:bg-gray-100 transition-colors">
+                    <span className="flex items-center justify-center gap-1 px-3 py-2 rounded-lg bg-surface-sunken border border-border text-sm text-text-secondary hover:bg-surface-sunken transition-colors">
                       🖼️ 갤러리
                     </span>
                     <input
@@ -1072,7 +1072,7 @@ export default function AdminInventoryPage() {
             <div className="flex gap-3 mt-5">
               <button
                 onClick={() => setShowTxModal(false)}
-                className="flex-1 py-2 rounded-xl border border-gray-200 text-gray-600 text-sm font-medium hover:bg-gray-50 transition-colors"
+                className="flex-1 py-2 rounded-xl border border-border text-text-secondary text-sm font-medium hover:bg-surface-sunken transition-colors"
               >
                 취소
               </button>
