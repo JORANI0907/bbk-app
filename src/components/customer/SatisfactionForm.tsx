@@ -75,10 +75,10 @@ export function SatisfactionForm({ scheduleId, onSubmit }: Props) {
   }
 
   return (
-    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 flex flex-col gap-5">
+    <div className="bg-surface rounded-2xl border border-border-subtle shadow-soft p-5 flex flex-col gap-5">
       <div className="text-center">
-        <h3 className="text-base font-bold text-gray-900">서비스 만족도 평가</h3>
-        <p className="text-sm text-gray-500 mt-1">이번 서비스는 어떠셨나요?</p>
+        <h3 className="text-base font-bold text-text-primary">서비스 만족도 평가</h3>
+        <p className="text-sm text-text-secondary mt-1">이번 서비스는 어떠셨나요?</p>
       </div>
 
       <div className="flex flex-col items-center gap-3">
@@ -97,15 +97,15 @@ export function SatisfactionForm({ scheduleId, onSubmit }: Props) {
           ))}
         </div>
         {displayRating > 0 && (
-          <span className="text-sm font-medium text-blue-600">
+          <span className="text-sm font-medium text-brand-600">
             {ratingLabels[displayRating]}
           </span>
         )}
       </div>
 
       <div className="flex flex-col gap-2">
-        <label className="text-sm font-medium text-gray-700">
-          추가 의견 <span className="text-gray-400 font-normal">(선택)</span>
+        <label className="text-sm font-medium text-text-primary">
+          추가 의견 <span className="text-text-tertiary font-normal">(선택)</span>
         </label>
         <textarea
           value={comment}
@@ -113,15 +113,15 @@ export function SatisfactionForm({ scheduleId, onSubmit }: Props) {
           placeholder="서비스에 대한 의견을 자유롭게 작성해주세요."
           rows={4}
           maxLength={500}
-          className="w-full px-4 py-3 text-sm border border-gray-200 rounded-xl resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          className="w-full px-4 py-3 text-sm border border-border rounded-xl resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
         />
-        <p className="text-xs text-gray-400 text-right">{comment.length}/500</p>
+        <p className="text-xs text-text-tertiary text-right">{comment.length}/500</p>
       </div>
 
       <button
         onClick={handleSubmit}
         disabled={isSubmitting || rating === 0}
-        className="w-full py-4 bg-blue-600 text-white font-bold rounded-2xl active:scale-[0.98] transition-all disabled:opacity-40"
+        className="w-full py-4 bg-brand-600 text-white font-bold rounded-2xl active:scale-[0.98] transition-all disabled:opacity-40"
       >
         평가 제출하기
       </button>
