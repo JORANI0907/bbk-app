@@ -201,7 +201,7 @@ export function AdminMobileNav({ role, unreadIncidentCount = 0, navConfig = {}, 
   return (
     <>
       {/* 하단 퀵탭 */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-sm border-t border-gray-100 md:hidden z-50 safe-area-pb shadow-[0_-1px_12px_rgba(0,0,0,0.06)]">
+      <nav className="fixed bottom-0 left-0 right-0 bg-surface/95 backdrop-blur-sm border-t border-border-subtle md:hidden z-50 safe-area-pb shadow-[0_-1px_12px_rgba(0,0,0,0.06)]">
         <div className="flex">
           {quickItems.map((item) => {
             const active = isActive(item.href, item.exact)
@@ -213,7 +213,7 @@ export function AdminMobileNav({ role, unreadIncidentCount = 0, navConfig = {}, 
                 href={item.href}
                 onClick={() => handleNavClick(badgeKey)}
                 className={`relative flex-1 flex flex-col items-center justify-center py-2 gap-1 transition-colors ${
-                  active ? 'text-brand-600' : 'text-gray-400 hover:text-gray-600'
+                  active ? 'text-brand-600' : 'text-text-tertiary hover:text-text-secondary'
                 }`}
               >
                 {active && (
@@ -231,7 +231,7 @@ export function AdminMobileNav({ role, unreadIncidentCount = 0, navConfig = {}, 
           <button
             onClick={() => setDrawerOpen(true)}
             className={`relative flex-1 flex flex-col items-center justify-center py-2 gap-1 transition-colors ${
-              drawerOpen ? 'text-brand-600' : 'text-gray-400 hover:text-gray-600'
+              drawerOpen ? 'text-brand-600' : 'text-text-tertiary hover:text-text-secondary'
             }`}
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
@@ -247,19 +247,19 @@ export function AdminMobileNav({ role, unreadIncidentCount = 0, navConfig = {}, 
         <div className="fixed inset-0 z-[60] md:hidden" onClick={() => setDrawerOpen(false)}>
           <div className="absolute inset-0 bg-black/40" />
           <div
-            className="absolute left-0 top-0 bottom-0 w-72 bg-white shadow-2xl flex flex-col"
+            className="absolute left-0 top-0 bottom-0 w-72 bg-surface shadow-pop flex flex-col"
             onClick={e => e.stopPropagation()}
           >
             {/* 드로어 헤더 */}
-            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-border-subtle">
               <div className="flex items-center gap-2.5">
                 <img src="/bbk-logo.png" alt="BBK" className="w-8 h-8 rounded-lg object-cover" />
                 <div>
-                  <p className="text-sm font-black text-gray-900 leading-none">BBK 공간케어</p>
-                  <p className="text-[10px] text-gray-400 font-medium uppercase tracking-widest mt-0.5">Management</p>
+                  <p className="text-sm font-black text-text-primary leading-none">BBK 공간케어</p>
+                  <p className="text-[10px] text-text-tertiary font-medium uppercase tracking-widest mt-0.5">Management</p>
                 </div>
               </div>
-              <button onClick={() => setDrawerOpen(false)} className="text-gray-400 hover:text-gray-700 text-xl leading-none p-1">✕</button>
+              <button onClick={() => setDrawerOpen(false)} className="text-text-tertiary hover:text-text-primary text-xl leading-none p-1">✕</button>
             </div>
 
             {/* 메뉴 목록 */}
@@ -275,7 +275,7 @@ export function AdminMobileNav({ role, unreadIncidentCount = 0, navConfig = {}, 
                       href={item.href}
                       onClick={() => { setDrawerOpen(false); handleNavClick(badgeKey) }}
                       className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-                        active ? 'bg-brand-600 text-white' : 'text-gray-700 hover:bg-gray-100'
+                        active ? 'bg-brand-600 text-white' : 'text-text-primary hover:bg-surface-sunken'
                       }`}
                     >
                       <span className="text-base">{item.icon}</span>
@@ -288,10 +288,10 @@ export function AdminMobileNav({ role, unreadIncidentCount = 0, navConfig = {}, 
                 const groupActive = isGroupActive(item.children)
                 return (
                   <div key={`${item.label}-${idx}`}>
-                    <p className="px-3 pt-3 pb-1 text-[11px] font-bold text-gray-400 uppercase tracking-widest">
+                    <p className="px-3 pt-3 pb-1 text-[11px] font-bold text-text-tertiary uppercase tracking-widest">
                       {item.icon} {item.label}
                     </p>
-                    <div className="space-y-0.5 pl-2 border-l-2 border-gray-100 ml-3">
+                    <div className="space-y-0.5 pl-2 border-l-2 border-border-subtle ml-3">
                       {item.children.map(child => {
                         const active = pathname.startsWith(child.href)
                         const childCount = getBadgeCount(child.badgeKey)
@@ -301,7 +301,7 @@ export function AdminMobileNav({ role, unreadIncidentCount = 0, navConfig = {}, 
                             href={child.href}
                             onClick={() => { setDrawerOpen(false); handleNavClick(child.badgeKey) }}
                             className={`flex items-center px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                              active ? 'bg-brand-600 text-white' : 'text-gray-600 hover:bg-gray-100'
+                              active ? 'bg-brand-600 text-white' : 'text-text-secondary hover:bg-surface-sunken'
                             }`}
                           >
                             <span className="flex-1">{child.label}</span>
@@ -316,7 +316,7 @@ export function AdminMobileNav({ role, unreadIncidentCount = 0, navConfig = {}, 
             </nav>
 
             {/* 로그아웃 버튼 */}
-            <div className="px-4 py-4 border-t border-gray-100 safe-area-pb">
+            <div className="px-4 py-4 border-t border-border-subtle safe-area-pb">
               <button
                 onClick={handleLogout}
                 disabled={loggingOut}

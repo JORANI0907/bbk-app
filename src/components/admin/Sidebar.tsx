@@ -209,12 +209,12 @@ export function Sidebar({ role, userName, navBadges = {} }: SidebarProps) {
     children.reduce((sum, c) => sum + getBadgeCount(c.badgeKey), 0)
 
   return (
-    <aside className="hidden md:flex flex-col w-64 h-screen sticky top-0 bg-white border-r border-gray-200">
+    <aside className="hidden md:flex flex-col w-64 h-screen sticky top-0 bg-surface border-r border-border">
       {/* 로고 */}
-      <div className="flex items-center gap-3 px-6 py-5 border-b border-gray-100">
+      <div className="flex items-center gap-3 px-6 py-5 border-b border-border-subtle">
         <img src="/bbk-logo.png" alt="BBK 공간케어 로고" className="w-9 h-9 rounded-lg object-cover" />
         <div>
-          <p className="font-bold text-gray-900 leading-tight">BBK 공간케어</p>
+          <p className="font-bold text-text-primary leading-tight">BBK 공간케어</p>
           <span className={`text-xs font-medium px-1.5 py-0.5 rounded-full ${roleBadgeClass}`}>
             {roleLabel}
           </span>
@@ -236,7 +236,7 @@ export function Sidebar({ role, userName, navBadges = {} }: SidebarProps) {
                 className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
                   active
                     ? 'bg-brand-600 text-white'
-                    : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                    : 'text-text-secondary hover:bg-surface-sunken hover:text-text-primary'
                 }`}
               >
                 <span className="text-base">{item.icon}</span>
@@ -259,7 +259,7 @@ export function Sidebar({ role, userName, navBadges = {} }: SidebarProps) {
                 className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
                   groupActive
                     ? 'bg-brand-50 text-brand-700'
-                    : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                    : 'text-text-secondary hover:bg-surface-sunken hover:text-text-primary'
                 }`}
               >
                 <span className="text-base">{item.icon}</span>
@@ -271,7 +271,7 @@ export function Sidebar({ role, userName, navBadges = {} }: SidebarProps) {
 
               {/* 서브 메뉴 */}
               {isOpen && (
-                <div className="ml-4 mt-0.5 space-y-0.5 border-l-2 border-gray-100 pl-3">
+                <div className="ml-4 mt-0.5 space-y-0.5 border-l-2 border-border-subtle pl-3">
                   {item.children.map(child => {
                     const childActive = pathname.startsWith(child.href)
                     const childCount = getBadgeCount(child.badgeKey)
@@ -283,7 +283,7 @@ export function Sidebar({ role, userName, navBadges = {} }: SidebarProps) {
                         className={`flex items-center px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                           childActive
                             ? 'bg-brand-600 text-white'
-                            : 'text-gray-500 hover:bg-gray-100 hover:text-gray-900'
+                            : 'text-text-secondary hover:bg-surface-sunken hover:text-text-primary'
                         }`}
                       >
                         <span className="flex-1">{child.label}</span>
@@ -299,11 +299,11 @@ export function Sidebar({ role, userName, navBadges = {} }: SidebarProps) {
       </nav>
 
       {/* 하단 사용자 정보 */}
-      <div className="px-3 py-4 border-t border-gray-100 space-y-1">
-        <div className="px-3 py-2 text-sm text-gray-700 font-medium">{userName}</div>
+      <div className="px-3 py-4 border-t border-border-subtle space-y-1">
+        <div className="px-3 py-2 text-sm text-text-primary font-medium">{userName}</div>
         <button
           onClick={handleLogout}
-          className="flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm font-medium text-gray-600 hover:bg-red-50 hover:text-red-600 transition-colors"
+          className="flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm font-medium text-text-secondary hover:bg-red-50 hover:text-red-600 transition-colors"
         >
           <span className="text-base">🚪</span>
           로그아웃
