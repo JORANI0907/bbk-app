@@ -91,21 +91,21 @@ export default function AdminMonitoringPage() {
       {/* 헤더 */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">실시간 모니터링</h1>
-          <p className="text-sm text-gray-500 mt-1">
+          <h1 className="text-2xl font-bold text-text-primary">실시간 모니터링</h1>
+          <p className="text-sm text-text-secondary mt-1">
             마지막 업데이트:{' '}
             {lastUpdated.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
           </p>
         </div>
         <div className="flex items-center gap-2">
           <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
-          <span className="text-sm text-gray-500">실시간 연결됨</span>
+          <span className="text-sm text-text-secondary">실시간 연결됨</span>
         </div>
       </div>
 
       {/* 요약 */}
       <div className="flex items-center gap-2 text-sm">
-        <span className="font-semibold text-gray-700">진행 중인 작업</span>
+        <span className="font-semibold text-text-primary">진행 중인 작업</span>
         <span className="bg-orange-100 text-orange-700 rounded-full px-2.5 py-0.5 font-bold text-xs">
           {schedules.length}건
         </span>
@@ -114,7 +114,7 @@ export default function AdminMonitoringPage() {
       {/* 작업 카드 목록 */}
       {schedules.length === 0 ? (
         <Card className="p-10 text-center">
-          <p className="text-gray-400 text-sm">현재 진행 중인 작업이 없습니다.</p>
+          <p className="text-text-tertiary text-sm">현재 진행 중인 작업이 없습니다.</p>
         </Card>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
@@ -125,35 +125,35 @@ export default function AdminMonitoringPage() {
                 {/* 직원 + 현장 */}
                 <div className="flex items-start justify-between">
                   <div>
-                    <p className="font-semibold text-gray-900">
+                    <p className="font-semibold text-text-primary">
                       {schedule.worker?.name ?? '(직원 없음)'}
                     </p>
-                    <p className="text-sm text-gray-500 mt-0.5 truncate max-w-[200px]">
+                    <p className="text-sm text-text-secondary mt-0.5 truncate max-w-[200px]">
                       {schedule.customer?.business_name ?? '(고객 없음)'}
                     </p>
                   </div>
-                  <span className="text-xs text-gray-400 shrink-0">
+                  <span className="text-xs text-text-tertiary shrink-0">
                     경과 {getElapsedTime(schedule.actual_arrival)}
                   </span>
                 </div>
 
                 {/* 주소 */}
-                <p className="text-xs text-gray-400 truncate">
+                <p className="text-xs text-text-tertiary truncate">
                   {schedule.customer?.address ?? '-'}
                 </p>
 
                 {/* 현재 단계 */}
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium text-gray-700">
+                    <span className="text-sm font-medium text-text-primary">
                       {getWorkStepLabel(schedule.work_step)}
                     </span>
-                    <span className="text-xs text-gray-500">
+                    <span className="text-xs text-text-secondary">
                       {schedule.work_step} / {WORK_STEPS.length} 단계
                     </span>
                   </div>
                   {/* 진행률 바 */}
-                  <div className="w-full bg-gray-100 rounded-full h-2">
+                  <div className="w-full bg-surface-sunken rounded-full h-2">
                     <div
                       className="bg-orange-500 h-2 rounded-full transition-all duration-500"
                       style={{ width: `${progress}%` }}
@@ -167,7 +167,7 @@ export default function AdminMonitoringPage() {
                     <div
                       key={ws.step}
                       className={`flex-1 h-1 rounded-full transition-colors ${
-                        ws.step <= schedule.work_step ? 'bg-orange-400' : 'bg-gray-200'
+                        ws.step <= schedule.work_step ? 'bg-orange-400' : 'bg-border'
                       }`}
                       title={ws.label}
                     />
@@ -178,7 +178,7 @@ export default function AdminMonitoringPage() {
                 {schedule.worker?.phone && (
                   <a
                     href={`tel:${schedule.worker.phone}`}
-                    className="flex items-center gap-2 text-xs text-blue-600 hover:underline"
+                    className="flex items-center gap-2 text-xs text-brand-600 hover:underline"
                   >
                     📞 {schedule.worker.phone}
                   </a>
