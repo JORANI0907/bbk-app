@@ -141,7 +141,7 @@ export default function WorkersPage() {
       {/* Split panel */}
       <div className="flex flex-1 gap-0 overflow-hidden p-4">
         {/* Left panel — 직원 역할은 전체 너비 */}
-        <div className={`${userRole === 'worker' ? 'w-full' : 'w-80 mr-4'} shrink-0 flex flex-col bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden`}>
+        <div className={`${userRole === 'worker' ? 'w-full' : 'w-80 mr-4'} shrink-0 flex flex-col bg-surface rounded-xl shadow-soft border border-border-subtle overflow-hidden`}>
           <WorkerList
             workers={workers}
             selectedId={userRole === 'worker' ? null : (selectedWorker?.id ?? null)}
@@ -163,7 +163,7 @@ export default function WorkersPage() {
 
         {/* Right panel — 관리자만 */}
         {userRole !== 'worker' && (
-          <div className="flex-1 bg-white rounded-xl shadow-sm border border-gray-100 overflow-y-auto">
+          <div className="flex-1 bg-surface rounded-xl shadow-soft border border-border-subtle overflow-y-auto">
             {selectedWorker ? (
               <WorkerDetail
                 worker={selectedWorker}
@@ -171,7 +171,7 @@ export default function WorkersPage() {
                 onWorkerDeleted={handleWorkerDeleted}
               />
             ) : (
-              <div className="flex items-center justify-center h-full text-gray-400 text-sm">
+              <div className="flex items-center justify-center h-full text-text-tertiary text-sm">
                 왼쪽에서 직원을 선택하세요
               </div>
             )}
