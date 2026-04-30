@@ -69,11 +69,11 @@ function timeAgo(iso: string) {
 const PRIORITY_CONFIG = {
   urgent:    { label: '긴급', badge: 'bg-red-500 text-white',      border: 'border-l-red-500',    bg: 'bg-red-50' },
   important: { label: '중요', badge: 'bg-orange-500 text-white',   border: 'border-l-orange-400', bg: 'bg-orange-50' },
-  normal:    { label: '일반', badge: 'bg-gray-200 text-gray-600',   border: 'border-l-gray-300',   bg: 'bg-white' },
+  normal:    { label: '일반', badge: 'bg-surface-sunken text-text-secondary', border: 'border-l-gray-300', bg: 'bg-surface' },
 }
 
 const TYPE_CONFIG = {
-  notice: { icon: '📢', label: '공지', color: 'text-blue-600' },
+  notice: { icon: '📢', label: '공지', color: 'text-brand-600' },
   event:  { icon: '🎉', label: '행사', color: 'text-purple-600' },
 }
 
@@ -136,7 +136,7 @@ function NoticeCard({ notice }: { notice: Notice }) {
             {/* 뱃지 행 */}
             <div className="flex items-center gap-1.5 mb-1 flex-wrap">
               {notice.pinned && (
-                <span className="inline-flex items-center gap-0.5 text-xs font-semibold text-blue-600 bg-blue-100 px-1.5 py-0.5 rounded-full">
+                <span className="inline-flex items-center gap-0.5 text-xs font-semibold text-brand-600 bg-brand-100 px-1.5 py-0.5 rounded-full">
                   📌 고정
                 </span>
               )}
@@ -150,14 +150,14 @@ function NoticeCard({ notice }: { notice: Notice }) {
                 </span>
               )}
               {notice.image_url && !expanded && (
-                <span className="text-xs text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded-full">📷</span>
+                <span className="text-xs text-text-tertiary bg-surface-sunken px-1.5 py-0.5 rounded-full">📷</span>
               )}
             </div>
 
             {/* 제목 */}
             <button
               onClick={() => setExpanded(v => !v)}
-              className="text-left w-full text-sm font-semibold text-gray-900 hover:text-blue-700 transition-colors leading-snug"
+              className="text-left w-full text-sm font-semibold text-text-primary hover:text-brand-700 transition-colors leading-snug"
             >
               {notice.title}
             </button>
@@ -173,14 +173,14 @@ function NoticeCard({ notice }: { notice: Notice }) {
                     onClick={() => setLightbox(notice.image_url)}
                   />
                 )}
-                <p className="mt-2 text-sm text-gray-600 whitespace-pre-wrap leading-relaxed">
+                <p className="mt-2 text-sm text-text-secondary whitespace-pre-wrap leading-relaxed">
                   {notice.content}
                 </p>
               </>
             )}
 
             {/* 메타 */}
-            <div className="flex items-center gap-2 mt-2 text-xs text-gray-400">
+            <div className="flex items-center gap-2 mt-2 text-xs text-text-tertiary">
               {notice.author_name && <span>{notice.author_name}</span>}
               <span>·</span>
               <span>{timeAgo(notice.created_at)}</span>
@@ -211,46 +211,46 @@ function TodayScheduleCard({ role, userId }: { role: string; userId: string }) {
   }, [role, userId])
 
   return (
-    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-      <div className="px-4 py-3 border-b border-gray-50 flex items-center justify-between">
-        <h3 className="text-sm font-bold text-gray-900">📅 오늘의 일정</h3>
+    <div className="bg-surface rounded-2xl border border-border-subtle shadow-soft overflow-hidden">
+      <div className="px-4 py-3 border-b border-border-subtle flex items-center justify-between">
+        <h3 className="text-sm font-bold text-text-primary">📅 오늘의 일정</h3>
         <Link href="/admin/schedule"
-          className="text-xs text-blue-600 hover:underline font-medium">보러가기</Link>
+          className="text-xs text-brand-600 hover:underline font-medium">보러가기</Link>
       </div>
       {loading ? (
         <LoadingSpinner text="일정 불러오는 중..." />
       ) : schedules.length === 0 ? (
-        <div className="px-4 py-6 text-center text-gray-400 text-xs">오늘 배정된 일정이 없습니다.</div>
+        <div className="px-4 py-6 text-center text-text-tertiary text-xs">오늘 배정된 일정이 없습니다.</div>
       ) : (
-        <div className="divide-y divide-gray-50">
+        <div className="divide-y divide-border-subtle">
           {schedules.slice(0, 5).map(sch => (
             <div key={sch.id} className="px-4 py-3">
-              <p className="text-xs font-semibold text-gray-900 truncate">
+              <p className="text-xs font-semibold text-text-primary truncate">
                 {sch.customer?.business_name ?? '업체명 없음'}
               </p>
               {sch.customer?.contact_name && (
-                <p className="text-xs text-gray-500">{sch.customer.contact_name} · {sch.customer.contact_phone}</p>
+                <p className="text-xs text-text-secondary">{sch.customer.contact_name} · {sch.customer.contact_phone}</p>
               )}
               {sch.customer?.address && (
-                <p className="text-xs text-gray-400 truncate mt-0.5">{sch.customer.address}</p>
+                <p className="text-xs text-text-tertiary truncate mt-0.5">{sch.customer.address}</p>
               )}
               <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                 {sch.scheduled_date && (
-                  <span className="text-xs text-gray-500">
+                  <span className="text-xs text-text-secondary">
                     시공일: {sch.scheduled_date.slice(2).replace(/-/g, '.')}
                   </span>
                 )}
                 {sch.scheduled_time_start && (
-                  <span className="text-xs text-blue-500">{sch.scheduled_time_start.slice(0, 5)}</span>
+                  <span className="text-xs text-brand-500">{sch.scheduled_time_start.slice(0, 5)}</span>
                 )}
               </div>
               {sch.care_scope && (
-                <p className="text-xs text-gray-400 mt-0.5">{sch.care_scope}</p>
+                <p className="text-xs text-text-tertiary mt-0.5">{sch.care_scope}</p>
               )}
             </div>
           ))}
           {schedules.length > 5 && (
-            <div className="px-4 py-2 text-center text-xs text-gray-400">
+            <div className="px-4 py-2 text-center text-xs text-text-tertiary">
               외 {schedules.length - 5}건
             </div>
           )}
@@ -285,28 +285,28 @@ function NewScheduleCard({ role, userId }: { role: string; userId: string }) {
   }, [role, userId])
 
   return (
-    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-      <div className="px-4 py-3 border-b border-gray-50 flex items-center justify-between">
-        <h3 className="text-sm font-bold text-gray-900">🆕 새로 추가된 일정</h3>
+    <div className="bg-surface rounded-2xl border border-border-subtle shadow-soft overflow-hidden">
+      <div className="px-4 py-3 border-b border-border-subtle flex items-center justify-between">
+        <h3 className="text-sm font-bold text-text-primary">🆕 새로 추가된 일정</h3>
         <Link href="/admin/schedule"
-          className="text-xs text-blue-600 hover:underline font-medium">보러가기</Link>
+          className="text-xs text-brand-600 hover:underline font-medium">보러가기</Link>
       </div>
       {loading ? (
         <LoadingSpinner text="일정 불러오는 중..." />
       ) : apps.length === 0 ? (
-        <div className="px-4 py-6 text-center text-gray-400 text-xs">최근 7일 내 새 일정이 없습니다.</div>
+        <div className="px-4 py-6 text-center text-text-tertiary text-xs">최근 7일 내 새 일정이 없습니다.</div>
       ) : (
-        <div className="divide-y divide-gray-50">
+        <div className="divide-y divide-border-subtle">
           {apps.map(app => (
             <div key={app.id} className="px-4 py-3">
-              <p className="text-xs font-semibold text-gray-900 truncate">{app.business_name}</p>
-              <p className="text-xs text-gray-500">{app.owner_name}</p>
+              <p className="text-xs font-semibold text-text-primary truncate">{app.business_name}</p>
+              <p className="text-xs text-text-secondary">{app.owner_name}</p>
               <div className="flex items-center gap-2 mt-0.5">
                 {app.scheduled_date && (
                   <span className="text-xs text-purple-500">{app.scheduled_date}</span>
                 )}
                 {app.service_type && (
-                  <span className="text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded-full">
+                  <span className="text-xs bg-surface-sunken text-text-secondary px-1.5 py-0.5 rounded-full">
                     {app.service_type}
                   </span>
                 )}
@@ -415,15 +415,15 @@ export default function AdminHomePage() {
         <div className="lg:col-span-2 flex flex-col gap-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <h2 className="text-base font-bold text-gray-900">공지사항</h2>
+              <h2 className="text-base font-bold text-text-primary">공지사항</h2>
               {notices.length > 0 && (
-                <span className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">{notices.length}</span>
+                <span className="text-xs bg-surface-sunken text-text-secondary px-2 py-0.5 rounded-full">{notices.length}</span>
               )}
             </div>
-            <div className="flex border border-gray-200 rounded-lg overflow-hidden text-xs">
+            <div className="flex border border-border rounded-lg overflow-hidden text-xs">
               {(['all', 'notice', 'event'] as const).map(f => (
                 <button key={f} onClick={() => setFilter(f)}
-                  className={`px-3 py-1.5 font-medium transition-colors ${filter === f ? 'bg-gray-800 text-white' : 'bg-white text-gray-500 hover:bg-gray-50'}`}>
+                  className={`px-3 py-1.5 font-medium transition-colors ${filter === f ? 'bg-gray-800 text-white' : 'bg-surface text-text-secondary hover:bg-surface-sunken'}`}>
                   {f === 'all' ? '전체' : f === 'notice' ? '📢 공지' : '🎉 행사'}
                 </button>
               ))}
@@ -433,9 +433,9 @@ export default function AdminHomePage() {
           {loading ? (
             <LoadingSpinner />
           ) : filteredNotices.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-16 bg-white rounded-2xl border border-dashed border-gray-200 text-center gap-2">
+            <div className="flex flex-col items-center justify-center py-16 bg-surface rounded-2xl border border-dashed border-border text-center gap-2">
               <span className="text-4xl">📋</span>
-              <p className="text-gray-400 text-sm">
+              <p className="text-text-tertiary text-sm">
                 {filter === 'all' ? '등록된 공지사항이 없습니다.' : filter === 'notice' ? '공지사항이 없습니다.' : '행사 정보가 없습니다.'}
               </p>
             </div>
