@@ -237,9 +237,9 @@ const ACTIVITY_ITEMS: ActivityItem[] = [
 // ─── 카테고리 스타일 ───────────────────────────────────────────────
 
 const CATEGORY_BADGE: Record<string, string> = {
-  '고객응대':   'bg-blue-100 text-blue-700',
+  '고객응대':   'bg-brand-100 text-brand-700',
   '예약알림':   'bg-sky-100 text-sky-700',
-  '작업완료':   'bg-green-100 text-green-700',
+  '작업완료':   'bg-state-success-bg text-state-success',
   '결제알림':   'bg-orange-100 text-orange-700',
   '서비스생성': 'bg-indigo-100 text-indigo-700',
   '세금계산서': 'bg-teal-100 text-teal-700',
@@ -291,15 +291,15 @@ export default function AutomationPage() {
       {/* 헤더 */}
       <div className="flex items-center justify-between px-4 pt-4 pb-3 shrink-0">
         <div>
-          <h1 className="text-lg font-bold text-gray-900">자동화관리</h1>
-          <p className="text-xs text-gray-400 mt-0.5">Make.com 시나리오 + 앱 실시간 Slack 알림</p>
+          <h1 className="text-lg font-bold text-text-primary">자동화관리</h1>
+          <p className="text-xs text-text-tertiary mt-0.5">Make.com 시나리오 + 앱 실시간 Slack 알림</p>
         </div>
         <div className="flex gap-2">
           <a
             href={MAKE_URL}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center gap-1.5 px-3 py-2 border border-gray-200 text-gray-600 text-sm font-medium rounded-xl hover:bg-gray-50 transition-colors"
+            className="flex items-center gap-1.5 px-3 py-2 border border-border text-text-secondary text-sm font-medium rounded-xl hover:bg-surface-sunken transition-colors"
           >
             <span>🔗</span> Make.com
           </a>
@@ -320,12 +320,12 @@ export default function AutomationPage() {
             <p className="text-xl font-bold text-brand-700">{items.length}개</p>
           </div>
           <div>
-            <p className="text-xs text-green-600 font-medium">활성화</p>
-            <p className="text-xl font-bold text-green-700">{activeCount}개</p>
+            <p className="text-xs text-state-success font-medium">활성화</p>
+            <p className="text-xl font-bold text-state-success">{activeCount}개</p>
           </div>
           <div>
-            <p className="text-xs text-gray-400 font-medium">비활성화</p>
-            <p className="text-xl font-bold text-gray-500">{inactiveCount}개</p>
+            <p className="text-xs text-text-tertiary font-medium">비활성화</p>
+            <p className="text-xl font-bold text-text-secondary">{inactiveCount}개</p>
           </div>
           <div>
             <p className="text-xs text-violet-600 font-medium">Slack 알림</p>
@@ -336,7 +336,7 @@ export default function AutomationPage() {
 
       {/* 탭 */}
       <div className="px-4 pb-2 shrink-0">
-        <div className="flex bg-gray-100 rounded-xl p-1 gap-1 flex-wrap">
+        <div className="flex bg-surface-sunken rounded-xl p-1 gap-1 flex-wrap">
           {(
             [
               { key: 'make',      label: '🤖 Make.com'   },
@@ -349,7 +349,7 @@ export default function AutomationPage() {
               key={key}
               onClick={() => setActiveTab(key)}
               className={`flex-1 min-w-[80px] py-2 text-xs font-semibold rounded-lg transition-colors ${
-                activeTab === key ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+                activeTab === key ? 'bg-surface text-text-primary shadow-flat' : 'text-text-secondary hover:text-text-primary'
               }`}
             >
               {label}
@@ -368,11 +368,11 @@ export default function AutomationPage() {
               <div key={category}>
                 {/* 카테고리 헤더 */}
                 <div className="flex items-center gap-2 mb-2">
-                  <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${CATEGORY_BADGE[category] ?? 'bg-gray-100 text-gray-600'}`}>
+                  <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${CATEGORY_BADGE[category] ?? 'bg-surface-sunken text-text-secondary'}`}>
                     {category}
                   </span>
-                  <div className="flex-1 h-px bg-gray-100" />
-                  <span className="text-xs text-gray-400">{catItems.filter(i => i.active).length}/{catItems.length} 활성</span>
+                  <div className="flex-1 h-px bg-border-subtle" />
+                  <span className="text-xs text-text-tertiary">{catItems.filter(i => i.active).length}/{catItems.length} 활성</span>
                 </div>
 
                 {/* 카테고리 내 아이템들 */}
@@ -380,8 +380,8 @@ export default function AutomationPage() {
                   {catItems.map(item => (
                     <div
                       key={item.id}
-                      className={`bg-white rounded-xl border p-4 transition-all ${
-                        item.active ? 'border-gray-100 shadow-sm' : 'border-gray-100 opacity-55'
+                      className={`bg-surface rounded-xl border p-4 transition-all ${
+                        item.active ? 'border-border-subtle shadow-soft' : 'border-border-subtle opacity-55'
                       }`}
                     >
                       <div className="flex items-start justify-between gap-3">
@@ -389,7 +389,7 @@ export default function AutomationPage() {
                           {/* 상태 + Slack 뱃지 */}
                           <div className="flex items-center gap-1.5 mb-1.5 flex-wrap">
                             <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${
-                              item.active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
+                              item.active ? 'bg-state-success-bg text-state-success' : 'bg-surface-sunken text-text-secondary'
                             }`}>
                               {item.active ? '● 활성' : '○ 비활성'}
                             </span>
@@ -399,18 +399,18 @@ export default function AutomationPage() {
                               </span>
                             )}
                           </div>
-                          <h3 className="text-sm font-bold text-gray-900">{item.name}</h3>
-                          <p className="text-xs text-gray-500 mt-1 leading-relaxed">{item.description}</p>
+                          <h3 className="text-sm font-bold text-text-primary">{item.name}</h3>
+                          <p className="text-xs text-text-secondary mt-1 leading-relaxed">{item.description}</p>
                           <div className="flex items-center gap-1 mt-2">
-                            <span className="text-[11px] text-gray-400">트리거:</span>
-                            <span className="text-[11px] text-gray-600 font-medium">{item.trigger}</span>
+                            <span className="text-[11px] text-text-tertiary">트리거:</span>
+                            <span className="text-[11px] text-text-secondary font-medium">{item.trigger}</span>
                           </div>
                         </div>
                         {/* 토글 */}
                         <button
                           onClick={() => { void handleToggle(item.id) }}
                           className={`relative w-11 h-6 rounded-full transition-colors shrink-0 mt-1 ${
-                            item.active ? 'bg-brand-600' : 'bg-gray-300'
+                            item.active ? 'bg-brand-600' : 'bg-border'
                           }`}
                           aria-label={item.active ? '비활성화' : '활성화'}
                         >
@@ -440,16 +440,16 @@ export default function AutomationPage() {
             <div className="grid grid-cols-2 gap-2">
               {[
                 { icon: '🎯', name: 'BBK Lead',    role: '요구사항 분석 / 분배', color: 'text-violet-700' },
-                { icon: '💻', name: 'Developer',   role: 'Next.js / Supabase',   color: 'text-blue-700'   },
+                { icon: '💻', name: 'Developer',   role: 'Next.js / Supabase',   color: 'text-brand-700'  },
                 { icon: '🎨', name: 'Designer',    role: 'UI/UX 컴포넌트',       color: 'text-cyan-700'   },
                 { icon: '👑', name: 'MKT Leader',  role: '마케팅 팀장',           color: 'text-amber-700'  },
               ].map(({ icon, name, role, color }) => (
-                <div key={name} className="bg-white border border-gray-100 rounded-xl p-3">
+                <div key={name} className="bg-surface border border-border-subtle rounded-xl p-3">
                   <div className="flex items-center gap-2 mb-1">
                     <span className="text-lg">{icon}</span>
                     <span className={`text-xs font-bold ${color}`}>{name}</span>
                   </div>
-                  <p className="text-[10px] text-gray-500">{role}</p>
+                  <p className="text-[10px] text-text-secondary">{role}</p>
                 </div>
               ))}
             </div>
@@ -486,25 +486,25 @@ export default function AutomationPage() {
             </div>
 
             {ACTIVITY_ITEMS.map(item => (
-              <div key={item.id} className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
+              <div key={item.id} className="bg-surface rounded-xl border border-border-subtle shadow-soft p-4">
                 <div className="flex items-start gap-3">
                   <div className="w-10 h-10 rounded-xl bg-violet-50 flex items-center justify-center text-xl shrink-0">
                     {item.icon}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
-                      <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-green-100 text-green-700">
+                      <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-state-success-bg text-state-success">
                         ● 활성
                       </span>
                       <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-violet-100 text-violet-700">
                         Slack 보고
                       </span>
                     </div>
-                    <h3 className="text-sm font-bold text-gray-900">{item.name}</h3>
-                    <p className="text-xs text-gray-500 mt-1 leading-relaxed">{item.description}</p>
+                    <h3 className="text-sm font-bold text-text-primary">{item.name}</h3>
+                    <p className="text-xs text-text-secondary mt-1 leading-relaxed">{item.description}</p>
                     <div className="flex items-center gap-1 mt-2">
-                      <span className="text-[11px] text-gray-400">발송 시점:</span>
-                      <span className="text-[11px] text-gray-600 font-medium">{item.trigger}</span>
+                      <span className="text-[11px] text-text-tertiary">발송 시점:</span>
+                      <span className="text-[11px] text-text-secondary font-medium">{item.trigger}</span>
                     </div>
                   </div>
                 </div>
@@ -517,10 +517,10 @@ export default function AutomationPage() {
       {/* 새 자동화 안내 모달 */}
       {showAddModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="bg-white rounded-2xl w-full max-w-sm shadow-2xl p-6 text-center">
+          <div className="bg-surface rounded-2xl w-full max-w-sm shadow-modal p-6 text-center">
             <div className="text-4xl mb-3">🤖</div>
-            <h2 className="text-base font-bold text-gray-900 mb-2">새 자동화 추가</h2>
-            <p className="text-sm text-gray-500 leading-relaxed mb-5">
+            <h2 className="text-base font-bold text-text-primary mb-2">새 자동화 추가</h2>
+            <p className="text-sm text-text-secondary leading-relaxed mb-5">
               새로운 자동화 시나리오는{' '}
               <strong className="text-brand-600">Make.com</strong>에서 직접 설정합니다.{' '}
               아래 버튼을 눌러 Make.com 대시보드로 이동하세요.
@@ -536,7 +536,7 @@ export default function AutomationPage() {
               </a>
               <button
                 onClick={() => setShowAddModal(false)}
-                className="w-full py-2.5 rounded-xl border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors"
+                className="w-full py-2.5 rounded-xl border border-border text-sm font-medium text-text-secondary hover:bg-surface-sunken transition-colors"
               >
                 닫기
               </button>
