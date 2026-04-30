@@ -129,8 +129,8 @@ export default function PermissionsPage() {
       {/* 헤더 */}
       <div className="flex items-center justify-between px-4 pt-4 pb-3">
         <div>
-          <h1 className="text-lg font-bold text-gray-900">탭 권한 설정</h1>
-          <p className="text-xs text-gray-400 mt-0.5">메뉴별 역할 접근 권한을 설정합니다.</p>
+          <h1 className="text-lg font-bold text-text-primary">탭 권한 설정</h1>
+          <p className="text-xs text-text-tertiary mt-0.5">메뉴별 역할 접근 권한을 설정합니다.</p>
         </div>
         <button
           onClick={handleSave}
@@ -151,19 +151,19 @@ export default function PermissionsPage() {
       {/* 테이블 */}
       <div className="flex-1 overflow-y-auto px-4 pb-4 space-y-4">
         {loading ? (
-          <div className="flex items-center justify-center py-20 text-gray-400 text-sm">로딩 중...</div>
+          <div className="flex items-center justify-center py-20 text-text-tertiary text-sm">로딩 중...</div>
         ) : (
           groups.map(group => {
             const groupItems = permissions.filter(p => p.group === group)
             return (
-              <div key={group} className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+              <div key={group} className="bg-surface rounded-xl border border-border-subtle shadow-soft overflow-hidden">
                 {/* 그룹 헤더 */}
-                <div className="px-4 py-3 bg-gray-50 border-b border-gray-100">
-                  <h2 className="text-xs font-bold text-gray-500 uppercase tracking-wider">{group}</h2>
+                <div className="px-4 py-3 bg-surface-sunken border-b border-border-subtle">
+                  <h2 className="text-xs font-bold text-text-secondary uppercase tracking-wider">{group}</h2>
                 </div>
 
                 {/* 컬럼 헤더 */}
-                <div className="grid grid-cols-3 gap-2 px-4 py-2 border-b border-gray-50 text-xs font-semibold text-gray-400">
+                <div className="grid grid-cols-3 gap-2 px-4 py-2 border-b border-border-subtle text-xs font-semibold text-text-tertiary">
                   <span>메뉴</span>
                   <span className="text-center">관리자</span>
                   <span className="text-center">직원</span>
@@ -174,12 +174,12 @@ export default function PermissionsPage() {
                   <div
                     key={item.href}
                     className={`grid grid-cols-3 gap-2 px-4 py-3 items-center ${
-                      idx !== groupItems.length - 1 ? 'border-b border-gray-50' : ''
+                      idx !== groupItems.length - 1 ? 'border-b border-border-subtle' : ''
                     }`}
                   >
                     <div>
-                      <p className="text-sm font-medium text-gray-800">{item.label}</p>
-                      <p className="text-xs text-gray-400">{item.href}</p>
+                      <p className="text-sm font-medium text-text-primary">{item.label}</p>
+                      <p className="text-xs text-text-tertiary">{item.href}</p>
                     </div>
 
                     {/* admin 체크박스 (항상 체크, 비활성) */}
