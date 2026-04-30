@@ -127,34 +127,34 @@ export function ChecklistForm({ scheduleId, items, onComplete }: Props) {
   return (
     <div className="flex flex-col gap-4">
       {checklists.map((entry, itemIndex) => (
-        <div key={entry.itemName} className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+        <div key={entry.itemName} className="bg-surface rounded-2xl shadow-soft border border-border-subtle overflow-hidden">
           <div
             className={`px-4 py-3 flex items-center justify-between ${
-              entry.isCompleted ? 'bg-green-50' : 'bg-gray-50'
+              entry.isCompleted ? 'bg-state-success-bg' : 'bg-surface-sunken'
             }`}
           >
-            <h3 className="font-semibold text-gray-800 text-sm">{entry.itemName}</h3>
+            <h3 className="font-semibold text-text-primary text-sm">{entry.itemName}</h3>
             {entry.isCompleted ? (
               <span className="text-xs bg-green-500 text-white px-2 py-0.5 rounded-full">완료</span>
             ) : (
-              <span className="text-xs text-gray-400">
+              <span className="text-xs text-text-tertiary">
                 {entry.steps.filter((s) => s.done).length}/{entry.steps.length}
               </span>
             )}
           </div>
-          <div className="divide-y divide-gray-50">
+          <div className="divide-y divide-border-subtle">
             {entry.steps.map((step, stepIndex) => (
               <button
                 key={step.label}
                 onClick={() => toggleStep(itemIndex, stepIndex)}
                 disabled={saving}
-                className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 active:bg-gray-100 transition-colors text-left"
+                className="w-full flex items-center gap-3 px-4 py-3 hover:bg-surface-sunken active:bg-surface-sunken transition-colors text-left"
               >
                 <div
                   className={`w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors ${
                     step.done
-                      ? 'bg-blue-600 border-blue-600'
-                      : 'border-gray-300'
+                      ? 'bg-brand-600 border-brand-600'
+                      : 'border-border'
                   }`}
                 >
                   {step.done && (
@@ -165,7 +165,7 @@ export function ChecklistForm({ scheduleId, items, onComplete }: Props) {
                 </div>
                 <span
                   className={`text-sm ${
-                    step.done ? 'text-gray-400 line-through' : 'text-gray-700'
+                    step.done ? 'text-text-tertiary line-through' : 'text-text-primary'
                   }`}
                 >
                   {step.label}
@@ -177,9 +177,9 @@ export function ChecklistForm({ scheduleId, items, onComplete }: Props) {
       ))}
 
       {allCompleted && (
-        <div className="bg-green-50 border border-green-200 rounded-2xl p-4 text-center">
-          <p className="text-green-700 font-semibold">✅ 모든 작업 항목 완료!</p>
-          <p className="text-green-600 text-sm mt-1">다음 단계로 진행해주세요.</p>
+        <div className="bg-state-success-bg border border-state-success rounded-2xl p-4 text-center">
+          <p className="text-state-success font-semibold">✅ 모든 작업 항목 완료!</p>
+          <p className="text-state-success text-sm mt-1">다음 단계로 진행해주세요.</p>
         </div>
       )}
     </div>
