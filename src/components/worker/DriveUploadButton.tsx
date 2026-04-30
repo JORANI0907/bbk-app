@@ -33,7 +33,7 @@ export function DriveUploadButton({ driveFolderUrl, scheduledDate, businessName 
         href={driveFolderUrl}
         target="_blank"
         rel="noopener noreferrer"
-        className="flex-1 py-2.5 bg-blue-50 text-blue-700 text-sm font-semibold rounded-xl flex items-center justify-center gap-1.5 border border-blue-200 active:scale-[0.98] transition-transform"
+        className="flex-1 py-2.5 bg-brand-50 text-brand-700 text-sm font-semibold rounded-xl flex items-center justify-center gap-1.5 border border-brand-200 active:scale-[0.98] transition-transform"
       >
         📁 드라이브 보기
       </a>
@@ -120,7 +120,7 @@ export function DriveUploadButton({ driveFolderUrl, scheduledDate, businessName 
       <button
         onClick={handleClick}
         disabled={uploading}
-        className="flex-1 py-2.5 bg-blue-50 text-blue-700 text-sm font-semibold rounded-xl flex items-center justify-center gap-1.5 border border-blue-200 active:scale-[0.98] transition-transform disabled:opacity-60"
+        className="flex-1 py-2.5 bg-brand-50 text-brand-700 text-sm font-semibold rounded-xl flex items-center justify-center gap-1.5 border border-brand-200 active:scale-[0.98] transition-transform disabled:opacity-60"
       >
         {uploading ? '업로드 중...' : '📁 드라이브 업로드'}
       </button>
