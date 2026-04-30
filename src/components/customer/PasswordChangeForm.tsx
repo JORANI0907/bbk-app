@@ -52,7 +52,7 @@ export function PasswordChangeForm() {
     return (
       <button
         onClick={() => setOpen(true)}
-        className="text-sm text-blue-600 font-medium hover:underline"
+        className="text-sm text-brand-600 font-medium hover:underline"
       >
         비밀번호 변경
       </button>
@@ -60,20 +60,20 @@ export function PasswordChangeForm() {
   }
 
   return (
-    <div className="mt-3 flex flex-col gap-3 bg-gray-50 rounded-xl p-4">
+    <div className="mt-3 flex flex-col gap-3 bg-surface-sunken rounded-xl p-4">
       <input
         type="password"
         placeholder="현재 비밀번호"
         value={currentPw}
         onChange={e => setCurrentPw(e.target.value)}
-        className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-blue-400"
+        className="w-full px-3 py-2.5 text-sm border border-border rounded-xl bg-surface focus:outline-none focus:ring-2 focus:ring-blue-400"
       />
       <input
         type="password"
         placeholder="새 비밀번호 (8자 이상)"
         value={newPw}
         onChange={e => setNewPw(e.target.value)}
-        className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-blue-400"
+        className="w-full px-3 py-2.5 text-sm border border-border rounded-xl bg-surface focus:outline-none focus:ring-2 focus:ring-blue-400"
       />
       <input
         type="password"
@@ -81,19 +81,19 @@ export function PasswordChangeForm() {
         value={confirmPw}
         onChange={e => setConfirmPw(e.target.value)}
         onKeyDown={e => e.key === 'Enter' && handleSubmit()}
-        className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-blue-400"
+        className="w-full px-3 py-2.5 text-sm border border-border rounded-xl bg-surface focus:outline-none focus:ring-2 focus:ring-blue-400"
       />
       <div className="flex gap-2">
         <button
           onClick={handleSubmit}
           disabled={loading}
-          className="flex-1 py-2.5 text-sm font-semibold text-white bg-blue-600 rounded-xl disabled:opacity-60 active:scale-[0.98] transition-all"
+          className="flex-1 py-2.5 text-sm font-semibold text-white bg-brand-600 rounded-xl disabled:opacity-60 active:scale-[0.98] transition-all"
         >
           {loading ? '변경 중...' : '변경하기'}
         </button>
         <button
           onClick={reset}
-          className="px-4 py-2.5 text-sm font-medium text-gray-500 bg-white border border-gray-200 rounded-xl active:scale-[0.98] transition-all"
+          className="px-4 py-2.5 text-sm font-medium text-text-secondary bg-surface border border-border rounded-xl active:scale-[0.98] transition-all"
         >
           취소
         </button>
