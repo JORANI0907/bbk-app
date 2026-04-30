@@ -81,9 +81,9 @@ export function WorkerScheduleListClient({ schedules: initial }: Props) {
 
   if (schedules.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-20 gap-4 text-center bg-white rounded-2xl border border-gray-100">
-        <div className="w-16 h-16 rounded-full bg-blue-50 flex items-center justify-center">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-8 h-8 text-blue-400">
+      <div className="flex flex-col items-center justify-center py-20 gap-4 text-center bg-surface rounded-2xl border border-border-subtle">
+        <div className="w-16 h-16 rounded-full bg-brand-50 flex items-center justify-center">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-8 h-8 text-brand-600">
             <rect x="3" y="4" width="18" height="18" rx="2" ry="2" strokeLinecap="round" strokeLinejoin="round" />
             <line x1="16" y1="2" x2="16" y2="6" strokeLinecap="round" />
             <line x1="8" y1="2" x2="8" y2="6" strokeLinecap="round" />
@@ -91,8 +91,8 @@ export function WorkerScheduleListClient({ schedules: initial }: Props) {
           </svg>
         </div>
         <div>
-          <p className="text-base font-semibold text-gray-700">오늘 배정된 현장이 없습니다</p>
-          <p className="text-sm text-gray-400 mt-1">관리자에게 문의해주세요.</p>
+          <p className="text-base font-semibold text-text-primary">오늘 배정된 현장이 없습니다</p>
+          <p className="text-sm text-text-tertiary mt-1">관리자에게 문의해주세요.</p>
         </div>
       </div>
     )
@@ -127,7 +127,7 @@ export function WorkerScheduleListClient({ schedules: initial }: Props) {
                 <button
                   onClick={() => handleStart(schedule.id)}
                   disabled={isLoading}
-                  className="flex-1 py-2.5 bg-blue-600 text-white text-sm font-bold rounded-xl disabled:opacity-60 active:scale-[0.98] transition-transform"
+                  className="flex-1 py-2.5 bg-brand-600 text-white text-sm font-bold rounded-xl disabled:opacity-60 active:scale-[0.98] transition-transform"
                 >
                   {isLoading ? '처리 중...' : '▶ 작업 시작'}
                 </button>
@@ -154,7 +154,7 @@ export function WorkerScheduleListClient({ schedules: initial }: Props) {
 
               {/* 완료 */}
               {isDone && (
-                <div className="flex-1 py-2.5 bg-green-50 text-green-700 text-sm font-semibold rounded-xl flex items-center justify-center border border-green-200">
+                <div className="flex-1 py-2.5 bg-state-success-bg text-state-success text-sm font-semibold rounded-xl flex items-center justify-center border border-state-success">
                   ✅ 작업 완료
                 </div>
               )}
