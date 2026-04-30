@@ -16,7 +16,7 @@ function getDday(date: string): number {
   return Math.ceil((target.getTime() - today.getTime()) / 86400000)
 }
 
-function ScheduleCard({ schedule }: { schedule: ServiceSchedule }) {
+function ScheduleCard({ schedule, workerName }: { schedule: ServiceSchedule; workerName?: string }) {
   const scheduledDate = new Date(schedule.scheduled_date)
   const isUpcoming = !isPast(scheduledDate) || isToday(scheduledDate)
   const serviceName =
@@ -54,6 +54,13 @@ function ScheduleCard({ schedule }: { schedule: ServiceSchedule }) {
 
       <p className="text-sm text-gray-600">{serviceName}</p>
 
+      {workerName && (
+        <p className="text-xs text-gray-500 flex items-center gap-1">
+          <span>👷</span>
+          <span>{workerName}</span>
+        </p>
+      )}
+
       {isUpcoming && schedule.status !== 'cancelled' && diff >= 0 && (
         <p className="text-xs font-semibold text-blue-600 border-t border-gray-50 pt-2 mt-1">
           {diff === 0 ? '오늘 서비스 예정!' : `D-${diff}`}
@@ -81,7 +88,7 @@ export default async function CustomerSchedulePage() {
 
   const { data: schedules } = await supabase
     .from('service_schedules')
-    .select('*')
+    .select('*, worker:users(id,name)')
     .eq('customer_id', customerId)
     .order('scheduled_date', { ascending: false })
 
@@ -110,7 +117,9 @@ export default async function CustomerSchedulePage() {
       <ScheduleChangeRequest upcomingSchedules={upcoming} />
 
       <section>
-        <h2 className="text-base font-bold text-gray-900 mb-3">예정된 서비스</h2>
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-base font-bold text-gray-900">예정된 서비스</h2>
+        </div>
         {upcoming.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-10 gap-3 text-center bg-white rounded-2xl border border-gray-100">
             <span className="text-4xl">📅</span>
@@ -122,7 +131,11 @@ export default async function CustomerSchedulePage() {
         ) : (
           <div className="flex flex-col gap-3">
             {upcoming.map((s) => (
-              <ScheduleCard key={s.id} schedule={s} />
+              <ScheduleCard
+                key={s.id}
+                schedule={s}
+                workerName={(s.worker as { name?: string } | null)?.name}
+              />
             ))}
           </div>
         )}
@@ -130,7 +143,12 @@ export default async function CustomerSchedulePage() {
 
       {past.length > 0 && (
         <section>
-          <h2 className="text-base font-bold text-gray-900 mb-3">지난 서비스</h2>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-base font-bold text-gray-900">지난 서비스</h2>
+            <span className="text-xs text-gray-400 bg-gray-100 px-2 py-1 rounded-full">
+              누적 {past.filter(s => s.status === 'completed').length}회 완료
+            </span>
+          </div>
           <div className="flex flex-col gap-3">
             {past.map((s) => (
               s.status === 'completed' ? (
@@ -160,6 +178,12 @@ export default async function CustomerSchedulePage() {
                   <p className="text-sm text-gray-600">
                     {s.items_this_visit?.map((i) => i.name).join(', ') || '청소 서비스'}
                   </p>
+                  {(s.worker as { name?: string } | null)?.name && (
+                    <p className="text-xs text-gray-500 flex items-center gap-1">
+                      <span>👷</span>
+                      <span>{(s.worker as { name?: string }).name}</span>
+                    </p>
+                  )}
                 </Link>
               ) : (
                 <ScheduleCard key={s.id} schedule={s} />
