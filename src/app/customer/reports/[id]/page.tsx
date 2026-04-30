@@ -19,12 +19,12 @@ export default async function CustomerReportDetailPage({ params }: PageProps) {
   const supabase = createServiceClient()
 
   // 고객 본인 업장 검증
-  const { data: userProfile } = await supabase
-    .from('users')
-    .select('*, customer:customers(id)')
-    .eq('id', session.userId)
-    .single()
-  const customerId = userProfile?.customer?.id ?? null
+  const { data: customerRow } = await supabase
+    .from('customers')
+    .select('id')
+    .eq('user_id', session.userId)
+    .maybeSingle()
+  const customerId = customerRow?.id ?? null
 
   const { data: schedule } = await supabase
     .from('service_schedules')

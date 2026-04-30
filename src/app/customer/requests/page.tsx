@@ -10,13 +10,13 @@ export default async function CustomerRequestsPage() {
 
   const supabase = createServiceClient()
 
-  const { data: userProfile } = await supabase
-    .from('users')
-    .select('*, customer:customers(id)')
-    .eq('id', session.userId)
-    .single()
+  const { data: customerRow } = await supabase
+    .from('customers')
+    .select('id')
+    .eq('user_id', session.userId)
+    .maybeSingle()
 
-  const customerId = userProfile?.customer?.id ?? null
+  const customerId = customerRow?.id ?? null
 
   const requests: CustomerRequest[] = []
   if (customerId) {

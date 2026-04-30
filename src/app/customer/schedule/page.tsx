@@ -68,15 +68,15 @@ export default async function CustomerSchedulePage() {
 
   const supabase = createServiceClient()
 
-  const { data: userProfile } = await supabase
-    .from('users')
-    .select('*, customer:customers(id)')
-    .eq('id', session.userId)
-    .single()
+  const { data: customerRow } = await supabase
+    .from('customers')
+    .select('id')
+    .eq('user_id', session.userId)
+    .maybeSingle()
 
-  if (!userProfile?.customer) redirect('/customer')
+  if (!customerRow) redirect('/customer')
 
-  const customerId = userProfile.customer.id
+  const customerId = customerRow.id
 
   const { data: schedules } = await supabase
     .from('service_schedules')
