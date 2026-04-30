@@ -141,10 +141,9 @@ export default async function CustomerHomePage() {
       )}
 
       {/* 서비스 빠른 이동 */}
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 gap-3">
         {[
           { href: '/customer/schedule', icon: '📅', label: '서비스 일정' },
-          { href: '/customer/reports', icon: '📋', label: '리포트' },
           { href: '/customer/requests', icon: '💬', label: '요청사항' },
         ].map((item) => (
           <Link
