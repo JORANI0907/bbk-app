@@ -20,7 +20,7 @@ export function DdayCounter({ nextScheduledDate, serviceName }: Props) {
   const dateLabel = format(new Date(nextScheduledDate), 'yyyy년 M월 d일 (EEE)', { locale: ko })
 
   return (
-    <div className={`relative overflow-hidden rounded-3xl p-6 text-white shadow-xl ${
+    <div className={`relative overflow-hidden rounded-3xl p-6 text-white shadow-pop ${
       isToday
         ? 'bg-gradient-to-br from-orange-500 to-pink-600 shadow-orange-200'
         : 'bg-gradient-to-br from-blue-600 to-indigo-700 shadow-blue-200'
