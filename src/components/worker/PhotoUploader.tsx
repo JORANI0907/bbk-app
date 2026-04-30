@@ -81,7 +81,7 @@ export function PhotoUploader({ scheduleId, photoType, onUploadComplete }: Props
           </div>
           <button
             onClick={() => inputRef.current?.click()}
-            className="mt-2 w-full py-2 text-sm text-blue-600 border border-blue-300 rounded-xl hover:bg-blue-50 transition-colors"
+            className="mt-2 w-full py-2 text-sm text-brand-600 border border-brand-200 rounded-xl hover:bg-brand-50 transition-colors"
           >
             다시 찍기
           </button>
@@ -90,12 +90,12 @@ export function PhotoUploader({ scheduleId, photoType, onUploadComplete }: Props
         <button
           onClick={() => inputRef.current?.click()}
           disabled={isUploading}
-          className="w-full max-w-sm aspect-video bg-gray-100 rounded-2xl border-2 border-dashed border-gray-300 flex flex-col items-center justify-center gap-3 hover:bg-gray-50 active:scale-[0.98] transition-all disabled:opacity-60"
+          className="w-full max-w-sm aspect-video bg-surface-sunken rounded-2xl border-2 border-dashed border-border flex flex-col items-center justify-center gap-3 hover:bg-surface active:scale-[0.98] transition-all disabled:opacity-60"
         >
           {isUploading ? (
             <div className="flex flex-col items-center gap-2">
-              <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
-              <p className="text-sm text-gray-500">업로드 중...</p>
+              <div className="w-8 h-8 border-2 border-brand-600 border-t-transparent rounded-full animate-spin" />
+              <p className="text-sm text-text-secondary">업로드 중...</p>
             </div>
           ) : (
             <>
@@ -103,10 +103,10 @@ export function PhotoUploader({ scheduleId, photoType, onUploadComplete }: Props
                 {photoType === 'before' ? '📷' : '✨'}
               </span>
               <div className="text-center">
-                <p className="text-sm font-semibold text-gray-700">
+                <p className="text-sm font-semibold text-text-primary">
                   {photoType === 'before' ? '작업 전 사진 촬영' : '작업 후 사진 촬영'}
                 </p>
-                <p className="text-xs text-gray-400 mt-1">
+                <p className="text-xs text-text-tertiary mt-1">
                   카메라 또는 갤러리에서 선택
                 </p>
               </div>
