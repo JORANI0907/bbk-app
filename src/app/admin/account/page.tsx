@@ -73,7 +73,7 @@ export default function AccountPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-60 text-gray-400 text-sm">
+      <div className="flex items-center justify-center h-60 text-text-tertiary text-sm">
         불러오는 중...
       </div>
     )
@@ -81,7 +81,7 @@ export default function AccountPage() {
 
   if (!profile) {
     return (
-      <div className="flex items-center justify-center h-60 text-gray-400 text-sm">
+      <div className="flex items-center justify-center h-60 text-text-tertiary text-sm">
         프로필을 불러올 수 없습니다.
       </div>
     )
@@ -90,12 +90,12 @@ export default function AccountPage() {
   return (
     <div className="max-w-lg mx-auto flex flex-col gap-5">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">계정 관리</h1>
-        <p className="text-sm text-gray-500 mt-1">내 계정 정보를 확인하고 비밀번호를 변경합니다.</p>
+        <h1 className="text-2xl font-bold text-text-primary">계정 관리</h1>
+        <p className="text-sm text-text-secondary mt-1">내 계정 정보를 확인하고 비밀번호를 변경합니다.</p>
       </div>
 
       {/* 프로필 카드 */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+      <div className="bg-surface rounded-2xl border border-border-subtle shadow-soft overflow-hidden">
         {/* 헤더 */}
         <div className="bg-gradient-to-br from-blue-600 to-indigo-600 px-6 py-8 text-white">
           <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center text-2xl font-bold mb-3">
@@ -108,7 +108,7 @@ export default function AccountPage() {
         </div>
 
         {/* 정보 */}
-        <div className="divide-y divide-gray-50">
+        <div className="divide-y divide-border-subtle">
           <InfoRow label="이름" value={profile.name} />
           <InfoRow label="이메일" value={profile.email ?? '-'} />
           <InfoRow label="연락처" value={profile.phone ?? '-'} />
@@ -120,15 +120,15 @@ export default function AccountPage() {
       </div>
 
       {/* 비밀번호 변경 */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+      <div className="bg-surface rounded-2xl border border-border-subtle shadow-soft p-5">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <p className="text-sm font-semibold text-gray-900">비밀번호 변경</p>
-            <p className="text-xs text-gray-400 mt-0.5">보안을 위해 주기적으로 변경하세요.</p>
+            <p className="text-sm font-semibold text-text-primary">비밀번호 변경</p>
+            <p className="text-xs text-text-tertiary mt-0.5">보안을 위해 주기적으로 변경하세요.</p>
           </div>
           <button
             onClick={() => setShowPwForm(v => !v)}
-            className="text-sm text-blue-600 font-medium hover:text-blue-800"
+            className="text-sm text-brand-600 font-medium hover:text-brand-700"
           >
             {showPwForm ? '취소' : '변경'}
           </button>
@@ -137,29 +137,29 @@ export default function AccountPage() {
         {showPwForm && (
           <div className="space-y-3">
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">새 비밀번호</label>
+              <label className="block text-xs font-medium text-text-secondary mb-1">새 비밀번호</label>
               <input
                 type="password"
                 value={pwForm.next}
                 onChange={e => setPwForm(f => ({ ...f, next: e.target.value }))}
                 placeholder="6자 이상"
-                className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full border border-border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">새 비밀번호 확인</label>
+              <label className="block text-xs font-medium text-text-secondary mb-1">새 비밀번호 확인</label>
               <input
                 type="password"
                 value={pwForm.confirm}
                 onChange={e => setPwForm(f => ({ ...f, confirm: e.target.value }))}
                 placeholder="동일하게 입력"
-                className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full border border-border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
             <button
               onClick={handlePasswordChange}
               disabled={pwSaving}
-              className="w-full py-2.5 text-sm font-semibold text-white bg-blue-600 rounded-xl hover:bg-blue-700 disabled:opacity-50 transition-colors"
+              className="w-full py-2.5 text-sm font-semibold text-white bg-brand-600 rounded-xl hover:bg-brand-700 disabled:opacity-50 transition-colors"
             >
               {pwSaving ? '변경 중...' : '비밀번호 변경'}
             </button>
@@ -170,7 +170,7 @@ export default function AccountPage() {
       {/* 로그아웃 */}
       <button
         onClick={handleLogout}
-        className="w-full py-3 text-sm font-medium text-red-500 bg-white border border-red-100 rounded-2xl hover:bg-red-50 transition-colors shadow-sm"
+        className="w-full py-3 text-sm font-medium text-state-danger bg-surface border border-red-100 rounded-2xl hover:bg-state-danger-bg transition-colors shadow-soft"
       >
         로그아웃
       </button>
@@ -181,8 +181,8 @@ export default function AccountPage() {
 function InfoRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-center justify-between px-5 py-3.5">
-      <span className="text-xs font-medium text-gray-400">{label}</span>
-      <span className="text-sm text-gray-800 font-medium">{value}</span>
+      <span className="text-xs font-medium text-text-tertiary">{label}</span>
+      <span className="text-sm text-text-primary font-medium">{value}</span>
     </div>
   )
 }
