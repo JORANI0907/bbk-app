@@ -256,7 +256,7 @@ export default function AutomationPage() {
   const router = useRouter()
   const [items, setItems] = useState<AutomationItem[]>(INITIAL_ITEMS)
   const [showAddModal, setShowAddModal] = useState(false)
-  const [activeTab, setActiveTab] = useState<'make' | 'activity' | 'agents' | 'marketing'>('make')
+  const [activeTab, setActiveTab] = useState<'make' | 'activity' | 'agents' | 'marketing' | 'contracts'>('make')
 
   const handleToggle = async (id: string) => {
     const item = items.find(i => i.id === id)
@@ -341,6 +341,7 @@ export default function AutomationPage() {
               { key: 'activity',  label: '🔔 Slack 알림'  },
               { key: 'agents',    label: '🧠 에이전트'    },
               { key: 'marketing', label: '📣 마케팅'      },
+              { key: 'contracts', label: '📝 계약서 서명'  },
             ] as const
           ).map(({ key, label }) => (
             <button
@@ -511,6 +512,144 @@ export default function AutomationPage() {
           </div>
         )}
       </div>
+
+        {/* ── 계약서 서명 사용 가이드 탭 ── */}
+        {activeTab === 'contracts' && (
+          <div className="space-y-4">
+
+            {/* 안내 배너 */}
+            <div className="bg-brand-50 border border-brand-100 rounded-xl p-4">
+              <p className="text-sm font-semibold text-brand-800 mb-1">온라인 계약서 서명 — SMS OTP 방식</p>
+              <p className="text-xs text-brand-600 leading-relaxed">
+                외부 플랫폼 없이 앱 내에서 계약서를 발송하고, 고객이 SMS 본인인증으로 서명합니다.
+                서명 시점의 계약서 내용과 타임스탬프·IP가 DB에 영구 기록됩니다.
+              </p>
+            </div>
+
+            {/* 전체 흐름 */}
+            <div className="bg-surface border border-border-subtle rounded-xl p-4">
+              <p className="text-xs font-bold text-text-primary mb-3">전체 흐름</p>
+              <div className="space-y-2">
+                {[
+                  { step: '1', color: 'bg-brand-600',             label: '관리자',  text: '계약서 작성 — 고객 선택 시 정보 자동 채움' },
+                  { step: '2', color: 'bg-sky-500',               label: '관리자',  text: '서명 요청 발송 — 고객 전화번호로 SMS 링크 전송' },
+                  { step: '3', color: 'bg-emerald-500',           label: '고객',    text: '링크 접속 → 계약서 확인 → 조항 체크박스 동의' },
+                  { step: '4', color: 'bg-violet-500',            label: '고객',    text: 'OTP 인증 — 휴대폰 번호 입력 → 인증번호 수신 → 입력' },
+                  { step: '5', color: 'bg-orange-500',            label: '관리자',  text: 'Slack 알림 수신 → 최종 확인 클릭 → 계약 완료' },
+                ].map(({ step, color, label, text }) => (
+                  <div key={step} className="flex items-start gap-3">
+                    <div className={`w-6 h-6 rounded-full ${color} text-white text-[11px] font-bold flex items-center justify-center shrink-0 mt-0.5`}>
+                      {step}
+                    </div>
+                    <div className="flex-1">
+                      <span className="text-[10px] font-bold text-text-tertiary uppercase mr-1.5">{label}</span>
+                      <span className="text-xs text-text-primary">{text}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* 관리자 사용법 */}
+            <div className="bg-surface border border-border-subtle rounded-xl p-4">
+              <p className="text-xs font-bold text-text-primary mb-3">관리자 사용법</p>
+              <div className="space-y-3">
+                {[
+                  {
+                    icon: '📋',
+                    title: '1. 계약서 작성',
+                    desc: '사이드바 → 영업관리 → 온라인 계약서 → "새 계약서 작성" 버튼\n고객을 선택하면 상호·사업자번호·대표자·주소·연락처·이메일이 자동 채워집니다.\n서비스 플랜(3/6/12개 순환식), 방문 옵션(월 1~3회), 금액을 입력합니다.',
+                  },
+                  {
+                    icon: '📨',
+                    title: '2. 서명 요청 발송',
+                    desc: '계약서 상세 화면에서 "서명 요청 발송" 버튼 클릭\n고객 전화번호로 서명 링크 SMS가 발송됩니다. (링크 유효기간 7일)\n상태가 "서명 대기"로 변경됩니다.',
+                  },
+                  {
+                    icon: '✅',
+                    title: '3. 최종 확인',
+                    desc: '고객이 서명 완료 시 Slack으로 알림이 옵니다.\n계약서 상세 화면에서 "최종 확인 완료" 버튼을 클릭하면 계약이 성립됩니다.\n고객에게 계약 완료 SMS가 자동 발송됩니다.',
+                  },
+                ].map(({ icon, title, desc }) => (
+                  <div key={title} className="flex items-start gap-3">
+                    <div className="w-9 h-9 rounded-xl bg-brand-50 flex items-center justify-center text-lg shrink-0">
+                      {icon}
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-xs font-bold text-text-primary mb-0.5">{title}</p>
+                      <p className="text-[11px] text-text-secondary leading-relaxed whitespace-pre-line">{desc}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* 고객 서명 방법 */}
+            <div className="bg-surface border border-border-subtle rounded-xl p-4">
+              <p className="text-xs font-bold text-text-primary mb-3">고객 서명 방법 (고객 화면)</p>
+              <div className="space-y-3">
+                {[
+                  {
+                    icon: '🔗',
+                    title: 'SMS 링크 클릭',
+                    desc: '로그인 없이 바로 계약서 화면이 열립니다.',
+                  },
+                  {
+                    icon: '📄',
+                    title: '계약서 내용 확인',
+                    desc: '전체 계약서를 스크롤해서 읽습니다.\n제8조(서비스 제공 장소 동의), 제14조(개인정보 보호 동의) 포함 체크박스 3개를 모두 체크해야 "서명하기" 버튼이 활성화됩니다.',
+                  },
+                  {
+                    icon: '📱',
+                    title: 'SMS OTP 인증',
+                    desc: '"서명하기" 버튼 → 본인 휴대폰 번호 입력 → "인증번호 발송"\n6자리 인증번호를 입력하면 서명이 완료됩니다.\n타임스탬프와 IP가 자동 기록됩니다.',
+                  },
+                ].map(({ icon, title, desc }) => (
+                  <div key={title} className="flex items-start gap-3">
+                    <div className="w-9 h-9 rounded-xl bg-emerald-50 flex items-center justify-center text-lg shrink-0">
+                      {icon}
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-xs font-bold text-text-primary mb-0.5">{title}</p>
+                      <p className="text-[11px] text-text-secondary leading-relaxed whitespace-pre-line">{desc}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* 상태 안내 */}
+            <div className="bg-surface border border-border-subtle rounded-xl p-4">
+              <p className="text-xs font-bold text-text-primary mb-3">계약서 상태 안내</p>
+              <div className="space-y-2">
+                {[
+                  { status: '작성 중',      color: 'bg-surface-sunken text-text-secondary', desc: '계약서 작성 완료 전 (서명 요청 전)' },
+                  { status: '서명 대기',    color: 'bg-sky-100 text-sky-700',              desc: '고객에게 SMS 발송 완료, 고객 서명 대기 중' },
+                  { status: '고객 서명 완료', color: 'bg-amber-100 text-amber-700',         desc: '고객 OTP 인증 완료, 관리자 최종 확인 필요' },
+                  { status: '계약 완료',    color: 'bg-state-success-bg text-state-success', desc: '관리자 최종 확인 완료, 계약 성립' },
+                ].map(({ status, color, desc }) => (
+                  <div key={status} className="flex items-center gap-3">
+                    <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-full shrink-0 ${color}`}>{status}</span>
+                    <span className="text-[11px] text-text-secondary">{desc}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* 바로가기 버튼 */}
+            <button
+              onClick={() => router.push('/admin/contracts')}
+              className="w-full flex items-center justify-between px-4 py-3 bg-brand-600 hover:bg-brand-700 text-white rounded-xl transition-colors"
+            >
+              <div className="flex items-center gap-2">
+                <span>📝</span>
+                <span className="text-sm font-semibold">계약서 관리 바로가기</span>
+              </div>
+              <span className="text-sm opacity-80">→</span>
+            </button>
+
+          </div>
+        )}
 
       {/* 새 자동화 안내 모달 */}
       {showAddModal && (
