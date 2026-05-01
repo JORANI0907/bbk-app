@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import toast from 'react-hot-toast'
+import { Button } from '@/components/ui'
 
 // ─── 타입 ────────────────────────────────────────────────────────────────────
 
@@ -208,19 +209,10 @@ function WriteModal({ form, submitting, onChange, onSubmit, onClose }: WriteModa
         </div>
 
         <div className="px-6 py-4 border-t border-border-subtle flex gap-2 justify-end">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 text-sm text-text-secondary bg-surface-sunken rounded-lg hover:bg-surface-sunken transition-colors"
-          >
-            취소
-          </button>
-          <button
-            onClick={onSubmit}
-            disabled={submitting}
-            className="px-4 py-2 text-sm text-white bg-brand-600 rounded-lg hover:bg-brand-700 disabled:opacity-50 transition-colors"
-          >
+          <Button variant="secondary" onClick={onClose}>취소</Button>
+          <Button onClick={onSubmit} disabled={submitting}>
             {submitting ? '제출 중...' : '제출'}
-          </button>
+          </Button>
         </div>
       </div>
     </div>
@@ -351,13 +343,9 @@ function DetailPanel({
       {/* 관리자 저장 버튼 */}
       {userRole === 'admin' && (
         <div className="px-6 py-4 border-t border-border-subtle flex justify-end flex-shrink-0">
-          <button
-            onClick={onSave}
-            disabled={saving}
-            className="px-4 py-2 text-sm text-white bg-brand-600 rounded-lg hover:bg-brand-700 disabled:opacity-50 transition-colors"
-          >
+          <Button onClick={onSave} disabled={saving}>
             {saving ? '저장 중...' : '저장'}
-          </button>
+          </Button>
         </div>
       )}
     </>
