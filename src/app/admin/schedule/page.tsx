@@ -8,6 +8,7 @@ import { useModalBackButton } from '@/hooks/useModalBackButton'
 import { MonthNavigator } from '@/components/MonthNavigator'
 import { LoadingSpinner } from '@/components/admin/LoadingSpinner'
 import { MapSelectorModal } from '@/components/MapSelectorModal'
+import { Button } from '@/components/ui'
 
 // ─── 타입 ──────────────────────────────────────────────────────
 
@@ -594,12 +595,12 @@ function DetailPanel({
         {/* 하단 액션 버튼 영역 */}
         <div className="shrink-0 bg-surface border-t border-border-subtle px-5 py-4"
           style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 16px)' }}>
-          <button
+          <Button
             onClick={handleViewPhotos}
-            className="w-full py-3 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 transition-colors bg-brand-600 hover:bg-brand-700 text-white"
+            className="w-full py-3 rounded-xl"
           >
             📷 사진보기 (Google Drive)
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -946,14 +947,14 @@ export default function SchedulePage() {
             </button>
           </div>
           <div className="flex flex-wrap gap-2">
-            <button onClick={handleDuplicateBulk} disabled={bulkSaving}
-              className="text-xs bg-yellow-500 hover:bg-yellow-400 text-white font-semibold px-3 py-1.5 rounded-lg disabled:opacity-50 transition-colors whitespace-nowrap">
+            <Button onClick={handleDuplicateBulk} disabled={bulkSaving} size="sm"
+              className="bg-yellow-500 hover:bg-yellow-400 whitespace-nowrap">
               {bulkSaving ? '처리 중...' : '복제'}
-            </button>
-            <button onClick={handleDeleteBulk} disabled={bulkSaving}
-              className="text-xs bg-red-500 hover:bg-red-400 text-white font-semibold px-3 py-1.5 rounded-lg disabled:opacity-50 transition-colors whitespace-nowrap">
+            </Button>
+            <Button onClick={handleDeleteBulk} disabled={bulkSaving} variant="danger" size="sm"
+              className="bg-red-500 hover:bg-red-400 whitespace-nowrap">
               삭제
-            </button>
+            </Button>
           </div>
         </div>
       )}
@@ -1028,12 +1029,13 @@ export default function SchedulePage() {
 
         {/* 우측 액션 */}
         <div className="ml-auto flex items-center gap-2">
-          <button
+          <Button
+            variant="secondary"
+            size="sm"
             onClick={() => fetchMonthData(selectedMonth)}
-            className="px-3 py-1.5 text-xs text-text-secondary bg-surface border border-border rounded-lg hover:bg-surface-sunken transition-colors"
           >
             새로고침
-          </button>
+          </Button>
 
           {/* 목록/캘린더 토글 */}
           <div className="flex bg-surface-sunken rounded-lg p-0.5">
