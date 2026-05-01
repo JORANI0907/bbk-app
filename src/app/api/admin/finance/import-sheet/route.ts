@@ -36,15 +36,28 @@ function normalizeDate(raw: string | number | undefined): string {
   return s.slice(0, 10)
 }
 
-function parseAmount(raw: string | number | undefined): number {
-  if (raw === undefined || raw === null || raw === '') return 0
-  if (typeof raw === 'number') return Math.abs(raw)
-  // '$1.33' 같은 해외 통화 제거 후 파싱
-  const cleaned = String(raw).replace(/[^0-9.-]/g, '')
-  return Math.abs(parseFloat(cleaned) || 0)
+// USD → KRW 실시간 환율 (open.er-api.com, 무료/무키)
+async function getUsdRate(): Promise<number> {
+  try {
+    const res = await fetch('https://open.er-api.com/v6/latest/USD', { next: { revalidate: 3600 } })
+    const data = await res.json()
+    return typeof data?.rates?.KRW === 'number' ? data.rates.KRW : 1400
+  } catch {
+    return 1400 // 환율 API 실패 시 fallback
+  }
 }
 
-function parseWorkbook(buffer: ArrayBuffer, fileName: string): RawRow[] {
+function parseAmount(raw: string | number | undefined, usdRate = 1400): number {
+  if (raw === undefined || raw === null || raw === '') return 0
+  if (typeof raw === 'number') return Math.abs(raw)
+  const s = String(raw).trim()
+  const isDollar = s.startsWith('$')
+  const cleaned = s.replace(/[^0-9.-]/g, '')
+  const value = Math.abs(parseFloat(cleaned) || 0)
+  return isDollar ? Math.round(value * usdRate) : value
+}
+
+function parseWorkbook(buffer: ArrayBuffer, fileName: string, usdRate: number): RawRow[] {
   const workbook = XLSX.read(buffer, { type: 'array', cellDates: false })
 
   // 형식 1: 일시불+할부_카드이용내역조회 (xlsx)
@@ -60,7 +73,7 @@ function parseWorkbook(buffer: ArrayBuffer, fileName: string): RawRow[] {
         .map(r => ({
           date: normalizeDate(r['승인일자'] as string | number | undefined),
           merchant: String(r['가맹점명'] ?? '').trim(),
-          amount: parseAmount(r['승인금액(원)'] as string | number | undefined),
+          amount: parseAmount(r['승인금액(원)'] as string | number | undefined, usdRate),
           industry: '',
         }))
         .filter(r => r.merchant && r.amount > 0)
@@ -76,11 +89,10 @@ function parseWorkbook(buffer: ArrayBuffer, fileName: string): RawRow[] {
     if (rows.length > 0 && '상태' in rows[0]) {
       return rows
         .filter(r => String(r['상태'] ?? '').trim() === '정상')
-        .filter(r => String(r['승인구분'] ?? '').trim() !== '해외') // 해외 결제 제외
         .map(r => ({
           date: normalizeDate(r['승인일'] as string | number | undefined),
           merchant: String(r['가맹점명'] ?? '').trim(),
-          amount: parseAmount(r['승인금액'] as string | number | undefined),
+          amount: parseAmount(r['승인금액'] as string | number | undefined, usdRate),
           industry: String(r['업종명'] ?? '').trim(),
         }))
         .filter(r => r.merchant && r.amount > 0)
@@ -147,8 +159,11 @@ export async function POST(request: NextRequest) {
     if (!file) return NextResponse.json({ error: '파일이 없습니다.' }, { status: 400 })
     if (!month) return NextResponse.json({ error: 'month가 필요합니다.' }, { status: 400 })
 
-    const buffer = await file.arrayBuffer()
-    const rawRows = parseWorkbook(buffer, file.name)
+    const [buffer, usdRate] = await Promise.all([
+      file.arrayBuffer(),
+      getUsdRate(),
+    ])
+    const rawRows = parseWorkbook(buffer, file.name, usdRate)
 
     if (rawRows.length === 0) return NextResponse.json({ error: '분석할 데이터가 없습니다.' }, { status: 400 })
 
@@ -163,7 +178,7 @@ export async function POST(request: NextRequest) {
       include: true,
     }))
 
-    return NextResponse.json({ rows: parsedRows, total: rawRows.length })
+    return NextResponse.json({ rows: parsedRows, total: rawRows.length, usdRate })
   } catch (e) {
     const msg = e instanceof Error ? e.message : '파싱 실패'
     return NextResponse.json({ error: msg }, { status: 400 })
