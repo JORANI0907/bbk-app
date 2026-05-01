@@ -5,6 +5,7 @@ import { Attendance } from '@/types/database'
 import { format } from 'date-fns'
 import { ko } from 'date-fns/locale'
 import toast from 'react-hot-toast'
+import { Button } from '@/components/ui'
 
 type Step = 'idle' | 'confirm_clock_in' | 'confirm_clock_out'
 
@@ -289,20 +290,23 @@ function ConfirmCard({
         {sub && <p className="text-xs text-text-tertiary mt-0.5">{sub}</p>}
       </div>
       <div className="flex gap-2">
-        <button
+        <Button
           onClick={onConfirm}
           disabled={isSubmitting}
-          className={`flex-1 py-2.5 text-sm font-bold rounded-xl disabled:opacity-60 ${confirmClass}`}
+          isLoading={isSubmitting}
+          variant="primary"
+          className={`flex-1 py-2.5 text-sm font-bold rounded-xl ${confirmClass}`}
         >
           {isSubmitting ? '처리 중...' : confirmLabel}
-        </button>
-        <button
+        </Button>
+        <Button
           onClick={onCancel}
           disabled={isSubmitting}
-          className="flex-1 py-2.5 bg-surface border border-border text-text-secondary text-sm font-semibold rounded-xl"
+          variant="secondary"
+          className="flex-1 py-2.5 text-sm font-semibold rounded-xl"
         >
           취소
-        </button>
+        </Button>
       </div>
     </div>
   )
@@ -353,28 +357,35 @@ function RecordRow({
           <span className="text-xs text-state-success font-medium">완료</span>
         ) : isConfirming ? (
           <div className="flex gap-1">
-            <button
+            <Button
               onClick={onConfirm}
               disabled={isSubmitting}
-              className="px-3 py-1.5 bg-gray-800 text-white text-xs font-bold rounded-lg disabled:opacity-60"
+              isLoading={isSubmitting}
+              variant="primary"
+              size="sm"
+              className="bg-gray-800 hover:bg-gray-900 text-xs font-bold rounded-lg"
             >
               {isSubmitting ? '...' : '확정'}
-            </button>
-            <button
+            </Button>
+            <Button
               onClick={onCancel}
               disabled={isSubmitting}
-              className="px-3 py-1.5 bg-surface-sunken text-text-secondary text-xs font-semibold rounded-lg"
+              variant="secondary"
+              size="sm"
+              className="text-xs font-semibold rounded-lg"
             >
               취소
-            </button>
+            </Button>
           </div>
         ) : (
-          <button
+          <Button
             onClick={onClockOut}
-            className="px-3 py-1.5 bg-gray-800 text-white text-xs font-bold rounded-lg"
+            variant="primary"
+            size="sm"
+            className="bg-gray-800 hover:bg-gray-900 text-xs font-bold rounded-lg"
           >
             퇴근
-          </button>
+          </Button>
         )}
       </div>
     </div>
