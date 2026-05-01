@@ -19,6 +19,7 @@ import { LoadingSpinner } from '@/components/admin/LoadingSpinner'
 import { MapSelectorModal } from '@/components/MapSelectorModal'
 import { ShoppingItemsSection } from '@/components/admin/ShoppingItemsSection'
 import { getScheduleToday } from '@/lib/schedule-today'
+import { Button } from '@/components/ui'
 
 type ServiceType = '1회성케어' | '정기딥케어' | '정기엔드케어'
 type ApplicationStatus = '신규' | '견적발송' | '예약확정' | '예약1일전' | '예약당일' | '작업완료' | '작업완료(엔드)' | '결제' | '결제완료' | '결제완료(잔금)' | '계산서발행완료' | '비과세' | '카드결제 완료' | '예약금환급완료' | '예약금 입금' | '예약취소' | 'A/S방문' | '방문견적'
@@ -1277,7 +1278,7 @@ export default function ServiceManagementPage() {
                 <p className="text-sm text-orange-600 mt-0.5">담당자가 배정되지 않은 일정입니다. 클릭하여 담당자를 지정하세요.</p>
               )}
             </div>
-            <button onClick={fetchAll} className="px-3 py-1.5 text-sm bg-surface border border-border rounded-lg hover:bg-surface-sunken">새로고침</button>
+            <Button variant="secondary" size="sm" onClick={fetchAll}>새로고침</Button>
           </div>
           <div className="flex items-center gap-2 mb-3 flex-wrap">
             {SERVICE_TYPES.map(t => {
@@ -1410,22 +1411,18 @@ export default function ServiceManagementPage() {
                 </button>
               </div>
               <div className="flex flex-wrap gap-2">
-                <button onClick={handleDuplicateBulk} disabled={bulkSaving}
-                  className="text-xs bg-yellow-500 hover:bg-yellow-400 text-white font-semibold px-3 py-1.5 rounded-lg disabled:opacity-50 transition-colors whitespace-nowrap">
+                <Button size="sm" onClick={handleDuplicateBulk} disabled={bulkSaving} className="bg-yellow-500 hover:bg-yellow-400 text-white whitespace-nowrap">
                   {bulkSaving ? '처리 중...' : '복제'}
-                </button>
-                <button onClick={handleDeleteApplicationBulk} disabled={bulkSaving}
-                  className="text-xs bg-red-500 hover:bg-red-400 text-white font-semibold px-3 py-1.5 rounded-lg disabled:opacity-50 transition-colors whitespace-nowrap">
+                </Button>
+                <Button variant="danger" size="sm" onClick={handleDeleteApplicationBulk} disabled={bulkSaving} className="whitespace-nowrap">
                   삭제
-                </button>
-                <button onClick={handleTaxInvoiceBulk} disabled={bulkSaving}
-                  className="text-xs bg-teal-500 hover:bg-teal-400 text-white font-semibold px-3 py-1.5 rounded-lg disabled:opacity-50 transition-colors whitespace-nowrap">
+                </Button>
+                <Button size="sm" onClick={handleTaxInvoiceBulk} disabled={bulkSaving} className="bg-teal-500 hover:bg-teal-400 text-white whitespace-nowrap">
                   {bulkSaving ? '처리 중...' : '계산서 작성'}
-                </button>
-                <button onClick={handleSaveToCustomerBulk} disabled={bulkSaving}
-                  className="text-xs bg-surface text-green-700 font-semibold px-3 py-1.5 rounded-lg hover:bg-green-50 disabled:opacity-50 transition-colors whitespace-nowrap">
+                </Button>
+                <Button size="sm" onClick={handleSaveToCustomerBulk} disabled={bulkSaving} className="bg-surface text-green-700 hover:bg-green-50 whitespace-nowrap">
                   {bulkSaving ? '처리 중...' : '고객 DB 저장 →'}
-                </button>
+                </Button>
               </div>
             </div>
           )}
@@ -1926,10 +1923,9 @@ export default function ServiceManagementPage() {
                     <option value="">알림 유형 선택...</option>
                     {NOTIFICATION_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
                   </select>
-                  <button onClick={handleNotify} disabled={sending || !notifyType}
-                    className="px-4 py-2 bg-orange-500 text-white text-sm font-semibold rounded-lg hover:bg-orange-600 disabled:opacity-50 transition-colors whitespace-nowrap">
+                  <Button onClick={handleNotify} disabled={sending || !notifyType} className="bg-orange-500 hover:bg-orange-600 text-white whitespace-nowrap">
                     {sending ? '발송 중...' : '📣 발송'}
-                  </button>
+                  </Button>
                 </div>
                 {notifyType && (() => {
                   const isWorker = notifyType === '작업자 일정 안내'
@@ -2003,21 +1999,18 @@ export default function ServiceManagementPage() {
                     <div className="bg-green-50 border border-green-200 rounded-lg p-3 space-y-2">
                       <p className="text-xs text-green-800 font-medium">📂 <span className="font-bold">{savedDriveFolder?.name}</span> 에 생성할까요?</p>
                       <div className="flex gap-2">
-                        <button onClick={executeDriveCreateWithSaved} disabled={driveCreating}
-                          className="flex-1 py-2 bg-green-600 text-white text-xs font-semibold rounded-lg hover:bg-green-700 disabled:opacity-60 transition-colors">
+                        <Button size="sm" onClick={executeDriveCreateWithSaved} disabled={driveCreating} className="flex-1 bg-green-600 hover:bg-green-700 text-white">
                           이 위치에 생성
-                        </button>
-                        <button onClick={executeDriveCreateWithPicker} disabled={driveCreating}
-                          className="flex-1 py-2 bg-surface text-green-700 border border-green-300 text-xs font-semibold rounded-lg hover:bg-green-50 disabled:opacity-60 transition-colors">
+                        </Button>
+                        <Button variant="secondary" size="sm" onClick={executeDriveCreateWithPicker} disabled={driveCreating} className="flex-1 text-green-700 border border-green-300 hover:bg-green-50">
                           위치 변경
-                        </button>
+                        </Button>
                       </div>
                     </div>
                   ) : (
-                    <button onClick={handleDriveCreate} disabled={driveCreating}
-                      className="w-full py-2.5 bg-green-600 text-white text-sm font-semibold rounded-lg hover:bg-green-700 disabled:opacity-60 transition-colors flex items-center justify-center gap-2">
+                    <Button onClick={handleDriveCreate} disabled={driveCreating} className="w-full bg-green-600 hover:bg-green-700 text-white">
                       <span>📁</span><span>{driveCreating ? '생성 중...' : (selected?.drive_folder_url ? '폴더 위치 변경' : '폴더 생성')}</span>
-                    </button>
+                    </Button>
                   )}
                   <button
                     onClick={() => {
@@ -2054,11 +2047,10 @@ export default function ServiceManagementPage() {
                       </div>
                     ) : null
                   })()}
-                  <button onClick={handleSendQuote} disabled={quoteSending}
-                    className="w-full py-2.5 bg-brand-600 text-white text-sm font-semibold rounded-lg hover:bg-brand-700 disabled:opacity-50 transition-colors flex items-center justify-center gap-2">
+                  <Button onClick={handleSendQuote} disabled={quoteSending} className="w-full">
                     <span>📄</span>
                     <span>{quoteSending ? '발송 중...' : '견적서 보내기'}</span>
-                  </button>
+                  </Button>
                   {quoteLog && (
                     <div className="space-y-1">
                       <div className="text-xs text-text-secondary px-1">
@@ -2076,10 +2068,9 @@ export default function ServiceManagementPage() {
               </Section>
 
               {/* 전체 저장 */}
-              <button onClick={handleSave} disabled={saving}
-                className="w-full py-3 bg-brand-600 text-white text-sm font-semibold rounded-lg hover:bg-brand-700 disabled:opacity-60 transition-colors">
+              <Button onClick={handleSave} disabled={saving} size="lg" className="w-full">
                 {saving ? '저장 중...' : '💾 전체 저장'}
-              </button>
+              </Button>
             </div>
           </div>
           </>
