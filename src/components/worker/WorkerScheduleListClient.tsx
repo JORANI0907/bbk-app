@@ -7,6 +7,7 @@ import { ServiceSchedule } from '@/types/database'
 import { ScheduleCard } from '@/components/worker/ScheduleCard'
 import { DriveUploadButton } from '@/components/worker/DriveUploadButton'
 import toast from 'react-hot-toast'
+import { Button } from '@/components/ui'
 
 interface Props {
   schedules: ServiceSchedule[]
@@ -124,13 +125,15 @@ export function WorkerScheduleListClient({ schedules: initial }: Props) {
 
               {/* 작업 시작 */}
               {!isDone && !isInProgress && (
-                <button
+                <Button
                   onClick={() => handleStart(schedule.id)}
                   disabled={isLoading}
-                  className="flex-1 py-2.5 bg-brand-600 text-white text-sm font-bold rounded-xl disabled:opacity-60 active:scale-[0.98] transition-transform"
+                  isLoading={isLoading}
+                  variant="primary"
+                  className="flex-1 py-2.5 text-sm font-bold rounded-xl active:scale-[0.98]"
                 >
                   {isLoading ? '처리 중...' : '▶ 작업 시작'}
-                </button>
+                </Button>
               )}
 
               {/* 작업 중 — 계속하기 + 종료 */}
@@ -142,13 +145,15 @@ export function WorkerScheduleListClient({ schedules: initial }: Props) {
                   >
                     ↩ 작업 계속
                   </Link>
-                  <button
+                  <Button
                     onClick={() => handleEnd(schedule.id)}
                     disabled={isLoading}
-                    className="flex-1 py-2.5 bg-green-600 text-white text-sm font-bold rounded-xl disabled:opacity-60 active:scale-[0.98] transition-transform"
+                    isLoading={isLoading}
+                    variant="primary"
+                    className="flex-1 py-2.5 text-sm font-bold rounded-xl active:scale-[0.98] bg-green-600 hover:bg-green-700"
                   >
                     {isLoading ? '처리 중...' : '■ 작업 종료'}
-                  </button>
+                  </Button>
                 </>
               )}
 
