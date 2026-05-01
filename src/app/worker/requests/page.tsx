@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import toast from 'react-hot-toast'
+import { Button } from '@/components/ui'
 
 interface MyRequest {
   id: string
@@ -190,10 +191,15 @@ export default function WorkerRequestsPage() {
                   onChange={e => setForm(f => ({ ...f, content: e.target.value }))}
                   className="w-full border border-border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none" />
               </div>
-              <button onClick={handleSubmit} disabled={submitting}
-                className="w-full py-3 text-sm font-semibold text-white bg-brand-600 rounded-xl hover:bg-brand-700 disabled:opacity-50 transition-colors">
+              <Button
+                onClick={handleSubmit}
+                disabled={submitting}
+                isLoading={submitting}
+                variant="primary"
+                className="w-full py-3 text-sm font-semibold rounded-xl"
+              >
                 {submitting ? '제출 중...' : '요청 보내기'}
-              </button>
+              </Button>
             </div>
           </div>
         </div>
