@@ -111,10 +111,12 @@ function ManagerCard({
   entry,
   month,
   onUpdated,
+  onRefresh,
 }: {
   entry: ManagerEntry
   month: string
   onUpdated: (record: PayrollRecord) => void
+  onRefresh: () => void
 }) {
   const [expanded, setExpanded] = useState(false)
   const [finalInput, setFinalInput] = useState(entry.record?.final_amount?.toString() ?? '')
@@ -199,6 +201,7 @@ function ManagerCard({
         delete next[job.id]
         return next
       })
+      onRefresh()
     } catch (err) {
       toast.error(err instanceof Error ? err.message : '저장 실패')
     } finally {
@@ -355,10 +358,12 @@ function WorkerCard({
   entry,
   month,
   onUpdated,
+  onRefresh,
 }: {
   entry: WorkerEntry
   month: string
   onUpdated: (record: PayrollRecord) => void
+  onRefresh: () => void
 }) {
   const [expanded, setExpanded] = useState(false)
   const [finalInput, setFinalInput] = useState(entry.record?.final_amount?.toString() ?? '')
@@ -442,6 +447,7 @@ function WorkerCard({
         delete next[job.id]
         return next
       })
+      onRefresh()
     } catch (err) {
       toast.error(err instanceof Error ? err.message : '저장 실패')
     } finally {
@@ -881,6 +887,7 @@ export default function PayrollPage() {
                           entry={entry}
                           month={month}
                           onUpdated={handleManagerRecordUpdated}
+                          onRefresh={fetchData}
                         />
                       ))}
                     </div>
@@ -907,6 +914,7 @@ export default function PayrollPage() {
                           entry={entry}
                           month={month}
                           onUpdated={handleWorkerRecordUpdated}
+                          onRefresh={fetchData}
                         />
                       ))}
                     </div>
