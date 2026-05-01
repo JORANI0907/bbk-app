@@ -89,48 +89,65 @@ function AddItemForm({ onAdd }: { onAdd: (name: string, amount: string, note: st
 
 // ─── RecordRow ────────────────────────────────────────────────────────────────
 
-function RecordRow({ record, onDelete, onUpdate }: {
+function RecordRow({ record, isSelected, onToggle, isEditing, onSave, onCancelEdit }: {
   record: FinanceRecord
-  onDelete: (id: string) => void
-  onUpdate: (id: string, name: string, amount: string, note: string) => Promise<void>
+  isSelected: boolean
+  onToggle: (id: string) => void
+  isEditing: boolean
+  onSave: (id: string, name: string, amount: string, note: string) => Promise<void>
+  onCancelEdit: () => void
 }) {
-  const [editing, setEditing] = useState(false)
   const [name, setName] = useState(record.name)
   const [amount, setAmount] = useState(String(record.amount))
   const [note, setNote] = useState(record.note ?? '')
   const [saving, setSaving] = useState(false)
 
+  // 편집 모드 진입 시 최신 값으로 초기화
+  useEffect(() => {
+    if (isEditing) {
+      setName(record.name)
+      setAmount(String(record.amount))
+      setNote(record.note ?? '')
+    }
+  }, [isEditing, record.name, record.amount, record.note])
+
   const handleSave = async () => {
     setSaving(true)
-    await onUpdate(record.id, name, amount, note)
+    await onSave(record.id, name, amount, note)
     setSaving(false)
-    setEditing(false)
   }
 
-  if (editing) {
+  if (isEditing) {
     return (
-      <div className="flex gap-2 items-center py-2 border-b border-border-subtle last:border-0">
+      <div className="flex gap-2 items-center py-2 border-b border-border-subtle last:border-0 bg-brand-50 px-2 -mx-2 rounded-lg">
         <input value={name} onChange={e => setName(e.target.value)}
-          className="flex-1 border border-blue-300 rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500" />
+          className="flex-1 border border-brand-300 rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-brand-500" />
         <input type="number" value={amount} onChange={e => setAmount(e.target.value)}
-          className="w-28 border border-blue-300 rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500" />
+          className="w-24 border border-brand-300 rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-brand-500" />
         <input value={note} onChange={e => setNote(e.target.value)}
-          className="w-24 border border-blue-300 rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500" />
+          placeholder="메모"
+          className="w-20 border border-brand-300 rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-brand-500" />
         <Button onClick={handleSave} disabled={saving} size="sm">저장</Button>
-        <Button variant="ghost" onClick={() => setEditing(false)} size="sm">취소</Button>
+        <Button variant="ghost" onClick={onCancelEdit} size="sm">취소</Button>
       </div>
     )
   }
 
   return (
-    <div className="flex items-center gap-2 py-2 border-b border-border-subtle last:border-0 group">
+    <div
+      className={`flex items-center gap-2 py-2 border-b border-border-subtle last:border-0 cursor-pointer transition-colors ${isSelected ? 'bg-brand-50' : 'hover:bg-surface-sunken'}`}
+      onClick={() => onToggle(record.id)}
+    >
+      <input
+        type="checkbox"
+        checked={isSelected}
+        onChange={() => onToggle(record.id)}
+        onClick={e => e.stopPropagation()}
+        className="rounded flex-shrink-0 accent-brand-600"
+      />
       <span className="flex-1 text-sm text-text-primary">{record.name}</span>
       {record.note && <span className="text-xs text-text-tertiary truncate max-w-[80px]">{record.note}</span>}
       <span className="text-sm font-semibold text-text-primary font-mono whitespace-nowrap">{fmt(record.amount)}원</span>
-      <button onClick={() => setEditing(true)}
-        className="text-xs text-text-tertiary hover:text-brand-500 opacity-0 group-hover:opacity-100 transition-opacity">✏️</button>
-      <button onClick={() => onDelete(record.id)}
-        className="text-xs text-text-tertiary hover:text-state-danger opacity-0 group-hover:opacity-100 transition-opacity">✕</button>
     </div>
   )
 }
@@ -149,6 +166,8 @@ export default function FinancePage() {
   const [selectedTypes, setSelectedTypes] = useState<string[]>([])
   const [purchaseSortDir, setPurchaseSortDir] = useState<'asc' | 'desc'>('asc')
   const [showImportModal, setShowImportModal] = useState(false)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [editingId, setEditingId] = useState<string | null>(null)
 
   const displayMonth = (() => {
     const [y, m] = month.split('-')
@@ -157,6 +176,8 @@ export default function FinancePage() {
 
   const fetchData = useCallback(async () => {
     setLoading(true)
+    setSelectedIds(new Set())
+    setEditingId(null)
     try {
       const res = await fetch(`/api/admin/finance?month=${month}`)
       const json = await res.json()
@@ -198,14 +219,29 @@ export default function FinancePage() {
     }
   }
 
-  const handleDeleteRecord = async (id: string) => {
+  const toggleSelect = (id: string) =>
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
+
+  const toggleSelectAll = (records: FinanceRecord[], checked: boolean) =>
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      records.forEach(r => checked ? next.add(r.id) : next.delete(r.id))
+      return next
+    })
+
+  const handleBulkDelete = async (ids: string[]) => {
+    if (ids.length === 0) return
+    if (!confirm(`선택한 ${ids.length}건을 삭제하시겠습니까?`)) return
     try {
-      const res = await fetch(`/api/admin/finance?id=${id}`, { method: 'DELETE' })
-      if (!res.ok) throw new Error('삭제 실패')
-      toast.success('삭제되었습니다.')
+      await Promise.all(ids.map(id => fetch(`/api/admin/finance?id=${id}`, { method: 'DELETE' })))
+      toast.success(`${ids.length}건 삭제되었습니다.`)
       await fetchData()
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : '삭제 실패')
+    } catch {
+      toast.error('삭제 중 오류가 발생했습니다.')
     }
   }
 
@@ -486,66 +522,146 @@ export default function FinancePage() {
             </div>
 
             {/* 고정비 */}
-            <div className="bg-surface border border-border-subtle rounded-xl overflow-hidden">
-              <div className="px-4 py-3 bg-indigo-50 border-b border-indigo-100 flex items-center justify-between">
-                <div>
-                  <span className="text-sm font-bold text-indigo-800">고정비</span>
-                  <span className="text-xs text-indigo-400 ml-2">임대료, 보험료 등</span>
+            {(() => {
+              const fixedSelected = data.fixed.records.filter(r => selectedIds.has(r.id))
+              return (
+                <div className="bg-surface border border-border-subtle rounded-xl overflow-hidden">
+                  <div className="px-4 py-3 bg-indigo-50 border-b border-indigo-100 flex items-center justify-between">
+                    <div>
+                      <span className="text-sm font-bold text-indigo-800">고정비</span>
+                      <span className="text-xs text-indigo-400 ml-2">임대료, 보험료 등</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => setPurchaseSortDir(d => d === 'asc' ? 'desc' : 'asc')}
+                        title={purchaseSortDir === 'asc' ? '이름 오름차순' : '이름 내림차순'}
+                        className="text-xs text-indigo-500 hover:text-indigo-700 font-medium flex items-center gap-0.5"
+                      >
+                        이름 {purchaseSortDir === 'asc' ? '↑' : '↓'}
+                      </button>
+                      <span className="text-sm font-bold text-indigo-700 font-mono">{fmt(data.fixed.total)}원</span>
+                    </div>
+                  </div>
+                  {data.fixed.records.length > 0 && (
+                    <div className="px-4 py-2 border-b border-border-subtle flex items-center gap-3 bg-surface-sunken">
+                      <label className="flex items-center gap-1.5 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={data.fixed.records.length > 0 && data.fixed.records.every(r => selectedIds.has(r.id))}
+                          onChange={e => toggleSelectAll(data.fixed.records, e.target.checked)}
+                          className="rounded accent-indigo-600"
+                        />
+                        <span className="text-xs text-text-secondary">전체 선택</span>
+                      </label>
+                      {fixedSelected.length > 0 && (
+                        <>
+                          <span className="text-xs text-indigo-600 font-medium">{fixedSelected.length}건 선택</span>
+                          <div className="ml-auto flex items-center gap-2">
+                            {fixedSelected.length === 1 && (
+                              <Button size="sm" variant="ghost" onClick={() => setEditingId(fixedSelected[0].id)}>
+                                수정
+                              </Button>
+                            )}
+                            <Button
+                              size="sm"
+                              onClick={() => handleBulkDelete(fixedSelected.map(r => r.id))}
+                              className="bg-red-500 hover:bg-red-600 text-white"
+                            >
+                              삭제 ({fixedSelected.length}건)
+                            </Button>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  )}
+                  <div className="px-4 py-2">
+                    {sortRecords(data.fixed.records).map(r => (
+                      <RecordRow key={r.id} record={r}
+                        isSelected={selectedIds.has(r.id)}
+                        onToggle={toggleSelect}
+                        isEditing={editingId === r.id}
+                        onSave={handleUpdateRecord}
+                        onCancelEdit={() => setEditingId(null)} />
+                    ))}
+                    {data.fixed.records.length === 0 && (
+                      <p className="text-xs text-text-tertiary text-center py-3">항목 없음</p>
+                    )}
+                    <AddItemForm onAdd={(name, amount, note) => handleAddRecord('fixed', name, amount, note)} />
+                  </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => setPurchaseSortDir(d => d === 'asc' ? 'desc' : 'asc')}
-                    title={purchaseSortDir === 'asc' ? '이름 오름차순' : '이름 내림차순'}
-                    className="text-xs text-indigo-500 hover:text-indigo-700 font-medium flex items-center gap-0.5"
-                  >
-                    이름 {purchaseSortDir === 'asc' ? '↑' : '↓'}
-                  </button>
-                  <span className="text-sm font-bold text-indigo-700 font-mono">{fmt(data.fixed.total)}원</span>
-                </div>
-              </div>
-              <div className="px-4 py-2">
-                {sortRecords(data.fixed.records).map(r => (
-                  <RecordRow key={r.id} record={r}
-                    onDelete={handleDeleteRecord}
-                    onUpdate={handleUpdateRecord} />
-                ))}
-                {data.fixed.records.length === 0 && (
-                  <p className="text-xs text-text-tertiary text-center py-3">항목 없음</p>
-                )}
-                <AddItemForm onAdd={(name, amount, note) => handleAddRecord('fixed', name, amount, note)} />
-              </div>
-            </div>
+              )
+            })()}
 
             {/* 변동비 */}
-            <div className="bg-surface border border-border-subtle rounded-xl overflow-hidden">
-              <div className="px-4 py-3 bg-purple-50 border-b border-purple-100 flex items-center justify-between">
-                <div>
-                  <span className="text-sm font-bold text-purple-800">변동비</span>
-                  <span className="text-xs text-purple-400 ml-2">소모품, 교통비 등</span>
+            {(() => {
+              const variableSelected = data.variable.records.filter(r => selectedIds.has(r.id))
+              return (
+                <div className="bg-surface border border-border-subtle rounded-xl overflow-hidden">
+                  <div className="px-4 py-3 bg-purple-50 border-b border-purple-100 flex items-center justify-between">
+                    <div>
+                      <span className="text-sm font-bold text-purple-800">변동비</span>
+                      <span className="text-xs text-purple-400 ml-2">소모품, 교통비 등</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => setPurchaseSortDir(d => d === 'asc' ? 'desc' : 'asc')}
+                        title={purchaseSortDir === 'asc' ? '이름 오름차순' : '이름 내림차순'}
+                        className="text-xs text-purple-500 hover:text-purple-700 font-medium flex items-center gap-0.5"
+                      >
+                        이름 {purchaseSortDir === 'asc' ? '↑' : '↓'}
+                      </button>
+                      <span className="text-sm font-bold text-purple-700 font-mono">{fmt(data.variable.total)}원</span>
+                    </div>
+                  </div>
+                  {data.variable.records.length > 0 && (
+                    <div className="px-4 py-2 border-b border-border-subtle flex items-center gap-3 bg-surface-sunken">
+                      <label className="flex items-center gap-1.5 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={data.variable.records.length > 0 && data.variable.records.every(r => selectedIds.has(r.id))}
+                          onChange={e => toggleSelectAll(data.variable.records, e.target.checked)}
+                          className="rounded accent-purple-600"
+                        />
+                        <span className="text-xs text-text-secondary">전체 선택</span>
+                      </label>
+                      {variableSelected.length > 0 && (
+                        <>
+                          <span className="text-xs text-purple-600 font-medium">{variableSelected.length}건 선택</span>
+                          <div className="ml-auto flex items-center gap-2">
+                            {variableSelected.length === 1 && (
+                              <Button size="sm" variant="ghost" onClick={() => setEditingId(variableSelected[0].id)}>
+                                수정
+                              </Button>
+                            )}
+                            <Button
+                              size="sm"
+                              onClick={() => handleBulkDelete(variableSelected.map(r => r.id))}
+                              className="bg-red-500 hover:bg-red-600 text-white"
+                            >
+                              삭제 ({variableSelected.length}건)
+                            </Button>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  )}
+                  <div className="px-4 py-2">
+                    {sortRecords(data.variable.records).map(r => (
+                      <RecordRow key={r.id} record={r}
+                        isSelected={selectedIds.has(r.id)}
+                        onToggle={toggleSelect}
+                        isEditing={editingId === r.id}
+                        onSave={handleUpdateRecord}
+                        onCancelEdit={() => setEditingId(null)} />
+                    ))}
+                    {data.variable.records.length === 0 && (
+                      <p className="text-xs text-text-tertiary text-center py-3">항목 없음</p>
+                    )}
+                    <AddItemForm onAdd={(name, amount, note) => handleAddRecord('variable', name, amount, note)} />
+                  </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => setPurchaseSortDir(d => d === 'asc' ? 'desc' : 'asc')}
-                    title={purchaseSortDir === 'asc' ? '이름 오름차순' : '이름 내림차순'}
-                    className="text-xs text-purple-500 hover:text-purple-700 font-medium flex items-center gap-0.5"
-                  >
-                    이름 {purchaseSortDir === 'asc' ? '↑' : '↓'}
-                  </button>
-                  <span className="text-sm font-bold text-purple-700 font-mono">{fmt(data.variable.total)}원</span>
-                </div>
-              </div>
-              <div className="px-4 py-2">
-                {sortRecords(data.variable.records).map(r => (
-                  <RecordRow key={r.id} record={r}
-                    onDelete={handleDeleteRecord}
-                    onUpdate={handleUpdateRecord} />
-                ))}
-                {data.variable.records.length === 0 && (
-                  <p className="text-xs text-text-tertiary text-center py-3">항목 없음</p>
-                )}
-                <AddItemForm onAdd={(name, amount, note) => handleAddRecord('variable', name, amount, note)} />
-              </div>
-            </div>
+              )
+            })()}
 
           </div>
         )}
