@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import toast from 'react-hot-toast'
+import { Button } from '@/components/ui'
 
 export function PasswordChangeForm() {
   const [open, setOpen] = useState(false)
@@ -50,12 +51,14 @@ export function PasswordChangeForm() {
 
   if (!open) {
     return (
-      <button
+      <Button
         onClick={() => setOpen(true)}
+        variant="ghost"
+        size="sm"
         className="text-sm text-brand-600 font-medium hover:underline"
       >
         비밀번호 변경
-      </button>
+      </Button>
     )
   }
 
@@ -84,19 +87,22 @@ export function PasswordChangeForm() {
         className="w-full px-3 py-2.5 text-sm border border-border rounded-xl bg-surface focus:outline-none focus:ring-2 focus:ring-blue-400"
       />
       <div className="flex gap-2">
-        <button
+        <Button
           onClick={handleSubmit}
           disabled={loading}
-          className="flex-1 py-2.5 text-sm font-semibold text-white bg-brand-600 rounded-xl disabled:opacity-60 active:scale-[0.98] transition-all"
+          isLoading={loading}
+          variant="primary"
+          className="flex-1 py-2.5 text-sm font-semibold rounded-xl active:scale-[0.98]"
         >
           {loading ? '변경 중...' : '변경하기'}
-        </button>
-        <button
+        </Button>
+        <Button
           onClick={reset}
-          className="px-4 py-2.5 text-sm font-medium text-text-secondary bg-surface border border-border rounded-xl active:scale-[0.98] transition-all"
+          variant="secondary"
+          className="px-4 py-2.5 text-sm font-medium rounded-xl active:scale-[0.98]"
         >
           취소
-        </button>
+        </Button>
       </div>
     </div>
   )
