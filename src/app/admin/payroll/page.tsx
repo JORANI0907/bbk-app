@@ -611,34 +611,88 @@ function WorkerCard({
 
 // ─── Unit Price Settings ──────────────────────────────────────────────────────
 
+function getPrevMonth(yearMonth: string): string {
+  const [y, m] = yearMonth.split('-').map(Number)
+  const d = new Date(y, m - 2, 1)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+}
+
 interface CustomerGroup {
   business_name: string
   service_type: string
   applicationIds: string[]
-  unit_price_per_visit: number | null
+  base_unit_price: number | null
+  first_app_id: string
 }
 
-function UnitPriceSettings() {
+function UnitPriceSettings({ month }: { month: string }) {
   const [apps, setApps] = useState<UnitPriceApp[]>([])
+  const [monthlyPrices, setMonthlyPrices] = useState<Map<string, number>>(new Map())
   const [loading, setLoading] = useState(true)
+  const [carryingOver, setCarryingOver] = useState(false)
   const [edits, setEdits] = useState<Record<string, string>>({})
   const [saving, setSaving] = useState<string | null>(null)
   const [search, setSearch] = useState('')
 
-  useEffect(() => {
-    fetch('/api/admin/applications?limit=200')
-      .then(r => r.json())
-      .then(d => {
-        const list: UnitPriceApp[] = (d.applications ?? d.data ?? []).filter(
-          (a: UnitPriceApp) => a.service_type === '정기딥케어' || a.service_type === '정기엔드케어'
-        )
-        setApps(list)
-      })
-      .catch(() => toast.error('데이터 불러오기 실패'))
-      .finally(() => setLoading(false))
-  }, [])
+  const displayMonth = (() => {
+    const [y, m] = month.split('-')
+    return `${y}년 ${Number(m)}월`
+  })()
 
-  // 업체명별로 그룹핑
+  const loadData = useCallback(async () => {
+    setLoading(true)
+    setEdits({})
+    try {
+      const [appsRes, pricesRes] = await Promise.all([
+        fetch('/api/admin/applications?limit=200').then(r => r.json()),
+        fetch(`/api/admin/unit-price-monthly?month=${month}`).then(r => r.json()),
+      ])
+
+      const list: UnitPriceApp[] = (appsRes.applications ?? []).filter(
+        (a: UnitPriceApp) => a.service_type === '정기딥케어' || a.service_type === '정기엔드케어'
+      )
+      setApps(list)
+
+      const priceMap = new Map<string, number>()
+      for (const p of (pricesRes.prices ?? [])) {
+        priceMap.set(p.application_id, p.unit_price)
+      }
+
+      // 이번 달 데이터가 없으면 전달에서 자동 이관
+      if ((pricesRes.prices ?? []).length === 0 && list.length > 0) {
+        const prevMonth = getPrevMonth(month)
+        const prevRes = await fetch(`/api/admin/unit-price-monthly?month=${prevMonth}`).then(r => r.json())
+        if ((prevRes.prices ?? []).length > 0) {
+          setCarryingOver(true)
+          const carryRes = await fetch('/api/admin/unit-price-monthly', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ month, from_month: prevMonth }),
+          }).then(r => r.json())
+
+          if ((carryRes.inserted ?? 0) > 0) {
+            const newPricesRes = await fetch(`/api/admin/unit-price-monthly?month=${month}`).then(r => r.json())
+            for (const p of (newPricesRes.prices ?? [])) {
+              priceMap.set(p.application_id, p.unit_price)
+            }
+            const prevLabel = prevMonth.replace('-', '년 ') + '월'
+            toast.success(`${prevLabel} 단가 자동 이관 완료 (${carryRes.inserted}건)`)
+          }
+          setCarryingOver(false)
+        }
+      }
+
+      setMonthlyPrices(priceMap)
+    } catch {
+      toast.error('데이터 불러오기 실패')
+    } finally {
+      setLoading(false)
+    }
+  }, [month])
+
+  useEffect(() => { loadData() }, [loadData])
+
+  // 업체명별 그룹핑
   const groups: CustomerGroup[] = (() => {
     const map = new Map<string, CustomerGroup>()
     for (const app of apps) {
@@ -650,38 +704,43 @@ function UnitPriceSettings() {
           business_name: app.business_name,
           service_type: app.service_type,
           applicationIds: [app.id],
-          unit_price_per_visit: app.unit_price_per_visit,
+          base_unit_price: app.unit_price_per_visit,
+          first_app_id: app.id,
         })
       }
     }
     return Array.from(map.values())
   })()
 
+  // 그룹의 이번 달 단가 (월별 설정 > 계약 기본단가 순)
+  const getGroupPrice = (group: CustomerGroup): { price: number | null; isMonthly: boolean } => {
+    const monthly = monthlyPrices.get(group.first_app_id)
+    if (monthly !== undefined) return { price: monthly || null, isMonthly: true }
+    return { price: group.base_unit_price, isMonthly: false }
+  }
+
   const handleSave = async (group: CustomerGroup) => {
     const val = edits[group.business_name]
     if (val === undefined) return
     setSaving(group.business_name)
     try {
-      const newPrice = val === '' ? null : Number(val)
-      // 동일 업체의 모든 application에 단가 적용
+      const unitPrice = val === '' ? 0 : Number(val)
       await Promise.all(
-        group.applicationIds.map(id =>
-          fetch('/api/admin/applications', {
+        group.applicationIds.map(appId =>
+          fetch('/api/admin/unit-price-monthly', {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id, unit_price_per_visit: newPrice }),
-          }).then(r => r.json()).then(data => {
-            if (data.error) throw new Error(data.error)
+            body: JSON.stringify({ application_id: appId, year_month: month, unit_price: unitPrice }),
+          }).then(r => r.json()).then(d => {
+            if (d.error) throw new Error(d.error)
           })
         )
       )
-      setApps(prev =>
-        prev.map(a =>
-          group.applicationIds.includes(a.id)
-            ? { ...a, unit_price_per_visit: newPrice }
-            : a
-        )
-      )
+      setMonthlyPrices(prev => {
+        const next = new Map(prev)
+        group.applicationIds.forEach(id => next.set(id, unitPrice))
+        return next
+      })
       setEdits(prev => { const n = { ...prev }; delete n[group.business_name]; return n })
       toast.success('단가 저장됨')
     } catch (err) {
@@ -695,14 +754,23 @@ function UnitPriceSettings() {
     !search || g.business_name.toLowerCase().includes(search.toLowerCase())
   )
 
-  if (loading) {
-    return <div className="text-center py-12 text-sm text-text-tertiary">불러오는 중...</div>
+  if (loading || carryingOver) {
+    return (
+      <div className="text-center py-12 text-sm text-text-tertiary">
+        {carryingOver ? '이전달 단가 이관 중...' : '불러오는 중...'}
+      </div>
+    )
   }
 
   return (
     <div>
       <div className="mb-4 px-1">
-        <p className="text-xs text-text-secondary mb-3">정기딥케어 · 정기엔드케어 계약의 방문당 단가를 설정합니다. (업체별 일괄 적용)</p>
+        <p className="text-xs text-text-secondary mb-1">
+          <span className="font-semibold text-brand-600">{displayMonth}</span> 방문당 단가 설정
+        </p>
+        <p className="text-xs text-text-tertiary mb-3">
+          이전달 단가가 자동 이관됩니다. 변경이 필요한 항목만 수정하세요.
+        </p>
         <input
           type="text"
           value={search}
@@ -722,14 +790,18 @@ function UnitPriceSettings() {
           {filtered.map(group => {
             const editVal = edits[group.business_name]
             const isEditing = editVal !== undefined
+            const { price, isMonthly } = getGroupPrice(group)
             return (
               <div key={group.business_name} className="bg-surface rounded-xl border border-border-subtle shadow-soft p-4">
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold text-text-primary truncate">{group.business_name}</p>
-                    <div className="flex items-center gap-2 mt-0.5">
+                    <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                       <span className="text-xs bg-brand-50 text-brand-600 px-2 py-0.5 rounded-full">{group.service_type}</span>
                       <span className="text-xs text-text-tertiary">{group.applicationIds.length}건</span>
+                      {isMonthly && (
+                        <span className="text-xs bg-orange-50 text-orange-500 px-2 py-0.5 rounded-full">이달 설정</span>
+                      )}
                     </div>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
@@ -759,11 +831,16 @@ function UnitPriceSettings() {
                       </>
                     ) : (
                       <>
-                        <span className={`text-sm font-bold ${group.unit_price_per_visit ? 'text-orange-600' : 'text-text-tertiary'}`}>
-                          {group.unit_price_per_visit ? group.unit_price_per_visit.toLocaleString('ko-KR') + '원' : '미설정'}
-                        </span>
+                        <div className="text-right">
+                          <span className={`text-sm font-bold ${price ? 'text-orange-600' : 'text-text-tertiary'}`}>
+                            {price ? price.toLocaleString('ko-KR') + '원' : '미설정'}
+                          </span>
+                          {!isMonthly && price && (
+                            <p className="text-xs text-text-tertiary">(기본단가)</p>
+                          )}
+                        </div>
                         <button
-                          onClick={() => setEdits(prev => ({ ...prev, [group.business_name]: String(group.unit_price_per_visit ?? '') }))}
+                          onClick={() => setEdits(prev => ({ ...prev, [group.business_name]: String(price ?? '') }))}
                           className="text-xs text-text-tertiary hover:text-brand-600 px-1"
                         >
                           ✏️
@@ -936,7 +1013,7 @@ export default function PayrollPage() {
             )}
           </>
         ) : (
-          <UnitPriceSettings />
+          <UnitPriceSettings month={month} />
         )}
       </div>
     </div>

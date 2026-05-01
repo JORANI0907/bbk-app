@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'month 파라미터가 필요합니다. (YYYY-MM)' }, { status: 400 })
   }
 
-  const [appsRes, assignmentsRes, usersRes, workersRes, recordsRes] = await Promise.all([
+  const [appsRes, assignmentsRes, usersRes, workersRes, recordsRes, monthlyPricesRes] = await Promise.all([
     // 담당자 배정 서비스
     supabase
       .from('service_applications')
@@ -56,6 +56,12 @@ export async function GET(request: NextRequest) {
       .from('payroll_records')
       .select('*')
       .eq('year_month', month),
+
+    // 월별 단가 설정
+    supabase
+      .from('unit_price_monthly')
+      .select('application_id, unit_price')
+      .eq('year_month', month),
   ])
 
   if (appsRes.error) return NextResponse.json({ error: appsRes.error.message }, { status: 500 })
@@ -69,6 +75,11 @@ export async function GET(request: NextRequest) {
   const users = usersRes.data ?? []
   const workers = workersRes.data ?? []
   const records = recordsRes.data ?? []
+
+  // 월별 단가 맵: application_id → unit_price
+  const monthlyPriceMap = new Map<string, number>(
+    (monthlyPricesRes.data ?? []).map(p => [p.application_id, p.unit_price])
+  )
 
   const recordMap = new Map(records.map(r => [`${r.person_type}:${r.person_id}`, r]))
 
@@ -97,8 +108,9 @@ export async function GET(request: NextRequest) {
     }
     const entry = managerMap.get(app.assigned_to)!
 
-    // 건당 급여: manager_pay 우선, 없으면 unit_price_per_visit (서비스 통합관리에서 저장된 값)
-    const payPerJob = (app.manager_pay ?? app.unit_price_per_visit) ?? 0
+    // 건당 급여: manager_pay 수동 > 월별 단가설정 > 계약 기본단가 순으로 적용
+    const monthlyPrice = monthlyPriceMap.get(app.id) ?? null
+    const payPerJob = (app.manager_pay ?? monthlyPrice ?? app.unit_price_per_visit) ?? 0
 
     // resolved_pay를 job에 포함시켜 프론트에서 표시
     entry.jobs.push({ ...app, resolved_pay: payPerJob })
