@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import toast from 'react-hot-toast'
+import { Button } from '@/components/ui'
 
 interface Request {
   id: string
@@ -133,13 +134,9 @@ function WorkerSubmitForm({ onSubmitted }: { onSubmitted: () => void }) {
         className="w-full border border-border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
       />
 
-      <button
-        type="submit"
-        disabled={submitting}
-        className="self-end px-5 py-2 text-sm font-semibold text-white bg-brand-600 rounded-xl hover:bg-brand-700 disabled:opacity-50 transition-colors"
-      >
+      <Button type="submit" disabled={submitting} className="self-end">
         {submitting ? '제출 중...' : '요청 제출'}
-      </button>
+      </Button>
     </form>
   )
 }
@@ -412,14 +409,12 @@ function AdminRequestView() {
             </div>
             {selected.status === 'pending' && (
               <div className="px-6 py-4 border-t border-border-subtle flex gap-2 justify-end">
-                <button onClick={() => handleStatusChange('rejected')} disabled={saving}
-                  className="px-4 py-2 text-sm text-white bg-state-danger rounded-lg hover:opacity-90 disabled:opacity-50">
+                <Button variant="danger" onClick={() => handleStatusChange('rejected')} disabled={saving}>
                   거절
-                </button>
-                <button onClick={() => handleStatusChange('approved')} disabled={saving}
-                  className="px-4 py-2 text-sm text-white bg-brand-600 rounded-lg hover:bg-brand-700 disabled:opacity-50">
+                </Button>
+                <Button onClick={() => handleStatusChange('approved')} disabled={saving}>
                   {saving ? '처리 중...' : '승인'}
-                </button>
+                </Button>
               </div>
             )}
           </div>
