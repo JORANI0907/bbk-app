@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import toast from 'react-hot-toast'
+import { Button } from '@/components/ui'
 import { MonthNavigator } from '@/components/MonthNavigator'
 import {
   loadGoogleAPIs,
@@ -1057,10 +1058,9 @@ function AdminTableView() {
                               placeholder="메모 입력"
                               autoFocus
                             />
-                            <button onClick={() => saveNote(rec.id)} disabled={savingNote}
-                              className="text-xs bg-brand-600 text-white px-2 py-1 rounded-lg hover:bg-brand-700 disabled:opacity-50">
+                            <Button onClick={() => saveNote(rec.id)} disabled={savingNote} size="sm">
                               저장
-                            </button>
+                            </Button>
                             <button onClick={() => setEditingNoteId(null)}
                               className="text-xs text-text-tertiary hover:text-text-secondary">
                               ✕
