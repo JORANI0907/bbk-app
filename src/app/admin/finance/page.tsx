@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import toast from 'react-hot-toast'
+import { Button } from '@/components/ui'
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface RevenueItem {
@@ -78,10 +79,9 @@ function AddItemForm({ onAdd }: { onAdd: (name: string, amount: string, note: st
         placeholder="금액" className="w-28 border border-border rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500" />
       <input value={note} onChange={e => setNote(e.target.value)}
         placeholder="메모" className="w-24 border border-border rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500" />
-      <button onClick={handleSubmit} disabled={adding || !name.trim() || !amount}
-        className="px-3 py-1.5 bg-brand-600 text-white text-xs font-semibold rounded-lg hover:bg-brand-700 disabled:opacity-50 whitespace-nowrap">
+      <Button onClick={handleSubmit} disabled={adding || !name.trim() || !amount} size="sm">
         {adding ? '...' : '+ 추가'}
-      </button>
+      </Button>
     </div>
   )
 }
@@ -115,9 +115,8 @@ function RecordRow({ record, onDelete, onUpdate }: {
           className="w-28 border border-blue-300 rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500" />
         <input value={note} onChange={e => setNote(e.target.value)}
           className="w-24 border border-blue-300 rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500" />
-        <button onClick={handleSave} disabled={saving}
-          className="text-xs bg-brand-600 text-white px-2 py-1 rounded-lg disabled:opacity-50">저장</button>
-        <button onClick={() => setEditing(false)} className="text-xs text-text-tertiary hover:text-text-secondary">취소</button>
+        <Button onClick={handleSave} disabled={saving} size="sm">저장</Button>
+        <Button variant="ghost" onClick={() => setEditing(false)} size="sm">취소</Button>
       </div>
     )
   }
@@ -300,10 +299,9 @@ export default function FinancePage() {
               상세내역
             </button>
           </div>
-          <button onClick={downloadSheet} disabled={!data}
-            className="flex items-center gap-1.5 px-3 py-2 bg-emerald-600 text-white text-xs font-semibold rounded-lg hover:bg-emerald-700 disabled:opacity-50 transition-colors whitespace-nowrap">
+          <Button onClick={downloadSheet} disabled={!data} size="sm" className="bg-emerald-600 hover:bg-emerald-700 whitespace-nowrap">
             📊 시트 만들기
-          </button>
+          </Button>
         </div>
 
         {loading ? (
