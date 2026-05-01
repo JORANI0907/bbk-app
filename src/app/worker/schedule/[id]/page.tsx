@@ -7,6 +7,7 @@ import { WorkStepIndicator } from '@/components/worker/WorkStepIndicator'
 import { PhotoUploader } from '@/components/worker/PhotoUploader'
 import { ChecklistForm } from '@/components/worker/ChecklistForm'
 import toast from 'react-hot-toast'
+import { Button } from '@/components/ui'
 
 const CLOSING_ITEMS = [
   { key: 'garbage_disposal', label: '쓰레기 처리 완료' },
@@ -202,13 +203,15 @@ export default function ScheduleDetailPage() {
                 {schedule.scheduled_time_end.slice(0, 5)} 예정
               </p>
             </div>
-            <button
+            <Button
               onClick={() => updateStep(1)}
               disabled={isSubmitting}
-              className="mt-4 w-full max-w-xs py-4 bg-brand-600 text-white text-lg font-bold rounded-2xl active:scale-[0.98] transition-all disabled:opacity-60"
+              isLoading={isSubmitting}
+              variant="primary"
+              className="mt-4 w-full max-w-xs py-4 text-lg font-bold rounded-2xl active:scale-[0.98]"
             >
               {isSubmitting ? '처리 중...' : '작업 시작'}
-            </button>
+            </Button>
           </div>
         )}
 
@@ -224,13 +227,15 @@ export default function ScheduleDetailPage() {
                 <p className="text-xs text-state-warning font-medium">비밀번호: {schedule.customer.door_password}</p>
               </div>
             )}
-            <button
+            <Button
               onClick={handleArrival}
               disabled={isSubmitting}
-              className="mt-4 w-full max-w-xs py-4 bg-orange-500 text-white text-lg font-bold rounded-2xl active:scale-[0.98] transition-all disabled:opacity-60"
+              isLoading={isSubmitting}
+              variant="primary"
+              className="mt-4 w-full max-w-xs py-4 text-lg font-bold rounded-2xl active:scale-[0.98] bg-orange-500 hover:bg-orange-600"
             >
               {isSubmitting ? '처리 중...' : '도착 확인'}
-            </button>
+            </Button>
           </div>
         )}
 
@@ -311,13 +316,15 @@ export default function ScheduleDetailPage() {
               ))}
             </div>
 
-            <button
+            <Button
               onClick={handleFinalComplete}
               disabled={isSubmitting || !CLOSING_ITEMS.every((i) => closingState[i.key])}
-              className="w-full py-4 bg-green-600 text-white text-lg font-bold rounded-2xl active:scale-[0.98] transition-all disabled:opacity-40"
+              isLoading={isSubmitting}
+              variant="primary"
+              className="w-full py-4 text-lg font-bold rounded-2xl active:scale-[0.98] bg-green-600 hover:bg-green-700"
             >
               {isSubmitting ? '처리 중...' : '작업 완료'}
-            </button>
+            </Button>
           </div>
         )}
       </div>
