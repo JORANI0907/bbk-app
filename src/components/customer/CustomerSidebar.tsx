@@ -8,6 +8,7 @@ const NAV_ITEMS = [
   { href: '/customer', label: '홈', icon: '🏠', exact: true },
   { href: '/customer/schedule', label: '서비스 일정', icon: '📅' },
   { href: '/customer/requests', label: '요청사항', icon: '💬' },
+  { href: '/customer/contracts', label: '계약서', icon: '📝' },
   { href: '/customer/reports', label: '서비스 리포트', icon: '📋' },
   { href: '/customer/mypage', label: '마이페이지', icon: '👤' },
 ]
