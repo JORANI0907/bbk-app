@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { CustomerRequest } from '@/types/database'
+import { Button } from '@/components/ui'
 
 interface Props {
   initialRequests: CustomerRequest[]
@@ -54,13 +55,16 @@ export function RequestForm({ initialRequests }: Props) {
             className="w-full border border-border rounded-xl px-3 py-2.5 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder:text-text-tertiary"
           />
           {error && <p className="text-xs text-state-danger">{error}</p>}
-          <button
+          <Button
             type="submit"
             disabled={submitting || !content.trim()}
-            className="self-end bg-brand-600 text-white text-sm font-medium px-5 py-2 rounded-xl disabled:opacity-40 transition-opacity"
+            isLoading={submitting}
+            variant="primary"
+            size="sm"
+            className="self-end px-5 py-2 rounded-xl font-medium"
           >
             {submitting ? '전송 중...' : '전송'}
-          </button>
+          </Button>
         </form>
       </div>
 
