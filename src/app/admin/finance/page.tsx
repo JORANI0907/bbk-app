@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import toast from 'react-hot-toast'
 import { Button } from '@/components/ui'
+import ImportSheetModal from '@/components/admin/ImportSheetModal'
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface RevenueItem {
@@ -147,6 +148,7 @@ export default function FinancePage() {
   const [data, setData] = useState<FinanceData | null>(null)
   const [selectedTypes, setSelectedTypes] = useState<string[]>([])
   const [purchaseSortDir, setPurchaseSortDir] = useState<'asc' | 'desc'>('asc')
+  const [showImportModal, setShowImportModal] = useState(false)
 
   const displayMonth = (() => {
     const [y, m] = month.split('-')
@@ -276,6 +278,13 @@ export default function FinancePage() {
 
   return (
     <div className="flex flex-col h-full">
+      {showImportModal && (
+        <ImportSheetModal
+          month={month}
+          onClose={() => setShowImportModal(false)}
+          onImported={() => { setShowImportModal(false); fetchData() }}
+        />
+      )}
       <div className="flex-1 overflow-y-auto px-4 pb-6">
         {/* 월 선택기 */}
         <div className="flex items-center justify-between my-4">
@@ -398,6 +407,17 @@ export default function FinancePage() {
 
           /* ── 상세내역 ── */
           <div className="space-y-4">
+
+            {/* 카드내역 불러오기 버튼 */}
+            <div className="flex justify-end">
+              <Button
+                onClick={() => setShowImportModal(true)}
+                size="sm"
+                className="bg-violet-600 hover:bg-violet-700"
+              >
+                📥 카드내역 불러오기
+              </Button>
+            </div>
 
             {/* 매출 섹션 */}
             <div className="bg-surface border border-border-subtle rounded-xl overflow-hidden">
