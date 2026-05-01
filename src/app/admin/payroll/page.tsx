@@ -838,8 +838,18 @@ export default function PayrollPage() {
   return (
     <div className="flex flex-col h-full">
       <div className="flex-1 overflow-y-auto px-4 pb-6">
+        {/* Month selector - 항상 표시 */}
+        <div className="flex items-center justify-between my-4">
+          <button onClick={prevMonth} className="p-2 rounded-lg hover:bg-surface-sunken text-text-secondary transition-colors">‹</button>
+          <div className="text-center">
+            <h2 className="text-base font-bold text-text-primary">{displayMonth}</h2>
+            <p className="text-xs text-text-tertiary">급여 정산</p>
+          </div>
+          <button onClick={nextMonth} className="p-2 rounded-lg hover:bg-surface-sunken text-text-secondary transition-colors">›</button>
+        </div>
+
         {/* Sub-tab selector */}
-        <div className="flex gap-1 bg-surface-sunken rounded-xl p-1 my-4">
+        <div className="flex gap-1 bg-surface-sunken rounded-xl p-1 mb-4">
           <button
             onClick={() => setTab('payroll')}
             className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-colors ${tab === 'payroll' ? 'bg-surface text-text-primary shadow-soft' : 'text-text-secondary'}`}
@@ -856,16 +866,6 @@ export default function PayrollPage() {
 
         {tab === 'payroll' ? (
           <>
-            {/* Month selector */}
-            <div className="flex items-center justify-between mb-4">
-              <button onClick={prevMonth} className="p-2 rounded-lg hover:bg-surface-sunken text-text-secondary transition-colors">‹</button>
-              <div className="text-center">
-                <h2 className="text-base font-bold text-text-primary">{displayMonth}</h2>
-                <p className="text-xs text-text-tertiary">급여 정산</p>
-              </div>
-              <button onClick={nextMonth} className="p-2 rounded-lg hover:bg-surface-sunken text-text-secondary transition-colors">›</button>
-            </div>
-
             {loading ? (
               <div className="text-center py-12">
                 <p className="text-sm text-text-tertiary">불러오는 중...</p>
