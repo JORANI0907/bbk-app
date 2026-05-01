@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import toast from 'react-hot-toast'
+import { Button } from '@/components/ui'
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface ManagerJob {
@@ -253,13 +254,14 @@ function ManagerCard({
         </div>
 
         <div className="flex gap-2">
-          <button
+          <Button
             onClick={handleSave}
             disabled={saving}
-            className="flex-1 py-2 bg-gray-800 text-white text-sm font-semibold rounded-lg hover:bg-gray-700 disabled:opacity-60 transition-colors"
+            variant="secondary"
+            className="flex-1 py-2 bg-gray-800 text-white hover:bg-gray-700"
           >
             {saving ? '저장 중...' : '저장'}
-          </button>
+          </Button>
           <button
             onClick={handleTogglePaid}
             disabled={paying}
@@ -304,13 +306,13 @@ function ManagerCard({
                             placeholder="금액"
                             autoFocus
                           />
-                          <button
+                          <Button
                             onClick={() => handleJobPaySave(job)}
                             disabled={savingJob === job.id}
-                            className="text-xs bg-brand-600 text-white px-2 py-1 rounded hover:bg-brand-700 disabled:opacity-60"
+                            size="sm"
                           >
                             {savingJob === job.id ? '...' : '저장'}
-                          </button>
+                          </Button>
                           <button
                             onClick={() => setJobPayEdits(prev => { const n = { ...prev }; delete n[job.id]; return n })}
                             className="text-xs text-text-tertiary hover:text-text-secondary"
@@ -510,13 +512,14 @@ function WorkerCard({
         </div>
 
         <div className="flex gap-2">
-          <button
+          <Button
             onClick={handleSave}
             disabled={saving}
-            className="flex-1 py-2 bg-gray-800 text-white text-sm font-semibold rounded-lg hover:bg-gray-700 disabled:opacity-60 transition-colors"
+            variant="secondary"
+            className="flex-1 py-2 bg-gray-800 text-white hover:bg-gray-700"
           >
             {saving ? '저장 중...' : '저장'}
-          </button>
+          </Button>
           <button
             onClick={handleTogglePaid}
             disabled={paying}
@@ -557,13 +560,13 @@ function WorkerCard({
                             placeholder="금액"
                             autoFocus
                           />
-                          <button
+                          <Button
                             onClick={() => handleJobSalarySave(job)}
                             disabled={savingJob === job.id}
-                            className="text-xs bg-brand-600 text-white px-2 py-1 rounded hover:bg-brand-700 disabled:opacity-60"
+                            size="sm"
                           >
                             {savingJob === job.id ? '...' : '저장'}
-                          </button>
+                          </Button>
                           <button
                             onClick={() => setJobSalaryEdits(prev => { const n = { ...prev }; delete n[job.id]; return n })}
                             className="text-xs text-text-tertiary hover:text-text-secondary"
@@ -734,13 +737,13 @@ function UnitPriceSettings() {
                           placeholder="금액"
                           autoFocus
                         />
-                        <button
+                        <Button
                           onClick={() => handleSave(group)}
                           disabled={saving === group.business_name}
-                          className="px-3 py-1.5 bg-brand-600 text-white text-xs font-semibold rounded-lg hover:bg-brand-700 disabled:opacity-60"
+                          size="sm"
                         >
                           {saving === group.business_name ? '...' : '저장'}
-                        </button>
+                        </Button>
                         <button
                           onClick={() => setEdits(prev => { const n = { ...prev }; delete n[group.business_name]; return n })}
                           className="text-xs text-text-tertiary hover:text-text-secondary"
