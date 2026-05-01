@@ -150,7 +150,20 @@ function resolveCandidate(
   contact: string | undefined,
 ): { app: AppRow; nameInfo: string } | { app: null; reason: string; detail: string } {
   if (exactMatches.length === 1) {
-    return { app: exactMatches[0], nameInfo: '' }
+    const only = exactMatches[0]
+    // contact가 있으면 이름 최소 검증 — 30점 미만이면 금액 우연 일치로 보고 수동 처리
+    if (contact) {
+      const score = calcMatchScore(contact, only.owner_name ?? '', only.business_name ?? '')
+      if (score < 30) {
+        return {
+          app: null,
+          reason: `금액 일치 1건이지만 입금자명 불일치 (이름유사도 ${score}점)`,
+          detail: `• ${only.business_name} (${only.owner_name}) — 유사도 ${score}점\n• 입금자명: ${contact}`,
+        }
+      }
+      return { app: only, nameInfo: score < 80 ? ` (이름매칭 ${score}점, 확인권장)` : '' }
+    }
+    return { app: only, nameInfo: '' }
   }
 
   if (!contact) {
