@@ -119,6 +119,8 @@ const EMPTY_FORM = {
   billing_amount: '',
   supply_amount: '',
   vat: '',
+  deposit: '',
+  balance: '',
   billing_start_date: '', billing_next_date: '',
   contract_start_date: '', contract_end_date: '',
   unit_price: '',
@@ -396,6 +398,8 @@ export default function AdminCustomersPage() {
     billing_amount: c.billing_amount?.toString() ?? '',
     supply_amount: c.supply_amount?.toString() ?? '',
     vat: c.vat?.toString() ?? '',
+    deposit: c.deposit?.toString() ?? '',
+    balance: c.balance?.toString() ?? '',
     billing_start_date: c.billing_start_date ?? '',
     billing_next_date: c.billing_next_date ?? '',
     contract_start_date: c.contract_start_date ?? '',
@@ -449,6 +453,13 @@ export default function AdminCustomersPage() {
           next.vat = String(Math.round((Number(next.supply_amount) || 0) * 0.1))
         }
       }
+      // 잔금 자동계산: 공급가액+부가세-예약금
+      if (['supply_amount', 'vat', 'deposit', 'payment_method'].includes(key as string)) {
+        const s = Number(next.supply_amount) || 0
+        const vv = isNoVatMethod(next.payment_method) ? 0 : (Number(next.vat) || 0)
+        const d = Number(next.deposit) || 0
+        next.balance = String(Math.max(0, s + vv - d))
+      }
       return next
     })
 
@@ -486,6 +497,8 @@ export default function AdminCustomersPage() {
       const v = isNoVatMethod(form.payment_method) ? 0 : (Number(form.vat) || 0)
       return s > 0 ? s + v : null
     })(),
+    deposit: form.deposit !== '' ? Number(form.deposit) : null,
+    balance: form.balance !== '' ? Number(form.balance) : null,
     billing_start_date: form.billing_start_date || null,
     billing_next_date: form.billing_next_date || null,
     contract_start_date: form.contract_start_date || null,
@@ -812,6 +825,7 @@ export default function AdminCustomersPage() {
   const isRegular = form.customer_type === '정기딥케어' || form.customer_type === '정기엔드케어'
   const isEndCare = form.customer_type === '정기엔드케어'
   const isDipCare = form.customer_type === '정기딥케어'
+  const isOnceCare = form.customer_type === '1회성케어'
   const notifyOptions = form.customer_type ? NOTIFY_TYPES[form.customer_type] : []
 
   return (
@@ -1200,6 +1214,61 @@ export default function AdminCustomersPage() {
                 </div>
               </div>
             </div>
+            )}
+
+            {/* ── 1회성케어 금액정보 — worker 숨김 ── */}
+            {!isWorker && isOnceCare && (
+              <div className="rounded-xl border border-green-200 overflow-hidden">
+                <div className="bg-green-50 px-4 py-2.5 border-b border-green-200">
+                  <p className="text-xs font-semibold text-green-800">금액정보</p>
+                </div>
+                <div className="p-4 flex flex-col gap-3">
+                  {isNoVatMethod(form.payment_method) && (
+                    <div className="px-3 py-2 bg-amber-50 border border-amber-200 rounded-lg">
+                      <p className="text-xs text-amber-700 font-semibold">💵 현금 결제 — 부가세 미적용</p>
+                    </div>
+                  )}
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="text-xs text-text-secondary mb-0.5 block">공급가액</label>
+                      <input type="number" value={form.supply_amount} onChange={e => set('supply_amount')(e.target.value)}
+                        placeholder="0"
+                        className="w-full border border-border rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-green-400 text-text-primary" />
+                    </div>
+                    <div>
+                      <label className="text-xs text-text-secondary mb-0.5 block">
+                        부가세 {isNoVatMethod(form.payment_method) ? <span className="text-text-tertiary">(비적용)</span> : <span className="text-text-tertiary">(자동 10%)</span>}
+                      </label>
+                      <input type="number"
+                        value={isNoVatMethod(form.payment_method) ? '0' : form.vat}
+                        onChange={e => set('vat')(e.target.value)}
+                        disabled={isNoVatMethod(form.payment_method)}
+                        placeholder="0"
+                        className="w-full border border-border rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-green-400 text-text-primary disabled:bg-surface-sunken disabled:text-text-tertiary" />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="text-xs text-text-secondary mb-0.5 block">예약금</label>
+                      <input type="number" value={form.deposit} onChange={e => set('deposit')(e.target.value)}
+                        placeholder="0"
+                        className="w-full border border-border rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-green-400 text-text-primary" />
+                    </div>
+                    <div>
+                      <label className="text-xs text-text-secondary mb-0.5 block">잔금 <span className="text-text-tertiary">(자동계산)</span></label>
+                      <input type="number" value={form.balance} readOnly
+                        placeholder="0"
+                        className="w-full border border-border rounded-lg px-2 py-1.5 text-xs bg-surface-sunken text-text-secondary cursor-default" />
+                    </div>
+                  </div>
+                  <div className="flex justify-between items-center text-xs pt-1 border-t border-border-subtle">
+                    <span className="text-text-secondary">총액 (공급가액 + 부가세)</span>
+                    <span className="font-bold text-text-primary">
+                      {((Number(form.supply_amount) || 0) + (isNoVatMethod(form.payment_method) ? 0 : (Number(form.vat) || 0))).toLocaleString('ko-KR')}원
+                    </span>
+                  </div>
+                </div>
+              </div>
             )}
 
             {/* ── 정기엔드케어 계약 — worker 숨김 ── */}
