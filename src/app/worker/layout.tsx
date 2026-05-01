@@ -10,9 +10,9 @@ export default function WorkerLayout({
     <div className="min-h-screen bg-surface-sunken flex flex-col">
       <header className="sticky top-0 z-40 bg-surface/95 backdrop-blur-sm border-b border-border-subtle safe-area-pt shadow-flat">
         <div className="flex items-center justify-between px-4 h-14">
-          <div className="flex items-center gap-1.5">
-            <span className="text-xl font-black text-brand-600 tracking-tight">BBK</span>
-            <span className="text-[10px] text-text-tertiary font-semibold uppercase tracking-widest">Korea</span>
+          <div className="flex items-center gap-2.5">
+            <img src="/bbk-logo.png" alt="BBK 공간케어" className="w-8 h-8 rounded-lg object-cover" />
+            <span className="text-sm font-bold text-text-primary">BBK 공간케어</span>
           </div>
           <TodayLabel className="text-xs font-medium text-text-secondary bg-surface-sunken px-3 py-1.5 rounded-lg" />
         </div>

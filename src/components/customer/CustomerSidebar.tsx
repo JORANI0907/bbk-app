@@ -38,9 +38,11 @@ export function CustomerSidebar({ userName }: Props) {
     <aside className="hidden md:flex flex-col w-64 h-screen sticky top-0 bg-surface border-r border-border shrink-0">
       {/* 로고 */}
       <div className="flex items-center gap-3 px-6 py-5 border-b border-border-subtle">
-        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-brand-600 to-brand-700 flex items-center justify-center shrink-0 shadow-soft">
-          <span className="text-white font-black text-sm tracking-tighter leading-none">BBK</span>
-        </div>
+        <img
+          src="/bbk-logo.png"
+          alt="BBK 공간케어"
+          className="w-10 h-10 rounded-xl object-cover shrink-0 shadow-soft"
+        />
         <div className="min-w-0">
           <p className="font-bold text-text-primary leading-tight truncate">BBK 공간케어</p>
           <span className="inline-block text-xs font-semibold px-1.5 py-0.5 rounded-full bg-sky-100 text-sky-700 mt-0.5">

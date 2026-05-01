@@ -212,7 +212,7 @@ export function Sidebar({ role, userName, navBadges = {} }: SidebarProps) {
     <aside className="hidden md:flex flex-col w-64 h-screen sticky top-0 bg-surface border-r border-border">
       {/* 로고 */}
       <div className="flex items-center gap-3 px-6 py-5 border-b border-border-subtle">
-        <img src="/bbk-logo.png" alt="BBK 공간케어 로고" className="w-9 h-9 rounded-lg object-cover" />
+        <img src="/bbk-logo.png" alt="BBK 공간케어 로고" className="w-10 h-10 rounded-xl object-cover shadow-soft" />
         <div>
           <p className="font-bold text-text-primary leading-tight">BBK 공간케어</p>
           <span className={`text-xs font-medium px-1.5 py-0.5 rounded-full ${roleBadgeClass}`}>
