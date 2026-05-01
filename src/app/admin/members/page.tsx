@@ -433,20 +433,23 @@ export default function MembersPage() {
                     </div>
                   </div>
                   <div className="flex gap-2">
-                    <button
+                    <Button
+                      size="sm"
                       onClick={() => handleApprove(user)}
                       disabled={approvingId === user.id}
-                      className="px-3 py-1.5 text-xs bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-40 font-medium"
+                      className="bg-green-600 hover:bg-green-700"
                     >
                       {approvingId === user.id ? '처리중...' : '승인'}
-                    </button>
-                    <button
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      size="sm"
                       onClick={() => handleRejectSignup(user)}
                       disabled={deletingId === user.id}
-                      className="px-3 py-1.5 text-xs text-state-danger border border-red-200 rounded-lg hover:bg-state-danger-bg disabled:opacity-40 font-medium"
+                      className="text-state-danger border border-red-200 hover:bg-state-danger-bg"
                     >
                       거절
-                    </button>
+                    </Button>
                   </div>
                 </div>
               </Card>
@@ -735,43 +738,47 @@ export default function MembersPage() {
                 </div>
                 <div className="flex items-center gap-1 shrink-0 flex-wrap justify-end">
                   {(user.role === 'admin' || user.role === 'worker') && (
-                    <button
+                    <Button
+                      size="sm"
                       onClick={() => handleSendAccount(user)}
                       disabled={sendingId === user.id}
-                      className="px-2.5 py-1 text-xs bg-yellow-300 text-yellow-900 hover:bg-yellow-400 rounded-lg font-medium disabled:opacity-40 whitespace-nowrap"
+                      className="bg-yellow-300 text-yellow-900 hover:bg-yellow-400 whitespace-nowrap"
                     >
                       {sendingId === user.id ? '발송 중...' : '계정 발송'}
-                    </button>
+                    </Button>
                   )}
-                  <button
+                  <Button
+                    variant="ghost"
+                    size="sm"
                     onClick={() => handleEdit(user)}
-                    className="px-2.5 py-1 text-xs text-text-secondary hover:bg-surface-sunken rounded-lg"
                   >
                     수정
-                  </button>
-                  <button
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
                     onClick={() => { setPwModal({ id: user.id, name: user.name, hasAuth: !!user.auth_id }); setNewPassword('') }}
-                    className="px-2.5 py-1 text-xs text-brand-500 hover:bg-brand-50 rounded-lg"
+                    className="text-brand-500 hover:bg-brand-50"
                   >
                     {user.auth_id ? 'PW 변경' : 'PW 설정'}
-                  </button>
-                  <button
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
                     onClick={() => handleToggleActive(user)}
-                    className={`px-2.5 py-1 text-xs rounded-lg ${
-                      user.is_active
-                        ? 'text-orange-500 hover:bg-orange-50'
-                        : 'text-state-success hover:bg-state-success-bg'
-                    }`}
+                    className={user.is_active ? 'text-orange-500 hover:bg-orange-50' : 'text-state-success hover:bg-state-success-bg'}
                   >
                     {user.is_active ? '비활성화' : '활성화'}
-                  </button>
-                  <button
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
                     onClick={() => handleDelete(user)}
                     disabled={deletingId === user.id}
-                    className="px-2.5 py-1 text-xs text-state-danger hover:bg-state-danger-bg rounded-lg disabled:opacity-40"
+                    className="text-state-danger hover:bg-state-danger-bg"
                   >
                     삭제
-                  </button>
+                  </Button>
                 </div>
               </div>
             </Card>
