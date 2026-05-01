@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import toast from 'react-hot-toast'
+import { Button } from '@/components/ui'
 
 // ─── 타입 ────────────────────────────────────────────────────────
 
@@ -212,12 +213,9 @@ export default function NoticesPage() {
       {/* 헤더 */}
       <div className="flex items-center justify-between px-4 pt-4 pb-2">
         <h1 className="text-lg font-bold text-text-primary">공지·이벤트관리</h1>
-        <button
-          onClick={openCreate}
-          className="flex items-center gap-1.5 px-4 py-2 bg-brand-600 text-white text-sm font-semibold rounded-xl hover:bg-brand-700 transition-colors"
-        >
+        <Button onClick={openCreate}>
           <span className="text-base leading-none">+</span> 새 글
-        </button>
+        </Button>
       </div>
 
       {/* 탭 */}
@@ -297,19 +295,23 @@ export default function NoticesPage() {
                   </div>
                   {/* 액션 버튼 */}
                   <div className="flex flex-col gap-1 shrink-0" onClick={e => e.stopPropagation()}>
-                    <button
+                    <Button
+                      variant="ghost"
+                      size="sm"
                       onClick={() => openEdit(notice)}
-                      className="px-3 py-1 text-xs font-medium text-brand-600 bg-brand-50 hover:bg-brand-100 rounded-lg transition-colors"
+                      className="text-brand-600 bg-brand-50 hover:bg-brand-100"
                     >
                       수정
-                    </button>
-                    <button
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
                       onClick={() => handleDelete(notice.id)}
                       disabled={deleteId === notice.id}
-                      className="px-3 py-1 text-xs font-medium text-red-500 bg-red-50 hover:bg-red-100 rounded-lg transition-colors disabled:opacity-50"
+                      className="text-red-500 bg-red-50 hover:bg-red-100"
                     >
                       {deleteId === notice.id ? '...' : '삭제'}
-                    </button>
+                    </Button>
                   </div>
                 </div>
 
@@ -511,19 +513,20 @@ export default function NoticesPage() {
 
             {/* 모달 하단 버튼 */}
             <div className="flex gap-2 px-5 pb-5">
-              <button
+              <Button
+                variant="secondary"
                 onClick={() => setShowModal(false)}
-                className="flex-1 py-2.5 rounded-xl border border-border text-sm font-medium text-text-secondary hover:bg-surface-sunken transition-colors"
+                className="flex-1 py-2.5"
               >
                 취소
-              </button>
-              <button
+              </Button>
+              <Button
                 onClick={handleSave}
                 disabled={saving}
-                className="flex-1 py-2.5 rounded-xl bg-brand-600 text-white text-sm font-semibold hover:bg-brand-700 transition-colors disabled:opacity-50"
+                className="flex-1 py-2.5"
               >
                 {saving ? '저장 중...' : editTarget ? '수정 완료' : '등록'}
-              </button>
+              </Button>
             </div>
           </div>
         </div>
