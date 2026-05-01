@@ -863,6 +863,7 @@ function UnitPriceSettings({ month }: { month: string }) {
 export default function PayrollPage() {
   const [month, setMonth] = useState(currentYM)
   const [tab, setTab] = useState<'payroll' | 'unit_price'>('payroll')
+  const [personFilter, setPersonFilter] = useState<'all' | 'manager' | 'worker'>('all')
   const [loading, setLoading] = useState(false)
   const [managers, setManagers] = useState<ManagerEntry[]>([])
   const [workersPayroll, setWorkersPayroll] = useState<WorkerEntry[]>([])
@@ -943,6 +944,23 @@ export default function PayrollPage() {
 
         {tab === 'payroll' ? (
           <>
+            {/* 인원 필터 버튼 */}
+            <div className="flex gap-2 mb-4">
+              {(['all', 'manager', 'worker'] as const).map(f => (
+                <button
+                  key={f}
+                  onClick={() => setPersonFilter(f)}
+                  className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-colors ${
+                    personFilter === f
+                      ? 'bg-brand-600 text-white'
+                      : 'bg-surface-sunken text-text-secondary'
+                  }`}
+                >
+                  {f === 'all' ? '전체' : f === 'manager' ? '담당자' : '작업자'}
+                </button>
+              ))}
+            </div>
+
             {loading ? (
               <div className="text-center py-12">
                 <p className="text-sm text-text-tertiary">불러오는 중...</p>
@@ -950,57 +968,63 @@ export default function PayrollPage() {
             ) : (
               <>
                 {/* 담당자 섹션 */}
-                {managers.length > 0 && (
+                {(personFilter === 'all' || personFilter === 'manager') && (
                   <>
-                    <div className="flex items-center gap-2 mb-3">
-                      <h3 className="text-sm font-bold text-text-primary">담당자</h3>
-                      <span className="text-xs bg-brand-100 text-brand-600 px-2 py-0.5 rounded-full">{managers.length}명</span>
-                    </div>
-                    <SummaryCards entries={managers} label="담당자" />
-                    <div className="flex flex-col gap-3 mb-6">
-                      {managers.map(entry => (
-                        <ManagerCard
-                          key={entry.person.id}
-                          entry={entry}
-                          month={month}
-                          onUpdated={handleManagerRecordUpdated}
-                          onRefresh={fetchData}
-                        />
-                      ))}
-                    </div>
+                    {managers.length > 0 ? (
+                      <>
+                        <div className="flex items-center gap-2 mb-3">
+                          <h3 className="text-sm font-bold text-text-primary">담당자</h3>
+                          <span className="text-xs bg-brand-100 text-brand-600 px-2 py-0.5 rounded-full">{managers.length}명</span>
+                        </div>
+                        <SummaryCards entries={managers} label="담당자" />
+                        <div className="flex flex-col gap-3 mb-6">
+                          {managers.map(entry => (
+                            <ManagerCard
+                              key={entry.person.id}
+                              entry={entry}
+                              month={month}
+                              onUpdated={handleManagerRecordUpdated}
+                              onRefresh={fetchData}
+                            />
+                          ))}
+                        </div>
+                      </>
+                    ) : (
+                      <div className="text-center py-6 text-sm text-text-tertiary mb-4">
+                        {displayMonth} 담당자 배정 없음
+                      </div>
+                    )}
                   </>
-                )}
-                {managers.length === 0 && (
-                  <div className="text-center py-6 text-sm text-text-tertiary mb-4">
-                    {displayMonth} 담당자 배정 없음
-                  </div>
                 )}
 
                 {/* 작업자 섹션 */}
-                {workersPayroll.length > 0 && (
+                {(personFilter === 'all' || personFilter === 'worker') && (
                   <>
-                    <div className="flex items-center gap-2 mb-3">
-                      <h3 className="text-sm font-bold text-text-primary">작업자</h3>
-                      <span className="text-xs bg-state-warning-bg text-state-warning px-2 py-0.5 rounded-full">{workersPayroll.length}명</span>
-                    </div>
-                    <SummaryCards entries={workersPayroll} label="작업자" />
-                    <div className="flex flex-col gap-3">
-                      {workersPayroll.map(entry => (
-                        <WorkerCard
-                          key={entry.person.id}
-                          entry={entry}
-                          month={month}
-                          onUpdated={handleWorkerRecordUpdated}
-                          onRefresh={fetchData}
-                        />
-                      ))}
-                    </div>
+                    {workersPayroll.length > 0 ? (
+                      <>
+                        <div className="flex items-center gap-2 mb-3">
+                          <h3 className="text-sm font-bold text-text-primary">작업자</h3>
+                          <span className="text-xs bg-state-warning-bg text-state-warning px-2 py-0.5 rounded-full">{workersPayroll.length}명</span>
+                        </div>
+                        <SummaryCards entries={workersPayroll} label="작업자" />
+                        <div className="flex flex-col gap-3">
+                          {workersPayroll.map(entry => (
+                            <WorkerCard
+                              key={entry.person.id}
+                              entry={entry}
+                              month={month}
+                              onUpdated={handleWorkerRecordUpdated}
+                              onRefresh={fetchData}
+                            />
+                          ))}
+                        </div>
+                      </>
+                    ) : (
+                      <div className="text-center py-6 text-sm text-text-tertiary">
+                        {displayMonth} 작업자 배정 없음
+                      </div>
+                    )}
                   </>
-                )}
-                {workersPayroll.length === 0 && (
-                  <div className="text-center py-6 text-sm text-text-tertiary">
-                    {displayMonth} 작업자 배정 없음
-                  </div>
                 )}
 
                 {managers.length === 0 && workersPayroll.length === 0 && (
