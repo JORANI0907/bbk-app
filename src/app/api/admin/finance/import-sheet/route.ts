@@ -49,7 +49,8 @@ function parseWorkbook(buffer: ArrayBuffer, fileName: string): RawRow[] {
 
   // 형식 1: 일시불+할부_카드이용내역조회 (xlsx)
   // → '■ 국내이용내역' 시트, 헤더에 '취소여부' 컬럼
-  const format1Sheet = workbook.SheetNames.find(n => n.includes('국내이용내역') || n.includes('이용내역'))
+  // '■ 국내이용내역' 시트 검색 — '■ 카드이용내역'과 구분하기 위해 '국내이용내역'만 검색
+  const format1Sheet = workbook.SheetNames.find(n => n.includes('국내이용내역'))
   if (format1Sheet) {
     const ws = workbook.Sheets[format1Sheet]
     const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(ws, { defval: '' })
