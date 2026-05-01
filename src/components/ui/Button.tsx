@@ -17,10 +17,10 @@ export function Button({
   ...props
 }: ButtonProps) {
   const variantStyles = {
-    primary: 'bg-blue-600 hover:bg-blue-700 text-white',
-    secondary: 'bg-gray-100 hover:bg-gray-200 text-gray-900',
-    danger: 'bg-red-600 hover:bg-red-700 text-white',
-    ghost: 'hover:bg-gray-100 text-gray-700',
+    primary: 'bg-brand-600 hover:bg-brand-700 text-white',
+    secondary: 'bg-surface-sunken hover:bg-border text-text-primary',
+    danger: 'bg-state-danger hover:bg-red-700 text-white',
+    ghost: 'hover:bg-surface-sunken text-text-secondary',
   }
 
   const sizeStyles = {

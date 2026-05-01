@@ -18,7 +18,7 @@ export default function WorkerLayout({
         </div>
       </header>
 
-      <main className="flex-1 pb-20">{children}</main>
+      <main className="flex-1 pb-20 max-w-xl mx-auto w-full">{children}</main>
 
       <BottomNav />
     </div>
