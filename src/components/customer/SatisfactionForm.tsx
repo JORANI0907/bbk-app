@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import toast from 'react-hot-toast'
+import { Button } from '@/components/ui'
 
 interface Props {
   scheduleId: string
@@ -118,13 +119,15 @@ export function SatisfactionForm({ scheduleId, onSubmit }: Props) {
         <p className="text-xs text-text-tertiary text-right">{comment.length}/500</p>
       </div>
 
-      <button
+      <Button
         onClick={handleSubmit}
         disabled={isSubmitting || rating === 0}
-        className="w-full py-4 bg-brand-600 text-white font-bold rounded-2xl active:scale-[0.98] transition-all disabled:opacity-40"
+        isLoading={isSubmitting}
+        variant="primary"
+        className="w-full py-4 font-bold rounded-2xl active:scale-[0.98]"
       >
         평가 제출하기
-      </button>
+      </Button>
     </div>
   )
 }
