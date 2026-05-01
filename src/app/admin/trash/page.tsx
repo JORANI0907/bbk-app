@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import toast from 'react-hot-toast'
+import { Button } from '@/components/ui'
 
 // ─── 타입 ─────────────────────────────────────────────────────
 
@@ -296,18 +297,21 @@ function CustomersTab({
       {selected.size > 0 && (
         <div className="flex items-center gap-3 mb-4 p-3 bg-brand-50 rounded-lg border border-brand-200">
           <span className="text-sm text-brand-700 font-medium">{selected.size}건 선택됨</span>
-          <button
+          <Button
+            variant="secondary"
+            size="sm"
             onClick={() => onRestore(Array.from(selected))}
-            className="px-3 py-1.5 text-xs font-medium bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
+            className="bg-green-600 hover:bg-green-700 text-white"
           >
             일괄 복원
-          </button>
-          <button
+          </Button>
+          <Button
+            variant="danger"
+            size="sm"
             onClick={() => onPurge(Array.from(selected))}
-            className="px-3 py-1.5 text-xs font-medium bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
           >
             일괄 완전삭제
-          </button>
+          </Button>
         </div>
       )}
 
@@ -353,18 +357,22 @@ function CustomersTab({
                   </td>
                   <td className="px-4 py-3 text-right">
                     <div className="flex items-center justify-end gap-2">
-                      <button
+                      <Button
+                        variant="secondary"
+                        size="sm"
                         onClick={() => onRestore([c.id])}
-                        className="px-2.5 py-1 text-xs font-medium text-state-success bg-state-success-bg rounded-md hover:bg-green-200 transition-colors"
+                        className="text-state-success bg-state-success-bg hover:bg-green-200"
                       >
                         복원
-                      </button>
-                      <button
+                      </Button>
+                      <Button
+                        variant="danger"
+                        size="sm"
                         onClick={() => onPurge([c.id])}
-                        className="px-2.5 py-1 text-xs font-medium text-state-danger bg-state-danger-bg rounded-md hover:bg-red-200 transition-colors"
+                        className="text-state-danger bg-state-danger-bg hover:bg-red-200"
                       >
                         완전삭제
-                      </button>
+                      </Button>
                     </div>
                   </td>
                 </tr>
@@ -413,18 +421,21 @@ function ApplicationsTab({
       {selected.size > 0 && (
         <div className="flex items-center gap-3 mb-4 p-3 bg-brand-50 rounded-lg border border-brand-200">
           <span className="text-sm text-brand-700 font-medium">{selected.size}건 선택됨</span>
-          <button
+          <Button
+            variant="secondary"
+            size="sm"
             onClick={() => onRestore(Array.from(selected))}
-            className="px-3 py-1.5 text-xs font-medium bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
+            className="bg-green-600 hover:bg-green-700 text-white"
           >
             일괄 복원
-          </button>
-          <button
+          </Button>
+          <Button
+            variant="danger"
+            size="sm"
             onClick={() => onPurge(Array.from(selected))}
-            className="px-3 py-1.5 text-xs font-medium bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
           >
             일괄 완전삭제
-          </button>
+          </Button>
         </div>
       )}
 
@@ -470,18 +481,22 @@ function ApplicationsTab({
                   </td>
                   <td className="px-4 py-3 text-right">
                     <div className="flex items-center justify-end gap-2">
-                      <button
+                      <Button
+                        variant="secondary"
+                        size="sm"
                         onClick={() => onRestore([a.id])}
-                        className="px-2.5 py-1 text-xs font-medium text-state-success bg-state-success-bg rounded-md hover:bg-green-200 transition-colors"
+                        className="text-state-success bg-state-success-bg hover:bg-green-200"
                       >
                         복원
-                      </button>
-                      <button
+                      </Button>
+                      <Button
+                        variant="danger"
+                        size="sm"
                         onClick={() => onPurge([a.id])}
-                        className="px-2.5 py-1 text-xs font-medium text-state-danger bg-state-danger-bg rounded-md hover:bg-red-200 transition-colors"
+                        className="text-state-danger bg-state-danger-bg hover:bg-red-200"
                       >
                         완전삭제
-                      </button>
+                      </Button>
                     </div>
                   </td>
                 </tr>
