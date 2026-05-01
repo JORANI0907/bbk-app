@@ -46,3 +46,4 @@ __pycache__/
 
 # Marketing cache
 scripts/marketing/characters/cache/
+.env.vercel.tmp
