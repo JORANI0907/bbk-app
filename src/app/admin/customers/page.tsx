@@ -5,6 +5,7 @@ import toast from 'react-hot-toast'
 import { useModalBackButton } from '@/hooks/useModalBackButton'
 import { MapSelectorModal } from '@/components/MapSelectorModal'
 import { BillingHistoryPanel } from '@/components/admin/BillingHistoryPanel'
+import { Button } from '@/components/ui'
 
 // ─── 타입 ─────────────────────────────────────────────────────
 type CustomerType = '1회성케어' | '정기딥케어' | '정기엔드케어'
@@ -821,11 +822,9 @@ export default function AdminCustomersPage() {
         <div className="flex items-center justify-between mb-3">
           <h1 className="text-2xl font-bold text-text-primary">고객 관리</h1>
           <div className="flex gap-2">
-            <button onClick={fetchAll} className="px-3 py-1.5 text-sm bg-surface border border-border rounded-lg hover:bg-surface-sunken">새로고침</button>
+            <Button variant="secondary" size="sm" onClick={fetchAll}>새로고침</Button>
             {!isWorker && (
-              <button onClick={handleNew} className="px-3 py-1.5 text-sm bg-brand-600 text-white font-semibold rounded-lg hover:bg-brand-700 transition-colors">
-                + 고객 추가
-              </button>
+              <Button size="sm" onClick={handleNew}>+ 고객 추가</Button>
             )}
           </div>
         </div>
@@ -865,19 +864,16 @@ export default function AdminCustomersPage() {
               선택 해제
             </button>
             {!isWorker && (
-              <button onClick={handleDeleteBulk} disabled={bulkCreating}
-                className="text-xs bg-red-500 hover:bg-red-400 text-white font-semibold px-3 py-1.5 rounded-lg disabled:opacity-50 transition-colors whitespace-nowrap">
+              <Button variant="danger" size="sm" onClick={handleDeleteBulk} disabled={bulkCreating} className="whitespace-nowrap">
                 삭제
-              </button>
+              </Button>
             )}
-            <button onClick={handleGenerateSchedulesBulk} disabled={bulkCreating}
-              className="text-xs bg-green-600 hover:bg-green-700 text-white font-semibold px-3 py-1.5 rounded-lg disabled:opacity-50 transition-colors whitespace-nowrap">
+            <Button size="sm" onClick={handleGenerateSchedulesBulk} disabled={bulkCreating} className="bg-green-600 hover:bg-green-700 text-white whitespace-nowrap">
               {bulkCreating ? '처리 중...' : '📅 다음달 일정 생성'}
-            </button>
-            <button onClick={handleCreateApplicationBulk} disabled={bulkCreating}
-              className="text-xs bg-white text-blue-700 font-semibold px-3 py-1.5 rounded-lg hover:bg-blue-50 disabled:opacity-50 transition-colors whitespace-nowrap">
+            </Button>
+            <Button size="sm" onClick={handleCreateApplicationBulk} disabled={bulkCreating} className="bg-white text-blue-700 hover:bg-blue-50 whitespace-nowrap">
               {bulkCreating ? '처리 중...' : '서비스 신청서 생성 →'}
-            </button>
+            </Button>
           </div>
         )}
 
@@ -1464,10 +1460,9 @@ export default function AdminCustomersPage() {
 
             {/* 저장 버튼 — worker는 읽기 전용 */}
             {!isWorker && (
-              <button onClick={handleSave} disabled={saving}
-                className="w-full py-2.5 bg-brand-600 text-white text-sm font-semibold rounded-lg hover:bg-brand-700 disabled:opacity-60 transition-colors">
+              <Button onClick={handleSave} disabled={saving} size="lg" className="w-full">
                 {saving ? '저장 중...' : isNew ? '✚ 고객 추가' : '💾 저장'}
-              </button>
+              </Button>
             )}
             {isWorker && (
               <div className="w-full py-2.5 bg-surface-sunken text-text-secondary text-sm font-semibold rounded-lg text-center">
@@ -1506,10 +1501,9 @@ export default function AdminCustomersPage() {
                       <option value="">알림 유형 선택...</option>
                       {notifyOptions.map(t => <option key={t} value={t}>{t}</option>)}
                     </select>
-                    <button onClick={handleNotify} disabled={sending || !notifyType}
-                      className="px-4 py-2 bg-orange-500 text-white text-sm font-semibold rounded-lg hover:bg-orange-600 disabled:opacity-50 transition-colors whitespace-nowrap">
+                    <Button onClick={handleNotify} disabled={sending || !notifyType} className="bg-orange-500 hover:bg-orange-600 text-white whitespace-nowrap">
                       {sending ? '발송 중...' : '📣 발송'}
-                    </button>
+                    </Button>
                   </div>
                   {notifyType && (
                     <div className="px-3 py-2 bg-orange-50 border border-orange-200 rounded-lg text-xs text-orange-700 space-y-0.5">
