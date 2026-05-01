@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { ServiceSchedule } from '@/types/database'
 import { format } from 'date-fns'
 import { ko } from 'date-fns/locale'
+import { Button } from '@/components/ui'
 
 interface Props {
   upcomingSchedules: ServiceSchedule[]
@@ -62,12 +63,13 @@ export function ScheduleChangeRequest({ upcomingSchedules }: Props) {
 
   return (
     <>
-      <button
+      <Button
         onClick={() => setOpen(true)}
-        className="w-full py-3 border border-brand-200 rounded-2xl text-sm font-semibold text-brand-600 hover:bg-brand-50 active:scale-[0.98] transition-all"
+        variant="ghost"
+        className="w-full py-3 border border-brand-200 rounded-2xl text-sm font-semibold text-brand-600 hover:bg-brand-50 active:scale-[0.98]"
       >
         📅 일정 변경 요청
-      </button>
+      </Button>
 
       {open && (
         <div className="fixed inset-0 bg-black/40 z-50 flex items-end justify-center">
@@ -147,13 +149,15 @@ export function ScheduleChangeRequest({ upcomingSchedules }: Props) {
                 </div>
 
                 {/* 전송 버튼 */}
-                <button
+                <Button
                   onClick={handleSubmit}
                   disabled={sending || !canSubmit}
-                  className="w-full py-3.5 bg-brand-600 text-white font-bold rounded-xl disabled:opacity-40 active:scale-[0.98] transition-all"
+                  isLoading={sending}
+                  variant="primary"
+                  className="w-full py-3.5 font-bold rounded-xl active:scale-[0.98]"
                 >
                   {sending ? '전송 중...' : '변경 요청 보내기'}
-                </button>
+                </Button>
 
                 {!canSubmit && (
                   <p className="text-center text-xs text-text-tertiary -mt-3">
