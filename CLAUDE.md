@@ -90,22 +90,42 @@ design: UI/UX 변경
 
 ---
 
-## UI 작업 시 필수 준수 (디자인 시스템)
+## UI / 디자인 시스템 필수 참조 문서
 
-UI/UX 변경 작업 시 아래 두 문서를 **반드시 먼저 읽고** 작업한다.
+**새 화면 추가·기존 화면 수정·컴포넌트 작성 시 아래 두 문서를 반드시 먼저 읽고 작업한다.**
 
-1. `docs/UI_REFINEMENT_PLAN.md` — 3개 포털 UI 완성도 개선 단계별 계획
-2. `apps/CLAUDE.md` — 공통 디자인 시스템 규칙 (BBK 전체 앱 공통)
+| 문서 | 경로 | 내용 |
+|------|------|------|
+| 공통 디자인 시스템 | `apps/CLAUDE.md` (섹션: 공통 디자인 시스템 규칙) | 8pt grid, 타이포그래피, shadow 5단계, 둥글기, 색상 토큰, 한글 폰트, 모바일 규칙 |
+| UI 완성도 계획 | `docs/UI_REFINEMENT_PLAN.md` | 3개 포털 Phase별 실행 계획, 절대 규칙, 성공 기준 |
 
-### 핵심 금지 사항 (UI 작업 중)
-- 기능·로직·라우트·props 시그니처 변경 금지
-- 임의값(`text-[13px]`, `rounded-[9px]`) 사용 금지 → 토큰만 사용
-- raw `<button>`, raw `<input>` 사용 금지 → `<Button>`, `<Input>` 컴포넌트 사용
-- 하드코딩 색 신규 도입 금지 → 시멘틱 토큰(`text-text-secondary` 등) 사용
-- 페이지마다 다른 카드 둥글기/shadow 사용 금지 → `rounded-2xl shadow-soft` 통일
+### 핵심 디자인 토큰 요약 (암기)
+
+```
+색상   : text-text-primary/secondary/tertiary
+        bg-surface / bg-surface-sunken
+        border-border-subtle / border-border / border-border-strong
+        bg-brand-600 (주요 액션), text-brand-600 (링크)
+        text-state-success/warning/danger/info + bg-state-*-bg
+
+Shadow : shadow-flat(평면) shadow-soft(카드기본) shadow-card(hover)
+         shadow-pop(모달/드롭다운) shadow-modal(풀스크린)
+
+둥글기 : 카드 rounded-2xl | 버튼 rounded-lg | 입력 rounded-md
+
+간격   : 8pt grid — p-4(모바일 카드) p-6(데스크톱) gap-5(섹션)
+```
+
+### 코드 작성 규칙 (신규 화면·컴포넌트)
+- raw `<button>` 금지 → `<Button>` 컴포넌트 (`src/components/ui/Button.tsx`)
+- raw `<input>` / `<textarea>` / `<select>` 금지 → `<Input>` / `<Textarea>` / `<Select>`
+- 빈 상태 → `<EmptyState>` 컴포넌트
+- 페이지·섹션 제목 → `<SectionHeader>` 컴포넌트
+- 하드코딩 색 (`text-gray-500`, `bg-blue-100` 등) 신규 도입 금지 → 시멘틱 토큰만
+- 임의 px 값 (`text-[13px]`, `rounded-[9px]`) 금지 → Tailwind 토큰만
 
 ### 기능 회귀 발생 시
-즉시 작업 중단 → 사용자에게 보고 → 같은 Phase 내 변경분 revert.
+즉시 작업 중단 → 사용자에게 보고 → 해당 변경분 revert.
 
 ---
 
