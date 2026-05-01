@@ -13,6 +13,7 @@ import {
 import type { DriveFolder } from '@/lib/googleDrive'
 import { openGoogleDrive } from '@/lib/mapUtils'
 import { useModalBackButton } from '@/hooks/useModalBackButton'
+import { Button } from '@/components/ui'
 
 type InventoryCategory = 'chemical' | 'equipment' | 'consumable' | 'other'
 type TxType = 'receive' | 'return' | 'use' | 'adjust'
@@ -494,13 +495,14 @@ export default function AdminInventoryPage() {
                 </button>
               ))}
             </div>
-            <button
+            <Button
               onClick={exportAdminLogsCSV}
               disabled={adminLogs.length === 0}
-              className="ml-auto px-4 py-2 text-xs font-semibold bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors"
+              size="sm"
+              className="ml-auto bg-green-600 hover:bg-green-700"
             >
               엑셀 다운로드 (CSV)
-            </button>
+            </Button>
           </div>
 
           {adminLogsLoading ? (
@@ -601,21 +603,22 @@ export default function AdminInventoryPage() {
             <h1 className="text-lg font-bold text-text-primary">재고 관리</h1>
             <div className="flex gap-2">
               {role === 'admin' && (
-                <button
+                <Button
+                  variant="ghost"
+                  size="sm"
                   onClick={handleDriveSetup}
                   title="Drive 저장 위치 설정"
-                  className="text-xs px-2 py-1 rounded-lg bg-surface-sunken text-text-secondary hover:bg-surface-sunken transition-colors"
                 >
                   ⚙️ 저장 위치
-                </button>
+                </Button>
               )}
               {role === 'admin' && (
-                <button
+                <Button
+                  size="sm"
                   onClick={() => setShowAddModal(true)}
-                  className="text-xs px-3 py-1 rounded-lg bg-brand-600 text-white hover:bg-brand-700 transition-colors font-medium"
                 >
                   + 추가
-                </button>
+                </Button>
               )}
             </div>
           </div>
@@ -783,19 +786,19 @@ export default function AdminInventoryPage() {
               </div>
               {role === 'admin' && (
                 <div className="flex gap-2 justify-between">
-                  <button
+                  <Button
+                    variant="danger"
                     onClick={handleDelete}
-                    className="px-4 py-2 rounded-lg bg-state-danger-bg text-state-danger hover:bg-state-danger-bg text-sm font-medium transition-colors"
+                    className="bg-state-danger-bg text-state-danger hover:bg-state-danger-bg"
                   >
                     🗑️ 삭제
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     onClick={handleSave}
                     disabled={editLoading}
-                    className="px-6 py-2 rounded-lg bg-brand-600 text-white hover:bg-brand-700 text-sm font-medium transition-colors disabled:opacity-50"
                   >
                     {editLoading ? '저장 중...' : '💾 저장'}
-                  </button>
+                  </Button>
                 </div>
               )}
             </div>
@@ -954,19 +957,20 @@ export default function AdminInventoryPage() {
               </div>
             </div>
             <div className="flex gap-3 mt-5">
-              <button
+              <Button
+                variant="secondary"
                 onClick={() => { setShowAddModal(false); setAddForm({ item_name: '', category: 'chemical', unit: '', current_qty: 0 }) }}
-                className="flex-1 py-2 rounded-xl border border-border text-text-secondary text-sm font-medium hover:bg-surface-sunken transition-colors"
+                className="flex-1 py-2 rounded-xl"
               >
                 취소
-              </button>
-              <button
+              </Button>
+              <Button
                 onClick={handleAddItem}
                 disabled={addLoading}
-                className="flex-1 py-2 rounded-xl bg-brand-600 text-white text-sm font-medium hover:bg-brand-700 transition-colors disabled:opacity-50"
+                className="flex-1 py-2 rounded-xl"
               >
                 {addLoading ? '추가 중...' : '추가'}
-              </button>
+              </Button>
             </div>
           </div>
         </div>
@@ -1070,12 +1074,13 @@ export default function AdminInventoryPage() {
             </div>
 
             <div className="flex gap-3 mt-5">
-              <button
+              <Button
+                variant="secondary"
                 onClick={() => setShowTxModal(false)}
-                className="flex-1 py-2 rounded-xl border border-border text-text-secondary text-sm font-medium hover:bg-surface-sunken transition-colors"
+                className="flex-1 py-2 rounded-xl"
               >
                 취소
-              </button>
+              </Button>
               <button
                 onClick={handleTransaction}
                 disabled={txLoading || !canSubmit}
