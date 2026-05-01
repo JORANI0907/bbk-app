@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import toast from 'react-hot-toast'
+import { Button } from '@/components/ui'
 import { MarketingAgentSummary } from '@/components/admin/automation/MarketingAgentSummary'
 
 // ─── 타입 ─────────────────────────────────────────────────────────
@@ -303,12 +304,9 @@ export default function AutomationPage() {
           >
             <span>🔗</span> Make.com
           </a>
-          <button
-            onClick={() => setShowAddModal(true)}
-            className="flex items-center gap-1.5 px-4 py-2 bg-brand-600 text-white text-sm font-semibold rounded-xl hover:bg-brand-700 transition-colors"
-          >
+          <Button onClick={() => setShowAddModal(true)}>
             <span className="text-base leading-none">+</span> 새 자동화
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -453,16 +451,16 @@ export default function AutomationPage() {
                 </div>
               ))}
             </div>
-            <button
+            <Button
               onClick={() => router.push('/admin/automation/agents')}
-              className="w-full flex items-center justify-between px-4 py-3 bg-violet-600 text-white rounded-xl hover:bg-violet-700 transition-colors"
+              className="w-full flex items-center justify-between px-4 py-3 bg-violet-600 hover:bg-violet-700"
             >
               <div className="flex items-center gap-2">
                 <span>🧠</span>
                 <span className="text-sm font-semibold">전체 에이전트 현황 보기</span>
               </div>
               <span className="text-sm opacity-80">→</span>
-            </button>
+            </Button>
           </div>
         )}
 
@@ -534,12 +532,13 @@ export default function AutomationPage() {
               >
                 Make.com 열기
               </a>
-              <button
+              <Button
+                variant="secondary"
                 onClick={() => setShowAddModal(false)}
-                className="w-full py-2.5 rounded-xl border border-border text-sm font-medium text-text-secondary hover:bg-surface-sunken transition-colors"
+                className="w-full py-2.5"
               >
                 닫기
-              </button>
+              </Button>
             </div>
           </div>
         </div>
