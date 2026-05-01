@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import toast from 'react-hot-toast'
 import { useModalBackButton } from '@/hooks/useModalBackButton'
+import { Button } from '@/components/ui'
 
 type InventoryCategory = 'chemical' | 'equipment' | 'consumable' | 'other'
 
@@ -336,27 +337,25 @@ export default function WorkerInventoryPage() {
 
               {/* Buttons */}
               <div className="flex gap-3">
-                <button
+                <Button
                   onClick={submitting ? undefined : closeModal}
                   disabled={submitting}
-                  className="flex-1 py-3 rounded-xl border border-border text-text-secondary text-sm font-semibold hover:bg-surface-sunken transition-colors disabled:opacity-40"
+                  variant="secondary"
+                  className="flex-1 py-3 rounded-xl text-sm font-semibold"
                 >
                   취소
-                </button>
-                <button
+                </Button>
+                <Button
                   onClick={handleSubmit}
                   disabled={submitting}
-                  className={`flex-1 py-3 rounded-xl text-white text-sm font-semibold transition-colors disabled:opacity-50 ${
-                    txType === 'receive' ? 'bg-green-600 hover:bg-green-700' : 'bg-brand-600 hover:bg-brand-700'
+                  isLoading={submitting}
+                  variant="primary"
+                  className={`flex-1 py-3 rounded-xl text-sm font-semibold ${
+                    txType === 'receive' ? 'bg-green-600 hover:bg-green-700' : ''
                   }`}
                 >
-                  {submitting ? (
-                    <span className="flex items-center justify-center gap-2">
-                      <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                      처리 중...
-                    </span>
-                  ) : '확인'}
-                </button>
+                  {submitting ? '처리 중...' : '확인'}
+                </Button>
               </div>
               {submitting && (
                 <p className="text-xs text-center text-text-tertiary mt-2">
