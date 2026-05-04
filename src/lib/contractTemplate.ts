@@ -538,8 +538,8 @@ export const TEMPLATE_PREVIEW_VALUES: Record<string, string> = {
   CONTRACT_END_DATE: '2026-01-14',
   SERVICE_SCOPE: '주방후드 청소, 바닥 왁스 코팅',
   SELECTED_ITEMS_LIST: '<ul><li>주방후드 청소</li><li>바닥 왁스 코팅</li></ul>',
-  CUSTOMER_SIGNATURE: '<div style="display:inline-block;width:180px;height:70px;border:1px dashed #bbb;border-radius:6px;text-align:center;line-height:70px;color:#ccc;font-size:11px;font-family:sans-serif;">(고객 서명)</div>',
-  ADMIN_SIGNATURE: '<div style="display:inline-block;width:180px;height:70px;border:1px dashed #bbb;border-radius:6px;text-align:center;line-height:70px;color:#ccc;font-size:11px;font-family:sans-serif;">(관리자 서명)</div>',
+  CUSTOMER_SIGNATURE: '<div style="display:block;width:180px;height:70px;margin:8px 0;border:1px dashed #bbb;border-radius:6px;text-align:center;line-height:70px;color:#ccc;font-size:11px;font-family:sans-serif;">(고객 서명)</div>',
+  ADMIN_SIGNATURE: '<div style="display:block;width:180px;height:70px;margin:8px 0;border:1px dashed #bbb;border-radius:6px;text-align:center;line-height:70px;color:#ccc;font-size:11px;font-family:sans-serif;">(관리자 서명)</div>',
 }
 
 /**

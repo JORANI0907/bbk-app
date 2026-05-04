@@ -35,7 +35,7 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
 
   const snapshot = contract.contract_snapshot as { html?: string } | null
   const sigPlaceholder = (label: string) =>
-    `<span style="display:inline-block;width:180px;height:60px;border:1px dashed #bbb;border-radius:6px;text-align:center;line-height:60px;color:#ccc;font-size:11px;font-family:sans-serif;">${label}</span>`
+    `<div style="display:block;width:180px;height:60px;margin:8px 0;border:1px dashed #bbb;border-radius:6px;text-align:center;line-height:60px;color:#ccc;font-size:11px;font-family:sans-serif;">${label}</div>`
   const html = (snapshot?.html ?? '')
     .replace(/\{\{CUSTOMER_SIGNATURE\}\}/g, sigPlaceholder('(서명 위치)'))
     .replace(/\{\{ADMIN_SIGNATURE\}\}/g, sigPlaceholder('(관리자 서명 위치)'))

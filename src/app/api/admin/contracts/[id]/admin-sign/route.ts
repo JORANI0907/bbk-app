@@ -92,7 +92,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     try {
       await sendSMS(
         phone,
-        `[BBK 공간케어] ${businessName}님, 계약서 서명이 최종 완료되었습니다.\n계약 내용은 앱에서 확인하실 수 있습니다.`,
+        `[BBK 공간케어] ${businessName}님, 계약서 서명이 최종 완료되었습니다.\n계약서는 작성하신 이메일로 발송되었습니다. * 이메일 : ${customerEmail ?? '-'}`,
       )
     } catch {
       // SMS 실패는 무시
