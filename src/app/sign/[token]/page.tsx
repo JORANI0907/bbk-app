@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useParams } from 'next/navigation'
 import { Button } from '@/components/ui'
 import { Modal } from '@/components/ui'
+import SignaturePad, { type SignaturePadHandle } from '@/components/contracts/SignaturePad'
 
 interface ContractData {
   id: string
@@ -17,6 +18,7 @@ interface ContractData {
 }
 
 type PageState = 'loading' | 'ready' | 'signed' | 'error' | 'expired'
+type ModalStep = 'signature' | 'otp'
 
 export default function SignContractPage() {
   const params = useParams()
@@ -31,8 +33,14 @@ export default function SignContractPage() {
   const [article8, setArticle8] = useState(false)
   const [article14, setArticle14] = useState(false)
 
-  // OTP 모달
-  const [showOtpModal, setShowOtpModal] = useState(false)
+  // 서명 + OTP 모달
+  const [showModal, setShowModal] = useState(false)
+  const [modalStep, setModalStep] = useState<ModalStep>('signature')
+  const [sigError, setSigError] = useState('')
+  const sigPadRef = useRef<SignaturePadHandle | null>(null)
+  const [signatureDataUrl, setSignatureDataUrl] = useState('')
+
+  // OTP
   const [phone, setPhone] = useState('')
   const [otp, setOtp] = useState('')
   const [otpSent, setOtpSent] = useState(false)
@@ -56,11 +64,9 @@ export default function SignContractPage() {
             setPageState('ready')
           }
         } else {
-          if (res.status === 410) {
-            setPageState('expired')
-          } else if (res.status === 409) {
-            setPageState('signed')
-          } else {
+          if (res.status === 410) setPageState('expired')
+          else if (res.status === 409) setPageState('signed')
+          else {
             setErrorMessage(json.error ?? '계약서를 불러오지 못했습니다.')
             setPageState('error')
           }
@@ -73,7 +79,6 @@ export default function SignContractPage() {
     void fetchContract()
   }, [token])
 
-  // allChecked 연동
   useEffect(() => {
     setAllChecked(article8 && article14)
   }, [article8, article14])
@@ -84,28 +89,40 @@ export default function SignContractPage() {
     setArticle14(checked)
   }
 
-  // 쿨다운 타이머
   useEffect(() => {
     if (cooldown <= 0) return
     cooldownRef.current = setInterval(() => {
-      setCooldown((prev) => {
-        if (prev <= 1) {
-          if (cooldownRef.current) clearInterval(cooldownRef.current)
-          return 0
-        }
+      setCooldown(prev => {
+        if (prev <= 1) { clearInterval(cooldownRef.current!); return 0 }
         return prev - 1
       })
     }, 1000)
-    return () => {
-      if (cooldownRef.current) clearInterval(cooldownRef.current)
-    }
+    return () => { if (cooldownRef.current) clearInterval(cooldownRef.current) }
   }, [cooldown])
 
-  const handleSendOtp = async () => {
-    if (!phone.trim()) {
-      setOtpError('전화번호를 입력해주세요.')
+  const resetModal = () => {
+    setShowModal(false)
+    setModalStep('signature')
+    setSigError('')
+    setSignatureDataUrl('')
+    setOtpError('')
+    setOtp('')
+    setOtpSent(false)
+    setCooldown(0)
+  }
+
+  const handleNextToOtp = () => {
+    if (!sigPadRef.current || sigPadRef.current.isEmpty()) {
+      setSigError('서명란에 서명을 그려주세요.')
       return
     }
+    setSigError('')
+    setSignatureDataUrl(sigPadRef.current.toDataURL())
+    setModalStep('otp')
+  }
+
+  const handleSendOtp = async () => {
+    if (!phone.trim()) { setOtpError('전화번호를 입력해주세요.'); return }
     setIsSendingOtp(true)
     setOtpError('')
     try {
@@ -115,12 +132,8 @@ export default function SignContractPage() {
         body: JSON.stringify({ phone }),
       })
       const json = await res.json()
-      if (json.success) {
-        setOtpSent(true)
-        setCooldown(60)
-      } else {
-        setOtpError(json.error ?? '발송에 실패했습니다.')
-      }
+      if (json.success) { setOtpSent(true); setCooldown(60) }
+      else setOtpError(json.error ?? '발송에 실패했습니다.')
     } catch {
       setOtpError('오류가 발생했습니다. 다시 시도해주세요.')
     } finally {
@@ -139,15 +152,17 @@ export default function SignContractPage() {
       const res = await fetch(`/api/contracts/sign/${token}/agree`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone, otp, article8Agree: true, article14Agree: true }),
+        body: JSON.stringify({
+          phone,
+          otp,
+          article8Agree: true,
+          article14Agree: true,
+          customerSignature: signatureDataUrl,
+        }),
       })
       const json = await res.json()
-      if (json.success) {
-        setShowOtpModal(false)
-        setPageState('signed')
-      } else {
-        setOtpError(json.error ?? '인증에 실패했습니다.')
-      }
+      if (json.success) { resetModal(); setPageState('signed') }
+      else setOtpError(json.error ?? '인증에 실패했습니다.')
     } catch {
       setOtpError('오류가 발생했습니다. 다시 시도해주세요.')
     } finally {
@@ -155,7 +170,7 @@ export default function SignContractPage() {
     }
   }
 
-  // ── 로딩 화면 ──────────────────────────────────────────────
+  // ── 로딩 ──────────────────────────────────────────────────────
   if (pageState === 'loading') {
     return (
       <div className="min-h-screen bg-surface-sunken flex items-center justify-center">
@@ -167,7 +182,6 @@ export default function SignContractPage() {
     )
   }
 
-  // ── 만료 화면 ──────────────────────────────────────────────
   if (pageState === 'expired') {
     return (
       <div className="min-h-screen bg-surface-sunken flex items-center justify-center px-4">
@@ -184,7 +198,6 @@ export default function SignContractPage() {
     )
   }
 
-  // ── 서명 완료 화면 ─────────────────────────────────────────
   if (pageState === 'signed') {
     return (
       <div className="min-h-screen bg-surface-sunken flex items-center justify-center px-4">
@@ -203,7 +216,6 @@ export default function SignContractPage() {
     )
   }
 
-  // ── 오류 화면 ──────────────────────────────────────────────
   if (pageState === 'error') {
     return (
       <div className="min-h-screen bg-surface-sunken flex items-center justify-center px-4">
@@ -277,7 +289,6 @@ export default function SignContractPage() {
         {/* 동의 체크박스 */}
         <div className="bg-surface rounded-2xl shadow-soft border border-border-subtle p-5 space-y-3">
           <p className="text-sm font-semibold text-text-primary">동의 사항</p>
-
           <label className="flex items-start gap-3 cursor-pointer">
             <input
               type="checkbox"
@@ -289,7 +300,6 @@ export default function SignContractPage() {
               위 계약 내용을 모두 확인하였으며, 전체 조항에 동의합니다.
             </span>
           </label>
-
           <div className="border-t border-border-subtle pt-3 space-y-2.5">
             <label className="flex items-start gap-3 cursor-pointer">
               <input
@@ -302,7 +312,6 @@ export default function SignContractPage() {
                 <span className="font-medium text-text-primary">[필수]</span> 제8조 (서비스 제공 장소 및 환경) 동의
               </span>
             </label>
-
             <label className="flex items-start gap-3 cursor-pointer">
               <input
                 type="checkbox"
@@ -325,7 +334,7 @@ export default function SignContractPage() {
             className="w-full"
             size="lg"
             disabled={!canSign}
-            onClick={() => setShowOtpModal(true)}
+            onClick={() => { setModalStep('signature'); setShowModal(true) }}
           >
             서명하기
           </Button>
@@ -337,89 +346,118 @@ export default function SignContractPage() {
         </div>
       </div>
 
-      {/* OTP 모달 */}
+      {/* 서명 + 인증 모달 */}
       <Modal
-        open={showOtpModal}
-        onClose={() => {
-          setShowOtpModal(false)
-          setOtpError('')
-          setOtp('')
-        }}
-        title="본인 인증"
-        description="계약서 서명을 위해 전화번호로 인증번호를 발송합니다."
+        open={showModal}
+        onClose={resetModal}
+        title={modalStep === 'signature' ? '서명' : '본인 인증'}
+        description={
+          modalStep === 'signature'
+            ? '아래 서명란에 직접 서명해주세요.'
+            : '계약서 서명을 위해 전화번호로 인증번호를 발송합니다.'
+        }
       >
-        <div className="space-y-4 pt-1">
-          {/* 전화번호 입력 */}
-          <div>
-            <label className="block text-sm font-medium text-text-primary mb-1.5">
-              전화번호
-            </label>
-            <div className="flex gap-2">
-              <input
-                type="tel"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                placeholder="010-0000-0000"
-                className="flex-1 border border-border rounded-md px-3 py-2 text-sm bg-surface text-text-primary focus:outline-none focus:ring-2 focus:ring-brand-600"
-                disabled={otpSent && cooldown > 0}
-              />
-              <Button
-                size="sm"
-                variant={otpSent ? 'secondary' : 'primary'}
-                onClick={handleSendOtp}
-                isLoading={isSendingOtp}
-                disabled={!phone.trim() || (cooldown > 0)}
+        {modalStep === 'signature' ? (
+          <div className="space-y-4 pt-1">
+            <SignaturePad ref={sigPadRef} />
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={() => sigPadRef.current?.clear()}
+                className="text-xs text-text-tertiary hover:text-text-secondary transition-colors"
               >
-                {cooldown > 0 ? `${cooldown}초` : otpSent ? '재발송' : '인증번호 발송'}
-              </Button>
+                다시 그리기
+              </button>
             </div>
-          </div>
-
-          {/* OTP 입력 */}
-          {otpSent && (
-            <div>
-              <label className="block text-sm font-medium text-text-primary mb-1.5">
-                인증번호 (6자리)
-              </label>
-              <input
-                type="number"
-                value={otp}
-                onChange={(e) => {
-                  setOtpError('')
-                  setOtp(e.target.value.slice(0, 6))
-                }}
-                placeholder="000000"
-                maxLength={6}
-                className="w-full border border-border rounded-md px-3 py-2 text-sm bg-surface text-text-primary focus:outline-none focus:ring-2 focus:ring-brand-600 tracking-widest text-center text-lg"
-              />
-              <p className="text-xs text-text-tertiary mt-1.5">
-                인증번호는 5분간 유효합니다.
+            {sigError && (
+              <p className="text-sm text-state-danger bg-state-danger-bg rounded-lg px-3 py-2">
+                {sigError}
               </p>
-            </div>
-          )}
-
-          {otpError && (
-            <p className="text-sm text-state-danger bg-state-danger-bg rounded-lg px-3 py-2">
-              {otpError}
-            </p>
-          )}
-
-          <div className="pt-2">
-            <Button
-              className="w-full"
-              size="lg"
-              onClick={handleAgree}
-              isLoading={isAgreeing}
-              disabled={!otpSent || otp.length !== 6}
-            >
-              동의 완료
+            )}
+            <Button className="w-full" size="lg" onClick={handleNextToOtp}>
+              다음 — 본인 인증
             </Button>
           </div>
+        ) : (
+          <div className="space-y-4 pt-1">
+            {/* 서명 미리보기 */}
+            {signatureDataUrl && (
+              <div className="border border-border rounded-xl p-2 bg-surface-sunken text-center">
+                <p className="text-xs text-text-tertiary mb-1">내 서명</p>
+                <img src={signatureDataUrl} alt="서명" className="max-h-16 mx-auto object-contain" />
+              </div>
+            )}
 
-          <p className="text-xs text-text-tertiary text-center leading-relaxed">
-            본인 인증 후 서명이 완료되며, 이는 전자서명법에 따라 서면 서명과 동일한 법적 효력을 가집니다.
-          </p>
-        </div>
+            {/* 전화번호 */}
+            <div>
+              <label className="block text-sm font-medium text-text-primary mb-1.5">전화번호</label>
+              <div className="flex gap-2">
+                <input
+                  type="tel"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder="010-0000-0000"
+                  className="flex-1 border border-border rounded-md px-3 py-2 text-sm bg-surface text-text-primary focus:outline-none focus:ring-2 focus:ring-brand-600"
+                  disabled={otpSent && cooldown > 0}
+                />
+                <Button
+                  size="sm"
+                  variant={otpSent ? 'secondary' : 'primary'}
+                  onClick={handleSendOtp}
+                  isLoading={isSendingOtp}
+                  disabled={!phone.trim() || cooldown > 0}
+                >
+                  {cooldown > 0 ? `${cooldown}초` : otpSent ? '재발송' : '인증번호 발송'}
+                </Button>
+              </div>
+            </div>
+
+            {/* OTP */}
+            {otpSent && (
+              <div>
+                <label className="block text-sm font-medium text-text-primary mb-1.5">인증번호 (6자리)</label>
+                <input
+                  type="number"
+                  value={otp}
+                  onChange={(e) => { setOtpError(''); setOtp(e.target.value.slice(0, 6)) }}
+                  placeholder="000000"
+                  maxLength={6}
+                  className="w-full border border-border rounded-md px-3 py-2 text-sm bg-surface text-text-primary focus:outline-none focus:ring-2 focus:ring-brand-600 tracking-widest text-center text-lg"
+                />
+                <p className="text-xs text-text-tertiary mt-1.5">인증번호는 5분간 유효합니다.</p>
+              </div>
+            )}
+
+            {otpError && (
+              <p className="text-sm text-state-danger bg-state-danger-bg rounded-lg px-3 py-2">
+                {otpError}
+              </p>
+            )}
+
+            <div className="flex gap-2 pt-2">
+              <Button
+                variant="secondary"
+                className="flex-1"
+                onClick={() => { setModalStep('signature'); setOtpError('') }}
+              >
+                이전
+              </Button>
+              <Button
+                className="flex-1"
+                size="lg"
+                onClick={handleAgree}
+                isLoading={isAgreeing}
+                disabled={!otpSent || otp.length !== 6}
+              >
+                서명 완료
+              </Button>
+            </div>
+
+            <p className="text-xs text-text-tertiary text-center leading-relaxed">
+              본인 인증 후 서명이 완료되며, 이는 전자서명법에 따라 서면 서명과 동일한 법적 효력을 가집니다.
+            </p>
+          </div>
+        )}
       </Modal>
     </div>
   )
