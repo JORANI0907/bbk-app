@@ -8,9 +8,11 @@ import { Modal } from '@/components/ui'
 import ContractEditor from '@/components/contracts/ContractEditor'
 import {
   TEMPLATE_PREVIEW_VALUES,
-  TEMPLATE_KNOWN_VARS,
+  AUTO_FILL_FIELDS,
   renderTemplateWithVars,
   extractTemplateVars,
+  type VarConfig,
+  type TemplateVarConfigMap,
 } from '@/lib/contractTemplate'
 
 interface TemplateData {
@@ -19,7 +21,7 @@ interface TemplateData {
   description: string
   html_body: string
   is_active: boolean
-  custom_vars: Record<string, string>
+  var_config: TemplateVarConfigMap
   created_at: string
   updated_at: string
 }
@@ -40,7 +42,7 @@ export default function ContractTemplateEditorPage() {
   const [htmlBody, setHtmlBody] = useState('')
   const [isActive, setIsActive] = useState(true)
   const [previewHtml, setPreviewHtml] = useState('')
-  const [customVarLabels, setCustomVarLabels] = useState<Record<string, string>>({})
+  const [varConfig, setVarConfig] = useState<TemplateVarConfigMap>({})
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -55,7 +57,7 @@ export default function ContractTemplateEditorPage() {
         setDescription(tmpl.description ?? '')
         setHtmlBody(tmpl.html_body)
         setIsActive(tmpl.is_active)
-        setCustomVarLabels(tmpl.custom_vars ?? {})
+        setVarConfig(tmpl.var_config ?? {})
         setPreviewHtml(renderTemplateWithVars(tmpl.html_body, TEMPLATE_PREVIEW_VALUES))
       } else {
         toast.error('양식을 불러오지 못했습니다.')
@@ -98,7 +100,7 @@ export default function ContractTemplateEditorPage() {
       const res = await fetch(`/api/admin/contract-templates/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, description, html_body: htmlBody, is_active: isActive, custom_vars: customVarLabels }),
+        body: JSON.stringify({ name, description, html_body: htmlBody, is_active: isActive, var_config: varConfig }),
       })
       const json = await res.json()
       if (json.success) {
@@ -215,56 +217,80 @@ export default function ContractTemplateEditorPage() {
         <ContractEditor value={htmlBody} onChange={handleHtmlChange} />
       </div>
 
-      {/* 변수 목록 패널 */}
-      {(() => {
-        const allVars = extractTemplateVars(htmlBody)
-        if (allVars.length === 0) return null
-        const customVars = allVars.filter(v => !(v in TEMPLATE_KNOWN_VARS))
-        return (
-          <div className="bg-surface rounded-2xl shadow-soft border border-border-subtle p-5 space-y-4">
-            <div>
-              <p className="text-sm font-semibold text-text-primary">변수 목록</p>
-              <p className="text-xs text-text-tertiary mt-0.5">
-                계약서 HTML에서 감지된 변수입니다. <code className="bg-surface-sunken px-1 rounded">{'{{변수명}}'}</code> 형식으로 사용합니다.
-              </p>
-            </div>
-            <div className="space-y-2">
-              {allVars.map(v => {
-                const known = TEMPLATE_KNOWN_VARS[v]
-                return (
-                  <div key={v} className="flex items-center gap-3 text-sm">
-                    <code className="bg-surface-sunken px-2 py-0.5 rounded text-xs font-mono text-brand-600 whitespace-nowrap flex-shrink-0">
+      {/* 변수 설정 패널 */}
+      {extractTemplateVars(htmlBody).length > 0 && (
+        <div className="bg-surface rounded-2xl shadow-soft border border-border-subtle p-5 space-y-4">
+          <div>
+            <p className="text-sm font-semibold text-text-primary">변수 설정</p>
+            <p className="text-xs text-text-tertiary mt-0.5">
+              각 변수를 <strong>자동</strong>(고객·계약 데이터에서 자동 채움) 또는 <strong>수동</strong>(계약서 작성 시 직접 입력)으로 설정합니다.
+            </p>
+          </div>
+          <div className="space-y-4">
+            {extractTemplateVars(htmlBody).map(v => {
+              const cfg: VarConfig = varConfig[v] ?? { label: '', mode: 'manual' }
+              const updateCfg = (patch: Partial<VarConfig>) =>
+                setVarConfig(prev => ({ ...prev, [v]: { ...cfg, ...patch } }))
+              return (
+                <div key={v} className="border border-border-subtle rounded-xl p-4 space-y-3">
+                  {/* 변수명 + 설명 */}
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <code className="bg-surface-sunken px-2 py-0.5 rounded text-xs font-mono text-brand-600 flex-shrink-0">
                       {`{{${v}}}`}
                     </code>
-                    {known ? (
-                      <span className="text-text-secondary flex items-center gap-1.5">
-                        {known.label}
-                        {known.auto
-                          ? <span className="text-xs bg-state-success-bg text-state-success px-1.5 py-0.5 rounded-full">자동입력</span>
-                          : <span className="text-xs bg-state-warning-bg text-state-warning px-1.5 py-0.5 rounded-full">계약서 작성 시 입력</span>
-                        }
-                      </span>
-                    ) : (
-                      <input
-                        type="text"
-                        value={customVarLabels[v] ?? ''}
-                        onChange={(e) => setCustomVarLabels(prev => ({ ...prev, [v]: e.target.value }))}
-                        placeholder="변수 설명 입력 (예: 특이사항, 예약금)"
-                        className="flex-1 border border-border rounded-md px-2 py-1 text-sm bg-surface text-text-primary focus:outline-none focus:ring-2 focus:ring-brand-600"
-                      />
-                    )}
+                    <input
+                      type="text"
+                      value={cfg.label}
+                      onChange={(e) => updateCfg({ label: e.target.value })}
+                      placeholder="변수 설명 (예: 예약금, 특이사항)"
+                      className="flex-1 min-w-0 border border-border rounded-md px-2 py-1 text-sm bg-surface text-text-primary focus:outline-none focus:ring-2 focus:ring-brand-600"
+                    />
                   </div>
-                )
-              })}
-            </div>
-            {customVars.length > 0 && (
-              <p className="text-xs text-text-tertiary border-t border-border-subtle pt-3">
-                커스텀 변수는 계약서 작성 시 직접 값을 입력합니다. 설명을 입력하면 작성 화면에 표시됩니다.
-              </p>
-            )}
+                  {/* 자동/수동 선택 */}
+                  <div className="flex gap-3">
+                    <label className="flex items-center gap-1.5 cursor-pointer">
+                      <input
+                        type="radio"
+                        name={`mode-${v}`}
+                        checked={cfg.mode === 'auto'}
+                        onChange={() => updateCfg({ mode: 'auto', autoField: cfg.autoField ?? Object.keys(AUTO_FILL_FIELDS)[0] })}
+                        className="accent-brand-600"
+                      />
+                      <span className="text-sm text-text-primary">자동</span>
+                    </label>
+                    <label className="flex items-center gap-1.5 cursor-pointer">
+                      <input
+                        type="radio"
+                        name={`mode-${v}`}
+                        checked={cfg.mode === 'manual'}
+                        onChange={() => updateCfg({ mode: 'manual', autoField: undefined })}
+                        className="accent-brand-600"
+                      />
+                      <span className="text-sm text-text-primary">수동 입력</span>
+                    </label>
+                  </div>
+                  {/* 자동 선택 시 필드 드롭다운 */}
+                  {cfg.mode === 'auto' && (
+                    <select
+                      value={cfg.autoField ?? ''}
+                      onChange={(e) => updateCfg({ autoField: e.target.value })}
+                      className="w-full border border-border rounded-md px-3 py-2 text-sm bg-surface text-text-primary focus:outline-none focus:ring-2 focus:ring-brand-600"
+                    >
+                      <option value="">-- 매핑할 필드 선택 --</option>
+                      {Object.entries(AUTO_FILL_FIELDS).map(([field, label]) => (
+                        <option key={field} value={field}>{label}</option>
+                      ))}
+                    </select>
+                  )}
+                </div>
+              )
+            })}
           </div>
-        )
-      })()}
+          <p className="text-xs text-text-tertiary border-t border-border-subtle pt-3">
+            설정 후 반드시 <strong>저장</strong>을 눌러야 반영됩니다.
+          </p>
+        </div>
+      )}
 
       {/* 미리보기 모달 */}
       <Modal

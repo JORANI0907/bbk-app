@@ -382,6 +382,83 @@ const CONTRACT_HTML_TEMPLATE = `<!DOCTYPE html>
 </body>
 </html>`
 
+// ─── 변수 설정 타입 ──────────────────────────────────────────────────────────
+
+export interface VarConfig {
+  label: string
+  mode: 'auto' | 'manual'
+  autoField?: string
+}
+
+export type TemplateVarConfigMap = Record<string, VarConfig>
+
+// 자동 매핑 가능한 필드 목록 (key: autoField 값, value: 화면 표시 라벨)
+export const AUTO_FILL_FIELDS: Record<string, string> = {
+  'customer.business_name': '고객사명',
+  'customer.business_number': '사업자번호',
+  'customer.contact_name': '담당자명',
+  'customer.contact_phone': '연락처',
+  'customer.email': '이메일',
+  'customer.address': '주소 (전체)',
+  'customer.billing_amount': '청구 금액',
+  'customer.contract_start_date': '계약 시작일 (고객 DB)',
+  'customer.contract_end_date': '계약 종료일 (고객 DB)',
+  'customer.memo': '메모',
+  'contract.monthly_price': '월 요금',
+  'contract.annual_price': '연간 요금',
+  'contract.start_date': '계약 시작일',
+  'contract.end_date': '계약 종료일',
+  'contract.selected_items_list': '서비스 항목 (HTML 목록)',
+  'system.today_year': '오늘 연도',
+  'system.today_month': '오늘 월',
+  'system.today_day': '오늘 일',
+}
+
+/**
+ * autoField 경로를 실제 값으로 resolve
+ */
+export function resolveAutoField(
+  field: string,
+  customer: Record<string, unknown>,
+  contract: Record<string, unknown>,
+): string {
+  const today = new Date()
+  const selectedItems = contract.selected_items as string[] | null
+
+  const map: Record<string, string> = {
+    'customer.business_name': String(customer.business_name ?? ''),
+    'customer.business_number': String(customer.business_number ?? ''),
+    'customer.contact_name': String(customer.contact_name ?? ''),
+    'customer.contact_phone': String(customer.contact_phone ?? ''),
+    'customer.email': String(customer.email ?? ''),
+    'customer.address': [customer.address, customer.address_detail].filter(Boolean).join(' '),
+    'customer.billing_amount': customer.billing_amount != null
+      ? Number(customer.billing_amount).toLocaleString('ko-KR')
+      : '',
+    'customer.contract_start_date': String(customer.contract_start_date ?? ''),
+    'customer.contract_end_date': String(customer.contract_end_date ?? ''),
+    'customer.memo': String(customer.memo ?? ''),
+    'contract.monthly_price': contract.monthly_price != null
+      ? Number(contract.monthly_price).toLocaleString('ko-KR')
+      : '',
+    'contract.annual_price': contract.annual_price != null
+      ? Number(contract.annual_price).toLocaleString('ko-KR')
+      : '',
+    'contract.start_date': String(contract.start_date ?? ''),
+    'contract.end_date': String(contract.end_date ?? ''),
+    'contract.selected_items_list': selectedItems && selectedItems.length > 0
+      ? `<ul>${selectedItems.map(i => `<li>${i}</li>`).join('')}</ul>`
+      : '',
+    'system.today_year': String(today.getFullYear()),
+    'system.today_month': String(today.getMonth() + 1).padStart(2, '0'),
+    'system.today_day': String(today.getDate()).padStart(2, '0'),
+  }
+
+  return map[field] ?? ''
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 /**
  * 템플릿 변수를 실제 값으로 치환하여 HTML 문자열 반환
  */

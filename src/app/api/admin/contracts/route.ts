@@ -4,6 +4,9 @@ import {
   renderContract,
   extractVariablesFromCustomer,
   renderTemplateWithVars,
+  extractTemplateVars,
+  resolveAutoField,
+  type TemplateVarConfigMap,
 } from '@/lib/contractTemplate'
 import crypto from 'crypto'
 
@@ -83,54 +86,67 @@ export async function POST(request: NextRequest) {
   // contract_snapshot 생성 — template_id 있으면 DB 템플릿 사용, 없으면 기존 renderContract
   const contractDate = new Date()
   let snapshot: string
+
+  // 기본 변수 맵 (backward compat + fallback)
+  const defaultVars: Record<string, string> = {
+    CONTRACT_YEAR: String(contractDate.getFullYear()),
+    CONTRACT_MONTH: String(contractDate.getMonth() + 1).padStart(2, '0'),
+    CONTRACT_DAY: String(contractDate.getDate()).padStart(2, '0'),
+    CUSTOMER_BUSINESS_NAME: (customer.business_name as string | null) ?? '',
+    CUSTOMER_BUSINESS_NUMBER: (customer.business_number as string | null) ?? '',
+    CUSTOMER_OWNER_NAME: (customer.contact_name as string | null) ?? '',
+    CUSTOMER_ADDRESS: [customer.address, customer.address_detail].filter(Boolean).join(' '),
+    CUSTOMER_PHONE: (customer.contact_phone as string | null) ?? '',
+    CUSTOMER_EMAIL: (customer.email as string | null) ?? '',
+    MONTHLY_PRICE: contractRecord.monthly_price != null
+      ? (contractRecord.monthly_price as number).toLocaleString('ko-KR')
+      : '',
+    ANNUAL_PRICE: contractRecord.annual_price != null
+      ? (contractRecord.annual_price as number).toLocaleString('ko-KR')
+      : '',
+    CONTRACT_START_DATE: (contractRecord.start_date as string | null) ?? '',
+    CONTRACT_END_DATE: (contractRecord.end_date as string | null) ?? '',
+    SERVICE_SCOPE: Array.isArray(selected_items) ? (selected_items as string[]).join(', ') : '',
+    SELECTED_ITEMS_LIST:
+      Array.isArray(selected_items) && (selected_items as string[]).length > 0
+        ? `<ul>${(selected_items as string[]).map((i) => `<li>${i}</li>`).join('')}</ul>`
+        : '',
+  }
+
   if (template_id) {
     const { data: tmpl } = await supabase
       .from('contract_templates')
-      .select('html_body')
+      .select('html_body, var_config')
       .eq('id', template_id as string)
       .single()
 
     if (tmpl) {
-      const vars: Record<string, string> = {
-        CONTRACT_YEAR: String(contractDate.getFullYear()),
-        CONTRACT_MONTH: String(contractDate.getMonth() + 1).padStart(2, '0'),
-        CONTRACT_DAY: String(contractDate.getDate()).padStart(2, '0'),
-        CUSTOMER_BUSINESS_NAME: (customer.business_name as string | null) ?? '',
-        CUSTOMER_BUSINESS_NUMBER: (customer.business_number as string | null) ?? '',
-        CUSTOMER_OWNER_NAME: (customer.contact_name as string | null) ?? '',
-        CUSTOMER_ADDRESS: [customer.address, customer.address_detail]
-          .filter(Boolean)
-          .join(' '),
-        CUSTOMER_PHONE: (customer.contact_phone as string | null) ?? '',
-        CUSTOMER_EMAIL: (customer.email as string | null) ?? '',
-        MONTHLY_PRICE: contractRecord.monthly_price != null
-          ? (contractRecord.monthly_price as number).toLocaleString('ko-KR')
-          : '',
-        ANNUAL_PRICE: contractRecord.annual_price != null
-          ? (contractRecord.annual_price as number).toLocaleString('ko-KR')
-          : '',
-        CONTRACT_START_DATE: (contractRecord.start_date as string | null) ?? '',
-        CONTRACT_END_DATE: (contractRecord.end_date as string | null) ?? '',
-        SERVICE_SCOPE: Array.isArray(selected_items)
-          ? (selected_items as string[]).join(', ')
-          : '',
-        SELECTED_ITEMS_LIST:
-          Array.isArray(selected_items) && (selected_items as string[]).length > 0
-            ? `<ul>${(selected_items as string[]).map((i) => `<li>${i}</li>`).join('')}</ul>`
-            : '',
-      }
-      // 커스텀 변수 병합 (사용자가 직접 입력한 값)
-      if (custom_vars && typeof custom_vars === 'object') {
+      const varConfigMap = (tmpl.var_config ?? {}) as TemplateVarConfigMap
+      const hasVarConfig = Object.keys(varConfigMap).length > 0
+      const vars: Record<string, string> = { ...defaultVars }
+
+      if (hasVarConfig) {
+        // var_config 있으면 각 변수를 설정대로 resolve
+        for (const varName of extractTemplateVars(tmpl.html_body)) {
+          const config = varConfigMap[varName]
+          if (!config) continue
+          if (config.mode === 'auto' && config.autoField) {
+            vars[varName] = resolveAutoField(config.autoField, customer, contractRecord)
+          } else if (config.mode === 'manual') {
+            vars[varName] = (custom_vars as Record<string, string>)?.[varName] ?? ''
+          }
+        }
+      } else if (custom_vars && typeof custom_vars === 'object') {
+        // var_config 없으면 old 방식 (custom_vars 직접 병합)
         Object.assign(vars, custom_vars as Record<string, string>)
       }
+
       snapshot = renderTemplateWithVars(tmpl.html_body, vars)
     } else {
-      const variables = extractVariablesFromCustomer(customer, contractRecord)
-      snapshot = renderContract(variables)
+      snapshot = renderContract(extractVariablesFromCustomer(customer, contractRecord))
     }
   } else {
-    const variables = extractVariablesFromCustomer(customer, contractRecord)
-    snapshot = renderContract(variables)
+    snapshot = renderContract(extractVariablesFromCustomer(customer, contractRecord))
   }
 
   const { data: created, error: insertError } = await supabase
