@@ -64,9 +64,8 @@ export default function AdminContractsPage() {
 
   // 신규 계약서 폼 상태
   const [customers, setCustomers] = useState<CustomerOption[]>([])
-  const [customerSearch, setCustomerSearch] = useState('')
+  const [customerInputValue, setCustomerInputValue] = useState('')
   const [showCustomerDropdown, setShowCustomerDropdown] = useState(false)
-  const [selectedCustomerLabel, setSelectedCustomerLabel] = useState('')
   const customerDropdownRef = useRef<HTMLDivElement>(null)
   const [formData, setFormData] = useState({
     customer_id: '',
@@ -123,8 +122,7 @@ export default function AdminContractsPage() {
 
   const handleOpenCreate = () => {
     void fetchCustomers()
-    setCustomerSearch('')
-    setSelectedCustomerLabel('')
+    setCustomerInputValue('')
     setShowCustomerDropdown(false)
     setFormData({
       customer_id: '',
@@ -137,10 +135,10 @@ export default function AdminContractsPage() {
     setShowCreateModal(true)
   }
 
-  // 검색어로 필터링된 고객 목록
+  // 검색어로 필터링된 고객 목록 (고객이 이미 선택된 상태면 전체 표시)
   const filteredCustomers = customers.filter((c) => {
-    if (!customerSearch) return true
-    const q = customerSearch.toLowerCase()
+    if (formData.customer_id || !customerInputValue) return true
+    const q = customerInputValue.toLowerCase()
     return (
       (c.business_name ?? '').toLowerCase().includes(q) ||
       (c.contact_name ?? '').toLowerCase().includes(q) ||
@@ -158,8 +156,7 @@ export default function AdminContractsPage() {
       contract_end_date: customer.contract_end_date ?? '',
       customer_phone: customer.contact_phone ?? '',
     }))
-    setSelectedCustomerLabel(`${customer.business_name} (${customer.contact_name})`)
-    setCustomerSearch('')
+    setCustomerInputValue(`${customer.business_name} (${customer.contact_name})`)
     setShowCustomerDropdown(false)
   }
 
@@ -281,15 +278,15 @@ export default function AdminContractsPage() {
             </label>
             <input
               type="text"
-              value={showCustomerDropdown ? customerSearch : selectedCustomerLabel}
+              value={customerInputValue}
               onChange={(e) => {
-                setCustomerSearch(e.target.value)
+                setCustomerInputValue(e.target.value)
                 setShowCustomerDropdown(true)
+                if (formData.customer_id) {
+                  setFormData((prev) => ({ ...prev, customer_id: '' }))
+                }
               }}
-              onFocus={() => {
-                setCustomerSearch('')
-                setShowCustomerDropdown(true)
-              }}
+              onFocus={() => setShowCustomerDropdown(true)}
               placeholder="고객명·담당자·전화번호 검색"
               className="w-full border border-border rounded-md px-3 py-2 text-sm bg-surface text-text-primary focus:outline-none focus:ring-2 focus:ring-brand-600"
             />
