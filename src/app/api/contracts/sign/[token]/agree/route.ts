@@ -19,7 +19,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
   const { data: contract, error } = await supabase
     .from('contracts')
-    .select('id, signing_status, token_expires_at, otp_code, otp_expires_at, service_plan, customers(business_name, contact_name)')
+    .select('id, signing_status, token_expires_at, otp_code, otp_expires_at, subscription_plan, customers(business_name, contact_name)')
     .eq('signing_token', params.token)
     .single()
 
@@ -103,7 +103,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
   // Slack 알림
   const customer = contract.customers as { business_name?: string; contact_name?: string } | null
   const businessName = customer?.business_name ?? '고객'
-  const servicePlan = contract.service_plan as string ?? ''
+  const servicePlan = contract.subscription_plan as string ?? ''
 
   await sendSlack(
     `✅ *계약서 고객 서명 완료* | ${businessName} | ${servicePlan}`,
