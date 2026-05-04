@@ -77,10 +77,13 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
   const businessName = customer?.business_name ?? '고객'
   const customerEmail = (customer?.email as string | null) ?? null
 
-  // 이메일 발송 (비동기, 실패해도 계약 완료는 유지)
+  // 이메일 발송 (실패해도 계약 완료는 유지)
   if (pdfBase64) {
-    sendContractCompletedEmails({ customerEmail, businessName, pdfBase64 })
-      .catch(e => console.error('[admin-sign] 이메일 발송 실패:', e))
+    try {
+      await sendContractCompletedEmails({ customerEmail, businessName, pdfBase64 })
+    } catch (e) {
+      console.error('[admin-sign] 이메일 발송 실패:', e)
+    }
   }
 
   // 고객 완료 SMS
