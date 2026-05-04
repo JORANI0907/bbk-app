@@ -44,7 +44,7 @@ export async function POST(request: NextRequest) {
 
   const { customer_id, service_plan, visit_option, monthly_price, annual_price,
     contract_start_date, contract_end_date, selected_items, customer_phone,
-    application_id, template_id } = body
+    application_id, template_id, custom_vars } = body
 
   if (!customer_id) {
     return NextResponse.json({ success: false, error: 'customer_id는 필수입니다.' }, { status: 400 })
@@ -118,6 +118,10 @@ export async function POST(request: NextRequest) {
           Array.isArray(selected_items) && (selected_items as string[]).length > 0
             ? `<ul>${(selected_items as string[]).map((i) => `<li>${i}</li>`).join('')}</ul>`
             : '',
+      }
+      // 커스텀 변수 병합 (사용자가 직접 입력한 값)
+      if (custom_vars && typeof custom_vars === 'object') {
+        Object.assign(vars, custom_vars as Record<string, string>)
       }
       snapshot = renderTemplateWithVars(tmpl.html_body, vars)
     } else {
