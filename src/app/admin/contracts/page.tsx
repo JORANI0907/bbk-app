@@ -7,7 +7,7 @@ import { Button } from '@/components/ui'
 import { Modal } from '@/components/ui'
 import { SectionHeader } from '@/components/ui'
 
-type SigningStatus = 'draft' | 'pending_customer' | 'customer_signed' | 'completed'
+type SigningStatus = 'draft' | 'pending_customer' | 'customer_signed' | 'completed' | 'voided'
 
 interface ContractListItem {
   id: string
@@ -44,6 +44,7 @@ const STATUS_LABELS: Record<SigningStatus, string> = {
   pending_customer: '서명 대기',
   customer_signed: '고객 서명 완료',
   completed: '완료',
+  voided: '파기',
 }
 
 const STATUS_COLORS: Record<SigningStatus, string> = {
@@ -51,6 +52,7 @@ const STATUS_COLORS: Record<SigningStatus, string> = {
   pending_customer: 'bg-state-warning-bg text-state-warning',
   customer_signed: 'bg-state-info-bg text-state-info',
   completed: 'bg-state-success-bg text-state-success',
+  voided: 'bg-state-danger-bg text-state-danger',
 }
 
 const TABS: { label: string; value: string }[] = [
@@ -58,6 +60,7 @@ const TABS: { label: string; value: string }[] = [
   { label: '서명 대기', value: 'pending_customer' },
   { label: '고객 서명 완료', value: 'customer_signed' },
   { label: '완료', value: 'completed' },
+  { label: '파기', value: 'voided' },
 ]
 
 
