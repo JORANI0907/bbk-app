@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
-import { renderContract, extractVariablesFromCustomer } from '@/lib/contractTemplate'
+import {
+  renderContract,
+  extractVariablesFromCustomer,
+  renderTemplateWithVars,
+} from '@/lib/contractTemplate'
 import crypto from 'crypto'
 
 // GET /api/admin/contracts — 계약서 목록
@@ -40,7 +44,7 @@ export async function POST(request: NextRequest) {
 
   const { customer_id, service_plan, visit_option, monthly_price, annual_price,
     contract_start_date, contract_end_date, selected_items, customer_phone,
-    application_id } = body
+    application_id, template_id } = body
 
   if (!customer_id) {
     return NextResponse.json({ success: false, error: 'customer_id는 필수입니다.' }, { status: 400 })
@@ -73,11 +77,57 @@ export async function POST(request: NextRequest) {
     token_expires_at: tokenExpiresAt,
     signing_status: 'draft',
     application_id: application_id ?? null,
+    template_id: template_id ?? null,
   }
 
-  // contract_snapshot 생성 (renderContract)
-  const variables = extractVariablesFromCustomer(customer, contractRecord)
-  const snapshot = renderContract(variables)
+  // contract_snapshot 생성 — template_id 있으면 DB 템플릿 사용, 없으면 기존 renderContract
+  const contractDate = new Date()
+  let snapshot: string
+  if (template_id) {
+    const { data: tmpl } = await supabase
+      .from('contract_templates')
+      .select('html_body')
+      .eq('id', template_id as string)
+      .single()
+
+    if (tmpl) {
+      const vars: Record<string, string> = {
+        CONTRACT_YEAR: String(contractDate.getFullYear()),
+        CONTRACT_MONTH: String(contractDate.getMonth() + 1).padStart(2, '0'),
+        CONTRACT_DAY: String(contractDate.getDate()).padStart(2, '0'),
+        CUSTOMER_BUSINESS_NAME: (customer.business_name as string | null) ?? '',
+        CUSTOMER_BUSINESS_NUMBER: (customer.business_number as string | null) ?? '',
+        CUSTOMER_OWNER_NAME: (customer.contact_name as string | null) ?? '',
+        CUSTOMER_ADDRESS: [customer.address, customer.address_detail]
+          .filter(Boolean)
+          .join(' '),
+        CUSTOMER_PHONE: (customer.contact_phone as string | null) ?? '',
+        CUSTOMER_EMAIL: (customer.email as string | null) ?? '',
+        MONTHLY_PRICE: contractRecord.monthly_price != null
+          ? (contractRecord.monthly_price as number).toLocaleString('ko-KR')
+          : '',
+        ANNUAL_PRICE: contractRecord.annual_price != null
+          ? (contractRecord.annual_price as number).toLocaleString('ko-KR')
+          : '',
+        CONTRACT_START_DATE: (contractRecord.start_date as string | null) ?? '',
+        CONTRACT_END_DATE: (contractRecord.end_date as string | null) ?? '',
+        SERVICE_SCOPE: Array.isArray(selected_items)
+          ? (selected_items as string[]).join(', ')
+          : '',
+        SELECTED_ITEMS_LIST:
+          Array.isArray(selected_items) && (selected_items as string[]).length > 0
+            ? `<ul>${(selected_items as string[]).map((i) => `<li>${i}</li>`).join('')}</ul>`
+            : '',
+      }
+      snapshot = renderTemplateWithVars(tmpl.html_body, vars)
+    } else {
+      const variables = extractVariablesFromCustomer(customer, contractRecord)
+      snapshot = renderContract(variables)
+    }
+  } else {
+    const variables = extractVariablesFromCustomer(customer, contractRecord)
+    snapshot = renderContract(variables)
+  }
 
   const { data: created, error: insertError } = await supabase
     .from('contracts')

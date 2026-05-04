@@ -33,6 +33,12 @@ interface CustomerOption {
   contract_end_date: string | null
 }
 
+interface TemplateOption {
+  id: string
+  name: string
+  is_active: boolean
+}
+
 const STATUS_LABELS: Record<SigningStatus, string> = {
   draft: '초안',
   pending_customer: '서명 대기',
@@ -67,6 +73,8 @@ export default function AdminContractsPage() {
   const [customerInputValue, setCustomerInputValue] = useState('')
   const [showCustomerDropdown, setShowCustomerDropdown] = useState(false)
   const customerDropdownRef = useRef<HTMLDivElement>(null)
+  const [templates, setTemplates] = useState<TemplateOption[]>([])
+  const [selectedTemplateId, setSelectedTemplateId] = useState('')
   const [formData, setFormData] = useState({
     customer_id: '',
     monthly_price: '',
@@ -111,6 +119,21 @@ export default function AdminContractsPage() {
     }
   }
 
+  const fetchTemplates = async () => {
+    try {
+      const res = await fetch('/api/admin/contract-templates')
+      const json = await res.json()
+      if (json.success) {
+        const active: TemplateOption[] = (json.data ?? []).filter(
+          (t: TemplateOption) => t.is_active,
+        )
+        setTemplates(active)
+      }
+    } catch {
+      // 템플릿 로드 실패는 무시 (기본 양식 사용)
+    }
+  }
+
   // 드롭다운 외부 클릭 시 닫기
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -124,8 +147,10 @@ export default function AdminContractsPage() {
 
   const handleOpenCreate = () => {
     void fetchCustomers()
+    void fetchTemplates()
     setCustomerInputValue('')
     setShowCustomerDropdown(false)
+    setSelectedTemplateId('')
     setFormData({
       customer_id: '',
       monthly_price: '',
@@ -186,6 +211,7 @@ export default function AdminContractsPage() {
           contract_end_date: formData.contract_end_date || null,
           customer_phone: formData.customer_phone,
           selected_items: selectedItems,
+          template_id: selectedTemplateId || undefined,
         }),
       })
       const json = await res.json()
@@ -284,6 +310,25 @@ export default function AdminContractsPage() {
         title="새 계약서 작성"
       >
         <div className="space-y-4 pt-2">
+          {/* 템플릿 선택 */}
+          <div>
+            <label className="block text-sm font-medium text-text-primary mb-1.5">
+              계약서 양식
+            </label>
+            <select
+              value={selectedTemplateId}
+              onChange={(e) => setSelectedTemplateId(e.target.value)}
+              className="w-full border border-border rounded-md px-3 py-2 text-sm bg-surface text-text-primary focus:outline-none focus:ring-2 focus:ring-brand-600"
+            >
+              <option value="">양식 선택 안함 (기본 양식 사용)</option>
+              {templates.map((tmpl) => (
+                <option key={tmpl.id} value={tmpl.id}>
+                  {tmpl.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
           <div ref={customerDropdownRef} className="relative">
             <label className="block text-sm font-medium text-text-primary mb-1.5">
               고객 선택 <span className="text-state-danger">*</span>

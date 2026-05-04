@@ -405,6 +405,62 @@ export function renderContract(variables: ContractVariables): string {
     .replace(/{{SELECTED_ITEMS_LIST}}/g, variables.selectedItemsList)
 }
 
+// 변수 목록 — 자동 입력 여부 포함
+export const TEMPLATE_KNOWN_VARS: Record<string, { label: string; auto: boolean }> = {
+  CONTRACT_YEAR: { label: '계약 연도', auto: true },
+  CONTRACT_MONTH: { label: '계약 월', auto: true },
+  CONTRACT_DAY: { label: '계약 일', auto: true },
+  CUSTOMER_BUSINESS_NAME: { label: '고객사명', auto: true },
+  CUSTOMER_BUSINESS_NUMBER: { label: '사업자번호', auto: true },
+  CUSTOMER_OWNER_NAME: { label: '담당자명', auto: true },
+  CUSTOMER_ADDRESS: { label: '주소', auto: true },
+  CUSTOMER_PHONE: { label: '전화번호', auto: true },
+  CUSTOMER_EMAIL: { label: '이메일', auto: true },
+  MONTHLY_PRICE: { label: '월 요금', auto: false },
+  ANNUAL_PRICE: { label: '연간 요금', auto: false },
+  CONTRACT_START_DATE: { label: '계약 시작일', auto: false },
+  CONTRACT_END_DATE: { label: '계약 종료일', auto: false },
+  SERVICE_SCOPE: { label: '서비스 범위', auto: false },
+  SELECTED_ITEMS_LIST: { label: '서비스 항목 (HTML 목록)', auto: false },
+}
+
+// 미리보기용 샘플값
+export const TEMPLATE_PREVIEW_VALUES: Record<string, string> = {
+  CONTRACT_YEAR: '2025',
+  CONTRACT_MONTH: '01',
+  CONTRACT_DAY: '15',
+  CUSTOMER_BUSINESS_NAME: '(주)샘플회사',
+  CUSTOMER_BUSINESS_NUMBER: '000-00-00000',
+  CUSTOMER_OWNER_NAME: '홍길동',
+  CUSTOMER_ADDRESS: '서울특별시 강남구 테헤란로 123',
+  CUSTOMER_PHONE: '010-0000-0000',
+  CUSTOMER_EMAIL: 'sample@company.com',
+  MONTHLY_PRICE: '238,000',
+  ANNUAL_PRICE: '2,856,000',
+  CONTRACT_START_DATE: '2025-01-15',
+  CONTRACT_END_DATE: '2026-01-14',
+  SERVICE_SCOPE: '주방후드 청소, 바닥 왁스 코팅',
+  SELECTED_ITEMS_LIST: '<ul><li>주방후드 청소</li><li>바닥 왁스 코팅</li></ul>',
+}
+
+/**
+ * 템플릿 HTML + 변수 맵으로 렌더링 ({{VAR_NAME}} 형식 치환)
+ */
+export function renderTemplateWithVars(
+  htmlBody: string,
+  vars: Record<string, string>,
+): string {
+  return htmlBody.replace(/\{\{([A-Z0-9_]+)\}\}/g, (match, key) => vars[key] ?? match)
+}
+
+/**
+ * 템플릿 HTML에서 변수명 추출
+ */
+export function extractTemplateVars(htmlBody: string): string[] {
+  const matches = Array.from(htmlBody.matchAll(/\{\{([A-Z0-9_]+)\}\}/g))
+  return Array.from(new Set(matches.map((m) => m[1])))}
+
+
 /**
  * customers / contracts DB 레코드로부터 ContractVariables 추출
  */
