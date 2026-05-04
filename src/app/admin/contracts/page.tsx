@@ -74,6 +74,7 @@ export default function AdminContractsPage() {
     contract_start_date: '',
     contract_end_date: '',
     customer_phone: '',
+    service_scope: '',
   })
   const [isCreating, setIsCreating] = useState(false)
   const handleCloseCreateModal = useCallback(() => setShowCreateModal(false), [])
@@ -132,6 +133,7 @@ export default function AdminContractsPage() {
       contract_start_date: '',
       contract_end_date: '',
       customer_phone: '',
+      service_scope: '',
     })
     setShowCreateModal(true)
   }
@@ -168,13 +170,22 @@ export default function AdminContractsPage() {
     }
     setIsCreating(true)
     try {
+      const selectedItems = formData.service_scope
+        .split('\n')
+        .map((line) => line.trim())
+        .filter(Boolean)
+
       const res = await fetch('/api/admin/contracts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          ...formData,
+          customer_id: formData.customer_id,
           monthly_price: formData.monthly_price ? Number(formData.monthly_price) : null,
           annual_price: formData.annual_price ? Number(formData.annual_price) : null,
+          contract_start_date: formData.contract_start_date || null,
+          contract_end_date: formData.contract_end_date || null,
+          customer_phone: formData.customer_phone,
+          selected_items: selectedItems,
         }),
       })
       const json = await res.json()
@@ -357,6 +368,18 @@ export default function AdminContractsPage() {
                 className="w-full border border-border rounded-md px-3 py-2 text-sm bg-surface text-text-primary focus:outline-none focus:ring-2 focus:ring-brand-600"
               />
             </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-text-primary mb-1.5">서비스 범위 (품목)</label>
+            <textarea
+              value={formData.service_scope}
+              onChange={(e) => setFormData((prev) => ({ ...prev, service_scope: e.target.value }))}
+              placeholder={'주방후드 청소\n바닥 왁스 코팅\n에어컨 필터 세척'}
+              rows={4}
+              className="w-full border border-border rounded-md px-3 py-2 text-sm bg-surface text-text-primary focus:outline-none focus:ring-2 focus:ring-brand-600 resize-none leading-relaxed"
+            />
+            <p className="text-xs text-text-tertiary mt-1">한 줄에 항목 하나씩 입력하세요. 계약서 본문에 목록으로 표시됩니다.</p>
           </div>
 
           <div>
