@@ -1,4 +1,15 @@
-import { Resend } from 'resend'
+import nodemailer from 'nodemailer'
+
+function createTransporter() {
+  const user = process.env.GMAIL_USER
+  const pass = process.env.GMAIL_APP_PASSWORD
+  if (!user || !pass) return null
+
+  return nodemailer.createTransport({
+    service: 'gmail',
+    auth: { user, pass },
+  })
+}
 
 export async function sendContractCompletedEmails({
   customerEmail,
@@ -9,16 +20,14 @@ export async function sendContractCompletedEmails({
   businessName: string
   pdfBase64: string
 }) {
-  const apiKey = process.env.RESEND_API_KEY
-  if (!apiKey) {
-    console.warn('[email] RESEND_API_KEY 미설정 — 이메일 발송 건너뜀')
+  const transporter = createTransporter()
+  if (!transporter) {
+    console.warn('[email] GMAIL_USER 또는 GMAIL_APP_PASSWORD 미설정 — 이메일 발송 건너뜀')
     return
   }
 
-  const resend = new Resend(apiKey)
-  const from = process.env.RESEND_FROM_EMAIL ?? 'onboarding@resend.dev'
   const adminEmail = process.env.ADMIN_EMAIL ?? 'sunrise@bbkorea.co.kr'
-
+  const fromEmail = process.env.GMAIL_USER!
   const subject = `[BBK 공간케어] ${businessName} 계약서 서명 완료`
   const html = `
     <div style="font-family:sans-serif;max-width:600px;margin:0 auto;color:#1a1a1a;">
@@ -37,24 +46,24 @@ export async function sendContractCompletedEmails({
   const attachment = {
     filename: `BBK_계약서_${businessName}.pdf`,
     content: Buffer.from(pdfBase64, 'base64'),
+    contentType: 'application/pdf',
   }
 
-  const sends: Promise<unknown>[] = []
+  const recipients: string[] = [adminEmail]
+  if (customerEmail) recipients.push(customerEmail)
 
-  if (customerEmail) {
-    sends.push(resend.emails.send({ from, to: customerEmail, subject, html, attachments: [attachment] }))
-  }
-  sends.push(
-    resend.emails.send({
-      from,
-      to: adminEmail,
-      subject: `[관리자 사본] ${subject}`,
-      html,
-      attachments: [attachment],
-    }),
+  const results = await Promise.allSettled(
+    recipients.map(to =>
+      transporter.sendMail({
+        from: `BBK 공간케어 <${fromEmail}>`,
+        to,
+        subject: to === adminEmail ? `[관리자 사본] ${subject}` : subject,
+        html,
+        attachments: [attachment],
+      }),
+    ),
   )
 
-  const results = await Promise.allSettled(sends)
   results.forEach((r, i) => {
     if (r.status === 'rejected') console.error(`[email] 발송 실패 #${i}:`, r.reason)
   })
