@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { sendSlack } from '@/lib/slack'
+import { sendSMS } from '@/lib/solapi'
 
 type RouteParams = { params: { id: string } }
 
@@ -10,7 +11,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
   const { data: contract, error: fetchError } = await supabase
     .from('contracts')
-    .select('id, signing_status, subscription_plan, customers(business_name)')
+    .select('id, signing_status, subscription_plan, customer_phone, customers(business_name)')
     .eq('id', params.id)
     .single()
 
@@ -49,6 +50,18 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
   const customer = contract.customers as { business_name?: string } | null
   const businessName = customer?.business_name ?? '고객'
+  const phone = contract.customer_phone as string | null
+
+  if (phone) {
+    try {
+      await sendSMS(
+        phone,
+        `[BBK 공간케어] ${businessName}님, 계약서가 파기되었습니다.\n사유: ${reason}\n문의: 031-759-4877`,
+      )
+    } catch {
+      // SMS 실패는 무시
+    }
+  }
 
   await sendSlack(`🚫 *계약서 파기* | ${businessName} | 사유: ${reason}`)
 
