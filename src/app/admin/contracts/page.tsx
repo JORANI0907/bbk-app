@@ -6,6 +6,7 @@ import toast from 'react-hot-toast'
 import { Button } from '@/components/ui'
 import { Modal } from '@/components/ui'
 import { SectionHeader } from '@/components/ui'
+import { extractTemplateVars, TEMPLATE_KNOWN_VARS } from '@/lib/contractTemplate'
 
 type SigningStatus = 'draft' | 'pending_customer' | 'customer_signed' | 'completed' | 'voided'
 
@@ -88,6 +89,8 @@ export default function AdminContractsPage() {
     service_scope: '',
   })
   const [isCreating, setIsCreating] = useState(false)
+  const [templateCustomVars, setTemplateCustomVars] = useState<Record<string, string>>({})
+  const [customVarValues, setCustomVarValues] = useState<Record<string, string>>({})
   const handleCloseCreateModal = useCallback(() => setShowCreateModal(false), [])
 
   const fetchContracts = useCallback(async () => {
@@ -154,6 +157,8 @@ export default function AdminContractsPage() {
     setCustomerInputValue('')
     setShowCustomerDropdown(false)
     setSelectedTemplateId('')
+    setTemplateCustomVars({})
+    setCustomVarValues({})
     setFormData({
       customer_id: '',
       monthly_price: '',
@@ -164,6 +169,27 @@ export default function AdminContractsPage() {
       service_scope: '',
     })
     setShowCreateModal(true)
+  }
+
+  const handleTemplateChange = async (templateId: string) => {
+    setSelectedTemplateId(templateId)
+    setTemplateCustomVars({})
+    setCustomVarValues({})
+    if (!templateId) return
+    try {
+      const res = await fetch(`/api/admin/contract-templates/${templateId}`)
+      const json = await res.json()
+      if (json.success) {
+        const tmpl = json.data as { html_body: string; custom_vars?: Record<string, string> }
+        const allVars = extractTemplateVars(tmpl.html_body)
+        const customVars = allVars.filter(v => !(v in TEMPLATE_KNOWN_VARS))
+        const labels: Record<string, string> = {}
+        for (const v of customVars) {
+          labels[v] = tmpl.custom_vars?.[v] ?? v
+        }
+        setTemplateCustomVars(labels)
+      }
+    } catch { /* 무시 */ }
   }
 
   // 검색어로 필터링된 고객 목록 (고객이 이미 선택된 상태면 전체 표시)
@@ -215,6 +241,7 @@ export default function AdminContractsPage() {
           customer_phone: formData.customer_phone,
           selected_items: selectedItems,
           template_id: selectedTemplateId || undefined,
+          custom_vars: Object.keys(customVarValues).length > 0 ? customVarValues : undefined,
         }),
       })
       const json = await res.json()
@@ -327,7 +354,7 @@ export default function AdminContractsPage() {
             </label>
             <select
               value={selectedTemplateId}
-              onChange={(e) => setSelectedTemplateId(e.target.value)}
+              onChange={(e) => void handleTemplateChange(e.target.value)}
               className="w-full border border-border rounded-md px-3 py-2 text-sm bg-surface text-text-primary focus:outline-none focus:ring-2 focus:ring-brand-600"
             >
               <option value="">양식 선택 안함 (기본 양식 사용)</option>
@@ -436,6 +463,28 @@ export default function AdminContractsPage() {
             />
             <p className="text-xs text-text-tertiary mt-1">한 줄에 항목 하나씩 입력하세요. 계약서 본문에 목록으로 표시됩니다.</p>
           </div>
+
+          {/* 커스텀 변수 입력 */}
+          {Object.keys(templateCustomVars).length > 0 && (
+            <div className="space-y-3 border-t border-border-subtle pt-3">
+              <p className="text-sm font-medium text-text-primary">추가 정보 입력</p>
+              {Object.entries(templateCustomVars).map(([varName, label]) => (
+                <div key={varName}>
+                  <label className="block text-sm font-medium text-text-primary mb-1.5">
+                    {label !== varName ? label : varName}
+                    <span className="ml-1.5 text-xs font-normal text-text-tertiary font-mono">{`{{${varName}}}`}</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={customVarValues[varName] ?? ''}
+                    onChange={(e) => setCustomVarValues(prev => ({ ...prev, [varName]: e.target.value }))}
+                    placeholder={`${label !== varName ? label : varName} 입력`}
+                    className="w-full border border-border rounded-md px-3 py-2 text-sm bg-surface text-text-primary focus:outline-none focus:ring-2 focus:ring-brand-600"
+                  />
+                </div>
+              ))}
+            </div>
+          )}
 
           <div>
             <label className="block text-sm font-medium text-text-primary mb-1.5">고객 전화번호 (OTP 수신)</label>
