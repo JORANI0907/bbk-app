@@ -9,7 +9,7 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
 
   const { data: contract, error } = await supabase
     .from('contracts')
-    .select('id, signing_status, token_expires_at, contract_snapshot, service_plan, visit_option, contract_start_date, contract_end_date, customers(business_name)')
+    .select('id, signing_status, token_expires_at, contract_snapshot, subscription_plan, visit_frequency, start_date, end_date, customers(business_name)')
     .eq('signing_token', params.token)
     .single()
 
@@ -42,10 +42,10 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
       id: contract.id,
       signingStatus: contract.signing_status,
       html,
-      servicePlan: contract.service_plan,
-      visitOption: contract.visit_option,
-      contractStartDate: contract.contract_start_date,
-      contractEndDate: contract.contract_end_date,
+      servicePlan: contract.subscription_plan,
+      visitOption: contract.visit_frequency,
+      contractStartDate: contract.start_date,
+      contractEndDate: contract.end_date,
       businessName: (contract.customers as { business_name?: string } | null)?.business_name,
     },
   })

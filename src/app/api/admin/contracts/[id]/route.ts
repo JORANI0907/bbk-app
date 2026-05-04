@@ -5,12 +5,12 @@ import { renderContract, extractVariablesFromCustomer } from '@/lib/contractTemp
 type RouteParams = { params: { id: string } }
 
 const EDITABLE_FIELDS = [
-  'service_plan',
-  'visit_option',
+  'subscription_plan',
+  'visit_frequency',
   'monthly_price',
   'annual_price',
-  'contract_start_date',
-  'contract_end_date',
+  'start_date',
+  'end_date',
   'selected_items',
   'customer_phone',
   'application_id',

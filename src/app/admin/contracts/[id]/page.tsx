@@ -12,11 +12,11 @@ type SigningStatus = 'draft' | 'pending_customer' | 'customer_signed' | 'complet
 interface ContractDetail {
   id: string
   signing_status: SigningStatus
-  service_plan: string | null
-  visit_option: string | null
+  subscription_plan: string | null
+  visit_frequency: string | null
   monthly_price: number | null
-  contract_start_date: string | null
-  contract_end_date: string | null
+  start_date: string | null
+  end_date: string | null
   customer_agreed_at: string | null
   customer_ip: string | null
   admin_signed_at: string | null
@@ -205,11 +205,11 @@ export default function AdminContractDetailPage() {
             <div className="space-y-2 text-sm">
               <div className="flex justify-between">
                 <span className="text-text-tertiary">서비스 플랜</span>
-                <span className="text-text-primary font-medium">{contract.service_plan ?? '-'}</span>
+                <span className="text-text-primary font-medium">{contract.subscription_plan ?? '-'}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-text-tertiary">방문 주기</span>
-                <span className="text-text-primary font-medium">{contract.visit_option ?? '-'}</span>
+                <span className="text-text-primary font-medium">{contract.visit_frequency ?? '-'}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-text-tertiary">월 요금</span>
@@ -220,7 +220,7 @@ export default function AdminContractDetailPage() {
               <div className="flex justify-between">
                 <span className="text-text-tertiary">계약 기간</span>
                 <span className="text-text-primary font-medium text-right">
-                  {formatDate(contract.contract_start_date)} ~<br />{formatDate(contract.contract_end_date)}
+                  {formatDate(contract.start_date)} ~<br />{formatDate(contract.end_date)}
                 </span>
               </div>
               <div className="flex justify-between">

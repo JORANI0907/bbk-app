@@ -13,8 +13,8 @@ interface ContractListItem {
   id: string
   signing_status: SigningStatus
   monthly_price: number | null
-  contract_start_date: string | null
-  contract_end_date: string | null
+  start_date: string | null
+  end_date: string | null
   created_at: string
   customers: {
     business_name: string
@@ -250,7 +250,7 @@ export default function AdminContractsPage() {
                     {contract.customers?.business_name ?? '고객명 없음'}
                   </p>
                   <p className="text-xs text-text-tertiary mt-1">
-                    {formatPrice(contract.monthly_price)}/월 · {formatDate(contract.contract_start_date)} ~ {formatDate(contract.contract_end_date)}
+                    {formatPrice(contract.monthly_price)}/월 · {formatDate(contract.start_date)} ~ {formatDate(contract.end_date)}
                   </p>
                 </div>
                 <span

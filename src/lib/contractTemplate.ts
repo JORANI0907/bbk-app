@@ -417,8 +417,8 @@ export function extractVariablesFromCustomer(
     ? new Date(contract.created_at as string)
     : now
 
-  const startDate = (contract.contract_start_date as string | null) ?? ''
-  const endDate = (contract.contract_end_date as string | null) ?? ''
+  const startDate = (contract.start_date as string | null) ?? ''
+  const endDate = (contract.end_date as string | null) ?? ''
 
   const monthlyPrice = (contract.monthly_price as number | null) ?? 0
   const annualPrice = (contract.annual_price as number | null) ?? monthlyPrice * 12
@@ -444,8 +444,8 @@ export function extractVariablesFromCustomer(
       .join(' '),
     customerPhone: (customer.contact_phone as string | null) ?? '',
     customerEmail: (customer.email as string | null) ?? '',
-    servicePlan: (contract.service_plan as string | null) ?? '',
-    visitOption: (contract.visit_option as string | null) ?? '',
+    servicePlan: (contract.subscription_plan as string | null) ?? '',
+    visitOption: (contract.visit_frequency as string | null) ?? '',
     monthlyPrice: monthlyPrice.toLocaleString('ko-KR'),
     annualPrice: annualPrice.toLocaleString('ko-KR'),
     contractStartDate: startDate,

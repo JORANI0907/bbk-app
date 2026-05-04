@@ -62,12 +62,12 @@ export async function POST(request: NextRequest) {
 
   const contractRecord = {
     customer_id,
-    service_plan: service_plan ?? customer.customer_type ?? '',
-    visit_option: visit_option ?? '',
+    subscription_plan: service_plan ?? customer.customer_type ?? '',
+    visit_frequency: visit_option ?? '',
     monthly_price: monthly_price ?? customer.billing_amount ?? 0,
     annual_price: annual_price ?? null,
-    contract_start_date: contract_start_date ?? customer.contract_start_date ?? null,
-    contract_end_date: contract_end_date ?? customer.contract_end_date ?? null,
+    start_date: contract_start_date ?? customer.contract_start_date ?? null,
+    end_date: contract_end_date ?? customer.contract_end_date ?? null,
     selected_items: selected_items ?? [],
     customer_phone: customer_phone ?? customer.contact_phone ?? '',
     signing_token: signingToken,
