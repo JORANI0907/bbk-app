@@ -401,6 +401,10 @@ export const AUTO_FILL_FIELDS: Record<string, string> = {
   'customer.email': '이메일',
   'customer.address': '주소 (전체)',
   'customer.billing_amount': '청구 금액',
+  'customer.supply_amount': '공급가액',
+  'customer.vat': '부가세',
+  'customer.deposit': '예약금 (선금)',
+  'customer.balance': '잔금',
   'customer.contract_start_date': '계약 시작일 (고객 DB)',
   'customer.contract_end_date': '계약 종료일 (고객 DB)',
   'customer.memo': '메모',
@@ -435,6 +439,10 @@ export function resolveAutoField(
     'customer.billing_amount': customer.billing_amount != null
       ? Number(customer.billing_amount).toLocaleString('ko-KR')
       : '',
+    'customer.supply_amount': String(customer.supply_amount ?? ''),
+    'customer.vat': String(customer.vat ?? ''),
+    'customer.deposit': String(customer.deposit ?? ''),
+    'customer.balance': String(customer.balance ?? ''),
     'customer.contract_start_date': String(customer.contract_start_date ?? ''),
     'customer.contract_end_date': String(customer.contract_end_date ?? ''),
     'customer.memo': String(customer.memo ?? ''),

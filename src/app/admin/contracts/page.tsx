@@ -30,6 +30,9 @@ interface CustomerOption {
   contact_name: string
   contact_phone: string
   billing_amount: number | null
+  billing_cycle: string | null
+  supply_amount: string | null
+  vat: string | null
   contract_start_date: string | null
   contract_end_date: string | null
 }
@@ -197,11 +200,19 @@ export default function AdminContractsPage() {
   })
 
   const handleCustomerSelect = (customer: CustomerOption) => {
+    const isAnnual = customer.billing_cycle === '연간'
+    const monthly = customer.billing_amount
+      ? isAnnual ? Math.round(customer.billing_amount / 12) : customer.billing_amount
+      : null
+    const annual = customer.billing_amount
+      ? isAnnual ? customer.billing_amount : customer.billing_amount * 12
+      : null
+
     setFormData((prev) => ({
       ...prev,
       customer_id: customer.id,
-      monthly_price: customer.billing_amount ? String(customer.billing_amount) : '',
-      annual_price: customer.billing_amount ? String(customer.billing_amount * 12) : '',
+      monthly_price: monthly ? String(monthly) : '',
+      annual_price: annual ? String(annual) : '',
       contract_start_date: customer.contract_start_date ?? '',
       contract_end_date: customer.contract_end_date ?? '',
       customer_phone: customer.contact_phone ?? '',
