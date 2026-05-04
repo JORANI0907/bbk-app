@@ -58,30 +58,31 @@ export function Modal({
     onClose()
   }, [onClose])
 
-  // ESC 키 처리 + body 스크롤 잠금
+  // 모달 열림/닫힘 — 스크롤 잠금 + 초기 포커스 + 포커스 복원 (open 변경 시만 실행)
   useEffect(() => {
     if (!open) return
-
     previousActiveElement.current = document.activeElement
     document.body.style.overflow = 'hidden'
+    requestAnimationFrame(() => {
+      dialogRef.current?.focus()
+    })
+    return () => {
+      document.body.style.overflow = ''
+      if (previousActiveElement.current instanceof HTMLElement) {
+        previousActiveElement.current.focus()
+      }
+    }
+  }, [open])
 
+  // ESC 키 처리 — handleClose 참조가 바뀌어도 포커스에 영향 없도록 분리
+  useEffect(() => {
+    if (!open) return
     const handleKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && !disableEscClose) handleClose()
     }
     document.addEventListener('keydown', handleKey)
-
-    // 다이얼로그에 포커스
-    requestAnimationFrame(() => {
-      dialogRef.current?.focus()
-    })
-
     return () => {
-      document.body.style.overflow = ''
       document.removeEventListener('keydown', handleKey)
-      // 이전 포커스 복원
-      if (previousActiveElement.current instanceof HTMLElement) {
-        previousActiveElement.current.focus()
-      }
     }
   }, [open, disableEscClose, handleClose])
 

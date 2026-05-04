@@ -76,6 +76,7 @@ export default function AdminContractsPage() {
     customer_phone: '',
   })
   const [isCreating, setIsCreating] = useState(false)
+  const handleCloseCreateModal = useCallback(() => setShowCreateModal(false), [])
 
   const fetchContracts = useCallback(async () => {
     setIsLoading(true)
@@ -268,7 +269,7 @@ export default function AdminContractsPage() {
       {/* 새 계약서 작성 모달 */}
       <Modal
         open={showCreateModal}
-        onClose={() => setShowCreateModal(false)}
+        onClose={handleCloseCreateModal}
         title="새 계약서 작성"
       >
         <div className="space-y-4 pt-2">
@@ -373,7 +374,7 @@ export default function AdminContractsPage() {
             <Button
               variant="secondary"
               className="flex-1"
-              onClick={() => setShowCreateModal(false)}
+              onClick={handleCloseCreateModal}
             >
               취소
             </Button>
