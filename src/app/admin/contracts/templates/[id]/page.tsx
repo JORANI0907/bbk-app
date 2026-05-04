@@ -9,6 +9,7 @@ import ContractEditor from '@/components/contracts/ContractEditor'
 import {
   TEMPLATE_PREVIEW_VALUES,
   AUTO_FILL_FIELDS,
+  PROCESS_AUTO_FIELDS,
   renderTemplateWithVars,
   extractTemplateVars,
   type VarConfig,
@@ -271,16 +272,34 @@ export default function ContractTemplateEditorPage() {
                   </div>
                   {/* 자동 선택 시 필드 드롭다운 */}
                   {cfg.mode === 'auto' && (
-                    <select
-                      value={cfg.autoField ?? ''}
-                      onChange={(e) => updateCfg({ autoField: e.target.value })}
-                      className="w-full border border-border rounded-md px-3 py-2 text-sm bg-surface text-text-primary focus:outline-none focus:ring-2 focus:ring-brand-600"
-                    >
-                      <option value="">-- 매핑할 필드 선택 --</option>
-                      {Object.entries(AUTO_FILL_FIELDS).map(([field, label]) => (
-                        <option key={field} value={field}>{label}</option>
-                      ))}
-                    </select>
+                    <div className="space-y-2">
+                      <select
+                        value={cfg.autoField ?? ''}
+                        onChange={(e) => updateCfg({ autoField: e.target.value })}
+                        className="w-full border border-border rounded-md px-3 py-2 text-sm bg-surface text-text-primary focus:outline-none focus:ring-2 focus:ring-brand-600"
+                      >
+                        <option value="">-- 매핑할 필드 선택 --</option>
+                        <optgroup label="고객·계약 DB 자동 매핑">
+                          {Object.entries(AUTO_FILL_FIELDS)
+                            .filter(([field]) => !PROCESS_AUTO_FIELDS.has(field))
+                            .map(([field, label]) => (
+                              <option key={field} value={field}>{label}</option>
+                            ))}
+                        </optgroup>
+                        <optgroup label="계약 과정 자동 처리">
+                          {Object.entries(AUTO_FILL_FIELDS)
+                            .filter(([field]) => PROCESS_AUTO_FIELDS.has(field))
+                            .map(([field, label]) => (
+                              <option key={field} value={field}>{label}</option>
+                            ))}
+                        </optgroup>
+                      </select>
+                      {cfg.autoField && PROCESS_AUTO_FIELDS.has(cfg.autoField) && (
+                        <p className="text-xs text-state-info bg-state-info-bg rounded-lg px-3 py-2">
+                          계약 진행 과정에서 자동으로 채워집니다 — 계약서 생성 시 별도 입력이 필요 없습니다.
+                        </p>
+                      )}
+                    </div>
                   )}
                 </div>
               )

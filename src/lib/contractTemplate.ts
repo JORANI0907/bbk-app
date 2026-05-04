@@ -412,11 +412,21 @@ export const AUTO_FILL_FIELDS: Record<string, string> = {
   'contract.annual_price': '연간 요금',
   'contract.start_date': '계약 시작일',
   'contract.end_date': '계약 종료일',
-  'contract.selected_items_list': '서비스 항목 (HTML 목록)',
   'system.today_year': '오늘 연도',
   'system.today_month': '오늘 월',
   'system.today_day': '오늘 일',
+  // 계약 진행 과정에서 자동 처리 (DB 매핑 아님)
+  'contract.selected_items_list': '서비스 항목 (계약 생성 시 입력)',
+  'signing.customer_signature': '고객 서명 (전자서명)',
+  'signing.admin_signature': '관리자 서명 (전자서명)',
 }
+
+// 계약 진행 과정에서 자동 채워지는 필드 — DB 자동 매핑과 구분
+export const PROCESS_AUTO_FIELDS = new Set([
+  'contract.selected_items_list',
+  'signing.customer_signature',
+  'signing.admin_signature',
+])
 
 /**
  * autoField 경로를 실제 값으로 resolve

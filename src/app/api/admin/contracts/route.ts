@@ -6,6 +6,7 @@ import {
   renderTemplateWithVars,
   extractTemplateVars,
   resolveAutoField,
+  PROCESS_AUTO_FIELDS,
   type TemplateVarConfigMap,
 } from '@/lib/contractTemplate'
 import crypto from 'crypto'
@@ -131,7 +132,10 @@ export async function POST(request: NextRequest) {
           const config = varConfigMap[varName]
           if (!config) continue
           if (config.mode === 'auto' && config.autoField) {
-            vars[varName] = resolveAutoField(config.autoField, customer, contractRecord)
+            // 계약 과정 필드(서명, 서비스항목 등)는 스냅샷에 {{VAR}} 그대로 보존
+            if (!PROCESS_AUTO_FIELDS.has(config.autoField)) {
+              vars[varName] = resolveAutoField(config.autoField, customer, contractRecord)
+            }
           } else if (config.mode === 'manual') {
             vars[varName] = (custom_vars as Record<string, string>)?.[varName] ?? ''
           }
