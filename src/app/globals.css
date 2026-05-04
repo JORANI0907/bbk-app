@@ -66,3 +66,19 @@ body {
 .animate-bbk-wobble {
   animation: bbk-wobble 1.4s ease-in-out infinite;
 }
+
+/* TipTap 계약서 에디터 스타일 */
+.contract-editor-content { font-size: 13px; line-height: 1.7; color: #1a1a1a; }
+.contract-editor-content > * + * { margin-top: 4px; }
+.contract-editor-content h1 { text-align: center; font-size: 18px; font-weight: 700; margin: 16px 0 6px; }
+.contract-editor-content h2 { font-size: 14px; font-weight: 700; margin: 20px 0 4px; border-bottom: 1px solid #eee; padding-bottom: 2px; }
+.contract-editor-content h3 { font-size: 13px; font-weight: 600; margin: 12px 0 4px; }
+.contract-editor-content p { margin: 4px 0; }
+.contract-editor-content ul, .contract-editor-content ol { padding-left: 20px; margin: 6px 0; }
+.contract-editor-content li { margin: 2px 0; }
+.contract-editor-content table { width: 100%; border-collapse: collapse; margin: 8px 0; }
+.contract-editor-content th { background: #f8f8f8; border: 1px solid #ddd; padding: 6px 10px; font-weight: 600; text-align: left; }
+.contract-editor-content td { border: 1px solid #ddd; padding: 6px 10px; }
+.contract-editor-content td.selectedCell, .contract-editor-content th.selectedCell { background: rgba(100, 130, 255, 0.15); }
+.contract-editor-content hr { border: none; border-top: 1px solid #e0e0e0; margin: 16px 0; }
+.contract-editor-content blockquote { border-left: 3px solid #ddd; padding-left: 12px; margin: 8px 0; color: #666; }

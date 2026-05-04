@@ -5,11 +5,10 @@ import { useRouter, useParams } from 'next/navigation'
 import toast from 'react-hot-toast'
 import { Button } from '@/components/ui'
 import { Modal } from '@/components/ui'
+import ContractEditor from '@/components/contracts/ContractEditor'
 import {
-  TEMPLATE_KNOWN_VARS,
   TEMPLATE_PREVIEW_VALUES,
   renderTemplateWithVars,
-  extractTemplateVars,
 } from '@/lib/contractTemplate'
 
 interface TemplateData {
@@ -22,8 +21,6 @@ interface TemplateData {
   updated_at: string
 }
 
-type MobileTab = 'edit' | 'preview'
-
 export default function ContractTemplateEditorPage() {
   const router = useRouter()
   const params = useParams()
@@ -33,7 +30,7 @@ export default function ContractTemplateEditorPage() {
   const [isSaving, setIsSaving] = useState(false)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
-  const [mobileTab, setMobileTab] = useState<MobileTab>('edit')
+  const [showPreview, setShowPreview] = useState(false)
 
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
@@ -72,13 +69,13 @@ export default function ContractTemplateEditorPage() {
   }, [fetchTemplate])
 
   // HTML 변경 시 400ms 디바운스로 미리보기 업데이트
-  const handleHtmlChange = (value: string) => {
-    setHtmlBody(value)
+  const handleHtmlChange = useCallback((html: string) => {
+    setHtmlBody(html)
     if (debounceRef.current) clearTimeout(debounceRef.current)
     debounceRef.current = setTimeout(() => {
-      setPreviewHtml(renderTemplateWithVars(value, TEMPLATE_PREVIEW_VALUES))
+      setPreviewHtml(renderTemplateWithVars(html, TEMPLATE_PREVIEW_VALUES))
     }, 400)
-  }
+  }, [])
 
   useEffect(() => {
     return () => {
@@ -130,8 +127,6 @@ export default function ContractTemplateEditorPage() {
     }
   }
 
-  const detectedVars = extractTemplateVars(htmlBody)
-
   if (isLoading) {
     return (
       <div className="flex justify-center py-20">
@@ -151,6 +146,13 @@ export default function ContractTemplateEditorPage() {
           ← 양식 목록
         </button>
         <div className="flex gap-2">
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => setShowPreview(true)}
+          >
+            미리보기
+          </Button>
           <Button variant="danger" size="sm" onClick={() => setShowDeleteModal(true)}>
             삭제
           </Button>
@@ -160,29 +162,31 @@ export default function ContractTemplateEditorPage() {
         </div>
       </div>
 
-      {/* 기본 정보 */}
+      {/* 기본 정보 카드 */}
       <div className="bg-surface rounded-2xl shadow-soft border border-border-subtle p-5 space-y-4">
-        <div>
-          <label className="block text-sm font-medium text-text-primary mb-1.5">
-            양식 이름 <span className="text-state-danger">*</span>
-          </label>
-          <input
-            type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="예) 정기딥케어 표준 계약서"
-            className="w-full border border-border rounded-md px-3 py-2 text-sm bg-surface text-text-primary focus:outline-none focus:ring-2 focus:ring-brand-600"
-          />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-text-primary mb-1.5">설명</label>
-          <input
-            type="text"
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            placeholder="양식에 대한 간단한 설명"
-            className="w-full border border-border rounded-md px-3 py-2 text-sm bg-surface text-text-primary focus:outline-none focus:ring-2 focus:ring-brand-600"
-          />
+        <div className="grid sm:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-text-primary mb-1.5">
+              양식 이름 <span className="text-state-danger">*</span>
+            </label>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="예) 정기딥케어 표준 계약서"
+              className="w-full border border-border rounded-md px-3 py-2 text-sm bg-surface text-text-primary focus:outline-none focus:ring-2 focus:ring-brand-600"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-text-primary mb-1.5">설명</label>
+            <input
+              type="text"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="양식에 대한 간단한 설명"
+              className="w-full border border-border rounded-md px-3 py-2 text-sm bg-surface text-text-primary focus:outline-none focus:ring-2 focus:ring-brand-600"
+            />
+          </div>
         </div>
         <div className="flex items-center gap-3">
           <label className="relative inline-flex items-center cursor-pointer">
@@ -200,95 +204,36 @@ export default function ContractTemplateEditorPage() {
         </div>
       </div>
 
-      {/* 모바일 탭 전환 */}
-      <div className="flex gap-1 bg-surface-sunken rounded-xl p-1 w-fit lg:hidden">
-        {(['edit', 'preview'] as MobileTab[]).map((tab) => (
-          <button
-            key={tab}
-            onClick={() => setMobileTab(tab)}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-              mobileTab === tab
-                ? 'bg-surface shadow-soft text-text-primary'
-                : 'text-text-secondary hover:text-text-primary'
-            }`}
-          >
-            {tab === 'edit' ? '편집' : '미리보기'}
-          </button>
-        ))}
+      {/* 계약서 에디터 */}
+      <div className="bg-surface rounded-2xl shadow-soft border border-border-subtle p-5">
+        <p className="text-sm font-semibold text-text-primary mb-4">계약서 내용 편집</p>
+        <ContractEditor value={htmlBody} onChange={handleHtmlChange} />
       </div>
 
-      {/* 에디터 + 미리보기 2-pane */}
-      <div className="grid lg:grid-cols-2 gap-5">
-        {/* HTML 에디터 */}
-        <div className={`bg-surface rounded-2xl shadow-soft border border-border-subtle p-5 space-y-2 ${mobileTab === 'preview' ? 'hidden lg:block' : ''}`}>
-          <p className="text-sm font-semibold text-text-primary">HTML 편집</p>
-          <textarea
-            value={htmlBody}
-            onChange={(e) => handleHtmlChange(e.target.value)}
-            rows={24}
-            spellCheck={false}
-            className="w-full border border-border rounded-md px-3 py-2 text-xs font-mono bg-surface text-text-primary focus:outline-none focus:ring-2 focus:ring-brand-600 resize-y leading-relaxed"
-            placeholder="HTML 코드를 입력하세요. 변수는 {{VAR_NAME}} 형식으로 입력합니다."
-          />
-          <p className="text-xs text-text-tertiary">변수는 <code className="bg-surface-sunken px-1 rounded">{'{{VAR_NAME}}'}</code> 형식으로 입력하세요.</p>
-        </div>
-
-        {/* 미리보기 */}
-        <div className={`bg-surface rounded-2xl shadow-soft border border-border-subtle p-5 space-y-2 ${mobileTab === 'edit' ? 'hidden lg:block' : ''}`}>
-          <p className="text-sm font-semibold text-text-primary">미리보기 (샘플 데이터 적용)</p>
+      {/* 미리보기 모달 */}
+      <Modal
+        open={showPreview}
+        onClose={() => setShowPreview(false)}
+        title="미리보기 (샘플 데이터 적용)"
+      >
+        <div className="space-y-3">
+          <p className="text-xs text-text-tertiary">
+            실제 고객 데이터 대신 샘플값으로 변수가 채워집니다.
+          </p>
           <iframe
             srcDoc={previewHtml}
             title="계약서 미리보기"
-            style={{ height: '600px', width: '100%', border: 'none' }}
-            className="rounded-md bg-white"
+            className="w-full rounded-lg bg-white border border-border"
+            style={{ height: '70vh', border: 'none' }}
             sandbox="allow-same-origin"
           />
-        </div>
-      </div>
-
-      {/* 감지된 변수 패널 */}
-      {detectedVars.length > 0 && (
-        <div className="bg-surface rounded-2xl shadow-soft border border-border-subtle p-5 space-y-3">
-          <p className="text-sm font-semibold text-text-primary">감지된 변수</p>
-          <div className="flex flex-wrap gap-2">
-            {detectedVars.map((varName) => {
-              const known = TEMPLATE_KNOWN_VARS[varName]
-              if (!known) {
-                return (
-                  <span
-                    key={varName}
-                    className="inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full bg-surface-sunken text-text-tertiary font-mono"
-                  >
-                    {'{{' + varName + '}}'}
-                    <span className="text-text-tertiary text-[10px]">알 수 없음</span>
-                  </span>
-                )
-              }
-              return (
-                <span
-                  key={varName}
-                  className={`inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full font-mono ${
-                    known.auto
-                      ? 'bg-state-success-bg text-state-success'
-                      : 'bg-state-warning-bg text-state-warning'
-                  }`}
-                >
-                  {'{{' + varName + '}}'}
-                  <span className="text-[10px] opacity-75">
-                    {known.auto ? '자동' : '직접 입력'} · {known.label}
-                  </span>
-                </span>
-              )
-            })}
+          <div className="flex justify-end">
+            <Button variant="secondary" onClick={() => setShowPreview(false)}>
+              닫기
+            </Button>
           </div>
-          <p className="text-xs text-text-tertiary">
-            <span className="inline-block w-3 h-3 rounded-full bg-state-success-bg border border-state-success mr-1" />
-            초록: 고객/계약 정보에서 자동 입력
-            <span className="inline-block w-3 h-3 rounded-full bg-state-warning-bg border border-state-warning mr-1 ml-3" />
-            주황: 계약서 작성 시 직접 입력
-          </p>
         </div>
-      )}
+      </Modal>
 
       {/* 삭제 확인 모달 */}
       <Modal
