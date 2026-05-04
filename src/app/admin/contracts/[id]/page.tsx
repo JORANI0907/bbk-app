@@ -214,7 +214,18 @@ export default function AdminContractDetailPage() {
 
   if (!contract) return null
 
-  const snapshotHtml = contract.contract_snapshot?.html ?? ''
+  const SIG_PLACEHOLDER = (label: string) =>
+    `<span style="display:inline-block;width:180px;height:60px;border:1px dashed #bbb;border-radius:6px;text-align:center;line-height:60px;color:#ccc;font-size:11px;font-family:sans-serif;">${label}</span>`
+  const rawSnapshot = contract.contract_snapshot?.html ?? ''
+  const snapshotHtml = rawSnapshot
+    .replace(/\{\{CUSTOMER_SIGNATURE\}\}/g,
+      contract.customer_signature
+        ? `<img src="${contract.customer_signature}" style="max-width:200px;max-height:80px;object-fit:contain;" />`
+        : SIG_PLACEHOLDER('(고객 서명)'))
+    .replace(/\{\{ADMIN_SIGNATURE\}\}/g,
+      contract.admin_signature
+        ? `<img src="${contract.admin_signature}" style="max-width:200px;max-height:80px;object-fit:contain;" />`
+        : SIG_PLACEHOLDER('(관리자 서명)'))
   const isVoided = contract.signing_status === 'voided'
 
   return (
