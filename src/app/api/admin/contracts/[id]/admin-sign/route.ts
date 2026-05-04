@@ -11,7 +11,7 @@ export async function POST(_request: NextRequest, { params }: RouteParams) {
 
   const { data: contract, error: fetchError } = await supabase
     .from('contracts')
-    .select('id, signing_status, customer_phone, service_plan, customers(business_name, contact_name)')
+    .select('id, signing_status, customer_phone, subscription_plan, customers(business_name, contact_name)')
     .eq('id', params.id)
     .single()
 
@@ -58,7 +58,7 @@ export async function POST(_request: NextRequest, { params }: RouteParams) {
 
   // Slack 알림
   await sendSlack(
-    `✅ *계약서 최종 완료* | ${businessName} | ${contract.service_plan as string ?? ''}`,
+    `✅ *계약서 최종 완료* | ${businessName} | ${contract.subscription_plan as string ?? ''}`,
   )
 
   return NextResponse.json({ success: true, message: '계약서가 최종 확인되었습니다.' })
