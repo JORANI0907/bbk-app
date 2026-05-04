@@ -62,7 +62,7 @@ export async function POST(request: NextRequest) {
 
   const contractRecord = {
     customer_id,
-    contract_type: '청소구독서비스',
+    contract_type: 'subscription',
     subscription_plan: service_plan ?? customer.customer_type ?? '',
     visit_frequency: visit_option ?? '',
     monthly_price: monthly_price ?? customer.billing_amount ?? 0,
