@@ -244,7 +244,14 @@ export default function AdminContractsPage() {
       <SectionHeader
         level="page"
         title="온라인 계약서"
-        action={<Button onClick={handleOpenCreate}>새 계약서 작성</Button>}
+        action={
+          <div className="flex gap-2">
+            <Button variant="secondary" onClick={() => router.push('/admin/contracts/templates')}>
+              양식 관리
+            </Button>
+            <Button onClick={handleOpenCreate}>새 계약서 작성</Button>
+          </div>
+        }
       />
 
       {/* 탭 */}
