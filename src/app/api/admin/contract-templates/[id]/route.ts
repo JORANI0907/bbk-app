@@ -34,7 +34,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ success: false, error: '잘못된 요청 형식입니다.' }, { status: 400 })
   }
 
-  const ALLOWED = ['name', 'description', 'html_body', 'is_active'] as const
+  const ALLOWED = ['name', 'description', 'html_body', 'is_active', 'custom_vars'] as const
   const updates: Record<string, unknown> = {}
   for (const key of ALLOWED) {
     if (key in body) updates[key] = body[key]
