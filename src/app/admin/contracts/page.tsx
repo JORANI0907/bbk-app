@@ -74,6 +74,8 @@ export default function AdminContractsPage() {
   const [activeTab, setActiveTab] = useState('all')
   const [isLoading, setIsLoading] = useState(true)
   const [showCreateModal, setShowCreateModal] = useState(false)
+  const [contractToDelete, setContractToDelete] = useState<ContractListItem | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
 
   // 신규 계약서 폼 상태
   const [customers, setCustomers] = useState<CustomerOption[]>([])
@@ -263,6 +265,26 @@ export default function AdminContractsPage() {
     }
   }
 
+  const handleDeleteConfirm = async () => {
+    if (!contractToDelete) return
+    setIsDeleting(true)
+    try {
+      const res = await fetch(`/api/admin/contracts/${contractToDelete.id}`, { method: 'DELETE' })
+      const json = await res.json()
+      if (json.success) {
+        toast.success('계약서가 휴지통으로 이동되었습니다.')
+        setContractToDelete(null)
+        void fetchContracts()
+      } else {
+        toast.error(json.error ?? '삭제에 실패했습니다.')
+      }
+    } catch {
+      toast.error('오류가 발생했습니다.')
+    } finally {
+      setIsDeleting(false)
+    }
+  }
+
   const formatDate = (dateStr: string | null) => {
     if (!dateStr) return '-'
     return new Date(dateStr).toLocaleDateString('ko-KR')
@@ -331,18 +353,67 @@ export default function AdminContractsPage() {
                     {formatPrice(contract.monthly_price)}/월 · {formatDate(contract.start_date)} ~ {formatDate(contract.end_date)}
                   </p>
                 </div>
-                <span
-                  className={`text-xs px-2.5 py-1 rounded-full font-medium whitespace-nowrap flex-shrink-0 ${
-                    STATUS_COLORS[contract.signing_status] ?? ''
-                  }`}
-                >
-                  {STATUS_LABELS[contract.signing_status] ?? contract.signing_status}
-                </span>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <span
+                    className={`text-xs px-2.5 py-1 rounded-full font-medium whitespace-nowrap ${
+                      STATUS_COLORS[contract.signing_status] ?? ''
+                    }`}
+                  >
+                    {STATUS_LABELS[contract.signing_status] ?? contract.signing_status}
+                  </span>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setContractToDelete(contract)
+                    }}
+                    className="p-1.5 rounded-lg text-text-tertiary hover:text-state-danger hover:bg-state-danger-bg transition-colors"
+                    title="휴지통으로 이동"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                  </button>
+                </div>
               </div>
             </button>
           ))}
         </div>
       )}
+
+      {/* 삭제 확인 모달 */}
+      <Modal
+        open={contractToDelete !== null}
+        onClose={() => setContractToDelete(null)}
+        title="계약서 삭제"
+      >
+        <div className="space-y-4 pt-2">
+          <div className="p-4 bg-state-danger-bg rounded-xl border border-red-200">
+            <p className="text-sm font-medium text-state-danger">
+              {contractToDelete?.customers?.business_name ?? '고객'} 계약서를 휴지통으로 이동하시겠습니까?
+            </p>
+            <p className="text-xs text-text-secondary mt-1">
+              휴지통에서 60일간 보관 후 자동 삭제됩니다. 복원은 휴지통 탭에서 가능합니다.
+            </p>
+          </div>
+          <div className="flex gap-3">
+            <Button
+              variant="secondary"
+              className="flex-1"
+              onClick={() => setContractToDelete(null)}
+            >
+              취소
+            </Button>
+            <Button
+              variant="danger"
+              className="flex-1"
+              onClick={handleDeleteConfirm}
+              isLoading={isDeleting}
+            >
+              휴지통으로 이동
+            </Button>
+          </div>
+        </div>
+      </Modal>
 
       {/* 새 계약서 작성 모달 */}
       <Modal

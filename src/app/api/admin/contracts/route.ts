@@ -20,6 +20,7 @@ export async function GET(request: NextRequest) {
   let query = supabase
     .from('contracts')
     .select('*, customers(business_name, contact_name, contact_phone, email)')
+    .is('deleted_at', null)
     .order('created_at', { ascending: false })
 
   if (status && status !== 'all') {

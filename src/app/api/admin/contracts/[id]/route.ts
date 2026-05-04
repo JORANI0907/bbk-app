@@ -95,3 +95,33 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
   return NextResponse.json({ success: true })
 }
+
+// DELETE /api/admin/contracts/[id] — 소프트 딜리트 (휴지통으로 이동)
+export async function DELETE(_request: NextRequest, { params }: RouteParams) {
+  const supabase = createServiceClient()
+
+  const { data: existing, error: fetchError } = await supabase
+    .from('contracts')
+    .select('id, deleted_at')
+    .eq('id', params.id)
+    .single()
+
+  if (fetchError || !existing) {
+    return NextResponse.json({ success: false, error: '계약서를 찾을 수 없습니다.' }, { status: 404 })
+  }
+
+  if (existing.deleted_at) {
+    return NextResponse.json({ success: false, error: '이미 삭제된 계약서입니다.' }, { status: 409 })
+  }
+
+  const { error: updateError } = await supabase
+    .from('contracts')
+    .update({ deleted_at: new Date().toISOString() })
+    .eq('id', params.id)
+
+  if (updateError) {
+    return NextResponse.json({ success: false, error: updateError.message }, { status: 500 })
+  }
+
+  return NextResponse.json({ success: true, message: '계약서가 휴지통으로 이동되었습니다.' })
+}
