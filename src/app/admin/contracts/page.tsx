@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import toast from 'react-hot-toast'
 import { Button } from '@/components/ui'
@@ -12,8 +12,6 @@ type SigningStatus = 'draft' | 'pending_customer' | 'customer_signed' | 'complet
 interface ContractListItem {
   id: string
   signing_status: SigningStatus
-  service_plan: string | null
-  visit_option: string | null
   monthly_price: number | null
   contract_start_date: string | null
   contract_end_date: string | null
@@ -30,7 +28,6 @@ interface CustomerOption {
   business_name: string
   contact_name: string
   contact_phone: string
-  customer_type: string | null
   billing_amount: number | null
   contract_start_date: string | null
   contract_end_date: string | null
@@ -57,8 +54,6 @@ const TABS: { label: string; value: string }[] = [
   { label: '완료', value: 'completed' },
 ]
 
-const SERVICE_PLANS = ['3개 순환식', '6개 순환식', '12개 순환식']
-const VISIT_OPTIONS = ['월 1회', '월 2회', '월 3회']
 
 export default function AdminContractsPage() {
   const router = useRouter()
@@ -69,10 +64,12 @@ export default function AdminContractsPage() {
 
   // 신규 계약서 폼 상태
   const [customers, setCustomers] = useState<CustomerOption[]>([])
+  const [customerSearch, setCustomerSearch] = useState('')
+  const [showCustomerDropdown, setShowCustomerDropdown] = useState(false)
+  const [selectedCustomerLabel, setSelectedCustomerLabel] = useState('')
+  const customerDropdownRef = useRef<HTMLDivElement>(null)
   const [formData, setFormData] = useState({
     customer_id: '',
-    service_plan: '6개 순환식',
-    visit_option: '월 2회',
     monthly_price: '',
     annual_price: '',
     contract_start_date: '',
@@ -103,38 +100,67 @@ export default function AdminContractsPage() {
 
   const fetchCustomers = async () => {
     try {
-      const res = await fetch('/api/admin/customers?limit=200')
+      const res = await fetch('/api/admin/customers')
       const json = await res.json()
-      if (json.success) {
-        setCustomers(json.data ?? [])
-      }
+      // API는 { customers: [...] } 형태로 반환
+      const list: CustomerOption[] = json.customers ?? json.data ?? []
+      setCustomers(list)
     } catch {
       toast.error('고객 목록을 불러오지 못했습니다.')
     }
   }
 
+  // 드롭다운 외부 클릭 시 닫기
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (customerDropdownRef.current && !customerDropdownRef.current.contains(e.target as Node)) {
+        setShowCustomerDropdown(false)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
+
   const handleOpenCreate = () => {
     void fetchCustomers()
+    setCustomerSearch('')
+    setSelectedCustomerLabel('')
+    setShowCustomerDropdown(false)
+    setFormData({
+      customer_id: '',
+      monthly_price: '',
+      annual_price: '',
+      contract_start_date: '',
+      contract_end_date: '',
+      customer_phone: '',
+    })
     setShowCreateModal(true)
   }
 
-  const handleCustomerSelect = (customerId: string) => {
-    const selected = customers.find((c) => c.id === customerId)
-    if (!selected) {
-      setFormData((prev) => ({ ...prev, customer_id: customerId }))
-      return
-    }
+  // 검색어로 필터링된 고객 목록
+  const filteredCustomers = customers.filter((c) => {
+    if (!customerSearch) return true
+    const q = customerSearch.toLowerCase()
+    return (
+      (c.business_name ?? '').toLowerCase().includes(q) ||
+      (c.contact_name ?? '').toLowerCase().includes(q) ||
+      (c.contact_phone ?? '').includes(q)
+    )
+  })
+
+  const handleCustomerSelect = (customer: CustomerOption) => {
     setFormData((prev) => ({
       ...prev,
-      customer_id: customerId,
-      monthly_price: selected.billing_amount ? String(selected.billing_amount) : '',
-      annual_price: selected.billing_amount ? String(selected.billing_amount * 12) : '',
-      contract_start_date: selected.contract_start_date ?? '',
-      contract_end_date: selected.contract_end_date ?? '',
-      customer_phone: selected.contact_phone ?? '',
-      service_plan: (selected.customer_type?.includes('12') ? '12개 순환식' :
-        selected.customer_type?.includes('3') ? '3개 순환식' : '6개 순환식'),
+      customer_id: customer.id,
+      monthly_price: customer.billing_amount ? String(customer.billing_amount) : '',
+      annual_price: customer.billing_amount ? String(customer.billing_amount * 12) : '',
+      contract_start_date: customer.contract_start_date ?? '',
+      contract_end_date: customer.contract_end_date ?? '',
+      customer_phone: customer.contact_phone ?? '',
     }))
+    setSelectedCustomerLabel(`${customer.business_name} (${customer.contact_name})`)
+    setCustomerSearch('')
+    setShowCustomerDropdown(false)
   }
 
   const handleCreate = async () => {
@@ -225,9 +251,6 @@ export default function AdminContractsPage() {
                   <p className="text-base font-semibold text-text-primary truncate">
                     {contract.customers?.business_name ?? '고객명 없음'}
                   </p>
-                  <p className="text-sm text-text-secondary mt-0.5">
-                    {contract.service_plan ?? '-'} · {contract.visit_option ?? '-'}
-                  </p>
                   <p className="text-xs text-text-tertiary mt-1">
                     {formatPrice(contract.monthly_price)}/월 · {formatDate(contract.contract_start_date)} ~ {formatDate(contract.contract_end_date)}
                   </p>
@@ -252,49 +275,46 @@ export default function AdminContractsPage() {
         title="새 계약서 작성"
       >
         <div className="space-y-4 pt-2">
-          <div>
+          <div ref={customerDropdownRef} className="relative">
             <label className="block text-sm font-medium text-text-primary mb-1.5">
               고객 선택 <span className="text-state-danger">*</span>
             </label>
-            <select
-              value={formData.customer_id}
-              onChange={(e) => handleCustomerSelect(e.target.value)}
+            <input
+              type="text"
+              value={showCustomerDropdown ? customerSearch : selectedCustomerLabel}
+              onChange={(e) => {
+                setCustomerSearch(e.target.value)
+                setShowCustomerDropdown(true)
+              }}
+              onFocus={() => {
+                setCustomerSearch('')
+                setShowCustomerDropdown(true)
+              }}
+              placeholder="고객명·담당자·전화번호 검색"
               className="w-full border border-border rounded-md px-3 py-2 text-sm bg-surface text-text-primary focus:outline-none focus:ring-2 focus:ring-brand-600"
-            >
-              <option value="">고객을 선택하세요</option>
-              {customers.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.business_name} ({c.contact_name})
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-sm font-medium text-text-primary mb-1.5">서비스 플랜</label>
-              <select
-                value={formData.service_plan}
-                onChange={(e) => setFormData((prev) => ({ ...prev, service_plan: e.target.value }))}
-                className="w-full border border-border rounded-md px-3 py-2 text-sm bg-surface text-text-primary focus:outline-none focus:ring-2 focus:ring-brand-600"
-              >
-                {SERVICE_PLANS.map((p) => (
-                  <option key={p} value={p}>{p}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-text-primary mb-1.5">방문 주기</label>
-              <select
-                value={formData.visit_option}
-                onChange={(e) => setFormData((prev) => ({ ...prev, visit_option: e.target.value }))}
-                className="w-full border border-border rounded-md px-3 py-2 text-sm bg-surface text-text-primary focus:outline-none focus:ring-2 focus:ring-brand-600"
-              >
-                {VISIT_OPTIONS.map((v) => (
-                  <option key={v} value={v}>{v}</option>
-                ))}
-              </select>
-            </div>
+            />
+            {showCustomerDropdown && (
+              <div className="absolute z-50 mt-1 w-full bg-surface border border-border rounded-md shadow-pop max-h-52 overflow-y-auto">
+                {filteredCustomers.length === 0 ? (
+                  <div className="px-3 py-2 text-sm text-text-tertiary">검색 결과 없음</div>
+                ) : (
+                  filteredCustomers.map((c) => (
+                    <button
+                      key={c.id}
+                      type="button"
+                      onMouseDown={() => handleCustomerSelect(c)}
+                      className="w-full text-left px-3 py-2 text-sm hover:bg-surface-sunken transition-colors"
+                    >
+                      <span className="font-medium text-text-primary">{c.business_name}</span>
+                      <span className="text-text-secondary ml-1">({c.contact_name})</span>
+                      {c.contact_phone && (
+                        <span className="text-text-tertiary ml-1 text-xs">{c.contact_phone}</span>
+                      )}
+                    </button>
+                  ))
+                )}
+              </div>
+            )}
           </div>
 
           <div className="grid grid-cols-2 gap-3">
