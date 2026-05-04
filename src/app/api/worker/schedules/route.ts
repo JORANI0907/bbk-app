@@ -18,25 +18,60 @@ export async function GET(request: NextRequest) {
 
   const supabase = createServiceClient()
 
-  const [{ data: schedules, error: sErr }, { data: workerProfile, error: wErr }] = await Promise.all([
+  // 담당자(assigned_to)로 배정된 service_applications ID 목록 조회
+  const { data: assignedApps } = await supabase
+    .from('service_applications')
+    .select('id')
+    .eq('assigned_to', session.userId)
+
+  const assignedAppIds = assignedApps?.map((a) => a.id) ?? []
+
+  const [
+    { data: workerSchedules, error: sErr1 },
+    { data: assignedSchedules, error: sErr2 },
+    { data: workerProfile, error: wErr },
+  ] = await Promise.all([
+    // 작업자(worker_id)로 배정된 일정
     supabase
       .from('service_schedules')
       .select('*, customer:customers(*)')
       .eq('worker_id', session.userId)
       .eq('scheduled_date', date)
       .order('scheduled_time_start', { ascending: true }),
-    supabase
-      .from('users')
-      .select('name')
-      .eq('id', session.userId)
-      .single(),
+    // 담당자(assigned_to)로 배정된 일정
+    assignedAppIds.length > 0
+      ? supabase
+          .from('service_schedules')
+          .select('*, customer:customers(*)')
+          .in('application_id', assignedAppIds)
+          .eq('scheduled_date', date)
+          .order('scheduled_time_start', { ascending: true })
+      : Promise.resolve({ data: [] as Record<string, unknown>[], error: null }),
+    supabase.from('users').select('name').eq('id', session.userId).single(),
   ])
 
-  if (sErr) return NextResponse.json({ error: sErr.message }, { status: 500 })
+  if (sErr1) return NextResponse.json({ error: sErr1.message }, { status: 500 })
+  if (sErr2) return NextResponse.json({ error: sErr2.message }, { status: 500 })
   if (wErr) return NextResponse.json({ error: wErr.message }, { status: 500 })
 
+  // 중복 제거 후 시간순 정렬
+  const merged = [
+    ...(workerSchedules ?? []),
+    ...(assignedSchedules ?? []),
+  ]
+  const seen = new Set<string>()
+  const schedules = merged
+    .filter((s) => {
+      if (seen.has(s.id as string)) return false
+      seen.add(s.id as string)
+      return true
+    })
+    .sort((a, b) =>
+      (a.scheduled_time_start as string ?? '').localeCompare(b.scheduled_time_start as string ?? ''),
+    )
+
   return NextResponse.json({
-    schedules: schedules ?? [],
+    schedules,
     workerName: workerProfile?.name ?? '',
   })
 }
