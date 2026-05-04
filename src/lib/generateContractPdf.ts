@@ -40,8 +40,20 @@ export async function generateContractPdf(opts: GeneratePdfOptions): Promise<str
 
   const { contractHtml, customerSignature, adminSignature, businessName, customerAgreedAt, adminSignedAt } = opts
 
+  // {{CUSTOMER_SIGNATURE}} / {{ADMIN_SIGNATURE}} 변수 치환
+  const hasSignatureVars = /\{\{(?:CUSTOMER|ADMIN)_SIGNATURE\}\}/.test(contractHtml)
+  const resolvedHtml = contractHtml
+    .replace(/\{\{CUSTOMER_SIGNATURE\}\}/g,
+      customerSignature
+        ? `<img src="${customerSignature}" style="max-width:200px;max-height:80px;object-fit:contain;" />`
+        : '<span style="color:#bbb;font-size:11px;font-family:sans-serif;">(서명 없음)</span>')
+    .replace(/\{\{ADMIN_SIGNATURE\}\}/g,
+      adminSignature
+        ? `<img src="${adminSignature}" style="max-width:200px;max-height:80px;object-fit:contain;" />`
+        : '<span style="color:#bbb;font-size:11px;font-family:sans-serif;">(서명 없음)</span>')
+
   // Parse contract HTML → extract styles + body
-  const parsed = new DOMParser().parseFromString(contractHtml, 'text/html')
+  const parsed = new DOMParser().parseFromString(resolvedHtml, 'text/html')
   const styleContent = Array.from(parsed.querySelectorAll('style')).map(s => s.textContent ?? '').join('\n')
   const bodyContent = parsed.body.innerHTML
 
@@ -71,9 +83,12 @@ export async function generateContractPdf(opts: GeneratePdfOptions): Promise<str
   contentDiv.innerHTML = bodyContent
   container.appendChild(contentDiv)
 
-  const sigDiv = document.createElement('div')
-  sigDiv.innerHTML = sigHtml
-  container.appendChild(sigDiv)
+  // 템플릿에 서명 변수가 없을 때만 하단에 서명 섹션 추가
+  if (!hasSignatureVars && sigHtml) {
+    const sigDiv = document.createElement('div')
+    sigDiv.innerHTML = sigHtml
+    container.appendChild(sigDiv)
+  }
 
   document.body.appendChild(container)
 
