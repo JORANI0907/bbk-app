@@ -4,7 +4,7 @@ import { redirect } from 'next/navigation'
 import { isPast, isToday } from 'date-fns'
 import { ServiceSchedule } from '@/types/database'
 import { ScheduleChangeRequest } from '@/components/customer/ScheduleChangeRequest'
-import { ScheduleTabs } from '@/components/customer/ScheduleTabs'
+import { ScheduleTabs, ScheduleWithConstruction } from '@/components/customer/ScheduleTabs'
 
 export default async function CustomerSchedulePage() {
   const session = getServerSession()
@@ -24,11 +24,11 @@ export default async function CustomerSchedulePage() {
 
   const { data: schedules } = await supabase
     .from('service_schedules')
-    .select('*, worker:users(id,name)')
+    .select('*, worker:users(id,name), application:service_applications(construction_time)')
     .eq('customer_id', customerId)
     .order('scheduled_date', { ascending: false })
 
-  const allSchedules = (schedules ?? []) as ServiceSchedule[]
+  const allSchedules = (schedules ?? []) as ScheduleWithConstruction[]
 
   const upcoming = allSchedules.filter((s) => {
     const d = new Date(s.scheduled_date)

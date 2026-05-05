@@ -9,9 +9,27 @@ import { SCHEDULE_STATUS_LABELS, SCHEDULE_STATUS_COLORS } from '@/lib/constants'
 
 type TabType = '예정' | '완료'
 
+export type ScheduleWithConstruction = ServiceSchedule & {
+  application?: { construction_time: string | null } | null
+}
+
 interface Props {
-  upcoming: ServiceSchedule[]
-  past: ServiceSchedule[]
+  upcoming: ScheduleWithConstruction[]
+  past: ScheduleWithConstruction[]
+}
+
+function formatConstructionTimeRange(t: string): string {
+  const parts = t.split(':')
+  const startH = parseInt(parts[0], 10)
+  const startM = parseInt(parts[1] ?? '0', 10)
+  if (isNaN(startH)) return t
+  const endTotalMins = startH * 60 + startM + 120
+  const endH = Math.floor(endTotalMins / 60)
+  const endM = endTotalMins % 60
+  const startStr = `${String(startH).padStart(2, '0')}:${String(startM).padStart(2, '0')}`
+  const endStr = `${String(endH).padStart(2, '0')}:${String(endM).padStart(2, '0')}`
+  const suffix = endH > 24 ? ' (익일)' : ''
+  return `${startStr} ~ ${endStr}${suffix}`
 }
 
 const PAYMENT_STATUS_LABELS: Record<string, { label: string; color: string }> = {
@@ -29,12 +47,15 @@ function getDday(dateStr: string): number {
   return Math.ceil((target.getTime() - today.getTime()) / 86400000)
 }
 
-function ScheduleCard({ schedule, workerName }: { schedule: ServiceSchedule; workerName?: string }) {
+function ScheduleCard({ schedule, workerName }: { schedule: ScheduleWithConstruction; workerName?: string }) {
   const scheduledDate = new Date(schedule.scheduled_date)
   const serviceItems = schedule.items_this_visit ?? []
   const diff = getDday(schedule.scheduled_date)
   const showDday = diff >= 0 && schedule.status !== 'completed' && schedule.status !== 'cancelled'
   const paymentInfo = schedule.payment_status ? PAYMENT_STATUS_LABELS[schedule.payment_status] : null
+  const constructionTime = schedule.application?.construction_time
+    ? formatConstructionTimeRange(schedule.application.construction_time)
+    : null
 
   return (
     <div
@@ -50,10 +71,10 @@ function ScheduleCard({ schedule, workerName }: { schedule: ServiceSchedule; wor
           <p className="text-sm font-bold text-text-primary">
             {format(scheduledDate, 'yyyy년 M월 d일 (EEE)', { locale: ko })}
           </p>
-          {(schedule.scheduled_time_start || schedule.scheduled_time_end) && (
+          {constructionTime && (
             <p className="text-xs text-text-secondary mt-0.5">
-              {schedule.scheduled_time_start?.slice(0, 5)}
-              {schedule.scheduled_time_end ? ` ~ ${schedule.scheduled_time_end.slice(0, 5)}` : ''}
+              <span className="text-text-tertiary mr-1">시공시간</span>
+              {constructionTime}
             </p>
           )}
         </div>
