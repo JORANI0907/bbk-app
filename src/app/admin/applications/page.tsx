@@ -20,7 +20,7 @@ import { MapSelectorModal } from '@/components/MapSelectorModal'
 import { ShoppingItemsSection } from '@/components/admin/ShoppingItemsSection'
 import { getScheduleToday } from '@/lib/schedule-today'
 import { Button } from '@/components/ui'
-import { Phone, ClipboardList, Map, Folder, FolderOpen, FileText, PenLine, Link, Save, Megaphone, AlertTriangle, Banknote, Camera } from 'lucide-react'
+import { Phone, ClipboardList, Map as MapIcon, Folder, FolderOpen, FileText, PenLine, Link, Save, Megaphone, AlertTriangle, Banknote, Camera } from 'lucide-react'
 
 type ServiceType = '1회성케어' | '정기딥케어' | '정기엔드케어'
 type ApplicationStatus = '신규' | '견적발송' | '예약확정' | '예약1일전' | '예약당일' | '작업완료' | '작업완료(엔드)' | '결제' | '결제완료' | '결제완료(잔금)' | '계산서발행완료' | '비과세' | '카드결제 완료' | '예약금환급완료' | '예약금 입금' | '예약취소' | 'A/S방문' | '방문견적'
@@ -1492,7 +1492,7 @@ export default function ServiceManagementPage() {
                   </thead>
                   <tbody>
                     {(() => {
-                      const weekTotals = new Map<string, number>()
+                      const weekTotals: Map<string, number> = new Map()
                       for (const app of rows) {
                         if (app.construction_date) {
                           const { key } = getWeekInfo(app.construction_date)
@@ -1793,7 +1793,7 @@ export default function ServiceManagementPage() {
                       <input value={address} onChange={e => setAddress(e.target.value)}
                         className="flex-1 border border-border rounded-lg px-2 py-1.5 text-xs text-text-primary focus:outline-none focus:ring-2 focus:ring-blue-500" />
                       <button onClick={() => setMapAddress(address)}
-                        className="px-2 py-1.5 text-xs bg-green-50 text-green-700 rounded-lg hover:bg-green-100 shrink-0"><Map size={14} /></button>
+                        className="px-2 py-1.5 text-xs bg-green-50 text-green-700 rounded-lg hover:bg-green-100 shrink-0"><MapIcon size={14} /></button>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
