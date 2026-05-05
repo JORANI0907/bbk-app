@@ -2,8 +2,6 @@ import { createServiceClient } from '@/lib/supabase/server'
 import { getServerSession } from '@/lib/session'
 import { redirect } from 'next/navigation'
 import { isPast, isToday } from 'date-fns'
-import { ServiceSchedule } from '@/types/database'
-import { ScheduleChangeRequest } from '@/components/customer/ScheduleChangeRequest'
 import { ScheduleTabs, ScheduleWithConstruction } from '@/components/customer/ScheduleTabs'
 
 export default async function CustomerSchedulePage() {
@@ -50,7 +48,6 @@ export default async function CustomerSchedulePage() {
 
   return (
     <div className="px-4 py-5 flex flex-col gap-6 max-w-2xl mx-auto">
-      <ScheduleChangeRequest upcomingSchedules={upcoming} />
       <ScheduleTabs upcoming={upcoming} past={past} />
     </div>
   )

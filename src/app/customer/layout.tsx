@@ -1,5 +1,6 @@
 import { CustomerSidebar } from '@/components/customer/CustomerSidebar'
 import { CustomerMobileNav } from '@/components/customer/CustomerMobileNav'
+import { ScheduleChangeFAB } from '@/components/customer/ScheduleChangeFAB'
 import { getServerSession } from '@/lib/session'
 import { redirect } from 'next/navigation'
 
@@ -27,6 +28,11 @@ export default function CustomerLayout({
 
       {/* 모바일 하단 탭바 */}
       <CustomerMobileNav />
+
+      {/* 일정 변경 요청 FAB (모바일) */}
+      <div className="md:hidden">
+        <ScheduleChangeFAB />
+      </div>
     </div>
   )
 }
