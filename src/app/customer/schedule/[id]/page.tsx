@@ -4,7 +4,7 @@ import { redirect, notFound } from 'next/navigation'
 import Link from 'next/link'
 import { format, isPast, isToday } from 'date-fns'
 import { ko } from 'date-fns/locale'
-import { ChevronLeft, User, ClipboardList } from 'lucide-react'
+import { ChevronLeft, User, ClipboardList, Phone, MapPin, FolderOpen } from 'lucide-react'
 import { ServiceSchedule, WorkPhoto, WorkChecklist, ClosingChecklist } from '@/types/database'
 import { SCHEDULE_STATUS_LABELS, SCHEDULE_STATUS_COLORS } from '@/lib/constants'
 import { BeforeAfterSlider } from '@/components/customer/BeforeAfterSlider'
@@ -27,6 +27,18 @@ interface ContractRow {
   customer_agreed_at: string | null
 }
 
+interface CustomerJoin {
+  id: string
+  business_name: string
+  contact_name: string
+  contact_phone: string
+  address: string
+  address_detail: string | null
+  care_scope: string | null
+  customer_type: string | null
+  drive_folder_url: string | null
+}
+
 const PAYMENT_STATUS_LABELS: Record<string, { label: string; color: string }> = {
   paid: { label: '납부완료', color: 'bg-state-success-bg text-state-success' },
   invoiced: { label: '청구됨', color: 'bg-state-info-bg text-state-info' },
@@ -46,6 +58,19 @@ const CONTRACT_STATUS_COLORS: Record<SigningStatus, string> = {
   pending_customer: 'bg-state-warning-bg text-state-warning',
   customer_signed: 'bg-state-info-bg text-state-info',
   completed: 'bg-state-success-bg text-state-success',
+}
+
+const CUSTOMER_TYPE_COLORS: Record<string, string> = {
+  '정기딥케어': 'bg-indigo-100 text-indigo-700',
+  '정기엔드케어': 'bg-brand-100 text-brand-700',
+  '1회성케어': 'bg-surface-sunken text-text-secondary',
+}
+
+function formatPhone(phone: string): string {
+  const p = phone.replace(/-/g, '')
+  if (p.length === 11) return `${p.slice(0, 3)}-${p.slice(3, 7)}-${p.slice(7)}`
+  if (p.length === 10) return `${p.slice(0, 3)}-${p.slice(3, 6)}-${p.slice(6)}`
+  return phone
 }
 
 function formatDate(dateStr: string | null): string {
@@ -70,7 +95,9 @@ export default async function CustomerScheduleDetailPage({ params }: PageProps) 
 
   const { data: schedule } = await supabase
     .from('service_schedules')
-    .select('*, customer:customers(id, business_name, address, address_detail), worker:users(id, name, phone)')
+    .select(
+      '*, customer:customers(id, business_name, contact_name, contact_phone, address, address_detail, care_scope, customer_type, drive_folder_url), worker:users(id, name, phone)'
+    )
     .eq('id', scheduleId)
     .eq('customer_id', customerRow.id)
     .single()
@@ -78,6 +105,7 @@ export default async function CustomerScheduleDetailPage({ params }: PageProps) 
   if (!schedule) notFound()
 
   const s = schedule as ServiceSchedule
+  const customer = (s.customer as unknown as CustomerJoin | null)
 
   let photos: WorkPhoto[] = []
   let checklists: WorkChecklist[] = []
@@ -132,8 +160,12 @@ export default async function CustomerScheduleDetailPage({ params }: PageProps) 
   })()
 
   const workerName = (s.worker as { name?: string } | null)?.name
+  const workerPhone = (s.worker as { phone?: string } | null)?.phone
   const paymentInfo = s.payment_status ? PAYMENT_STATUS_LABELS[s.payment_status] : null
   const hasRating = closing?.customer_rating != null
+  const fullAddress = customer
+    ? [customer.address, customer.address_detail].filter(Boolean).join(' ')
+    : null
 
   return (
     <div className="px-4 py-5 flex flex-col gap-4 max-w-2xl mx-auto md:px-6 md:py-8">
@@ -186,6 +218,51 @@ export default async function CustomerScheduleDetailPage({ params }: PageProps) 
         )}
       </div>
 
+      {/* 업체 정보 */}
+      {customer && (
+        <section className="bg-surface rounded-2xl border border-border-subtle shadow-soft overflow-hidden">
+          <div className="px-5 py-3 border-b border-border-subtle flex items-center justify-between">
+            <h2 className="text-sm font-bold text-text-primary">업체 정보</h2>
+            {customer.customer_type && (
+              <span className={`text-xs px-2.5 py-1 rounded-full font-semibold ${
+                CUSTOMER_TYPE_COLORS[customer.customer_type] ?? 'bg-surface-sunken text-text-secondary'
+              }`}>
+                {customer.customer_type}
+              </span>
+            )}
+          </div>
+          <div className="px-5 py-4 flex flex-col gap-3">
+            <div className="flex items-start gap-3">
+              <span className="text-xs text-text-tertiary w-16 shrink-0 pt-0.5">업체명</span>
+              <span className="text-sm text-text-primary font-semibold">{customer.business_name}</span>
+            </div>
+            {fullAddress && (
+              <div className="flex items-start gap-3">
+                <MapPin size={13} className="text-text-tertiary shrink-0 mt-0.5" />
+                <span className="text-sm text-text-secondary">{fullAddress}</span>
+              </div>
+            )}
+            {customer.contact_name && (
+              <div className="flex items-start gap-3">
+                <span className="text-xs text-text-tertiary w-16 shrink-0 pt-0.5">담당자</span>
+                <span className="text-sm text-text-primary">{customer.contact_name}</span>
+              </div>
+            )}
+            {customer.contact_phone && (
+              <div className="flex items-start gap-3">
+                <Phone size={13} className="text-text-tertiary shrink-0 mt-0.5" />
+                <a
+                  href={`tel:${customer.contact_phone}`}
+                  className="text-sm text-brand-600 font-medium"
+                >
+                  {formatPhone(customer.contact_phone)}
+                </a>
+              </div>
+            )}
+          </div>
+        </section>
+      )}
+
       {/* 서비스 항목 */}
       {s.items_this_visit?.length > 0 && (
         <section className="bg-surface rounded-2xl border border-border-subtle shadow-soft overflow-hidden">
@@ -200,6 +277,16 @@ export default async function CustomerScheduleDetailPage({ params }: PageProps) 
               </div>
             ))}
           </div>
+          {customer?.care_scope && (
+            <div className="px-5 pb-4 pt-1">
+              <div className="bg-surface-sunken rounded-xl p-3">
+                <p className="text-xs text-text-tertiary mb-1">케어 범위</p>
+                <p className="text-sm text-text-secondary whitespace-pre-wrap leading-relaxed">
+                  {customer.care_scope}
+                </p>
+              </div>
+            </div>
+          )}
         </section>
       )}
 
@@ -209,11 +296,22 @@ export default async function CustomerScheduleDetailPage({ params }: PageProps) 
           <div className="px-5 py-3 border-b border-border-subtle">
             <h2 className="text-sm font-bold text-text-primary">담당 직원</h2>
           </div>
-          <div className="px-5 py-4 flex items-center gap-3">
-            <div className="w-9 h-9 rounded-full bg-brand-50 border border-brand-100 flex items-center justify-center shrink-0">
-              <User size={16} className="text-brand-600" />
+          <div className="px-5 py-4 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-full bg-brand-50 border border-brand-100 flex items-center justify-center shrink-0">
+                <User size={16} className="text-brand-600" />
+              </div>
+              <span className="text-sm font-semibold text-text-primary">{workerName}</span>
             </div>
-            <span className="text-sm font-semibold text-text-primary">{workerName}</span>
+            {workerPhone && (
+              <a
+                href={`tel:${workerPhone}`}
+                className="flex items-center gap-1.5 text-xs text-brand-600 font-medium bg-brand-50 px-3 py-1.5 rounded-full"
+              >
+                <Phone size={12} />
+                전화하기
+              </a>
+            )}
           </div>
         </section>
       )}
@@ -240,7 +338,7 @@ export default async function CustomerScheduleDetailPage({ params }: PageProps) 
         </section>
       )}
 
-      {/* 계약서 (인라인) */}
+      {/* 계약서 */}
       {contract && (
         <section className="bg-surface rounded-2xl border border-border-subtle shadow-soft overflow-hidden">
           <div className="px-5 py-3 border-b border-border-subtle flex items-center justify-between">
@@ -305,6 +403,27 @@ export default async function CustomerScheduleDetailPage({ params }: PageProps) 
             )}
           </div>
         </section>
+      )}
+
+      {/* Google Drive 사진 폴더 */}
+      {customer?.drive_folder_url && (
+        <a
+          href={customer.drive_folder_url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center justify-between bg-surface rounded-2xl border border-border-subtle shadow-soft p-4 active:scale-[0.98] transition-transform"
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-full bg-brand-50 border border-brand-100 flex items-center justify-center shrink-0">
+              <FolderOpen size={16} className="text-brand-600" />
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-text-primary">사진 폴더 보기</p>
+              <p className="text-xs text-text-tertiary mt-0.5">Google Drive에서 서비스 사진 확인</p>
+            </div>
+          </div>
+          <ChevronLeft size={16} className="text-text-tertiary rotate-180" />
+        </a>
       )}
 
       {/* 작업 사진 — BeforeAfterSlider (완료된 일정, 사진 있는 경우) */}
