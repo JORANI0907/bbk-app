@@ -3,6 +3,7 @@ import { getServerSession } from '@/lib/session'
 import { redirect } from 'next/navigation'
 import { isPast, isToday } from 'date-fns'
 import { ScheduleTabs, ScheduleWithConstruction } from '@/components/customer/ScheduleTabs'
+import { ScheduleChangeNoticeBar } from '@/components/customer/ScheduleChangeNoticeBar'
 
 export default async function CustomerSchedulePage() {
   const session = getServerSession()
@@ -47,7 +48,8 @@ export default async function CustomerSchedulePage() {
   })
 
   return (
-    <div className="px-4 py-5 flex flex-col gap-6 max-w-2xl mx-auto">
+    <div className="px-4 py-5 flex flex-col gap-4 max-w-2xl mx-auto">
+      <ScheduleChangeNoticeBar />
       <ScheduleTabs upcoming={upcoming} past={past} />
     </div>
   )
