@@ -8,7 +8,7 @@ import { Button } from '@/components/ui'
 // ─── 타입 ────────────────────────────────────────────────────────
 
 type NoticeType = 'notice' | 'event'
-type Priority = 'normal' | 'high' | 'urgent'
+type Priority = 'normal' | 'important' | 'urgent'
 type Audience = 'all' | 'admin' | 'worker' | 'customer'
 type TabFilter = 'all' | 'notice' | 'event'
 
@@ -58,10 +58,10 @@ const TYPE_BADGE: Record<NoticeType, string> = {
   notice: 'bg-brand-100 text-brand-700',
   event: 'bg-purple-100 text-purple-700',
 }
-const PRIORITY_LABELS: Record<Priority, string> = { normal: '일반', high: '중요', urgent: '긴급' }
+const PRIORITY_LABELS: Record<Priority, string> = { normal: '일반', important: '중요', urgent: '긴급' }
 const PRIORITY_BADGE: Record<Priority, string> = {
   normal: 'bg-surface-sunken text-text-secondary',
-  high: 'bg-state-warning-bg text-state-warning',
+  important: 'bg-state-warning-bg text-state-warning',
   urgent: 'bg-state-danger-bg text-state-danger',
 }
 const AUDIENCE_LABELS: Record<Audience, string> = {
@@ -401,7 +401,7 @@ export default function NoticesPage() {
                     className="w-full border border-border rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
                   >
                     <option value="normal">일반</option>
-                    <option value="high">중요</option>
+                    <option value="important">중요</option>
                     <option value="urgent">긴급</option>
                   </select>
                 </div>
