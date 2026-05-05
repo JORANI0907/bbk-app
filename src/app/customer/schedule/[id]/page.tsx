@@ -86,10 +86,23 @@ function formatPhone(phone: string): string {
   return phone
 }
 
-function formatConstructionTime(t: string): string {
-  const m = t.match(/^(\d{1,2}):(\d{2})/)
-  if (!m) return t
-  return m[2] === '00' ? `${parseInt(m[1], 10)}시간` : `${parseInt(m[1], 10)}시간 ${m[2]}분`
+function formatConstructionTimeRange(t: string): string {
+  const parts = t.split(':')
+  const startH = parseInt(parts[0], 10)
+  const startM = parseInt(parts[1] ?? '0', 10)
+  if (isNaN(startH)) return t
+
+  const endTotalMins = startH * 60 + startM + 120 // +2시간
+  const endH = Math.floor(endTotalMins / 60)
+  const endM = endTotalMins % 60
+
+  const startStr = `${String(startH).padStart(2, '0')}:${String(startM).padStart(2, '0')}`
+  const endStr   = endH >= 24
+    ? `${String(endH).padStart(2, '0')}:${String(endM).padStart(2, '0')}`  // 24:00 그대로 표기
+    : `${String(endH).padStart(2, '0')}:${String(endM).padStart(2, '0')}`
+
+  const suffix = endH > 24 ? ' (익일)' : ''
+  return `${startStr} ~ ${endStr}${suffix}`
 }
 
 function formatDate(dateStr: string | null): string {
@@ -218,7 +231,7 @@ export default async function CustomerScheduleDetailPage({ params }: PageProps) 
 
   // 시공시간
   const constructionTime = application?.construction_time
-    ? formatConstructionTime(application.construction_time)
+    ? formatConstructionTimeRange(application.construction_time)
     : null
 
   return (
@@ -242,15 +255,14 @@ export default async function CustomerScheduleDetailPage({ params }: PageProps) 
             <h1 className="text-xl font-bold text-text-primary">
               {format(scheduledDate, 'M월 d일 (EEE)', { locale: ko })}
             </h1>
-            {(s.scheduled_time_start || s.scheduled_time_end) && (
+            {constructionTime ? (
+              <p className="text-sm text-text-secondary mt-1">{constructionTime}</p>
+            ) : (s.scheduled_time_start || s.scheduled_time_end) ? (
               <p className="text-sm text-text-secondary mt-1">
                 {s.scheduled_time_start?.slice(0, 5)}
                 {s.scheduled_time_end ? ` ~ ${s.scheduled_time_end.slice(0, 5)}` : ''}
               </p>
-            )}
-            {constructionTime && (
-              <p className="text-xs text-text-tertiary mt-0.5">시공시간 {constructionTime}</p>
-            )}
+            ) : null}
           </div>
           <div className="flex flex-col items-end gap-2 shrink-0">
             <span className={`text-xs px-2.5 py-1 rounded-full font-semibold ${
@@ -318,15 +330,12 @@ export default async function CustomerScheduleDetailPage({ params }: PageProps) 
       )}
 
       {/* ── 시공 정보 ── */}
-      {(careScope || constructionTime || application?.request_notes) && (
+      {(careScope || application?.request_notes) && (
         <section className="bg-surface rounded-2xl border border-border-subtle shadow-soft overflow-hidden">
           <div className="px-5 py-3 border-b border-border-subtle">
             <h2 className="text-sm font-bold text-text-primary">시공 정보</h2>
           </div>
           <div className="px-5 py-4 flex flex-col gap-3">
-            {constructionTime && (
-              <InfoRow label="시공시간" value={constructionTime} />
-            )}
             {careScope && (
               <div className="flex flex-col gap-1">
                 <span className="text-xs text-text-tertiary">케어 범위</span>
