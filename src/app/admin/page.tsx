@@ -75,7 +75,7 @@ const PRIORITY_CONFIG = {
 
 const TYPE_CONFIG = {
   notice: { icon: <Megaphone size={20} />, label: '공지', color: 'text-brand-600' },
-  event:  { icon: <PartyPopper size={20} />, label: '행사', color: 'text-purple-600' },
+  event:  { icon: <PartyPopper size={20} />, label: '이벤트', color: 'text-purple-600' },
 }
 
 // ─── 명언 ─────────────────────────────────────────────────────────
@@ -425,7 +425,7 @@ export default function AdminHomePage() {
               {(['all', 'notice', 'event'] as const).map(f => (
                 <button key={f} onClick={() => setFilter(f)}
                   className={`px-3 py-1.5 font-medium transition-colors ${filter === f ? 'bg-gray-800 text-white' : 'bg-surface text-text-secondary hover:bg-surface-sunken'}`}>
-                  {f === 'all' ? '전체' : f === 'notice' ? <><Megaphone size={12} className="inline mr-0.5" />공지</> : <><PartyPopper size={12} className="inline mr-0.5" />행사</>}
+                  {f === 'all' ? '전체' : f === 'notice' ? <><Megaphone size={12} className="inline mr-0.5" />공지</> : <><PartyPopper size={12} className="inline mr-0.5" />이벤트</>}
                 </button>
               ))}
             </div>
@@ -437,7 +437,7 @@ export default function AdminHomePage() {
             <div className="flex flex-col items-center justify-center py-16 bg-surface rounded-2xl border border-dashed border-border text-center gap-2">
               <ClipboardList size={40} />
               <p className="text-text-tertiary text-sm">
-                {filter === 'all' ? '등록된 공지사항이 없습니다.' : filter === 'notice' ? '공지사항이 없습니다.' : '행사 정보가 없습니다.'}
+                {filter === 'all' ? '등록된 공지사항이 없습니다.' : filter === 'notice' ? '공지사항이 없습니다.' : '이벤트 정보가 없습니다.'}
               </p>
             </div>
           ) : (
