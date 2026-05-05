@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { format, isPast, isToday } from 'date-fns'
+import { format } from 'date-fns'
 import { ko } from 'date-fns/locale'
 import { ServiceSchedule } from '@/types/database'
 import { SCHEDULE_STATUS_LABELS, SCHEDULE_STATUS_COLORS } from '@/lib/constants'
@@ -24,17 +24,16 @@ function getDday(dateStr: string): number {
 
 function ScheduleCard({ schedule, workerName }: { schedule: ServiceSchedule; workerName?: string }) {
   const scheduledDate = new Date(schedule.scheduled_date)
-  const isUpcoming = !isPast(scheduledDate) || isToday(scheduledDate)
-  const serviceName =
-    schedule.items_this_visit?.map((i) => i.name).join(', ') || '청소 서비스'
+  const serviceName = schedule.items_this_visit?.map((i) => i.name).join(', ') || '청소 서비스'
   const diff = getDday(schedule.scheduled_date)
+  const showDday = diff >= 0 && schedule.status !== 'completed' && schedule.status !== 'cancelled'
 
   return (
     <div
-      className={`bg-surface rounded-2xl border p-4 flex flex-col gap-2 ${
-        isUpcoming && schedule.status !== 'cancelled'
+      className={`bg-surface rounded-2xl border p-4 flex flex-col gap-2 active:scale-[0.98] transition-transform ${
+        showDday
           ? 'border-brand-100 shadow-soft'
-          : 'border-border-subtle'
+          : 'border-border-subtle shadow-flat'
       }`}
     >
       <div className="flex items-start justify-between gap-2">
@@ -49,13 +48,14 @@ function ScheduleCard({ schedule, workerName }: { schedule: ServiceSchedule; wor
             </p>
           )}
         </div>
-        <span
-          className={`text-xs px-2.5 py-1 rounded-full font-medium whitespace-nowrap ${
+        <div className="flex items-center gap-1.5 shrink-0">
+          <span className={`text-xs px-2.5 py-1 rounded-full font-medium whitespace-nowrap ${
             SCHEDULE_STATUS_COLORS[schedule.status] ?? 'bg-surface-sunken text-text-secondary'
-          }`}
-        >
-          {SCHEDULE_STATUS_LABELS[schedule.status] ?? schedule.status}
-        </span>
+          }`}>
+            {SCHEDULE_STATUS_LABELS[schedule.status] ?? schedule.status}
+          </span>
+          <span className="text-text-tertiary">›</span>
+        </div>
       </div>
 
       <p className="text-sm text-text-secondary">{serviceName}</p>
@@ -70,7 +70,7 @@ function ScheduleCard({ schedule, workerName }: { schedule: ServiceSchedule; wor
         </p>
       )}
 
-      {isUpcoming && schedule.status !== 'cancelled' && diff >= 0 && (
+      {showDday && (
         <p className="text-xs font-semibold text-brand-600 border-t border-border-subtle pt-2 mt-1">
           {diff === 0 ? '오늘 서비스 예정!' : `D-${diff}`}
         </p>
@@ -84,7 +84,7 @@ export function ScheduleTabs({ upcoming, past }: Props) {
 
   const tabs: { key: TabType; label: string; count: number }[] = [
     { key: '예정', label: '예정', count: upcoming.length },
-    { key: '완료', label: '완료', count: past.filter(s => s.status === 'completed').length },
+    { key: '완료', label: '완료', count: past.length },
   ]
 
   return (
@@ -132,11 +132,12 @@ export function ScheduleTabs({ upcoming, past }: Props) {
           ) : (
             <div className="flex flex-col gap-3">
               {upcoming.map((s) => (
-                <ScheduleCard
-                  key={s.id}
-                  schedule={s}
-                  workerName={(s.worker as { name?: string } | null)?.name}
-                />
+                <Link key={s.id} href={`/customer/schedule/${s.id}`} className="block">
+                  <ScheduleCard
+                    schedule={s}
+                    workerName={(s.worker as { name?: string } | null)?.name}
+                  />
+                </Link>
               ))}
             </div>
           )}
@@ -159,48 +160,14 @@ export function ScheduleTabs({ upcoming, past }: Props) {
             </div>
           ) : (
             <div className="flex flex-col gap-3">
-              {past.map((s) =>
-                s.status === 'completed' ? (
-                  <Link
-                    key={s.id}
-                    href={`/customer/reports/${s.id}`}
-                    className="bg-surface rounded-2xl border border-border-subtle p-4 flex flex-col gap-2 active:scale-[0.98] transition-transform shadow-flat"
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <p className="text-sm font-bold text-text-primary">
-                          {format(new Date(s.scheduled_date), 'yyyy년 M월 d일 (EEE)', { locale: ko })}
-                        </p>
-                        {(s.scheduled_time_start || s.scheduled_time_end) && (
-                          <p className="text-xs text-text-tertiary mt-0.5">
-                            {s.scheduled_time_start}{s.scheduled_time_end ? ` ~ ${s.scheduled_time_end}` : ''}
-                          </p>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-1.5">
-                        <span className={`text-xs px-2.5 py-1 rounded-full font-medium whitespace-nowrap ${SCHEDULE_STATUS_COLORS[s.status] ?? 'bg-surface-sunken text-text-secondary'}`}>
-                          {SCHEDULE_STATUS_LABELS[s.status] ?? s.status}
-                        </span>
-                        <span className="text-text-tertiary text-sm">›</span>
-                      </div>
-                    </div>
-                    <p className="text-sm text-text-secondary">
-                      {s.items_this_visit?.map((i) => i.name).join(', ') || '청소 서비스'}
-                    </p>
-                    {(s.worker as { name?: string } | null)?.name && (
-                      <p className="text-xs text-text-secondary flex items-center gap-1">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-3 h-3 shrink-0">
-                          <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
-                          <circle cx="12" cy="7" r="4"/>
-                        </svg>
-                        <span>{(s.worker as { name?: string }).name}</span>
-                      </p>
-                    )}
-                  </Link>
-                ) : (
-                  <ScheduleCard key={s.id} schedule={s} />
-                )
-              )}
+              {past.map((s) => (
+                <Link key={s.id} href={`/customer/schedule/${s.id}`} className="block">
+                  <ScheduleCard
+                    schedule={s}
+                    workerName={(s.worker as { name?: string } | null)?.name}
+                  />
+                </Link>
+              ))}
               <div className="text-center py-1">
                 <span className="text-xs text-text-tertiary bg-surface-sunken px-3 py-1.5 rounded-full">
                   누적 {past.filter(s => s.status === 'completed').length}회 완료
