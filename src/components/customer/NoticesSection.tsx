@@ -21,6 +21,8 @@ interface Props {
   events: NoticeItem[]
 }
 
+type TabType = 'all' | 'notice' | 'event'
+
 const PRIORITY_BADGE: Record<string, string> = {
   normal: 'bg-surface-sunken text-text-secondary',
   high: 'bg-yellow-100 text-yellow-700',
@@ -46,7 +48,9 @@ function NoticeCard({ item, onClick }: { item: NoticeItem; onClick: () => void }
       className="w-full text-left bg-surface rounded-2xl border border-border-subtle p-3 flex flex-col gap-1 active:scale-[0.97] transition-transform shadow-flat"
     >
       <div className="flex items-center gap-1 flex-wrap">
-        {item.pinned && <span className="text-[10px] text-brand-600 font-bold">📌</span>}
+        {item.pinned && (
+          <span className="text-[10px] font-bold text-brand-600 border border-brand-200 px-1 py-0.5 rounded leading-none">고정</span>
+        )}
         {isNew(item.created_at) && (
           <span className="text-[9px] font-bold bg-state-danger text-white px-1 py-0.5 rounded-full leading-none">NEW</span>
         )}
@@ -55,6 +59,11 @@ function NoticeCard({ item, onClick }: { item: NoticeItem; onClick: () => void }
             {PRIORITY_LABEL[item.priority]}
           </span>
         )}
+        <span className={`text-[9px] font-medium px-1.5 py-0.5 rounded-full ml-auto ${
+          item.type === 'notice' ? 'bg-brand-100 text-brand-700' : 'bg-purple-100 text-purple-700'
+        }`}>
+          {item.type === 'notice' ? '공지' : '이벤트'}
+        </span>
       </div>
       <p className="text-xs font-semibold text-text-primary line-clamp-2 leading-snug">{item.title}</p>
       <p className="text-[10px] text-text-tertiary">
@@ -67,47 +76,72 @@ function NoticeCard({ item, onClick }: { item: NoticeItem; onClick: () => void }
 }
 
 export function NoticesSection({ notices, events }: Props) {
+  const [activeTab, setActiveTab] = useState<TabType>('all')
   const [selected, setSelected] = useState<NoticeItem | null>(null)
 
-  if (notices.length === 0 && events.length === 0) return null
+  const allItems = [...notices, ...events].sort((a, b) => {
+    if (a.pinned !== b.pinned) return a.pinned ? -1 : 1
+    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+  })
+
+  const tabItems: Record<TabType, NoticeItem[]> = {
+    all: allItems,
+    notice: notices,
+    event: events,
+  }
+
+  const currentItems = tabItems[activeTab]
+  const totalCount = allItems.length
+
+  if (totalCount === 0) return null
+
+  const tabs: { key: TabType; label: string; count: number }[] = [
+    { key: 'all', label: '전체', count: totalCount },
+    { key: 'notice', label: '공지', count: notices.length },
+    { key: 'event', label: '이벤트', count: events.length },
+  ]
 
   return (
     <>
       <section>
         <h2 className="text-sm font-bold text-text-primary mb-3">공지 &amp; 이벤트</h2>
-        <div className="grid grid-cols-2 gap-3 items-start">
-          {/* 왼쪽: 공지 */}
-          <div className="flex flex-col gap-2">
-            <div className="flex items-center gap-1.5 mb-0.5">
-              <span className="text-xs">📢</span>
-              <span className="text-xs font-bold text-text-primary">공지</span>
-              <span className="text-[10px] text-text-tertiary">({notices.length})</span>
-            </div>
-            {notices.length === 0 ? (
-              <p className="text-xs text-text-tertiary text-center py-4 bg-surface rounded-2xl border border-border-subtle">없음</p>
-            ) : (
-              notices.map(n => (
-                <NoticeCard key={n.id} item={n} onClick={() => setSelected(n)} />
-              ))
-            )}
-          </div>
 
-          {/* 오른쪽: 이벤트 */}
-          <div className="flex flex-col gap-2">
-            <div className="flex items-center gap-1.5 mb-0.5">
-              <span className="text-xs">🎉</span>
-              <span className="text-xs font-bold text-text-primary">이벤트</span>
-              <span className="text-[10px] text-text-tertiary">({events.length})</span>
-            </div>
-            {events.length === 0 ? (
-              <p className="text-xs text-text-tertiary text-center py-4 bg-surface rounded-2xl border border-border-subtle">없음</p>
-            ) : (
-              events.map(n => (
-                <NoticeCard key={n.id} item={n} onClick={() => setSelected(n)} />
-              ))
-            )}
-          </div>
+        {/* 탭 */}
+        <div className="flex gap-2 mb-3">
+          {tabs.map(tab => (
+            <button
+              key={tab.key}
+              onClick={() => setActiveTab(tab.key)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${
+                activeTab === tab.key
+                  ? 'bg-brand-600 text-white'
+                  : 'bg-surface-sunken text-text-secondary hover:text-text-primary'
+              }`}
+            >
+              <span>{tab.label}</span>
+              <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold leading-none ${
+                activeTab === tab.key
+                  ? 'bg-white/20 text-white'
+                  : 'bg-border text-text-tertiary'
+              }`}>
+                {tab.count}
+              </span>
+            </button>
+          ))}
         </div>
+
+        {/* 목록 */}
+        {currentItems.length === 0 ? (
+          <div className="flex items-center justify-center py-10 bg-surface rounded-2xl border border-border-subtle">
+            <p className="text-sm text-text-tertiary">등록된 내용이 없습니다</p>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-2">
+            {currentItems.map(item => (
+              <NoticeCard key={item.id} item={item} onClick={() => setSelected(item)} />
+            ))}
+          </div>
+        )}
       </section>
 
       {/* 상세 모달 */}
@@ -138,7 +172,9 @@ export function NoticesSection({ notices, events }: Props) {
                     {PRIORITY_LABEL[selected.priority]}
                   </span>
                 )}
-                {selected.pinned && <span className="text-xs text-brand-600">📌 고정</span>}
+                {selected.pinned && (
+                  <span className="text-xs text-brand-600 font-medium border border-brand-200 px-2 py-0.5 rounded-full">고정</span>
+                )}
               </div>
 
               {/* 제목 */}
