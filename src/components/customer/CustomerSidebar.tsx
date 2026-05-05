@@ -3,12 +3,22 @@
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useState } from 'react'
+import { Home, Calendar, BookOpen, User, LogOut } from 'lucide-react'
 
-const NAV_ITEMS = [
-  { href: '/customer', label: '홈', icon: '🏠', exact: true },
-  { href: '/customer/schedule', label: '서비스 일정', icon: '📅' },
-  { href: '/customer/guide', label: '이용안내', icon: '📖' },
-  { href: '/customer/mypage', label: '마이페이지', icon: '👤' },
+type NavIcon = React.ElementType
+
+interface NavItem {
+  href: string
+  label: string
+  Icon: NavIcon
+  exact?: boolean
+}
+
+const NAV_ITEMS: NavItem[] = [
+  { href: '/customer', label: '홈', Icon: Home, exact: true },
+  { href: '/customer/schedule', label: '서비스 일정', Icon: Calendar },
+  { href: '/customer/guide', label: '이용안내', Icon: BookOpen },
+  { href: '/customer/mypage', label: '마이페이지', Icon: User },
 ]
 
 interface Props {
@@ -64,7 +74,7 @@ export function CustomerSidebar({ userName }: Props) {
                   : 'text-text-secondary hover:bg-surface-sunken hover:text-text-primary'
               }`}
             >
-              <span className="text-base shrink-0">{item.icon}</span>
+              <item.Icon size={16} className="shrink-0" />
               <span className="flex-1">{item.label}</span>
             </Link>
           )
@@ -75,7 +85,7 @@ export function CustomerSidebar({ userName }: Props) {
       <div className="px-3 py-4 border-t border-border-subtle space-y-1">
         <div className="flex items-center gap-2.5 px-3 py-2">
           <div className="w-7 h-7 rounded-full bg-surface-sunken border border-border flex items-center justify-center shrink-0">
-            <span className="text-xs text-text-secondary">👤</span>
+            <User size={14} className="text-text-secondary" />
           </div>
           <span className="text-sm font-medium text-text-primary truncate">{userName}</span>
         </div>
@@ -84,7 +94,7 @@ export function CustomerSidebar({ userName }: Props) {
           disabled={loggingOut}
           className="flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm font-medium text-text-secondary hover:bg-red-50 hover:text-red-600 transition-colors disabled:opacity-60"
         >
-          <span className="text-base shrink-0">🚪</span>
+          <LogOut size={16} className="shrink-0" />
           {loggingOut ? '로그아웃 중...' : '로그아웃'}
         </button>
       </div>
