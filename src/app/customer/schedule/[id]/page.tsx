@@ -4,7 +4,7 @@ import { redirect, notFound } from 'next/navigation'
 import Link from 'next/link'
 import { format, isPast, isToday } from 'date-fns'
 import { ko } from 'date-fns/locale'
-import { ChevronLeft, User, ClipboardList, Phone, MapPin, FolderOpen, FileText } from 'lucide-react'
+import { ChevronLeft, User, ClipboardList, Phone, FolderOpen, FileText } from 'lucide-react'
 import { ServiceSchedule, WorkPhoto, WorkChecklist, ClosingChecklist } from '@/types/database'
 import { SCHEDULE_STATUS_LABELS, SCHEDULE_STATUS_COLORS } from '@/lib/constants'
 import { BeforeAfterSlider } from '@/components/customer/BeforeAfterSlider'
@@ -36,6 +36,7 @@ interface CustomerJoin {
   address_detail: string | null
   customer_type: string | null
   drive_folder_url: string | null
+  business_number: string | null
 }
 
 interface ApplicationRow {
@@ -50,6 +51,12 @@ interface ApplicationRow {
   last_quote_pdf_url: string | null
   last_quote_no: string | null
   request_notes: string | null
+  parking: string | null
+  building_access: string | null
+  elevator: string | null
+  access_method: string | null
+  payment_method: string | null
+  account_number: string | null
 }
 
 const PAYMENT_STATUS_LABELS: Record<string, { label: string; color: string }> = {
@@ -137,7 +144,7 @@ export default async function CustomerScheduleDetailPage({ params }: PageProps) 
   const { data: schedule } = await supabase
     .from('service_schedules')
     .select(
-      '*, customer:customers(id, business_name, contact_name, contact_phone, address, address_detail, customer_type, drive_folder_url), worker:users(id, name, phone)'
+      '*, customer:customers(id, business_name, contact_name, contact_phone, address, address_detail, customer_type, drive_folder_url, business_number), worker:users(id, name, phone)'
     )
     .eq('id', scheduleId)
     .eq('customer_id', customerRow.id)
@@ -154,7 +161,7 @@ export default async function CustomerScheduleDetailPage({ params }: PageProps) 
     const { data: appData } = await supabase
       .from('service_applications')
       .select(
-        'construction_time, care_scope, supply_amount, vat, balance, deposit, drive_folder_url, quote_url, last_quote_pdf_url, last_quote_no, request_notes'
+        'construction_time, care_scope, supply_amount, vat, balance, deposit, drive_folder_url, quote_url, last_quote_pdf_url, last_quote_no, request_notes, parking, building_access, elevator, access_method, payment_method, account_number'
       )
       .eq('id', s.application_id)
       .maybeSingle()
@@ -301,29 +308,18 @@ export default async function CustomerScheduleDetailPage({ params }: PageProps) 
             )}
           </div>
           <div className="px-5 py-4 flex flex-col gap-3">
-            <div className="flex items-start gap-3">
-              <span className="text-xs text-text-tertiary w-16 shrink-0 pt-0.5">업체명</span>
-              <span className="text-sm text-text-primary font-semibold">{customer.business_name}</span>
-            </div>
-            {fullAddress && (
-              <div className="flex items-start gap-2">
-                <MapPin size={13} className="text-text-tertiary shrink-0 mt-0.5" />
-                <span className="text-sm text-text-secondary">{fullAddress}</span>
-              </div>
-            )}
-            {customer.contact_name && (
-              <div className="flex items-start gap-3">
-                <span className="text-xs text-text-tertiary w-16 shrink-0 pt-0.5">담당자</span>
-                <span className="text-sm text-text-primary">{customer.contact_name}</span>
-              </div>
-            )}
+            <InfoRow label="업체명" value={<span className="font-semibold">{customer.business_name}</span>} />
+            {fullAddress && <InfoRow label="주소" value={fullAddress} />}
+            {customer.contact_name && <InfoRow label="담당자" value={customer.contact_name} />}
             {customer.contact_phone && (
-              <div className="flex items-start gap-2">
-                <Phone size={13} className="text-text-tertiary shrink-0 mt-0.5" />
-                <a href={`tel:${customer.contact_phone}`} className="text-sm text-brand-600 font-medium">
-                  {formatPhone(customer.contact_phone)}
-                </a>
-              </div>
+              <InfoRow
+                label="연락처"
+                value={
+                  <a href={`tel:${customer.contact_phone}`} className="text-brand-600 font-medium">
+                    {formatPhone(customer.contact_phone)}
+                  </a>
+                }
+              />
             )}
           </div>
         </section>
@@ -352,6 +348,21 @@ export default async function CustomerScheduleDetailPage({ params }: PageProps) 
                 </div>
               </div>
             )}
+          </div>
+        </section>
+      )}
+
+      {/* ── 작업장 정보 ── */}
+      {(application?.parking || application?.building_access || application?.elevator || application?.access_method) && (
+        <section className="bg-surface rounded-2xl border border-border-subtle shadow-soft overflow-hidden">
+          <div className="px-5 py-3 border-b border-border-subtle">
+            <h2 className="text-sm font-bold text-text-primary">작업장 정보</h2>
+          </div>
+          <div className="px-5 py-4 flex flex-col gap-3">
+            {application.parking && <InfoRow label="주차" value={application.parking} />}
+            {application.building_access && <InfoRow label="건물출입" value={application.building_access} />}
+            {application.elevator && <InfoRow label="엘리베이터" value={application.elevator} />}
+            {application.access_method && <InfoRow label="출입방법" value={application.access_method} />}
           </div>
         </section>
       )}
@@ -440,6 +451,20 @@ export default async function CustomerScheduleDetailPage({ params }: PageProps) 
             {s.payment_amount != null && quotedTotal != null && (
               <InfoRow label="청구 금액" value={`${Number(s.payment_amount).toLocaleString()}원`} />
             )}
+          </div>
+        </section>
+      )}
+
+      {/* ── 결제 정보 ── */}
+      {(application?.payment_method || application?.account_number || customer?.business_number) && (
+        <section className="bg-surface rounded-2xl border border-border-subtle shadow-soft overflow-hidden">
+          <div className="px-5 py-3 border-b border-border-subtle">
+            <h2 className="text-sm font-bold text-text-primary">결제 정보</h2>
+          </div>
+          <div className="px-5 py-4 flex flex-col gap-3">
+            {application?.payment_method && <InfoRow label="결제방법" value={application.payment_method} />}
+            {application?.account_number && <InfoRow label="계좌번호" value={application.account_number} />}
+            {customer?.business_number && <InfoRow label="사업자번호" value={customer.business_number} />}
           </div>
         </section>
       )}
