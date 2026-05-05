@@ -262,14 +262,12 @@ export default async function CustomerScheduleDetailPage({ params }: PageProps) 
             <h1 className="text-xl font-bold text-text-primary">
               {format(scheduledDate, 'M월 d일 (EEE)', { locale: ko })}
             </h1>
-            {constructionTime ? (
-              <p className="text-sm text-text-secondary mt-1">{constructionTime}</p>
-            ) : (s.scheduled_time_start || s.scheduled_time_end) ? (
+            {constructionTime && (
               <p className="text-sm text-text-secondary mt-1">
-                {s.scheduled_time_start?.slice(0, 5)}
-                {s.scheduled_time_end ? ` ~ ${s.scheduled_time_end.slice(0, 5)}` : ''}
+                <span className="text-xs text-text-tertiary font-medium mr-1.5">시공시간</span>
+                {constructionTime}
               </p>
-            ) : null}
+            )}
           </div>
           <div className="flex flex-col items-end gap-2 shrink-0">
             <span className={`text-xs px-2.5 py-1 rounded-full font-semibold ${
