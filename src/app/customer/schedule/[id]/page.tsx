@@ -144,7 +144,7 @@ export default async function CustomerScheduleDetailPage({ params }: PageProps) 
   const { data: schedule } = await supabase
     .from('service_schedules')
     .select(
-      '*, customer:customers(id, business_name, contact_name, contact_phone, address, address_detail, customer_type, drive_folder_url, business_number), worker:users(id, name, phone)'
+      '*, customer:customers(id, business_name, contact_name, contact_phone, address, address_detail, customer_type, drive_folder_url, business_number), worker:users(id, name)'
     )
     .eq('id', scheduleId)
     .eq('customer_id', customerRow.id)
@@ -152,8 +152,19 @@ export default async function CustomerScheduleDetailPage({ params }: PageProps) 
 
   if (!schedule) notFound()
 
-  const s = schedule as ServiceSchedule & { application_id?: string | null }
+  const s = schedule as ServiceSchedule & { application_id?: string | null; worker_id?: string | null }
   const customer = (s.customer as unknown as CustomerJoin | null)
+
+  // workers 테이블에서 전화번호 조회 (직원관리 기준)
+  let workerPhoneFromWorkers: string | undefined
+  if (s.worker_id) {
+    const { data: workerRecord } = await supabase
+      .from('workers')
+      .select('phone')
+      .eq('user_id', s.worker_id)
+      .maybeSingle()
+    workerPhoneFromWorkers = workerRecord?.phone ?? undefined
+  }
 
   // 연결된 service_applications 조회 (있을 때만)
   let application: ApplicationRow | null = null
@@ -211,8 +222,8 @@ export default async function CustomerScheduleDetailPage({ params }: PageProps) 
     return Math.ceil((target.getTime() - today.getTime()) / 86400000)
   })()
 
-  const workerName  = (s.worker as { name?: string }  | null)?.name
-  const workerPhone = (s.worker as { phone?: string } | null)?.phone
+  const workerName  = (s.worker as { name?: string } | null)?.name
+  const workerPhone = workerPhoneFromWorkers
   const paymentInfo = s.payment_status ? PAYMENT_STATUS_LABELS[s.payment_status] : null
   const hasRating   = closing?.customer_rating != null
   const fullAddress = customer ? [customer.address, customer.address_detail].filter(Boolean).join(' ') : null
