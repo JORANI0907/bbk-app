@@ -1,10 +1,11 @@
 import { createServiceClient } from '@/lib/supabase/server'
 import { getServerSession } from '@/lib/session'
 import { redirect } from 'next/navigation'
+import Link from 'next/link'
 import { format } from 'date-fns'
-import { ko } from 'date-fns/locale'
 import { ServiceSchedule } from '@/types/database'
 import { NoticesSection } from '@/components/customer/NoticesSection'
+import { ScheduleCard, ScheduleWithConstruction } from '@/components/customer/ScheduleCard'
 
 type CustomerGrade = '화이트' | '블루' | '블랙'
 
@@ -88,14 +89,6 @@ function getOriginalMonthlyPrice(visitCountPerMonth: number | null): number {
   return 594000
 }
 
-function getDday(date: string): number {
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  const target = new Date(date)
-  target.setHours(0, 0, 0, 0)
-  return Math.ceil((target.getTime() - today.getTime()) / 86400000)
-}
-
 export default async function CustomerHomePage() {
   const session = getServerSession()
   if (!session || session.role !== 'customer') redirect('/login')
@@ -131,7 +124,7 @@ export default async function CustomerHomePage() {
   const { data: upcomingSchedules } = customer
     ? await supabase
         .from('service_schedules')
-        .select('*')
+        .select('*, worker:users(id,name), application:service_applications(construction_time)')
         .eq('customer_id', customer.id)
         .gte('scheduled_date', today)
         .in('status', ['scheduled', 'confirmed'])
@@ -139,7 +132,7 @@ export default async function CustomerHomePage() {
         .limit(1)
     : { data: null }
 
-  const nextSchedule = (upcomingSchedules?.[0] ?? null) as ServiceSchedule | null
+  const nextSchedule = (upcomingSchedules?.[0] ?? null) as ScheduleWithConstruction | null
 
   // 공지·이벤트 조회 (limit 20, 5개 제한 없이 전달)
   const { data: noticesRaw } = await supabase
@@ -158,11 +151,6 @@ export default async function CustomerHomePage() {
   const allNotices = (noticesRaw ?? []) as NoticeItem[]
   const noticeList = allNotices.filter(n => n.type === 'notice')
   const eventList = allNotices.filter(n => n.type === 'event')
-
-  const dday = nextSchedule ? getDday(nextSchedule.scheduled_date) : null
-  const typeColor = customer?.customer_type
-    ? (CUSTOMER_TYPE_COLORS[customer.customer_type] ?? 'bg-surface-sunken text-text-secondary')
-    : 'bg-surface-sunken text-text-secondary'
 
   // 절약 금액 계산 (연간 결제인 경우만)
   const savingsAmount = (() => {
@@ -211,39 +199,22 @@ export default async function CustomerHomePage() {
       </div>
 
       {/* 다음 방문 카드 */}
-      {nextSchedule ? (
-        <div className="bg-surface rounded-2xl border border-brand-100 shadow-soft overflow-hidden">
-          <div className="px-4 pt-4 pb-1 flex items-center justify-between">
-            <span className="text-xs font-semibold text-brand-600 uppercase tracking-wide">다음 서비스</span>
-            {dday !== null && (
-              <span className={`text-sm font-black ${dday === 0 ? 'text-state-danger' : 'text-brand-600'}`}>
-                {dday === 0 ? '오늘!' : `D-${dday}`}
-              </span>
-            )}
+      <div>
+        <p className="text-xs font-semibold text-brand-600 uppercase tracking-wide mb-2">다음 서비스</p>
+        {nextSchedule ? (
+          <Link href={`/customer/schedule/${nextSchedule.id}`} className="block">
+            <ScheduleCard
+              schedule={nextSchedule}
+              workerName={(nextSchedule.worker as { name?: string } | null)?.name}
+            />
+          </Link>
+        ) : (
+          <div className="bg-surface rounded-2xl border border-border-subtle p-5 text-center">
+            <p className="text-sm text-text-secondary font-medium">예정된 서비스가 없습니다</p>
+            <p className="text-xs text-text-tertiary mt-1">담당자에게 문의해주세요.</p>
           </div>
-          <div className="px-4 pb-4">
-            <p className="text-lg font-bold text-text-primary mt-1">
-              {format(new Date(nextSchedule.scheduled_date), 'M월 d일 (EEE)', { locale: ko })}
-            </p>
-            {(nextSchedule.scheduled_time_start || nextSchedule.scheduled_time_end) && (
-              <p className="text-sm text-text-secondary mt-0.5">
-                {nextSchedule.scheduled_time_start}
-                {nextSchedule.scheduled_time_end ? ` ~ ${nextSchedule.scheduled_time_end}` : ''}
-              </p>
-            )}
-            {nextSchedule.items_this_visit?.length > 0 && (
-              <p className="text-sm text-text-secondary mt-2 bg-surface-sunken rounded-lg px-3 py-2">
-                {nextSchedule.items_this_visit.map((i: { name: string }) => i.name).join(', ')}
-              </p>
-            )}
-          </div>
-        </div>
-      ) : (
-        <div className="bg-surface rounded-2xl border border-border-subtle p-5 text-center">
-          <p className="text-sm text-text-secondary font-medium">예정된 서비스가 없습니다</p>
-          <p className="text-xs text-text-tertiary mt-1">담당자에게 문의해주세요.</p>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* 공지 & 이벤트 */}
       <NoticesSection notices={noticeList} events={eventList} />
