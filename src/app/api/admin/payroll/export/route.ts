@@ -112,7 +112,7 @@ function addPersonSheet(
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
-    const { month, folderId } = body as { month?: string; folderId?: string }
+    const { month } = body as { month?: string }
 
     if (!month || !/^\d{4}-\d{2}$/.test(month)) {
       return NextResponse.json({ error: 'month 파라미터가 필요합니다. (YYYY-MM)' }, { status: 400 })
@@ -257,55 +257,9 @@ export async function POST(req: NextRequest) {
       addPersonSheet(workbook, uniqueName(e.person.name), monthLabel, null, e.jobs, e.autoAmount, final, e.record?.note ?? null)
     }
 
-    // ── Excel 버퍼 생성 ───────────────────────────────────────────────────────
+    // ── Excel 버퍼 생성 후 바로 반환 (Drive 업로드는 클라이언트에서 처리) ──────
     const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' }) as Buffer
     const fileName = `BBK_급여정산_${month}.xlsx`
-
-    // ── Google Drive 업로드 (서비스 계정 환경변수 설정 시) ───────────────────
-    if (
-      folderId?.trim() &&
-      process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL &&
-      process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY
-    ) {
-      try {
-        const { google } = await import('googleapis')
-        const { Readable } = await import('stream')
-
-        const auth = new google.auth.GoogleAuth({
-          credentials: {
-            client_email: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
-            private_key: process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY.replace(/\\n/g, '\n'),
-          },
-          scopes: ['https://www.googleapis.com/auth/drive.file'],
-        })
-
-        const drive = google.drive({ version: 'v3', auth })
-        const uploadRes = await drive.files.create({
-          requestBody: {
-            name: fileName,
-            parents: [folderId.trim()],
-            mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-          },
-          media: {
-            mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-            body: Readable.from(buffer),
-          },
-          fields: 'id,webViewLink',
-        })
-
-        return NextResponse.json({
-          success: true,
-          driveFileId: uploadRes.data.id,
-          driveWebViewLink: uploadRes.data.webViewLink,
-          fileName,
-        })
-      } catch (driveErr) {
-        console.error('Google Drive 업로드 실패:', driveErr)
-        return NextResponse.json({ error: 'Google Drive 업로드에 실패했습니다. 서비스 계정 권한을 확인하세요.' }, { status: 500 })
-      }
-    }
-
-    // ── 로컬 다운로드 응답 ────────────────────────────────────────────────────
     const encodedName = encodeURIComponent(fileName)
     return new NextResponse(new Uint8Array(buffer), {
       headers: {

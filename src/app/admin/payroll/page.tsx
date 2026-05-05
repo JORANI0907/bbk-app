@@ -3,10 +3,16 @@
 import { useState, useEffect, useCallback } from 'react'
 import toast from 'react-hot-toast'
 import { Button } from '@/components/ui'
+import {
+  loadGoogleAPIs,
+  requestGoogleToken,
+  openFolderPicker,
+  resolveFolder,
+  uploadFileToDrive,
+  type DriveFolder,
+} from '@/lib/googleDrive'
 
 // ─── Export Modal ─────────────────────────────────────────────────────────────
-
-const DRIVE_FOLDER_KEY = 'bbk_payroll_drive_folder'
 
 function ExportModal({
   month,
@@ -17,39 +23,80 @@ function ExportModal({
   displayMonth: string
   onClose: () => void
 }) {
-  const [folderId, setFolderId] = useState(() => {
-    if (typeof window !== 'undefined') return localStorage.getItem(DRIVE_FOLDER_KEY) ?? ''
-    return ''
-  })
+  const [folder, setFolder] = useState<DriveFolder | null>(null)
+  const [folderLoading, setFolderLoading] = useState(true)
+  const [accessToken, setAccessToken] = useState<string | null>(null)
+  const [selecting, setSelecting] = useState(false)
   const [exporting, setExporting] = useState(false)
 
-  const handleExport = async () => {
-    if (folderId.trim()) {
-      localStorage.setItem(DRIVE_FOLDER_KEY, folderId.trim())
-    }
+  // DB에서 저장된 폴더 설정 로드
+  useEffect(() => {
+    fetch('/api/admin/payroll/drive-folder')
+      .then(r => r.json())
+      .then(d => setFolder(d.folder ?? null))
+      .catch(() => {})
+      .finally(() => setFolderLoading(false))
+  }, [])
 
+  const handleSelectFolder = async () => {
+    setSelecting(true)
+    try {
+      await loadGoogleAPIs()
+      const token = await requestGoogleToken()
+      setAccessToken(token)
+      const picked = await openFolderPicker(token)
+      if (!picked) return
+      const resolved = await resolveFolder(picked, token)
+      // DB에 영구 저장
+      const res = await fetch('/api/admin/payroll/drive-folder', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ folder: resolved }),
+      })
+      if (!res.ok) throw new Error('폴더 저장 실패')
+      setFolder(resolved)
+      toast.success(`저장 위치 설정됨: ${resolved.name}`)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : '폴더 선택 실패')
+    } finally {
+      setSelecting(false)
+    }
+  }
+
+  const handleExport = async () => {
     setExporting(true)
     try {
+      // 1. 서버에서 Excel 생성
       const res = await fetch('/api/admin/payroll/export', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ month, folderId: folderId.trim() || undefined }),
+        body: JSON.stringify({ month }),
       })
+      if (!res.ok) {
+        const d = await res.json()
+        throw new Error(d.error ?? '엑셀 생성 실패')
+      }
+      const blob = await res.blob()
+      const fileName = `BBK_급여정산_${month}.xlsx`
 
-      const contentType = res.headers.get('Content-Type') ?? ''
-
-      if (contentType.includes('application/json')) {
-        const data = await res.json()
-        if (!res.ok) throw new Error(data.error ?? '저장 실패')
-        toast.success('Google Drive에 저장되었습니다!')
-        if (data.driveWebViewLink) window.open(data.driveWebViewLink, '_blank')
+      if (folder) {
+        // 2. Google Drive에 업로드
+        let token = accessToken
+        if (!token) {
+          await loadGoogleAPIs()
+          token = await requestGoogleToken()
+          setAccessToken(token)
+        }
+        const file = new File([blob], fileName, { type: blob.type })
+        const { fileUrl } = await uploadFileToDrive(file, folder.id, fileName, token)
+        toast.success(`[${folder.name}] 에 저장되었습니다!`)
+        window.open(fileUrl, '_blank')
       } else {
-        if (!res.ok) throw new Error('다운로드 실패')
-        const blob = await res.blob()
+        // 폴더 미설정 시 로컬 다운로드
         const url = URL.createObjectURL(blob)
         const a = document.createElement('a')
         a.href = url
-        a.download = `BBK_급여정산_${month}.xlsx`
+        a.download = fileName
         a.click()
         URL.revokeObjectURL(url)
         toast.success('엑셀 파일이 다운로드되었습니다.')
@@ -63,10 +110,6 @@ function ExportModal({
     }
   }
 
-  const hasDriveConfig =
-    typeof window !== 'undefined' &&
-    !!(process.env.NEXT_PUBLIC_DRIVE_CONFIGURED)
-
   return (
     <div
       className="fixed inset-0 bg-black/40 z-50 flex items-end justify-center p-4"
@@ -78,24 +121,46 @@ function ExportModal({
           <span className="font-semibold text-brand-600">{displayMonth}</span> 급여 지급 현황을 엑셀로 내보냅니다.
         </p>
 
-        <div className="mb-4">
-          <label className="text-xs font-medium text-text-secondary mb-1.5 block">
-            Google Drive 폴더 ID
-            <span className="text-text-tertiary font-normal ml-1">(선택 — 미입력 시 로컬 다운로드)</span>
-          </label>
-          <input
-            type="text"
-            value={folderId}
-            onChange={e => setFolderId(e.target.value)}
-            placeholder="폴더 URL의 마지막 ID 부분 입력"
-            className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-          <p className="text-xs text-text-tertiary mt-1.5 leading-relaxed">
-            Drive 폴더 URL: .../drive/folders/<span className="font-mono text-brand-600">여기가 폴더ID</span>
-          </p>
-          {!hasDriveConfig && folderId.trim() && (
-            <p className="text-xs text-state-warning mt-1.5 bg-state-warning-bg px-2 py-1.5 rounded-md">
-              ⚠️ 서버에 GOOGLE_SERVICE_ACCOUNT_EMAIL / GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY 환경변수가 설정되어야 Drive 업로드가 가능합니다.
+        {/* Drive 폴더 설정 영역 */}
+        <div className="mb-5">
+          <p className="text-xs font-medium text-text-secondary mb-2">저장 위치 (Google Drive)</p>
+
+          {folderLoading ? (
+            <div className="h-11 rounded-xl bg-surface-sunken animate-pulse" />
+          ) : folder ? (
+            <div className="flex items-center justify-between px-3 py-2.5 bg-state-success-bg rounded-xl">
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="shrink-0 text-base">📁</span>
+                <span className="text-sm font-semibold text-state-success truncate">{folder.name}</span>
+              </div>
+              <button
+                onClick={handleSelectFolder}
+                disabled={selecting}
+                className="text-xs text-text-tertiary hover:text-brand-600 ml-2 shrink-0 disabled:opacity-40 transition-colors"
+              >
+                {selecting ? '선택 중...' : '변경'}
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={handleSelectFolder}
+              disabled={selecting}
+              className="w-full flex items-center justify-center gap-2 px-3 py-3 border-2 border-dashed border-border rounded-xl text-sm text-text-secondary hover:border-brand-400 hover:text-brand-600 active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {selecting ? (
+                <span className="text-text-tertiary">Google 폴더 선택 중...</span>
+              ) : (
+                <>
+                  <span>📁</span>
+                  <span>Google Drive 폴더 선택</span>
+                </>
+              )}
+            </button>
+          )}
+
+          {!folder && !folderLoading && (
+            <p className="text-xs text-text-tertiary mt-1.5">
+              폴더 미설정 시 로컬 다운로드로 저장됩니다.
             </p>
           )}
         </div>
@@ -109,10 +174,10 @@ function ExportModal({
           </button>
           <Button
             onClick={handleExport}
-            disabled={exporting}
+            disabled={exporting || folderLoading}
             className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white disabled:opacity-60"
           >
-            {exporting ? '처리 중...' : folderId.trim() ? '📤 Drive에 저장' : '⬇️ 다운로드'}
+            {exporting ? '처리 중...' : folder ? '📤 Drive에 저장' : '⬇️ 다운로드'}
           </Button>
         </div>
       </div>
