@@ -4,7 +4,7 @@ import { redirect, notFound } from 'next/navigation'
 import Link from 'next/link'
 import { format, isPast, isToday } from 'date-fns'
 import { ko } from 'date-fns/locale'
-import { ChevronLeft, User, ClipboardList, Phone, MapPin, FolderOpen } from 'lucide-react'
+import { ChevronLeft, User, ClipboardList, Phone, MapPin, FolderOpen, FileText } from 'lucide-react'
 import { ServiceSchedule, WorkPhoto, WorkChecklist, ClosingChecklist } from '@/types/database'
 import { SCHEDULE_STATUS_LABELS, SCHEDULE_STATUS_COLORS } from '@/lib/constants'
 import { BeforeAfterSlider } from '@/components/customer/BeforeAfterSlider'
@@ -34,36 +34,49 @@ interface CustomerJoin {
   contact_phone: string
   address: string
   address_detail: string | null
-  care_scope: string | null
   customer_type: string | null
   drive_folder_url: string | null
 }
 
+interface ApplicationRow {
+  construction_time: string | null
+  care_scope: string | null
+  supply_amount: number | null
+  vat: number | null
+  balance: number | null
+  deposit: number | null
+  drive_folder_url: string | null
+  quote_url: string | null
+  last_quote_pdf_url: string | null
+  last_quote_no: string | null
+  request_notes: string | null
+}
+
 const PAYMENT_STATUS_LABELS: Record<string, { label: string; color: string }> = {
-  paid: { label: '납부완료', color: 'bg-state-success-bg text-state-success' },
-  invoiced: { label: '청구됨', color: 'bg-state-info-bg text-state-info' },
-  overdue: { label: '연체', color: 'bg-state-danger-bg text-state-danger' },
-  pending: { label: '미청구', color: 'bg-surface-sunken text-text-secondary' },
+  paid:     { label: '납부완료', color: 'bg-state-success-bg text-state-success' },
+  invoiced: { label: '청구됨',   color: 'bg-state-info-bg text-state-info' },
+  overdue:  { label: '연체',     color: 'bg-state-danger-bg text-state-danger' },
+  pending:  { label: '미청구',   color: 'bg-surface-sunken text-text-secondary' },
 }
 
 const CONTRACT_STATUS_LABELS: Record<SigningStatus, string> = {
-  draft: '검토 중',
+  draft:            '검토 중',
   pending_customer: '서명 필요',
-  customer_signed: '확인 대기',
-  completed: '계약 완료',
+  customer_signed:  '확인 대기',
+  completed:        '계약 완료',
 }
 
 const CONTRACT_STATUS_COLORS: Record<SigningStatus, string> = {
-  draft: 'bg-surface-sunken text-text-secondary',
+  draft:            'bg-surface-sunken text-text-secondary',
   pending_customer: 'bg-state-warning-bg text-state-warning',
-  customer_signed: 'bg-state-info-bg text-state-info',
-  completed: 'bg-state-success-bg text-state-success',
+  customer_signed:  'bg-state-info-bg text-state-info',
+  completed:        'bg-state-success-bg text-state-success',
 }
 
 const CUSTOMER_TYPE_COLORS: Record<string, string> = {
-  '정기딥케어': 'bg-indigo-100 text-indigo-700',
+  '정기딥케어':  'bg-indigo-100 text-indigo-700',
   '정기엔드케어': 'bg-brand-100 text-brand-700',
-  '1회성케어': 'bg-surface-sunken text-text-secondary',
+  '1회성케어':   'bg-surface-sunken text-text-secondary',
 }
 
 function formatPhone(phone: string): string {
@@ -73,9 +86,24 @@ function formatPhone(phone: string): string {
   return phone
 }
 
+function formatConstructionTime(t: string): string {
+  const m = t.match(/^(\d{1,2}):(\d{2})/)
+  if (!m) return t
+  return m[2] === '00' ? `${parseInt(m[1], 10)}시간` : `${parseInt(m[1], 10)}시간 ${m[2]}분`
+}
+
 function formatDate(dateStr: string | null): string {
   if (!dateStr) return '-'
   return new Date(dateStr).toLocaleDateString('ko-KR')
+}
+
+function InfoRow({ label, value }: { label: string; value: React.ReactNode }) {
+  return (
+    <div className="flex items-start gap-3">
+      <span className="text-xs text-text-tertiary w-20 shrink-0 pt-0.5">{label}</span>
+      <span className="text-sm text-text-primary font-medium flex-1">{value}</span>
+    </div>
+  )
 }
 
 export default async function CustomerScheduleDetailPage({ params }: PageProps) {
@@ -96,7 +124,7 @@ export default async function CustomerScheduleDetailPage({ params }: PageProps) 
   const { data: schedule } = await supabase
     .from('service_schedules')
     .select(
-      '*, customer:customers(id, business_name, contact_name, contact_phone, address, address_detail, care_scope, customer_type, drive_folder_url), worker:users(id, name, phone)'
+      '*, customer:customers(id, business_name, contact_name, contact_phone, address, address_detail, customer_type, drive_folder_url), worker:users(id, name, phone)'
     )
     .eq('id', scheduleId)
     .eq('customer_id', customerRow.id)
@@ -104,8 +132,21 @@ export default async function CustomerScheduleDetailPage({ params }: PageProps) 
 
   if (!schedule) notFound()
 
-  const s = schedule as ServiceSchedule
+  const s = schedule as ServiceSchedule & { application_id?: string | null }
   const customer = (s.customer as unknown as CustomerJoin | null)
+
+  // 연결된 service_applications 조회 (있을 때만)
+  let application: ApplicationRow | null = null
+  if (s.application_id) {
+    const { data: appData } = await supabase
+      .from('service_applications')
+      .select(
+        'construction_time, care_scope, supply_amount, vat, balance, deposit, drive_folder_url, quote_url, last_quote_pdf_url, last_quote_no, request_notes'
+      )
+      .eq('id', s.application_id)
+      .maybeSingle()
+    application = appData as ApplicationRow | null
+  }
 
   let photos: WorkPhoto[] = []
   let checklists: WorkChecklist[] = []
@@ -119,19 +160,12 @@ export default async function CustomerScheduleDetailPage({ params }: PageProps) 
         .eq('schedule_id', scheduleId)
         .in('photo_type', ['before', 'after'])
         .order('taken_at', { ascending: true }),
-      supabase
-        .from('work_checklists')
-        .select('*')
-        .eq('schedule_id', scheduleId),
-      supabase
-        .from('closing_checklists')
-        .select('*')
-        .eq('schedule_id', scheduleId)
-        .maybeSingle(),
+      supabase.from('work_checklists').select('*').eq('schedule_id', scheduleId),
+      supabase.from('closing_checklists').select('*').eq('schedule_id', scheduleId).maybeSingle(),
     ])
-    photos = (photosRes.data ?? []) as WorkPhoto[]
+    photos     = (photosRes.data     ?? []) as WorkPhoto[]
     checklists = (checklistsRes.data ?? []) as WorkChecklist[]
-    closing = closingRes.data as ClosingChecklist | null
+    closing    = closingRes.data as ClosingChecklist | null
   }
 
   let contract: ContractRow | null = null
@@ -145,26 +179,46 @@ export default async function CustomerScheduleDetailPage({ params }: PageProps) 
   }
 
   const beforePhotos = photos.filter((p) => p.photo_type === 'before')
-  const afterPhotos = photos.filter((p) => p.photo_type === 'after')
+  const afterPhotos  = photos.filter((p) => p.photo_type === 'after')
 
-  const scheduledDate = new Date(s.scheduled_date)
+  const scheduledDate  = new Date(s.scheduled_date)
   const isUpcomingDate = !isPast(scheduledDate) || isToday(scheduledDate)
-  const isActive = s.status !== 'completed' && s.status !== 'cancelled'
+  const isActive       = s.status !== 'completed' && s.status !== 'cancelled'
   const dday = (() => {
     if (!isUpcomingDate || !isActive) return null
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-    const target = new Date(s.scheduled_date)
-    target.setHours(0, 0, 0, 0)
+    const today  = new Date(); today.setHours(0, 0, 0, 0)
+    const target = new Date(s.scheduled_date); target.setHours(0, 0, 0, 0)
     return Math.ceil((target.getTime() - today.getTime()) / 86400000)
   })()
 
-  const workerName = (s.worker as { name?: string } | null)?.name
+  const workerName  = (s.worker as { name?: string }  | null)?.name
   const workerPhone = (s.worker as { phone?: string } | null)?.phone
   const paymentInfo = s.payment_status ? PAYMENT_STATUS_LABELS[s.payment_status] : null
-  const hasRating = closing?.customer_rating != null
-  const fullAddress = customer
-    ? [customer.address, customer.address_detail].filter(Boolean).join(' ')
+  const hasRating   = closing?.customer_rating != null
+  const fullAddress = customer ? [customer.address, customer.address_detail].filter(Boolean).join(' ') : null
+
+  // 금액: application에 supply_amount가 있으면 우선, 없으면 payment_amount
+  const quotedTotal   = application && application.supply_amount != null
+    ? (application.supply_amount + (application.vat ?? 0))
+    : null
+  const supplyAmount  = application?.supply_amount ?? null
+  const vatAmount     = application?.vat ?? null
+  const deposit       = application?.deposit ?? null
+  const balance       = application?.balance ?? null
+
+  // 드라이브 링크: application 우선, 없으면 customer
+  const driveFolderUrl = application?.drive_folder_url ?? customer?.drive_folder_url ?? null
+
+  // 견적서 링크
+  const quotePdfUrl = application?.last_quote_pdf_url ?? application?.quote_url ?? null
+  const quoteNo     = application?.last_quote_no ?? null
+
+  // 케어 범위
+  const careScope = application?.care_scope ?? null
+
+  // 시공시간
+  const constructionTime = application?.construction_time
+    ? formatConstructionTime(application.construction_time)
     : null
 
   return (
@@ -178,7 +232,7 @@ export default async function CustomerScheduleDetailPage({ params }: PageProps) 
         일정 목록
       </Link>
 
-      {/* 날짜 + 상태 헤더 */}
+      {/* ── 날짜 + 상태 헤더 ── */}
       <div className="bg-surface rounded-2xl border border-border-subtle shadow-soft p-5">
         <div className="flex items-start justify-between gap-3">
           <div>
@@ -193,6 +247,9 @@ export default async function CustomerScheduleDetailPage({ params }: PageProps) 
                 {s.scheduled_time_start?.slice(0, 5)}
                 {s.scheduled_time_end ? ` ~ ${s.scheduled_time_end.slice(0, 5)}` : ''}
               </p>
+            )}
+            {constructionTime && (
+              <p className="text-xs text-text-tertiary mt-0.5">시공시간 {constructionTime}</p>
             )}
           </div>
           <div className="flex flex-col items-end gap-2 shrink-0">
@@ -218,7 +275,7 @@ export default async function CustomerScheduleDetailPage({ params }: PageProps) 
         )}
       </div>
 
-      {/* 업체 정보 */}
+      {/* ── 업체 정보 ── */}
       {customer && (
         <section className="bg-surface rounded-2xl border border-border-subtle shadow-soft overflow-hidden">
           <div className="px-5 py-3 border-b border-border-subtle flex items-center justify-between">
@@ -237,7 +294,7 @@ export default async function CustomerScheduleDetailPage({ params }: PageProps) 
               <span className="text-sm text-text-primary font-semibold">{customer.business_name}</span>
             </div>
             {fullAddress && (
-              <div className="flex items-start gap-3">
+              <div className="flex items-start gap-2">
                 <MapPin size={13} className="text-text-tertiary shrink-0 mt-0.5" />
                 <span className="text-sm text-text-secondary">{fullAddress}</span>
               </div>
@@ -249,12 +306,9 @@ export default async function CustomerScheduleDetailPage({ params }: PageProps) 
               </div>
             )}
             {customer.contact_phone && (
-              <div className="flex items-start gap-3">
+              <div className="flex items-start gap-2">
                 <Phone size={13} className="text-text-tertiary shrink-0 mt-0.5" />
-                <a
-                  href={`tel:${customer.contact_phone}`}
-                  className="text-sm text-brand-600 font-medium"
-                >
+                <a href={`tel:${customer.contact_phone}`} className="text-sm text-brand-600 font-medium">
                   {formatPhone(customer.contact_phone)}
                 </a>
               </div>
@@ -263,7 +317,37 @@ export default async function CustomerScheduleDetailPage({ params }: PageProps) 
         </section>
       )}
 
-      {/* 서비스 항목 */}
+      {/* ── 시공 정보 ── */}
+      {(careScope || constructionTime || application?.request_notes) && (
+        <section className="bg-surface rounded-2xl border border-border-subtle shadow-soft overflow-hidden">
+          <div className="px-5 py-3 border-b border-border-subtle">
+            <h2 className="text-sm font-bold text-text-primary">시공 정보</h2>
+          </div>
+          <div className="px-5 py-4 flex flex-col gap-3">
+            {constructionTime && (
+              <InfoRow label="시공시간" value={constructionTime} />
+            )}
+            {careScope && (
+              <div className="flex flex-col gap-1">
+                <span className="text-xs text-text-tertiary">케어 범위</span>
+                <div className="bg-surface-sunken rounded-xl p-3">
+                  <p className="text-sm text-text-secondary whitespace-pre-wrap leading-relaxed">{careScope}</p>
+                </div>
+              </div>
+            )}
+            {application?.request_notes && (
+              <div className="flex flex-col gap-1">
+                <span className="text-xs text-text-tertiary">요청 사항</span>
+                <div className="bg-surface-sunken rounded-xl p-3">
+                  <p className="text-sm text-text-secondary whitespace-pre-wrap leading-relaxed">{application.request_notes}</p>
+                </div>
+              </div>
+            )}
+          </div>
+        </section>
+      )}
+
+      {/* ── 서비스 항목 ── */}
       {s.items_this_visit?.length > 0 && (
         <section className="bg-surface rounded-2xl border border-border-subtle shadow-soft overflow-hidden">
           <div className="px-5 py-3 border-b border-border-subtle">
@@ -277,20 +361,10 @@ export default async function CustomerScheduleDetailPage({ params }: PageProps) 
               </div>
             ))}
           </div>
-          {customer?.care_scope && (
-            <div className="px-5 pb-4 pt-1">
-              <div className="bg-surface-sunken rounded-xl p-3">
-                <p className="text-xs text-text-tertiary mb-1">케어 범위</p>
-                <p className="text-sm text-text-secondary whitespace-pre-wrap leading-relaxed">
-                  {customer.care_scope}
-                </p>
-              </div>
-            </div>
-          )}
         </section>
       )}
 
-      {/* 담당 직원 */}
+      {/* ── 담당 직원 ── */}
       {workerName && (
         <section className="bg-surface rounded-2xl border border-border-subtle shadow-soft overflow-hidden">
           <div className="px-5 py-3 border-b border-border-subtle">
@@ -316,29 +390,73 @@ export default async function CustomerScheduleDetailPage({ params }: PageProps) 
         </section>
       )}
 
-      {/* 금액 정보 */}
-      {s.payment_amount != null && (
+      {/* ── 금액 정보 ── */}
+      {(quotedTotal != null || s.payment_amount != null) && (
         <section className="bg-surface rounded-2xl border border-border-subtle shadow-soft overflow-hidden">
-          <div className="px-5 py-3 border-b border-border-subtle">
+          <div className="px-5 py-3 border-b border-border-subtle flex items-center justify-between">
             <h2 className="text-sm font-bold text-text-primary">금액 정보</h2>
-          </div>
-          <div className="px-5 py-4 flex items-center justify-between">
-            <div>
-              <p className="text-xs text-text-tertiary mb-0.5">청구 금액</p>
-              <p className="text-xl font-bold text-text-primary">
-                {Number(s.payment_amount).toLocaleString()}원
-              </p>
-            </div>
             {paymentInfo && (
               <span className={`text-xs px-2.5 py-1 rounded-full font-semibold ${paymentInfo.color}`}>
                 {paymentInfo.label}
               </span>
             )}
           </div>
+          <div className="px-5 py-4 flex flex-col gap-2.5">
+            {/* 견적 기준 금액 (application에서) */}
+            {supplyAmount != null && (
+              <InfoRow label="공급가액" value={`${supplyAmount.toLocaleString()}원`} />
+            )}
+            {vatAmount != null && (
+              <InfoRow label="부가세" value={`${vatAmount.toLocaleString()}원`} />
+            )}
+            {quotedTotal != null && (
+              <div className="flex items-start gap-3 pt-1.5 border-t border-border-subtle">
+                <span className="text-xs text-text-tertiary w-20 shrink-0 pt-0.5">합계</span>
+                <span className="text-lg font-bold text-text-primary">{quotedTotal.toLocaleString()}원</span>
+              </div>
+            )}
+            {deposit != null && deposit > 0 && (
+              <InfoRow label="예약금" value={`${deposit.toLocaleString()}원`} />
+            )}
+            {balance != null && balance > 0 && (
+              <InfoRow label="잔금" value={`${balance.toLocaleString()}원`} />
+            )}
+            {/* service_schedules 기준 청구액 */}
+            {s.payment_amount != null && quotedTotal == null && (
+              <div className="flex items-start gap-3">
+                <span className="text-xs text-text-tertiary w-20 shrink-0 pt-0.5">청구 금액</span>
+                <span className="text-xl font-bold text-text-primary">{Number(s.payment_amount).toLocaleString()}원</span>
+              </div>
+            )}
+            {s.payment_amount != null && quotedTotal != null && (
+              <InfoRow label="청구 금액" value={`${Number(s.payment_amount).toLocaleString()}원`} />
+            )}
+          </div>
         </section>
       )}
 
-      {/* 계약서 */}
+      {/* ── 견적서 ── */}
+      {quotePdfUrl && (
+        <a
+          href={quotePdfUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center justify-between bg-surface rounded-2xl border border-border-subtle shadow-soft p-4 active:scale-[0.98] transition-transform"
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-full bg-brand-50 border border-brand-100 flex items-center justify-center shrink-0">
+              <FileText size={16} className="text-brand-600" />
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-text-primary">견적서 보기</p>
+              {quoteNo && <p className="text-xs text-text-tertiary mt-0.5">No. {quoteNo}</p>}
+            </div>
+          </div>
+          <ChevronLeft size={16} className="text-text-tertiary rotate-180" />
+        </a>
+      )}
+
+      {/* ── 계약서 ── */}
       {contract && (
         <section className="bg-surface rounded-2xl border border-border-subtle shadow-soft overflow-hidden">
           <div className="px-5 py-3 border-b border-border-subtle flex items-center justify-between">
@@ -348,48 +466,23 @@ export default async function CustomerScheduleDetailPage({ params }: PageProps) 
             </span>
           </div>
           <div className="px-5 py-4 flex flex-col gap-2">
-            {contract.service_plan && (
-              <div className="flex items-start gap-3">
-                <span className="text-xs text-text-tertiary w-20 shrink-0 pt-0.5">서비스 플랜</span>
-                <span className="text-sm text-text-primary font-medium">{contract.service_plan}</span>
-              </div>
-            )}
-            {contract.visit_option && (
-              <div className="flex items-start gap-3">
-                <span className="text-xs text-text-tertiary w-20 shrink-0 pt-0.5">방문 옵션</span>
-                <span className="text-sm text-text-primary font-medium">{contract.visit_option}</span>
-              </div>
-            )}
+            {contract.service_plan && <InfoRow label="서비스 플랜" value={contract.service_plan} />}
+            {contract.visit_option && <InfoRow label="방문 옵션" value={contract.visit_option} />}
             {contract.monthly_price != null && (
-              <div className="flex items-start gap-3">
-                <span className="text-xs text-text-tertiary w-20 shrink-0 pt-0.5">월 금액</span>
-                <span className="text-sm text-text-primary font-medium">
-                  {Number(contract.monthly_price).toLocaleString()}원/월
-                </span>
-              </div>
+              <InfoRow label="월 금액" value={`${Number(contract.monthly_price).toLocaleString()}원/월`} />
             )}
             {(contract.contract_start_date || contract.contract_end_date) && (
-              <div className="flex items-start gap-3">
-                <span className="text-xs text-text-tertiary w-20 shrink-0 pt-0.5">계약 기간</span>
-                <span className="text-sm text-text-primary font-medium">
-                  {formatDate(contract.contract_start_date)} ~ {formatDate(contract.contract_end_date)}
-                </span>
-              </div>
+              <InfoRow
+                label="계약 기간"
+                value={`${formatDate(contract.contract_start_date)} ~ ${formatDate(contract.contract_end_date)}`}
+              />
             )}
             {contract.customer_agreed_at && (
-              <div className="flex items-start gap-3">
-                <span className="text-xs text-text-tertiary w-20 shrink-0 pt-0.5">서명 일시</span>
-                <span className="text-sm text-text-primary font-medium">
-                  {formatDate(contract.customer_agreed_at)}
-                </span>
-              </div>
+              <InfoRow label="서명 일시" value={formatDate(contract.customer_agreed_at)} />
             )}
             {contract.signing_status === 'pending_customer' && (
               <div className="mt-1 pt-3 border-t border-border-subtle">
-                <Link
-                  href={`/api/customer/contracts/${contract.id}/sign-link`}
-                  className="text-sm text-brand-600 font-semibold"
-                >
+                <Link href={`/api/customer/contracts/${contract.id}/sign-link`} className="text-sm text-brand-600 font-semibold">
                   서명하러 가기 →
                 </Link>
               </div>
@@ -405,10 +498,10 @@ export default async function CustomerScheduleDetailPage({ params }: PageProps) 
         </section>
       )}
 
-      {/* Google Drive 사진 폴더 */}
-      {customer?.drive_folder_url && (
+      {/* ── Google Drive 사진 폴더 ── */}
+      {driveFolderUrl && (
         <a
-          href={customer.drive_folder_url}
+          href={driveFolderUrl}
           target="_blank"
           rel="noopener noreferrer"
           className="flex items-center justify-between bg-surface rounded-2xl border border-border-subtle shadow-soft p-4 active:scale-[0.98] transition-transform"
@@ -426,7 +519,7 @@ export default async function CustomerScheduleDetailPage({ params }: PageProps) 
         </a>
       )}
 
-      {/* 작업 사진 — BeforeAfterSlider (완료된 일정, 사진 있는 경우) */}
+      {/* ── 작업 사진 (완료 후 before/after) ── */}
       {s.status === 'completed' && beforePhotos.length > 0 && (
         <section>
           <h2 className="text-sm font-bold text-text-primary mb-3">작업 사진</h2>
@@ -455,12 +548,7 @@ export default async function CustomerScheduleDetailPage({ params }: PageProps) 
                       작업 전
                     </p>
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={before.photo_url}
-                      alt="작업 전"
-                      className="w-full aspect-square object-cover"
-                      loading="lazy"
-                    />
+                    <img src={before.photo_url} alt="작업 전" className="w-full aspect-square object-cover" loading="lazy" />
                   </div>
                 </div>
               )
@@ -469,7 +557,7 @@ export default async function CustomerScheduleDetailPage({ params }: PageProps) 
         </section>
       )}
 
-      {/* 작업 체크리스트 */}
+      {/* ── 작업 체크리스트 ── */}
       {checklists.length > 0 && (
         <section>
           <h2 className="text-sm font-bold text-text-primary mb-3">작업 체크리스트</h2>
@@ -478,11 +566,10 @@ export default async function CustomerScheduleDetailPage({ params }: PageProps) 
               <div key={cl.id} className="bg-surface rounded-2xl shadow-soft border border-border-subtle overflow-hidden">
                 <div className="px-4 py-3 bg-surface-sunken flex items-center justify-between">
                   <h3 className="text-sm font-semibold text-text-primary">{cl.item_name}</h3>
-                  {cl.is_completed ? (
-                    <span className="text-xs bg-green-500 text-white px-2 py-0.5 rounded-full">완료</span>
-                  ) : (
-                    <span className="text-xs bg-surface-sunken text-text-secondary px-2 py-0.5 rounded-full border border-border">미완료</span>
-                  )}
+                  {cl.is_completed
+                    ? <span className="text-xs bg-green-500 text-white px-2 py-0.5 rounded-full">완료</span>
+                    : <span className="text-xs bg-surface-sunken text-text-secondary px-2 py-0.5 rounded-full border border-border">미완료</span>
+                  }
                 </div>
                 <div className="divide-y divide-border-subtle">
                   {cl.checklist_items.map((item) => (
@@ -508,7 +595,7 @@ export default async function CustomerScheduleDetailPage({ params }: PageProps) 
         </section>
       )}
 
-      {/* 담당자 메모 */}
+      {/* ── 담당자 메모 ── */}
       {s.worker_memo && s.memo_visible && (
         <div className="bg-state-warning-bg rounded-2xl border border-amber-100 p-4">
           <p className="text-xs font-semibold text-state-warning mb-2 flex items-center gap-1">
@@ -519,7 +606,7 @@ export default async function CustomerScheduleDetailPage({ params }: PageProps) 
         </div>
       )}
 
-      {/* 서비스 평가 — 완료 일정만 */}
+      {/* ── 서비스 평가 ── */}
       {s.status === 'completed' && (
         <section>
           <h2 className="text-sm font-bold text-text-primary mb-3">서비스 평가</h2>
@@ -528,16 +615,9 @@ export default async function CustomerScheduleDetailPage({ params }: PageProps) 
               <div className="flex items-center gap-2 mb-3">
                 <div className="flex gap-0.5">
                   {[1, 2, 3, 4, 5].map((star) => (
-                    <span
-                      key={star}
-                      className={`text-2xl ${
-                        closing.customer_rating && star <= closing.customer_rating
-                          ? 'text-yellow-400'
-                          : 'text-text-tertiary'
-                      }`}
-                    >
-                      ★
-                    </span>
+                    <span key={star} className={`text-2xl ${
+                      closing.customer_rating && star <= closing.customer_rating ? 'text-yellow-400' : 'text-text-tertiary'
+                    }`}>★</span>
                   ))}
                 </div>
                 <span className="text-lg font-bold text-text-primary">{closing.customer_rating}점</span>
