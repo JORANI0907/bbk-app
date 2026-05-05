@@ -7,6 +7,8 @@ export default function CustomerGuidePage() {
       <section className="flex flex-col gap-3">
         <h2 className="text-sm font-bold text-text-secondary uppercase tracking-wide">문의하기</h2>
         <div className="bg-surface rounded-2xl border border-border-subtle shadow-soft p-5 flex flex-col gap-4">
+
+          {/* 이메일 */}
           <div className="flex items-start gap-3">
             <div className="w-9 h-9 rounded-xl bg-brand-50 flex items-center justify-center shrink-0">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5 text-brand-600">
@@ -27,6 +29,29 @@ export default function CustomerGuidePage() {
 
           <div className="w-full h-px bg-border-subtle" />
 
+          {/* 연락처 */}
+          <div className="flex items-start gap-3">
+            <div className="w-9 h-9 rounded-xl bg-brand-50 flex items-center justify-center shrink-0">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5 text-brand-600">
+                <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 13a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.62 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 9.6a16 16 0 0 0 6.29 6.29l.96-.96a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/>
+              </svg>
+            </div>
+            <div className="flex-1">
+              <p className="text-xs font-semibold text-text-secondary mb-1">연락처</p>
+              <div className="flex flex-col gap-0.5">
+                <a href="tel:0317594877" className="text-sm font-semibold text-text-primary hover:text-brand-600 transition-colors">
+                  031-759-4877
+                </a>
+                <a href="tel:01054344877" className="text-sm font-semibold text-text-primary hover:text-brand-600 transition-colors">
+                  010-5434-4877
+                </a>
+              </div>
+            </div>
+          </div>
+
+          <div className="w-full h-px bg-border-subtle" />
+
+          {/* 운영시간 */}
           <div className="flex items-start gap-3">
             <div className="w-9 h-9 rounded-xl bg-brand-50 flex items-center justify-center shrink-0">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5 text-brand-600">
@@ -48,8 +73,13 @@ export default function CustomerGuidePage() {
         <h2 className="text-sm font-bold text-text-secondary uppercase tracking-wide">구독서비스 안내</h2>
         <div className="bg-surface rounded-2xl border border-border-subtle shadow-soft p-5 flex flex-col gap-4">
 
-          {/* 정기딥케어 */}
-          <div className="flex items-start gap-3">
+          {/* 정기딥케어 — 홈페이지로 이동 */}
+          <a
+            href="https://bbkorea.co.kr/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-start gap-3 group"
+          >
             <div className="w-9 h-9 rounded-xl bg-indigo-50 flex items-center justify-center shrink-0">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5 text-indigo-600">
                 <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
@@ -57,19 +87,27 @@ export default function CustomerGuidePage() {
             </div>
             <div className="flex-1">
               <div className="flex items-center gap-2 mb-1">
-                <p className="text-sm font-bold text-text-primary">정기딥케어</p>
+                <p className="text-sm font-bold text-text-primary group-hover:text-brand-600 transition-colors">정기딥케어</p>
                 <span className="text-xs px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700 font-medium">구독</span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5 text-text-tertiary ml-auto">
+                  <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+                  <polyline points="15 3 21 3 21 9"/>
+                  <line x1="10" y1="14" x2="21" y2="3"/>
+                </svg>
               </div>
               <p className="text-xs text-text-secondary leading-normal">
                 정기적인 주방 딥 클리닝 서비스입니다. 후드·덕트·바닥 등 주방 전반을 전문적으로 관리합니다.
               </p>
             </div>
-          </div>
+          </a>
 
           <div className="w-full h-px bg-border-subtle" />
 
-          {/* 정기엔드케어 */}
-          <div className="flex items-start gap-3">
+          {/* 정기엔드케어 — 모바일에서 전화앱 이동 */}
+          <a
+            href="tel:0317594877"
+            className="flex items-start gap-3 group md:pointer-events-none"
+          >
             <div className="w-9 h-9 rounded-xl bg-sky-50 flex items-center justify-center shrink-0">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5 text-sky-600">
                 <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
@@ -78,36 +116,17 @@ export default function CustomerGuidePage() {
             </div>
             <div className="flex-1">
               <div className="flex items-center gap-2 mb-1">
-                <p className="text-sm font-bold text-text-primary">정기엔드케어</p>
+                <p className="text-sm font-bold text-text-primary group-hover:text-brand-600 transition-colors md:group-hover:text-text-primary">정기엔드케어</p>
                 <span className="text-xs px-2 py-0.5 rounded-full bg-sky-100 text-sky-700 font-medium">구독</span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5 text-text-tertiary ml-auto md:hidden">
+                  <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 13a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.62 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 9.6a16 16 0 0 0 6.29 6.29l.96-.96a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/>
+                </svg>
               </div>
               <p className="text-xs text-text-secondary leading-normal">
-                에어컨·바닥 등 공간 종합 엔드 클리닝 서비스입니다. 시설 전반의 위생과 쾌적함을 정기적으로 유지합니다.
+                마감청소 클리닝 서비스입니다. 쓰레기 배출, 청소, 설거지 등 전문적으로 관리합니다.
               </p>
             </div>
-          </div>
-
-          <div className="w-full h-px bg-border-subtle" />
-
-          {/* 문의 안내 */}
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-surface-sunken flex items-center justify-center shrink-0">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5 text-text-secondary">
-                <circle cx="12" cy="12" r="10"/>
-                <line x1="12" y1="8" x2="12" y2="12"/>
-                <line x1="12" y1="16" x2="12.01" y2="16"/>
-              </svg>
-            </div>
-            <div className="flex-1">
-              <p className="text-xs font-semibold text-text-secondary mb-0.5">서비스 문의</p>
-              <a
-                href="mailto:sunrise@bbkorea.co.kr"
-                className="text-sm text-brand-600 font-medium hover:underline"
-              >
-                sunrise@bbkorea.co.kr
-              </a>
-            </div>
-          </div>
+          </a>
         </div>
       </section>
     </div>
