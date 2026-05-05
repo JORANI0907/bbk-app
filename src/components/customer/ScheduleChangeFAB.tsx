@@ -91,17 +91,20 @@ export function ScheduleChangeFAB() {
       {/* FAB 버튼 */}
       <button
         onClick={() => setStep('info')}
-        className="fixed bottom-24 right-4 z-50 w-14 h-14 rounded-full bg-brand-600 text-white shadow-modal flex items-center justify-center active:scale-95 transition-transform hover:bg-brand-700"
+        className="fixed bottom-24 right-4 z-50 flex flex-col items-center gap-1 active:scale-95 transition-transform"
         aria-label="일정 변경 요청"
       >
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6">
-          <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
-          <line x1="16" y1="2" x2="16" y2="6"/>
-          <line x1="8" y1="2" x2="8" y2="6"/>
-          <line x1="3" y1="10" x2="21" y2="10"/>
-          <line x1="12" y1="14" x2="12" y2="18"/>
-          <line x1="10" y1="16" x2="14" y2="16"/>
-        </svg>
+        <div className="w-14 h-14 rounded-full bg-brand-600 text-white shadow-modal flex items-center justify-center hover:bg-brand-700 transition-colors">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6">
+            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+            <line x1="16" y1="2" x2="16" y2="6"/>
+            <line x1="8" y1="2" x2="8" y2="6"/>
+            <line x1="3" y1="10" x2="21" y2="10"/>
+            <line x1="12" y1="14" x2="12" y2="18"/>
+            <line x1="10" y1="16" x2="14" y2="16"/>
+          </svg>
+        </div>
+        <span className="text-[10px] font-bold text-brand-600 bg-white/90 px-1.5 py-0.5 rounded-full shadow-sm leading-none">일정변경</span>
       </button>
 
       {/* 안내 모달 (중앙) */}
