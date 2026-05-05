@@ -3,6 +3,122 @@
 import { useState, useEffect, useCallback } from 'react'
 import toast from 'react-hot-toast'
 import { Button } from '@/components/ui'
+
+// ─── Export Modal ─────────────────────────────────────────────────────────────
+
+const DRIVE_FOLDER_KEY = 'bbk_payroll_drive_folder'
+
+function ExportModal({
+  month,
+  displayMonth,
+  onClose,
+}: {
+  month: string
+  displayMonth: string
+  onClose: () => void
+}) {
+  const [folderId, setFolderId] = useState(() => {
+    if (typeof window !== 'undefined') return localStorage.getItem(DRIVE_FOLDER_KEY) ?? ''
+    return ''
+  })
+  const [exporting, setExporting] = useState(false)
+
+  const handleExport = async () => {
+    if (folderId.trim()) {
+      localStorage.setItem(DRIVE_FOLDER_KEY, folderId.trim())
+    }
+
+    setExporting(true)
+    try {
+      const res = await fetch('/api/admin/payroll/export', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ month, folderId: folderId.trim() || undefined }),
+      })
+
+      const contentType = res.headers.get('Content-Type') ?? ''
+
+      if (contentType.includes('application/json')) {
+        const data = await res.json()
+        if (!res.ok) throw new Error(data.error ?? '저장 실패')
+        toast.success('Google Drive에 저장되었습니다!')
+        if (data.driveWebViewLink) window.open(data.driveWebViewLink, '_blank')
+      } else {
+        if (!res.ok) throw new Error('다운로드 실패')
+        const blob = await res.blob()
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = `BBK_급여정산_${month}.xlsx`
+        a.click()
+        URL.revokeObjectURL(url)
+        toast.success('엑셀 파일이 다운로드되었습니다.')
+      }
+
+      onClose()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : '저장 실패')
+    } finally {
+      setExporting(false)
+    }
+  }
+
+  const hasDriveConfig =
+    typeof window !== 'undefined' &&
+    !!(process.env.NEXT_PUBLIC_DRIVE_CONFIGURED)
+
+  return (
+    <div
+      className="fixed inset-0 bg-black/40 z-50 flex items-end justify-center p-4"
+      onClick={e => { if (e.target === e.currentTarget) onClose() }}
+    >
+      <div className="bg-surface rounded-2xl shadow-modal w-full max-w-sm p-5">
+        <h3 className="font-bold text-text-primary mb-1">급여정산 현황 저장</h3>
+        <p className="text-xs text-text-tertiary mb-4">
+          <span className="font-semibold text-brand-600">{displayMonth}</span> 급여 지급 현황을 엑셀로 내보냅니다.
+        </p>
+
+        <div className="mb-4">
+          <label className="text-xs font-medium text-text-secondary mb-1.5 block">
+            Google Drive 폴더 ID
+            <span className="text-text-tertiary font-normal ml-1">(선택 — 미입력 시 로컬 다운로드)</span>
+          </label>
+          <input
+            type="text"
+            value={folderId}
+            onChange={e => setFolderId(e.target.value)}
+            placeholder="폴더 URL의 마지막 ID 부분 입력"
+            className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+          <p className="text-xs text-text-tertiary mt-1.5 leading-relaxed">
+            Drive 폴더 URL: .../drive/folders/<span className="font-mono text-brand-600">여기가 폴더ID</span>
+          </p>
+          {!hasDriveConfig && folderId.trim() && (
+            <p className="text-xs text-state-warning mt-1.5 bg-state-warning-bg px-2 py-1.5 rounded-md">
+              ⚠️ 서버에 GOOGLE_SERVICE_ACCOUNT_EMAIL / GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY 환경변수가 설정되어야 Drive 업로드가 가능합니다.
+            </p>
+          )}
+        </div>
+
+        <div className="flex gap-2">
+          <button
+            onClick={onClose}
+            className="flex-1 py-2.5 rounded-lg text-sm font-semibold border border-border text-text-secondary hover:bg-surface-sunken transition-colors"
+          >
+            취소
+          </button>
+          <Button
+            onClick={handleExport}
+            disabled={exporting}
+            className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white disabled:opacity-60"
+          >
+            {exporting ? '처리 중...' : folderId.trim() ? '📤 Drive에 저장' : '⬇️ 다운로드'}
+          </Button>
+        </div>
+      </div>
+    </div>
+  )
+}
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface ManagerJob {
@@ -867,6 +983,7 @@ export default function PayrollPage() {
   const [loading, setLoading] = useState(false)
   const [managers, setManagers] = useState<ManagerEntry[]>([])
   const [workersPayroll, setWorkersPayroll] = useState<WorkerEntry[]>([])
+  const [showExport, setShowExport] = useState(false)
 
   const fetchData = useCallback(async () => {
     setLoading(true)
@@ -942,8 +1059,24 @@ export default function PayrollPage() {
           </button>
         </div>
 
+        {showExport && (
+          <ExportModal
+            month={month}
+            displayMonth={displayMonth}
+            onClose={() => setShowExport(false)}
+          />
+        )}
+
         {tab === 'payroll' ? (
           <>
+            {/* 급여정산 현황 저장 버튼 */}
+            <button
+              onClick={() => setShowExport(true)}
+              className="w-full mb-4 py-2.5 rounded-lg text-sm font-semibold bg-emerald-600 text-white hover:bg-emerald-700 active:scale-[0.98] transition-all flex items-center justify-center gap-1.5 shadow-soft"
+            >
+              📊 급여 지급 현황 저장
+            </button>
+
             {/* 인원 필터 버튼 */}
             <div className="flex gap-2 mb-4">
               {(['all', 'manager', 'worker'] as const).map(f => (
