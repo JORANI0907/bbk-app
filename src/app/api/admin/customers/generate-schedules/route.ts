@@ -137,8 +137,9 @@ export async function POST(request: NextRequest) {
       continue
     }
 
+    const isAnnual = customer.billing_cycle === '연간'
     const supplyAmount =
-      customer.customer_type === '정기딥케어' && customer.billing_cycle === '월간'
+      !isAnnual && customer.customer_type === '정기딥케어' && customer.billing_cycle === '월간'
         ? (customer.billing_amount || null)
         : null
 
@@ -162,7 +163,7 @@ export async function POST(request: NextRequest) {
       care_scope: customer.care_scope || null,
       service_type: customer.customer_type,
       assigned_to: customer.assigned_user_id || null,
-      unit_price_per_visit: customer.unit_price || null,
+      unit_price_per_visit: isAnnual ? null : (customer.unit_price || null),
       supply_amount: supplyAmount,
       construction_date: date,
       status: '예약확정',
