@@ -24,12 +24,12 @@ export const SCHEDULE_STATUS_LABELS: Record<ScheduleStatus, string> = {
 }
 
 export const SCHEDULE_STATUS_COLORS: Record<ScheduleStatus, string> = {
-  scheduled: 'bg-gray-100 text-gray-700',
-  confirmed: 'bg-blue-100 text-blue-700',
-  in_progress: 'bg-orange-100 text-orange-700',
-  completed: 'bg-green-100 text-green-700',
-  cancelled: 'bg-red-100 text-red-700',
-  rescheduled: 'bg-yellow-100 text-yellow-700',
+  scheduled: 'bg-state-info-bg text-state-info',
+  confirmed: 'bg-brand-100 text-brand-700',
+  in_progress: 'bg-state-warning-bg text-state-warning',
+  completed: 'bg-state-success-bg text-state-success',
+  cancelled: 'bg-state-danger-bg text-state-danger',
+  rescheduled: 'bg-amber-100 text-amber-700',
 }
 
 export const WORK_STEPS = [
