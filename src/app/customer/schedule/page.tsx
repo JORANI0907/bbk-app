@@ -1,74 +1,10 @@
 import { createServiceClient } from '@/lib/supabase/server'
 import { getServerSession } from '@/lib/session'
 import { redirect } from 'next/navigation'
-import Link from 'next/link'
-import { format, isPast, isToday } from 'date-fns'
-import { ko } from 'date-fns/locale'
+import { isPast, isToday } from 'date-fns'
 import { ServiceSchedule } from '@/types/database'
-import { SCHEDULE_STATUS_LABELS, SCHEDULE_STATUS_COLORS } from '@/lib/constants'
 import { ScheduleChangeRequest } from '@/components/customer/ScheduleChangeRequest'
-
-function getDday(date: string): number {
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  const target = new Date(date)
-  target.setHours(0, 0, 0, 0)
-  return Math.ceil((target.getTime() - today.getTime()) / 86400000)
-}
-
-function ScheduleCard({ schedule, workerName }: { schedule: ServiceSchedule; workerName?: string }) {
-  const scheduledDate = new Date(schedule.scheduled_date)
-  const isUpcoming = !isPast(scheduledDate) || isToday(scheduledDate)
-  const serviceName =
-    schedule.items_this_visit?.map((i) => i.name).join(', ') || '청소 서비스'
-  const diff = getDday(schedule.scheduled_date)
-
-  return (
-    <div
-      className={`bg-surface rounded-2xl border p-4 flex flex-col gap-2 ${
-        isUpcoming && schedule.status !== 'cancelled'
-          ? 'border-brand-100 shadow-soft'
-          : 'border-border-subtle'
-      }`}
-    >
-      <div className="flex items-start justify-between gap-2">
-        <div>
-          <p className="text-sm font-bold text-text-primary">
-            {format(scheduledDate, 'yyyy년 M월 d일 (EEE)', { locale: ko })}
-          </p>
-          {(schedule.scheduled_time_start || schedule.scheduled_time_end) && (
-            <p className="text-xs text-text-tertiary mt-0.5">
-              {schedule.scheduled_time_start}
-              {schedule.scheduled_time_end ? ` ~ ${schedule.scheduled_time_end}` : ''}
-            </p>
-          )}
-        </div>
-        <span
-          className={`text-xs px-2.5 py-1 rounded-full font-medium whitespace-nowrap ${
-            SCHEDULE_STATUS_COLORS[schedule.status] ?? 'bg-surface-sunken text-text-secondary'
-          }`}
-        >
-          {SCHEDULE_STATUS_LABELS[schedule.status] ?? schedule.status}
-        </span>
-      </div>
-
-      <p className="text-sm text-text-secondary">{serviceName}</p>
-
-      {workerName && (
-        <p className="text-xs text-text-secondary flex items-center gap-1">
-          <span>👷</span>
-          <span>{workerName}</span>
-        </p>
-      )}
-
-      {isUpcoming && schedule.status !== 'cancelled' && diff >= 0 && (
-        <p className="text-xs font-semibold text-brand-600 border-t border-border-subtle pt-2 mt-1">
-          {diff === 0 ? '오늘 서비스 예정!' : `D-${diff}`}
-        </p>
-      )}
-    </div>
-  )
-}
+import { ScheduleTabs } from '@/components/customer/ScheduleTabs'
 
 export default async function CustomerSchedulePage() {
   const session = getServerSession()
@@ -113,85 +49,9 @@ export default async function CustomerSchedulePage() {
   })
 
   return (
-    <div className="px-4 py-5 flex flex-col gap-6">
+    <div className="px-4 py-5 flex flex-col gap-6 max-w-2xl mx-auto">
       <ScheduleChangeRequest upcomingSchedules={upcoming} />
-
-      <section>
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-base font-bold text-text-primary">예정된 서비스</h2>
-        </div>
-        {upcoming.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-10 gap-3 text-center bg-surface rounded-2xl border border-border-subtle">
-            <span className="text-4xl">📅</span>
-            <div>
-              <p className="text-sm font-semibold text-text-primary">예정된 서비스가 없습니다</p>
-              <p className="text-xs text-text-tertiary mt-1">담당자에게 문의해주세요.</p>
-            </div>
-          </div>
-        ) : (
-          <div className="flex flex-col gap-3">
-            {upcoming.map((s) => (
-              <ScheduleCard
-                key={s.id}
-                schedule={s}
-                workerName={(s.worker as { name?: string } | null)?.name}
-              />
-            ))}
-          </div>
-        )}
-      </section>
-
-      {past.length > 0 && (
-        <section>
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-base font-bold text-text-primary">지난 서비스</h2>
-            <span className="text-xs text-text-tertiary bg-surface-sunken px-2 py-1 rounded-full">
-              누적 {past.filter(s => s.status === 'completed').length}회 완료
-            </span>
-          </div>
-          <div className="flex flex-col gap-3">
-            {past.map((s) => (
-              s.status === 'completed' ? (
-                <Link
-                  key={s.id}
-                  href={`/customer/reports/${s.id}`}
-                  className="bg-surface rounded-2xl border border-border-subtle p-4 flex flex-col gap-2 active:scale-[0.98] transition-transform shadow-flat"
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <p className="text-sm font-bold text-text-primary">
-                        {format(new Date(s.scheduled_date), 'yyyy년 M월 d일 (EEE)', { locale: ko })}
-                      </p>
-                      {(s.scheduled_time_start || s.scheduled_time_end) && (
-                        <p className="text-xs text-text-tertiary mt-0.5">
-                          {s.scheduled_time_start}{s.scheduled_time_end ? ` ~ ${s.scheduled_time_end}` : ''}
-                        </p>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      <span className={`text-xs px-2.5 py-1 rounded-full font-medium whitespace-nowrap ${SCHEDULE_STATUS_COLORS[s.status] ?? 'bg-surface-sunken text-text-secondary'}`}>
-                        {SCHEDULE_STATUS_LABELS[s.status] ?? s.status}
-                      </span>
-                      <span className="text-text-tertiary text-sm">›</span>
-                    </div>
-                  </div>
-                  <p className="text-sm text-text-secondary">
-                    {s.items_this_visit?.map((i) => i.name).join(', ') || '청소 서비스'}
-                  </p>
-                  {(s.worker as { name?: string } | null)?.name && (
-                    <p className="text-xs text-text-secondary flex items-center gap-1">
-                      <span>👷</span>
-                      <span>{(s.worker as { name?: string }).name}</span>
-                    </p>
-                  )}
-                </Link>
-              ) : (
-                <ScheduleCard key={s.id} schedule={s} />
-              )
-            ))}
-          </div>
-        </section>
-      )}
+      <ScheduleTabs upcoming={upcoming} past={past} />
     </div>
   )
 }
