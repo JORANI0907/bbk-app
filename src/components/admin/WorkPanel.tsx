@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import toast from 'react-hot-toast'
+import { Folder, PenLine, Megaphone } from 'lucide-react'
 
 interface WorkApp {
   id: string
@@ -315,14 +316,14 @@ export function WorkPanel({ app, onUpdate }: Props) {
           {app.drive_folder_url && (
             <a href={app.drive_folder_url} target="_blank" rel="noreferrer"
               className="inline-flex items-center gap-1 text-xs font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 px-2.5 py-1 rounded-lg transition-colors">
-              📁 Google Drive 사진 확인
+              <Folder size={14} /> Google Drive 사진 확인
             </a>
           )}
 
           {/* 메모 수정 가능 (알림 발송 전까지) */}
           <div className={`rounded-xl p-3 space-y-3 border ${app.notification_sent_at ? 'bg-gray-50 border-gray-200' : 'bg-blue-50 border-blue-200'}`}>
             {!app.notification_sent_at && (
-              <p className="text-xs text-blue-600 font-semibold">📝 알림 발송 전 내용을 수정할 수 있습니다</p>
+              <p className="text-xs text-blue-600 font-semibold flex items-center gap-1"><PenLine size={14} /> 알림 발송 전 내용을 수정할 수 있습니다</p>
             )}
             <div>
               <label className="text-xs font-semibold text-gray-600 mb-1 block">고객 전달 특이사항</label>
@@ -355,7 +356,7 @@ export function WorkPanel({ app, onUpdate }: Props) {
           ) : (
             <button onClick={handleSendNow} disabled={saving}
               className="w-full py-3 bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white font-bold rounded-xl text-sm">
-              {saving ? '발송 중...' : '📣 작업완료 알림 발송'}
+              {saving ? '발송 중...' : <span className="flex items-center justify-center gap-1.5"><Megaphone size={14} /> 작업완료 알림 발송</span>}
             </button>
           )}
 

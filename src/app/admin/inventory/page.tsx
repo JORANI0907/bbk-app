@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import toast from 'react-hot-toast'
+import { Folder, Package, Trash2, Save, Camera } from 'lucide-react'
 import {
   loadGoogleAPIs,
   requestGoogleToken,
@@ -625,7 +626,7 @@ export default function AdminInventoryPage() {
 
           {inventoryFolder ? (
             <div className="text-xs text-state-success bg-state-success-bg rounded-lg px-2 py-1 mb-2 flex items-center gap-1">
-              <span>📁</span>
+              <Folder size={12} />
               <span className="truncate">{inventoryFolder.name}</span>
             </div>
           ) : (
@@ -709,7 +710,7 @@ export default function AdminInventoryPage() {
         {!selectedItem ? (
           <div className="flex items-center justify-center h-full text-text-tertiary">
             <div className="text-center">
-              <div className="text-5xl mb-3">📦</div>
+              <div className="text-5xl mb-3 flex items-center justify-center"><Package size={48} /></div>
               <p className="text-lg">아이템을 선택하세요</p>
             </div>
           </div>
@@ -791,13 +792,13 @@ export default function AdminInventoryPage() {
                     onClick={handleDelete}
                     className="bg-state-danger-bg text-state-danger hover:bg-state-danger-bg"
                   >
-                    🗑️ 삭제
+                    <span className="inline-flex items-center gap-1"><Trash2 size={14} /> 삭제</span>
                   </Button>
                   <Button
                     onClick={handleSave}
                     disabled={editLoading}
                   >
-                    {editLoading ? '저장 중...' : '💾 저장'}
+                    {editLoading ? '저장 중...' : <span className="inline-flex items-center gap-1"><Save size={14} /> 저장</span>}
                   </Button>
                 </div>
               )}
@@ -885,7 +886,7 @@ export default function AdminInventoryPage() {
                               onClick={() => openGoogleDrive(photoUrl)}
                               className="text-xs text-brand-500 hover:underline text-left"
                             >
-                              📷 사진 보기
+                              <span className="inline-flex items-center gap-1"><Camera size={12} /> 사진 보기</span>
                             </button>
                           )}
                         </div>
@@ -1039,7 +1040,7 @@ export default function AdminInventoryPage() {
                 <div className="flex gap-2">
                   <label className="flex-1 cursor-pointer">
                     <span className="flex items-center justify-center gap-1 px-3 py-2 rounded-lg bg-surface-sunken border border-border text-sm text-text-secondary hover:bg-surface-sunken transition-colors">
-                      📷 카메라
+                      <Camera size={14} /> 카메라
                     </span>
                     <input
                       type="file"

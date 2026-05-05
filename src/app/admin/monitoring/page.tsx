@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useScheduleRealtime } from '@/hooks/useRealtime'
 import { ServiceSchedule } from '@/types/database'
 import { WORK_STEPS } from '@/lib/constants'
+import { Phone } from 'lucide-react'
 import { Card } from '@/components/ui/Card'
 import { Spinner } from '@/components/ui/Spinner'
 
@@ -180,7 +181,7 @@ export default function AdminMonitoringPage() {
                     href={`tel:${schedule.worker.phone}`}
                     className="flex items-center gap-2 text-xs text-brand-600 hover:underline"
                   >
-                    📞 {schedule.worker.phone}
+                    <Phone size={12} /> {schedule.worker.phone}
                   </a>
                 )}
               </Card>

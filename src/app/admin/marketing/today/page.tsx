@@ -1,8 +1,10 @@
 'use client'
 
+import type { ReactNode } from 'react'
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import toast from 'react-hot-toast'
+import { ClipboardList, PenLine } from 'lucide-react'
 
 interface Content {
   id: string
@@ -45,7 +47,7 @@ function CopyButton({ text, label = '복사' }: { text: string; label?: string }
         copied ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600 hover:bg-brand-100 hover:text-brand-700'
       }`}
     >
-      {copied ? '✓ 복사됨' : `📋 ${label}`}
+      {copied ? '✓ 복사됨' : <span className="inline-flex items-center gap-1"><ClipboardList size={12} /> {label}</span>}
     </button>
   )
 }
@@ -80,11 +82,11 @@ function PublishToggle({ content, onUpdate }: { content: Content; onUpdate: () =
 }
 
 function ContentCard({ content, onUpdate }: { content: Content; onUpdate: () => void }) {
-  const typeConfig = {
-    blog:         { icon: '📝', label: '블로그',       color: 'border-brand-200 bg-brand-50' },
-    insta:        { icon: '📸', label: '인스타그램',   color: 'border-pink-200 bg-pink-50' },
-    image_prompt: { icon: '🎨', label: '이미지 프롬프트', color: 'border-purple-200 bg-purple-50' },
-    thumbnail:    { icon: '🖼️', label: '썸네일',       color: 'border-yellow-200 bg-yellow-50' },
+  const typeConfig: Record<string, { icon: ReactNode; label: string; color: string }> = {
+    blog:         { icon: <PenLine size={18} />, label: '블로그',       color: 'border-brand-200 bg-brand-50' },
+    insta:        { icon: '📸',                  label: '인스타그램',   color: 'border-pink-200 bg-pink-50' },
+    image_prompt: { icon: '🎨',                  label: '이미지 프롬프트', color: 'border-purple-200 bg-purple-50' },
+    thumbnail:    { icon: '🖼️',                  label: '썸네일',       color: 'border-yellow-200 bg-yellow-50' },
   }
   const cfg = typeConfig[content.content_type] ?? typeConfig.blog
 
@@ -266,16 +268,16 @@ export default function TodayContentPage() {
         <>
           <div className="flex gap-3">
             {[
-              { label: '블로그', data: blog, icon: '📝' },
-              { label: '인스타', data: insta, icon: '📸' },
-              { label: '이미지', data: image, icon: '🎨' },
+              { label: '블로그', data: blog, icon: <PenLine size={14} /> as ReactNode },
+              { label: '인스타', data: insta, icon: '📸' as ReactNode },
+              { label: '이미지', data: image, icon: '🎨' as ReactNode },
             ].map(({ label, data, icon }) => (
               <div key={label} className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium ${
                 !data ? 'bg-gray-100 text-gray-400'
                 : data.is_published ? 'bg-green-100 text-green-700'
                 : 'bg-yellow-100 text-yellow-700'
               }`}>
-                <span>{icon}</span>
+                <span className="flex items-center">{icon}</span>
                 <span>{label}</span>
                 <span>{!data ? '미생성' : data.is_published ? '발행완료' : '미발행'}</span>
               </div>

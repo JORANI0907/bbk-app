@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import toast from 'react-hot-toast'
+import { MessageCircle } from 'lucide-react'
 
 interface InstaContent {
   id: string
@@ -167,7 +168,7 @@ export default function InstagramPerformancePage() {
                           <span className="text-xs text-gray-500">👁 도달 {kpi.reach?.toLocaleString() ?? '-'}</span>
                           <span className="text-xs text-gray-500">🔖 저장 {kpi.saves?.toLocaleString() ?? '-'}</span>
                           <span className="text-xs text-gray-500">↗️ 공유 {kpi.shares ?? '-'}</span>
-                          <span className="text-xs text-gray-500">💬 댓글 {kpi.comment_count ?? '-'}</span>
+                          <span className="text-xs text-gray-500 inline-flex items-center gap-0.5"><MessageCircle size={11} /> 댓글 {kpi.comment_count ?? '-'}</span>
                           <SaveRateBadge saves={kpi.saves} reach={kpi.reach} />
                         </div>
                       )}

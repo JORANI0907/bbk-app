@@ -2,6 +2,7 @@
 
 import { useState, useRef, useCallback } from 'react'
 import toast from 'react-hot-toast'
+import { FolderOpen } from 'lucide-react'
 import { Button } from '@/components/ui'
 import {
   loadGoogleAPIs,
@@ -241,7 +242,7 @@ export default function ImportSheetModal({ month, onClose, onImported }: Props) 
                       onClick={() => fileInputRef.current?.click()}
                       className="flex flex-col items-center gap-2 p-5 border-2 border-dashed border-border rounded-2xl hover:border-brand-400 hover:bg-brand-50 transition-colors active:scale-[0.98]"
                     >
-                      <span className="text-3xl">📂</span>
+                      <span className="text-3xl flex items-center justify-center"><FolderOpen size={30} /></span>
                       <span className="text-sm font-semibold text-text-primary">로컬 파일 업로드</span>
                       <span className="text-xs text-text-tertiary text-center">다운로드한 파일 직접 선택</span>
                     </button>

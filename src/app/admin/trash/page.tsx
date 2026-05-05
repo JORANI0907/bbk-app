@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import toast from 'react-hot-toast'
+import { Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui'
 
 // ─── 타입 ─────────────────────────────────────────────────────
@@ -262,7 +263,7 @@ export default function TrashPage() {
     <div className="max-w-6xl mx-auto">
       {/* 헤더 */}
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-text-primary">🗑️ 휴지통</h1>
+        <h1 className="text-2xl font-bold text-text-primary flex items-center gap-2"><Trash2 size={24} /> 휴지통</h1>
         <p className="text-sm text-text-secondary mt-1">
           삭제된 항목은 60일 후 자동으로 영구 삭제됩니다.
         </p>
@@ -377,7 +378,7 @@ function CustomersTab({
   if (customers.length === 0) {
     return (
       <div className="text-center py-20 text-text-tertiary">
-        <p className="text-4xl mb-3">🗑️</p>
+        <div className="flex justify-center mb-3"><Trash2 size={48} /></div>
         <p>휴지통이 비어 있습니다.</p>
       </div>
     )
@@ -509,7 +510,7 @@ function ContractsTab({
   if (contracts.length === 0) {
     return (
       <div className="text-center py-20 text-text-tertiary">
-        <p className="text-4xl mb-3">🗑️</p>
+        <div className="flex justify-center mb-3"><Trash2 size={48} /></div>
         <p>휴지통이 비어 있습니다.</p>
       </div>
     )
@@ -637,7 +638,7 @@ function ApplicationsTab({
   if (applications.length === 0) {
     return (
       <div className="text-center py-20 text-text-tertiary">
-        <p className="text-4xl mb-3">🗑️</p>
+        <div className="flex justify-center mb-3"><Trash2 size={48} /></div>
         <p>휴지통이 비어 있습니다.</p>
       </div>
     )

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import toast from 'react-hot-toast'
+import { Folder } from 'lucide-react'
 import { Button } from '@/components/ui'
 import {
   loadGoogleAPIs,
@@ -130,7 +131,7 @@ function ExportModal({
           ) : folder ? (
             <div className="flex items-center justify-between px-3 py-2.5 bg-state-success-bg rounded-xl">
               <div className="flex items-center gap-2 min-w-0">
-                <span className="shrink-0 text-base">📁</span>
+                <Folder size={16} className="shrink-0" />
                 <span className="text-sm font-semibold text-state-success truncate">{folder.name}</span>
               </div>
               <button
@@ -151,7 +152,7 @@ function ExportModal({
                 <span className="text-text-tertiary">Google 폴더 선택 중...</span>
               ) : (
                 <>
-                  <span>📁</span>
+                  <Folder size={16} />
                   <span>Google Drive 폴더 선택</span>
                 </>
               )}

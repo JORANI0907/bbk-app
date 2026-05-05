@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import toast from 'react-hot-toast'
+import { Camera } from 'lucide-react'
 import { Button } from '@/components/ui'
 
 // ─── 타입 ────────────────────────────────────────────────────────
@@ -277,7 +278,7 @@ export default function NoticesPage() {
                         <span className="text-xs text-orange-600 bg-orange-50 px-2 py-0.5 rounded-full font-medium">팝업</span>
                       )}
                       {notice.image_url && (
-                        <span className="text-xs text-text-tertiary bg-surface-sunken px-1.5 py-0.5 rounded-full">📷</span>
+                        <span className="text-xs text-text-tertiary bg-surface-sunken px-1.5 py-0.5 rounded-full flex items-center gap-0.5"><Camera size={11} /></span>
                       )}
                     </div>
                     {/* 제목 */}

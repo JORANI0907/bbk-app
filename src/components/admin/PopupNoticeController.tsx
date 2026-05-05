@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { usePathname } from 'next/navigation'
+import { Calendar } from 'lucide-react'
 
 interface PopupNotice {
   id: string
@@ -141,7 +142,7 @@ export function PopupNoticeController() {
 
               {current.event_date && (
                 <p className="mt-2 text-xs text-purple-600 font-medium">
-                  📅 행사일: {new Date(current.event_date).toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'short' })}
+                  <span className="inline-flex items-center gap-1"><Calendar size={12} /> 행사일: {new Date(current.event_date).toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'short' })}</span>
                 </p>
               )}
             </div>

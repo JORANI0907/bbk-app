@@ -1,5 +1,7 @@
 'use client'
 
+import type { ReactNode } from 'react'
+import { Calendar } from 'lucide-react'
 import { Card } from '@/components/ui/Card'
 
 interface DashboardStatsProps {
@@ -14,7 +16,7 @@ interface DashboardStatsProps {
 interface StatCard {
   label: string
   value: number
-  icon: string
+  icon: ReactNode
   colorClass: string
   bgClass: string
 }
@@ -24,7 +26,7 @@ export function DashboardStats({ stats }: DashboardStatsProps) {
     {
       label: '오늘 예정',
       value: stats.todayScheduled,
-      icon: '📅',
+      icon: <Calendar size={18} />,
       colorClass: 'text-blue-700',
       bgClass: 'bg-blue-50',
     },
@@ -57,7 +59,7 @@ export function DashboardStats({ stats }: DashboardStatsProps) {
         <Card key={card.label} className="p-5">
           <div className="flex items-center justify-between mb-3">
             <div className={`w-10 h-10 ${card.bgClass} rounded-lg flex items-center justify-center`}>
-              <span className="text-lg">{card.icon}</span>
+              <span className="text-lg flex items-center justify-center">{card.icon}</span>
             </div>
           </div>
           <p className={`text-3xl font-bold ${card.colorClass}`}>{card.value}</p>

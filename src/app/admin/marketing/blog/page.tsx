@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import toast from 'react-hot-toast'
+import { MessageCircle } from 'lucide-react'
 
 interface BlogContent {
   id: string
@@ -149,7 +150,7 @@ export default function BlogPerformancePage() {
                         <div className="flex items-center gap-4 mt-2">
                           <span className="text-xs text-gray-500">👁 {kpi.view_count?.toLocaleString() ?? '-'}뷰</span>
                           <span className="text-xs text-gray-500">👍 {kpi.like_count ?? '-'}</span>
-                          <span className="text-xs text-gray-500">💬 {kpi.comment_count ?? '-'}</span>
+                          <span className="text-xs text-gray-500 inline-flex items-center gap-0.5"><MessageCircle size={11} /> {kpi.comment_count ?? '-'}</span>
                           <span className={`text-xs font-semibold ${kpi.view_tab ? 'text-green-600' : 'text-gray-400'}`}>
                             VIEW {kpi.view_tab ? '✅ 노출' : '❌ 미노출'}
                           </span>

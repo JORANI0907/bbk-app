@@ -1,7 +1,9 @@
 'use client'
 
+import type { ReactNode } from 'react'
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { Megaphone, PenLine, Calendar } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { AGENT_CONFIG } from '@/lib/marketing-agents'
 
@@ -76,7 +78,7 @@ export function MarketingAgentSummary() {
           className="w-full flex items-center justify-between px-4 py-3 bg-amber-600 text-white rounded-xl hover:bg-amber-700 transition-colors"
         >
           <div className="flex items-center gap-2">
-            <span>📣</span>
+            <Megaphone size={16} />
             <span className="text-sm font-semibold">마케팅 팀 대시보드</span>
           </div>
           <span className="text-sm opacity-80">→</span>
@@ -84,16 +86,16 @@ export function MarketingAgentSummary() {
 
         <div className="grid grid-cols-3 gap-2">
           {[
-            { label: '블로그', icon: '📝', path: '/admin/marketing/blog' },
-            { label: '인스타', icon: '📸', path: '/admin/marketing/instagram' },
-            { label: '썸네일', icon: '🖼', path: '/admin/marketing/content' },
+            { label: '블로그', icon: <PenLine size={20} /> as ReactNode, path: '/admin/marketing/blog' },
+            { label: '인스타', icon: '📸' as ReactNode, path: '/admin/marketing/instagram' },
+            { label: '썸네일', icon: '🖼' as ReactNode, path: '/admin/marketing/content' },
           ].map(({ label, icon, path }) => (
             <button
               key={label}
               onClick={() => router.push(path)}
               className="flex flex-col items-center gap-1 py-3 bg-white border border-gray-100 rounded-xl hover:bg-gray-50 transition-colors"
             >
-              <span className="text-xl">{icon}</span>
+              <span className="text-xl flex items-center justify-center">{icon}</span>
               <span className="text-xs text-gray-600 font-medium">{label}</span>
             </button>
           ))}
@@ -102,7 +104,7 @@ export function MarketingAgentSummary() {
 
       {/* 마케팅 일정 안내 */}
       <div className="bg-white border border-gray-100 rounded-xl p-3">
-        <p className="text-xs font-semibold text-gray-700 mb-2">📅 콘텐츠 발행 일정</p>
+        <p className="text-xs font-semibold text-gray-700 mb-2 flex items-center gap-1"><Calendar size={12} /> 콘텐츠 발행 일정</p>
         <div className="space-y-1">
           {[
             { day: '월요일', content: '블로그 + 인스타 포스팅' },

@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
+import { FileText } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { AGENT_CONFIG, CONTENT_TYPE_META, type AgentKey } from '@/lib/marketing-agents'
 
@@ -173,7 +174,7 @@ export default function AgentDetailPage() {
                           onClick={() => setExpanded(isExpanded ? null : item.id)}
                           className="w-full flex items-center gap-4 px-5 py-4 hover:bg-gray-50 transition-colors text-left"
                         >
-                          <span className="text-xl flex-shrink-0">{meta?.icon ?? '📄'}</span>
+                          <span className="text-xl flex-shrink-0">{meta?.icon ?? <FileText size={14} />}</span>
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-semibold text-gray-800 truncate">{item.title}</p>
                             <p className="text-xs text-gray-400 mt-0.5">

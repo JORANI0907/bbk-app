@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { PenLine } from 'lucide-react'
 
 interface DayData {
   blog: boolean
@@ -170,8 +171,8 @@ export default function MarketingCalendarPage() {
                 <span className="font-semibold text-gray-900">{selectedData.region} {selectedData.item}</span>
               </div>
               <div className="flex gap-2">
-                <span className={`text-xs px-2 py-1 rounded-full ${selectedData.blog ? 'bg-brand-100 text-brand-700' : 'bg-gray-100 text-gray-400'}`}>
-                  📝 블로그 {selectedData.blog ? '생성됨' : '미생성'}
+                <span className={`inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full ${selectedData.blog ? 'bg-brand-100 text-brand-700' : 'bg-gray-100 text-gray-400'}`}>
+                  <PenLine size={11} /> 블로그 {selectedData.blog ? '생성됨' : '미생성'}
                 </span>
                 <span className={`text-xs px-2 py-1 rounded-full ${selectedData.insta ? 'bg-pink-100 text-pink-700' : 'bg-gray-100 text-gray-400'}`}>
                   📸 인스타 {selectedData.insta ? '생성됨' : '미생성'}

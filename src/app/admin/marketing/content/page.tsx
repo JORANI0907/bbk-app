@@ -1,7 +1,9 @@
 'use client'
 
+import type { ReactNode } from 'react'
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import { FileText } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { AGENT_CONFIG, CONTENT_TYPE_META, type AgentKey } from '@/lib/marketing-agents'
 
@@ -130,7 +132,7 @@ export default function ContentHistoryPage() {
                 </div>
                 <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
                   {dateItems.map((item, idx) => {
-                    const meta = CONTENT_TYPE_META[item.content_type] ?? { label: item.content_type, icon: '📄', agent: 'MKT' as AgentKey }
+                    const meta: { label: string; icon: ReactNode; agent: AgentKey } = CONTENT_TYPE_META[item.content_type] ?? { label: item.content_type, icon: <FileText size={14} />, agent: 'MKT' as AgentKey }
                     const agentCfg = AGENT_CONFIG[item.agent as AgentKey] ?? AGENT_CONFIG.MKT
                     return (
                       <Link

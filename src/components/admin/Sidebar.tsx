@@ -1,8 +1,10 @@
 'use client'
 
+import type { ReactNode } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useState, useCallback } from 'react'
+import { Trash2 } from 'lucide-react'
 
 // ─── 타입 ─────────────────────────────────────────────────────
 
@@ -10,7 +12,7 @@ interface NavLeaf {
   type: 'leaf'
   href: string
   label: string
-  icon: string
+  icon: ReactNode
   roles: string[]
   badgeKey?: string  // nav_dismissed key for this item
 }
@@ -134,7 +136,7 @@ const NAV_ITEMS: NavItem[] = [
       { href: '/admin/content/activities', label: '관내활동' },
     ],
   },
-  { type: 'leaf', href: '/admin/trash', label: '휴지통', icon: '🗑️', roles: ['admin'] },
+  { type: 'leaf', href: '/admin/trash', label: '휴지통', icon: <Trash2 size={16} />, roles: ['admin'] },
 ]
 
 // ─── Props ────────────────────────────────────────────────────

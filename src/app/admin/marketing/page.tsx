@@ -1,7 +1,9 @@
 'use client'
 
+import type { ReactNode } from 'react'
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import { PenLine } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { AGENT_CONFIG, AGENT_KEYS, CONTENT_TYPE_META, type AgentKey } from '@/lib/marketing-agents'
 
@@ -254,12 +256,12 @@ export default function MarketingDashboard() {
         <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">채널 성과</h2>
         <div className="grid grid-cols-3 gap-3">
           {[
-            { href: '/admin/marketing/blog', icon: '📝', label: '블로그', sub: 'Naver VIEW' },
-            { href: '/admin/marketing/instagram', icon: '📸', label: '인스타그램', sub: 'Reach & Save' },
-            { href: '/admin/marketing/place', icon: '📍', label: '네이버 플레이스', sub: '리뷰 & 전화' },
+            { href: '/admin/marketing/blog', icon: <PenLine size={24} /> as ReactNode, label: '블로그', sub: 'Naver VIEW' },
+            { href: '/admin/marketing/instagram', icon: '📸' as ReactNode, label: '인스타그램', sub: 'Reach & Save' },
+            { href: '/admin/marketing/place', icon: '📍' as ReactNode, label: '네이버 플레이스', sub: '리뷰 & 전화' },
           ].map(item => (
             <Link key={item.href} href={item.href} className="bg-white border border-gray-100 shadow-sm rounded-2xl p-4 hover:shadow-md hover:border-brand-200 transition-all group">
-              <span className="text-2xl">{item.icon}</span>
+              <span className="text-2xl flex items-center">{item.icon}</span>
               <p className="font-semibold text-gray-800 mt-2 group-hover:text-brand-600 transition-colors">{item.label}</p>
               <p className="text-xs text-gray-400">{item.sub}</p>
             </Link>

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import toast from 'react-hot-toast'
+import { ClipboardList } from 'lucide-react'
 import { Button } from '@/components/ui'
 
 // ─── 타입 ────────────────────────────────────────────────────────────────────
@@ -544,7 +545,7 @@ export default function IncidentsPage() {
             </div>
           ) : reports.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-40 text-text-tertiary text-sm gap-1">
-              <span className="text-2xl">📋</span>
+              <ClipboardList size={32} />
               <span>경위서가 없습니다.</span>
             </div>
           ) : (

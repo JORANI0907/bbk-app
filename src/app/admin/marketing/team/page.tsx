@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import { FileText } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { AGENT_CONFIG, AGENT_KEYS, CONTENT_TYPE_META, type AgentKey } from '@/lib/marketing-agents'
 
@@ -142,7 +143,7 @@ export default function TeamPage() {
                     const meta = CONTENT_TYPE_META[item.content_type]
                     return (
                       <div key={item.id} className="flex items-center gap-3 bg-white rounded-xl px-3 py-2.5">
-                        <span className="text-base flex-shrink-0">{meta?.icon ?? '📄'}</span>
+                        <span className="text-base flex-shrink-0">{meta?.icon ?? <FileText size={14} />}</span>
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium text-gray-800 truncate">{item.title}</p>
                           <p className="text-xs text-gray-400">
