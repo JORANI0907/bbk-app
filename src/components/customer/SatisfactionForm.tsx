@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import toast from 'react-hot-toast'
 import { Button } from '@/components/ui'
+import { Star } from 'lucide-react'
 
 interface Props {
   scheduleId: string
@@ -90,10 +91,14 @@ export function SatisfactionForm({ scheduleId, onSubmit }: Props) {
               onMouseEnter={() => setHovered(star)}
               onMouseLeave={() => setHovered(0)}
               onClick={() => setRating(star)}
-              className="text-4xl transition-transform active:scale-90"
+              className="transition-transform active:scale-90"
               aria-label={`${star}점`}
             >
-              {star <= displayRating ? '⭐' : '☆'}
+              <Star
+                size={36}
+                className={star <= displayRating ? 'text-yellow-400' : 'text-border'}
+                fill={star <= displayRating ? 'currentColor' : 'none'}
+              />
             </button>
           ))}
         </div>

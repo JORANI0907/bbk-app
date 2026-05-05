@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import toast from 'react-hot-toast'
-import { Folder, PenLine, Megaphone } from 'lucide-react'
+import { Folder, PenLine, Megaphone, CheckCircle } from 'lucide-react'
 
 interface WorkApp {
   id: string
@@ -268,7 +268,7 @@ export function WorkPanel({ app, onUpdate }: Props) {
             className={`w-full py-3 font-semibold rounded-xl text-sm ${canComplete && !saving
               ? 'bg-green-600 hover:bg-green-700 text-white'
               : 'bg-gray-100 text-gray-400 cursor-not-allowed'}`}>
-            {saving ? '처리 중...' : '✅ 작업 완료'}
+            {saving ? '처리 중...' : <span className="flex items-center justify-center gap-1"><CheckCircle size={14} />작업 완료</span>}
           </button>
 
           <button
@@ -300,7 +300,7 @@ export function WorkPanel({ app, onUpdate }: Props) {
           {/* 완료 헤더 */}
           <div className="flex items-center gap-2 flex-wrap">
             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700">
-              ✅ 작업 완료
+              <CheckCircle size={12} />작업 완료
             </span>
             {app.work_completed_at && (
               <span className="text-xs text-gray-400">
@@ -343,7 +343,7 @@ export function WorkPanel({ app, onUpdate }: Props) {
           {app.notification_sent_at ? (
             <div className="bg-green-50 border border-green-200 rounded-xl px-3 py-2.5 flex items-center justify-between gap-2">
               <div>
-                <p className="text-xs font-semibold text-green-700">✅ 알림 발송 완료</p>
+                <p className="text-xs font-semibold text-green-700 flex items-center gap-1"><CheckCircle size={12} />알림 발송 완료</p>
                 <p className="text-xs text-green-600 mt-0.5">
                   {new Date(app.notification_sent_at).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                 </p>

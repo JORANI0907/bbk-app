@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import toast from 'react-hot-toast'
+import { CheckCircle } from 'lucide-react'
 
 const ELEVATOR_OPTIONS = ['있음', '없음', '해당없음']
 const BUILDING_ACCESS_OPTIONS = ['신청필요', '신청불필요', '해당없음']
@@ -78,7 +79,7 @@ export default function ApplicationForm() {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
         <div className="bg-white rounded-2xl shadow-lg p-8 max-w-md w-full text-center">
-          <div className="text-5xl mb-4">✅</div>
+          <CheckCircle size={48} className="text-green-500 mx-auto mb-4" />
           <h2 className="text-xl font-bold text-gray-900 mb-2">신청이 완료되었습니다!</h2>
           <p className="text-gray-500 text-sm mb-6">담당자 확인 후 연락드리겠습니다.<br />문의: 031-759-4877</p>
           <button

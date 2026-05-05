@@ -8,6 +8,7 @@ import { ScheduleCard } from '@/components/worker/ScheduleCard'
 import { DriveUploadButton } from '@/components/worker/DriveUploadButton'
 import toast from 'react-hot-toast'
 import { Button } from '@/components/ui'
+import { CheckCircle } from 'lucide-react'
 
 interface Props {
   schedules: ServiceSchedule[]
@@ -159,8 +160,8 @@ export function WorkerScheduleListClient({ schedules: initial }: Props) {
 
               {/* 완료 */}
               {isDone && (
-                <div className="flex-1 py-2.5 bg-state-success-bg text-state-success text-sm font-semibold rounded-xl flex items-center justify-center border border-state-success">
-                  ✅ 작업 완료
+                <div className="flex-1 py-2.5 bg-state-success-bg text-state-success text-sm font-semibold rounded-xl flex items-center justify-center gap-1.5 border border-state-success">
+                  <CheckCircle size={16} /> 작업 완료
                 </div>
               )}
             </div>

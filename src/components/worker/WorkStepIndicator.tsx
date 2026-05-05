@@ -1,4 +1,5 @@
 import { WORK_STEPS } from '@/lib/constants'
+import { Check } from 'lucide-react'
 
 interface Props {
   currentStep: number // 0-5
@@ -24,7 +25,7 @@ export function WorkStepIndicator({ currentStep }: Props) {
                     ${isPending ? 'bg-surface-sunken text-text-tertiary' : ''}
                   `}
                 >
-                  {isDone ? '✓' : step.step}
+                  {isDone ? <Check size={14} strokeWidth={3} /> : step.step}
                 </div>
                 <span
                   className={`text-[10px] text-center leading-tight max-w-[52px] ${

@@ -3,7 +3,7 @@
 import type { ReactNode } from 'react'
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { type LucideIcon, Megaphone, PenLine, Calendar, Crown, Palette, BarChart2, Camera, Lightbulb, Sparkles, Coffee, Image } from 'lucide-react'
+import { type LucideIcon, Megaphone, PenLine, Calendar, Crown, Palette, BarChart2, Camera, Lightbulb, Sparkles, Coffee, Image, ImageIcon } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { AGENT_CONFIG } from '@/lib/marketing-agents'
 
@@ -96,8 +96,8 @@ export function MarketingAgentSummary() {
         <div className="grid grid-cols-3 gap-2">
           {[
             { label: '블로그', icon: <PenLine size={20} /> as ReactNode, path: '/admin/marketing/blog' },
-            { label: '인스타', icon: '📸' as ReactNode, path: '/admin/marketing/instagram' },
-            { label: '썸네일', icon: '🖼' as ReactNode, path: '/admin/marketing/content' },
+            { label: '인스타', icon: <Camera size={20} /> as ReactNode, path: '/admin/marketing/instagram' },
+            { label: '썸네일', icon: <ImageIcon size={20} /> as ReactNode, path: '/admin/marketing/content' },
           ].map(({ label, icon, path }) => (
             <button
               key={label}

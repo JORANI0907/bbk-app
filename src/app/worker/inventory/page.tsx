@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import toast from 'react-hot-toast'
 import { useModalBackButton } from '@/hooks/useModalBackButton'
 import { Button } from '@/components/ui'
-import { Camera } from 'lucide-react'
+import { Camera, Package, Image as ImageIcon } from 'lucide-react'
 
 type InventoryCategory = 'chemical' | 'equipment' | 'consumable' | 'other'
 
@@ -194,7 +194,7 @@ export default function WorkerInventoryPage() {
           <div className="text-center text-text-tertiary py-12">불러오는 중...</div>
         ) : filteredItems.length === 0 ? (
           <div className="text-center text-text-tertiary py-12">
-            <div className="text-4xl mb-2">📦</div>
+            <Package size={40} className="mx-auto mb-2 text-text-tertiary" />
             <p>항목이 없습니다</p>
           </div>
         ) : (
@@ -312,7 +312,7 @@ export default function WorkerInventoryPage() {
                   </label>
                   <label className="flex-1 cursor-pointer">
                     <div className="flex items-center justify-center gap-2 px-3 py-2 border border-dashed border-border rounded-xl text-text-secondary hover:border-brand-400 hover:text-brand-500 transition-colors">
-                      <span className="text-lg">🖼️</span>
+                      <ImageIcon size={16} />
                       <span className="text-sm font-medium">갤러리</span>
                     </div>
                     <input

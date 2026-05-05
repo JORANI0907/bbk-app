@@ -5,7 +5,21 @@ import Link from 'next/link'
 import { format, addDays, subDays } from 'date-fns'
 import { ko } from 'date-fns/locale'
 import { SCHEDULE_STATUS_LABELS, SCHEDULE_STATUS_COLORS, WORK_STEPS } from '@/lib/constants'
-import { ClipboardList, PenLine, HardHat } from 'lucide-react'
+import { ClipboardList, PenLine, HardHat, Clock, MapPin, Camera, Sparkles, CheckSquare, type LucideProps } from 'lucide-react'
+
+type StepIconName = 'MapPin' | 'Camera' | 'Sparkles' | 'CheckSquare'
+
+const STEP_ICON_MAP: Record<StepIconName, React.ComponentType<LucideProps>> = {
+  MapPin,
+  Camera,
+  Sparkles,
+  CheckSquare,
+}
+
+function renderStepIcon(iconName: string) {
+  const Icon = STEP_ICON_MAP[iconName as StepIconName]
+  return Icon ? <Icon size={12} /> : null
+}
 
 interface Worker {
   id: string
@@ -86,12 +100,12 @@ function ScheduleRow({ s }: { s: Schedule }) {
       </div>
 
       <div className="flex items-center gap-2 mt-2 flex-wrap">
-        <span className="text-xs text-text-secondary">
-          🕐 {s.scheduled_time_start.slice(0, 5)} ~ {s.scheduled_time_end.slice(0, 5)}
+        <span className="text-xs text-text-secondary flex items-center gap-1">
+          <Clock size={12} /> {s.scheduled_time_start.slice(0, 5)} ~ {s.scheduled_time_end.slice(0, 5)}
         </span>
         {stepInfo && (
-          <span className="text-xs text-orange-600 bg-orange-50 px-2 py-0.5 rounded-full">
-            {stepInfo.icon} Step {stepInfo.step} {stepInfo.label}
+          <span className="text-xs text-orange-600 bg-orange-50 px-2 py-0.5 rounded-full flex items-center gap-1">
+            {renderStepIcon(stepInfo.icon)} Step {stepInfo.step} {stepInfo.label}
           </span>
         )}
         {s.actual_arrival && (

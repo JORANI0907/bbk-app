@@ -8,6 +8,7 @@ import { PhotoUploader } from '@/components/worker/PhotoUploader'
 import { ChecklistForm } from '@/components/worker/ChecklistForm'
 import toast from 'react-hot-toast'
 import { Button } from '@/components/ui'
+import { Rocket, MapPin, User } from 'lucide-react'
 
 const CLOSING_ITEMS = [
   { key: 'garbage_disposal', label: '쓰레기 처리 완료' },
@@ -184,7 +185,8 @@ export default function ScheduleDetailPage() {
 
       {isAdmin && schedule.worker && (
         <div className="bg-brand-50 border-b border-brand-100 px-4 py-2 flex items-center gap-2">
-          <span className="text-brand-600 text-sm">👷 담당:</span>
+          <User size={14} className="text-brand-600" />
+          <span className="text-brand-600 text-sm">담당:</span>
           <span className="text-brand-700 text-sm font-semibold">{(schedule.worker as { name?: string }).name ?? '미배정'}</span>
           <span className="ml-auto text-xs text-brand-400">[관리자 모니터링]</span>
         </div>
@@ -195,7 +197,7 @@ export default function ScheduleDetailPage() {
       <div className="px-4 py-6 flex flex-col gap-6">
         {currentStep === 0 && (
           <div className="flex flex-col items-center gap-4 py-8">
-            <span className="text-5xl">🚀</span>
+            <Rocket size={48} className="text-brand-600" />
             <div className="text-center">
               <h2 className="text-xl font-bold text-text-primary">작업을 시작할 준비가 되셨나요?</h2>
               <p className="text-sm text-text-secondary mt-2">
@@ -217,7 +219,7 @@ export default function ScheduleDetailPage() {
 
         {currentStep === 1 && (
           <div className="flex flex-col items-center gap-4 py-8">
-            <span className="text-5xl">📍</span>
+            <MapPin size={48} className="text-orange-500" />
             <div className="text-center">
               <h2 className="text-xl font-bold text-text-primary">현장에 도착하셨나요?</h2>
               <p className="text-sm text-text-secondary mt-2">GPS 위치가 자동으로 기록됩니다.</p>

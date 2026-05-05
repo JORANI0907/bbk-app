@@ -9,7 +9,7 @@ import { MonthNavigator } from '@/components/MonthNavigator'
 import { LoadingSpinner } from '@/components/admin/LoadingSpinner'
 import { MapSelectorModal } from '@/components/MapSelectorModal'
 import { Button } from '@/components/ui'
-import { Phone, Map, Camera, ClipboardList } from 'lucide-react'
+import { Phone, Map, Camera, ClipboardList, Calendar } from 'lucide-react'
 
 // ─── 타입 ──────────────────────────────────────────────────────
 
@@ -537,7 +537,7 @@ function DetailPanel({
             <section>
               <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">사전미팅</p>
               <div className="border-2 border-purple-200 rounded-xl px-3 py-2 bg-purple-50/40 flex items-center gap-2">
-                <span className="text-base">📅</span>
+                <Calendar size={16} />
                 <div>
                   <p className="text-xs font-semibold text-purple-700">미팅 일정</p>
                   <p className="text-sm text-gray-800 font-medium">

@@ -1,11 +1,12 @@
 'use client'
 
+import { HelpCircle } from 'lucide-react'
 import { CHANNELS, TIPS, won, pct, calcChannel, calcTotals, type MonthData, type ChannelData } from './_roi-utils'
 
 function Tip({ content }: { content: string }) {
   return (
     <div className="relative group inline-flex">
-      <span className="text-gray-400 cursor-help text-xs">❓</span>
+      <HelpCircle size={12} className="text-gray-400 cursor-help" />
       <div className="hidden group-hover:block absolute z-50 bottom-full left-1/2 -translate-x-1/2 mb-2 w-60 bg-gray-900 text-white text-xs p-3 rounded-lg shadow-xl whitespace-pre-line leading-relaxed pointer-events-none">
         {content}
         <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900" />

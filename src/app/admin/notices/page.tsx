@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import toast from 'react-hot-toast'
-import { Camera } from 'lucide-react'
+import { Camera, Pin } from 'lucide-react'
 import { Button } from '@/components/ui'
 
 // ─── 타입 ────────────────────────────────────────────────────────
@@ -260,7 +260,7 @@ export default function NoticesPage() {
                     {/* 뱃지 행 */}
                     <div className="flex items-center gap-1.5 flex-wrap mb-1.5">
                       {notice.pinned && (
-                        <span className="text-xs font-bold text-brand-600">📌</span>
+                        <Pin size={12} className="text-brand-600" />
                       )}
                       {isNew(notice.created_at) && !viewedIds.has(notice.id) && (
                         <span className="text-[10px] font-bold bg-red-500 text-white px-1.5 py-0.5 rounded-full">NEW</span>
@@ -485,7 +485,7 @@ export default function NoticesPage() {
                       e.target.value = ''
                     }}
                   />
-                  {photoUploading ? '업로드 중...' : '📷 사진 선택'}
+                  {photoUploading ? '업로드 중...' : <><Camera size={14} className="inline mr-1" />사진 선택</>}
                 </label>
               </div>
 

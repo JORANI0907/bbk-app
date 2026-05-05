@@ -4,7 +4,7 @@ import type { ReactNode } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useState, useCallback } from 'react'
-import { Trash2 } from 'lucide-react'
+import { Trash2, Home, Building2, Users, TrendingUp, Settings, Bot, BookOpen, LogOut } from 'lucide-react'
 
 // ─── 타입 ─────────────────────────────────────────────────────
 
@@ -20,7 +20,7 @@ interface NavLeaf {
 interface NavGroup {
   type: 'group'
   label: string
-  icon: string
+  icon: ReactNode
   roles: string[]
   children: { href: string; label: string; badgeKey?: string }[]
 }
@@ -30,11 +30,11 @@ type NavItem = NavLeaf | NavGroup
 // ─── 메뉴 정의 ────────────────────────────────────────────────
 
 const NAV_ITEMS: NavItem[] = [
-  { type: 'leaf', href: '/admin', label: '홈', icon: '🏠', roles: ['admin', 'worker'] },
+  { type: 'leaf', href: '/admin', label: '홈', icon: <Home size={16} />, roles: ['admin', 'worker'] },
   {
     type: 'group',
     label: '영업관리',
-    icon: '🏢',
+    icon: <Building2 size={16} />,
     roles: ['admin'],
     children: [
       { href: '/admin/schedule', label: '배정관리', badgeKey: 'schedule' },
@@ -47,7 +47,7 @@ const NAV_ITEMS: NavItem[] = [
   {
     type: 'group',
     label: '영업관리',
-    icon: '🏢',
+    icon: <Building2 size={16} />,
     roles: ['worker'],
     children: [
       { href: '/admin/schedule', label: '배정관리', badgeKey: 'schedule' },
@@ -57,7 +57,7 @@ const NAV_ITEMS: NavItem[] = [
   {
     type: 'group',
     label: '인사·현장관리',
-    icon: '👥',
+    icon: <Users size={16} />,
     roles: ['admin'],
     children: [
       { href: '/admin/attendance', label: '출퇴근관리' },
@@ -70,7 +70,7 @@ const NAV_ITEMS: NavItem[] = [
   {
     type: 'group',
     label: '인사·현장관리',
-    icon: '👥',
+    icon: <Users size={16} />,
     roles: ['worker'],
     children: [
       { href: '/admin/attendance', label: '출퇴근관리' },
@@ -83,7 +83,7 @@ const NAV_ITEMS: NavItem[] = [
   {
     type: 'group',
     label: '재무관리',
-    icon: '💹',
+    icon: <TrendingUp size={16} />,
     roles: ['admin'],
     children: [
       { href: '/admin/payroll', label: '급여정산' },
@@ -94,7 +94,7 @@ const NAV_ITEMS: NavItem[] = [
   {
     type: 'group',
     label: '앱관리',
-    icon: '⚙️',
+    icon: <Settings size={16} />,
     roles: ['admin'],
     children: [
       { href: '/admin/notices', label: '공지·이벤트관리', badgeKey: 'notices' },
@@ -107,7 +107,7 @@ const NAV_ITEMS: NavItem[] = [
   {
     type: 'group',
     label: '앱관리',
-    icon: '⚙️',
+    icon: <Settings size={16} />,
     roles: ['worker'],
     children: [
       { href: '/admin/account', label: '계정관리' },
@@ -116,7 +116,7 @@ const NAV_ITEMS: NavItem[] = [
   {
     type: 'group',
     label: '마케팅 에이전트',
-    icon: '🤖',
+    icon: <Bot size={16} />,
     roles: ['admin'],
     children: [
       { href: '/admin/marketing', label: '대시보드' },
@@ -127,7 +127,7 @@ const NAV_ITEMS: NavItem[] = [
   {
     type: 'group',
     label: '콘텐츠',
-    icon: '📚',
+    icon: <BookOpen size={16} />,
     roles: ['admin'],
     children: [
       { href: '/admin/content/knowledge', label: '지식 베이스' },
@@ -308,7 +308,7 @@ export function Sidebar({ role, userName, navBadges = {} }: SidebarProps) {
           onClick={handleLogout}
           className="flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm font-medium text-text-secondary hover:bg-red-50 hover:text-red-600 transition-colors"
         >
-          <span className="text-base">🚪</span>
+          <LogOut size={16} />
           로그아웃
         </button>
       </div>

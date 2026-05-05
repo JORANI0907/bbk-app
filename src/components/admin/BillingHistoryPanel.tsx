@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import toast from 'react-hot-toast'
+import { X } from 'lucide-react'
 
 interface BillingRecord {
   id: string
@@ -430,7 +431,7 @@ export function BillingHistoryPanel({
                         className="px-2.5 py-1 text-xs text-gray-400 hover:text-red-500 transition-colors"
                         title="삭제"
                       >
-                        ✕
+                        <X size={14} />
                       </button>
                     </div>
                   )}

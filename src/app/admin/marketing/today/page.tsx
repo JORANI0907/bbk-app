@@ -4,7 +4,7 @@ import type { ReactNode } from 'react'
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import toast from 'react-hot-toast'
-import { ClipboardList, PenLine } from 'lucide-react'
+import { ClipboardList, PenLine, Camera, Palette, FileText } from 'lucide-react'
 
 interface Content {
   id: string
@@ -76,17 +76,17 @@ function PublishToggle({ content, onUpdate }: { content: Content; onUpdate: () =
           : 'bg-gray-100 text-gray-500 hover:bg-green-100 hover:text-green-700'
       }`}
     >
-      {content.is_published ? '✅ 발행완료' : '⬜ 미발행'}
+      {content.is_published ? '발행완료' : '미발행'}
     </button>
   )
 }
 
 function ContentCard({ content, onUpdate }: { content: Content; onUpdate: () => void }) {
   const typeConfig: Record<string, { icon: ReactNode; label: string; color: string }> = {
-    blog:         { icon: <PenLine size={18} />, label: '블로그',       color: 'border-brand-200 bg-brand-50' },
-    insta:        { icon: '📸',                  label: '인스타그램',   color: 'border-pink-200 bg-pink-50' },
-    image_prompt: { icon: '🎨',                  label: '이미지 프롬프트', color: 'border-purple-200 bg-purple-50' },
-    thumbnail:    { icon: '🖼️',                  label: '썸네일',       color: 'border-yellow-200 bg-yellow-50' },
+    blog:         { icon: <PenLine size={18} />,   label: '블로그',          color: 'border-brand-200 bg-brand-50' },
+    insta:        { icon: <Camera size={18} />,    label: '인스타그램',       color: 'border-pink-200 bg-pink-50' },
+    image_prompt: { icon: <Palette size={18} />,   label: '이미지 프롬프트', color: 'border-purple-200 bg-purple-50' },
+    thumbnail:    { icon: <FileText size={18} />,  label: '썸네일',          color: 'border-yellow-200 bg-yellow-50' },
   }
   const cfg = typeConfig[content.content_type] ?? typeConfig.blog
 
@@ -258,7 +258,7 @@ export default function TodayContentPage() {
         </div>
       ) : contents.length === 0 ? (
         <div className="flex flex-col items-center justify-center h-64 bg-white rounded-2xl border border-gray-100">
-          <p className="text-4xl mb-3">📭</p>
+          <ClipboardList size={40} className="text-gray-300 mb-3" />
           <p className="font-semibold text-gray-700">
             {selectedDate === kstToday ? '오늘 아직 생성된 콘텐츠가 없어요' : `${selectedDate} 콘텐츠가 없어요`}
           </p>
@@ -269,8 +269,8 @@ export default function TodayContentPage() {
           <div className="flex gap-3">
             {[
               { label: '블로그', data: blog, icon: <PenLine size={14} /> as ReactNode },
-              { label: '인스타', data: insta, icon: '📸' as ReactNode },
-              { label: '이미지', data: image, icon: '🎨' as ReactNode },
+              { label: '인스타', data: insta, icon: <Camera size={14} /> as ReactNode },
+              { label: '이미지', data: image, icon: <Palette size={14} /> as ReactNode },
             ].map(({ label, data, icon }) => (
               <div key={label} className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium ${
                 !data ? 'bg-gray-100 text-gray-400'

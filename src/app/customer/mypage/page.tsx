@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation'
 import { format } from 'date-fns'
 import { ko } from 'date-fns/locale'
 import { PasswordChangeForm } from '@/components/customer/PasswordChangeForm'
+import { Building2 } from 'lucide-react'
 
 interface CustomerData {
   id: string
@@ -175,7 +176,7 @@ export default async function CustomerMyPage() {
 
       {!customer && (
         <div className="flex flex-col items-center justify-center py-12 gap-3 text-center bg-surface rounded-2xl border border-border-subtle">
-          <span className="text-4xl">🏢</span>
+          <Building2 size={40} className="text-text-tertiary" />
           <p className="text-sm font-semibold text-text-primary">연결된 업체 정보가 없습니다</p>
           <p className="text-xs text-text-tertiary">관리자에게 문의해주세요.</p>
         </div>

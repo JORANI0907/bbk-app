@@ -3,18 +3,20 @@
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useState, useCallback } from 'react'
+import type { ReactNode } from 'react'
+import { Home, Building2, Users, TrendingUp, Settings, Bot, X } from 'lucide-react'
 import { useModalBackButton } from '@/hooks/useModalBackButton'
 
 // ─── 메뉴 구조 (Sidebar와 동일) ────────────────────────────────
 
-interface NavLeaf { type: 'leaf'; href: string; label: string; icon: string; roles: string[]; badgeKey?: string }
-interface NavGroup { type: 'group'; label: string; icon: string; roles: string[]; children: { href: string; label: string; badgeKey?: string }[] }
+interface NavLeaf { type: 'leaf'; href: string; label: string; icon: ReactNode; roles: string[]; badgeKey?: string }
+interface NavGroup { type: 'group'; label: string; icon: ReactNode; roles: string[]; children: { href: string; label: string; badgeKey?: string }[] }
 type NavItem = NavLeaf | NavGroup
 
 const NAV_ITEMS: NavItem[] = [
-  { type: 'leaf', href: '/admin', label: '홈', icon: '🏠', roles: ['admin', 'worker'] },
+  { type: 'leaf', href: '/admin', label: '홈', icon: <Home size={16} />, roles: ['admin', 'worker'] },
   {
-    type: 'group', label: '영업관리', icon: '🏢', roles: ['admin'],
+    type: 'group', label: '영업관리', icon: <Building2 size={16} />, roles: ['admin'],
     children: [
       { href: '/admin/schedule', label: '배정관리', badgeKey: 'schedule' },
       { href: '/admin/applications', label: '서비스관리', badgeKey: 'applications' },
@@ -23,14 +25,14 @@ const NAV_ITEMS: NavItem[] = [
     ],
   },
   {
-    type: 'group', label: '영업관리', icon: '🏢', roles: ['worker'],
+    type: 'group', label: '영업관리', icon: <Building2 size={16} />, roles: ['worker'],
     children: [
       { href: '/admin/schedule', label: '배정관리', badgeKey: 'schedule' },
       { href: '/admin/customers', label: '고객관리' },
     ],
   },
   {
-    type: 'group', label: '인사·현장관리', icon: '👥', roles: ['admin'],
+    type: 'group', label: '인사·현장관리', icon: <Users size={16} />, roles: ['admin'],
     children: [
       { href: '/admin/attendance', label: '출퇴근관리' },
       { href: '/admin/workers', label: '직원관리' },
@@ -40,7 +42,7 @@ const NAV_ITEMS: NavItem[] = [
     ],
   },
   {
-    type: 'group', label: '인사·현장관리', icon: '👥', roles: ['worker'],
+    type: 'group', label: '인사·현장관리', icon: <Users size={16} />, roles: ['worker'],
     children: [
       { href: '/admin/attendance', label: '출퇴근관리' },
       { href: '/admin/workers', label: '직원관리' },
@@ -50,7 +52,7 @@ const NAV_ITEMS: NavItem[] = [
     ],
   },
   {
-    type: 'group', label: '재무관리', icon: '💹', roles: ['admin'],
+    type: 'group', label: '재무관리', icon: <TrendingUp size={16} />, roles: ['admin'],
     children: [
       { href: '/admin/payroll', label: '급여정산' },
       { href: '/admin/finance', label: '매출매입' },
@@ -58,7 +60,7 @@ const NAV_ITEMS: NavItem[] = [
     ],
   },
   {
-    type: 'group', label: '앱관리', icon: '⚙️', roles: ['admin'],
+    type: 'group', label: '앱관리', icon: <Settings size={16} />, roles: ['admin'],
     children: [
       { href: '/admin/notices', label: '공지·이벤트관리', badgeKey: 'notices' },
       { href: '/admin/automation', label: '자동화관리' },
@@ -67,13 +69,13 @@ const NAV_ITEMS: NavItem[] = [
     ],
   },
   {
-    type: 'group', label: '앱관리', icon: '⚙️', roles: ['worker'],
+    type: 'group', label: '앱관리', icon: <Settings size={16} />, roles: ['worker'],
     children: [
       { href: '/admin/account', label: '계정관리' },
     ],
   },
   {
-    type: 'group', label: '마케팅 에이전트', icon: '🤖', roles: ['admin'],
+    type: 'group', label: '마케팅 에이전트', icon: <Bot size={16} />, roles: ['admin'],
     children: [
       { href: '/admin/marketing', label: '대시보드' },
       { href: '/admin/marketing/today', label: '콘텐츠' },
@@ -259,7 +261,7 @@ export function AdminMobileNav({ role, unreadIncidentCount = 0, navConfig = {}, 
                   <p className="text-[10px] text-text-tertiary font-medium uppercase tracking-widest mt-0.5">Management</p>
                 </div>
               </div>
-              <button onClick={() => setDrawerOpen(false)} className="text-text-tertiary hover:text-text-primary text-xl leading-none p-1">✕</button>
+              <button onClick={() => setDrawerOpen(false)} className="text-text-tertiary hover:text-text-primary p-1"><X size={18} /></button>
             </div>
 
             {/* 메뉴 목록 */}

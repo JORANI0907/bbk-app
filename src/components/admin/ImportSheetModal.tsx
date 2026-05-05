@@ -2,7 +2,7 @@
 
 import { useState, useRef, useCallback } from 'react'
 import toast from 'react-hot-toast'
-import { FolderOpen } from 'lucide-react'
+import { FolderOpen, X, Cloud, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui'
 import {
   loadGoogleAPIs,
@@ -209,7 +209,7 @@ export default function ImportSheetModal({ month, onClose, onImported }: Props) 
             <h2 className="text-base font-bold text-text-primary">카드내역 불러오기</h2>
             <p className="text-xs text-text-tertiary mt-0.5">{displayMonth} 고정비·변동비 자동 분류</p>
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-surface-sunken text-text-tertiary transition-colors">✕</button>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-surface-sunken text-text-tertiary transition-colors"><X size={16} /></button>
         </div>
 
         {/* 내용 */}
@@ -220,7 +220,7 @@ export default function ImportSheetModal({ month, onClose, onImported }: Props) 
             <div className="p-5 space-y-4">
               {loading ? (
                 <div className="text-center py-10">
-                  <div className="text-2xl mb-3 animate-spin inline-block">⚙️</div>
+                  <div className="mb-3 flex justify-center"><Loader2 size={28} className="animate-spin text-text-secondary" /></div>
                   <p className="text-sm text-text-secondary">{loadingMsg}</p>
                 </div>
               ) : (
@@ -233,7 +233,7 @@ export default function ImportSheetModal({ month, onClose, onImported }: Props) 
                       onClick={handleDrivePick}
                       className="flex flex-col items-center gap-2 p-5 border-2 border-dashed border-border rounded-2xl hover:border-brand-400 hover:bg-brand-50 transition-colors active:scale-[0.98]"
                     >
-                      <span className="text-3xl">☁️</span>
+                      <Cloud size={30} className="text-text-secondary" />
                       <span className="text-sm font-semibold text-text-primary">구글 드라이브에서 선택</span>
                       <span className="text-xs text-text-tertiary text-center">저장해둔 폴더에서 직접 불러오기</span>
                     </button>

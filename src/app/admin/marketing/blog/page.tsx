@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import toast from 'react-hot-toast'
-import { MessageCircle } from 'lucide-react'
+import { MessageCircle, AlertTriangle, Eye, ThumbsUp, CheckCircle, XCircle } from 'lucide-react'
 
 interface BlogContent {
   id: string
@@ -139,7 +139,7 @@ export default function BlogPerformancePage() {
                       <div className="flex items-center gap-2 flex-wrap">
                         <p className="text-sm font-semibold text-gray-800 truncate">{c.title}</p>
                         {needsRewrite && (
-                          <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full font-semibold flex-shrink-0">⚠️ 리라이팅 필요</span>
+                          <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full font-semibold flex-shrink-0 inline-flex items-center gap-1"><AlertTriangle size={11} /> 리라이팅 필요</span>
                         )}
                       </div>
                       <p className="text-xs text-gray-400 mt-0.5">
@@ -148,11 +148,11 @@ export default function BlogPerformancePage() {
 
                       {!isEditing && kpi && (
                         <div className="flex items-center gap-4 mt-2">
-                          <span className="text-xs text-gray-500">👁 {kpi.view_count?.toLocaleString() ?? '-'}뷰</span>
-                          <span className="text-xs text-gray-500">👍 {kpi.like_count ?? '-'}</span>
+                          <span className="text-xs text-gray-500 inline-flex items-center gap-0.5"><Eye size={11} /> {kpi.view_count?.toLocaleString() ?? '-'}뷰</span>
+                          <span className="text-xs text-gray-500 inline-flex items-center gap-0.5"><ThumbsUp size={11} /> {kpi.like_count ?? '-'}</span>
                           <span className="text-xs text-gray-500 inline-flex items-center gap-0.5"><MessageCircle size={11} /> {kpi.comment_count ?? '-'}</span>
-                          <span className={`text-xs font-semibold ${kpi.view_tab ? 'text-green-600' : 'text-gray-400'}`}>
-                            VIEW {kpi.view_tab ? '✅ 노출' : '❌ 미노출'}
+                          <span className={`text-xs font-semibold inline-flex items-center gap-0.5 ${kpi.view_tab ? 'text-green-600' : 'text-gray-400'}`}>
+                            VIEW {kpi.view_tab ? <><CheckCircle size={11} /> 노출</> : <><XCircle size={11} /> 미노출</>}
                           </span>
                         </div>
                       )}

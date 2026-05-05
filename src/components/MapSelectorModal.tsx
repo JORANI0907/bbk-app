@@ -5,6 +5,8 @@
  * 모바일에서 설치된 앱 중 선택, PC에서는 웹 버전으로 이동
  */
 
+import { X } from 'lucide-react'
+
 interface Props {
   address: string
   onClose: () => void
@@ -108,7 +110,7 @@ export function MapSelectorModal({ address, onClose }: Props) {
       >
         <div className="flex items-center justify-between mb-2">
           <p className="text-sm font-bold text-gray-900">지도 앱 선택</p>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl leading-none">✕</button>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X size={20} /></button>
         </div>
         <p className="text-xs text-gray-500 truncate mb-4 bg-gray-50 px-2 py-1 rounded">{address}</p>
         <div className="grid grid-cols-2 gap-2">

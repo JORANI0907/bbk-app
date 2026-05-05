@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import toast from 'react-hot-toast'
 import { Button } from '@/components/ui'
 import ImportSheetModal from '@/components/admin/ImportSheetModal'
+import { BarChart2, Download } from 'lucide-react'
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface RevenueItem {
@@ -345,7 +346,7 @@ export default function FinancePage() {
             </button>
           </div>
           <Button onClick={downloadSheet} disabled={!data} size="sm" className="bg-emerald-600 hover:bg-emerald-700 whitespace-nowrap">
-            📊 시트 만들기
+            <BarChart2 size={14} className="inline mr-1" />시트 만들기
           </Button>
         </div>
 
@@ -451,7 +452,7 @@ export default function FinancePage() {
                 size="sm"
                 className="bg-violet-600 hover:bg-violet-700"
               >
-                📥 카드내역 불러오기
+                <Download size={14} className="inline mr-1" />카드내역 불러오기
               </Button>
             </div>
 

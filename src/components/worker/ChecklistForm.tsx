@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { ServiceItem } from '@/types/database'
 import toast from 'react-hot-toast'
+import { CheckCircle } from 'lucide-react'
 
 interface ChecklistEntry {
   itemName: string
@@ -178,7 +179,7 @@ export function ChecklistForm({ scheduleId, items, onComplete }: Props) {
 
       {allCompleted && (
         <div className="bg-state-success-bg border border-state-success rounded-2xl p-4 text-center">
-          <p className="text-state-success font-semibold">✅ 모든 작업 항목 완료!</p>
+          <p className="text-state-success font-semibold flex items-center justify-center gap-1.5"><CheckCircle size={16} /> 모든 작업 항목 완료!</p>
           <p className="text-state-success text-sm mt-1">다음 단계로 진행해주세요.</p>
         </div>
       )}

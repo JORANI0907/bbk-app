@@ -1,5 +1,6 @@
 'use client'
 
+import { Bot } from 'lucide-react'
 import type { AgentLog } from '@/hooks/useAgentActivity'
 
 const EVENT_STYLE: Record<string, { label: string; badge: string; dot: string }> = {
@@ -39,7 +40,7 @@ export function AgentActivityFeed({ logs, isConnected }: AgentActivityFeedProps)
       <div className="space-y-2 max-h-72 overflow-y-auto">
         {logs.length === 0 && (
           <div className="text-center py-8 text-gray-400 text-sm">
-            <p className="text-2xl mb-2">🤖</p>
+            <div className="flex justify-center mb-2"><Bot size={28} /></div>
             <p>에이전트 활동을 기다리는 중...</p>
             <p className="text-xs mt-1">Claude Code를 실행하면 여기에 표시됩니다</p>
           </div>

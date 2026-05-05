@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import toast from 'react-hot-toast'
+import { CheckCircle } from 'lucide-react'
 
 export default function ResetPasswordPage() {
   const router = useRouter()
@@ -103,7 +104,7 @@ export default function ResetPasswordPage() {
           {done ? (
             <div className="text-center py-4">
               <div className="w-14 h-14 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <span className="text-2xl">✅</span>
+                <CheckCircle size={28} className="text-green-600" />
               </div>
               <h2 className="text-base font-bold text-gray-900 mb-2">비밀번호가 변경되었습니다</h2>
               <p className="text-sm text-gray-500 mb-6">새 비밀번호로 로그인해주세요.</p>

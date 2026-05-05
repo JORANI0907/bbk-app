@@ -3,7 +3,7 @@
 import type { ReactNode } from 'react'
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { type LucideIcon, FileText, Crown, PenLine, Palette, BarChart2, Camera, Lightbulb, Calendar, Sparkles, Coffee, Image } from 'lucide-react'
+import { type LucideIcon, FileText, Crown, PenLine, Palette, BarChart2, Camera, Lightbulb, Calendar, Sparkles, Coffee, Image, ClipboardList } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { AGENT_CONFIG, CONTENT_TYPE_META, type AgentKey } from '@/lib/marketing-agents'
 
@@ -108,7 +108,7 @@ export default function ContentHistoryPage() {
         </div>
         {/* 발행 필터 */}
         <div className="flex gap-1.5">
-          {[{ val: 'all', label: '전체' }, { val: 'published', label: '✅ 발행완료' }, { val: 'unpublished', label: '⬜ 미발행' }].map(f => (
+          {[{ val: 'all', label: '전체' }, { val: 'published', label: '발행완료' }, { val: 'unpublished', label: '미발행' }].map(f => (
             <button key={f.val} onClick={() => setPublishFilter(f.val)}
               className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${publishFilter === f.val ? 'bg-gray-800 text-white' : 'bg-white border border-gray-200 text-gray-600 hover:border-gray-400'}`}>
               {f.label}
@@ -123,7 +123,7 @@ export default function ContentHistoryPage() {
         </div>
       ) : Object.keys(grouped).length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 bg-white rounded-2xl border border-gray-100">
-          <p className="text-4xl mb-3">📭</p>
+          <ClipboardList size={40} className="text-gray-300 mb-3" />
           <p className="text-gray-500">조건에 맞는 콘텐츠가 없어요</p>
         </div>
       ) : (

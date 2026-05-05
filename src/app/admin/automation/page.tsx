@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import toast from 'react-hot-toast'
 import { Button } from '@/components/ui'
 import { MarketingAgentSummary } from '@/components/admin/automation/MarketingAgentSummary'
-import { MessageCircle, Clock, Package, Layers, Link, PenLine, ClipboardList, Megaphone, FileText, Phone as PhoneIcon } from 'lucide-react'
+import { MessageCircle, Clock, Package, Layers, Link, PenLine, ClipboardList, Megaphone, FileText, Phone as PhoneIcon, Bot, Bell, Brain, Tag, Monitor, Palette, Crown } from 'lucide-react'
 
 // ─── 타입 ─────────────────────────────────────────────────────────
 
@@ -348,9 +348,9 @@ export default function AutomationPage() {
         <div className="flex bg-surface-sunken rounded-xl p-1 gap-1 flex-wrap">
           {(
             [
-              { key: 'make',      label: <><span>🤖</span> Make.com</>   },
-              { key: 'activity',  label: <><span>🔔</span> Slack 알림</>  },
-              { key: 'agents',    label: <><span>🧠</span> 에이전트</>    },
+              { key: 'make',      label: <><Bot size={14} className="inline" /> Make.com</>   },
+              { key: 'activity',  label: <><Bell size={14} className="inline" /> Slack 알림</>  },
+              { key: 'agents',    label: <><Brain size={14} className="inline" /> 에이전트</>    },
               { key: 'marketing', label: <><Megaphone size={14} className="inline" /> 마케팅</>      },
               { key: 'contracts', label: <><PenLine size={14} className="inline" /> 계약서 서명</>  },
             ] as { key: 'make' | 'activity' | 'agents' | 'marketing' | 'contracts'; label: React.ReactNode }[]
@@ -449,10 +449,10 @@ export default function AutomationPage() {
             {/* 에이전트 요약 카드 */}
             <div className="grid grid-cols-2 gap-2">
               {[
-                { icon: '🎯', name: 'BBK Lead',    role: '요구사항 분석 / 분배', color: 'text-violet-700' },
-                { icon: '💻', name: 'Developer',   role: 'Next.js / Supabase',   color: 'text-brand-700'  },
-                { icon: '🎨', name: 'Designer',    role: 'UI/UX 컴포넌트',       color: 'text-cyan-700'   },
-                { icon: '👑', name: 'MKT Leader',  role: '마케팅 팀장',           color: 'text-amber-700'  },
+                { icon: <Tag size={16} />, name: 'BBK Lead',    role: '요구사항 분석 / 분배', color: 'text-violet-700' },
+                { icon: <Monitor size={16} />, name: 'Developer',   role: 'Next.js / Supabase',   color: 'text-brand-700'  },
+                { icon: <Palette size={16} />, name: 'Designer',    role: 'UI/UX 컴포넌트',       color: 'text-cyan-700'   },
+                { icon: <Crown size={16} />, name: 'MKT Leader',  role: '마케팅 팀장',           color: 'text-amber-700'  },
               ].map(({ icon, name, role, color }) => (
                 <div key={name} className="bg-surface border border-border-subtle rounded-xl p-3">
                   <div className="flex items-center gap-2 mb-1">
@@ -468,7 +468,7 @@ export default function AutomationPage() {
               className="w-full flex items-center justify-between px-4 py-3 bg-violet-600 hover:bg-violet-700"
             >
               <div className="flex items-center gap-2">
-                <span>🧠</span>
+                <Brain size={14} />
                 <span className="text-sm font-semibold">전체 에이전트 현황 보기</span>
               </div>
               <span className="text-sm opacity-80">→</span>
@@ -666,7 +666,7 @@ export default function AutomationPage() {
       {showAddModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div className="bg-surface rounded-2xl w-full max-w-sm shadow-modal p-6 text-center">
-            <div className="text-4xl mb-3">🤖</div>
+            <div className="flex justify-center mb-3"><Bot size={40} /></div>
             <h2 className="text-base font-bold text-text-primary mb-2">새 자동화 추가</h2>
             <p className="text-sm text-text-secondary leading-relaxed mb-5">
               새로운 자동화 시나리오는{' '}

@@ -6,6 +6,7 @@ import { format } from 'date-fns'
 import { ko } from 'date-fns/locale'
 import toast from 'react-hot-toast'
 import { Button } from '@/components/ui'
+import { CheckCircle } from 'lucide-react'
 
 type Step = 'idle' | 'confirm_clock_in' | 'confirm_clock_out'
 
@@ -181,8 +182,8 @@ export default function AttendancePage() {
           selectedRecord.clock_out ? (
             /* 출퇴근 모두 완료 */
             <div className="text-center py-3 bg-state-success-bg rounded-xl">
-              <p className="text-state-success font-semibold text-sm">
-                ✅ {formatDisplayDate(selectedDate)} 출퇴근 완료
+              <p className="text-state-success font-semibold text-sm flex items-center justify-center gap-1">
+                <CheckCircle size={14} /> {formatDisplayDate(selectedDate)} 출퇴근 완료
               </p>
               <p className="text-xs text-state-success mt-1">
                 출근 {formatTime(selectedRecord.clock_in)} · 퇴근 {formatTime(selectedRecord.clock_out)}

@@ -1,5 +1,20 @@
 import { ServiceSchedule } from '@/types/database'
 import { WORK_STEPS, SCHEDULE_STATUS_COLORS, SCHEDULE_STATUS_LABELS } from '@/lib/constants'
+import { MapPin, Camera, Sparkles, CheckSquare, CheckCircle, type LucideProps } from 'lucide-react'
+
+type IconName = 'MapPin' | 'Camera' | 'Sparkles' | 'CheckSquare'
+
+const ICON_MAP: Record<IconName, React.ComponentType<LucideProps>> = {
+  MapPin,
+  Camera,
+  Sparkles,
+  CheckSquare,
+}
+
+function renderStepIcon(iconName: string) {
+  const Icon = ICON_MAP[iconName as IconName]
+  return Icon ? <Icon size={12} /> : null
+}
 
 interface Props {
   schedule: ServiceSchedule
@@ -79,7 +94,7 @@ export function ScheduleCard({ schedule, onPress }: Props) {
 
         {stepInfo && (
           <span className="text-xs font-medium px-2 py-1 rounded-full bg-orange-100 text-orange-700 flex items-center gap-1">
-            <span>{stepInfo.icon}</span>
+            {renderStepIcon(stepInfo.icon)}
             <span>
               Step {stepInfo.step}: {stepInfo.label}
             </span>
@@ -93,8 +108,8 @@ export function ScheduleCard({ schedule, onPress }: Props) {
         )}
 
         {schedule.status === 'completed' && (
-          <span className="text-xs font-medium px-2 py-1 rounded-full bg-state-success-bg text-state-success">
-            ✅ 작업 완료
+          <span className="text-xs font-medium px-2 py-1 rounded-full bg-state-success-bg text-state-success flex items-center gap-1">
+            <CheckCircle size={12} /> 작업 완료
           </span>
         )}
       </div>

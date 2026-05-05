@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import toast from 'react-hot-toast'
-import { MessageCircle } from 'lucide-react'
+import { MessageCircle, AlertTriangle, Eye, Bookmark, Share2, Flame, ThumbsUp } from 'lucide-react'
 
 interface InstaContent {
   id: string
@@ -32,9 +32,9 @@ function SaveRateBadge({ saves, reach }: { saves: number | null; reach: number |
   const rate = pct(saves, reach)
   if (!rate) return <span className="text-xs text-gray-300">-</span>
   const val = parseFloat(rate)
-  if (val >= 5) return <span className="text-xs font-semibold text-green-600">🔥 {rate}%</span>
-  if (val >= 3) return <span className="text-xs font-semibold text-yellow-600">👍 {rate}%</span>
-  return <span className="text-xs font-semibold text-red-500">⚠️ {rate}%</span>
+  if (val >= 5) return <span className="text-xs font-semibold text-green-600 inline-flex items-center gap-0.5"><Flame size={11} /> {rate}%</span>
+  if (val >= 3) return <span className="text-xs font-semibold text-yellow-600 inline-flex items-center gap-0.5"><ThumbsUp size={11} /> {rate}%</span>
+  return <span className="text-xs font-semibold text-red-500 inline-flex items-center gap-0.5"><AlertTriangle size={11} /> {rate}%</span>
 }
 
 function StatCard({ label, value, sub, color = 'text-gray-900' }: { label: string; value: string; sub?: string; color?: string }) {
@@ -157,7 +157,7 @@ export default function InstagramPerformancePage() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
                         <p className="text-sm font-semibold text-gray-800 truncate">{c.title}</p>
-                        {isLow && <span className="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded-full font-semibold flex-shrink-0">⚠️ 저장율 낮음</span>}
+                        {isLow && <span className="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded-full font-semibold flex-shrink-0 inline-flex items-center gap-1"><AlertTriangle size={11} /> 저장율 낮음</span>}
                       </div>
                       <p className="text-xs text-gray-400 mt-0.5">
                         {c.region} · {c.item} · {new Date(c.created_at).toLocaleDateString('ko-KR')}
@@ -165,9 +165,9 @@ export default function InstagramPerformancePage() {
 
                       {!isEditing && kpi && (
                         <div className="flex items-center gap-4 mt-2 flex-wrap">
-                          <span className="text-xs text-gray-500">👁 도달 {kpi.reach?.toLocaleString() ?? '-'}</span>
-                          <span className="text-xs text-gray-500">🔖 저장 {kpi.saves?.toLocaleString() ?? '-'}</span>
-                          <span className="text-xs text-gray-500">↗️ 공유 {kpi.shares ?? '-'}</span>
+                          <span className="text-xs text-gray-500 inline-flex items-center gap-0.5"><Eye size={11} /> 도달 {kpi.reach?.toLocaleString() ?? '-'}</span>
+                          <span className="text-xs text-gray-500 inline-flex items-center gap-0.5"><Bookmark size={11} /> 저장 {kpi.saves?.toLocaleString() ?? '-'}</span>
+                          <span className="text-xs text-gray-500 inline-flex items-center gap-0.5"><Share2 size={11} /> 공유 {kpi.shares ?? '-'}</span>
                           <span className="text-xs text-gray-500 inline-flex items-center gap-0.5"><MessageCircle size={11} /> 댓글 {kpi.comment_count ?? '-'}</span>
                           <SaveRateBadge saves={kpi.saves} reach={kpi.reach} />
                         </div>

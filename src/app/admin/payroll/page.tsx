@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import toast from 'react-hot-toast'
-import { Folder } from 'lucide-react'
+import { Folder, Upload, Download, CreditCard, Pencil, Banknote, ClipboardList, BarChart2, Tag } from 'lucide-react'
 import { Button } from '@/components/ui'
 import {
   loadGoogleAPIs,
@@ -178,7 +178,7 @@ function ExportModal({
             disabled={exporting || folderLoading}
             className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white disabled:opacity-60"
           >
-            {exporting ? '처리 중...' : folder ? '📤 Drive에 저장' : '⬇️ 다운로드'}
+            {exporting ? '처리 중...' : folder ? <><Upload size={14} className="inline mr-1" />Drive에 저장</> : <><Download size={14} className="inline mr-1" />다운로드</>}
           </Button>
         </div>
       </div>
@@ -399,7 +399,7 @@ function ManagerCard({
             <div className="flex items-center gap-2">
               <span className="font-semibold text-text-primary">{entry.person.name}</span>
               <span className="text-xs px-2 py-0.5 rounded-full bg-brand-50 text-brand-600">{entry.person.role === 'admin' ? '관리자' : '직원'}</span>
-              {isPaid && <span className="text-xs px-2 py-0.5 rounded-full bg-state-success-bg text-state-success">💳 지급완료</span>}
+              {isPaid && <span className="text-xs px-2 py-0.5 rounded-full bg-state-success-bg text-state-success flex items-center gap-0.5"><CreditCard size={11} />지급완료</span>}
             </div>
             <p className="text-xs text-text-tertiary mt-0.5">{entry.jobs.length}건 · 자동 {fmt(entry.auto_amount)}</p>
             {(entry.person.phone || entry.person.account_number) && (
@@ -456,7 +456,7 @@ function ManagerCard({
                 : 'bg-green-600 text-white hover:bg-green-700'
             }`}
           >
-            {paying ? '처리 중...' : isPaid ? '지급 취소' : '💳 지급완료'}
+            {paying ? '처리 중...' : isPaid ? '지급 취소' : <><CreditCard size={14} className="inline mr-1" />지급완료</>}
           </button>
         </div>
       </div>
@@ -514,7 +514,7 @@ function ManagerCard({
                             onClick={() => setJobPayEdits(prev => ({ ...prev, [job.id]: String(job.manager_pay ?? job.unit_price_per_visit ?? '') }))}
                             className="text-xs text-text-tertiary hover:text-brand-600 px-1"
                           >
-                            ✏️
+                            <Pencil size={12} />
                           </button>
                         </>
                       )}
@@ -645,7 +645,7 @@ function WorkerCard({
             <div className="flex items-center gap-2">
               <span className="font-semibold text-text-primary">{entry.person.name}</span>
               <span className="text-xs px-2 py-0.5 rounded-full bg-amber-50 text-amber-600">{entry.person.employment_type ?? '기타'}</span>
-              {isPaid && <span className="text-xs px-2 py-0.5 rounded-full bg-state-success-bg text-state-success">💳 지급완료</span>}
+              {isPaid && <span className="text-xs px-2 py-0.5 rounded-full bg-state-success-bg text-state-success flex items-center gap-0.5"><CreditCard size={11} />지급완료</span>}
             </div>
             <p className="text-xs text-text-tertiary mt-0.5">{entry.jobs.length}건 · 자동 {fmt(entry.auto_amount)}</p>
             {(entry.person.phone || entry.person.account_number) && (
@@ -717,7 +717,7 @@ function WorkerCard({
                 : 'bg-green-600 text-white hover:bg-green-700'
             }`}
           >
-            {paying ? '처리 중...' : isPaid ? '지급 취소' : '💳 지급완료'}
+            {paying ? '처리 중...' : isPaid ? '지급 취소' : <><CreditCard size={14} className="inline mr-1" />지급완료</>}
           </button>
         </div>
       </div>
@@ -771,7 +771,7 @@ function WorkerCard({
                             onClick={() => setJobSalaryEdits(prev => ({ ...prev, [job.id]: String(job.salary ?? '') }))}
                             className="text-xs text-text-tertiary hover:text-brand-600 px-1"
                           >
-                            ✏️
+                            <Pencil size={12} />
                           </button>
                         </>
                       )}
@@ -964,7 +964,7 @@ function UnitPriceSettings({ month }: { month: string }) {
 
       {filtered.length === 0 ? (
         <div className="text-center py-12">
-          <p className="text-2xl mb-2">💰</p>
+          <div className="flex justify-center mb-2"><Banknote size={32} /></div>
           <p className="text-sm text-text-tertiary">정기 서비스 계약이 없습니다.</p>
         </div>
       ) : (
@@ -1025,7 +1025,7 @@ function UnitPriceSettings({ month }: { month: string }) {
                           onClick={() => setEdits(prev => ({ ...prev, [group.business_name]: String(price ?? '') }))}
                           className="text-xs text-text-tertiary hover:text-brand-600 px-1"
                         >
-                          ✏️
+                          <Pencil size={12} />
                         </button>
                       </>
                     )}
@@ -1115,13 +1115,13 @@ export default function PayrollPage() {
             onClick={() => setTab('payroll')}
             className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-colors ${tab === 'payroll' ? 'bg-surface text-text-primary shadow-soft' : 'text-text-secondary'}`}
           >
-            💰 급여정산
+            <Banknote size={14} className="inline mr-1" />급여정산
           </button>
           <button
             onClick={() => setTab('unit_price')}
             className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-colors ${tab === 'unit_price' ? 'bg-surface text-text-primary shadow-soft' : 'text-text-secondary'}`}
           >
-            🏷️ 단가 설정
+            <Tag size={14} className="inline mr-1" />단가 설정
           </button>
         </div>
 
@@ -1140,7 +1140,7 @@ export default function PayrollPage() {
               onClick={() => setShowExport(true)}
               className="w-full mb-4 py-2.5 rounded-lg text-sm font-semibold bg-emerald-600 text-white hover:bg-emerald-700 active:scale-[0.98] transition-all flex items-center justify-center gap-1.5 shadow-soft"
             >
-              📊 급여 지급 현황 저장
+              <BarChart2 size={14} className="inline mr-1" />급여 지급 현황 저장
             </button>
 
             {/* 인원 필터 버튼 */}
@@ -1228,7 +1228,7 @@ export default function PayrollPage() {
 
                 {managers.length === 0 && workersPayroll.length === 0 && (
                   <div className="text-center py-12">
-                    <p className="text-2xl mb-2">📋</p>
+                    <div className="flex justify-center mb-2"><ClipboardList size={32} /></div>
                     <p className="text-sm text-text-tertiary">{displayMonth} 급여 데이터가 없습니다.</p>
                   </div>
                 )}

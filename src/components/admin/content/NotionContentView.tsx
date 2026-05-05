@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import type React from 'react'
+import { Loader2, RefreshCw, AlertTriangle } from 'lucide-react'
 import type { NotionPage, NotionPropValue } from '@/lib/notion-content'
 
 // ─── 타입 ─────────────────────────────────────────────────────
@@ -153,7 +154,7 @@ export function NotionContentView({ dbKey, title, icon, columns, filterProp, fil
             disabled={loading}
             className="flex items-center gap-1 px-3 py-1.5 text-sm text-brand-600 border border-brand-200 rounded-lg hover:bg-brand-50 disabled:opacity-50 transition-colors"
           >
-            {loading ? '⏳' : '🔄'} 새로고침
+            {loading ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />} 새로고침
           </button>
         </div>
       </div>
@@ -179,8 +180,8 @@ export function NotionContentView({ dbKey, title, icon, columns, filterProp, fil
 
       {/* 에러 */}
       {error && (
-        <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
-          ⚠️ {error}
+        <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm flex items-center gap-1">
+          <AlertTriangle size={14} className="shrink-0" />{error}
         </div>
       )}
 
@@ -208,7 +209,7 @@ export function NotionContentView({ dbKey, title, icon, columns, filterProp, fil
                 <tr>
                   <td colSpan={columns.length + 1} className="px-4 py-12 text-center text-gray-400">
                     <div className="flex flex-col items-center gap-2">
-                      <div className="animate-spin text-2xl">⏳</div>
+                      <Loader2 size={24} className="animate-spin text-gray-400" />
                       <span>노션에서 불러오는 중...</span>
                     </div>
                   </td>

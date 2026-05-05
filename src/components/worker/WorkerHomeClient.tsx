@@ -32,7 +32,7 @@ export function WorkerHomeClient() {
       <div className="mb-5 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-2xl p-5 text-white shadow-lg shadow-blue-200">
         <TodayLabel className="text-blue-200 text-xs font-medium mb-1 block" />
         <h1 className="text-lg font-bold leading-tight">
-          {workerName ? `${workerName}님, 안녕하세요 👋` : '안녕하세요 👋'}
+          {workerName ? `${workerName}님, 안녕하세요` : '안녕하세요'}
         </h1>
 
         <div className="flex items-center gap-3 mt-3">

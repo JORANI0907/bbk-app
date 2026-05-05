@@ -8,6 +8,7 @@ import {
   defaultMonthData, calcTotals, calcChannel, achievementRate, rateColors,
   type AllData, type MonthData,
 } from './_roi-utils'
+import { BarChart2, AlertTriangle, HelpCircle } from 'lucide-react'
 import { ChannelTab } from './_channel-tab'
 import { TrendTab } from './_trend-tab'
 import { CalculatorTab } from './_calculator-tab'
@@ -19,7 +20,7 @@ const STORAGE_KEY = 'bbk_roi_data'
 function Tip({ content }: { content: string }) {
   return (
     <div className="relative group inline-flex">
-      <span className="text-gray-400 cursor-help text-xs ml-0.5">❓</span>
+      <HelpCircle size={12} className="text-gray-400 cursor-help" />
       <div className="hidden group-hover:block absolute z-50 bottom-full left-0 mb-2 w-64 bg-gray-900 text-white text-xs p-3 rounded-lg shadow-xl whitespace-pre-line leading-relaxed pointer-events-none">
         {content}
         <div className="absolute top-full left-3 border-4 border-transparent border-t-gray-900" />
@@ -128,13 +129,13 @@ function ReportTab({ data, year, month }: { data: MonthData; year: number; month
                 <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
                 분석 중...
               </>
-            ) : '📊 보고서 생성'}
+            ) : <><BarChart2 size={14} /> 보고서 생성</>}
           </button>
         </div>
 
         {totals.totalCost === 0 && (
-          <div className="mt-4 p-3 bg-amber-50 rounded-xl text-xs text-amber-700">
-            ⚠️ 채널별 입력 탭에서 이번 달 데이터를 먼저 입력해주세요.
+          <div className="mt-4 p-3 bg-amber-50 rounded-xl text-xs text-amber-700 flex items-center gap-1.5">
+            <AlertTriangle size={13} /> 채널별 입력 탭에서 이번 달 데이터를 먼저 입력해주세요.
           </div>
         )}
       </div>

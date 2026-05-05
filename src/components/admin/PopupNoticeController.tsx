@@ -1,8 +1,9 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import type { ReactNode } from 'react'
 import { usePathname } from 'next/navigation'
-import { Calendar } from 'lucide-react'
+import { Calendar, Megaphone, PartyPopper, X } from 'lucide-react'
 
 interface PopupNotice {
   id: string
@@ -25,7 +26,10 @@ const PRIORITY_LABEL: Record<string, string> = {
   urgent: '긴급', important: '중요', normal: '일반',
 }
 
-const TYPE_ICON: Record<string, string> = { notice: '📢', event: '🎉' }
+const TYPE_ICON: Record<string, ReactNode> = {
+  notice: <Megaphone size={18} />,
+  event: <PartyPopper size={18} />,
+}
 
 const SESSION_KEY = 'bbk_popup_dismissed'
 
@@ -121,7 +125,7 @@ export function PopupNoticeController() {
             <div className="p-5">
               {/* 뱃지 */}
               <div className="flex items-center gap-2 mb-3">
-                <span className="text-lg">{TYPE_ICON[current.type] ?? '📢'}</span>
+                <span className="flex items-center">{TYPE_ICON[current.type] ?? <Megaphone size={18} />}</span>
                 <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${PRIORITY_BADGE[current.priority]}`}>
                   {PRIORITY_LABEL[current.priority]}
                 </span>
@@ -186,9 +190,9 @@ export function PopupNoticeController() {
           />
           <button
             onClick={() => setLightboxOpen(false)}
-            className="absolute top-4 right-4 text-white/80 hover:text-white text-3xl leading-none font-light"
+            className="absolute top-4 right-4 text-white/80 hover:text-white"
           >
-            ✕
+            <X size={28} />
           </button>
         </div>
       )}

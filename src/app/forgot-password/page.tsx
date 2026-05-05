@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import toast from 'react-hot-toast'
+import { Mail } from 'lucide-react'
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('')
@@ -47,7 +48,7 @@ export default function ForgotPasswordPage() {
           {sent ? (
             <div className="text-center py-4">
               <div className="w-14 h-14 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <span className="text-2xl">📧</span>
+                <Mail size={24} className="text-blue-600" />
               </div>
               <h2 className="text-base font-bold text-gray-900 mb-2">이메일을 확인해주세요</h2>
               <p className="text-sm text-gray-500 mb-1">

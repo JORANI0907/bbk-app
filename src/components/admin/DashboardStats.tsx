@@ -1,7 +1,7 @@
 'use client'
 
 import type { ReactNode } from 'react'
-import { Calendar } from 'lucide-react'
+import { Calendar, Settings, CheckCircle, AlertTriangle } from 'lucide-react'
 import { Card } from '@/components/ui/Card'
 
 interface DashboardStatsProps {
@@ -33,21 +33,21 @@ export function DashboardStats({ stats }: DashboardStatsProps) {
     {
       label: '진행 중',
       value: stats.inProgress,
-      icon: '⚙️',
+      icon: <Settings size={18} />,
       colorClass: 'text-orange-700',
       bgClass: 'bg-orange-50',
     },
     {
       label: '완료',
       value: stats.completed,
-      icon: '✅',
+      icon: <CheckCircle size={18} />,
       colorClass: 'text-green-700',
       bgClass: 'bg-green-50',
     },
     {
       label: '미배정',
       value: stats.unassigned,
-      icon: '⚠️',
+      icon: <AlertTriangle size={18} />,
       colorClass: 'text-red-700',
       bgClass: 'bg-red-50',
     },

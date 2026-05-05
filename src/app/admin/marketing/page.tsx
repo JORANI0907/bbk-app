@@ -3,7 +3,7 @@
 import type { ReactNode } from 'react'
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { type LucideIcon, PenLine, Crown, Palette, BarChart2, Camera, Lightbulb, Calendar, Sparkles, Coffee, Image, MapPin } from 'lucide-react'
+import { type LucideIcon, PenLine, Crown, Palette, BarChart2, Camera, Lightbulb, Calendar, Sparkles, Coffee, Image, MapPin, ClipboardList } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { AGENT_CONFIG, AGENT_KEYS, CONTENT_TYPE_META, type AgentKey } from '@/lib/marketing-agents'
 
@@ -147,7 +147,7 @@ export default function MarketingDashboard() {
         >
           {triggering
             ? <><span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />생성 중...</>
-            : <><span>✨</span>지금 콘텐츠 생성</>}
+            : <><Sparkles size={14} />지금 콘텐츠 생성</>}
         </button>
       </div>
 
@@ -231,7 +231,7 @@ export default function MarketingDashboard() {
           </div>
           {recentAll.length === 0 ? (
             <div className="text-center py-8">
-              <p className="text-3xl mb-2">📭</p>
+              <ClipboardList size={40} className="text-gray-300 mx-auto mb-2" />
               <p className="text-sm text-gray-400">아직 생성된 산출물이 없어요</p>
             </div>
           ) : (
@@ -266,8 +266,8 @@ export default function MarketingDashboard() {
         <div className="grid grid-cols-3 gap-3">
           {[
             { href: '/admin/marketing/blog', icon: <PenLine size={24} /> as ReactNode, label: '블로그', sub: 'Naver VIEW' },
-            { href: '/admin/marketing/instagram', icon: '📸' as ReactNode, label: '인스타그램', sub: 'Reach & Save' },
-            { href: '/admin/marketing/place', icon: '📍' as ReactNode, label: '네이버 플레이스', sub: '리뷰 & 전화' },
+            { href: '/admin/marketing/instagram', icon: <Camera size={24} /> as ReactNode, label: '인스타그램', sub: 'Reach & Save' },
+            { href: '/admin/marketing/place', icon: <MapPin size={24} /> as ReactNode, label: '네이버 플레이스', sub: '리뷰 & 전화' },
           ].map(item => (
             <Link key={item.href} href={item.href} className="bg-white border border-gray-100 shadow-sm rounded-2xl p-4 hover:shadow-md hover:border-brand-200 transition-all group">
               <span className="text-2xl flex items-center">{item.icon}</span>

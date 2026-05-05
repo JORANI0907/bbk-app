@@ -5,7 +5,7 @@ import { useState, useEffect } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { type LucideIcon, FileText, Crown, PenLine, Palette, BarChart2, Camera, Lightbulb, Calendar, Sparkles, Coffee, Image } from 'lucide-react'
+import { type LucideIcon, FileText, Crown, PenLine, Palette, BarChart2, Camera, Lightbulb, Calendar, Sparkles, Coffee, Image, ClipboardList } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { AGENT_CONFIG, CONTENT_TYPE_META, type AgentKey } from '@/lib/marketing-agents'
 
@@ -137,8 +137,8 @@ export default function AgentDetailPage() {
         <div className="flex gap-1.5">
           {[
             { val: 'all', label: '전체' },
-            { val: 'published', label: '✅ 발행완료' },
-            { val: 'unpublished', label: '⬜ 미발행' },
+            { val: 'published', label: '발행완료' },
+            { val: 'unpublished', label: '미발행' },
           ].map(f => (
             <button
               key={f.val}
@@ -158,7 +158,7 @@ export default function AgentDetailPage() {
         </div>
       ) : Object.keys(grouped).length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 bg-white rounded-2xl border border-gray-100">
-          <p className="text-4xl mb-3">📭</p>
+          <ClipboardList size={40} className="text-gray-300 mb-3" />
           <p className="text-gray-500">산출물이 없어요</p>
         </div>
       ) : (

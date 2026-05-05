@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import toast from 'react-hot-toast'
 import { LoadingSpinner } from '@/components/admin/LoadingSpinner'
-import { Camera, ClipboardList } from 'lucide-react'
+import { Camera, ClipboardList, Megaphone, PartyPopper, Pin, Calendar, Sparkles, Siren } from 'lucide-react'
 
 // ─── 타입 ──────────────────────────────────────────────────────────
 
@@ -74,8 +74,8 @@ const PRIORITY_CONFIG = {
 }
 
 const TYPE_CONFIG = {
-  notice: { icon: '📢', label: '공지', color: 'text-brand-600' },
-  event:  { icon: '🎉', label: '행사', color: 'text-purple-600' },
+  notice: { icon: <Megaphone size={20} />, label: '공지', color: 'text-brand-600' },
+  event:  { icon: <PartyPopper size={20} />, label: '행사', color: 'text-purple-600' },
 }
 
 // ─── 명언 ─────────────────────────────────────────────────────────
@@ -138,7 +138,7 @@ function NoticeCard({ notice }: { notice: Notice }) {
             <div className="flex items-center gap-1.5 mb-1 flex-wrap">
               {notice.pinned && (
                 <span className="inline-flex items-center gap-0.5 text-xs font-semibold text-brand-600 bg-brand-100 px-1.5 py-0.5 rounded-full">
-                  📌 고정
+                  <Pin size={10} className="inline mr-0.5" />고정
                 </span>
               )}
               <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${pc.badge}`}>
@@ -147,7 +147,7 @@ function NoticeCard({ notice }: { notice: Notice }) {
               <span className={`text-xs font-medium ${tc.color}`}>{tc.label}</span>
               {notice.event_date && (
                 <span className="text-xs text-purple-600 bg-purple-50 px-2 py-0.5 rounded-full">
-                  📅 {new Date(notice.event_date).toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'short' })}
+                  <Calendar size={12} className="inline mr-0.5" />{new Date(notice.event_date).toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'short' })}
                 </span>
               )}
               {notice.image_url && !expanded && (
@@ -214,7 +214,7 @@ function TodayScheduleCard({ role, userId }: { role: string; userId: string }) {
   return (
     <div className="bg-surface rounded-2xl border border-border-subtle shadow-soft overflow-hidden">
       <div className="px-4 py-3 border-b border-border-subtle flex items-center justify-between">
-        <h3 className="text-sm font-bold text-text-primary">📅 오늘의 일정</h3>
+        <h3 className="text-sm font-bold text-text-primary flex items-center gap-1"><Calendar size={14} />오늘의 일정</h3>
         <Link href="/admin/schedule"
           className="text-xs text-brand-600 hover:underline font-medium">보러가기</Link>
       </div>
@@ -288,7 +288,7 @@ function NewScheduleCard({ role, userId }: { role: string; userId: string }) {
   return (
     <div className="bg-surface rounded-2xl border border-border-subtle shadow-soft overflow-hidden">
       <div className="px-4 py-3 border-b border-border-subtle flex items-center justify-between">
-        <h3 className="text-sm font-bold text-text-primary">🆕 새로 추가된 일정</h3>
+        <h3 className="text-sm font-bold text-text-primary flex items-center gap-1"><Sparkles size={14} />새로 추가된 일정</h3>
         <Link href="/admin/schedule"
           className="text-xs text-brand-600 hover:underline font-medium">보러가기</Link>
       </div>
@@ -397,12 +397,12 @@ export default function AdminHomePage() {
           <div className="relative z-10 flex gap-2 mt-4 flex-wrap">
             {urgentCount > 0 && (
               <span className="flex items-center gap-1.5 bg-red-500/30 border border-red-400/40 text-white text-xs font-semibold px-3 py-1.5 rounded-full backdrop-blur-sm">
-                🚨 긴급 공지 {urgentCount}건
+                <Siren size={14} className="inline mr-1" />긴급 공지 {urgentCount}건
               </span>
             )}
             {pinnedCount > 0 && (
               <span className="flex items-center gap-1.5 bg-white/20 border border-white/30 text-white text-xs font-medium px-3 py-1.5 rounded-full backdrop-blur-sm">
-                📌 고정 공지 {pinnedCount}건
+                <Pin size={14} className="inline mr-1" />고정 공지 {pinnedCount}건
               </span>
             )}
           </div>
@@ -425,7 +425,7 @@ export default function AdminHomePage() {
               {(['all', 'notice', 'event'] as const).map(f => (
                 <button key={f} onClick={() => setFilter(f)}
                   className={`px-3 py-1.5 font-medium transition-colors ${filter === f ? 'bg-gray-800 text-white' : 'bg-surface text-text-secondary hover:bg-surface-sunken'}`}>
-                  {f === 'all' ? '전체' : f === 'notice' ? '📢 공지' : '🎉 행사'}
+                  {f === 'all' ? '전체' : f === 'notice' ? <><Megaphone size={12} className="inline mr-0.5" />공지</> : <><PartyPopper size={12} className="inline mr-0.5" />행사</>}
                 </button>
               ))}
             </div>

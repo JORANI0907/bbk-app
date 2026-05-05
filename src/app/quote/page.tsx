@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { User, Building2, PenLine } from 'lucide-react'
+import { User, Building2, PenLine, CheckCircle } from 'lucide-react'
 
 
 export default function QuotePage() {
@@ -218,9 +218,9 @@ export default function QuotePage() {
         {submitted ? (
           /* 제출 완료 화면 */
           <div className="flex flex-col items-center justify-center py-24 px-6 text-center">
-            <div className="w-20 h-20 rounded-full flex items-center justify-center text-4xl mb-6"
+            <div className="w-20 h-20 rounded-full flex items-center justify-center mb-6"
               style={{ background: 'linear-gradient(135deg,#dcfce7,#bbf7d0)' }}>
-              ✅
+              <CheckCircle size={40} className="text-green-600" />
             </div>
             <h2 className="text-xl font-black text-slate-800 mb-3">신청 완료!</h2>
             <p className="text-sm text-slate-500 leading-relaxed mb-8">

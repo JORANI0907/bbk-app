@@ -5,7 +5,7 @@ import { ServiceSchedule } from '@/types/database'
 import { format } from 'date-fns'
 import { ko } from 'date-fns/locale'
 import { Button } from '@/components/ui'
-import { Calendar } from 'lucide-react'
+import { Calendar, CheckCircle, X } from 'lucide-react'
 
 interface Props {
   upcomingSchedules: ServiceSchedule[]
@@ -78,7 +78,7 @@ export function ScheduleChangeRequest({ upcomingSchedules }: Props) {
 
             {done ? (
               <div className="flex flex-col items-center gap-3 py-8">
-                <span className="text-4xl">✅</span>
+                <CheckCircle size={48} className="text-state-success" />
                 <p className="font-bold text-text-primary">요청이 전달되었습니다</p>
                 <p className="text-sm text-text-secondary text-center">담당자가 확인 후 연락드리겠습니다.</p>
               </div>
@@ -89,9 +89,9 @@ export function ScheduleChangeRequest({ upcomingSchedules }: Props) {
                   <h3 className="text-base font-bold text-text-primary">일정 변경 요청</h3>
                   <button
                     onClick={reset}
-                    className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-surface-sunken text-text-tertiary text-lg"
+                    className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-surface-sunken text-text-tertiary"
                   >
-                    ✕
+                    <X size={18} />
                   </button>
                 </div>
 

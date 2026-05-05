@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation'
 import { Button } from '@/components/ui'
 import { Modal } from '@/components/ui'
 import SignaturePad, { type SignaturePadHandle } from '@/components/contracts/SignaturePad'
+import { Clock, CheckCircle, AlertTriangle } from 'lucide-react'
 
 interface ContractData {
   id: string
@@ -186,7 +187,7 @@ export default function SignContractPage() {
     return (
       <div className="min-h-screen bg-surface-sunken flex items-center justify-center px-4">
         <div className="max-w-sm w-full bg-surface rounded-2xl shadow-soft p-8 text-center space-y-4">
-          <div className="text-4xl">⏰</div>
+          <Clock size={40} className="mx-auto text-text-tertiary" />
           <h1 className="text-lg font-bold text-text-primary">링크가 만료되었습니다</h1>
           <p className="text-sm text-text-secondary leading-relaxed">
             서명 링크의 유효기간(7일)이 지났습니다.<br />
@@ -202,7 +203,7 @@ export default function SignContractPage() {
     return (
       <div className="min-h-screen bg-surface-sunken flex items-center justify-center px-4">
         <div className="max-w-sm w-full bg-surface rounded-2xl shadow-soft p-8 text-center space-y-4">
-          <div className="text-4xl">✅</div>
+          <CheckCircle size={40} className="mx-auto text-state-success" />
           <h1 className="text-lg font-bold text-text-primary">서명이 완료되었습니다</h1>
           <p className="text-sm text-text-secondary leading-relaxed">
             계약서 서명이 완료되었습니다.<br />
@@ -220,7 +221,7 @@ export default function SignContractPage() {
     return (
       <div className="min-h-screen bg-surface-sunken flex items-center justify-center px-4">
         <div className="max-w-sm w-full bg-surface rounded-2xl shadow-soft p-8 text-center space-y-4">
-          <div className="text-4xl">⚠️</div>
+          <AlertTriangle size={40} className="mx-auto text-state-warning" />
           <h1 className="text-lg font-bold text-text-primary">접근할 수 없습니다</h1>
           <p className="text-sm text-text-secondary leading-relaxed">{errorMessage}</p>
           <p className="text-xs text-text-tertiary">031-759-4877 / 010-5434-4877</p>

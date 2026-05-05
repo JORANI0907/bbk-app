@@ -6,7 +6,7 @@ import { useModalBackButton } from '@/hooks/useModalBackButton'
 import { MapSelectorModal } from '@/components/MapSelectorModal'
 import { BillingHistoryPanel } from '@/components/admin/BillingHistoryPanel'
 import { Button } from '@/components/ui'
-import { Phone, ClipboardList, Map, Banknote, Save, Megaphone } from 'lucide-react'
+import { Phone, ClipboardList, Map, Banknote, Save, Megaphone, Calendar } from 'lucide-react'
 
 // ─── 타입 ─────────────────────────────────────────────────────
 type CustomerType = '1회성케어' | '정기딥케어' | '정기엔드케어'
@@ -896,7 +896,7 @@ export default function AdminCustomersPage() {
               </Button>
             )}
             <Button size="sm" onClick={handleGenerateSchedulesBulk} disabled={bulkCreating} className="bg-green-600 hover:bg-green-700 text-white whitespace-nowrap">
-              {bulkCreating ? '처리 중...' : '📅 다음달 일정 생성'}
+              {bulkCreating ? '처리 중...' : <><Calendar size={14} className="inline mr-1" />다음달 일정 생성</>}
             </Button>
             <Button size="sm" onClick={handleCreateApplicationBulk} disabled={bulkCreating} className="bg-blue-800 text-white hover:bg-blue-900 whitespace-nowrap">
               {bulkCreating ? '처리 중...' : '서비스 신청서 생성 →'}

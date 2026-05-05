@@ -4,7 +4,7 @@ import { ReactNode } from 'react'
 
 interface EmptyStateProps {
   /**
-   * 이모지 문자열(예: '📋') 또는 ReactNode(SVG 아이콘 등)
+   * 아이콘 문자열(예: lucide 아이콘 이름) 또는 ReactNode(SVG 아이콘 등)
    */
   icon?: string | ReactNode
   title: string
@@ -32,10 +32,10 @@ interface EmptyStateProps {
  * - 모든 페이지가 동일한 빈 상태 톤을 갖도록 강제
  *
  * 사용:
- *   <EmptyState icon="📋" title="등록된 공지사항이 없습니다" />
+ *   <EmptyState icon={<ClipboardList size={40} />} title="등록된 공지사항이 없습니다" />
  *
  *   <EmptyState
- *     icon="🏢"
+ *     icon={<Building2 size={40} />}
  *     title="연결된 고객 정보가 없습니다"
  *     description="관리자에게 문의해주세요."
  *     bordered

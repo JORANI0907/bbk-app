@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import toast from 'react-hot-toast'
-import { Folder, Package, Trash2, Save, Camera } from 'lucide-react'
+import { Folder, Package, Trash2, Save, Camera, Settings, AlertTriangle, Image } from 'lucide-react'
 import {
   loadGoogleAPIs,
   requestGoogleToken,
@@ -610,7 +610,7 @@ export default function AdminInventoryPage() {
                   onClick={handleDriveSetup}
                   title="Drive 저장 위치 설정"
                 >
-                  ⚙️ 저장 위치
+                  <Settings size={14} className="inline mr-1" />저장 위치
                 </Button>
               )}
               {role === 'admin' && (
@@ -632,7 +632,7 @@ export default function AdminInventoryPage() {
           ) : (
             role === 'admin' && (
               <div className="text-xs text-state-warning bg-state-warning-bg rounded-lg px-2 py-1 mb-2">
-                ⚠ 수령/반납 사진 저장을 위해 Drive 저장 위치를 설정해주세요
+                <AlertTriangle size={14} className="inline mr-1" />수령/반납 사진 저장을 위해 Drive 저장 위치를 설정해주세요
               </div>
             )
           )}
@@ -1032,7 +1032,7 @@ export default function AdminInventoryPage() {
                 {!inventoryFolder && (
                   <p className="text-xs text-amber-600 bg-amber-50 rounded-lg px-2 py-1.5 mb-2">
                     {role === 'admin'
-                      ? 'Drive 저장 위치가 설정되지 않았습니다. ⚙️ 저장 위치 버튼에서 설정해주세요.'
+                      ? 'Drive 저장 위치가 설정되지 않았습니다. 저장 위치 버튼에서 설정해주세요.'
                       : 'Drive 저장 위치 미설정 — 사진 없이 처리됩니다.'}
                   </p>
                 )}
@@ -1052,7 +1052,7 @@ export default function AdminInventoryPage() {
                   </label>
                   <label className="flex-1 cursor-pointer">
                     <span className="flex items-center justify-center gap-1 px-3 py-2 rounded-lg bg-surface-sunken border border-border text-sm text-text-secondary hover:bg-surface-sunken transition-colors">
-                      🖼️ 갤러리
+                      <Image size={14} className="inline mr-1" />갤러리
                     </span>
                     <input
                       type="file"
