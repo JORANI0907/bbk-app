@@ -30,6 +30,8 @@ const ALLOWED = [
   'assigned_user_id', 'assigned_worker_id',
   // 성향
   'disposition',
+  // 고객 등급
+  'grade',
 ]
 
 async function createPortalAccount(

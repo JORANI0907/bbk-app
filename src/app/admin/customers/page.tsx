@@ -10,7 +10,8 @@ import { Button } from '@/components/ui'
 // ─── 타입 ─────────────────────────────────────────────────────
 type CustomerType = '1회성케어' | '정기딥케어' | '정기엔드케어'
 type CustomerStatus = 'active' | 'paused' | 'terminated'
-type CustomerDisposition = '호의' | '보통' | '블랙'
+type CustomerDisposition = '호의' | '보통' | '주의'
+type CustomerGrade = '화이트' | '블루' | '블랙'
 type BillingCycle = '월간' | '연간'
 
 interface Customer {
@@ -52,6 +53,7 @@ interface Customer {
   schedule_generation_day?: number | null
   notes: string | null
   disposition: CustomerDisposition | null
+  grade: CustomerGrade | null
   rotation_type: '3개월' | '6개월' | '12개월' | null
   visit_count_per_month: number | null
   payment_status: string[] | null
@@ -98,10 +100,17 @@ const STATUS_STYLE: Record<CustomerStatus, { badge: string; label: string }> = {
   terminated: { badge: 'bg-state-danger-bg text-state-danger',         label: '해지' },
 }
 
-const DISPOSITION_STYLE: Record<CustomerDisposition, { badge: string; label: string }> = {
-  '호의': { badge: 'bg-sky-100 text-sky-700',     label: '호의' },
-  '보통': { badge: 'bg-surface-sunken text-text-secondary',   label: '보통' },
-  '블랙': { badge: 'bg-state-danger-bg text-state-danger',     label: '블랙' },
+const GRADE_STYLE: Record<CustomerGrade, { badge: string; label: string }> = {
+  '화이트': { badge: 'bg-gray-100 text-gray-700',   label: '화이트' },
+  '블루':   { badge: 'bg-sky-100 text-sky-700',     label: '블루' },
+  '블랙':   { badge: 'bg-gray-900 text-white',       label: '블랙' },
+}
+
+const DISPOSITION_STYLE: Record<string, { badge: string; label: string }> = {
+  '호의':  { badge: 'bg-sky-100 text-sky-700',   label: '호의' },
+  '보통':  { badge: 'bg-surface-sunken text-text-secondary', label: '보통' },
+  '주의':  { badge: 'bg-state-warning-bg text-state-warning', label: '주의' },
+  '블랙':  { badge: 'bg-state-danger-bg text-state-danger',  label: '블랙' },  // 하위호환
 }
 
 const EMPTY_FORM = {
@@ -114,6 +123,7 @@ const EMPTY_FORM = {
   customer_type: '1회성케어' as CustomerType,
   status: 'active' as CustomerStatus,
   disposition: '보통' as CustomerDisposition,
+  grade: '' as CustomerGrade | '',
   pipeline_status: 'inquiry',
   billing_cycle: '월간' as BillingCycle,
   billing_amount: '',
@@ -393,6 +403,7 @@ export default function AdminCustomersPage() {
     customer_type: c.customer_type ?? '1회성케어',
     status: c.status ?? 'active',
     disposition: (c.disposition ?? '보통') as CustomerDisposition,
+    grade: (c.grade ?? '') as CustomerGrade | '',
     pipeline_status: c.pipeline_status ?? 'inquiry',
     billing_cycle: c.billing_cycle ?? '월간',
     billing_amount: c.billing_amount?.toString() ?? '',
@@ -516,6 +527,7 @@ export default function AdminCustomersPage() {
     assigned_user_id: form.assigned_user_id || null,
     assigned_worker_id: form.assigned_worker_id || null,
     disposition: form.disposition ?? '보통',
+    grade: form.grade || null,
   })
 
   const autoGenerateBillings = (customerId: string) => {
@@ -1042,13 +1054,26 @@ export default function AdminCustomersPage() {
                 ))}
               </div>
               <div className="flex gap-1.5 mt-2">
-                {(['호의', '보통', '블랙'] as CustomerDisposition[]).map(d => (
+                {(['호의', '보통', '주의'] as CustomerDisposition[]).map(d => (
                   <button key={d} onClick={() => set('disposition')(d)}
                     className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
                       (form.disposition ?? '보통') === d
                         ? `${DISPOSITION_STYLE[d].badge} ring-2 ring-offset-1 ring-current`
                         : 'bg-surface-sunken text-text-secondary hover:bg-surface-sunken'
                     }`}>{d}
+                  </button>
+                ))}
+              </div>
+              {/* 고객 등급 */}
+              <div className="flex gap-1.5 mt-2">
+                <span className="text-xs text-text-tertiary self-center w-8 shrink-0">등급</span>
+                {(['화이트', '블루', '블랙'] as CustomerGrade[]).map(g => (
+                  <button key={g} onClick={() => setForm(f => ({ ...f, grade: f.grade === g ? '' : g }))}
+                    className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+                      form.grade === g
+                        ? `${GRADE_STYLE[g].badge} ring-2 ring-offset-1 ring-current`
+                        : 'bg-surface-sunken text-text-secondary hover:bg-surface-sunken'
+                    }`}>{g}
                   </button>
                 ))}
               </div>
