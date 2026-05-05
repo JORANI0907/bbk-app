@@ -93,8 +93,6 @@ export function NoticesSection({ notices, events }: Props) {
   const currentItems = tabItems[activeTab]
   const totalCount = allItems.length
 
-  if (totalCount === 0) return null
-
   const tabs: { key: TabType; label: string; count: number }[] = [
     { key: 'all', label: '전체', count: totalCount },
     { key: 'notice', label: '공지', count: notices.length },
