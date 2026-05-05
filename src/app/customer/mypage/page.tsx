@@ -100,11 +100,9 @@ export default async function CustomerMyPage() {
         <div className="px-5 py-3.5 border-b border-border-subtle flex items-center gap-2">
           <span className="text-sm font-bold text-text-primary">계정 정보</span>
         </div>
-        <div className="px-5 py-1">
+        <div className="px-5 py-1 pb-4">
           <InfoRow label="이름" value={user.name} />
           <InfoRow label="아이디" value={user.phone ? formatPhone(user.phone) : undefined} />
-        </div>
-        <div className="px-5 pb-4 pt-1">
           <PasswordChangeForm />
         </div>
       </section>

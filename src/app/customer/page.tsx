@@ -14,10 +14,71 @@ const CUSTOMER_TYPE_COLORS: Record<string, string> = {
   '1회성케어': 'bg-surface-sunken text-text-secondary',
 }
 
-const GRADE_BADGE: Record<CustomerGrade, string> = {
-  '화이트': 'bg-white/30 text-white',
-  '블루': 'bg-blue-300/40 text-white',
-  '블랙': 'bg-gray-900/40 text-white',
+const GRADE_TIER: Record<CustomerGrade, { abbr: string; year: string; activeNode: string; futureNode: string }> = {
+  '화이트': {
+    abbr: 'W', year: '1년차',
+    activeNode: 'bg-white text-blue-700 ring-2 ring-white shadow-lg',
+    futureNode: 'bg-white/12 text-white/30',
+  },
+  '블루': {
+    abbr: 'B', year: '2년차',
+    activeNode: 'bg-sky-300 text-sky-900 ring-2 ring-sky-200 shadow-lg',
+    futureNode: 'bg-sky-400/15 text-white/30',
+  },
+  '블랙': {
+    abbr: 'K', year: '3년차',
+    activeNode: 'bg-gray-900 text-white ring-2 ring-gray-400 shadow-lg',
+    futureNode: 'bg-gray-800/25 text-white/30',
+  },
+}
+
+function GradeProgressCard({ currentGrade }: { currentGrade: CustomerGrade }) {
+  const grades: CustomerGrade[] = ['화이트', '블루', '블랙']
+  const currentIdx = grades.indexOf(currentGrade)
+
+  return (
+    <div className="mt-4 rounded-2xl bg-white/10 px-4 py-3.5">
+      <p className="text-[9px] font-bold text-white/50 uppercase tracking-widest mb-3">고객 등급</p>
+      <div className="grid grid-cols-5 items-center mb-2">
+        {grades.flatMap((grade, i) => {
+          const isActive = grade === currentGrade
+          const isPast = i < currentIdx
+          const tier = GRADE_TIER[grade]
+          const circle = (
+            <div key={grade} className="flex justify-center">
+              <div className={`w-11 h-11 rounded-full flex items-center justify-center font-black text-sm transition-all duration-300 ${
+                isActive ? `${tier.activeNode} scale-110` : isPast ? 'bg-white/30 text-white/60' : tier.futureNode
+              }`}>
+                {tier.abbr}
+              </div>
+            </div>
+          )
+          if (i < grades.length - 1) {
+            return [circle, (
+              <div key={`c${i}`} className={`h-px ${i < currentIdx ? 'bg-white/60' : 'bg-white/20'}`} />
+            )]
+          }
+          return [circle]
+        })}
+      </div>
+      <div className="grid grid-cols-5">
+        {grades.flatMap((grade, i) => {
+          const isActive = grade === currentGrade
+          const tier = GRADE_TIER[grade]
+          const label = (
+            <div key={grade} className="flex flex-col items-center gap-0.5">
+              <p className={`text-[10px] font-bold ${isActive ? 'text-white' : 'text-white/40'}`}>{grade}</p>
+              <p className={`text-[9px] ${isActive ? 'text-white/65' : 'text-white/25'}`}>{tier.year}</p>
+            </div>
+          )
+          if (i < grades.length - 1) {
+            return [label, <div key={`s${i}`} />]
+          }
+          return [label]
+        })}
+      </div>
+    </div>
+  )
 }
 
 // 오리지널 월 단가 (방문 횟수별)
@@ -125,18 +186,13 @@ export default async function CustomerHomePage() {
         style={{ background: 'linear-gradient(135deg, #1e40af 0%, #3b82f6 60%, #60a5fa 100%)' }}
       >
         <div className="relative z-10">
-          <div className="flex items-center gap-2 mb-1 flex-wrap">
-            {customer?.customer_type && (
-              <span className={`text-xs px-2 py-0.5 rounded-full font-semibold bg-white/20 text-white`}>
+          {customer?.customer_type && (
+            <div className="mb-1">
+              <span className="text-xs px-2 py-0.5 rounded-full font-semibold bg-white/20 text-white">
                 {customer.customer_type}
               </span>
-            )}
-            {customer?.grade && (
-              <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${GRADE_BADGE[customer.grade]}`}>
-                {customer.grade}
-              </span>
-            )}
-          </div>
+            </div>
+          )}
           <p className="text-white/80 text-sm mb-0.5">안녕하세요</p>
           <h1 className="text-xl font-black text-white leading-tight">
             {customer?.business_name ?? userProfile?.name ?? '고객'}님
@@ -147,6 +203,7 @@ export default async function CustomerHomePage() {
             </p>
           )}
           <p className="text-white/70 text-xs mt-1.5">BBK 공간케어를 이용해 주셔서 감사합니다.</p>
+          {customer?.grade && <GradeProgressCard currentGrade={customer.grade} />}
         </div>
         {/* 장식 원 */}
         <div className="absolute -right-6 -top-6 w-28 h-28 rounded-full bg-white/10" />
