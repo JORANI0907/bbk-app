@@ -1,10 +1,20 @@
 'use client'
 
+import type { ReactNode } from 'react'
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { FileText } from 'lucide-react'
+import { type LucideIcon, FileText, Crown, PenLine, Palette, BarChart2, Camera, Lightbulb, Calendar, Sparkles, Coffee, Image } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { AGENT_CONFIG, AGENT_KEYS, CONTENT_TYPE_META, type AgentKey } from '@/lib/marketing-agents'
+
+const LUCIDE_ICON_MAP: Record<string, LucideIcon> = {
+  Crown, PenLine, Palette, BarChart2, Camera, Lightbulb, Calendar, Sparkles, Coffee, Image,
+}
+
+function renderIcon(name: string, size = 16): ReactNode {
+  const Icon = LUCIDE_ICON_MAP[name]
+  return Icon ? <Icon size={size} /> : null
+}
 
 interface AgentStat {
   agent: string
@@ -121,7 +131,7 @@ export default function TeamPage() {
             <div key={key} className={`rounded-2xl border-2 ${cfg.bgClass} p-5`}>
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
-                  <span className="text-2xl">{cfg.icon}</span>
+                  <span className="flex items-center">{renderIcon(cfg.icon, 24)}</span>
                   <div>
                     <p className="font-bold text-gray-900">{cfg.label}</p>
                     <p className="text-xs text-gray-500">{cfg.role}</p>
@@ -143,7 +153,7 @@ export default function TeamPage() {
                     const meta = CONTENT_TYPE_META[item.content_type]
                     return (
                       <div key={item.id} className="flex items-center gap-3 bg-white rounded-xl px-3 py-2.5">
-                        <span className="text-base flex-shrink-0">{meta?.icon ?? <FileText size={14} />}</span>
+                        <span className="flex items-center flex-shrink-0">{meta?.icon ? renderIcon(meta.icon, 16) : <FileText size={14} />}</span>
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium text-gray-800 truncate">{item.title}</p>
                           <p className="text-xs text-gray-400">
@@ -170,13 +180,13 @@ export default function TeamPage() {
             const meta = CONTENT_TYPE_META[item.content_type]
             return (
               <div key={item.id} className="flex items-start gap-4">
-                <span className={`flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-sm ${cfg.badgeClass}`}>
-                  {cfg.icon}
+                <span className={`flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center ${cfg.badgeClass}`}>
+                  {renderIcon(cfg.icon, 14)}
                 </span>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm text-gray-800">
                     <span className={`font-bold ${cfg.textClass}`}>{cfg.label}</span>
-                    {' — '}{meta?.icon} {item.title}
+                    {' — '}{meta?.icon ? renderIcon(meta.icon, 14) : null} {item.title}
                   </p>
                   <p className="text-xs text-gray-400 mt-0.5">
                     {meta?.label} · {item.region && item.item ? `${item.region} ${item.item} · ` : ''}
@@ -210,7 +220,7 @@ function AgentCard({
   return (
     <Link href={`/admin/marketing/team/${agentKey}`}>
       <div className={`rounded-2xl border-2 ${cfg.bgClass} ${large ? 'px-8 py-5' : 'px-5 py-4'} hover:shadow-md transition-shadow cursor-pointer text-center`}>
-        <span className={large ? 'text-4xl' : 'text-3xl'}>{cfg.icon}</span>
+        <span className="flex items-center justify-center">{renderIcon(cfg.icon, large ? 40 : 32)}</span>
         <p className={`font-bold text-gray-900 mt-2 ${large ? 'text-lg' : 'text-base'}`}>{cfg.label}</p>
         <p className="text-xs text-gray-500">{cfg.role}</p>
         <div className="mt-3 flex items-center justify-center gap-2">

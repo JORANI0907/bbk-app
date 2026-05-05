@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { ClipboardList, Camera, Gift } from 'lucide-react'
 import { NotionContentView } from '@/components/admin/content/NotionContentView'
 
 type Tab = '상품모델' | '시공사례' | '이벤트혜택'
@@ -9,9 +10,9 @@ export default function PublicContentPage() {
   const [tab, setTab] = useState<Tab>('상품모델')
 
   const tabs: { key: Tab; label: string }[] = [
-    { key: '상품모델', label: '📋 상품모델' },
-    { key: '시공사례', label: '📸 시공사례' },
-    { key: '이벤트혜택', label: '🎁 이벤트혜택' },
+    { key: '상품모델', label: '상품모델' },
+    { key: '시공사례', label: '시공사례' },
+    { key: '이벤트혜택', label: '이벤트혜택' },
   ]
 
   return (
@@ -42,7 +43,7 @@ export default function PublicContentPage() {
         <NotionContentView
           dbKey="상품모델"
           title="상품모델"
-          emoji="📋"
+          icon={<ClipboardList size={20} />}
           filterProp="유형"
           filterOptions={['정기딥케어', '정기엔드케어', '1회성케어', '세트상품']}
           columns={[
@@ -62,7 +63,7 @@ export default function PublicContentPage() {
         <NotionContentView
           dbKey="시공사례"
           title="시공사례"
-          emoji="📸"
+          icon={<Camera size={20} />}
           filterProp="tags"
           filterOptions={['베스트사례', '주방', '욕실', '덕트', '후드', '바닥']}
           columns={[
@@ -81,7 +82,7 @@ export default function PublicContentPage() {
         <NotionContentView
           dbKey="이벤트혜택"
           title="이벤트혜택"
-          emoji="🎁"
+          icon={<Gift size={20} />}
           filterProp="혜택유형"
           filterOptions={['멤버십', '재계약', '신규가입']}
           columns={[

@@ -1,3 +1,4 @@
+import { Sparkles } from 'lucide-react'
 import { NotionContentView } from '@/components/admin/content/NotionContentView'
 
 export default function ActivitiesPage() {
@@ -11,7 +12,7 @@ export default function ActivitiesPage() {
       <NotionContentView
         dbKey="관내활동"
         title="관내활동"
-        emoji="🎉"
+        icon={<Sparkles size={20} />}
         filterProp="유형"
         filterOptions={['회식', '워크샵', '교육', '조회', '기타']}
         columns={[

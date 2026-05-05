@@ -1,5 +1,6 @@
 'use client'
 
+import { Target } from 'lucide-react'
 import { NotionContentView } from './NotionContentView'
 
 interface Props {
@@ -12,7 +13,7 @@ export function NotionCustomersPanel({ typeFilter }: Props) {
     <NotionContentView
       dbKey="고객DB"
       title={typeFilter ? `${typeFilter} 고객 (노션)` : '고객DB (노션)'}
-      emoji="🎯"
+      icon={<Target size={20} />}
       filterProp={typeFilter ? undefined : '고객유형'}
       filterOptions={typeFilter ? [] : ['정기딥케어', '정기엔드케어', '1회성케어', '예비']}
       columns={[

@@ -10,6 +10,7 @@ import {
   openFolderPicker,
   resolveFolder,
 } from '@/lib/googleDrive'
+import { Camera, Zap, RefreshCw, Building2, Moon, CheckSquare, Folder, FolderOpen } from 'lucide-react'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -168,7 +169,7 @@ function CameraCapture({ onCapture, onCancel }: CameraProps) {
   if (cameraError) {
     return (
       <div className="flex flex-col items-center gap-4 py-8">
-        <div className="text-4xl">📷</div>
+        <div className="text-4xl"><Camera size={40} /></div>
         <p className="text-sm text-state-danger">{cameraError}</p>
         <button onClick={onCancel} className="px-4 py-2 bg-surface-sunken text-text-primary rounded-xl text-sm font-medium">
           취소
@@ -202,14 +203,14 @@ function CameraCapture({ onCapture, onCancel }: CameraProps) {
               flashEnabled ? 'bg-yellow-400 text-black' : 'bg-black/60 text-white'
             }`}
           >
-            ⚡
+            <Zap size={14} />
           </button>
           <button
             onClick={toggleCamera}
             title="카메라 전환"
             className="w-11 h-11 rounded-full bg-black/60 text-white flex items-center justify-center text-xl shadow-lg"
           >
-            🔄
+            <RefreshCw size={14} />
           </button>
         </div>
       )}
@@ -495,7 +496,7 @@ function WorkerClockView({ workerInfo }: WorkerClockViewProps) {
         <div className="bg-surface-sunken border border-border rounded-2xl p-6 flex flex-col gap-4">
           <div>
             <p className="text-sm font-semibold text-text-primary">
-              {flow === 'clock_in' ? '🟢 출근 처리하시겠습니까?' : '🔴 퇴근 처리하시겠습니까?'}
+              {flow === 'clock_in' ? <><span className="inline-block w-2 h-2 rounded-full bg-green-500 mr-1" />출근 처리하시겠습니까?</> : <><span className="inline-block w-2 h-2 rounded-full bg-red-500 mr-1" />퇴근 처리하시겠습니까?</>}
             </p>
             <p className="text-xs text-text-tertiary mt-1">
               {new Date(selectedDate + 'T12:00:00').toLocaleDateString('ko-KR', {
@@ -647,20 +648,20 @@ function WorkerClockView({ workerInfo }: WorkerClockViewProps) {
       {/* 상태 카드 */}
       {!isClockedIn && (
         <div className="bg-surface-sunken rounded-2xl p-6 flex flex-col items-center gap-4">
-          <div className="w-20 h-20 bg-brand-100 rounded-full flex items-center justify-center text-4xl">🏢</div>
+          <div className="w-20 h-20 bg-brand-100 rounded-full flex items-center justify-center text-4xl"><Building2 size={40} /></div>
           <p className="text-sm text-text-secondary text-center">출근 기록이 없습니다.<br />출근 버튼을 눌러 출근하세요.</p>
           <button
             onClick={() => startFlow('clock_in')}
             className="w-full py-4 bg-brand-600 text-white rounded-2xl text-base font-bold active:scale-95 transition-all shadow-lg shadow-blue-100"
           >
-            🟢 출근하기
+            <span className="inline-block w-2 h-2 rounded-full bg-green-500 mr-1" />출근하기
           </button>
         </div>
       )}
 
       {isClockedIn && !isClockedOut && (
         <div className="bg-surface-sunken rounded-2xl p-6 flex flex-col items-center gap-4">
-          <div className="w-20 h-20 bg-state-success-bg rounded-full flex items-center justify-center text-4xl">✅</div>
+          <div className="w-20 h-20 bg-state-success-bg rounded-full flex items-center justify-center text-4xl"><CheckSquare size={40} /></div>
           <div className="text-center">
             <p className="text-xs text-text-tertiary mb-1">출근 시각</p>
             <p className="text-lg font-bold text-text-primary">{formatTime(selectedRecord!.clock_in)}</p>
@@ -673,7 +674,7 @@ function WorkerClockView({ workerInfo }: WorkerClockViewProps) {
             onClick={() => startFlow('clock_out')}
             className="w-full py-4 bg-gray-800 text-white rounded-2xl text-base font-bold active:scale-95 transition-all"
           >
-            🔴 퇴근하기
+            <span className="inline-block w-2 h-2 rounded-full bg-red-500 mr-1" />퇴근하기
           </button>
           <button
             onClick={() => setPhase('cancel_in_confirm')}
@@ -686,7 +687,7 @@ function WorkerClockView({ workerInfo }: WorkerClockViewProps) {
 
       {isClockedIn && isClockedOut && (
         <div className="bg-surface-sunken rounded-2xl p-6 flex flex-col items-center gap-4">
-          <div className="w-20 h-20 bg-purple-100 rounded-full flex items-center justify-center text-4xl">🌙</div>
+          <div className="w-20 h-20 bg-purple-100 rounded-full flex items-center justify-center text-4xl"><Moon size={40} /></div>
           <p className="text-sm font-semibold text-text-primary">출퇴근 완료</p>
           <div className="w-full flex gap-3">
             <div className="flex-1 bg-surface border border-border rounded-xl p-3 text-center">
@@ -892,10 +893,10 @@ function AdminTableView() {
     <div>
       {/* Drive 사진 저장 위치 설정 */}
       <div className="bg-brand-50 border border-brand-200 rounded-xl px-4 py-3 mb-4 flex flex-wrap items-center gap-3">
-        <span className="text-sm font-semibold text-brand-700 shrink-0">📁 사진 저장 위치</span>
+        <span className="text-sm font-semibold text-brand-700 shrink-0 flex items-center gap-1"><Folder size={14} /> 사진 저장 위치</span>
         {driveFolderName ? (
           <div className="flex items-center gap-2 bg-surface border border-brand-200 rounded-lg px-3 py-1.5 flex-1 min-w-[160px]">
-            <span className="text-base shrink-0">📂</span>
+            <span className="shrink-0"><FolderOpen size={14} /></span>
             <span className="text-xs text-brand-700 font-medium truncate">{driveFolderName}</span>
           </div>
         ) : (
@@ -909,7 +910,7 @@ function AdminTableView() {
           {selectingFolder ? (
             <><span className="w-3 h-3 border border-white border-t-transparent rounded-full animate-spin" />선택 중...</>
           ) : (
-            <>{driveFolderName ? '📁 위치 변경' : '📁 폴더 선택'}</>
+            <><Folder size={14} /> {driveFolderName ? '위치 변경' : '폴더 선택'}</>
           )}
         </button>
         {driveFolderId && (
@@ -1009,7 +1010,7 @@ function AdminTableView() {
                               <span className="font-medium text-text-primary text-sm">{formatTime(rec.clock_in)}</span>
                               {rec.clock_in_photo_url && (
                                 <a href={rec.clock_in_photo_url} target="_blank" rel="noopener noreferrer"
-                                  className="text-brand-500 hover:text-brand-700 text-xs">📷</a>
+                                  className="text-brand-500 hover:text-brand-700 text-xs"><Camera size={16} /></a>
                               )}
                             </div>
                             {(rec.clock_in_lat || rec.clock_in_lng) && (
@@ -1029,7 +1030,7 @@ function AdminTableView() {
                               <span className="font-medium text-text-primary text-sm">{formatTime(rec.clock_out)}</span>
                               {rec.clock_out_photo_url && (
                                 <a href={rec.clock_out_photo_url} target="_blank" rel="noopener noreferrer"
-                                  className="text-brand-500 hover:text-brand-700 text-xs">📷</a>
+                                  className="text-brand-500 hover:text-brand-700 text-xs"><Camera size={16} /></a>
                               )}
                             </div>
                             {(rec.clock_out_lat || rec.clock_out_lng) && (

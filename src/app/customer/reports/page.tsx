@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { format } from 'date-fns'
 import { ko } from 'date-fns/locale'
 import { ServiceSchedule } from '@/types/database'
+import { ClipboardList } from 'lucide-react'
 
 export default async function CustomerReportsPage() {
   const session = getServerSession()
@@ -60,7 +61,7 @@ export default async function CustomerReportsPage() {
 
       {typedSchedules.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 gap-4 text-center">
-          <span className="text-5xl">📋</span>
+          <ClipboardList size={40} className="text-text-tertiary" />
           <div>
             <p className="text-base font-semibold text-text-primary">완료된 서비스가 없습니다</p>
             <p className="text-sm text-text-tertiary mt-1">서비스 완료 후 리포트를 확인하세요.</p>

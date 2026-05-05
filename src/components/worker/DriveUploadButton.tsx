@@ -9,6 +9,7 @@ import {
   GOOGLE_CLIENT_ID,
 } from '@/lib/googleDrive'
 import toast from 'react-hot-toast'
+import { Folder, FolderOpen } from 'lucide-react'
 
 interface Props {
   driveFolderUrl: string
@@ -35,7 +36,7 @@ export function DriveUploadButton({ driveFolderUrl, scheduledDate, businessName 
         rel="noopener noreferrer"
         className="flex-1 py-2.5 bg-brand-50 text-brand-700 text-sm font-semibold rounded-xl flex items-center justify-center gap-1.5 border border-brand-200 active:scale-[0.98] transition-transform"
       >
-        📁 드라이브 보기
+        <Folder size={14} /> 드라이브 보기
       </a>
     )
   }
@@ -122,7 +123,7 @@ export function DriveUploadButton({ driveFolderUrl, scheduledDate, businessName 
         disabled={uploading}
         className="flex-1 py-2.5 bg-brand-50 text-brand-700 text-sm font-semibold rounded-xl flex items-center justify-center gap-1.5 border border-brand-200 active:scale-[0.98] transition-transform disabled:opacity-60"
       >
-        {uploading ? '업로드 중...' : '📁 드라이브 업로드'}
+        {uploading ? '업로드 중...' : <><FolderOpen size={14} /> 드라이브 업로드</>}
       </button>
     </>
   )

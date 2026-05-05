@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { RefreshCw } from 'lucide-react'
 
 /**
  * 앱 캐시/서비스워커 강제 초기화 페이지.
@@ -44,7 +45,7 @@ export default function ForceRefreshPage() {
     <div className="min-h-screen flex items-center justify-center px-6 bg-gray-50">
       <div className="max-w-sm w-full bg-white rounded-2xl border border-gray-100 shadow-sm p-6 text-center">
         <div className="w-14 h-14 mx-auto mb-4 rounded-full bg-blue-100 flex items-center justify-center">
-          <span className="text-2xl">🔄</span>
+          <RefreshCw size={24} className="text-blue-600" />
         </div>
         <h1 className="text-base font-bold text-gray-900 mb-2">앱 새로고침</h1>
         <p className="text-sm text-gray-500">{status}</p>

@@ -191,7 +191,7 @@ export default function AttendancePage() {
           ) : step === 'confirm_clock_out' && pendingRecord?.id === selectedRecord.id ? (
             /* 퇴근 확인 중 */
             <ConfirmCard
-              emoji="🔴"
+              dotColor="red"
               label={`${formatDisplayDate(selectedDate)} 퇴근 처리하시겠습니까?`}
               sub={`출근 시각 ${formatTime(selectedRecord.clock_in)}`}
               confirmLabel="퇴근 확정"
@@ -210,16 +210,17 @@ export default function AttendancePage() {
               </div>
               <button
                 onClick={() => startClockOut(selectedRecord)}
-                className="w-full py-4 bg-gray-800 text-white text-lg font-bold rounded-2xl active:scale-[0.98] transition-all"
+                className="w-full py-4 bg-gray-800 text-white text-lg font-bold rounded-2xl active:scale-[0.98] transition-all flex items-center justify-center gap-2"
               >
-                🔴 퇴근하기
+                <span className="inline-block w-2 h-2 rounded-full bg-red-500" />
+                퇴근하기
               </button>
             </div>
           )
         ) : step === 'confirm_clock_in' ? (
           /* 출근 확인 중 */
           <ConfirmCard
-            emoji="🟢"
+            dotColor="green"
             label={`${formatDisplayDate(selectedDate)} 출근 처리하시겠습니까?`}
             confirmLabel="출근 확정"
             confirmClass="bg-brand-600 text-white"
@@ -231,9 +232,10 @@ export default function AttendancePage() {
           /* 출근 버튼 */
           <button
             onClick={() => setStep('confirm_clock_in')}
-            className="w-full py-4 bg-brand-600 text-white text-lg font-bold rounded-2xl active:scale-[0.98] transition-all"
+            className="w-full py-4 bg-brand-600 text-white text-lg font-bold rounded-2xl active:scale-[0.98] transition-all flex items-center justify-center gap-2"
           >
-            🟢 출근하기
+            <span className="inline-block w-2 h-2 rounded-full bg-green-500" />
+            출근하기
           </button>
         )}
       </div>
@@ -272,9 +274,9 @@ export default function AttendancePage() {
 
 /* ─── 확인 카드 ─── */
 function ConfirmCard({
-  emoji, label, sub, confirmLabel, confirmClass, isSubmitting, onConfirm, onCancel,
+  dotColor, label, sub, confirmLabel, confirmClass, isSubmitting, onConfirm, onCancel,
 }: {
-  emoji: string
+  dotColor: 'green' | 'red'
   label: string
   sub?: string
   confirmLabel: string
@@ -286,7 +288,10 @@ function ConfirmCard({
   return (
     <div className="bg-surface-sunken border border-border rounded-xl p-4 flex flex-col gap-3">
       <div>
-        <p className="text-sm font-semibold text-text-primary">{emoji} {label}</p>
+        <p className="text-sm font-semibold text-text-primary flex items-center gap-1.5">
+          <span className={`inline-block w-2 h-2 rounded-full ${dotColor === 'green' ? 'bg-green-500' : 'bg-red-500'}`} />
+          {label}
+        </p>
         {sub && <p className="text-xs text-text-tertiary mt-0.5">{sub}</p>}
       </div>
       <div className="flex gap-2">

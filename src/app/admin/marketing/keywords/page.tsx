@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { CheckCircle, Circle } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 
 interface Keyword {
@@ -122,11 +123,13 @@ export default function KeywordsPage() {
                           <td key={item} className="px-3 py-3 text-center">
                             {kw.is_used ? (
                               <div className="flex flex-col items-center gap-0.5">
-                                <span className="text-green-500 text-base">✅</span>
+                                <CheckCircle size={16} className="text-green-500" />
                                 {kw.used_date && <span className="text-xs text-gray-300">{kw.used_date.slice(5)}</span>}
                               </div>
                             ) : (
-                              <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-blue-100 text-blue-500 text-xs font-bold">✦</span>
+                              <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-blue-100">
+                                <Circle size={16} className="text-blue-500" />
+                              </span>
                             )}
                           </td>
                         )
@@ -138,8 +141,8 @@ export default function KeywordsPage() {
             </table>
           </div>
           <div className="flex items-center gap-4 px-5 py-3 border-t border-gray-100 bg-gray-50">
-            <div className="flex items-center gap-1.5"><span className="text-green-500 text-sm">✅</span><span className="text-xs text-gray-500">사용완료</span></div>
-            <div className="flex items-center gap-1.5"><span className="text-blue-500 text-sm">✦</span><span className="text-xs text-gray-500">미사용 (사용 가능)</span></div>
+            <div className="flex items-center gap-1.5"><CheckCircle size={14} className="text-green-500" /><span className="text-xs text-gray-500">사용완료</span></div>
+            <div className="flex items-center gap-1.5"><Circle size={14} className="text-blue-500" /><span className="text-xs text-gray-500">미사용 (사용 가능)</span></div>
             <div className="flex items-center gap-1.5"><span className="text-gray-300 text-sm">—</span><span className="text-xs text-gray-500">데이터 없음</span></div>
             <div className="flex items-center gap-1.5"><span className="text-xs bg-orange-100 text-orange-600 px-1.5 py-0.5 rounded-full font-semibold">추천</span><span className="text-xs text-gray-500">우선순위 지역</span></div>
           </div>
@@ -148,14 +151,14 @@ export default function KeywordsPage() {
         /* 목록 뷰 */
         <div className="space-y-4">
           <div>
-            <h2 className="text-sm font-semibold text-blue-600 mb-2">🔵 미사용 키워드 ({unused.length}개)</h2>
+            <h2 className="text-sm font-semibold text-blue-600 mb-2">미사용 키워드 ({unused.length}개)</h2>
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
               <div className="divide-y divide-gray-50">
                 {unused.length === 0 ? (
                   <p className="text-center py-8 text-gray-400">모든 키워드를 사용했어요!</p>
                 ) : unused.map(k => (
                   <div key={k.id} className="flex items-center px-5 py-3 gap-3">
-                    <span className="text-blue-400 font-bold">✦</span>
+                    <Circle size={14} className="text-blue-400" />
                     <span className="font-semibold text-gray-800">{k.region}</span>
                     <span className="text-gray-400">·</span>
                     <span className="text-gray-600">{k.item}</span>
@@ -168,12 +171,12 @@ export default function KeywordsPage() {
             </div>
           </div>
           <div>
-            <h2 className="text-sm font-semibold text-gray-400 mb-2">✅ 사용완료 ({used.length}개)</h2>
+            <h2 className="text-sm font-semibold text-gray-400 mb-2">사용완료 ({used.length}개)</h2>
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
               <div className="divide-y divide-gray-50">
                 {used.map(k => (
                   <div key={k.id} className="flex items-center px-5 py-3 gap-3">
-                    <span className="text-green-500">✅</span>
+                    <CheckCircle size={14} className="text-green-500" />
                     <span className="font-medium text-gray-600">{k.region}</span>
                     <span className="text-gray-300">·</span>
                     <span className="text-gray-500">{k.item}</span>

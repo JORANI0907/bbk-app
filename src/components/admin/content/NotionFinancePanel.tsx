@@ -1,5 +1,6 @@
 'use client'
 
+import { Banknote } from 'lucide-react'
 import { NotionContentView } from './NotionContentView'
 
 interface Props {
@@ -17,7 +18,7 @@ export function NotionFinancePanel({ categoryFilter, title }: Props) {
     <NotionContentView
       dbKey="회계관리"
       title={title ?? '회계관리 (노션)'}
-      emoji="💰"
+      icon={<Banknote size={20} />}
       filterProp={categoryFilter ? undefined : '카테고리'}
       filterOptions={filterOptions}
       columns={[

@@ -1,6 +1,8 @@
 'use client'
 
+import type React from 'react'
 import { useState, useEffect } from 'react'
+import { CheckCircle, AlertTriangle, XCircle, ClipboardList } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 
 interface Run {
@@ -18,14 +20,14 @@ interface Run {
 }
 
 function StatusBadge({ status }: { status: string }) {
-  const map: Record<string, { label: string; cls: string; icon: string }> = {
-    success: { label: '성공', cls: 'bg-green-100 text-green-700', icon: '✅' },
-    partial: { label: '부분성공', cls: 'bg-yellow-100 text-yellow-700', icon: '⚠️' },
-    failed:  { label: '실패', cls: 'bg-red-100 text-red-700', icon: '❌' },
-    running: { label: '실행중', cls: 'bg-blue-100 text-blue-700', icon: '⏳' },
-    pending: { label: '대기', cls: 'bg-gray-100 text-gray-500', icon: '⏸' },
+  const map: Record<string, { label: string; cls: string; icon: React.ReactNode }> = {
+    success: { label: '성공', cls: 'bg-green-100 text-green-700', icon: <CheckCircle size={14} className="text-green-600" /> },
+    partial: { label: '부분성공', cls: 'bg-yellow-100 text-yellow-700', icon: <AlertTriangle size={14} className="text-yellow-600" /> },
+    failed:  { label: '실패', cls: 'bg-red-100 text-red-700', icon: <XCircle size={14} className="text-red-600" /> },
+    running: { label: '실행중', cls: 'bg-blue-100 text-blue-700', icon: null },
+    pending: { label: '대기', cls: 'bg-gray-100 text-gray-500', icon: null },
   }
-  const { label, cls, icon } = map[status] ?? { label: status, cls: 'bg-gray-100 text-gray-500', icon: '?' }
+  const { label, cls, icon } = map[status] ?? { label: status, cls: 'bg-gray-100 text-gray-500', icon: null }
   return (
     <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full ${cls}`}>
       {icon} {label}
@@ -109,7 +111,7 @@ export default function MarketingLogsPage() {
               statusFilter === s ? 'bg-brand-600 text-white' : 'bg-white border border-gray-200 text-gray-600 hover:border-brand-300'
             }`}
           >
-            {s === 'all' ? '전체' : s === 'success' ? '✅ 성공' : s === 'partial' ? '⚠️ 부분' : s === 'failed' ? '❌ 실패' : '⏳ 실행중'}
+            {s === 'all' ? '전체' : s === 'success' ? '성공' : s === 'partial' ? '부분' : s === 'failed' ? '실패' : '실행중'}
           </button>
         ))}
       </div>
@@ -120,7 +122,7 @@ export default function MarketingLogsPage() {
           <div className="flex justify-center py-16"><div className="w-8 h-8 border-4 border-brand-600 border-t-transparent rounded-full animate-spin" /></div>
         ) : runs.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16">
-            <p className="text-3xl mb-2">📋</p>
+            <ClipboardList size={40} className="text-text-tertiary mb-2" />
             <p className="text-gray-400">실행 기록이 없어요</p>
           </div>
         ) : (

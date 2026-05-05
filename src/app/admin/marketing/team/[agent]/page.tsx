@@ -1,12 +1,22 @@
 'use client'
 
+import type { ReactNode } from 'react'
 import { useState, useEffect } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { FileText } from 'lucide-react'
+import { type LucideIcon, FileText, Crown, PenLine, Palette, BarChart2, Camera, Lightbulb, Calendar, Sparkles, Coffee, Image } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { AGENT_CONFIG, CONTENT_TYPE_META, type AgentKey } from '@/lib/marketing-agents'
+
+const LUCIDE_ICON_MAP: Record<string, LucideIcon> = {
+  Crown, PenLine, Palette, BarChart2, Camera, Lightbulb, Calendar, Sparkles, Coffee, Image,
+}
+
+function renderIcon(name: string, size = 16): ReactNode {
+  const Icon = LUCIDE_ICON_MAP[name]
+  return Icon ? <Icon size={size} /> : null
+}
 
 interface ContentItem {
   id: string
@@ -81,7 +91,7 @@ export default function AgentDetailPage() {
       {/* 에이전트 프로필 */}
       <div className={`rounded-2xl border-2 ${cfg.bgClass} p-6`}>
         <div className="flex items-start gap-4">
-          <span className="text-5xl">{cfg.icon}</span>
+          <span className="flex items-center">{renderIcon(cfg.icon, 48)}</span>
           <div className="flex-1">
             <div className="flex items-center gap-3">
               <h1 className="text-2xl font-bold text-gray-900">{cfg.label}</h1>
@@ -119,7 +129,7 @@ export default function AgentDetailPage() {
                 onClick={() => setTypeFilter(t)}
                 className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${typeFilter === t ? 'bg-gray-800 text-white' : 'bg-white border border-gray-200 text-gray-600 hover:border-gray-400'}`}
               >
-                {meta?.icon} {meta?.label ?? t}
+                {meta?.icon ? renderIcon(meta.icon, 14) : null} {meta?.label ?? t}
               </button>
             )
           })}
@@ -174,7 +184,7 @@ export default function AgentDetailPage() {
                           onClick={() => setExpanded(isExpanded ? null : item.id)}
                           className="w-full flex items-center gap-4 px-5 py-4 hover:bg-gray-50 transition-colors text-left"
                         >
-                          <span className="text-xl flex-shrink-0">{meta?.icon ?? <FileText size={14} />}</span>
+                          <span className="flex items-center flex-shrink-0">{meta?.icon ? renderIcon(meta.icon, 20) : <FileText size={14} />}</span>
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-semibold text-gray-800 truncate">{item.title}</p>
                             <p className="text-xs text-gray-400 mt-0.5">

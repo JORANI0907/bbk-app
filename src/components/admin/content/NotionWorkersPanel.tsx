@@ -1,5 +1,6 @@
 'use client'
 
+import { Users } from 'lucide-react'
 import { NotionContentView } from './NotionContentView'
 
 export function NotionWorkersPanel() {
@@ -7,7 +8,7 @@ export function NotionWorkersPanel() {
     <NotionContentView
       dbKey="인사관리"
       title="인사관리 (노션)"
-      emoji="👥"
+      icon={<Users size={20} />}
       filterProp="상태"
       filterOptions={['재직', '휴직', '퇴사']}
       columns={[

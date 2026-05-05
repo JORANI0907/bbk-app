@@ -3,9 +3,18 @@
 import type { ReactNode } from 'react'
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { PenLine } from 'lucide-react'
+import { type LucideIcon, PenLine, Crown, Palette, BarChart2, Camera, Lightbulb, Calendar, Sparkles, Coffee, Image, MapPin } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { AGENT_CONFIG, AGENT_KEYS, CONTENT_TYPE_META, type AgentKey } from '@/lib/marketing-agents'
+
+const LUCIDE_ICON_MAP: Record<string, LucideIcon> = {
+  Crown, PenLine, Palette, BarChart2, Camera, Lightbulb, Calendar, Sparkles, Coffee, Image, MapPin,
+}
+
+function renderIcon(name: string, size = 16): ReactNode {
+  const Icon = LUCIDE_ICON_MAP[name]
+  return Icon ? <Icon size={size} /> : null
+}
 
 interface MarketingStats {
   month: string
@@ -158,7 +167,7 @@ export default function MarketingDashboard() {
               <Link key={key} href={`/admin/marketing/team/${key}`}>
                 <div className={`rounded-2xl border-2 ${cfg.bgClass} p-4 hover:shadow-md transition-shadow`}>
                   <div className="flex items-center gap-2 mb-2">
-                    <span className="text-xl">{cfg.icon}</span>
+                    <span className="flex items-center text-xl">{renderIcon(cfg.icon, 20)}</span>
                     <div>
                       <p className="font-bold text-gray-900 text-sm">{cfg.label}</p>
                       <p className="text-xs text-gray-400">{cfg.role}</p>
@@ -232,13 +241,13 @@ export default function MarketingDashboard() {
                 const meta = CONTENT_TYPE_META[item.content_type]
                 return (
                   <div key={item.id} className="flex items-start gap-3">
-                    <span className={`flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs ${cfg.badgeClass}`}>
-                      {cfg.icon}
+                    <span className={`flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center ${cfg.badgeClass}`}>
+                      {renderIcon(cfg.icon, 14)}
                     </span>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm text-gray-700 truncate">
                         <span className={`font-semibold ${cfg.textClass}`}>{cfg.label}</span>
-                        {' '}{meta?.icon} {item.title}
+                        {' '}{meta?.icon ? renderIcon(meta.icon, 14) : null} {item.title}
                       </p>
                       <p className="text-xs text-gray-400">{item.created_at.slice(0, 10)}</p>
                     </div>

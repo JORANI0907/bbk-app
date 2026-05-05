@@ -1,5 +1,6 @@
 'use client'
 
+import { Package } from 'lucide-react'
 import { NotionContentView } from './NotionContentView'
 
 export function NotionInventoryPanel() {
@@ -7,7 +8,7 @@ export function NotionInventoryPanel() {
     <NotionContentView
       dbKey="재고관리"
       title="재고관리 (노션)"
-      emoji="📦"
+      icon={<Package size={20} />}
       filterProp="상태"
       filterOptions={['정상', '부족', '결품', '단종']}
       columns={[

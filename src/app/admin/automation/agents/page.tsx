@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import { useAgentActivity } from '@/hooks/useAgentActivity'
 import { AgentActivityFeed } from '@/components/admin/automation/AgentActivityFeed'
 import { AgentStatusGrid } from '@/components/admin/automation/AgentStatusGrid'
+import { Map, Zap, RefreshCw } from 'lucide-react'
 
 // react-flow는 SSR 미지원 → dynamic import
 const AgentGraph = dynamic(
@@ -13,7 +14,7 @@ const AgentGraph = dynamic(
   { ssr: false, loading: () => (
     <div className="w-full h-[420px] rounded-2xl border border-gray-200 bg-gray-50 flex items-center justify-center">
       <div className="text-center text-gray-400">
-        <p className="text-3xl mb-2">🔄</p>
+        <div className="mb-2"><RefreshCw size={32} /></div>
         <p className="text-sm">그래프 로딩 중...</p>
       </div>
     </div>
@@ -87,7 +88,7 @@ export default function AgentsPage() {
               activeTab === 'graph' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
             }`}
           >
-            🗺 관계도 · 상태
+            <Map size={14} className="inline mr-1" /> 관계도 · 상태
           </button>
           <button
             onClick={() => setActiveTab('feed')}
@@ -95,7 +96,7 @@ export default function AgentsPage() {
               activeTab === 'feed' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
             }`}
           >
-            ⚡ 실시간 활동
+            <Zap size={14} className="inline mr-1" /> 실시간 활동
             {activeCount > 0 && (
               <span className="absolute top-1.5 right-2 w-2 h-2 bg-green-500 rounded-full animate-pulse" />
             )}

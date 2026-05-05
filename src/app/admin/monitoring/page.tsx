@@ -71,7 +71,7 @@ export default function AdminMonitoringPage() {
 
   const getWorkStepLabel = (step: number): string => {
     const found = WORK_STEPS.find((ws) => ws.step === step)
-    return found ? `${found.icon} ${found.label}` : '대기 중'
+    return found ? found.label : '대기 중'
   }
 
   const getWorkStepProgress = (step: number): number => {

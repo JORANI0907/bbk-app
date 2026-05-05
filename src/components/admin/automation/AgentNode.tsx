@@ -1,9 +1,20 @@
 'use client'
 
+import type { ReactNode } from 'react'
 import { memo } from 'react'
 import { Handle, Position, type Node, type NodeProps } from '@xyflow/react'
+import { type LucideIcon, Target, Monitor, Palette, TestTube2, Rocket, Crown, PenLine, Image, BarChart2, Camera } from 'lucide-react'
 import type { AgentNodeData } from '@/lib/agent-graph-data'
 import { TYPE_COLORS } from '@/lib/agent-graph-data'
+
+const LUCIDE_ICON_MAP: Record<string, LucideIcon> = {
+  Target, Monitor, Palette, TestTube2, Rocket, Crown, PenLine, Image, BarChart2, Camera,
+}
+
+function renderIcon(name: string, size = 20): ReactNode {
+  const Icon = LUCIDE_ICON_MAP[name]
+  return Icon ? <Icon size={size} /> : null
+}
 
 export type AgentFlowNode = Node<AgentNodeData, 'agentNode'>
 
@@ -32,7 +43,7 @@ export const AgentNode = memo(function AgentNode({ data, selected }: NodeProps<A
       <div className="p-3">
         {/* 아이콘 + 이름 */}
         <div className="flex items-center gap-2 mb-1.5">
-          <span className="text-xl leading-none">{data.icon}</span>
+          <span className="flex items-center leading-none">{renderIcon(data.icon, 20)}</span>
           <span className="text-sm font-bold text-gray-900 truncate">{data.displayName}</span>
         </div>
 

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { ScrollText, Wrench } from 'lucide-react'
 import { NotionContentView } from '@/components/admin/content/NotionContentView'
 
 type Tab = '회사규정' | '서비스범위및안내'
@@ -27,7 +28,7 @@ export default function KnowledgePage() {
                 : 'border-transparent text-gray-500 hover:text-gray-700'
             }`}
           >
-            {t === '회사규정' ? '📜 회사규정' : '🔧 서비스범위및안내'}
+            {t === '회사규정' ? '회사규정' : '서비스범위및안내'}
           </button>
         ))}
       </div>
@@ -36,7 +37,7 @@ export default function KnowledgePage() {
         <NotionContentView
           dbKey="회사규정"
           title="회사규정"
-          emoji="📜"
+          icon={<ScrollText size={20} />}
           filterProp="분류"
           filterOptions={['근로', '운영', '안전', '보안', '복리후생', '기타']}
           columns={[
@@ -54,7 +55,7 @@ export default function KnowledgePage() {
         <NotionContentView
           dbKey="서비스범위및안내"
           title="서비스범위및안내"
-          emoji="🔧"
+          icon={<Wrench size={20} />}
           filterProp="카테고리"
           filterOptions={['주방기기', '공간', '위생설비', '설비', '기타']}
           columns={[

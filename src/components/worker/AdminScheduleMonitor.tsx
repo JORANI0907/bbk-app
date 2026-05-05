@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { format, addDays, subDays } from 'date-fns'
 import { ko } from 'date-fns/locale'
 import { SCHEDULE_STATUS_LABELS, SCHEDULE_STATUS_COLORS, WORK_STEPS } from '@/lib/constants'
+import { ClipboardList, PenLine, HardHat } from 'lucide-react'
 
 interface Worker {
   id: string
@@ -108,7 +109,9 @@ function ScheduleRow({ s }: { s: Schedule }) {
       <StepProgressBar step={s.work_step ?? 0} />
 
       {s.worker_memo && (
-        <p className="text-xs text-text-tertiary mt-1.5 truncate">📝 {s.worker_memo}</p>
+        <p className="text-xs text-text-tertiary mt-1.5 truncate flex items-center gap-1">
+          <PenLine size={14} /> {s.worker_memo}
+        </p>
       )}
     </Link>
   )
@@ -123,7 +126,7 @@ function WorkerGroup({ group }: { group: GroupedWorker }) {
     <div className="mb-5">
       <div className="flex items-center justify-between mb-2 px-1">
         <div className="flex items-center gap-2">
-          <span className="text-base">👷</span>
+          <HardHat size={14} className="text-text-secondary shrink-0" />
           <span className="text-sm font-bold text-text-primary">
             {group.worker?.name ?? '미배정'}
           </span>
@@ -256,7 +259,7 @@ export function AdminScheduleMonitor({ initialDate }: { initialDate: string }) {
         </div>
       ) : groups.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 gap-3 text-center">
-          <span className="text-5xl">📋</span>
+          <ClipboardList size={40} className="text-text-tertiary" />
           <p className="text-text-secondary text-sm">이날 배정된 일정이 없습니다.</p>
         </div>
       ) : (

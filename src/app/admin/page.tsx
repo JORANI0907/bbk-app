@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import toast from 'react-hot-toast'
 import { LoadingSpinner } from '@/components/admin/LoadingSpinner'
+import { Camera, ClipboardList } from 'lucide-react'
 
 // ─── 타입 ──────────────────────────────────────────────────────────
 
@@ -150,7 +151,7 @@ function NoticeCard({ notice }: { notice: Notice }) {
                 </span>
               )}
               {notice.image_url && !expanded && (
-                <span className="text-xs text-text-tertiary bg-surface-sunken px-1.5 py-0.5 rounded-full">📷</span>
+                <span className="text-xs text-text-tertiary bg-surface-sunken px-1.5 py-0.5 rounded-full"><Camera size={16} /></span>
               )}
             </div>
 
@@ -434,7 +435,7 @@ export default function AdminHomePage() {
             <LoadingSpinner />
           ) : filteredNotices.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 bg-surface rounded-2xl border border-dashed border-border text-center gap-2">
-              <span className="text-4xl">📋</span>
+              <ClipboardList size={40} />
               <p className="text-text-tertiary text-sm">
                 {filter === 'all' ? '등록된 공지사항이 없습니다.' : filter === 'notice' ? '공지사항이 없습니다.' : '행사 정보가 없습니다.'}
               </p>

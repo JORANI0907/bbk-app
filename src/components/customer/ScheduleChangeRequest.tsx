@@ -5,6 +5,7 @@ import { ServiceSchedule } from '@/types/database'
 import { format } from 'date-fns'
 import { ko } from 'date-fns/locale'
 import { Button } from '@/components/ui'
+import { Calendar } from 'lucide-react'
 
 interface Props {
   upcomingSchedules: ServiceSchedule[]
@@ -66,9 +67,9 @@ export function ScheduleChangeRequest({ upcomingSchedules }: Props) {
       <Button
         onClick={() => setOpen(true)}
         variant="ghost"
-        className="w-full py-3 border border-brand-200 rounded-2xl text-sm font-semibold text-brand-600 hover:bg-brand-50 active:scale-[0.98]"
+        className="w-full py-3 border border-brand-200 rounded-2xl text-sm font-semibold text-brand-600 hover:bg-brand-50 active:scale-[0.98] flex items-center justify-center gap-1.5"
       >
-        📅 일정 변경 요청
+        <Calendar size={14} /> 일정 변경 요청
       </Button>
 
       {open && (

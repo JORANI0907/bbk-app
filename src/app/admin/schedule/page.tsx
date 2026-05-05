@@ -9,6 +9,7 @@ import { MonthNavigator } from '@/components/MonthNavigator'
 import { LoadingSpinner } from '@/components/admin/LoadingSpinner'
 import { MapSelectorModal } from '@/components/MapSelectorModal'
 import { Button } from '@/components/ui'
+import { Phone, Map, Camera, ClipboardList } from 'lucide-react'
 
 // ─── 타입 ──────────────────────────────────────────────────────
 
@@ -440,7 +441,7 @@ function DetailPanel({
                 app.phone ? (
                   <div className="flex items-center gap-1 justify-end">
                     <span>{app.phone}</span>
-                    <a href={`tel:${app.phone}`} className="px-1.5 py-0.5 bg-brand-100 text-brand-600 rounded text-xs hover:bg-brand-200">📞</a>
+                    <a href={`tel:${app.phone}`} className="px-1.5 py-0.5 bg-brand-100 text-brand-600 rounded text-xs hover:bg-brand-200"><Phone size={14} /></a>
                   </div>
                 ) : null
               } />
@@ -452,7 +453,7 @@ function DetailPanel({
                     <button
                       onClick={() => onOpenMap(app.address!)}
                       className="px-1.5 py-0.5 bg-state-success-bg text-state-success rounded text-xs shrink-0 hover:bg-green-200">
-                      🗺️
+                      <Map size={14} />
                     </button>
                   </div>
                 ) : null
@@ -599,7 +600,7 @@ function DetailPanel({
             onClick={handleViewPhotos}
             className="w-full py-3 rounded-xl"
           >
-            📷 사진보기 (Google Drive)
+            <Camera size={16} /> 사진보기 (Google Drive)
           </Button>
         </div>
       </div>
@@ -1077,7 +1078,7 @@ export default function SchedulePage() {
         <div ref={listContainerRef} className="flex-1 bg-surface rounded-xl border border-border overflow-auto min-h-0 pb-20 md:pb-0">
           {filteredApps.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full gap-3 text-center py-20">
-              <span className="text-5xl">📋</span>
+              <ClipboardList size={40} />
               <p className="text-text-tertiary text-sm">해당 조건의 일정이 없습니다.</p>
             </div>
           ) : (
@@ -1141,7 +1142,7 @@ export default function SchedulePage() {
                       <td className="px-4 py-3 max-w-[160px]">
                         <div className="flex items-center gap-1.5">
                           <span className="font-medium text-text-primary truncate text-sm">{app.business_name}</span>
-                          {app.drive_folder_url && <span className="text-brand-400 text-xs shrink-0">📷</span>}
+                          {app.drive_folder_url && <span className="text-brand-400 text-xs shrink-0"><Camera size={14} /></span>}
                           {app.work_status === 'in_progress' && (
                             <span className="w-1.5 h-1.5 rounded-full bg-orange-500 animate-pulse shrink-0" />
                           )}
@@ -1180,7 +1181,7 @@ export default function SchedulePage() {
                           onClick={e => handleListViewPhotos(e, app)}
                           className="px-2 py-1 text-xs bg-brand-50 text-brand-600 border border-brand-200 rounded-lg hover:bg-brand-100 transition-colors whitespace-nowrap"
                         >
-                          📷
+                          <Camera size={14} />
                         </button>
                       </td>
                     </tr>

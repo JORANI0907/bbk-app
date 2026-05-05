@@ -33,11 +33,11 @@ export const SCHEDULE_STATUS_COLORS: Record<ScheduleStatus, string> = {
 }
 
 export const WORK_STEPS = [
-  { step: 1, label: '현장 도착', icon: '📍', description: '현장 위치 확인 및 도착 기록' },
-  { step: 2, label: 'Before 촬영', icon: '📸', description: '작업 전 상태 사진 촬영' },
-  { step: 3, label: '작업 수행', icon: '🧹', description: '체크리스트 항목별 작업' },
-  { step: 4, label: 'After 촬영', icon: '✨', description: '작업 후 상태 사진 촬영' },
-  { step: 5, label: '완료 보고', icon: '✅', description: '마감 체크리스트 확인 및 완료' },
+  { step: 1, label: '현장 도착', icon: 'MapPin', description: '현장 위치 확인 및 도착 기록' },
+  { step: 2, label: 'Before 촬영', icon: 'Camera', description: '작업 전 상태 사진 촬영' },
+  { step: 3, label: '작업 수행', icon: 'Sparkles', description: '체크리스트 항목별 작업' },
+  { step: 4, label: 'After 촬영', icon: 'Camera', description: '작업 후 상태 사진 촬영' },
+  { step: 5, label: '완료 보고', icon: 'CheckSquare', description: '마감 체크리스트 확인 및 완료' },
 ]
 
 export const SERVICE_GRADE_LABELS = {

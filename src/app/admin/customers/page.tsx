@@ -6,6 +6,7 @@ import { useModalBackButton } from '@/hooks/useModalBackButton'
 import { MapSelectorModal } from '@/components/MapSelectorModal'
 import { BillingHistoryPanel } from '@/components/admin/BillingHistoryPanel'
 import { Button } from '@/components/ui'
+import { Phone, ClipboardList, Map, Banknote, Save, Megaphone } from 'lucide-react'
 
 // ─── 타입 ─────────────────────────────────────────────────────
 type CustomerType = '1회성케어' | '정기딥케어' | '정기엔드케어'
@@ -748,13 +749,13 @@ export default function AdminCustomersPage() {
             // 시공정보
             care_scope: c.care_scope,
             request_notes: c.special_notes,
-            // 결제정보
+            // 결제정보 (연간 계약주기인 경우 금액 매핑 제외)
             payment_method: c.payment_method,
-            unit_price_per_visit: (serviceType === '정기딥케어' || serviceType === '정기엔드케어') ? (c.unit_price ?? null) : null,
-            deposit: c.deposit,
-            supply_amount: c.supply_amount,
-            vat: c.vat,
-            balance: c.balance,
+            unit_price_per_visit: (c.billing_cycle === '연간') ? null : ((serviceType === '정기딥케어' || serviceType === '정기엔드케어') ? (c.unit_price ?? null) : null),
+            deposit: (c.billing_cycle === '연간') ? null : c.deposit,
+            supply_amount: (c.billing_cycle === '연간') ? null : c.supply_amount,
+            vat: (c.billing_cycle === '연간') ? null : c.vat,
+            balance: (c.billing_cycle === '연간') ? null : c.balance,
             // 메타
             service_type: serviceType,
             admin_notes: `고객 DB에서 생성 (${new Date().toLocaleDateString('ko-KR')})`,
@@ -897,7 +898,7 @@ export default function AdminCustomersPage() {
             <Button size="sm" onClick={handleGenerateSchedulesBulk} disabled={bulkCreating} className="bg-green-600 hover:bg-green-700 text-white whitespace-nowrap">
               {bulkCreating ? '처리 중...' : '📅 다음달 일정 생성'}
             </Button>
-            <Button size="sm" onClick={handleCreateApplicationBulk} disabled={bulkCreating} className="bg-white text-blue-700 hover:bg-blue-50 whitespace-nowrap">
+            <Button size="sm" onClick={handleCreateApplicationBulk} disabled={bulkCreating} className="bg-blue-800 text-white hover:bg-blue-900 whitespace-nowrap">
               {bulkCreating ? '처리 중...' : '서비스 신청서 생성 →'}
             </Button>
           </div>
@@ -1123,8 +1124,8 @@ export default function AdminCustomersPage() {
                   <div className="flex flex-1 gap-1">
                     <input value={form.contact_phone} onChange={e => set('contact_phone')(e.target.value)}
                       className="flex-1 border border-border rounded-lg px-2 py-1.5 text-xs text-text-primary focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                    <a href={`tel:${form.contact_phone}`} className="px-2 py-1.5 text-xs bg-brand-50 text-brand-600 rounded-lg hover:bg-brand-100">📞</a>
-                    <button onClick={() => navigator.clipboard.writeText(form.contact_phone).then(() => toast.success('연락처 복사됨'))} className="px-2 py-1.5 text-xs bg-surface-sunken rounded-lg hover:bg-surface-sunken">📋</button>
+                    <a href={`tel:${form.contact_phone}`} className="px-2 py-1.5 text-xs bg-brand-50 text-brand-600 rounded-lg hover:bg-brand-100"><Phone size={14} /></a>
+                    <button onClick={() => navigator.clipboard.writeText(form.contact_phone).then(() => toast.success('연락처 복사됨'))} className="px-2 py-1.5 text-xs bg-surface-sunken rounded-lg hover:bg-surface-sunken"><ClipboardList size={14} /></button>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
@@ -1138,7 +1139,7 @@ export default function AdminCustomersPage() {
                     <input value={form.address} onChange={e => set('address')(e.target.value)}
                       className="flex-1 border border-border rounded-lg px-2 py-1.5 text-xs text-text-primary focus:outline-none focus:ring-2 focus:ring-blue-500" />
                     <button onClick={() => setMapAddress(form.address)}
-                      className="px-2 py-1.5 text-xs bg-green-50 text-green-700 rounded-lg hover:bg-green-100 shrink-0">🗺️</button>
+                      className="px-2 py-1.5 text-xs bg-green-50 text-green-700 rounded-lg hover:bg-green-100 shrink-0"><Map size={14} /></button>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
@@ -1226,7 +1227,7 @@ export default function AdminCustomersPage() {
                   <div className="flex flex-1 gap-1">
                     <input value={form.account_number} onChange={e => set('account_number')(e.target.value)}
                       className="flex-1 border border-border rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono" />
-                    <button onClick={() => navigator.clipboard.writeText(form.account_number).then(() => toast.success('계좌번호 복사됨'))} className="px-2 py-1.5 text-xs bg-surface-sunken rounded-lg hover:bg-surface-sunken">📋</button>
+                    <button onClick={() => navigator.clipboard.writeText(form.account_number).then(() => toast.success('계좌번호 복사됨'))} className="px-2 py-1.5 text-xs bg-surface-sunken rounded-lg hover:bg-surface-sunken"><ClipboardList size={14} /></button>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
@@ -1234,7 +1235,7 @@ export default function AdminCustomersPage() {
                   <div className="flex flex-1 gap-1">
                     <input value={form.business_number} onChange={e => set('business_number')(e.target.value)}
                       className="flex-1 border border-border rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono" />
-                    <button onClick={() => navigator.clipboard.writeText(form.business_number).then(() => toast.success('사업자번호 복사됨'))} className="px-2 py-1.5 text-xs bg-surface-sunken rounded-lg hover:bg-surface-sunken">📋</button>
+                    <button onClick={() => navigator.clipboard.writeText(form.business_number).then(() => toast.success('사업자번호 복사됨'))} className="px-2 py-1.5 text-xs bg-surface-sunken rounded-lg hover:bg-surface-sunken"><ClipboardList size={14} /></button>
                   </div>
                 </div>
               </div>
@@ -1250,7 +1251,7 @@ export default function AdminCustomersPage() {
                 <div className="p-4 flex flex-col gap-3">
                   {isNoVatMethod(form.payment_method) && (
                     <div className="px-3 py-2 bg-amber-50 border border-amber-200 rounded-lg">
-                      <p className="text-xs text-amber-700 font-semibold">💵 현금 결제 — 부가세 미적용</p>
+                      <p className="text-xs text-amber-700 font-semibold flex items-center gap-1"><Banknote size={14} /> 현금 결제 — 부가세 미적용</p>
                     </div>
                   )}
                   <div className="grid grid-cols-2 gap-2">
@@ -1320,7 +1321,7 @@ export default function AdminCustomersPage() {
                     {/* 금액 섹션 */}
                     {isNoVatMethod(form.payment_method) && (
                       <div className="px-3 py-2 bg-amber-50 border border-amber-200 rounded-lg">
-                        <p className="text-xs text-amber-700 font-semibold">💵 현금 결제 — 부가세 미적용</p>
+                        <p className="text-xs text-amber-700 font-semibold flex items-center gap-1"><Banknote size={14} /> 현금 결제 — 부가세 미적용</p>
                       </div>
                     )}
                     <div className="grid grid-cols-2 gap-2">
@@ -1421,7 +1422,7 @@ export default function AdminCustomersPage() {
                     {/* 금액 섹션 */}
                     {isNoVatMethod(form.payment_method) && (
                       <div className="px-3 py-2 bg-amber-50 border border-amber-200 rounded-lg">
-                        <p className="text-xs text-amber-700 font-semibold">💵 현금 결제 — 부가세 미적용</p>
+                        <p className="text-xs text-amber-700 font-semibold flex items-center gap-1"><Banknote size={14} /> 현금 결제 — 부가세 미적용</p>
                       </div>
                     )}
                     <div className="grid grid-cols-2 gap-2">
@@ -1555,7 +1556,7 @@ export default function AdminCustomersPage() {
             {/* 저장 버튼 — worker는 읽기 전용 */}
             {!isWorker && (
               <Button onClick={handleSave} disabled={saving} size="lg" className="w-full">
-                {saving ? '저장 중...' : isNew ? '✚ 고객 추가' : '💾 저장'}
+                {saving ? '저장 중...' : isNew ? '✚ 고객 추가' : <><Save size={14} /> 저장</>}
               </Button>
             )}
             {isWorker && (
@@ -1596,7 +1597,7 @@ export default function AdminCustomersPage() {
                       {notifyOptions.map(t => <option key={t} value={t}>{t}</option>)}
                     </select>
                     <Button onClick={handleNotify} disabled={sending || !notifyType} className="bg-orange-500 hover:bg-orange-600 text-white whitespace-nowrap">
-                      {sending ? '발송 중...' : '📣 발송'}
+                      {sending ? '발송 중...' : <><Megaphone size={14} /> 발송</>}
                     </Button>
                   </div>
                   {notifyType && (

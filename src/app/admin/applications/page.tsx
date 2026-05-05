@@ -20,6 +20,7 @@ import { MapSelectorModal } from '@/components/MapSelectorModal'
 import { ShoppingItemsSection } from '@/components/admin/ShoppingItemsSection'
 import { getScheduleToday } from '@/lib/schedule-today'
 import { Button } from '@/components/ui'
+import { Phone, ClipboardList, Map, Folder, FolderOpen, FileText, PenLine, Link, Save, Megaphone, AlertTriangle, Banknote, Camera } from 'lucide-react'
 
 type ServiceType = '1회성케어' | '정기딥케어' | '정기엔드케어'
 type ApplicationStatus = '신규' | '견적발송' | '예약확정' | '예약1일전' | '예약당일' | '작업완료' | '작업완료(엔드)' | '결제' | '결제완료' | '결제완료(잔금)' | '계산서발행완료' | '비과세' | '카드결제 완료' | '예약금환급완료' | '예약금 입금' | '예약취소' | 'A/S방문' | '방문견적'
@@ -1313,7 +1314,7 @@ export default function ServiceManagementPage() {
               }`}>
                 {showUnassigned && '✓'}
               </span>
-              ⚠️ 미배정
+              <AlertTriangle size={14} className="inline" /> 미배정
               {unassignedCount > 0 && (
                 <span className="ml-0.5 bg-orange-100 text-orange-600 px-1.5 py-0.5 rounded-full text-xs">{unassignedCount}</span>
               )}
@@ -1420,7 +1421,7 @@ export default function ServiceManagementPage() {
                 <Button size="sm" onClick={handleTaxInvoiceBulk} disabled={bulkSaving} className="bg-teal-500 hover:bg-teal-400 text-white whitespace-nowrap">
                   {bulkSaving ? '처리 중...' : '계산서 작성'}
                 </Button>
-                <Button size="sm" onClick={handleSaveToCustomerBulk} disabled={bulkSaving} className="bg-surface text-green-700 hover:bg-green-50 whitespace-nowrap">
+                <Button size="sm" onClick={handleSaveToCustomerBulk} disabled={bulkSaving} className="bg-green-800 text-white hover:bg-green-900 whitespace-nowrap">
                   {bulkSaving ? '처리 중...' : '고객 DB 저장 →'}
                 </Button>
               </div>
@@ -1781,8 +1782,8 @@ export default function ServiceManagementPage() {
                     <div className="flex flex-1 gap-1">
                       <input value={phone} onChange={e => setPhone(e.target.value)}
                         className="flex-1 border border-border rounded-lg px-2 py-1.5 text-xs text-text-primary focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                      <a href={`tel:${phone}`} className="px-2 py-1.5 text-xs bg-brand-50 text-brand-600 rounded-lg hover:bg-brand-100">📞</a>
-                      <button onClick={() => copyText(phone, '연락처')} className="px-2 py-1.5 text-xs bg-surface-sunken rounded-lg hover:bg-surface-sunken">📋</button>
+                      <a href={`tel:${phone}`} className="px-2 py-1.5 text-xs bg-brand-50 text-brand-600 rounded-lg hover:bg-brand-100"><Phone size={14} /></a>
+                      <button onClick={() => copyText(phone, '연락처')} className="px-2 py-1.5 text-xs bg-surface-sunken rounded-lg hover:bg-surface-sunken"><ClipboardList size={14} /></button>
                     </div>
                   </div>
                   <EditRow label="이메일" value={email} onChange={setEmail} />
@@ -1792,7 +1793,7 @@ export default function ServiceManagementPage() {
                       <input value={address} onChange={e => setAddress(e.target.value)}
                         className="flex-1 border border-border rounded-lg px-2 py-1.5 text-xs text-text-primary focus:outline-none focus:ring-2 focus:ring-blue-500" />
                       <button onClick={() => setMapAddress(address)}
-                        className="px-2 py-1.5 text-xs bg-green-50 text-green-700 rounded-lg hover:bg-green-100 shrink-0">🗺️</button>
+                        className="px-2 py-1.5 text-xs bg-green-50 text-green-700 rounded-lg hover:bg-green-100 shrink-0"><Map size={14} /></button>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
@@ -1869,7 +1870,7 @@ export default function ServiceManagementPage() {
                     <div className="flex flex-1 gap-1">
                       <input value={accountNumber} onChange={e => setAccountNumber(e.target.value)}
                         className="flex-1 border border-border rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono" />
-                      <button onClick={() => copyText(accountNumber, '계좌번호')} className="px-2 py-1.5 text-xs bg-surface-sunken rounded-lg hover:bg-surface-sunken">📋</button>
+                      <button onClick={() => copyText(accountNumber, '계좌번호')} className="px-2 py-1.5 text-xs bg-surface-sunken rounded-lg hover:bg-surface-sunken"><ClipboardList size={14} /></button>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
@@ -1877,7 +1878,7 @@ export default function ServiceManagementPage() {
                     <div className="flex flex-1 gap-1">
                       <input value={businessNumber} onChange={e => setBusinessNumber(e.target.value)}
                         className="flex-1 border border-border rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono" />
-                      <button onClick={() => copyText(businessNumber, '사업자번호')} className="px-2 py-1.5 text-xs bg-surface-sunken rounded-lg hover:bg-surface-sunken">📋</button>
+                      <button onClick={() => copyText(businessNumber, '사업자번호')} className="px-2 py-1.5 text-xs bg-surface-sunken rounded-lg hover:bg-surface-sunken"><ClipboardList size={14} /></button>
                     </div>
                   </div>
                 </div>
@@ -1887,7 +1888,7 @@ export default function ServiceManagementPage() {
               <Section title="금액 정보">
                 {isCashNoVat && (
                   <div className="mb-3 px-3 py-2 bg-amber-50 border border-amber-200 rounded-lg">
-                    <p className="text-xs text-amber-700 font-semibold">💵 현금 결제 — 부가세 미적용</p>
+                    <p className="text-xs text-amber-700 font-semibold flex items-center gap-1"><Banknote size={14} /> 현금 결제 — 부가세 미적용</p>
                   </div>
                 )}
                 <div className="space-y-2">
@@ -1924,7 +1925,7 @@ export default function ServiceManagementPage() {
                     {NOTIFICATION_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
                   </select>
                   <Button onClick={handleNotify} disabled={sending || !notifyType} className="bg-orange-500 hover:bg-orange-600 text-white whitespace-nowrap">
-                    {sending ? '발송 중...' : '📣 발송'}
+                    {sending ? '발송 중...' : <><Megaphone size={14} /> 발송</>}
                   </Button>
                 </div>
                 {notifyType && (() => {
@@ -1997,7 +1998,7 @@ export default function ServiceManagementPage() {
                 <div className="space-y-2">
                   {driveConfirming ? (
                     <div className="bg-green-50 border border-green-200 rounded-lg p-3 space-y-2">
-                      <p className="text-xs text-green-800 font-medium">📂 <span className="font-bold">{savedDriveFolder?.name}</span> 에 생성할까요?</p>
+                      <p className="text-xs text-green-800 font-medium flex items-center gap-1"><FolderOpen size={14} /> <span className="font-bold">{savedDriveFolder?.name}</span> 에 생성할까요?</p>
                       <div className="flex gap-2">
                         <Button size="sm" onClick={executeDriveCreateWithSaved} disabled={driveCreating} className="flex-1 bg-green-600 hover:bg-green-700 text-white">
                           이 위치에 생성
@@ -2009,7 +2010,7 @@ export default function ServiceManagementPage() {
                     </div>
                   ) : (
                     <Button onClick={handleDriveCreate} disabled={driveCreating} className="w-full bg-green-600 hover:bg-green-700 text-white">
-                      <span>📁</span><span>{driveCreating ? '생성 중...' : (selected?.drive_folder_url ? '폴더 위치 변경' : '폴더 생성')}</span>
+                      <Folder size={14} /><span>{driveCreating ? '생성 중...' : (selected?.drive_folder_url ? '폴더 위치 변경' : '폴더 생성')}</span>
                     </Button>
                   )}
                   <button
@@ -2022,7 +2023,7 @@ export default function ServiceManagementPage() {
                     }}
                     className={`flex items-center gap-2 text-xs ${selected.drive_folder_url ? 'text-green-600 hover:text-green-700' : 'text-text-tertiary cursor-not-allowed'}`}
                   >
-                    <span>🔗</span><span className="truncate">Drive 폴더 열기</span>
+                    <Link size={14} /><span className="truncate">Drive 폴더 열기</span>
                   </button>
                 </div>
               </Section>
@@ -2032,7 +2033,7 @@ export default function ServiceManagementPage() {
                 <a href={`https://notion.so/${selected.notion_page_id.replace(/-/g, '')}`}
                   target="_blank" rel="noopener noreferrer"
                   className="flex items-center gap-2 text-sm text-text-secondary hover:text-text-primary">
-                  <span>📝</span> Notion에서 보기
+                  <PenLine size={14} /> Notion에서 보기
                 </a>
               )}
 
@@ -2043,12 +2044,12 @@ export default function ServiceManagementPage() {
                     const errors = getQuoteValidationErrors()
                     return errors.length > 0 ? (
                       <div className="px-3 py-2 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-700">
-                        ⚠️ {errors.join(', ')} 미작성 됨
+                        <AlertTriangle size={14} className="inline" /> {errors.join(', ')} 미작성 됨
                       </div>
                     ) : null
                   })()}
                   <Button onClick={handleSendQuote} disabled={quoteSending} className="w-full">
-                    <span>📄</span>
+                    <FileText size={14} />
                     <span>{quoteSending ? '발송 중...' : '견적서 보내기'}</span>
                   </Button>
                   {quoteLog && (
@@ -2059,7 +2060,7 @@ export default function ServiceManagementPage() {
                       {quoteLog.pdfUrl && (
                         <a href={quoteLog.pdfUrl} target="_blank" rel="noopener noreferrer"
                           className="flex items-center gap-1.5 text-xs text-brand-600 hover:text-brand-700 underline px-1">
-                          <span>📄</span>견적서 확인
+                          <FileText size={14} />견적서 확인
                         </a>
                       )}
                     </div>
@@ -2069,7 +2070,7 @@ export default function ServiceManagementPage() {
 
               {/* 전체 저장 */}
               <Button onClick={handleSave} disabled={saving} size="lg" className="w-full">
-                {saving ? '저장 중...' : '💾 전체 저장'}
+                {saving ? '저장 중...' : <><Save size={14} /> 전체 저장</>}
               </Button>
             </div>
           </div>

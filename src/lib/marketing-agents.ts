@@ -2,7 +2,7 @@
 
 export const AGENT_CONFIG = {
   LEADER: {
-    icon: '👑',
+    icon: 'Crown',
     label: 'LEADER',
     role: '팀장 / 검토 / 승인',
     desc: '팀 지휘, 결과물 검토, 캘린더 발행',
@@ -13,7 +13,7 @@ export const AGENT_CONFIG = {
     contentTypes: ['weekly_calendar', 'monthly_report'],
   },
   MKT: {
-    icon: '📝',
+    icon: 'PenLine',
     label: 'MKT',
     role: '콘텐츠 담당',
     desc: '블로그, 인스타그램, 해시태그, 콘텐츠 캘린더',
@@ -24,7 +24,7 @@ export const AGENT_CONFIG = {
     contentTypes: ['blog', 'insta', 'insta_tips', 'insta_service', 'insta_lifestyle', 'insta_beforeafter', 'insta_event'],
   },
   DSN: {
-    icon: '🎨',
+    icon: 'Palette',
     label: 'DSN',
     role: '디자인 담당',
     desc: '블로그 썸네일, 인스타 이미지 프롬프트',
@@ -35,7 +35,7 @@ export const AGENT_CONFIG = {
     contentTypes: ['thumbnail', 'image_prompt'],
   },
   STR: {
-    icon: '📊',
+    icon: 'BarChart2',
     label: 'STR',
     role: '전략 담당',
     desc: '키워드 전략, 경쟁사 분석, 월간 리포트',
@@ -52,17 +52,17 @@ export type AgentKey = keyof typeof AGENT_CONFIG
 export const AGENT_KEYS: AgentKey[] = ['LEADER', 'MKT', 'DSN', 'STR']
 
 export const CONTENT_TYPE_META: Record<string, { label: string; icon: string; agent: AgentKey }> = {
-  blog:                { label: '블로그',              icon: '📝',  agent: 'MKT'    },
-  insta:               { label: '인스타',               icon: '📸',  agent: 'MKT'    },
-  insta_tips:          { label: '인스타 Tips',          icon: '💡',  agent: 'MKT'    },
-  insta_service:       { label: '인스타 서비스',         icon: '🧹',  agent: 'MKT'    },
-  insta_lifestyle:     { label: '인스타 라이프스타일',    icon: '☕',  agent: 'MKT'    },
-  insta_beforeafter:   { label: '인스타 Before/After',  icon: '✨',  agent: 'MKT'    },
-  insta_event:         { label: '인스타 시즌/이벤트',     icon: '🎉',  agent: 'MKT'    },
-  thumbnail:           { label: '블로그 썸네일',          icon: '🖼️',  agent: 'DSN'    },
-  image_prompt:        { label: '이미지 프롬프트',        icon: '🎨',  agent: 'DSN'    },
-  weekly_calendar:     { label: '주간 캘린더',            icon: '📅',  agent: 'LEADER' },
-  monthly_report:      { label: '월간 리포트',            icon: '📋',  agent: 'LEADER' },
-  keyword_strategy:    { label: '키워드 전략',            icon: '🔍',  agent: 'STR'    },
-  competitor_analysis: { label: '경쟁사 분석',            icon: '🔎',  agent: 'STR'    },
+  blog:                { label: '블로그',              icon: 'PenLine',   agent: 'MKT'    },
+  insta:               { label: '인스타',               icon: 'Camera',    agent: 'MKT'    },
+  insta_tips:          { label: '인스타 Tips',          icon: 'Lightbulb', agent: 'MKT'    },
+  insta_service:       { label: '인스타 서비스',         icon: 'Sparkles',  agent: 'MKT'    },
+  insta_lifestyle:     { label: '인스타 라이프스타일',    icon: 'Coffee',    agent: 'MKT'    },
+  insta_beforeafter:   { label: '인스타 Before/After',  icon: 'Sparkles',  agent: 'MKT'    },
+  insta_event:         { label: '인스타 시즌/이벤트',     icon: 'Sparkles',  agent: 'MKT'    },
+  thumbnail:           { label: '블로그 썸네일',          icon: 'Image',     agent: 'DSN'    },
+  image_prompt:        { label: '이미지 프롬프트',        icon: 'Palette',   agent: 'DSN'    },
+  weekly_calendar:     { label: '주간 캘린더',            icon: 'Calendar',  agent: 'LEADER' },
+  monthly_report:      { label: '월간 리포트',            icon: 'BarChart2', agent: 'LEADER' },
+  keyword_strategy:    { label: '키워드 전략',            icon: 'PenLine',   agent: 'STR'    },
+  competitor_analysis: { label: '경쟁사 분석',            icon: 'PenLine',   agent: 'STR'    },
 }

@@ -6,6 +6,7 @@ import { ko } from 'date-fns/locale'
 import { ServiceSchedule, WorkPhoto, WorkChecklist, ClosingChecklist } from '@/types/database'
 import { BeforeAfterSlider } from '@/components/customer/BeforeAfterSlider'
 import { SatisfactionFormWrapper } from './SatisfactionFormWrapper'
+import { ClipboardList } from 'lucide-react'
 
 interface PageProps {
   params: { id: string }
@@ -175,7 +176,7 @@ export default async function CustomerReportDetailPage({ params }: PageProps) {
       {/* 담당자 메모 (관리자 공개 승인된 경우만) */}
       {typedSchedule.worker_memo && typedSchedule.memo_visible && (
         <div className="bg-state-warning-bg rounded-2xl border border-amber-100 p-4">
-          <p className="text-xs font-semibold text-state-warning mb-2">📋 담당자 메모</p>
+          <p className="text-xs font-semibold text-state-warning mb-2 flex items-center gap-1"><ClipboardList size={14} /> 담당자 메모</p>
           <p className="text-sm text-text-primary whitespace-pre-wrap">{typedSchedule.worker_memo}</p>
         </div>
       )}

@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import toast from 'react-hot-toast'
+import { FileText } from 'lucide-react'
 import { Button } from '@/components/ui'
 import { SectionHeader } from '@/components/ui'
 import { EmptyState } from '@/components/ui'
@@ -138,7 +139,7 @@ export default function ContractTemplatesPage() {
       ) : templates.length === 0 ? (
         <div className="bg-surface rounded-2xl shadow-soft p-6">
           <EmptyState
-            icon="📄"
+            icon={<FileText size={40} />}
             title="아직 양식이 없습니다"
             description="'새 양식 만들기' 버튼을 눌러 첫 계약서 양식을 생성하세요."
             action={

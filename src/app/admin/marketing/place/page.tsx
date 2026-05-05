@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { Check } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import toast from 'react-hot-toast'
 
@@ -242,7 +243,7 @@ export default function NaverPlacePage() {
                         : 'bg-red-100 text-red-600 hover:bg-green-100 hover:text-green-700'
                     }`}
                   >
-                    {r.is_replied ? '✅ 답글완료' : '답글하기'}
+                    {r.is_replied ? <><Check size={14} className="inline mr-1" />답글완료</> : '답글하기'}
                   </button>
                 </div>
               </div>

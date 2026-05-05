@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import type React from 'react'
 import type { NotionPage, NotionPropValue } from '@/lib/notion-content'
 
 // ─── 타입 ─────────────────────────────────────────────────────
@@ -15,7 +16,7 @@ export interface ContentColumn {
 interface Props {
   dbKey: string
   title: string
-  emoji: string
+  icon: React.ReactNode
   columns: ContentColumn[]
   filterProp?: string
   filterOptions?: string[]
@@ -93,7 +94,7 @@ function renderCell(value: NotionPropValue, type?: ContentColumn['type']): React
 
 // ─── 메인 컴포넌트 ────────────────────────────────────────────
 
-export function NotionContentView({ dbKey, title, emoji, columns, filterProp, filterOptions }: Props) {
+export function NotionContentView({ dbKey, title, icon, columns, filterProp, filterOptions }: Props) {
   const [items, setItems] = useState<NotionPage[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -135,7 +136,7 @@ export function NotionContentView({ dbKey, title, emoji, columns, filterProp, fi
       {/* 헤더 */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div className="flex items-center gap-2">
-          <span className="text-xl">{emoji}</span>
+          <span className="flex items-center text-text-secondary">{icon}</span>
           <h2 className="text-lg font-semibold text-gray-900">{title}</h2>
           <span className="text-sm text-gray-500">
             {loading ? '...' : `${filtered.length}개`}

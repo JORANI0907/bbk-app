@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
+import { User, Building2, PenLine } from 'lucide-react'
 
 
 export default function QuotePage() {
@@ -246,7 +247,7 @@ export default function QuotePage() {
             {/* 기본 정보 */}
             <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 mb-4">
               <div className="flex items-center gap-3 mb-6 pb-4 border-b border-slate-100">
-                <div className="w-10 h-10 rounded-xl flex items-center justify-center text-lg bg-blue-50">👤</div>
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-blue-50"><User size={16} className="text-blue-600" /></div>
                 <div>
                   <p className="text-sm font-bold text-slate-800">기본 정보</p>
                   <p className="text-xs text-slate-400">담당자 및 회사 정보를 입력해주세요</p>
@@ -296,7 +297,7 @@ export default function QuotePage() {
             {/* 서비스 정보 */}
             <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 mb-4">
               <div className="flex items-center gap-3 mb-6 pb-4 border-b border-slate-100">
-                <div className="w-10 h-10 rounded-xl flex items-center justify-center text-lg bg-green-50">🏢</div>
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-green-50"><Building2 size={16} className="text-green-600" /></div>
                 <div>
                   <p className="text-sm font-bold text-slate-800">서비스 정보</p>
                   <p className="text-xs text-slate-400">케어 관련 정보를 입력해주세요</p>
@@ -338,7 +339,7 @@ export default function QuotePage() {
             {/* 요청사항 */}
             <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 mb-4">
               <div className="flex items-center gap-3 mb-6 pb-4 border-b border-slate-100">
-                <div className="w-10 h-10 rounded-xl flex items-center justify-center text-lg bg-purple-50">📝</div>
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-purple-50"><PenLine size={16} className="text-purple-600" /></div>
                 <div>
                   <p className="text-sm font-bold text-slate-800">요청사항</p>
                   <p className="text-xs text-slate-400">추가로 전달하고 싶은 내용을 자유롭게 작성해주세요</p>

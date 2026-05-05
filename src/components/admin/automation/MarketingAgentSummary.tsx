@@ -3,9 +3,18 @@
 import type { ReactNode } from 'react'
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Megaphone, PenLine, Calendar } from 'lucide-react'
+import { type LucideIcon, Megaphone, PenLine, Calendar, Crown, Palette, BarChart2, Camera, Lightbulb, Sparkles, Coffee, Image } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { AGENT_CONFIG } from '@/lib/marketing-agents'
+
+const LUCIDE_ICON_MAP: Record<string, LucideIcon> = {
+  Crown, PenLine, Palette, BarChart2, Camera, Lightbulb, Sparkles, Coffee, Image,
+}
+
+function renderIcon(name: string, size = 16): ReactNode {
+  const Icon = LUCIDE_ICON_MAP[name]
+  return Icon ? <Icon size={size} /> : null
+}
 
 interface TodayStats {
   agent: string
@@ -62,7 +71,7 @@ export function MarketingAgentSummary() {
             const found = stats.find(s => s.agent === key)
             return (
               <div key={key} className={`rounded-xl border p-2 text-center ${cfg.bgClass}`}>
-                <p className="text-lg leading-none mb-1">{cfg.icon}</p>
+                <span className="flex items-center justify-center mb-1">{renderIcon(cfg.icon, 18)}</span>
                 <p className={`text-[10px] font-bold ${cfg.textClass}`}>{cfg.label}</p>
                 <p className={`text-base font-bold ${cfg.textClass}`}>{found?.count ?? 0}</p>
               </div>

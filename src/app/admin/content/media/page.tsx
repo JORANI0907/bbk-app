@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { Lightbulb, ImageIcon } from 'lucide-react'
 import { NotionContentView } from '@/components/admin/content/NotionContentView'
 
 type Tab = '청소꿀팁' | '대표일상'
@@ -27,7 +28,7 @@ export default function MediaContentPage() {
                 : 'border-transparent text-gray-500 hover:text-gray-700'
             }`}
           >
-            {t === '청소꿀팁' ? '💡 청소꿀팁' : '🌅 대표일상'}
+            {t === '청소꿀팁' ? '청소꿀팁' : '대표일상'}
           </button>
         ))}
       </div>
@@ -36,7 +37,7 @@ export default function MediaContentPage() {
         <NotionContentView
           dbKey="청소꿀팁"
           title="청소꿀팁"
-          emoji="💡"
+          icon={<Lightbulb size={20} />}
           filterProp="카테고리"
           filterOptions={['주방', '욕실', '거실', '침실', '외부', '기타']}
           columns={[
@@ -55,7 +56,7 @@ export default function MediaContentPage() {
         <NotionContentView
           dbKey="대표일상"
           title="대표일상"
-          emoji="🌅"
+          icon={<ImageIcon size={20} />}
           filterProp="감정태그"
           filterOptions={['보람', '고민', '감사', '일상', '성취']}
           columns={[

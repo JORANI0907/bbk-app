@@ -3,6 +3,7 @@
 import { useRef, useState } from 'react'
 import imageCompression from 'browser-image-compression'
 import toast from 'react-hot-toast'
+import { Camera } from 'lucide-react'
 
 interface Props {
   scheduleId: string
@@ -100,7 +101,7 @@ export function PhotoUploader({ scheduleId, photoType, onUploadComplete }: Props
           ) : (
             <>
               <span className="text-4xl">
-                {photoType === 'before' ? '📷' : '✨'}
+                {photoType === 'before' ? <Camera size={40} className="text-text-tertiary" /> : '✨'}
               </span>
               <div className="text-center">
                 <p className="text-sm font-semibold text-text-primary">

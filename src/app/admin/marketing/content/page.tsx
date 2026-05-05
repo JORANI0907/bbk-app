@@ -3,9 +3,18 @@
 import type { ReactNode } from 'react'
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { FileText } from 'lucide-react'
+import { type LucideIcon, FileText, Crown, PenLine, Palette, BarChart2, Camera, Lightbulb, Calendar, Sparkles, Coffee, Image } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { AGENT_CONFIG, CONTENT_TYPE_META, type AgentKey } from '@/lib/marketing-agents'
+
+const LUCIDE_ICON_MAP: Record<string, LucideIcon> = {
+  Crown, PenLine, Palette, BarChart2, Camera, Lightbulb, Calendar, Sparkles, Coffee, Image,
+}
+
+function renderIcon(name: string, size = 16): ReactNode {
+  const Icon = LUCIDE_ICON_MAP[name]
+  return Icon ? <Icon size={size} /> : null
+}
 
 interface ContentItem {
   id: string
@@ -81,7 +90,7 @@ export default function ContentHistoryPage() {
         />
         {/* 에이전트 필터 */}
         <div className="flex flex-wrap gap-1.5">
-          {[{ val: 'all', label: '전체' }, { val: 'LEADER', label: '👑 LEADER' }, { val: 'MKT', label: '📝 MKT' }, { val: 'DSN', label: '🎨 DSN' }, { val: 'STR', label: '📊 STR' }].map(a => (
+          {[{ val: 'all', label: '전체' }, { val: 'LEADER', label: 'LEADER' }, { val: 'MKT', label: 'MKT' }, { val: 'DSN', label: 'DSN' }, { val: 'STR', label: 'STR' }].map(a => (
             <button key={a.val} onClick={() => setAgentFilter(a.val)}
               className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${agentFilter === a.val ? 'bg-gray-800 text-white' : 'bg-white border border-gray-200 text-gray-600 hover:border-gray-400'}`}>
               {a.label}
@@ -93,7 +102,7 @@ export default function ContentHistoryPage() {
           {['all', 'blog', 'insta', 'insta_tips', 'insta_service', 'insta_lifestyle', 'insta_beforeafter', 'insta_event', 'thumbnail', 'image_prompt', 'weekly_calendar', 'monthly_report', 'keyword_strategy'].map(t => (
             <button key={t} onClick={() => setTypeFilter(t)}
               className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${typeFilter === t ? 'bg-brand-600 text-white' : 'bg-white border border-gray-200 text-gray-600 hover:border-brand-300'}`}>
-              {t === 'all' ? '전체 타입' : `${CONTENT_TYPE_META[t]?.icon ?? ''} ${CONTENT_TYPE_META[t]?.label ?? t}`}
+              {t === 'all' ? '전체 타입' : <>{CONTENT_TYPE_META[t]?.icon ? renderIcon(CONTENT_TYPE_META[t].icon, 12) : null}{' '}{CONTENT_TYPE_META[t]?.label ?? t}</>}
             </button>
           ))}
         </div>
@@ -132,7 +141,7 @@ export default function ContentHistoryPage() {
                 </div>
                 <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
                   {dateItems.map((item, idx) => {
-                    const meta: { label: string; icon: ReactNode; agent: AgentKey } = CONTENT_TYPE_META[item.content_type] ?? { label: item.content_type, icon: <FileText size={14} />, agent: 'MKT' as AgentKey }
+                    const meta = CONTENT_TYPE_META[item.content_type] ?? { label: item.content_type, icon: '', agent: 'MKT' as AgentKey }
                     const agentCfg = AGENT_CONFIG[item.agent as AgentKey] ?? AGENT_CONFIG.MKT
                     return (
                       <Link
@@ -140,7 +149,7 @@ export default function ContentHistoryPage() {
                         href={`/admin/marketing/content/${item.id}`}
                         className={`flex items-center gap-4 px-5 py-4 hover:bg-gray-50 transition-colors ${idx > 0 ? 'border-t border-gray-50' : ''}`}
                       >
-                        <span className="text-xl">{meta.icon}</span>
+                        <span className="flex items-center">{meta.icon ? renderIcon(meta.icon, 20) : <FileText size={20} />}</span>
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-semibold text-gray-800 truncate">{item.title}</p>
                           <p className="text-xs text-gray-400 mt-0.5">
@@ -149,7 +158,7 @@ export default function ContentHistoryPage() {
                           </p>
                         </div>
                         <span className={`text-xs font-semibold px-2 py-0.5 rounded-full flex-shrink-0 ${agentCfg.badgeClass}`}>
-                          {agentCfg.icon} {agentCfg.label}
+                          {renderIcon(agentCfg.icon, 12)} {agentCfg.label}
                         </span>
                         <span className={`text-xs font-semibold px-2 py-0.5 rounded-full flex-shrink-0 ${
                           item.is_published ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-400'

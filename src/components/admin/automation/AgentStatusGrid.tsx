@@ -1,6 +1,17 @@
 'use client'
 
+import type { ReactNode } from 'react'
+import { type LucideIcon, Target, Monitor, Palette, TestTube2, Rocket, Crown, PenLine, Image, BarChart2, Camera } from 'lucide-react'
 import { AGENT_DEFINITIONS } from '@/lib/agent-graph-data'
+
+const LUCIDE_ICON_MAP: Record<string, LucideIcon> = {
+  Target, Monitor, Palette, TestTube2, Rocket, Crown, PenLine, Image, BarChart2, Camera,
+}
+
+function renderIcon(name: string, size = 18): ReactNode {
+  const Icon = LUCIDE_ICON_MAP[name]
+  return Icon ? <Icon size={size} /> : null
+}
 
 function formatRelativeTime(iso: string | null) {
   if (!iso) return null
@@ -44,7 +55,7 @@ export function AgentStatusGrid({
             `}
           >
             <div className="flex items-center gap-2 mb-1.5">
-              <span className="text-lg leading-none">{agent.icon}</span>
+              <span className="flex items-center leading-none">{renderIcon(agent.icon, 18)}</span>
               <span className="text-xs font-bold text-gray-900 truncate flex-1">{agent.displayName}</span>
               {isActive ? (
                 <span className="flex items-center gap-1">

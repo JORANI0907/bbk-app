@@ -1,10 +1,11 @@
 'use client'
 
-import { useState } from 'react'
+import React, { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import toast from 'react-hot-toast'
 import { Button } from '@/components/ui'
 import { MarketingAgentSummary } from '@/components/admin/automation/MarketingAgentSummary'
+import { MessageCircle, Clock, Package, Layers, Link, PenLine, ClipboardList, Megaphone, FileText, Phone as PhoneIcon } from 'lucide-react'
 
 // ─── 타입 ─────────────────────────────────────────────────────────
 
@@ -195,42 +196,42 @@ const ACTIVITY_ITEMS: ActivityItem[] = [
     id: 'slack-notify-alimtalk',
     name: '카카오 알림톡 / SMS 발송',
     description: '수동·자동 발송 모든 알림을 건마다 Slack으로 실시간 보고합니다. 유형, 수신자, 발송시각, 발송방법 포함.',
-    icon: '💬',
+    icon: 'message',
     trigger: '알림 발송 시 즉시',
   },
   {
     id: 'slack-attendance',
     name: '직원 출퇴근 기록',
     description: '직원이 출근 또는 퇴근 기록을 남길 때마다 Slack으로 이름·시간을 보고합니다.',
-    icon: '🕐',
+    icon: 'clock',
     trigger: '출퇴근 기록 시 즉시',
   },
   {
     id: 'slack-inventory-tx',
     name: '재고 입출고',
     description: '재고 입고·수령·반납·수량조정 처리 시 품목명, 수량, 처리자를 Slack으로 보고합니다.',
-    icon: '📦',
+    icon: 'package',
     trigger: '입출고 처리 시 즉시',
   },
   {
     id: 'slack-inventory-crud',
     name: '재고 품목 추가 · 수정 · 삭제',
     description: '관리자가 재고 품목을 추가·수정·삭제할 때마다 Slack으로 변경 내역을 보고합니다.',
-    icon: '🗂️',
+    icon: 'layers',
     trigger: '품목 변경 시 즉시',
   },
   {
     id: 'slack-requests-new',
     name: '새 요청 등록',
     description: '직원 또는 관리자가 새 요청을 등록할 때마다 Slack으로 요청자, 카테고리, 내용을 보고합니다.',
-    icon: '📋',
+    icon: 'clipboard',
     trigger: '요청 등록 시 즉시',
   },
   {
     id: 'slack-requests-done',
     name: '요청 처리 · 완료',
     description: '관리자가 요청을 처리(완료/반려)할 때마다 Slack으로 처리 결과를 보고합니다.',
-    icon: '✅',
+    icon: 'clipboard',
     trigger: '요청 처리 시 즉시',
   },
 ]
@@ -249,6 +250,16 @@ const CATEGORY_BADGE: Record<string, string> = {
 }
 
 const CATEGORY_ORDER = ['고객응대', '예약알림', '작업완료', '결제알림', '서비스생성', '세금계산서', '보고서', '재고관리']
+
+// ─── 활동 아이콘 맵 ───────────────────────────────────────────────
+
+const ACTIVITY_ICON_MAP: Record<string, React.ReactNode> = {
+  message:   <MessageCircle size={14} />,
+  clock:     <Clock size={14} />,
+  package:   <Package size={14} />,
+  layers:    <Layers size={14} />,
+  clipboard: <ClipboardList size={14} />,
+}
 
 // ─── 컴포넌트 ─────────────────────────────────────────────────────
 
@@ -302,7 +313,7 @@ export default function AutomationPage() {
             rel="noopener noreferrer"
             className="flex items-center gap-1.5 px-3 py-2 border border-border text-text-secondary text-sm font-medium rounded-xl hover:bg-surface-sunken transition-colors"
           >
-            <span>🔗</span> Make.com
+            <Link size={14} /> Make.com
           </a>
           <Button onClick={() => setShowAddModal(true)}>
             <span className="text-base leading-none">+</span> 새 자동화
@@ -337,17 +348,17 @@ export default function AutomationPage() {
         <div className="flex bg-surface-sunken rounded-xl p-1 gap-1 flex-wrap">
           {(
             [
-              { key: 'make',      label: '🤖 Make.com'   },
-              { key: 'activity',  label: '🔔 Slack 알림'  },
-              { key: 'agents',    label: '🧠 에이전트'    },
-              { key: 'marketing', label: '📣 마케팅'      },
-              { key: 'contracts', label: '📝 계약서 서명'  },
-            ] as const
+              { key: 'make',      label: <><span>🤖</span> Make.com</>   },
+              { key: 'activity',  label: <><span>🔔</span> Slack 알림</>  },
+              { key: 'agents',    label: <><span>🧠</span> 에이전트</>    },
+              { key: 'marketing', label: <><Megaphone size={14} className="inline" /> 마케팅</>      },
+              { key: 'contracts', label: <><PenLine size={14} className="inline" /> 계약서 서명</>  },
+            ] as { key: 'make' | 'activity' | 'agents' | 'marketing' | 'contracts'; label: React.ReactNode }[]
           ).map(({ key, label }) => (
             <button
               key={key}
               onClick={() => setActiveTab(key)}
-              className={`flex-1 min-w-[80px] py-2 text-xs font-semibold rounded-lg transition-colors ${
+              className={`flex-1 min-w-[80px] py-2 text-xs font-semibold rounded-lg transition-colors flex items-center justify-center gap-1 ${
                 activeTab === key ? 'bg-surface text-text-primary shadow-flat' : 'text-text-secondary hover:text-text-primary'
               }`}
             >
@@ -487,8 +498,8 @@ export default function AutomationPage() {
             {ACTIVITY_ITEMS.map(item => (
               <div key={item.id} className="bg-surface rounded-xl border border-border-subtle shadow-soft p-4">
                 <div className="flex items-start gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-violet-50 flex items-center justify-center text-xl shrink-0">
-                    {item.icon}
+                  <div className="w-10 h-10 rounded-xl bg-violet-50 flex items-center justify-center shrink-0">
+                    {ACTIVITY_ICON_MAP[item.icon] ?? null}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
@@ -556,23 +567,23 @@ export default function AutomationPage() {
               <div className="space-y-3">
                 {[
                   {
-                    icon: '📋',
+                    icon: <ClipboardList size={14} />,
                     title: '1. 계약서 작성',
                     desc: '사이드바 → 영업관리 → 온라인 계약서 → "새 계약서 작성" 버튼\n고객을 선택하면 상호·사업자번호·대표자·주소·연락처·이메일이 자동 채워집니다.\n서비스 플랜(3/6/12개 순환식), 방문 옵션(월 1~3회), 금액을 입력합니다.',
                   },
                   {
-                    icon: '📨',
+                    icon: <Megaphone size={14} />,
                     title: '2. 서명 요청 발송',
                     desc: '계약서 상세 화면에서 "서명 요청 발송" 버튼 클릭\n고객 전화번호로 서명 링크 SMS가 발송됩니다. (링크 유효기간 7일)\n상태가 "서명 대기"로 변경됩니다.',
                   },
                   {
-                    icon: '✅',
+                    icon: <PenLine size={14} />,
                     title: '3. 최종 확인',
                     desc: '고객이 서명 완료 시 Slack으로 알림이 옵니다.\n계약서 상세 화면에서 "최종 확인 완료" 버튼을 클릭하면 계약이 성립됩니다.\n고객에게 계약 완료 SMS가 자동 발송됩니다.',
                   },
                 ].map(({ icon, title, desc }) => (
                   <div key={title} className="flex items-start gap-3">
-                    <div className="w-9 h-9 rounded-xl bg-brand-50 flex items-center justify-center text-lg shrink-0">
+                    <div className="w-9 h-9 rounded-xl bg-brand-50 flex items-center justify-center shrink-0">
                       {icon}
                     </div>
                     <div className="flex-1">
@@ -590,23 +601,23 @@ export default function AutomationPage() {
               <div className="space-y-3">
                 {[
                   {
-                    icon: '🔗',
+                    icon: <Link size={14} />,
                     title: 'SMS 링크 클릭',
                     desc: '로그인 없이 바로 계약서 화면이 열립니다.',
                   },
                   {
-                    icon: '📄',
+                    icon: <FileText size={14} />,
                     title: '계약서 내용 확인',
                     desc: '전체 계약서를 스크롤해서 읽습니다.\n제8조(서비스 제공 장소 동의), 제14조(개인정보 보호 동의) 포함 체크박스 3개를 모두 체크해야 "서명하기" 버튼이 활성화됩니다.',
                   },
                   {
-                    icon: '📱',
+                    icon: <PhoneIcon size={14} />,
                     title: 'SMS OTP 인증',
                     desc: '"서명하기" 버튼 → 본인 휴대폰 번호 입력 → "인증번호 발송"\n6자리 인증번호를 입력하면 서명이 완료됩니다.\n타임스탬프와 IP가 자동 기록됩니다.',
                   },
                 ].map(({ icon, title, desc }) => (
                   <div key={title} className="flex items-start gap-3">
-                    <div className="w-9 h-9 rounded-xl bg-emerald-50 flex items-center justify-center text-lg shrink-0">
+                    <div className="w-9 h-9 rounded-xl bg-emerald-50 flex items-center justify-center shrink-0">
                       {icon}
                     </div>
                     <div className="flex-1">
@@ -642,7 +653,7 @@ export default function AutomationPage() {
               className="w-full flex items-center justify-between px-4 py-3 bg-brand-600 hover:bg-brand-700 text-white rounded-xl transition-colors"
             >
               <div className="flex items-center gap-2">
-                <span>📝</span>
+                <PenLine size={14} />
                 <span className="text-sm font-semibold">계약서 관리 바로가기</span>
               </div>
               <span className="text-sm opacity-80">→</span>
