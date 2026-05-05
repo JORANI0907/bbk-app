@@ -29,10 +29,8 @@ export default function CustomerLayout({
       {/* 모바일 하단 탭바 */}
       <CustomerMobileNav />
 
-      {/* 일정 변경 요청 FAB (모바일) */}
-      <div className="md:hidden">
-        <ScheduleChangeFAB />
-      </div>
+      {/* 일정 변경 요청 FAB */}
+      <ScheduleChangeFAB />
     </div>
   )
 }

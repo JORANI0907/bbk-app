@@ -91,7 +91,7 @@ export function ScheduleChangeFAB() {
       {/* FAB 버튼 */}
       <button
         onClick={() => setStep('info')}
-        className="fixed bottom-24 right-4 z-40 w-14 h-14 rounded-full bg-brand-600 text-white shadow-modal flex items-center justify-center active:scale-95 transition-transform hover:bg-brand-700"
+        className="fixed bottom-24 right-4 z-50 w-14 h-14 rounded-full bg-brand-600 text-white shadow-modal flex items-center justify-center active:scale-95 transition-transform hover:bg-brand-700"
         aria-label="일정 변경 요청"
       >
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6">
