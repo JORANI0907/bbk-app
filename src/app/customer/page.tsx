@@ -1,17 +1,30 @@
 import { createServiceClient } from '@/lib/supabase/server'
 import { getServerSession } from '@/lib/session'
 import { redirect } from 'next/navigation'
-import Link from 'next/link'
-import { format, isPast, isToday } from 'date-fns'
+import { format } from 'date-fns'
 import { ko } from 'date-fns/locale'
 import { ServiceSchedule } from '@/types/database'
-import { SCHEDULE_STATUS_LABELS, SCHEDULE_STATUS_COLORS } from '@/lib/constants'
 import { NoticesSection } from '@/components/customer/NoticesSection'
+
+type CustomerGrade = '화이트' | '블루' | '블랙'
 
 const CUSTOMER_TYPE_COLORS: Record<string, string> = {
   '정기딥케어': 'bg-indigo-100 text-indigo-700',
   '정기엔드케어': 'bg-sky-100 text-sky-700',
   '1회성케어': 'bg-surface-sunken text-text-secondary',
+}
+
+const GRADE_BADGE: Record<CustomerGrade, string> = {
+  '화이트': 'bg-white/30 text-white',
+  '블루': 'bg-blue-300/40 text-white',
+  '블랙': 'bg-gray-900/40 text-white',
+}
+
+// 오리지널 월 단가 (방문 횟수별)
+function getOriginalMonthlyPrice(visitCountPerMonth: number | null): number {
+  if (!visitCountPerMonth || visitCountPerMonth <= 1) return 198000
+  if (visitCountPerMonth === 2) return 396000
+  return 594000
 }
 
 function getDday(date: string): number {
@@ -36,7 +49,7 @@ export default async function CustomerHomePage() {
 
   const { data: rawCustomer } = await supabase
     .from('customers')
-    .select('id, business_name, customer_type, status, next_visit_date')
+    .select('id, business_name, customer_type, status, next_visit_date, billing_cycle, billing_amount, visit_count_per_month, grade')
     .eq('user_id', session.userId)
     .maybeSingle()
 
@@ -46,6 +59,10 @@ export default async function CustomerHomePage() {
     customer_type: string | null
     status: string | null
     next_visit_date: string | null
+    billing_cycle: string | null
+    billing_amount: number | null
+    visit_count_per_month: number | null
+    grade: CustomerGrade | null
   } | null
 
   // 예정 일정 조회
@@ -63,27 +80,14 @@ export default async function CustomerHomePage() {
 
   const nextSchedule = (upcomingSchedules?.[0] ?? null) as ServiceSchedule | null
 
-  // 최근 완료 서비스 조회
-  const { data: recentSchedules } = customer
-    ? await supabase
-        .from('service_schedules')
-        .select('*')
-        .eq('customer_id', customer.id)
-        .eq('status', 'completed')
-        .order('scheduled_date', { ascending: false })
-        .limit(5)
-    : { data: null }
-
-  const completed = (recentSchedules ?? []) as ServiceSchedule[]
-
-  // 공지·이벤트 조회 (대상: 전체 또는 고객)
+  // 공지·이벤트 조회 (limit 20, 5개 제한 없이 전달)
   const { data: noticesRaw } = await supabase
     .from('notices')
     .select('id, title, content, type, priority, pinned, event_date, image_url, created_at')
     .in('target_audience', ['all', 'customer'])
     .order('pinned', { ascending: false })
     .order('created_at', { ascending: false })
-    .limit(10)
+    .limit(20)
 
   type NoticeItem = {
     id: string; title: string; content: string
@@ -91,14 +95,29 @@ export default async function CustomerHomePage() {
     pinned: boolean; event_date: string | null; image_url: string | null; created_at: string
   }
   const allNotices = (noticesRaw ?? []) as NoticeItem[]
-  const noticeList = allNotices.filter(n => n.type === 'notice').slice(0, 5)
-  const eventList = allNotices.filter(n => n.type === 'event').slice(0, 5)
+  const noticeList = allNotices.filter(n => n.type === 'notice')
+  const eventList = allNotices.filter(n => n.type === 'event')
 
   const dday = nextSchedule ? getDday(nextSchedule.scheduled_date) : null
-  const typeColor = customer?.customer_type ? CUSTOMER_TYPE_COLORS[customer.customer_type] : 'bg-surface-sunken text-text-secondary'
+  const typeColor = customer?.customer_type
+    ? (CUSTOMER_TYPE_COLORS[customer.customer_type] ?? 'bg-surface-sunken text-text-secondary')
+    : 'bg-surface-sunken text-text-secondary'
+
+  // 절약 금액 계산 (연간 결제인 경우만)
+  const savingsAmount = (() => {
+    if (
+      customer?.billing_cycle !== '연간' ||
+      !customer?.billing_amount
+    ) return null
+
+    const originalMonthly = getOriginalMonthlyPrice(customer.visit_count_per_month)
+    const originalAnnual = originalMonthly * 12
+    const savings = originalAnnual - customer.billing_amount
+    return savings > 0 ? savings : null
+  })()
 
   return (
-    <div className="px-4 py-5 flex flex-col gap-5">
+    <div className="px-4 py-5 flex flex-col gap-5 max-w-2xl mx-auto md:px-6 md:py-8 md:gap-6">
 
       {/* 웰컴 배너 */}
       <div
@@ -106,10 +125,15 @@ export default async function CustomerHomePage() {
         style={{ background: 'linear-gradient(135deg, #1e40af 0%, #3b82f6 60%, #60a5fa 100%)' }}
       >
         <div className="relative z-10">
-          <div className="flex items-center gap-2 mb-1">
+          <div className="flex items-center gap-2 mb-1 flex-wrap">
             {customer?.customer_type && (
               <span className={`text-xs px-2 py-0.5 rounded-full font-semibold bg-white/20 text-white`}>
                 {customer.customer_type}
+              </span>
+            )}
+            {customer?.grade && (
+              <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${GRADE_BADGE[customer.grade]}`}>
+                {customer.grade}
               </span>
             )}
           </div>
@@ -117,7 +141,12 @@ export default async function CustomerHomePage() {
           <h1 className="text-xl font-black text-white leading-tight">
             {customer?.business_name ?? userProfile?.name ?? '고객'}님
           </h1>
-          <p className="text-white/70 text-xs mt-2">BBK 공간케어를 이용해 주셔서 감사합니다.</p>
+          {savingsAmount !== null && (
+            <p className="text-white/90 text-xs mt-1.5 font-semibold">
+              연간 {savingsAmount.toLocaleString()}원 절약 중
+            </p>
+          )}
+          <p className="text-white/70 text-xs mt-1.5">BBK 공간케어를 이용해 주셔서 감사합니다.</p>
         </div>
         {/* 장식 원 */}
         <div className="absolute -right-6 -top-6 w-28 h-28 rounded-full bg-white/10" />
@@ -159,63 +188,15 @@ export default async function CustomerHomePage() {
         </div>
       )}
 
-      {/* 서비스 빠른 이동 */}
-      <div className="grid grid-cols-2 gap-3">
-        {[
-          { href: '/customer/schedule', icon: '📅', label: '서비스 일정' },
-          { href: '/customer/requests', icon: '💬', label: '요청사항' },
-        ].map((item) => (
-          <Link
-            key={item.href}
-            href={item.href}
-            className="bg-surface rounded-2xl border border-border-subtle p-4 flex flex-col items-center gap-2 active:scale-[0.97] transition-transform shadow-soft"
-          >
-            <span className="text-2xl">{item.icon}</span>
-            <span className="text-xs font-semibold text-text-primary">{item.label}</span>
-          </Link>
-        ))}
-      </div>
-
       {/* 공지 & 이벤트 */}
       <NoticesSection notices={noticeList} events={eventList} />
 
-      {/* 최근 완료 서비스 */}
-      {completed.length > 0 && (
-        <div className="flex flex-col gap-3">
-          <div className="flex items-center justify-between">
-            <h2 className="text-sm font-bold text-text-primary">최근 완료 서비스</h2>
-            <Link href="/customer/schedule" className="text-xs text-brand-600 font-medium">
-              전체 보기
-            </Link>
-          </div>
-          {completed.map((s) => (
-            <Link
-              key={s.id}
-              href={`/customer/reports/${s.id}`}
-              className="bg-surface rounded-2xl border border-border-subtle p-4 flex items-center justify-between active:scale-[0.98] transition-transform shadow-soft"
-            >
-              <div>
-                <p className="text-sm font-semibold text-text-primary">
-                  {format(new Date(s.scheduled_date), 'M월 d일 (EEE)', { locale: ko })}
-                </p>
-                <p className="text-xs text-text-tertiary mt-0.5">
-                  {s.items_this_visit?.map((i: { name: string }) => i.name).join(', ') || '청소 서비스'}
-                </p>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className={`text-xs px-2 py-1 rounded-full ${SCHEDULE_STATUS_COLORS[s.status]}`}>
-                  {SCHEDULE_STATUS_LABELS[s.status]}
-                </span>
-                <span className="text-text-tertiary text-sm">›</span>
-              </div>
-            </Link>
-          ))}
-        </div>
-      )}
-
       {!customer && (
         <div className="flex flex-col items-center justify-center py-10 gap-3 text-center bg-surface rounded-2xl border border-border-subtle">
-          <span className="text-4xl">🏢</span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="w-10 h-10 text-text-tertiary">
+            <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+            <polyline points="9 22 9 12 15 12 15 22"/>
+          </svg>
           <p className="text-sm font-semibold text-text-primary">연결된 고객 정보가 없습니다</p>
           <p className="text-xs text-text-tertiary">관리자에게 문의해주세요.</p>
         </div>
