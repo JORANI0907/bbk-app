@@ -4,12 +4,27 @@ import { redirect, notFound } from 'next/navigation'
 import Link from 'next/link'
 import { format, isPast, isToday } from 'date-fns'
 import { ko } from 'date-fns/locale'
-import { ChevronLeft, User, FileText, ClipboardList } from 'lucide-react'
-import { ServiceSchedule, WorkPhoto } from '@/types/database'
+import { ChevronLeft, User, ClipboardList } from 'lucide-react'
+import { ServiceSchedule, WorkPhoto, WorkChecklist, ClosingChecklist } from '@/types/database'
 import { SCHEDULE_STATUS_LABELS, SCHEDULE_STATUS_COLORS } from '@/lib/constants'
+import { BeforeAfterSlider } from '@/components/customer/BeforeAfterSlider'
+import { SatisfactionFormWrapper } from '@/components/customer/SatisfactionFormWrapper'
 
 interface PageProps {
   params: { id: string }
+}
+
+type SigningStatus = 'draft' | 'pending_customer' | 'customer_signed' | 'completed'
+
+interface ContractRow {
+  id: string
+  signing_status: SigningStatus
+  service_plan: string | null
+  visit_option: string | null
+  monthly_price: number | null
+  contract_start_date: string | null
+  contract_end_date: string | null
+  customer_agreed_at: string | null
 }
 
 const PAYMENT_STATUS_LABELS: Record<string, { label: string; color: string }> = {
@@ -17,6 +32,25 @@ const PAYMENT_STATUS_LABELS: Record<string, { label: string; color: string }> = 
   invoiced: { label: '청구됨', color: 'bg-state-info-bg text-state-info' },
   overdue: { label: '연체', color: 'bg-state-danger-bg text-state-danger' },
   pending: { label: '미청구', color: 'bg-surface-sunken text-text-secondary' },
+}
+
+const CONTRACT_STATUS_LABELS: Record<SigningStatus, string> = {
+  draft: '검토 중',
+  pending_customer: '서명 필요',
+  customer_signed: '확인 대기',
+  completed: '계약 완료',
+}
+
+const CONTRACT_STATUS_COLORS: Record<SigningStatus, string> = {
+  draft: 'bg-surface-sunken text-text-secondary',
+  pending_customer: 'bg-state-warning-bg text-state-warning',
+  customer_signed: 'bg-state-info-bg text-state-info',
+  completed: 'bg-state-success-bg text-state-success',
+}
+
+function formatDate(dateStr: string | null): string {
+  if (!dateStr) return '-'
+  return new Date(dateStr).toLocaleDateString('ko-KR')
 }
 
 export default async function CustomerScheduleDetailPage({ params }: PageProps) {
@@ -45,20 +79,45 @@ export default async function CustomerScheduleDetailPage({ params }: PageProps) 
 
   const s = schedule as ServiceSchedule
 
-  // 완료된 경우 사진 추가 조회
   let photos: WorkPhoto[] = []
+  let checklists: WorkChecklist[] = []
+  let closing: ClosingChecklist | null = null
+
   if (s.status === 'completed') {
-    const { data: photoData } = await supabase
-      .from('work_photos')
-      .select('*')
-      .eq('schedule_id', scheduleId)
-      .in('photo_type', ['before', 'after'])
-      .order('taken_at', { ascending: true })
-    photos = (photoData ?? []) as WorkPhoto[]
+    const [photosRes, checklistsRes, closingRes] = await Promise.all([
+      supabase
+        .from('work_photos')
+        .select('*')
+        .eq('schedule_id', scheduleId)
+        .in('photo_type', ['before', 'after'])
+        .order('taken_at', { ascending: true }),
+      supabase
+        .from('work_checklists')
+        .select('*')
+        .eq('schedule_id', scheduleId),
+      supabase
+        .from('closing_checklists')
+        .select('*')
+        .eq('schedule_id', scheduleId)
+        .maybeSingle(),
+    ])
+    photos = (photosRes.data ?? []) as WorkPhoto[]
+    checklists = (checklistsRes.data ?? []) as WorkChecklist[]
+    closing = closingRes.data as ClosingChecklist | null
   }
 
-  const beforePhotos = photos.filter(p => p.photo_type === 'before')
-  const afterPhotos = photos.filter(p => p.photo_type === 'after')
+  let contract: ContractRow | null = null
+  if (s.contract_id) {
+    const { data: contractData } = await supabase
+      .from('contracts')
+      .select('id, signing_status, service_plan, visit_option, monthly_price, contract_start_date, contract_end_date, customer_agreed_at')
+      .eq('id', s.contract_id)
+      .maybeSingle()
+    contract = contractData as ContractRow | null
+  }
+
+  const beforePhotos = photos.filter((p) => p.photo_type === 'before')
+  const afterPhotos = photos.filter((p) => p.photo_type === 'after')
 
   const scheduledDate = new Date(s.scheduled_date)
   const isUpcomingDate = !isPast(scheduledDate) || isToday(scheduledDate)
@@ -74,11 +133,11 @@ export default async function CustomerScheduleDetailPage({ params }: PageProps) 
 
   const workerName = (s.worker as { name?: string } | null)?.name
   const paymentInfo = s.payment_status ? PAYMENT_STATUS_LABELS[s.payment_status] : null
+  const hasRating = closing?.customer_rating != null
 
   return (
     <div className="px-4 py-5 flex flex-col gap-4 max-w-2xl mx-auto md:px-6 md:py-8">
 
-      {/* 뒤로가기 */}
       <Link
         href="/customer/schedule"
         className="flex items-center gap-1 text-brand-600 text-sm font-medium w-fit -ml-0.5"
@@ -117,8 +176,6 @@ export default async function CustomerScheduleDetailPage({ params }: PageProps) 
             )}
           </div>
         </div>
-
-        {/* 실제 작업 시간 (완료된 경우) */}
         {s.actual_arrival && s.actual_completion && (
           <div className="mt-3 pt-3 border-t border-border-subtle">
             <p className="text-xs text-text-tertiary">
@@ -183,71 +240,108 @@ export default async function CustomerScheduleDetailPage({ params }: PageProps) 
         </section>
       )}
 
-      {/* 견적서 보기 */}
-      {s.contract_id && (
-        <Link
-          href="/customer/contracts"
-          className="flex items-center justify-between bg-surface rounded-2xl border border-brand-100 shadow-soft p-4 active:scale-[0.98] transition-transform"
-        >
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-brand-50 flex items-center justify-center shrink-0">
-              <FileText size={18} className="text-brand-600" />
-            </div>
-            <div>
-              <p className="text-sm font-bold text-text-primary">계약서 보기</p>
-              <p className="text-xs text-text-tertiary">계약 내용 및 견적 확인</p>
-            </div>
+      {/* 계약서 (인라인) */}
+      {contract && (
+        <section className="bg-surface rounded-2xl border border-border-subtle shadow-soft overflow-hidden">
+          <div className="px-5 py-3 border-b border-border-subtle flex items-center justify-between">
+            <h2 className="text-sm font-bold text-text-primary">계약서</h2>
+            <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${CONTRACT_STATUS_COLORS[contract.signing_status]}`}>
+              {CONTRACT_STATUS_LABELS[contract.signing_status]}
+            </span>
           </div>
-          <span className="text-text-tertiary text-lg leading-none">›</span>
-        </Link>
+          <div className="px-5 py-4 flex flex-col gap-2">
+            {contract.service_plan && (
+              <div className="flex items-start gap-3">
+                <span className="text-xs text-text-tertiary w-20 shrink-0 pt-0.5">서비스 플랜</span>
+                <span className="text-sm text-text-primary font-medium">{contract.service_plan}</span>
+              </div>
+            )}
+            {contract.visit_option && (
+              <div className="flex items-start gap-3">
+                <span className="text-xs text-text-tertiary w-20 shrink-0 pt-0.5">방문 옵션</span>
+                <span className="text-sm text-text-primary font-medium">{contract.visit_option}</span>
+              </div>
+            )}
+            {contract.monthly_price != null && (
+              <div className="flex items-start gap-3">
+                <span className="text-xs text-text-tertiary w-20 shrink-0 pt-0.5">월 금액</span>
+                <span className="text-sm text-text-primary font-medium">
+                  {Number(contract.monthly_price).toLocaleString()}원/월
+                </span>
+              </div>
+            )}
+            {(contract.contract_start_date || contract.contract_end_date) && (
+              <div className="flex items-start gap-3">
+                <span className="text-xs text-text-tertiary w-20 shrink-0 pt-0.5">계약 기간</span>
+                <span className="text-sm text-text-primary font-medium">
+                  {formatDate(contract.contract_start_date)} ~ {formatDate(contract.contract_end_date)}
+                </span>
+              </div>
+            )}
+            {contract.customer_agreed_at && (
+              <div className="flex items-start gap-3">
+                <span className="text-xs text-text-tertiary w-20 shrink-0 pt-0.5">서명 일시</span>
+                <span className="text-sm text-text-primary font-medium">
+                  {formatDate(contract.customer_agreed_at)}
+                </span>
+              </div>
+            )}
+            {contract.signing_status === 'pending_customer' && (
+              <div className="mt-1 pt-3 border-t border-border-subtle">
+                <Link
+                  href={`/api/customer/contracts/${contract.id}/sign-link`}
+                  className="text-sm text-brand-600 font-semibold"
+                >
+                  서명하러 가기 →
+                </Link>
+              </div>
+            )}
+            {contract.signing_status === 'completed' && (
+              <div className="mt-1 pt-3 border-t border-border-subtle">
+                <span className="text-xs text-state-success bg-state-success-bg px-3 py-1.5 rounded-lg font-medium">
+                  계약이 성립되었습니다
+                </span>
+              </div>
+            )}
+          </div>
+        </section>
       )}
 
-      {/* 작업 사진 — 완료 후 사진 있는 경우 */}
+      {/* 작업 사진 — BeforeAfterSlider (완료된 일정, 사진 있는 경우) */}
       {s.status === 'completed' && beforePhotos.length > 0 && (
         <section>
           <h2 className="text-sm font-bold text-text-primary mb-3">작업 사진</h2>
-          <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-4">
             {beforePhotos.map((before, idx) => {
               const after = afterPhotos[idx]
+              if (after) {
+                return (
+                  <BeforeAfterSlider
+                    key={before.id}
+                    beforeUrl={before.photo_url}
+                    afterUrl={after.photo_url}
+                    label={s.items_this_visit?.[idx]?.name}
+                  />
+                )
+              }
               return (
-                <div
-                  key={before.id}
-                  className="bg-surface rounded-2xl border border-border-subtle shadow-soft overflow-hidden"
-                >
+                <div key={before.id} className="bg-surface rounded-2xl border border-border-subtle shadow-soft overflow-hidden">
                   {s.items_this_visit?.[idx]?.name && (
                     <div className="px-4 py-2 bg-surface-sunken border-b border-border-subtle">
-                      <p className="text-xs font-semibold text-text-secondary">
-                        {s.items_this_visit[idx].name}
-                      </p>
+                      <p className="text-xs font-semibold text-text-secondary">{s.items_this_visit[idx].name}</p>
                     </div>
                   )}
-                  <div className={`grid ${after ? 'grid-cols-2' : 'grid-cols-1'}`}>
-                    <div>
-                      <p className="text-[10px] font-bold text-text-tertiary text-center py-1.5 bg-surface-sunken border-b border-border-subtle">
-                        작업 전
-                      </p>
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={before.photo_url}
-                        alt="작업 전"
-                        className="w-full aspect-square object-cover"
-                        loading="lazy"
-                      />
-                    </div>
-                    {after && (
-                      <div className="border-l border-border-subtle">
-                        <p className="text-[10px] font-bold text-text-tertiary text-center py-1.5 bg-surface-sunken border-b border-border-subtle">
-                          작업 후
-                        </p>
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src={after.photo_url}
-                          alt="작업 후"
-                          className="w-full aspect-square object-cover"
-                          loading="lazy"
-                        />
-                      </div>
-                    )}
+                  <div>
+                    <p className="text-[10px] font-bold text-text-tertiary text-center py-1.5 bg-surface-sunken border-b border-border-subtle">
+                      작업 전
+                    </p>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={before.photo_url}
+                      alt="작업 전"
+                      className="w-full aspect-square object-cover"
+                      loading="lazy"
+                    />
                   </div>
                 </div>
               )
@@ -256,7 +350,46 @@ export default async function CustomerScheduleDetailPage({ params }: PageProps) 
         </section>
       )}
 
-      {/* 담당자 메모 — 공개 설정된 경우만 */}
+      {/* 작업 체크리스트 */}
+      {checklists.length > 0 && (
+        <section>
+          <h2 className="text-sm font-bold text-text-primary mb-3">작업 체크리스트</h2>
+          <div className="flex flex-col gap-3">
+            {checklists.map((cl) => (
+              <div key={cl.id} className="bg-surface rounded-2xl shadow-soft border border-border-subtle overflow-hidden">
+                <div className="px-4 py-3 bg-surface-sunken flex items-center justify-between">
+                  <h3 className="text-sm font-semibold text-text-primary">{cl.item_name}</h3>
+                  {cl.is_completed ? (
+                    <span className="text-xs bg-green-500 text-white px-2 py-0.5 rounded-full">완료</span>
+                  ) : (
+                    <span className="text-xs bg-surface-sunken text-text-secondary px-2 py-0.5 rounded-full border border-border">미완료</span>
+                  )}
+                </div>
+                <div className="divide-y divide-border-subtle">
+                  {cl.checklist_items.map((item) => (
+                    <div key={item.step} className="flex items-center gap-3 px-4 py-3">
+                      <div className={`w-5 h-5 rounded-full border flex items-center justify-center shrink-0 ${
+                        item.done ? 'bg-brand-600 border-brand-600' : 'border-border'
+                      }`}>
+                        {item.done && (
+                          <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                          </svg>
+                        )}
+                      </div>
+                      <span className={`text-sm ${item.done ? 'text-text-secondary' : 'text-state-danger'}`}>
+                        {item.step}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* 담당자 메모 */}
       {s.worker_memo && s.memo_visible && (
         <div className="bg-state-warning-bg rounded-2xl border border-amber-100 p-4">
           <p className="text-xs font-semibold text-state-warning mb-2 flex items-center gap-1">
@@ -267,14 +400,39 @@ export default async function CustomerScheduleDetailPage({ params }: PageProps) 
         </div>
       )}
 
-      {/* 상세 리포트 보기 — 완료된 경우 */}
+      {/* 서비스 평가 — 완료 일정만 */}
       {s.status === 'completed' && (
-        <Link
-          href={`/customer/reports/${scheduleId}`}
-          className="flex items-center justify-center gap-2 bg-brand-600 text-white rounded-2xl py-3.5 font-semibold text-sm active:scale-[0.98] transition-transform shadow-soft"
-        >
-          상세 리포트 보기
-        </Link>
+        <section>
+          <h2 className="text-sm font-bold text-text-primary mb-3">서비스 평가</h2>
+          {hasRating && closing ? (
+            <div className="bg-surface rounded-2xl shadow-soft border border-border-subtle p-5">
+              <div className="flex items-center gap-2 mb-3">
+                <div className="flex gap-0.5">
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <span
+                      key={star}
+                      className={`text-2xl ${
+                        closing.customer_rating && star <= closing.customer_rating
+                          ? 'text-yellow-400'
+                          : 'text-text-tertiary'
+                      }`}
+                    >
+                      ★
+                    </span>
+                  ))}
+                </div>
+                <span className="text-lg font-bold text-text-primary">{closing.customer_rating}점</span>
+              </div>
+              {closing.customer_comment && (
+                <p className="text-sm text-text-secondary bg-surface-sunken rounded-xl px-4 py-3">
+                  {closing.customer_comment}
+                </p>
+              )}
+            </div>
+          ) : (
+            <SatisfactionFormWrapper scheduleId={scheduleId} />
+          )}
+        </section>
       )}
     </div>
   )
