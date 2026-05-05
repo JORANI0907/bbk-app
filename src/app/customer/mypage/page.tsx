@@ -3,7 +3,6 @@ import { getServerSession } from '@/lib/session'
 import { redirect } from 'next/navigation'
 import { format } from 'date-fns'
 import { ko } from 'date-fns/locale'
-import { PasswordChangeForm } from '@/components/customer/PasswordChangeForm'
 import { Building2 } from 'lucide-react'
 
 interface CustomerData {
@@ -104,7 +103,6 @@ export default async function CustomerMyPage() {
         <div className="px-5 py-1 pb-4">
           <InfoRow label="이름" value={user.name} />
           <InfoRow label="아이디" value={user.phone ? formatPhone(user.phone) : undefined} />
-          <PasswordChangeForm />
         </div>
       </section>
 
