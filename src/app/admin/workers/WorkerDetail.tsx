@@ -44,7 +44,63 @@ function SelectField({ label, value, options, onChange }: {
   )
 }
 
+interface UserAccount { id: string; name: string; phone: string }
+
 export default function WorkerDetail({ worker, onWorkerUpdated, onWorkerDeleted }: Props) {
+  const [allAccounts, setAllAccounts] = useState<UserAccount[]>([])
+  const [selectedUserId, setSelectedUserId] = useState('')
+  const [linkSaving, setLinkSaving] = useState(false)
+
+  useEffect(() => {
+    fetch('/api/admin/workers?accounts=true')
+      .then(r => r.json())
+      .then(d => setAllAccounts(d.accounts ?? []))
+  }, [])
+
+  const linkedAccount = allAccounts.find(u => u.id === worker.user_id) ?? null
+  const availableAccounts = allAccounts.filter(u => u.id !== worker.user_id)
+
+  const handleLink = async () => {
+    if (!selectedUserId) return
+    setLinkSaving(true)
+    try {
+      const res = await fetch('/api/admin/workers', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: worker.id, user_id: selectedUserId }),
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || '연결 실패')
+      toast.success('앱 계정이 연결되었습니다.')
+      setSelectedUserId('')
+      onWorkerUpdated({ ...worker, user_id: selectedUserId })
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : '연결 실패')
+    } finally {
+      setLinkSaving(false)
+    }
+  }
+
+  const handleUnlink = async () => {
+    if (!confirm('앱 계정 연결을 해제하시겠습니까?')) return
+    setLinkSaving(true)
+    try {
+      const res = await fetch('/api/admin/workers', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: worker.id, user_id: null }),
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || '해제 실패')
+      toast.success('연결이 해제되었습니다.')
+      onWorkerUpdated({ ...worker, user_id: null })
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : '해제 실패')
+    } finally {
+      setLinkSaving(false)
+    }
+  }
+
   const [form, setForm] = useState({
     name: worker.name ?? '',
     employment_type: worker.employment_type ?? '',
@@ -231,6 +287,57 @@ export default function WorkerDetail({ worker, onWorkerUpdated, onWorkerDeleted 
             <Field label="기념일" value={form.anniversary} onChange={setField('anniversary')} />
             <Field label="취미/특기" value={form.hobby} onChange={setField('hobby')} />
             <Field label="집주소" value={form.home_address} onChange={setField('home_address')} />
+          </div>
+        )}
+      </div>
+
+      {/* Section 3: 앱 계정 연결 */}
+      <div className="bg-gray-50 rounded-xl p-4 flex flex-col gap-3">
+        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">앱 계정 연결</p>
+        <p className="text-[11px] text-gray-400">연결된 계정이 있어야 배정된 일정이 작업자 앱에 표시됩니다.</p>
+
+        {linkedAccount ? (
+          <div className="flex items-center justify-between bg-green-50 border border-green-200 rounded-lg px-3 py-2">
+            <div>
+              <p className="text-xs font-semibold text-green-800">{linkedAccount.name}</p>
+              <p className="text-[11px] text-green-600">{linkedAccount.phone}</p>
+            </div>
+            <button
+              onClick={handleUnlink}
+              disabled={linkSaving}
+              className="text-[11px] text-red-500 hover:text-red-700 border border-red-200 hover:border-red-400 px-2 py-1 rounded-lg transition-colors disabled:opacity-50"
+            >
+              연결 해제
+            </button>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center gap-2 bg-yellow-50 border border-yellow-200 rounded-lg px-3 py-2">
+              <span className="text-[11px] text-yellow-700">미연결 — 배정 일정이 앱에 표시되지 않습니다.</span>
+            </div>
+            {availableAccounts.length > 0 ? (
+              <div className="flex gap-2">
+                <select
+                  value={selectedUserId}
+                  onChange={e => setSelectedUserId(e.target.value)}
+                  className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">계정 선택</option>
+                  {availableAccounts.map(u => (
+                    <option key={u.id} value={u.id}>{u.name} ({u.phone})</option>
+                  ))}
+                </select>
+                <button
+                  onClick={handleLink}
+                  disabled={!selectedUserId || linkSaving}
+                  className="bg-blue-600 hover:bg-blue-700 text-white text-xs px-3 py-1.5 rounded-lg disabled:opacity-50 transition-colors"
+                >
+                  {linkSaving ? '연결 중...' : '연결'}
+                </button>
+              </div>
+            ) : (
+              <p className="text-[11px] text-gray-400 text-center py-1">연결 가능한 앱 계정이 없습니다.</p>
+            )}
           </div>
         )}
       </div>
