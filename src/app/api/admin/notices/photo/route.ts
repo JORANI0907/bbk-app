@@ -18,14 +18,22 @@ export async function POST(request: NextRequest) {
 
   try {
     const supabase = createServiceClient()
-    const ext = file.name.split('.').pop()?.toLowerCase() ?? 'jpg'
+
+    // 확장자 → MIME 타입 정규화 (.jfif 등 비표준 확장자 대응)
+    const EXT_MIME: Record<string, string> = {
+      jpg: 'image/jpeg', jpeg: 'image/jpeg', jfif: 'image/jpeg', jpe: 'image/jpeg',
+      png: 'image/png', gif: 'image/gif', webp: 'image/webp',
+    }
+    const rawExt = file.name.split('.').pop()?.toLowerCase() ?? ''
+    const ext = EXT_MIME[rawExt] ? rawExt : 'jpg'
+    const contentType = EXT_MIME[rawExt] ?? EXT_MIME[file.type?.split('/')[1] ?? ''] ?? 'image/jpeg'
     const fileName = `notice_${Date.now()}.${ext}`
     const bytes = await file.arrayBuffer()
 
     const { error: uploadError } = await supabase.storage
       .from('notices')
       .upload(fileName, bytes, {
-        contentType: file.type || 'image/jpeg',
+        contentType,
         upsert: false,
       })
 
