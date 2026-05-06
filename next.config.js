@@ -45,6 +45,16 @@ const nextConfig = {
   eslint: {
     ignoreDuringBuilds: true,
   },
+  async rewrites() {
+    return [
+      { source: '/bbk-care', destination: '/form.html' },
+    ]
+  },
+  async redirects() {
+    return [
+      { source: '/form.html', destination: '/bbk-care', permanent: true },
+    ]
+  },
   typescript: {
     ignoreBuildErrors: false,
   },
