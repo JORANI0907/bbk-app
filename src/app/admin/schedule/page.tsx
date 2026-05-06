@@ -10,6 +10,7 @@ import { LoadingSpinner } from '@/components/admin/LoadingSpinner'
 import { MapSelectorModal } from '@/components/MapSelectorModal'
 import { Button } from '@/components/ui'
 import { Phone, Map, Camera, ClipboardList, Calendar } from 'lucide-react'
+import { getScheduleToday } from '@/lib/schedule-today'
 
 // ─── 타입 ──────────────────────────────────────────────────────
 
@@ -60,21 +61,6 @@ interface SessionUser { userId: string; name: string; role: string }
 
 const currentMonth = () => new Date().toISOString().slice(0, 7)
 
-/**
- * 배정관리 "오늘" 기준: 낮 12시를 하루의 시작으로 취급
- * - 12:00 이후 ~ 익일 11:59 → 오늘 날짜의 일정이 "오늘"
- * - 00:00 ~ 11:59 → 전날 날짜의 일정이 "오늘" (전날 밤 시작한 작업)
- * 예) 4/14 12:00 ~ 4/15 11:59 → "오늘" = 4/14 일정
- */
-function getScheduleToday(): string {
-  const now = new Date()
-  if (now.getHours() < 12) {
-    const yesterday = new Date(now)
-    yesterday.setDate(yesterday.getDate() - 1)
-    return yesterday.toISOString().slice(0, 10)
-  }
-  return now.toISOString().slice(0, 10)
-}
 
 const DOW_KO = ['일', '월', '화', '수', '목', '금', '토']
 
