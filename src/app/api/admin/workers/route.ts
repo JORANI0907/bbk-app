@@ -11,6 +11,18 @@ const ALLOWED_COLUMNS = [
 export async function GET(request: NextRequest) {
   const supabase = createServiceClient()
   const { searchParams } = new URL(request.url)
+
+  // 앱 계정 목록 조회 (연결 드롭다운용)
+  if (searchParams.get('accounts') === 'true') {
+    const { data, error } = await supabase
+      .from('users')
+      .select('id, name, phone')
+      .eq('role', 'worker')
+      .order('name')
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json({ accounts: data ?? [] })
+  }
+
   const employment_type = searchParams.get('employment_type')
   const search = searchParams.get('search')
 
@@ -65,13 +77,19 @@ export async function POST(request: NextRequest) {
 export async function PATCH(request: NextRequest) {
   const supabase = createServiceClient()
   const body = await request.json()
-  const { id, ...rest } = body
+  const { id, user_id, ...rest } = body
 
   if (!id) {
     return NextResponse.json({ error: 'id가 필요합니다.' }, { status: 400 })
   }
 
   const updates: Record<string, unknown> = {}
+
+  // user_id는 별도 처리 (null 허용 — 연결 해제 지원)
+  if ('user_id' in body) {
+    updates.user_id = user_id ?? null
+  }
+
   for (const key of ALLOWED_COLUMNS) {
     if (key in rest) updates[key] = rest[key]
   }
