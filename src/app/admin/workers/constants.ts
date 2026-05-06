@@ -53,6 +53,7 @@ export interface Worker {
   home_address: string | null
   emergency_contact: string | null
   created_at: string
+  user_id: string | null
 }
 
 export interface WorkAssignment {
