@@ -18,32 +18,63 @@ export async function GET(request: NextRequest) {
 
   const supabase = createServiceClient()
 
-  // 담당자(assigned_to)로 배정된 service_applications ID 목록 조회
-  const { data: assignedApps } = await supabase
-    .from('service_applications')
-    .select('id')
-    .eq('assigned_to', session.userId)
+  // 경로 1: service_schedules.worker_id = users.id (직접 배정)
+  // 경로 2: service_applications.assigned_to = users.id → application_id 경로
+  // 경로 3: workers.user_id = users.id → work_assignments.worker_id = workers.id → application_id 경로
+
+  const [
+    { data: assignedApps },
+    { data: workerRow },
+  ] = await Promise.all([
+    // 경로 2: 담당자(assigned_to)로 배정된 service_applications
+    supabase
+      .from('service_applications')
+      .select('id')
+      .eq('assigned_to', session.userId),
+    // 경로 3: workers 테이블에서 이 user의 worker row 조회
+    supabase
+      .from('workers')
+      .select('id')
+      .eq('user_id', session.userId)
+      .maybeSingle(),
+  ])
 
   const assignedAppIds = assignedApps?.map((a) => a.id) ?? []
+
+  // 경로 3: work_assignments에서 해당 worker의 application_id 수집
+  const workAssignmentAppIds: string[] = []
+  if (workerRow?.id) {
+    const { data: workAssignments } = await supabase
+      .from('work_assignments')
+      .select('application_id')
+      .eq('worker_id', workerRow.id)
+      .not('application_id', 'is', null)
+    workAssignmentAppIds.push(
+      ...(workAssignments?.map((a) => a.application_id as string).filter(Boolean) ?? [])
+    )
+  }
+
+  // 경로 2 + 3 합산 (중복 제거)
+  const allAppIds = [...new Set([...assignedAppIds, ...workAssignmentAppIds])]
 
   const [
     { data: workerSchedules, error: sErr1 },
     { data: assignedSchedules, error: sErr2 },
     { data: workerProfile, error: wErr },
   ] = await Promise.all([
-    // 작업자(worker_id)로 배정된 일정
+    // 경로 1: worker_id로 직접 배정된 일정
     supabase
       .from('service_schedules')
       .select('*, customer:customers(*)')
       .eq('worker_id', session.userId)
       .eq('scheduled_date', date)
       .order('scheduled_time_start', { ascending: true }),
-    // 담당자(assigned_to)로 배정된 일정
-    assignedAppIds.length > 0
+    // 경로 2+3: application_id 경유 일정
+    allAppIds.length > 0
       ? supabase
           .from('service_schedules')
           .select('*, customer:customers(*)')
-          .in('application_id', assignedAppIds)
+          .in('application_id', allAppIds)
           .eq('scheduled_date', date)
           .order('scheduled_time_start', { ascending: true })
       : Promise.resolve({ data: [] as Record<string, unknown>[], error: null }),
