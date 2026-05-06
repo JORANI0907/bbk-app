@@ -55,7 +55,7 @@ export async function GET(request: NextRequest) {
   }
 
   // 경로 2 + 3 합산 (중복 제거)
-  const allAppIds = [...new Set([...assignedAppIds, ...workAssignmentAppIds])]
+  const allAppIds = Array.from(new Set([...assignedAppIds, ...workAssignmentAppIds]))
 
   const [
     { data: workerSchedules, error: sErr1 },
