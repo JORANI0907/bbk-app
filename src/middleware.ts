@@ -30,6 +30,11 @@ export async function middleware(request: NextRequest) {
   try {
     const pathname = request.nextUrl.pathname
 
+    // /form.html → /bbk-care 영구 리다이렉트
+    if (pathname === '/form.html') {
+      return NextResponse.redirect(new URL('/bbk-care', request.url), 301)
+    }
+
     // 세션 검증 없이 즉시 통과 (crypto 연산 생략)
     if (pathname.startsWith('/forgot-password') || pathname.startsWith('/reset-password')) {
       return NextResponse.next()
@@ -89,6 +94,7 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
+    '/form.html',
     '/((?!_next/static|_next/image|favicon.ico|icons|manifest.json|sw.js|.*\\.(?:svg|png|jpg|jpeg|gif|webp|html)$).*)',
   ],
 }
