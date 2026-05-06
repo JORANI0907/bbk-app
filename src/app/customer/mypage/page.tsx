@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation'
 import { format } from 'date-fns'
 import { ko } from 'date-fns/locale'
 import { Building2 } from 'lucide-react'
+import { LogoutButton } from '@/components/customer/LogoutButton'
 
 interface CustomerData {
   id: string
@@ -183,6 +184,11 @@ export default async function CustomerMyPage() {
       <p className="text-center text-xs text-text-tertiary pb-2">
         정보 변경은 담당자(<span className="text-text-secondary font-medium">031-759-4877</span>)에게 문의하세요.
       </p>
+
+      {/* 로그아웃 */}
+      <div className="pb-4">
+        <LogoutButton />
+      </div>
     </div>
   )
 }
