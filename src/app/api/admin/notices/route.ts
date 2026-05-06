@@ -21,7 +21,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: '권한 없음' }, { status: 403 })
 
   const body = await req.json()
-  const { title, content, type, priority, pinned, event_date } = body
+  const { title, content, type, priority, pinned, event_date, target_audience, popup, image_url } = body
 
   if (!title?.trim() || !content?.trim())
     return NextResponse.json({ error: '제목과 내용을 입력하세요.' }, { status: 400 })
@@ -36,6 +36,9 @@ export async function POST(req: NextRequest) {
       priority: priority ?? 'normal',
       pinned: pinned ?? false,
       event_date: event_date || null,
+      target_audience: target_audience ?? 'all',
+      popup: popup ?? false,
+      image_url: image_url || null,
       author_id: session.userId,
       author_name: session.name,
     })
