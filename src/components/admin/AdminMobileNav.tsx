@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useState, useCallback } from 'react'
 import type { ReactNode } from 'react'
-import { Home, Building2, Users, TrendingUp, Settings, Bot, X } from 'lucide-react'
+import { Home, Building2, Users, TrendingUp, Settings, X } from 'lucide-react'
 import { useModalBackButton } from '@/hooks/useModalBackButton'
 
 // ─── 메뉴 구조 (Sidebar와 동일) ────────────────────────────────
@@ -72,14 +72,6 @@ const NAV_ITEMS: NavItem[] = [
     type: 'group', label: '앱관리', icon: <Settings size={16} />, roles: ['worker'],
     children: [
       { href: '/admin/account', label: '계정관리' },
-    ],
-  },
-  {
-    type: 'group', label: '마케팅 에이전트', icon: <Bot size={16} />, roles: ['admin'],
-    children: [
-      { href: '/admin/marketing', label: '대시보드' },
-      { href: '/admin/marketing/today', label: '콘텐츠' },
-      { href: '/admin/marketing/roi', label: 'ROI 성과' },
     ],
   },
 ]

@@ -4,7 +4,7 @@ import type { ReactNode } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useState, useCallback } from 'react'
-import { Trash2, Home, Building2, Users, TrendingUp, Settings, Bot, BookOpen, LogOut } from 'lucide-react'
+import { Trash2, Home, Building2, Users, TrendingUp, Settings, LogOut } from 'lucide-react'
 
 // ─── 타입 ─────────────────────────────────────────────────────
 
@@ -111,29 +111,6 @@ const NAV_ITEMS: NavItem[] = [
     roles: ['worker'],
     children: [
       { href: '/admin/account', label: '계정관리' },
-    ],
-  },
-  {
-    type: 'group',
-    label: '마케팅 에이전트',
-    icon: <Bot size={16} />,
-    roles: ['admin'],
-    children: [
-      { href: '/admin/marketing', label: '대시보드' },
-      { href: '/admin/marketing/today', label: '콘텐츠' },
-      { href: '/admin/marketing/roi', label: 'ROI 성과' },
-    ],
-  },
-  {
-    type: 'group',
-    label: '콘텐츠',
-    icon: <BookOpen size={16} />,
-    roles: ['admin'],
-    children: [
-      { href: '/admin/content/knowledge', label: '지식 베이스' },
-      { href: '/admin/content/public', label: '마케팅 콘텐츠' },
-      { href: '/admin/content/media', label: '미디어 콘텐츠' },
-      { href: '/admin/content/activities', label: '관내활동' },
     ],
   },
   { type: 'leaf', href: '/admin/trash', label: '휴지통', icon: <Trash2 size={16} />, roles: ['admin'] },
