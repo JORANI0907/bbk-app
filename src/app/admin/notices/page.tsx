@@ -11,6 +11,7 @@ type NoticeType = 'notice' | 'event'
 type Priority = 'normal' | 'important' | 'urgent'
 type Audience = 'all' | 'admin' | 'worker' | 'customer'
 type TabFilter = 'all' | 'notice' | 'event'
+type AudienceFilter = 'all' | 'worker' | 'customer'
 
 interface Notice {
   id: string
@@ -74,6 +75,7 @@ export default function NoticesPage() {
   const [notices, setNotices] = useState<Notice[]>([])
   const [loading, setLoading] = useState(true)
   const [tab, setTab] = useState<TabFilter>('all')
+  const [audienceFilter, setAudienceFilter] = useState<AudienceFilter>('all')
   const [showModal, setShowModal] = useState(false)
   const [editTarget, setEditTarget] = useState<Notice | null>(null)
   const [form, setForm] = useState<NoticeFormData>(EMPTY_FORM)
@@ -199,7 +201,14 @@ export default function NoticesPage() {
     }
   }
 
-  const filtered = tab === 'all' ? notices : notices.filter(n => n.type === tab)
+  const filtered = notices.filter(n => {
+    const typeMatch = tab === 'all' || n.type === tab
+    const audienceMatch =
+      audienceFilter === 'all' ||
+      n.target_audience === audienceFilter ||
+      n.target_audience === 'all'
+    return typeMatch && audienceMatch
+  })
 
   const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
   const isNew = (createdAt: string) => new Date(createdAt) > sevenDaysAgo
@@ -220,7 +229,7 @@ export default function NoticesPage() {
       </div>
 
       {/* 탭 */}
-      <div className="flex gap-1 px-4 pb-3">
+      <div className="flex gap-1 px-4 pb-2">
         {(['all', 'notice', 'event'] as TabFilter[]).map(t => (
           <button
             key={t}
@@ -235,6 +244,34 @@ export default function NoticesPage() {
             </span>
           </button>
         ))}
+      </div>
+
+      {/* 대상 필터 */}
+      <div className="flex gap-1 px-4 pb-3">
+        {([
+          { value: 'all', label: '전체 대상' },
+          { value: 'worker', label: '직원' },
+          { value: 'customer', label: '고객' },
+        ] as { value: AudienceFilter; label: string }[]).map(({ value, label }) => {
+          const count =
+            value === 'all'
+              ? notices.length
+              : notices.filter(n => n.target_audience === value || n.target_audience === 'all').length
+          return (
+            <button
+              key={value}
+              onClick={() => setAudienceFilter(value)}
+              className={`px-3 py-1 rounded-full text-xs font-medium transition-colors border ${
+                audienceFilter === value
+                  ? 'bg-text-primary text-white border-text-primary'
+                  : 'bg-surface border-border text-text-secondary hover:bg-surface-sunken'
+              }`}
+            >
+              {label}
+              <span className="ml-1 opacity-70">{count}</span>
+            </button>
+          )
+        })}
       </div>
 
       {/* 목록 */}
