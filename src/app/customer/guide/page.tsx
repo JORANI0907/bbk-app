@@ -1,3 +1,5 @@
+import Link from 'next/link'
+
 export default function CustomerGuidePage() {
   return (
     <div className="px-4 py-5 flex flex-col gap-6 max-w-2xl mx-auto md:px-6 md:py-8">
@@ -128,6 +130,31 @@ export default function CustomerGuidePage() {
             </div>
           </a>
         </div>
+      </section>
+
+      {/* 서비스 범위 안내 섹션 */}
+      <section className="flex flex-col gap-3">
+        <h2 className="text-sm font-bold text-text-secondary uppercase tracking-wide">서비스 범위 안내</h2>
+        <Link
+          href="/customer/services"
+          className="bg-surface rounded-2xl border border-border-subtle shadow-soft p-5 flex items-center gap-4 group hover:bg-surface-sunken active:scale-[0.98] transition-all"
+        >
+          <div className="w-9 h-9 rounded-xl bg-brand-50 flex items-center justify-center shrink-0">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5 text-brand-600">
+              <path d="M9 11l3 3L22 4"/>
+              <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+            </svg>
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-bold text-text-primary group-hover:text-brand-600 transition-colors">청소 서비스 항목 보기</p>
+            <p className="text-xs text-text-secondary mt-0.5 leading-normal">
+              주방기기 · 공간 · 위생설비 · 설비 등 17개 항목
+            </p>
+          </div>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 text-text-tertiary shrink-0">
+            <polyline points="9 18 15 12 9 6"/>
+          </svg>
+        </Link>
       </section>
     </div>
   )
