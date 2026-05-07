@@ -4,7 +4,7 @@ self.addEventListener('push', (event) => {
   event.waitUntil(
     self.registration.showNotification(data.title, {
       body: data.body,
-      icon: '/bbk-logo.png',
+      icon: '/icons/icon-192x192.png',
       data: { url: data.url || '/' },
       vibrate: [200, 100, 200],
       requireInteraction: false,
