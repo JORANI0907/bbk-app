@@ -52,6 +52,7 @@ export interface Worker {
   hobby: string | null
   home_address: string | null
   emergency_contact: string | null
+  personal_id: string | null
   created_at: string
   user_id: string | null
 }

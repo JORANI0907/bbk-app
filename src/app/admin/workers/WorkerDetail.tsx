@@ -120,6 +120,7 @@ export default function WorkerDetail({ worker, onWorkerUpdated, onWorkerDeleted 
     anniversary: worker.anniversary ?? '',
     hobby: worker.hobby ?? '',
     home_address: worker.home_address ?? '',
+    personal_id: worker.personal_id ?? '',
   })
   const [saving, setSaving] = useState(false)
   const [extraExpanded, setExtraExpanded] = useState(false)
@@ -145,6 +146,7 @@ export default function WorkerDetail({ worker, onWorkerUpdated, onWorkerDeleted 
       anniversary: worker.anniversary ?? '',
       hobby: worker.hobby ?? '',
       home_address: worker.home_address ?? '',
+      personal_id: worker.personal_id ?? '',
     })
     setExtraExpanded(false)
   }, [worker.id])
@@ -166,6 +168,7 @@ export default function WorkerDetail({ worker, onWorkerUpdated, onWorkerDeleted 
         anniversary: form.anniversary || null,
         hobby: form.hobby || null,
         home_address: form.home_address || null,
+        personal_id: form.personal_id || null,
       }
       const isPartTime = form.employment_type !== '정직원'
       if (isPartTime) {
@@ -284,6 +287,7 @@ export default function WorkerDetail({ worker, onWorkerUpdated, onWorkerDeleted 
         </button>
         {extraExpanded && (
           <div className="p-4 flex flex-col gap-3 bg-gray-50">
+            <Field label="주민번호" value={form.personal_id} onChange={setField('personal_id')} mono />
             <Field label="기념일" value={form.anniversary} onChange={setField('anniversary')} />
             <Field label="취미/특기" value={form.hobby} onChange={setField('hobby')} />
             <Field label="집주소" value={form.home_address} onChange={setField('home_address')} />
