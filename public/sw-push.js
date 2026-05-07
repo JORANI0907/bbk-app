@@ -1,11 +1,11 @@
-// BBK Push SW v3
+// BBK Push SW v4
 self.addEventListener('push', (event) => {
   if (!event.data) return;
   const data = event.data.json();
   event.waitUntil(
     self.registration.showNotification(data.title, {
       body: data.body,
-      icon: '/icons/icon-192x192.png',
+      icon: '/icons/push-icon.png',
       data: { url: data.url || '/' },
       vibrate: [200, 100, 200],
       requireInteraction: false,
