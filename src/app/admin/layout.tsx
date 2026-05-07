@@ -1,6 +1,7 @@
 import { SidebarWithBadges } from '@/components/admin/SidebarWithBadges'
 import { AdminMobileNav } from '@/components/admin/AdminMobileNav'
 import { PopupNoticeController } from '@/components/admin/PopupNoticeController'
+import { PushNotificationProvider } from '@/components/shared/PushNotificationProvider'
 import { getServerSession } from '@/lib/session'
 import { redirect } from 'next/navigation'
 
@@ -29,6 +30,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
       {/* 팝업 공지 컨트롤러 */}
       <PopupNoticeController />
+
+      {/* Web Push 구독 등록 */}
+      <PushNotificationProvider userId={session.userId} userType="admin" />
     </div>
   )
 }

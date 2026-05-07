@@ -1,6 +1,7 @@
 import { CustomerSidebar } from '@/components/customer/CustomerSidebar'
 import { CustomerMobileNav } from '@/components/customer/CustomerMobileNav'
 import { ScheduleChangeFAB } from '@/components/customer/ScheduleChangeFAB'
+import { PushNotificationProvider } from '@/components/shared/PushNotificationProvider'
 import { getServerSession } from '@/lib/session'
 import { redirect } from 'next/navigation'
 
@@ -31,6 +32,9 @@ export default function CustomerLayout({
 
       {/* 일정 변경 요청 FAB */}
       <ScheduleChangeFAB />
+
+      {/* Web Push 구독 등록 */}
+      <PushNotificationProvider userId={session.userId} userType="customer" />
     </div>
   )
 }

@@ -1,11 +1,15 @@
 import { BottomNav } from '@/components/worker/BottomNav'
 import { TodayLabel } from '@/components/worker/TodayLabel'
+import { PushNotificationProvider } from '@/components/shared/PushNotificationProvider'
+import { getServerSession } from '@/lib/session'
 
 export default function WorkerLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
+  const session = getServerSession()
+
   return (
     <div className="min-h-screen bg-surface-sunken flex flex-col">
       <header className="sticky top-0 z-40 bg-surface/95 backdrop-blur-sm border-b border-border-subtle safe-area-pt shadow-flat">
@@ -21,6 +25,11 @@ export default function WorkerLayout({
       <main className="flex-1 pb-20 max-w-xl mx-auto w-full">{children}</main>
 
       <BottomNav />
+
+      {/* Web Push 구독 등록 */}
+      {session && (
+        <PushNotificationProvider userId={session.userId} userType="worker" />
+      )}
     </div>
   )
 }
