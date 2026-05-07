@@ -1,3 +1,4 @@
+// BBK Push SW v3
 self.addEventListener('push', (event) => {
   if (!event.data) return;
   const data = event.data.json();

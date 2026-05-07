@@ -36,7 +36,11 @@ export function usePushNotification(userId: string | null, userType: UserType) {
         const permission = await Notification.requestPermission()
         if (permission !== 'granted') return
 
-        const registration = await navigator.serviceWorker.register('/sw-push.js')
+        const registration = await navigator.serviceWorker.register('/sw-push.js', {
+          updateViaCache: 'none',
+        })
+        // 새 버전 감지 시 즉시 활성화
+        registration.update()
         await navigator.serviceWorker.ready
 
         const existing = await registration.pushManager.getSubscription()
