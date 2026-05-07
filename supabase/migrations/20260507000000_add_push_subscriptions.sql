@@ -32,7 +32,10 @@ ALTER TABLE push_subscriptions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE push_notification_logs ENABLE ROW LEVEL SECURITY;
 
 -- service role은 모두 허용
+DROP POLICY IF EXISTS "service_role_all_push_subscriptions" ON push_subscriptions;
 CREATE POLICY "service_role_all_push_subscriptions" ON push_subscriptions
   FOR ALL USING (true);
+
+DROP POLICY IF EXISTS "service_role_all_push_logs" ON push_notification_logs;
 CREATE POLICY "service_role_all_push_logs" ON push_notification_logs
   FOR ALL USING (true);
