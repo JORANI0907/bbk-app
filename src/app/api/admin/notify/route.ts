@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { sendAlimtalk, sendSMS, sendSubscriptionPromoSMS } from '@/lib/solapi'
 import { createServiceClient } from '@/lib/supabase/server'
 import { notifySlack } from '@/lib/slack'
+import { sendPushToUsers } from '@/lib/push'
 
 const WORKER_NOTIFY_TYPE = '작업자 일정 안내'
 
@@ -415,6 +416,21 @@ export async function POST(request: NextRequest) {
       constructionDate: app.construction_date?.slice(0, 10) ?? null,
       method,
     }).catch(() => { /* Slack 실패는 무시 */ })
+
+    // ── Web Push 발송 ───────────────────────────────────────────────
+    // 담당 작업자 및 고객 계정에게 Push 발송 (실패해도 응답에 영향 없음)
+    try {
+      const pushTargetIds: string[] = []
+      if (app.assigned_to) pushTargetIds.push(String(app.assigned_to))
+      if (app.customer_id) pushTargetIds.push(String(app.customer_id))
+      if (pushTargetIds.length) {
+        const pushTitle = `BBK 공간케어 — ${type}`
+        const pushBody = `${String(app.business_name ?? '')} ${type}`
+        await sendPushToUsers(pushTargetIds, { title: pushTitle, body: pushBody, url: '/admin' })
+      }
+    } catch {
+      // Web Push 실패는 알림톡 응답에 영향 없음
+    }
 
     // ── 결제완료알림 발송 직후 구독권유알림 자동 발송 ────────────
     if (
