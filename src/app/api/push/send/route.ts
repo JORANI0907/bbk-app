@@ -40,19 +40,20 @@ export async function POST(req: Request) {
 
     const supabase = createServiceClient()
 
-    let query = supabase
+    const baseQuery = supabase
       .from('push_subscriptions')
       .select('id, endpoint, p256dh, auth')
       .eq('is_active', true)
 
-    if (userIds?.length) {
-      query = query.in('user_id', userIds)
-    }
-    if (userType) {
-      query = query.eq('user_type', userType)
-    }
+    const typeFiltered = userType
+      ? baseQuery.eq('user_type', userType)
+      : baseQuery
 
-    const { data: subs, error } = await query
+    const finalQuery = userIds?.length
+      ? typeFiltered.in('user_id', userIds)
+      : typeFiltered
+
+    const { data: subs, error } = await finalQuery
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     if (!subs?.length) return NextResponse.json({ success: true, sent: 0 })
 

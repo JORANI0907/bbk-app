@@ -27,7 +27,7 @@ interface PushLog {
   url: string | null
   status: LogStatus
   error_message: string | null
-  created_at: string
+  sent_at: string
   subscription_id: string
 }
 
@@ -331,7 +331,7 @@ export default function PushPage() {
                 {logs.map((log) => (
                   <tr key={log.id} className="hover:bg-surface-sunken transition-colors">
                     <td className="px-4 py-3 text-text-secondary whitespace-nowrap tabular-nums text-xs">
-                      {formatDate(log.created_at)}
+                      {formatDate(log.sent_at)}
                     </td>
                     <td className="px-4 py-3 text-text-primary font-medium max-w-[160px] truncate">
                       {log.title}

@@ -7,8 +7,8 @@ export async function GET() {
 
     const { data, error } = await supabase
       .from('push_notification_logs')
-      .select('id, title, body, url, status, error_message, created_at, subscription_id')
-      .order('created_at', { ascending: false })
+      .select('id, title, body, url, status, error_message, sent_at, subscription_id')
+      .order('sent_at', { ascending: false })
       .limit(50)
 
     if (error) {
