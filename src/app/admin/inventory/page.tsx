@@ -13,6 +13,7 @@ import {
 } from '@/lib/googleDrive'
 import type { DriveFolder } from '@/lib/googleDrive'
 import { openGoogleDrive } from '@/lib/mapUtils'
+import { compressImage } from '@/lib/compress-image'
 import { useModalBackButton } from '@/hooks/useModalBackButton'
 import { Button } from '@/components/ui'
 
@@ -299,11 +300,15 @@ export default function AdminInventoryPage() {
     setShowTxModal(true)
   }
 
-  const handlePhotoCapture = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePhotoCapture = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
-    setTxPhoto(file)
-    setTxPhotoPreview(URL.createObjectURL(file))
+    const compressed = await compressImage(file)
+    if (compressed !== file) {
+      toast.success(`사진 용량 축소: ${(file.size / 1024 / 1024).toFixed(1)}MB → ${(compressed.size / 1024 / 1024).toFixed(1)}MB`)
+    }
+    setTxPhoto(compressed)
+    setTxPhotoPreview(URL.createObjectURL(compressed))
   }
 
   // ── Drive 저장 위치 설정 (관리자) ─────────────────────────────
