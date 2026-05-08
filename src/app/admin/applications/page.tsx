@@ -49,6 +49,7 @@ interface Application {
   payment_method: string | null
   account_number: string | null
   request_notes: string | null
+  admin_request_notes: string | null
   status: ApplicationStatus
   admin_notes: string | null
   notion_page_id: string | null
@@ -508,6 +509,7 @@ export default function ServiceManagementPage() {
   const [parking, setParking] = useState('')
   const [accessMethod, setAccessMethod] = useState('')
   const [requestNotes, setRequestNotes] = useState('')
+  const [adminRequestNotes, setAdminRequestNotes] = useState('')
   const [careScope, setCareScope] = useState('')
   const [businessHoursStart, setBusinessHoursStart] = useState('')
   const [businessHoursEnd, setBusinessHoursEnd] = useState('')
@@ -595,6 +597,7 @@ export default function ServiceManagementPage() {
     setParking(app.parking ?? '')
     setAccessMethod(app.access_method ?? '')
     setRequestNotes(app.request_notes ?? '')
+    setAdminRequestNotes(app.admin_request_notes ?? '')
     setCareScope(app.care_scope ?? '')
     setBusinessHoursStart(app.business_hours_start ?? '')
     setBusinessHoursEnd(app.business_hours_end ?? '')
@@ -913,6 +916,7 @@ export default function ServiceManagementPage() {
           access_method: accessMethod || null,
           parking: parking || null,
           request_notes: requestNotes || null,
+          admin_request_notes: adminRequestNotes || null,
           care_scope: careScope || null,
           business_hours_start: businessHoursStart || null,
           business_hours_end: businessHoursEnd || null,
@@ -1828,8 +1832,14 @@ export default function ServiceManagementPage() {
                       className="flex-1 border border-border rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-green-500 resize-none text-text-primary" />
                   </div>
                   <div className="flex items-start gap-2">
-                    <span className="text-xs text-text-secondary w-20 shrink-0 pt-1.5">요청사항</span>
+                    <span className="text-xs text-text-secondary w-20 shrink-0 pt-1.5">고객요청사항</span>
                     <textarea value={requestNotes} onChange={e => setRequestNotes(e.target.value)} rows={2}
+                      className="flex-1 border border-border rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-green-500 resize-none text-text-primary" />
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <span className="text-xs text-text-secondary w-20 shrink-0 pt-1.5">관리자 요청</span>
+                    <textarea value={adminRequestNotes} onChange={e => setAdminRequestNotes(e.target.value)} rows={2}
+                      placeholder="직원에게 전달할 요청사항을 입력하세요..."
                       className="flex-1 border border-border rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-green-500 resize-none text-text-primary" />
                   </div>
                   <div className="flex items-start gap-2">
