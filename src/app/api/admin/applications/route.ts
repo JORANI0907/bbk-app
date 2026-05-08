@@ -57,7 +57,7 @@ export async function POST(request: NextRequest) {
     'elevator', 'building_access', 'access_method', 'parking',
     'business_hours_start', 'business_hours_end',
     // 시공정보
-    'care_scope', 'request_notes', 'construction_time',
+    'care_scope', 'request_notes', 'admin_request_notes', 'construction_time',
     // 결제정보
     'payment_method',
     'unit_price_per_visit', 'deposit', 'supply_amount', 'vat', 'balance', 'manager_pay',
@@ -122,7 +122,7 @@ export async function PATCH(request: NextRequest) {
     'elevator', 'building_access', 'access_method', 'parking',
     'business_hours_start', 'business_hours_end',
     // 시공정보
-    'care_scope', 'request_notes',
+    'care_scope', 'request_notes', 'admin_request_notes',
     // 결제정보
     'payment_method',
     'unit_price_per_visit', 'deposit', 'supply_amount', 'vat', 'balance', 'manager_pay',
@@ -170,7 +170,7 @@ export async function PATCH(request: NextRequest) {
           scheduled_time_end: toTime(app.business_hours_end, '18:00:00'),
           status: 'scheduled',
           work_step: 0,
-          worker_memo: app.care_scope ?? app.request_notes ?? null,
+          worker_memo: app.admin_request_notes ?? app.care_scope ?? null,
           application_id: id,
         }
 
