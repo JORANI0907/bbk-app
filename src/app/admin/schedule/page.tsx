@@ -36,6 +36,7 @@ interface Application {
   parking: string | null
   access_method: string | null
   request_notes: string | null
+  admin_request_notes: string | null
   care_scope: string | null
   business_number: string | null
   account_number: string | null
@@ -549,8 +550,14 @@ function DetailPanel({
               )}
               {app.request_notes && (
                 <div>
-                  <p className="text-xs text-text-secondary font-semibold mb-1">요청사항</p>
+                  <p className="text-xs text-text-secondary font-semibold mb-1">고객 요청사항</p>
                   <p className="text-xs text-text-primary whitespace-pre-wrap leading-relaxed">{app.request_notes}</p>
+                </div>
+              )}
+              {app.admin_request_notes && (
+                <div>
+                  <p className="text-xs text-state-warning font-semibold mb-1">관리자 요청</p>
+                  <p className="text-xs text-text-primary whitespace-pre-wrap leading-relaxed">{app.admin_request_notes}</p>
                 </div>
               )}
               {app.construction_time && (
@@ -563,7 +570,7 @@ function DetailPanel({
                   })()}</p>
                 </div>
               )}
-              {!app.care_scope && !app.request_notes && !app.construction_time && (
+              {!app.care_scope && !app.request_notes && !app.admin_request_notes && !app.construction_time && (
                 <p className="text-xs text-text-tertiary">시공 정보가 없습니다.</p>
               )}
             </div>
