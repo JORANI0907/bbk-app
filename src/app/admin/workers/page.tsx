@@ -29,6 +29,7 @@ export default function WorkersPage() {
   const [showAddForm, setShowAddForm] = useState(false)
   const [copied, setCopied] = useState(false)
   const [userRole, setUserRole] = useState<string>('')
+  const [mobileView, setMobileView] = useState<'list' | 'detail'>('list')
 
   useEffect(() => {
     fetch('/api/admin/me')
@@ -95,8 +96,16 @@ export default function WorkersPage() {
 
   const handleWorkerDeleted = useCallback((id: string) => {
     setWorkers(prev => prev.filter(w => w.id !== id))
-    if (selectedWorker?.id === id) setSelectedWorker(null)
+    if (selectedWorker?.id === id) {
+      setSelectedWorker(null)
+      setMobileView('list')
+    }
   }, [selectedWorker])
+
+  const handleSelectWorker = useCallback((worker: Worker) => {
+    setSelectedWorker(worker)
+    setMobileView('detail')
+  }, [])
 
   const handleCopySql = () => {
     navigator.clipboard.writeText(MIGRATION_SQL).then(() => {
@@ -140,8 +149,14 @@ export default function WorkersPage() {
 
       {/* Split panel */}
       <div className="flex flex-1 gap-0 overflow-hidden p-4">
-        {/* Left panel — 직원 역할은 전체 너비 */}
-        <div className={`${userRole === 'worker' ? 'w-full' : 'w-80 mr-4'} shrink-0 flex flex-col bg-surface rounded-xl shadow-soft border border-border-subtle overflow-hidden`}>
+        {/* Left panel — 직원 역할은 전체 너비 / 관리자 모바일은 detail 선택 시 숨김 */}
+        <div className={`
+          ${userRole === 'worker'
+            ? 'flex w-full'
+            : `${mobileView === 'detail' ? 'hidden md:flex' : 'flex'} w-full md:w-80 md:mr-4`
+          }
+          shrink-0 flex-col bg-surface rounded-xl shadow-soft border border-border-subtle overflow-hidden
+        `}>
           <WorkerList
             workers={workers}
             selectedId={userRole === 'worker' ? null : (selectedWorker?.id ?? null)}
@@ -155,15 +170,27 @@ export default function WorkersPage() {
             onFilterTypeChange={setFilterType}
             onFilterSkillChange={setFilterSkill}
             onFilterSpecialtyChange={setFilterSpecialty}
-            onSelectWorker={userRole === 'worker' ? () => {} : setSelectedWorker}
+            onSelectWorker={userRole === 'worker' ? () => {} : handleSelectWorker}
             onShowAddForm={userRole === 'worker' ? () => {} : setShowAddForm}
             onWorkerAdded={handleWorkerAdded}
           />
         </div>
 
-        {/* Right panel — 관리자만 */}
+        {/* Right panel — 관리자만 / 모바일은 detail 선택 시에만 표시 */}
         {userRole !== 'worker' && (
-          <div className="flex-1 bg-surface rounded-xl shadow-soft border border-border-subtle overflow-y-auto">
+          <div className={`
+            ${mobileView === 'list' ? 'hidden md:flex' : 'flex'}
+            flex-1 flex-col bg-surface rounded-xl shadow-soft border border-border-subtle overflow-y-auto
+          `}>
+            {/* 모바일 뒤로가기 버튼 */}
+            <div className="md:hidden flex items-center px-4 py-3 border-b border-border-subtle">
+              <button
+                onClick={() => setMobileView('list')}
+                className="flex items-center gap-1 text-sm text-brand-600"
+              >
+                ← 목록으로
+              </button>
+            </div>
             {selectedWorker ? (
               <WorkerDetail
                 worker={selectedWorker}
