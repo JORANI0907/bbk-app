@@ -1,8 +1,15 @@
-// 공지사항 사진 업로드 → Supabase Storage 'notices' 버킷 사용
-// Supabase 대시보드 → Storage → 'notices' 버킷 생성(Public) 필요
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from '@/lib/session'
 import { createServiceClient } from '@/lib/supabase/server'
+
+const MAX_SIZE = 5 * 1024 * 1024 // 5MB
+
+const EXT_MIME: Record<string, string> = {
+  jpg: 'image/jpeg', jpeg: 'image/jpeg', jfif: 'image/jpeg', jpe: 'image/jpeg',
+  png: 'image/png', gif: 'image/gif', webp: 'image/webp',
+}
+
+const ALLOWED_MIME = new Set(Object.values(EXT_MIME))
 
 export async function POST(request: NextRequest) {
   const session = getServerSession()
@@ -16,26 +23,31 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: '파일이 없습니다.' }, { status: 400 })
   }
 
+  if (file.size > MAX_SIZE) {
+    return NextResponse.json({ error: '파일 크기는 5MB 이하여야 합니다.' }, { status: 400 })
+  }
+
+  const rawExt = file.name.split('.').pop()?.toLowerCase() ?? ''
+  const contentType = EXT_MIME[rawExt] ?? file.type
+
+  if (!ALLOWED_MIME.has(contentType)) {
+    return NextResponse.json(
+      { error: 'JPG, PNG, GIF, WEBP 형식만 업로드 가능합니다.' },
+      { status: 400 }
+    )
+  }
+
+  const ext = EXT_MIME[rawExt] ? rawExt : 'jpg'
+  const rand = Math.random().toString(36).slice(2, 7)
+  const fileName = `notice_${Date.now()}_${rand}.${ext}`
+
   try {
     const supabase = createServiceClient()
-
-    // 확장자 → MIME 타입 정규화 (.jfif 등 비표준 확장자 대응)
-    const EXT_MIME: Record<string, string> = {
-      jpg: 'image/jpeg', jpeg: 'image/jpeg', jfif: 'image/jpeg', jpe: 'image/jpeg',
-      png: 'image/png', gif: 'image/gif', webp: 'image/webp',
-    }
-    const rawExt = file.name.split('.').pop()?.toLowerCase() ?? ''
-    const ext = EXT_MIME[rawExt] ? rawExt : 'jpg'
-    const contentType = EXT_MIME[rawExt] ?? EXT_MIME[file.type?.split('/')[1] ?? ''] ?? 'image/jpeg'
-    const fileName = `notice_${Date.now()}.${ext}`
     const bytes = await file.arrayBuffer()
 
     const { error: uploadError } = await supabase.storage
       .from('notices')
-      .upload(fileName, bytes, {
-        contentType,
-        upsert: false,
-      })
+      .upload(fileName, bytes, { contentType, upsert: false })
 
     if (uploadError) {
       return NextResponse.json({ error: uploadError.message }, { status: 500 })
