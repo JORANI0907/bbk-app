@@ -5,6 +5,7 @@ import toast from 'react-hot-toast'
 import { useModalBackButton } from '@/hooks/useModalBackButton'
 import { Button } from '@/components/ui'
 import { Camera, Package, Image as ImageIcon } from 'lucide-react'
+import { compressImage } from '@/lib/compress-image'
 
 type InventoryCategory = 'chemical' | 'equipment' | 'consumable' | 'other'
 
@@ -76,11 +77,15 @@ export default function WorkerInventoryPage() {
 
   useModalBackButton(!!selectedItem, closeModal)
 
-  const handlePhotoCapture = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePhotoCapture = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
-    setPhoto(file)
-    setPhotoPreview(URL.createObjectURL(file))
+    const compressed = await compressImage(file)
+    if (compressed !== file) {
+      toast.success(`사진 용량 축소: ${(file.size / 1024 / 1024).toFixed(1)}MB → ${(compressed.size / 1024 / 1024).toFixed(1)}MB`)
+    }
+    setPhoto(compressed)
+    setPhotoPreview(URL.createObjectURL(compressed))
   }
 
   const handleSubmit = async () => {
