@@ -351,7 +351,7 @@ export default async function CustomerScheduleDetailPage({ params }: PageProps) 
             )}
             {application?.request_notes && (
               <div className="flex flex-col gap-1">
-                <span className="text-xs text-text-tertiary">요청 사항</span>
+                <span className="text-xs text-text-tertiary">고객요청사항</span>
                 <div className="bg-surface-sunken rounded-xl p-3">
                   <p className="text-sm text-text-secondary whitespace-pre-wrap leading-relaxed">{application.request_notes}</p>
                 </div>
