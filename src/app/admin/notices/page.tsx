@@ -133,6 +133,18 @@ export default function NoticesPage() {
   }
 
   const handlePhotoUpload = async (file: File) => {
+    const ALLOWED = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp']
+    const MAX_MB = 5
+
+    if (file.size > MAX_MB * 1024 * 1024) {
+      toast.error(`파일 크기는 ${MAX_MB}MB 이하여야 합니다. (현재: ${(file.size / 1024 / 1024).toFixed(1)}MB)`)
+      return
+    }
+    if (!ALLOWED.includes(file.type)) {
+      toast.error('JPG, PNG, GIF, WEBP 형식만 업로드 가능합니다.')
+      return
+    }
+
     setPhotoUploading(true)
     try {
       const fd = new FormData()
@@ -498,7 +510,10 @@ export default function NoticesPage() {
 
               {/* 사진 업로드 */}
               <div>
-                <label className="block text-xs font-semibold text-text-secondary mb-1">사진 (선택)</label>
+                <label className="block text-xs font-semibold text-text-secondary mb-1">
+                  사진 (선택)
+                  <span className="ml-1.5 font-normal text-text-tertiary">JPG·PNG·GIF·WEBP, 최대 5MB</span>
+                </label>
                 {form.image_url && (
                   <div className="mb-2 relative">
                     <img src={form.image_url} alt="미리보기" className="w-full max-h-32 object-cover rounded-lg" />
@@ -514,7 +529,7 @@ export default function NoticesPage() {
                 <label className={`flex items-center justify-center gap-2 w-full border-2 border-dashed border-border rounded-xl py-3 cursor-pointer text-sm text-text-secondary hover:bg-surface-sunken transition-colors ${photoUploading ? 'opacity-50 pointer-events-none' : ''}`}>
                   <input
                     type="file"
-                    accept="image/*"
+                    accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
                     className="hidden"
                     onChange={e => {
                       const file = e.target.files?.[0]
