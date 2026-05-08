@@ -12,7 +12,6 @@ export async function POST(request: NextRequest) {
   const formData = await request.formData()
   const file = formData.get('photo') as File | null
   const type = formData.get('type') as string | null // 'clock_in' | 'clock_out'
-  const workerName = formData.get('worker_name') as string | null
   const date = formData.get('date') as string | null
 
   if (!file || !type || !date) {
@@ -23,11 +22,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: '파일 크기는 10MB 이하여야 합니다.' }, { status: 400 })
   }
 
-  const typeLabel = type === 'clock_in' ? '출근' : '퇴근'
-  const name = workerName ?? session.name ?? '직원'
-  const ext = file.name.split('.').pop() ?? 'jpg'
-  const sanitize = (s: string) => s.replace(/[^a-zA-Z0-9가-힣ㄱ-ㅎㅏ-ㅣ._-]/g, '_')
-  const fileName = `${sanitize(date)}/${sanitize(name)}_${sanitize(typeLabel)}_${Date.now()}.${ext}`
+  const safeDate = date.replace(/[^0-9-]/g, '_')
+  const safeType = type === 'clock_in' ? 'in' : 'out'
+  const safeId = String(session.userId ?? 'unknown').replace(/[^a-zA-Z0-9_-]/g, '_')
+  const rawExt = file.name.split('.').pop()?.toLowerCase() ?? 'jpg'
+  const ext = /^[a-z0-9]+$/.test(rawExt) ? rawExt : 'jpg'
+  const fileName = `${safeDate}/${safeId}_${safeType}_${Date.now()}.${ext}`
 
   try {
     const supabase = createServiceClient()
