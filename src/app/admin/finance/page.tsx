@@ -155,7 +155,7 @@ function RecordRow({ record, isSelected, onToggle, isEditing, onSave, onCancelEd
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
-const SERVICE_TYPES = ['1회성케어', '정기딥케어', '정기엔드케어'] as const
+const SERVICE_TYPES = ['1회성케어', '정기딥케어', '정기딥케어(연간)', '정기엔드케어'] as const
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 

@@ -122,7 +122,7 @@ export async function GET(request: NextRequest) {
     return {
       id: c.id,
       business_name: c.business_name,
-      service_type: '정기딥케어',
+      service_type: '정기딥케어(연간)',
       construction_date: c.contract_start_date,
       supply_amount: supply,
       vat: vatAmt,
