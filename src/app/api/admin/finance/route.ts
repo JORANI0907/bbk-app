@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
     return m === 12 ? `${y + 1}-01-01` : `${y}-${String(m + 1).padStart(2, '0')}-01`
   })()
 
-  const [appsRes, payrollRes, fixedRes, variableRes, endCareRes] = await Promise.all([
+  const [appsRes, payrollRes, fixedRes, variableRes, endCareRes, deepCareAnnualRes] = await Promise.all([
     // 매출: 해당 월 service_applications (정기엔드케어 및 미진행 상태 제외)
     supabase
       .from('service_applications')
@@ -63,6 +63,17 @@ export async function GET(request: NextRequest) {
       .filter('payment_status', 'cs', `["${monthLabel}"]`)
       .not('billing_amount', 'is', null)
       .is('deleted_at', null),
+
+    // 정기딥케어 연간 매출: 계약 시작일이 해당 월에 포함된 고객
+    supabase
+      .from('customers')
+      .select('id, business_name, billing_amount, payment_method, contract_start_date')
+      .eq('customer_type', '정기딥케어')
+      .eq('billing_cycle', '연간')
+      .gte('contract_start_date', `${month}-01`)
+      .lt('contract_start_date', nextMonth)
+      .not('billing_amount', 'is', null)
+      .is('deleted_at', null),
   ])
 
   if (appsRes.error) return NextResponse.json({ error: appsRes.error.message }, { status: 500 })
@@ -76,6 +87,7 @@ export async function GET(request: NextRequest) {
   const fixedRecords = fixedRes.data ?? []
   const variableRecords = variableRes.data ?? []
   const endCareCustomers = endCareRes.data ?? []
+  const deepCareAnnualCustomers = deepCareAnnualRes.data ?? []
 
   // 부가세 미적용 여부: '비과세' 또는 '미희망' 키워드 포함 시 (legacy '현금(부가세 X)' 포함)
   const isNoVat = (method: string | null) =>
@@ -103,7 +115,23 @@ export async function GET(request: NextRequest) {
     }
   })
 
-  const allRevenueItems = [...revenueItems, ...endCareItems]
+  // 정기딥케어 연간 매출 (계약 시작일이 있는 월에 billing_amount + 결제방법별 부가세 처리)
+  const deepCareAnnualItems = deepCareAnnualCustomers.map(c => {
+    const supply = c.billing_amount ?? 0
+    const vatAmt = isNoVat(c.payment_method) ? 0 : Math.round(supply * 0.1)
+    return {
+      id: c.id,
+      business_name: c.business_name,
+      service_type: '정기딥케어',
+      construction_date: c.contract_start_date,
+      supply_amount: supply,
+      vat: vatAmt,
+      payment_method: c.payment_method as string | null,
+      total: supply + vatAmt,
+    }
+  })
+
+  const allRevenueItems = [...revenueItems, ...endCareItems, ...deepCareAnnualItems]
   const revenueTotal = allRevenueItems.reduce((s, a) => s + a.total, 0)
 
   // 인건비 계산
