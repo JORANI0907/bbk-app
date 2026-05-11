@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useState } from 'react'
-import { Home, Calendar, BookOpen, User, LogOut, Bell } from 'lucide-react'
+import { Home, Calendar, BookOpen, User, LogOut, Bell, FileText } from 'lucide-react'
 
 type NavIcon = React.ElementType
 
@@ -17,6 +17,7 @@ interface NavItem {
 const NAV_ITEMS: NavItem[] = [
   { href: '/customer', label: '홈', Icon: Home, exact: true },
   { href: '/customer/schedule', label: '서비스 일정', Icon: Calendar },
+  { href: '/customer/reports', label: '관리 리포트', Icon: FileText },
   { href: '/customer/guide', label: '이용안내', Icon: BookOpen },
   { href: '/customer/notifications', label: '알림 이력', Icon: Bell },
   { href: '/customer/mypage', label: '마이페이지', Icon: User },

@@ -135,6 +135,15 @@ export interface WorkPhoto {
   uploaded_by: string | null
 }
 
+export type ConditionScore = 1 | 2 | 3 // 1=양호, 2=주의, 3=불량
+export type RecommendationPriority = 'high' | 'medium' | 'low'
+
+export interface RecommendedService {
+  name: string
+  reason: string
+  priority: RecommendationPriority
+}
+
 export interface ClosingChecklist {
   id: string
   schedule_id: string
@@ -145,6 +154,8 @@ export interface ClosingChecklist {
   door_lock_check: boolean
   customer_rating: number | null
   customer_comment: string | null
+  condition_score: ConditionScore | null
+  recommended_services: RecommendedService[]
   completed_at: string | null
   created_at: string
 }

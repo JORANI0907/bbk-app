@@ -2,7 +2,12 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { ServiceSchedule } from '@/types/database'
+import {
+  ServiceSchedule,
+  ConditionScore,
+  RecommendedService,
+  RecommendationPriority,
+} from '@/types/database'
 import { WorkStepIndicator } from '@/components/worker/WorkStepIndicator'
 import { PhotoUploader } from '@/components/worker/PhotoUploader'
 import { ChecklistForm } from '@/components/worker/ChecklistForm'
@@ -18,7 +23,58 @@ const CLOSING_ITEMS = [
   { key: 'door_lock_check', label: '문단속 확인' },
 ]
 
+const RECOMMENDABLE_SERVICES = [
+  '바닥왁스',
+  '카펫청소',
+  '에어컨필터',
+  '창문청소',
+  '주방후드',
+  '욕실방수',
+  '외벽청소',
+  '소독방역',
+] as const
+
+const CONDITION_OPTIONS: {
+  value: ConditionScore
+  label: string
+  tone: string
+  activeTone: string
+}[] = [
+  {
+    value: 1,
+    label: '양호',
+    tone: 'border-border bg-surface text-text-secondary',
+    activeTone: 'border-green-500 bg-green-50 text-green-700',
+  },
+  {
+    value: 2,
+    label: '주의',
+    tone: 'border-border bg-surface text-text-secondary',
+    activeTone: 'border-yellow-500 bg-yellow-50 text-yellow-700',
+  },
+  {
+    value: 3,
+    label: '불량',
+    tone: 'border-border bg-surface text-text-secondary',
+    activeTone: 'border-red-500 bg-red-50 text-red-700',
+  },
+]
+
+const PRIORITY_OPTIONS: {
+  value: RecommendationPriority
+  label: string
+  dotColor: string
+}[] = [
+  { value: 'high', label: '높음', dotColor: 'bg-red-500' },
+  { value: 'medium', label: '보통', dotColor: 'bg-yellow-500' },
+  { value: 'low', label: '낮음', dotColor: 'bg-gray-400' },
+]
+
 type ClosingState = Record<string, boolean>
+type RecommendationState = Record<
+  string,
+  { reason: string; priority: RecommendationPriority }
+>
 
 export default function ScheduleDetailPage() {
   const params = useParams()
@@ -37,6 +93,8 @@ export default function ScheduleDetailPage() {
     security_check: false,
     door_lock_check: false,
   })
+  const [conditionScore, setConditionScore] = useState<ConditionScore | null>(null)
+  const [recommendations, setRecommendations] = useState<RecommendationState>({})
 
   const loadSchedule = useCallback(async () => {
     try {
@@ -126,12 +184,45 @@ export default function ScheduleDetailPage() {
     }
   }
 
+  const toggleRecommendation = (name: string) => {
+    setRecommendations((prev) => {
+      if (prev[name]) {
+        const next = { ...prev }
+        delete next[name]
+        return next
+      }
+      return { ...prev, [name]: { reason: '', priority: 'medium' } }
+    })
+  }
+
+  const updateRecommendation = (
+    name: string,
+    patch: Partial<{ reason: string; priority: RecommendationPriority }>,
+  ) => {
+    setRecommendations((prev) => {
+      if (!prev[name]) return prev
+      return { ...prev, [name]: { ...prev[name], ...patch } }
+    })
+  }
+
   const handleFinalComplete = async () => {
     const allChecked = CLOSING_ITEMS.every((item) => closingState[item.key])
     if (!allChecked) {
       toast.error('모든 마감 체크리스트를 완료해주세요.')
       return
     }
+    if (!conditionScore) {
+      toast.error('전반적 상태를 선택해주세요.')
+      return
+    }
+
+    const recommendedServices: RecommendedService[] = Object.entries(
+      recommendations,
+    ).map(([name, value]) => ({
+      name,
+      reason: value.reason.trim(),
+      priority: value.priority,
+    }))
 
     setIsSubmitting(true)
     try {
@@ -139,7 +230,11 @@ export default function ScheduleDetailPage() {
         work_step: 6,
         status: 'completed',
         actual_completion: new Date().toISOString(),
-        closing_checklist: closingState,
+        closing_checklist: {
+          ...closingState,
+          condition_score: conditionScore,
+          recommended_services: recommendedServices,
+        },
       })
 
       toast.success('작업이 완료되었습니다!')
@@ -318,9 +413,119 @@ export default function ScheduleDetailPage() {
               ))}
             </div>
 
+            {/* 전반적 상태 평가 */}
+            <div className="flex flex-col gap-2">
+              <div>
+                <h3 className="text-base font-bold text-text-primary">전반적 상태</h3>
+                <p className="text-xs text-text-tertiary mt-0.5">현장 상태를 평가해주세요. 고객 리포트에 반영됩니다.</p>
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                {CONDITION_OPTIONS.map((opt) => {
+                  const isActive = conditionScore === opt.value
+                  return (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => setConditionScore(opt.value)}
+                      className={`py-3 rounded-xl border-2 text-sm font-bold transition-colors ${
+                        isActive ? opt.activeTone : opt.tone
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+
+            {/* 추가 추천 서비스 */}
+            <div className="flex flex-col gap-2">
+              <div>
+                <h3 className="text-base font-bold text-text-primary">추가 서비스 추천 (선택)</h3>
+                <p className="text-xs text-text-tertiary mt-0.5">고객에게 권장할 서비스를 선택하고 이유를 적어주세요.</p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {RECOMMENDABLE_SERVICES.map((name) => {
+                  const selected = !!recommendations[name]
+                  return (
+                    <button
+                      key={name}
+                      type="button"
+                      onClick={() => toggleRecommendation(name)}
+                      className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${
+                        selected
+                          ? 'bg-brand-600 text-white border-brand-600'
+                          : 'bg-surface text-text-secondary border-border'
+                      }`}
+                    >
+                      {selected ? '✓ ' : '+ '}
+                      {name}
+                    </button>
+                  )
+                })}
+              </div>
+
+              {Object.entries(recommendations).length > 0 && (
+                <div className="mt-2 flex flex-col gap-3">
+                  {Object.entries(recommendations).map(([name, value]) => (
+                    <div
+                      key={name}
+                      className="rounded-2xl border border-border-subtle bg-surface shadow-soft p-4 flex flex-col gap-3"
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-bold text-text-primary">{name}</span>
+                        <button
+                          type="button"
+                          onClick={() => toggleRecommendation(name)}
+                          className="text-xs text-text-tertiary hover:text-red-600"
+                        >
+                          제거
+                        </button>
+                      </div>
+                      <div className="flex gap-2">
+                        {PRIORITY_OPTIONS.map((opt) => {
+                          const isActive = value.priority === opt.value
+                          return (
+                            <button
+                              key={opt.value}
+                              type="button"
+                              onClick={() =>
+                                updateRecommendation(name, { priority: opt.value })
+                              }
+                              className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+                                isActive
+                                  ? 'border-brand-600 bg-brand-50 text-brand-700'
+                                  : 'border-border bg-surface text-text-secondary'
+                              }`}
+                            >
+                              <span className={`w-2 h-2 rounded-full ${opt.dotColor}`} />
+                              {opt.label}
+                            </button>
+                          )
+                        })}
+                      </div>
+                      <textarea
+                        value={value.reason}
+                        onChange={(e) =>
+                          updateRecommendation(name, { reason: e.target.value })
+                        }
+                        placeholder="추천 이유를 간단히 적어주세요 (예: 바닥에 묵은 때가 누적되어 있음)"
+                        rows={2}
+                        className="w-full rounded-md border border-border bg-surface px-3 py-2 text-sm text-text-primary placeholder:text-text-tertiary focus:outline-none focus:border-brand-600"
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
             <Button
               onClick={handleFinalComplete}
-              disabled={isSubmitting || !CLOSING_ITEMS.every((i) => closingState[i.key])}
+              disabled={
+                isSubmitting ||
+                !CLOSING_ITEMS.every((i) => closingState[i.key]) ||
+                !conditionScore
+              }
               isLoading={isSubmitting}
               variant="primary"
               className="w-full py-4 text-lg font-bold rounded-2xl active:scale-[0.98] bg-green-600 hover:bg-green-700"
