@@ -3,26 +3,16 @@
 import { useState, useEffect } from 'react'
 import toast from 'react-hot-toast'
 import { Folder, PenLine, Megaphone, CheckCircle } from 'lucide-react'
-
-const RECOMMENDABLE_SERVICES = [
-  '바닥왁스', '카펫청소', '에어컨필터', '창문청소',
-  '주방후드', '욕실방수', '외벽청소', '소독방역',
-] as const
+import {
+  RecommendServicePicker,
+  RecommendationState,
+} from '@/components/worker/RecommendServicePicker'
 
 const CONDITION_OPTIONS = [
   { value: 1 as const, label: '양호', activeTone: 'border-green-500 bg-green-50 text-green-700' },
   { value: 2 as const, label: '주의', activeTone: 'border-yellow-500 bg-yellow-50 text-yellow-700' },
   { value: 3 as const, label: '불량', activeTone: 'border-red-500 bg-red-50 text-red-700' },
 ]
-
-const PRIORITY_OPTIONS = [
-  { value: 'high' as const, label: '높음', dotColor: 'bg-red-500' },
-  { value: 'medium' as const, label: '보통', dotColor: 'bg-yellow-500' },
-  { value: 'low' as const, label: '낮음', dotColor: 'bg-gray-400' },
-]
-
-type RecommendationPriority = 'high' | 'medium' | 'low'
-type RecommendationState = Record<string, { reason: string; priority: RecommendationPriority }>
 
 interface WorkApp {
   id: string
@@ -94,22 +84,12 @@ export function WorkPanel({ app, onUpdate }: Props) {
   useEffect(() => { setCustomerMemo(app.customer_memo ?? '') }, [app.customer_memo])
   useEffect(() => { setInternalMemo(app.internal_memo ?? '') }, [app.internal_memo])
 
-  const toggleRecommendation = (name: string) => {
-    setRecommendations((prev) => {
-      if (prev[name]) { const next = { ...prev }; delete next[name]; return next }
-      return { ...prev, [name]: { reason: '', priority: 'medium' } }
-    })
-  }
-
-  const updateRecommendation = (name: string, patch: Partial<{ reason: string; priority: RecommendationPriority }>) => {
-    setRecommendations((prev) => {
-      if (!prev[name]) return prev
-      return { ...prev, [name]: { ...prev[name], ...patch } }
-    })
-  }
-
   const photosChecked = beforeChecked && afterChecked
-  const canComplete = photosChecked && customerMemo.trim().length > 0 && (!isRegularService || !!conditionScore)
+  const canComplete =
+    photosChecked &&
+    customerMemo.trim().length > 0 &&
+    (!isRegularService || !!conditionScore) &&
+    (!isRegularService || Object.keys(recommendations).length > 0)
 
   async function saveMemos() {
     const res = await fetch(`/api/admin/applications/${app.id}/work`, {
@@ -311,7 +291,9 @@ export function WorkPanel({ app, onUpdate }: Props) {
           {isRegularService && (
             <div className="space-y-3">
               <div>
-                <p className="text-xs font-semibold text-gray-600 mb-1.5">전반적 상태 <span className="text-red-400">*</span></p>
+                <p className="text-xs font-semibold text-gray-600 mb-1.5">
+                  전반적 상태 (작업 후) <span className="text-red-400">*</span>
+                </p>
                 <div className="grid grid-cols-3 gap-2">
                   {CONDITION_OPTIONS.map((opt) => (
                     <button key={opt.value} type="button" onClick={() => setConditionScore(opt.value)}
@@ -322,41 +304,14 @@ export function WorkPanel({ app, onUpdate }: Props) {
                 </div>
               </div>
               <div>
-                <p className="text-xs font-semibold text-gray-600 mb-1.5">추가 서비스 추천 <span className="text-gray-400 font-normal">(선택)</span></p>
-                <div className="flex flex-wrap gap-1.5">
-                  {RECOMMENDABLE_SERVICES.map((name) => {
-                    const selected = !!recommendations[name]
-                    return (
-                      <button key={name} type="button" onClick={() => toggleRecommendation(name)}
-                        className={`px-2.5 py-1 rounded-full text-xs font-semibold border transition-colors ${selected ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-500 border-gray-200'}`}>
-                        {selected ? '✓ ' : '+ '}{name}
-                      </button>
-                    )
-                  })}
-                </div>
-                {Object.entries(recommendations).length > 0 && (
-                  <div className="mt-2 space-y-2">
-                    {Object.entries(recommendations).map(([name, value]) => (
-                      <div key={name} className="rounded-xl border border-gray-200 bg-gray-50 p-3 space-y-2">
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs font-bold text-gray-800">{name}</span>
-                          <button type="button" onClick={() => toggleRecommendation(name)} className="text-xs text-gray-400 hover:text-red-500">제거</button>
-                        </div>
-                        <div className="flex gap-1.5">
-                          {PRIORITY_OPTIONS.map((opt) => (
-                            <button key={opt.value} type="button" onClick={() => updateRecommendation(name, { priority: opt.value })}
-                              className={`flex-1 flex items-center justify-center gap-1 py-1 rounded-lg text-xs font-medium border transition-colors ${value.priority === opt.value ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-200 bg-white text-gray-500'}`}>
-                              <span className={`w-1.5 h-1.5 rounded-full ${opt.dotColor}`} />{opt.label}
-                            </button>
-                          ))}
-                        </div>
-                        <textarea value={value.reason} onChange={(e) => updateRecommendation(name, { reason: e.target.value })}
-                          placeholder="추천 이유 (예: 바닥 묵은 때 누적)" rows={2}
-                          className="w-full text-xs text-gray-900 border border-gray-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none bg-white" />
-                      </div>
-                    ))}
-                  </div>
-                )}
+                <p className="text-xs font-semibold text-gray-600 mb-1.5">
+                  추가 서비스 추천 <span className="text-red-400">*</span>
+                </p>
+                <RecommendServicePicker
+                  serviceType={app.service_type as '정기딥케어' | '정기엔드케어'}
+                  value={recommendations}
+                  onChange={setRecommendations}
+                />
               </div>
             </div>
           )}
@@ -366,6 +321,9 @@ export function WorkPanel({ app, onUpdate }: Props) {
               {!photosChecked && <p>• 사진 업로드 체크박스를 모두 확인해주세요</p>}
               {customerMemo.trim().length === 0 && <p>• 고객 전달 특이사항을 작성해주세요</p>}
               {isRegularService && !conditionScore && <p>• 전반적 상태를 선택해주세요</p>}
+              {isRegularService && Object.keys(recommendations).length === 0 && (
+                <p>• 추가 서비스 추천 항목을 1개 이상 선택해주세요</p>
+              )}
             </div>
           )}
 
