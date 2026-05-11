@@ -103,15 +103,7 @@ export default function AdminInventoryPage() {
   const [loading, setLoading] = useState(true)
   const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
-  const [categoryFilter, setCategoryFilter] = useState<InventoryCategory | 'all'>('all')
-  const [viewedLowIds, setViewedLowIds] = useState<Set<string>>(() => {
-    try { return new Set(JSON.parse(sessionStorage.getItem('viewed_inventory_low') ?? '[]')) } catch { return new Set() }
-  })
-  const addViewedLow = (id: string) => setViewedLowIds(prev => {
-    const next = new Set(prev).add(id)
-    try { sessionStorage.setItem('viewed_inventory_low', JSON.stringify(Array.from(next))) } catch { /* ignore */ }
-    return next
-  })
+  const [categoryFilter, setCategoryFilter] = useState<InventoryCategory | 'all' | 'low'>('all')
   const [role, setRole] = useState<string>('')
 
   const [editForm, setEditForm] = useState<{ item_name: string; category: InventoryCategory; unit: string; min_qty: number }>({
@@ -225,9 +217,6 @@ export default function AdminInventoryPage() {
     setEditForm({ item_name: item.item_name, category: item.category, unit: item.unit, min_qty: item.min_qty ?? 0 })
     fetchLogs(item.id)
     setMobileShowDetail(true)
-    if (item.current_qty <= item.min_qty) {
-      addViewedLow(item.id)
-    }
   }
 
   const handleSave = async () => {
@@ -451,7 +440,11 @@ export default function AdminInventoryPage() {
   const maxUsage = Math.max(...Object.values(itemUsageMap), 1)
 
   const filteredItems = items.filter(item => {
-    const matchCategory = categoryFilter === 'all' || item.category === categoryFilter
+    const isLow = item.min_qty > 0 && item.current_qty <= item.min_qty
+    const matchCategory =
+      categoryFilter === 'all' ? true :
+      categoryFilter === 'low' ? isLow :
+      item.category === categoryFilter
     const matchSearch = !searchQuery || item.item_name.toLowerCase().includes(searchQuery.toLowerCase())
     return matchCategory && matchSearch
   })
@@ -664,6 +657,16 @@ export default function AdminInventoryPage() {
                 {cat === 'all' ? '전체' : CATEGORY_CONFIG[cat].label}
               </button>
             ))}
+            <button
+              onClick={() => setCategoryFilter(categoryFilter === 'low' ? 'all' : 'low')}
+              className={`text-xs px-2 py-1 rounded-full border transition-colors ${
+                categoryFilter === 'low'
+                  ? 'bg-red-500 text-white border-red-500'
+                  : 'bg-surface text-state-danger border-red-200 hover:border-red-400'
+              }`}
+            >
+              ⚠ 부족
+            </button>
           </div>
         </div>
 
@@ -677,7 +680,7 @@ export default function AdminInventoryPage() {
             filteredItems.map(item => {
               const cfg = CATEGORY_CONFIG[item.category]
               const isSelected = selectedItem?.id === item.id
-              const isLow = item.current_qty <= item.min_qty && !viewedLowIds.has(item.id)
+              const isLow = item.min_qty > 0 && item.current_qty <= item.min_qty
               return (
                 <button
                   key={item.id}
