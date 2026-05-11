@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import toast from 'react-hot-toast'
 import { CheckCircle } from 'lucide-react'
+import { AddressSearch } from '@/components/AddressSearch'
 
 const ELEVATOR_OPTIONS = ['있음', '없음', '해당없음']
 const BUILDING_ACCESS_OPTIONS = ['신청필요', '신청불필요', '해당없음']
@@ -12,6 +13,7 @@ const PAYMENT_OPTIONS = ['현금', '카드', '계좌이체', '현금(부가세 X
 export default function ApplicationForm() {
   const [submitted, setSubmitted] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [addressDetail, setAddressDetail] = useState('')
   const [form, setForm] = useState({
     ownerName: '',
     platformNickname: '',
@@ -52,7 +54,7 @@ export default function ApplicationForm() {
           ownerName: form.ownerName,
           phone: form.phone,
           email: form.email,
-          address: form.address,
+          address: [form.address, addressDetail].filter(Boolean).join(' '),
           accountNumber: form.accountNumber,
           elevator: form.elevator,
           accessMethod: form.accessMethod,
@@ -85,6 +87,7 @@ export default function ApplicationForm() {
           <button
             onClick={() => {
               setSubmitted(false)
+              setAddressDetail('')
               setForm(f => ({ ...f, ownerName: '', phone: '', businessName: '', address: '', privacyConsent: false, serviceConsent: false }))
             }}
             className="px-6 py-2.5 bg-blue-600 text-white text-sm font-semibold rounded-xl hover:bg-blue-700 transition-colors"
@@ -133,8 +136,15 @@ export default function ApplicationForm() {
             </div>
             <div>
               <label className="text-xs font-medium text-gray-500 mb-1 block">주소 *</label>
-              <input required value={form.address} onChange={e => set('address', e.target.value)}
-                placeholder="경기도 용인시 ..." className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              <AddressSearch
+                type="bbk"
+                roadAddress={form.address}
+                detailAddress={addressDetail}
+                onRoadChange={v => set('address', v)}
+                onDetailChange={setAddressDetail}
+                inputCls="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                errorCls="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
             </div>
             <div>
               <label className="text-xs font-medium text-gray-500 mb-1 block">이메일</label>

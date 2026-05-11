@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { User, Building2, PenLine, CheckCircle } from 'lucide-react'
+import { AddressSearch } from '@/components/AddressSearch'
 
 
 export default function QuotePage() {
@@ -14,6 +15,7 @@ export default function QuotePage() {
   const [ownerName, setOwnerName]             = useState('')
   const [businessName, setBusinessName]       = useState('')
   const [address, setAddress]                 = useState('')
+  const [addressDetail, setAddressDetail]     = useState('')
   const [email, setEmail]                     = useState('')
   const [phone, setPhone]                     = useState('')
   const [constructionDate, setConstructionDate] = useState('')
@@ -38,7 +40,7 @@ export default function QuotePage() {
     if (!ownerName.trim())    e.ownerName    = '고객명을 입력해주세요'
     if (!businessName.trim()) e.businessName = '회사명을 입력해주세요'
     if (!phone.trim())        e.phone        = '연락처를 입력해주세요'
-    if (!address.trim())      e.address      = '주소를 입력해주세요'
+    if (!address.trim())      e.address      = '주소를 검색해주세요'
     if (!careScope.trim())    e.careScope    = '케어 범위를 입력해주세요'
     setErrors(e)
     return Object.keys(e).length === 0
@@ -64,7 +66,7 @@ export default function QuotePage() {
           businessName,
           phone,
           email,
-          address,
+          address: [address, addressDetail].filter(Boolean).join(' '),
           constructionDate: constructionDate || null,
           careScope,
           requestNotes,
@@ -230,7 +232,7 @@ export default function QuotePage() {
             <button
               onClick={() => {
                 setSubmitted(false)
-                setOwnerName(''); setBusinessName(''); setAddress('')
+                setOwnerName(''); setBusinessName(''); setAddress(''); setAddressDetail('')
                 setEmail(''); setPhone(''); setConstructionDate('')
                 setCareScope(''); setRequestNotes(''); setErrors({})
               }}
@@ -304,13 +306,16 @@ export default function QuotePage() {
                 </div>
               </div>
 
-              <Field label="주소" required error={errors.address}>
-                <input
-                  className={inputCls(errors.address)}
-                  placeholder="케어 장소 주소를 입력해주세요"
-                  value={address}
-                  onChange={e => setAddress(e.target.value)}
-                  autoComplete="street-address"
+              <Field label="주소" required error={undefined}>
+                <AddressSearch
+                  type="quote"
+                  roadAddress={address}
+                  detailAddress={addressDetail}
+                  onRoadChange={setAddress}
+                  onDetailChange={setAddressDetail}
+                  error={errors.address}
+                  inputCls={inputCls()}
+                  errorCls={inputCls()}
                 />
               </Field>
 
