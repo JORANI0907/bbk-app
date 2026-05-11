@@ -100,6 +100,7 @@ const NAV_ITEMS: NavItem[] = [
       { href: '/admin/notices', label: '공지·이벤트관리', badgeKey: 'notices' },
       { href: '/admin/automation', label: '자동화관리' },
       { href: '/admin/push', label: '푸시알림 관리' },
+      { href: '/admin/notifications', label: '알림 이력' },
       { href: '/admin/nav-settings', label: '하단 메뉴 설정' },
       { href: '/admin/permissions', label: '탭 권한 설정' },
       { href: '/admin/members', label: '계정관리' },
