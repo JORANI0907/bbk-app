@@ -857,8 +857,20 @@
 
         <div class="form-group">
           <label class="form-label"><span class="emoji">🗺️</span>주소<span class="required">*</span></label>
-          <input type="text" class="form-input" id="address" placeholder="사업장 주소를 입력해주세요" required>
-          <div class="error-msg" id="addressError">⚠ 주소를 입력해주세요</div>
+          <div style="display:flex; gap:8px; margin-bottom:6px;">
+            <input type="text" class="form-input" id="address"
+                   placeholder="도로명·지번·건물명으로 검색"
+                   autocomplete="off" style="flex:1;"
+                   onkeydown="if(event.key==='Enter'){event.preventDefault();doAddressSearch();}"
+                   oninput="onAddressInput()">
+            <button type="button" id="addressSearchBtn" class="verify-btn"
+                    onclick="doAddressSearch()">검색</button>
+          </div>
+          <div id="addressDropdown" style="display:none; border:1px solid var(--border); border-radius:var(--radius-md); background:#fff; max-height:200px; overflow-y:auto; margin-bottom:6px; box-shadow:var(--shadow-md);"></div>
+          <input type="text" class="form-input" id="addressDetail"
+                 placeholder="상세 주소 입력 (동, 층, 호수 등)"
+                 style="display:none; margin-top:4px;">
+          <div class="error-msg" id="addressError">⚠ 주소를 검색해주세요</div>
         </div>
 
         <div class="form-group">
@@ -1501,7 +1513,7 @@
         ownerName: document.getElementById('ownerName').value.trim(),
         platformNickname: document.getElementById('platformNickname').value.trim(),
         phone: document.getElementById('phone').value.trim(),
-        address: document.getElementById('address').value.trim(),
+        address: [document.getElementById('address').value.trim(), document.getElementById('addressDetail').value.trim()].filter(Boolean).join(' '),
         businessName: document.getElementById('businessName').value.trim(),
         businessNumber: document.getElementById('noBizNumber').value === 'true' ? '사업자등록 전' : document.getElementById('businessNumber').value.trim().replace(/-/g,''),
         emailId: document.getElementById('emailId').value.trim(),
@@ -1747,6 +1759,76 @@
         btn.textContent = '확인';
         resultDiv.innerHTML = '<span style="color:var(--error);">네트워크 오류가 발생했습니다.</span>';
       });
+    }
+  </script>
+
+  <script>
+    // ─── 행안부 도로명주소 검색 ───────────────────────────────
+    var _addrSelected = false;
+
+    function onAddressInput() {
+      if (_addrSelected) {
+        _addrSelected = false;
+        var detail = document.getElementById('addressDetail');
+        detail.style.display = 'none';
+        detail.value = '';
+        document.getElementById('address').readOnly = false;
+        document.getElementById('addressDropdown').style.display = 'none';
+      }
+    }
+
+    function doAddressSearch() {
+      var query = document.getElementById('address').value.trim();
+      if (!query) return;
+      var btn = document.getElementById('addressSearchBtn');
+      btn.textContent = '검색 중…';
+      btn.disabled = true;
+      fetch('/api/juso?keyword=' + encodeURIComponent(query) + '&type=bbk')
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          var items = (data.results && data.results.juso) ? data.results.juso : [];
+          var dd = document.getElementById('addressDropdown');
+          dd.innerHTML = '';
+          if (items.length === 0) {
+            dd.innerHTML = '<p style="padding:14px 16px;font-size:13px;color:var(--text-muted);text-align:center;">검색 결과가 없습니다.</p>';
+          } else {
+            items.forEach(function(item) {
+              var el = document.createElement('button');
+              el.type = 'button';
+              el.style.cssText = 'display:block;width:100%;text-align:left;padding:11px 14px;background:none;border:none;border-bottom:1px solid var(--border);cursor:pointer;';
+              el.innerHTML =
+                '<div style="font-size:14px;font-weight:500;color:var(--text);margin-bottom:2px;">' + item.roadAddr + '</div>' +
+                '<div style="font-size:12px;color:var(--text-muted);">' + item.jibunAddr + (item.zipNo ? ' (' + item.zipNo + ')' : '') + '</div>';
+              el.onmouseover = function() { this.style.background = '#f0f7ff'; };
+              el.onmouseout  = function() { this.style.background = 'none'; };
+              el.onclick = function() { _selectAddress(item); };
+              dd.appendChild(el);
+            });
+          }
+          dd.style.display = 'block';
+        })
+        .catch(function() {
+          var dd = document.getElementById('addressDropdown');
+          dd.innerHTML = '<p style="padding:14px 16px;font-size:13px;color:var(--error);text-align:center;">검색 중 오류가 발생했습니다.</p>';
+          dd.style.display = 'block';
+        })
+        .finally(function() {
+          btn.textContent = '검색';
+          btn.disabled = false;
+        });
+    }
+
+    function _selectAddress(item) {
+      var addrEl = document.getElementById('address');
+      var detail = document.getElementById('addressDetail');
+      addrEl.value    = item.roadAddr;
+      addrEl.readOnly = true;
+      addrEl.classList.remove('error');
+      document.getElementById('addressError').classList.remove('visible');
+      document.getElementById('addressDropdown').style.display = 'none';
+      detail.style.display = 'block';
+      detail.focus();
+      _addrSelected = true;
     }
   </script>
 
