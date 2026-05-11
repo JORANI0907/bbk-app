@@ -4,7 +4,7 @@ import { redirect, notFound } from 'next/navigation'
 import Link from 'next/link'
 import { format, isPast, isToday } from 'date-fns'
 import { ko } from 'date-fns/locale'
-import { ChevronLeft, User, ClipboardList, Phone, FolderOpen, FileText } from 'lucide-react'
+import { ChevronLeft, User, ClipboardList, Phone, FileText } from 'lucide-react'
 import { ServiceSchedule, WorkPhoto, WorkChecklist, ClosingChecklist } from '@/types/database'
 import { SCHEDULE_STATUS_LABELS, SCHEDULE_STATUS_COLORS } from '@/lib/constants'
 import { BeforeAfterSlider } from '@/components/customer/BeforeAfterSlider'
@@ -334,33 +334,6 @@ export default async function CustomerScheduleDetailPage({ params }: PageProps) 
         </section>
       )}
 
-      {/* ── 시공 정보 ── */}
-      {(careScope || application?.request_notes) && (
-        <section className="bg-surface rounded-2xl border border-border-subtle shadow-soft overflow-hidden">
-          <div className="px-5 py-3 border-b border-border-subtle">
-            <h2 className="text-sm font-bold text-text-primary">시공 정보</h2>
-          </div>
-          <div className="px-5 py-4 flex flex-col gap-3">
-            {careScope && (
-              <div className="flex flex-col gap-1">
-                <span className="text-xs text-text-tertiary">케어 범위</span>
-                <div className="bg-surface-sunken rounded-xl p-3">
-                  <p className="text-sm text-text-secondary whitespace-pre-wrap leading-relaxed">{careScope}</p>
-                </div>
-              </div>
-            )}
-            {application?.request_notes && (
-              <div className="flex flex-col gap-1">
-                <span className="text-xs text-text-tertiary">고객요청사항</span>
-                <div className="bg-surface-sunken rounded-xl p-3">
-                  <p className="text-sm text-text-secondary whitespace-pre-wrap leading-relaxed">{application.request_notes}</p>
-                </div>
-              </div>
-            )}
-          </div>
-        </section>
-      )}
-
       {/* ── 작업장 정보 ── */}
       {(application?.parking || application?.building_access || application?.elevator || application?.access_method) && (
         <section className="bg-surface rounded-2xl border border-border-subtle shadow-soft overflow-hidden">
@@ -389,32 +362,6 @@ export default async function CustomerScheduleDetailPage({ params }: PageProps) 
                 <span className="text-sm text-text-primary font-medium">{item.name}</span>
               </div>
             ))}
-          </div>
-        </section>
-      )}
-
-      {/* ── 담당 직원 ── */}
-      {workerName && (
-        <section className="bg-surface rounded-2xl border border-border-subtle shadow-soft overflow-hidden">
-          <div className="px-5 py-3 border-b border-border-subtle">
-            <h2 className="text-sm font-bold text-text-primary">담당 직원</h2>
-          </div>
-          <div className="px-5 py-4 flex items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-full bg-brand-50 border border-brand-100 flex items-center justify-center shrink-0">
-                <User size={16} className="text-brand-600" />
-              </div>
-              <span className="text-sm font-semibold text-text-primary">{workerName}</span>
-            </div>
-            {workerPhone && (
-              <a
-                href={`tel:${workerPhone}`}
-                className="flex items-center gap-1.5 text-xs text-brand-600 font-medium bg-brand-50 px-3 py-1.5 rounded-full"
-              >
-                <Phone size={12} />
-                전화하기
-              </a>
-            )}
           </div>
         </section>
       )}
@@ -541,27 +488,6 @@ export default async function CustomerScheduleDetailPage({ params }: PageProps) 
         </section>
       )}
 
-      {/* ── Google Drive 사진 폴더 ── */}
-      {driveFolderUrl && (
-        <a
-          href={driveFolderUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex items-center justify-between bg-surface rounded-2xl border border-border-subtle shadow-soft p-4 active:scale-[0.98] transition-transform"
-        >
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-full bg-brand-50 border border-brand-100 flex items-center justify-center shrink-0">
-              <FolderOpen size={16} className="text-brand-600" />
-            </div>
-            <div>
-              <p className="text-sm font-semibold text-text-primary">사진 폴더 보기</p>
-              <p className="text-xs text-text-tertiary mt-0.5">Google Drive에서 서비스 사진 확인</p>
-            </div>
-          </div>
-          <ChevronLeft size={16} className="text-text-tertiary rotate-180" />
-        </a>
-      )}
-
       {/* ── 작업 사진 (완료 후 before/after) ── */}
       {s.status === 'completed' && beforePhotos.length > 0 && (
         <section>
@@ -674,6 +600,59 @@ export default async function CustomerScheduleDetailPage({ params }: PageProps) 
           ) : (
             <SatisfactionFormWrapper scheduleId={scheduleId} />
           )}
+        </section>
+      )}
+
+      {/* ── 담당 직원 ── */}
+      {workerName && (
+        <section className="bg-surface rounded-2xl border border-border-subtle shadow-soft overflow-hidden">
+          <div className="px-5 py-3 border-b border-border-subtle">
+            <h2 className="text-sm font-bold text-text-primary">담당 직원</h2>
+          </div>
+          <div className="px-5 py-4 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-full bg-brand-50 border border-brand-100 flex items-center justify-center shrink-0">
+                <User size={16} className="text-brand-600" />
+              </div>
+              <span className="text-sm font-semibold text-text-primary">{workerName}</span>
+            </div>
+            {workerPhone && (
+              <a
+                href={`tel:${workerPhone}`}
+                className="flex items-center gap-1.5 text-xs text-brand-600 font-medium bg-brand-50 px-3 py-1.5 rounded-full"
+              >
+                <Phone size={12} />
+                전화하기
+              </a>
+            )}
+          </div>
+        </section>
+      )}
+
+      {/* ── 시공 정보 ── */}
+      {(careScope || application?.request_notes) && (
+        <section className="bg-surface rounded-2xl border border-border-subtle shadow-soft overflow-hidden">
+          <div className="px-5 py-3 border-b border-border-subtle">
+            <h2 className="text-sm font-bold text-text-primary">시공 정보</h2>
+          </div>
+          <div className="px-5 py-4 flex flex-col gap-3">
+            {careScope && (
+              <div className="flex flex-col gap-1">
+                <span className="text-xs text-text-tertiary">케어 범위</span>
+                <div className="bg-surface-sunken rounded-xl p-3">
+                  <p className="text-sm text-text-secondary whitespace-pre-wrap leading-relaxed">{careScope}</p>
+                </div>
+              </div>
+            )}
+            {application?.request_notes && (
+              <div className="flex flex-col gap-1">
+                <span className="text-xs text-text-tertiary">고객요청사항</span>
+                <div className="bg-surface-sunken rounded-xl p-3">
+                  <p className="text-sm text-text-secondary whitespace-pre-wrap leading-relaxed">{application.request_notes}</p>
+                </div>
+              </div>
+            )}
+          </div>
         </section>
       )}
     </div>
