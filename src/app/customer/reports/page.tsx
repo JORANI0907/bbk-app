@@ -19,6 +19,8 @@ interface ReportScheduleItem {
   has_before_photo: boolean
   has_after_photo: boolean
   closing_completed_at: string | null
+  source: 'schedule' | 'application'
+  drive_folder_url: string | null
 }
 
 interface CustomerReportsResponse {
@@ -304,6 +306,16 @@ export default function CustomerReportsPage() {
                                 <Camera size={14} />
                                 사진 보기
                               </Link>
+                            ) : item.drive_folder_url ? (
+                              <a
+                                href={item.drive_folder_url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="shrink-0 inline-flex items-center gap-1 text-xs font-semibold text-brand-600 hover:text-brand-700"
+                              >
+                                <Camera size={14} />
+                                사진 보기
+                              </a>
                             ) : (
                               <span className="shrink-0 text-xs text-text-tertiary">
                                 사진 없음

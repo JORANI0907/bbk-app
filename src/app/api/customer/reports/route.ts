@@ -15,6 +15,8 @@ export interface ReportScheduleItem {
   has_before_photo: boolean
   has_after_photo: boolean
   closing_completed_at: string | null
+  source: 'schedule' | 'application'
+  drive_folder_url: string | null
 }
 
 export interface CustomerReportsResponse {
@@ -47,6 +49,16 @@ interface ScheduleRow {
   work_photos: PhotoJoin[] | null
 }
 
+interface ApplicationRow {
+  id: string
+  construction_date: string | null
+  work_completed_at: string | null
+  condition_score: number | null
+  recommended_services: RecommendedService[] | null
+  drive_folder_url: string | null
+  assigned_to: string | null
+}
+
 export async function GET(request: NextRequest) {
   const session = getServerSession()
   if (!session || session.role !== 'customer') {
@@ -55,7 +67,6 @@ export async function GET(request: NextRequest) {
 
   const supabase = createServiceClient()
 
-  // 1) 세션에서 고객 ID 조회
   const { data: customerRow, error: customerErr } = await supabase
     .from('customers')
     .select('id')
@@ -74,7 +85,6 @@ export async function GET(request: NextRequest) {
 
   const customerId = customerRow.id
 
-  // 2) 옵션: months 파라미터 (기본 12)
   const url = new URL(request.url)
   const monthsParam = url.searchParams.get('months')
   const months = monthsParam ? Math.max(1, Math.min(36, parseInt(monthsParam, 10))) : 12
@@ -82,41 +92,72 @@ export async function GET(request: NextRequest) {
   sinceDate.setMonth(sinceDate.getMonth() - months)
   const sinceIso = sinceDate.toISOString().slice(0, 10)
 
-  // 3) 완료된 일정 + closing 체크리스트 + 사진 + 작업자 조인
-  const { data, error } = await supabase
-    .from('service_schedules')
-    .select(
-      `id,
-       scheduled_date,
-       status,
-       worker:users(name),
-       closing_checklists(condition_score, recommended_services, completed_at),
-       work_photos(photo_type)`,
-    )
-    .eq('customer_id', customerId)
-    .eq('status', 'completed')
-    .gte('scheduled_date', sinceIso)
-    .order('scheduled_date', { ascending: false })
+  // 두 소스 병렬 조회
+  const [scheduleResult, appResult, scheduleTotalResult, appTotalResult] = await Promise.all([
+    // 워커 포털 완료 일정
+    supabase
+      .from('service_schedules')
+      .select(
+        `id, scheduled_date, status,
+         worker:users(name),
+         closing_checklists(condition_score, recommended_services, completed_at),
+         work_photos(photo_type)`,
+      )
+      .eq('customer_id', customerId)
+      .eq('status', 'completed')
+      .gte('scheduled_date', sinceIso)
+      .order('scheduled_date', { ascending: false }),
 
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    // 관리자 WorkPanel 완료 신청서
+    supabase
+      .from('service_applications')
+      .select(
+        `id, construction_date, work_completed_at,
+         condition_score, recommended_services, drive_folder_url, assigned_to`,
+      )
+      .eq('customer_id', customerId)
+      .eq('work_status', 'completed')
+      .not('construction_date', 'is', null)
+      .gte('construction_date', sinceIso)
+      .order('construction_date', { ascending: false }),
+
+    supabase
+      .from('service_schedules')
+      .select('id', { count: 'exact', head: true })
+      .eq('customer_id', customerId)
+      .eq('status', 'completed'),
+
+    supabase
+      .from('service_applications')
+      .select('id', { count: 'exact', head: true })
+      .eq('customer_id', customerId)
+      .eq('work_status', 'completed'),
+  ])
+
+  const scheduleRows = (scheduleResult.data ?? []) as ScheduleRow[]
+  const appRows = (appResult.data ?? []) as ApplicationRow[]
+
+  // 신청서 배정 워커 이름 조회
+  const assignedIds = [...new Set(appRows.map((a) => a.assigned_to).filter(Boolean))] as string[]
+  const workerNameMap: Record<string, string> = {}
+  if (assignedIds.length > 0) {
+    const { data: workerRows } = await supabase
+      .from('users')
+      .select('id, name')
+      .in('id', assignedIds)
+    for (const w of workerRows ?? []) {
+      if (w.id && w.name) workerNameMap[w.id] = w.name
+    }
   }
 
-  const rows = (data ?? []) as ScheduleRow[]
+  // schedule 완료 날짜 set (중복 제거용)
+  const scheduleDates = new Set(scheduleRows.map((r) => r.scheduled_date))
 
-  // 4) 전체 완료 횟수 (기간 제한 없이)
-  const { count: totalCount } = await supabase
-    .from('service_schedules')
-    .select('id', { count: 'exact', head: true })
-    .eq('customer_id', customerId)
-    .eq('status', 'completed')
-
-  // 5) 가공
-  const schedules: ReportScheduleItem[] = rows.map((row) => {
+  // 워커 포털 완료 → ReportScheduleItem
+  const scheduleItems: ReportScheduleItem[] = scheduleRows.map((row) => {
     const closing = row.closing_checklists?.[0] ?? null
     const photos = row.work_photos ?? []
     const workerJoin = Array.isArray(row.worker) ? row.worker[0] : row.worker
-
     return {
       id: row.id,
       scheduled_date: row.scheduled_date,
@@ -126,25 +167,59 @@ export async function GET(request: NextRequest) {
       has_before_photo: photos.some((p) => p.photo_type === 'before'),
       has_after_photo: photos.some((p) => p.photo_type === 'after'),
       closing_completed_at: closing?.completed_at ?? null,
+      source: 'schedule' as const,
+      drive_folder_url: null,
     }
   })
 
-  // 6) 가장 최근의 추천 서비스 추출
+  // 관리자 WorkPanel 완료 → ReportScheduleItem (날짜 중복 제외)
+  const appItems: ReportScheduleItem[] = appRows
+    .filter((app) => app.construction_date && !scheduleDates.has(app.construction_date))
+    .map((app) => ({
+      id: app.id,
+      scheduled_date: app.construction_date!,
+      status: 'completed',
+      worker_name: app.assigned_to ? (workerNameMap[app.assigned_to] ?? null) : null,
+      condition_score: (app.condition_score as ConditionScore) ?? null,
+      has_before_photo: false,
+      has_after_photo: false,
+      closing_completed_at: app.work_completed_at ?? null,
+      source: 'application' as const,
+      drive_folder_url: app.drive_folder_url ?? null,
+    }))
+
+  // 병합 + 날짜 내림차순 정렬
+  const allItems = [...scheduleItems, ...appItems].sort((a, b) =>
+    b.scheduled_date.localeCompare(a.scheduled_date),
+  )
+
+  const totalCount = (scheduleTotalResult.count ?? 0) + (appTotalResult.count ?? 0)
+
+  // 가장 최근 추천 서비스 추출 (두 소스 통합)
   let latestRecommendations: RecommendedService[] = []
   let latestReportDate: string | null = null
-  for (const row of rows) {
-    const closing = row.closing_checklists?.[0]
-    const recs = closing?.recommended_services
+
+  for (const item of allItems) {
+    let recs: RecommendedService[] | null = null
+
+    if (item.source === 'schedule') {
+      const matchRow = scheduleRows.find((r) => r.id === item.id)
+      recs = matchRow?.closing_checklists?.[0]?.recommended_services ?? null
+    } else {
+      const matchApp = appRows.find((a) => a.id === item.id)
+      recs = matchApp?.recommended_services ?? null
+    }
+
     if (Array.isArray(recs) && recs.length > 0) {
       latestRecommendations = recs
-      latestReportDate = row.scheduled_date
+      latestReportDate = item.scheduled_date
       break
     }
   }
 
   const response: CustomerReportsResponse = {
-    totalCount: totalCount ?? 0,
-    schedules,
+    totalCount,
+    schedules: allItems,
     latestRecommendations,
     latestReportDate,
   }
