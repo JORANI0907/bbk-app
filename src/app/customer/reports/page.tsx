@@ -16,6 +16,8 @@ interface ReportScheduleItem {
   status: string
   worker_name: string | null
   condition_score: ConditionScore | null
+  notes: string | null
+  photo_urls: string[]
   has_before_photo: boolean
   has_after_photo: boolean
   closing_completed_at: string | null
@@ -274,52 +276,69 @@ export default function CustomerReportsPage() {
                         return (
                           <li
                             key={item.id}
-                            className="px-4 py-3 flex items-center gap-3"
+                            className="px-4 py-3 flex flex-col gap-1.5"
                           >
-                            <div className="w-12 shrink-0">
-                              <p className="text-sm font-semibold text-text-primary leading-tight">
-                                {formatShortDate(item.scheduled_date)}
-                              </p>
-                            </div>
-                            <div className="min-w-0 flex-1">
-                              <p className="text-sm text-text-primary truncate">
-                                {item.worker_name ?? '담당자 미정'}
-                              </p>
-                              {cond ? (
-                                <span
-                                  className={`inline-flex items-center gap-1 mt-1 text-[11px] font-semibold px-2 py-0.5 rounded-full border ${cond.bg} ${cond.border} ${cond.text}`}
+                            <div className="flex items-center gap-3">
+                              <div className="w-12 shrink-0">
+                                <p className="text-sm font-semibold text-text-primary leading-tight">
+                                  {formatShortDate(item.scheduled_date)}
+                                </p>
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <p className="text-sm text-text-primary truncate">
+                                  {item.worker_name ?? '담당자 미정'}
+                                </p>
+                                {cond ? (
+                                  <span
+                                    className={`inline-flex items-center gap-1 mt-1 text-[11px] font-semibold px-2 py-0.5 rounded-full border ${cond.bg} ${cond.border} ${cond.text}`}
+                                  >
+                                    <span className={`w-1.5 h-1.5 rounded-full ${cond.dot}`} />
+                                    {cond.label}
+                                  </span>
+                                ) : (
+                                  <span className="inline-block mt-1 text-[11px] text-text-tertiary">
+                                    상태 미입력
+                                  </span>
+                                )}
+                              </div>
+                              {hasPhoto ? (
+                                <Link
+                                  href={`/customer/schedule/${item.id}`}
+                                  className="shrink-0 inline-flex items-center gap-1 text-xs font-semibold text-brand-600 hover:text-brand-700"
                                 >
-                                  <span className={`w-1.5 h-1.5 rounded-full ${cond.dot}`} />
-                                  {cond.label}
-                                </span>
+                                  <Camera size={14} />
+                                  사진 보기
+                                </Link>
+                              ) : item.photo_urls.length > 0 ? (
+                                <a
+                                  href={item.photo_urls[0]}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="shrink-0 inline-flex items-center gap-1 text-xs font-semibold text-brand-600 hover:text-brand-700"
+                                >
+                                  <Camera size={14} />
+                                  사진 보기
+                                </a>
+                              ) : item.drive_folder_url ? (
+                                <a
+                                  href={item.drive_folder_url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="shrink-0 inline-flex items-center gap-1 text-xs font-semibold text-brand-600 hover:text-brand-700"
+                                >
+                                  <Camera size={14} />
+                                  사진 보기
+                                </a>
                               ) : (
-                                <span className="inline-block mt-1 text-[11px] text-text-tertiary">
-                                  상태 미입력
+                                <span className="shrink-0 text-xs text-text-tertiary">
+                                  사진 없음
                                 </span>
                               )}
                             </div>
-                            {hasPhoto ? (
-                              <Link
-                                href={`/customer/schedule/${item.id}`}
-                                className="shrink-0 inline-flex items-center gap-1 text-xs font-semibold text-brand-600 hover:text-brand-700"
-                              >
-                                <Camera size={14} />
-                                사진 보기
-                              </Link>
-                            ) : item.drive_folder_url ? (
-                              <a
-                                href={item.drive_folder_url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="shrink-0 inline-flex items-center gap-1 text-xs font-semibold text-brand-600 hover:text-brand-700"
-                              >
-                                <Camera size={14} />
-                                사진 보기
-                              </a>
-                            ) : (
-                              <span className="shrink-0 text-xs text-text-tertiary">
-                                사진 없음
-                              </span>
+                            {item.notes && (
+                              <p className="ml-15 text-xs text-text-secondary leading-relaxed break-keep pl-[60px]">
+                                💬 {item.notes}
+                              </p>
                             )}
                           </li>
                         )

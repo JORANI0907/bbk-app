@@ -12,6 +12,8 @@ export interface ReportScheduleItem {
   status: string
   worker_name: string | null
   condition_score: ConditionScore | null
+  notes: string | null
+  photo_urls: string[]
   has_before_photo: boolean
   has_after_photo: boolean
   closing_completed_at: string | null
@@ -32,6 +34,7 @@ interface WorkerJoin {
 
 interface PhotoJoin {
   photo_type: string
+  photo_url: string | null
 }
 
 interface ScheduleRow {
@@ -47,6 +50,7 @@ interface ClosingRow {
   condition_score: ConditionScore | null
   recommended_services: RecommendedService[] | null
   completed_at: string | null
+  customer_comment: string | null
 }
 
 interface ApplicationRow {
@@ -100,7 +104,7 @@ export async function GET(request: NextRequest) {
       .select(
         `id, scheduled_date, status,
          worker:users!worker_id(name),
-         work_photos!schedule_id(photo_type)`,
+         work_photos!schedule_id(photo_type, photo_url)`,
       )
       .eq('customer_id', customerId)
       .eq('status', 'completed')
@@ -142,7 +146,7 @@ export async function GET(request: NextRequest) {
   if (scheduleIds.length > 0) {
     const { data: checklistRows } = await supabase
       .from('closing_checklists')
-      .select('schedule_id, condition_score, recommended_services, completed_at')
+      .select('schedule_id, condition_score, recommended_services, completed_at, customer_comment')
       .in('schedule_id', scheduleIds)
     for (const c of checklistRows ?? []) {
       if (c.schedule_id) checklistMap.set(c.schedule_id, c as ClosingRow)
@@ -176,6 +180,8 @@ export async function GET(request: NextRequest) {
       status: row.status,
       worker_name: workerJoin?.name ?? null,
       condition_score: closing?.condition_score ?? null,
+      notes: closing?.customer_comment ?? null,
+      photo_urls: photos.map((p) => p.photo_url).filter((u): u is string => !!u),
       has_before_photo: photos.some((p) => p.photo_type === 'before'),
       has_after_photo: photos.some((p) => p.photo_type === 'after'),
       closing_completed_at: closing?.completed_at ?? null,
@@ -193,6 +199,8 @@ export async function GET(request: NextRequest) {
       status: 'completed',
       worker_name: app.assigned_to ? (workerNameMap[app.assigned_to] ?? null) : null,
       condition_score: (app.condition_score as ConditionScore) ?? null,
+      notes: null,
+      photo_urls: [],
       has_before_photo: false,
       has_after_photo: false,
       closing_completed_at: app.work_completed_at ?? null,
