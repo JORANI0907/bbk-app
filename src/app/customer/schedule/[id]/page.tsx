@@ -4,7 +4,7 @@ import { redirect, notFound } from 'next/navigation'
 import Link from 'next/link'
 import { format, isPast, isToday } from 'date-fns'
 import { ko } from 'date-fns/locale'
-import { ChevronLeft, User, ClipboardList, Phone, FileText } from 'lucide-react'
+import { ChevronLeft, User, Phone, FileText } from 'lucide-react'
 import { ServiceSchedule, WorkPhoto, WorkChecklist } from '@/types/database'
 import { SCHEDULE_STATUS_LABELS, SCHEDULE_STATUS_COLORS } from '@/lib/constants'
 import { BeforeAfterSlider } from '@/components/customer/BeforeAfterSlider'
@@ -420,27 +420,6 @@ export default async function CustomerScheduleDetailPage({ params }: PageProps) 
         </section>
       )}
 
-      {/* ── 견적서 ── */}
-      {quotePdfUrl && (
-        <a
-          href={quotePdfUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex items-center justify-between bg-surface rounded-2xl border border-border-subtle shadow-soft p-4 active:scale-[0.98] transition-transform"
-        >
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-full bg-brand-50 border border-brand-100 flex items-center justify-center shrink-0">
-              <FileText size={16} className="text-brand-600" />
-            </div>
-            <div>
-              <p className="text-sm font-semibold text-text-primary">견적서 보기</p>
-              {quoteNo && <p className="text-xs text-text-tertiary mt-0.5">No. {quoteNo}</p>}
-            </div>
-          </div>
-          <ChevronLeft size={16} className="text-text-tertiary rotate-180" />
-        </a>
-      )}
-
       {/* ── 계약서 ── */}
       {contract && (
         <section className="bg-surface rounded-2xl border border-border-subtle shadow-soft overflow-hidden">
@@ -559,17 +538,6 @@ export default async function CustomerScheduleDetailPage({ params }: PageProps) 
         </section>
       )}
 
-      {/* ── 담당자 메모 ── */}
-      {s.worker_memo && s.memo_visible && (
-        <div className="bg-state-warning-bg rounded-2xl border border-amber-100 p-4">
-          <p className="text-xs font-semibold text-state-warning mb-2 flex items-center gap-1">
-            <ClipboardList size={13} />
-            담당자 메모
-          </p>
-          <p className="text-sm text-text-primary whitespace-pre-wrap">{s.worker_memo}</p>
-        </div>
-      )}
-
       {/* ── 담당 직원 ── */}
       {workerName && (
         <section className="bg-surface rounded-2xl border border-border-subtle shadow-soft overflow-hidden">
@@ -621,6 +589,27 @@ export default async function CustomerScheduleDetailPage({ params }: PageProps) 
             )}
           </div>
         </section>
+      )}
+
+      {/* ── 견적서 ── */}
+      {quotePdfUrl && (
+        <a
+          href={quotePdfUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center justify-between bg-surface rounded-2xl border border-border-subtle shadow-soft p-4 active:scale-[0.98] transition-transform"
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-full bg-brand-50 border border-brand-100 flex items-center justify-center shrink-0">
+              <FileText size={16} className="text-brand-600" />
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-text-primary">견적서 보기</p>
+              {quoteNo && <p className="text-xs text-text-tertiary mt-0.5">No. {quoteNo}</p>}
+            </div>
+          </div>
+          <ChevronLeft size={16} className="text-text-tertiary rotate-180" />
+        </a>
       )}
     </div>
   )
