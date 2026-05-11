@@ -218,58 +218,6 @@ export default function CustomerReportsPage() {
 
       <section className="flex flex-col gap-3">
         <SectionHeader
-          title="권장 서비스"
-          subtitle={
-            data.latestReportDate
-              ? `${data.latestReportDate} 보고 기준`
-              : '아직 보고된 추천 서비스가 없습니다.'
-          }
-        />
-
-        {data.latestRecommendations.length === 0 ? (
-          <EmptyState
-            icon={<ClipboardList size={36} />}
-            title="추천 항목이 없습니다"
-            description="작업자가 현장 점검 후 권장 서비스를 입력하면 여기에 표시됩니다."
-            size="sm"
-            bordered
-          />
-        ) : (
-          <ul className="flex flex-col gap-2">
-            {data.latestRecommendations.map((rec) => {
-              const meta = PRIORITY_META[rec.priority]
-              return (
-                <li
-                  key={rec.name}
-                  className="rounded-2xl border border-border-subtle bg-surface shadow-soft p-4"
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <span className={`w-2 h-2 rounded-full ${meta.dot}`} />
-                      <span className="text-sm font-bold text-text-primary truncate">
-                        {rec.name}
-                      </span>
-                    </div>
-                    <span
-                      className={`text-[11px] font-semibold px-2 py-0.5 rounded-full border ${meta.chip}`}
-                    >
-                      {meta.label}
-                    </span>
-                  </div>
-                  {rec.reason && (
-                    <p className="mt-2 text-xs text-text-secondary leading-relaxed break-keep">
-                      {rec.reason}
-                    </p>
-                  )}
-                </li>
-              )
-            })}
-          </ul>
-        )}
-      </section>
-
-      <section className="flex flex-col gap-3">
-        <SectionHeader
           title="방문 이력"
           subtitle={
             filteredSchedules.length > 0
@@ -370,6 +318,58 @@ export default function CustomerReportsPage() {
               )
             })}
           </div>
+        )}
+      </section>
+
+      <section className="flex flex-col gap-3">
+        <SectionHeader
+          title="권장 서비스"
+          subtitle={
+            data.latestReportDate
+              ? `${data.latestReportDate} 보고 기준`
+              : '아직 보고된 추천 서비스가 없습니다.'
+          }
+        />
+
+        {data.latestRecommendations.length === 0 ? (
+          <EmptyState
+            icon={<ClipboardList size={36} />}
+            title="추천 항목이 없습니다"
+            description="작업자가 현장 점검 후 권장 서비스를 입력하면 여기에 표시됩니다."
+            size="sm"
+            bordered
+          />
+        ) : (
+          <ul className="flex flex-col gap-2">
+            {data.latestRecommendations.map((rec) => {
+              const meta = PRIORITY_META[rec.priority]
+              return (
+                <li
+                  key={rec.name}
+                  className="rounded-2xl border border-border-subtle bg-surface shadow-soft p-4"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className={`w-2 h-2 rounded-full ${meta.dot}`} />
+                      <span className="text-sm font-bold text-text-primary truncate">
+                        {rec.name}
+                      </span>
+                    </div>
+                    <span
+                      className={`text-[11px] font-semibold px-2 py-0.5 rounded-full border ${meta.chip}`}
+                    >
+                      {meta.label}
+                    </span>
+                  </div>
+                  {rec.reason && (
+                    <p className="mt-2 text-xs text-text-secondary leading-relaxed break-keep">
+                      {rec.reason}
+                    </p>
+                  )}
+                </li>
+              )
+            })}
+          </ul>
         )}
       </section>
     </div>
