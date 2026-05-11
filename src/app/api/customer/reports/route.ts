@@ -41,8 +41,9 @@ interface ScheduleRow {
   id: string
   scheduled_date: string
   status: string
+  worker_memo: string | null
+  memo_visible: boolean | null
   worker: WorkerJoin | WorkerJoin[] | null
-  work_photos: PhotoJoin[] | null
 }
 
 interface ClosingRow {
@@ -98,13 +99,12 @@ export async function GET(request: NextRequest) {
 
   // 두 소스 병렬 조회 (closing_checklists는 별도 쿼리로 분리)
   const [scheduleResult, appResult, scheduleTotalResult, appTotalResult] = await Promise.all([
-    // 워커 포털 완료 일정 (closing_checklists 제외)
+    // 워커 포털 완료 일정 (closing_checklists, work_photos 별도 쿼리)
     supabase
       .from('service_schedules')
       .select(
-        `id, scheduled_date, status,
-         worker:users!worker_id(name),
-         work_photos!schedule_id(photo_type, photo_url)`,
+        `id, scheduled_date, status, worker_memo, memo_visible,
+         worker:users!worker_id(name)`,
       )
       .eq('customer_id', customerId)
       .eq('status', 'completed')
@@ -140,16 +140,30 @@ export async function GET(request: NextRequest) {
   const scheduleRows = (scheduleResult.data ?? []) as ScheduleRow[]
   const appRows = (appResult.data ?? []) as ApplicationRow[]
 
-  // closing_checklists 별도 조회 (PostgREST 중첩 조인 우회)
+  // closing_checklists + work_photos 별도 조회 (PostgREST 중첩 조인 우회)
   const scheduleIds = scheduleRows.map((r) => r.id)
   const checklistMap = new Map<string, ClosingRow>()
+  const photoMap = new Map<string, PhotoJoin[]>()
+
   if (scheduleIds.length > 0) {
-    const { data: checklistRows } = await supabase
-      .from('closing_checklists')
-      .select('schedule_id, condition_score, recommended_services, completed_at, customer_comment')
-      .in('schedule_id', scheduleIds)
-    for (const c of checklistRows ?? []) {
+    const [checklistRes, photoRes] = await Promise.all([
+      supabase
+        .from('closing_checklists')
+        .select('schedule_id, condition_score, recommended_services, completed_at, customer_comment')
+        .in('schedule_id', scheduleIds),
+      supabase
+        .from('work_photos')
+        .select('schedule_id, photo_type, photo_url')
+        .in('schedule_id', scheduleIds),
+    ])
+    for (const c of checklistRes.data ?? []) {
       if (c.schedule_id) checklistMap.set(c.schedule_id, c as ClosingRow)
+    }
+    for (const p of photoRes.data ?? []) {
+      if (!p.schedule_id) continue
+      const arr = photoMap.get(p.schedule_id) ?? []
+      arr.push(p as PhotoJoin)
+      photoMap.set(p.schedule_id, arr)
     }
   }
 
@@ -172,7 +186,7 @@ export async function GET(request: NextRequest) {
   // 워커 포털 완료 → ReportScheduleItem
   const scheduleItems: ReportScheduleItem[] = scheduleRows.map((row) => {
     const closing = checklistMap.get(row.id) ?? null
-    const photos = row.work_photos ?? []
+    const photos = photoMap.get(row.id) ?? []
     const workerJoin = Array.isArray(row.worker) ? row.worker[0] : row.worker
     return {
       id: row.id,
@@ -180,7 +194,7 @@ export async function GET(request: NextRequest) {
       status: row.status,
       worker_name: workerJoin?.name ?? null,
       condition_score: closing?.condition_score ?? null,
-      notes: closing?.customer_comment ?? null,
+      notes: (row.memo_visible && row.worker_memo) ? row.worker_memo : null,
       photo_urls: photos.map((p) => p.photo_url).filter((u): u is string => !!u),
       has_before_photo: photos.some((p) => p.photo_type === 'before'),
       has_after_photo: photos.some((p) => p.photo_type === 'after'),
