@@ -21,7 +21,7 @@ export async function PATCH(request: NextRequest, { params }: Params) {
   const supabase = createServiceClient()
   const { id } = await params
   const body = await request.json()
-  const { action, customer_memo, internal_memo, drive_folder_url } = body
+  const { action, customer_memo, internal_memo, drive_folder_url, condition_score, recommended_services } = body
 
   if (action === 'start') {
     const { error } = await supabase
@@ -83,6 +83,8 @@ export async function PATCH(request: NextRequest, { params }: Params) {
         ...(customer_memo !== undefined && { customer_memo }),
         ...(internal_memo !== undefined && { internal_memo }),
         ...(drive_folder_url !== undefined && { drive_folder_url }),
+        ...(condition_score !== undefined && { condition_score }),
+        ...(recommended_services !== undefined && { recommended_services }),
       })
       .eq('id', id)
 
