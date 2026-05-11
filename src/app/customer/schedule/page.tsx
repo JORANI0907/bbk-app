@@ -1,7 +1,6 @@
 import { createServiceClient } from '@/lib/supabase/server'
 import { getServerSession } from '@/lib/session'
 import { redirect } from 'next/navigation'
-import { isPast, isToday } from 'date-fns'
 import { ScheduleTabs, ScheduleWithConstruction } from '@/components/customer/ScheduleTabs'
 import { ScheduleChangeNoticeBar } from '@/components/customer/ScheduleChangeNoticeBar'
 
@@ -29,23 +28,15 @@ export default async function CustomerSchedulePage() {
 
   const allSchedules = (schedules ?? []) as ScheduleWithConstruction[]
 
-  const upcoming = allSchedules.filter((s) => {
-    const d = new Date(s.scheduled_date)
-    return (
-      (!isPast(d) || isToday(d)) &&
-      s.status !== 'completed' &&
-      s.status !== 'cancelled'
-    )
-  })
+  // 예정: 워커가 완료/취소 처리하지 않은 일정 (날짜 무관)
+  const upcoming = allSchedules.filter((s) =>
+    s.status !== 'completed' && s.status !== 'cancelled'
+  )
 
-  const past = allSchedules.filter((s) => {
-    const d = new Date(s.scheduled_date)
-    return (
-      s.status === 'completed' ||
-      s.status === 'cancelled' ||
-      (isPast(d) && !isToday(d))
-    )
-  })
+  // 완료: 워커가 실제로 완료 또는 취소 처리한 일정만
+  const past = allSchedules.filter((s) =>
+    s.status === 'completed' || s.status === 'cancelled'
+  )
 
   return (
     <div className="px-4 py-5 flex flex-col gap-4 max-w-2xl mx-auto">
