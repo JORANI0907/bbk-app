@@ -114,8 +114,8 @@ export default function AdminInventoryPage() {
   })
   const [role, setRole] = useState<string>('')
 
-  const [editForm, setEditForm] = useState<{ item_name: string; category: InventoryCategory; unit: string }>({
-    item_name: '', category: 'chemical', unit: '',
+  const [editForm, setEditForm] = useState<{ item_name: string; category: InventoryCategory; unit: string; min_qty: number }>({
+    item_name: '', category: 'chemical', unit: '', min_qty: 0,
   })
   const [editLoading, setEditLoading] = useState(false)
 
@@ -222,7 +222,7 @@ export default function AdminInventoryPage() {
 
   const handleSelectItem = (item: InventoryItem) => {
     setSelectedItem(item)
-    setEditForm({ item_name: item.item_name, category: item.category, unit: item.unit })
+    setEditForm({ item_name: item.item_name, category: item.category, unit: item.unit, min_qty: item.min_qty ?? 0 })
     fetchLogs(item.id)
     setMobileShowDetail(true)
     if (item.current_qty <= item.min_qty) {
@@ -787,6 +787,26 @@ export default function AdminInventoryPage() {
                     />
                   ) : (
                     <p className="px-3 py-2 text-sm text-text-primary bg-surface-sunken rounded-lg">{editForm.unit}</p>
+                  )}
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-text-secondary mb-1">
+                    재고 부족 알림 기준
+                    <span className="ml-1 font-normal text-text-tertiary">(0 = 알림 없음)</span>
+                  </label>
+                  {role === 'admin' ? (
+                    <input
+                      type="number"
+                      min={0}
+                      step={1}
+                      value={editForm.min_qty}
+                      onChange={e => setEditForm(f => ({ ...f, min_qty: Math.max(0, Number(e.target.value)) }))}
+                      className="w-full px-3 py-2 text-sm border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  ) : (
+                    <p className="px-3 py-2 text-sm text-text-primary bg-surface-sunken rounded-lg">
+                      {editForm.min_qty > 0 ? `${editForm.min_qty}${editForm.unit} 이하 시 알림` : '알림 없음'}
+                    </p>
                   )}
                 </div>
               </div>
