@@ -30,12 +30,6 @@ interface WorkerJoin {
   name: string | null
 }
 
-interface ClosingJoin {
-  condition_score: ConditionScore | null
-  recommended_services: RecommendedService[] | null
-  completed_at: string | null
-}
-
 interface PhotoJoin {
   photo_type: string
 }
@@ -45,8 +39,14 @@ interface ScheduleRow {
   scheduled_date: string
   status: string
   worker: WorkerJoin | WorkerJoin[] | null
-  closing_checklists: ClosingJoin[] | null
   work_photos: PhotoJoin[] | null
+}
+
+interface ClosingRow {
+  schedule_id: string
+  condition_score: ConditionScore | null
+  recommended_services: RecommendedService[] | null
+  completed_at: string | null
 }
 
 interface ApplicationRow {
@@ -62,11 +62,8 @@ interface ApplicationRow {
 export async function GET(request: NextRequest) {
   const session = getServerSession()
   if (!session || session.role !== 'customer') {
-    console.error('[reports] 인증 실패 - session:', JSON.stringify(session))
     return NextResponse.json({ error: '인증이 필요합니다.' }, { status: 401 })
   }
-
-  console.log('[reports] userId:', session.userId)
 
   const supabase = createServiceClient()
 
@@ -76,12 +73,7 @@ export async function GET(request: NextRequest) {
     .eq('user_id', session.userId)
     .maybeSingle()
 
-  if (customerErr) {
-    console.error('[reports] customer lookup error:', customerErr.message)
-  }
-
   if (customerErr || !customerRow) {
-    console.error('[reports] customer not found for userId:', session.userId)
     const empty: CustomerReportsResponse = {
       totalCount: 0,
       schedules: [],
@@ -92,7 +84,6 @@ export async function GET(request: NextRequest) {
   }
 
   const customerId = customerRow.id
-  console.log('[reports] customerId:', customerId)
 
   const url = new URL(request.url)
   const monthsParam = url.searchParams.get('months')
@@ -101,15 +92,14 @@ export async function GET(request: NextRequest) {
   sinceDate.setMonth(sinceDate.getMonth() - months)
   const sinceIso = sinceDate.toISOString().slice(0, 10)
 
-  // 두 소스 병렬 조회
+  // 두 소스 병렬 조회 (closing_checklists는 별도 쿼리로 분리)
   const [scheduleResult, appResult, scheduleTotalResult, appTotalResult] = await Promise.all([
-    // 워커 포털 완료 일정
+    // 워커 포털 완료 일정 (closing_checklists 제외)
     supabase
       .from('service_schedules')
       .select(
         `id, scheduled_date, status,
          worker:users!worker_id(name),
-         closing_checklists!schedule_id(condition_score, recommended_services, completed_at),
          work_photos!schedule_id(photo_type)`,
       )
       .eq('customer_id', customerId)
@@ -143,16 +133,21 @@ export async function GET(request: NextRequest) {
       .eq('work_status', 'completed'),
   ])
 
-  if (scheduleResult.error) {
-    console.error('[reports] schedule query error:', scheduleResult.error.message)
-  }
-  if (appResult.error) {
-    console.error('[reports] application query error:', appResult.error.message)
-  }
-
   const scheduleRows = (scheduleResult.data ?? []) as ScheduleRow[]
   const appRows = (appResult.data ?? []) as ApplicationRow[]
-  console.log('[reports] scheduleRows:', scheduleRows.length, '| appRows:', appRows.length)
+
+  // closing_checklists 별도 조회 (PostgREST 중첩 조인 우회)
+  const scheduleIds = scheduleRows.map((r) => r.id)
+  const checklistMap = new Map<string, ClosingRow>()
+  if (scheduleIds.length > 0) {
+    const { data: checklistRows } = await supabase
+      .from('closing_checklists')
+      .select('schedule_id, condition_score, recommended_services, completed_at')
+      .in('schedule_id', scheduleIds)
+    for (const c of checklistRows ?? []) {
+      if (c.schedule_id) checklistMap.set(c.schedule_id, c as ClosingRow)
+    }
+  }
 
   // 신청서 배정 워커 이름 조회
   const assignedIds = [...new Set(appRows.map((a) => a.assigned_to).filter(Boolean))] as string[]
@@ -172,7 +167,7 @@ export async function GET(request: NextRequest) {
 
   // 워커 포털 완료 → ReportScheduleItem
   const scheduleItems: ReportScheduleItem[] = scheduleRows.map((row) => {
-    const closing = row.closing_checklists?.[0] ?? null
+    const closing = checklistMap.get(row.id) ?? null
     const photos = row.work_photos ?? []
     const workerJoin = Array.isArray(row.worker) ? row.worker[0] : row.worker
     return {
@@ -220,8 +215,7 @@ export async function GET(request: NextRequest) {
     let recs: RecommendedService[] | null = null
 
     if (item.source === 'schedule') {
-      const matchRow = scheduleRows.find((r) => r.id === item.id)
-      recs = matchRow?.closing_checklists?.[0]?.recommended_services ?? null
+      recs = checklistMap.get(item.id)?.recommended_services ?? null
     } else {
       const matchApp = appRows.find((a) => a.id === item.id)
       recs = matchApp?.recommended_services ?? null
