@@ -99,9 +99,9 @@ export async function GET(request: NextRequest) {
       .from('service_schedules')
       .select(
         `id, scheduled_date, status,
-         worker:users(name),
-         closing_checklists(condition_score, recommended_services, completed_at),
-         work_photos(photo_type)`,
+         worker:users!worker_id(name),
+         closing_checklists!schedule_id(condition_score, recommended_services, completed_at),
+         work_photos!schedule_id(photo_type)`,
       )
       .eq('customer_id', customerId)
       .eq('status', 'completed')
@@ -133,6 +133,13 @@ export async function GET(request: NextRequest) {
       .eq('customer_id', customerId)
       .eq('work_status', 'completed'),
   ])
+
+  if (scheduleResult.error) {
+    console.error('[reports] schedule query error:', scheduleResult.error.message)
+  }
+  if (appResult.error) {
+    console.error('[reports] application query error:', appResult.error.message)
+  }
 
   const scheduleRows = (scheduleResult.data ?? []) as ScheduleRow[]
   const appRows = (appResult.data ?? []) as ApplicationRow[]
