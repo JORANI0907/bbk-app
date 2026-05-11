@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import toast from 'react-hot-toast'
+import { useInstallPWA } from '@/hooks/useInstallPWA'
 
 async function setSession(user: { id: string; role: string; name: string }, session: { access_token: string; refresh_token: string }) {
   const res = await fetch('/api/auth/session', {
@@ -46,6 +47,8 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false)
   const [showPw, setShowPw] = useState(false)
   const [mounted, setMounted] = useState(false)
+  const [showIOSGuide, setShowIOSGuide] = useState(false)
+  const { install, installPrompt, isInstalled, isIOS } = useInstallPWA()
 
   useEffect(() => {
     setMounted(true)
@@ -178,8 +181,62 @@ export default function LoginPage() {
           </div>
         </div>
 
+        {/* 앱 설치 버튼 */}
+        {!isInstalled && (isIOS || installPrompt) && (
+          <button
+            onClick={isIOS ? () => setShowIOSGuide(true) : install}
+            className="w-full mt-4 py-3 text-white/60 text-sm font-medium border border-white/20 rounded-xl hover:bg-white/10 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+            style={{ backdropFilter: 'blur(8px)' }}
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+            </svg>
+            앱으로 설치하기
+          </button>
+        )}
+
         <p className="text-center text-xs text-white/40 mt-6">© 2025 BBK Korea. All rights reserved.</p>
       </div>
+
+      {/* iOS 설치 안내 모달 */}
+      {showIOSGuide && (
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-4"
+          onClick={e => e.target === e.currentTarget && setShowIOSGuide(false)}
+        >
+          <div className="w-full max-w-sm bg-[#0d1117] border border-white/15 rounded-2xl overflow-hidden text-white mb-4">
+            <div className="px-5 py-4 border-b border-white/10 flex items-center justify-between">
+              <p className="font-semibold text-sm">iPhone / iPad 앱 설치 방법</p>
+              <button
+                onClick={() => setShowIOSGuide(false)}
+                className="text-white/50 hover:text-white p-1 transition-colors"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="px-5 py-5 space-y-4">
+              {[
+                'Safari 브라우저로 app.bbkorea.co.kr 접속',
+                '화면 하단 공유 버튼 (□↑) 탭',
+                '"홈 화면에 추가" 선택',
+                '"추가" 버튼 탭 → 설치 완료',
+              ].map((step, i) => (
+                <div key={i} className="flex gap-3 items-start">
+                  <span className="flex-shrink-0 w-6 h-6 rounded-full bg-sky-500/20 text-sky-400 text-xs flex items-center justify-center font-bold">
+                    {i + 1}
+                  </span>
+                  <p className="text-white/75 text-sm leading-relaxed">{step}</p>
+                </div>
+              ))}
+              <p className="text-white/30 text-xs pt-3 border-t border-white/10">
+                * Safari 브라우저에서만 설치 가능합니다.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
