@@ -150,7 +150,7 @@ export async function GET(request: NextRequest) {
   }
 
   // 신청서 배정 워커 이름 조회
-  const assignedIds = [...new Set(appRows.map((a) => a.assigned_to).filter(Boolean))] as string[]
+  const assignedIds = Array.from(new Set(appRows.map((a) => a.assigned_to).filter(Boolean))) as string[]
   const workerNameMap: Record<string, string> = {}
   if (assignedIds.length > 0) {
     const { data: workerRows } = await supabase
