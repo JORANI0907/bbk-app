@@ -82,6 +82,7 @@ export default function ScheduleDetailPage() {
   const scheduleId = params.id as string
 
   const [schedule, setSchedule] = useState<ServiceSchedule | null>(null)
+  const [serviceType, setServiceType] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [currentStep, setCurrentStep] = useState(0)
   const [isAdmin, setIsAdmin] = useState(false)
@@ -102,6 +103,7 @@ export default function ScheduleDetailPage() {
       if (!res.ok) throw new Error('일정을 찾을 수 없습니다.')
       const data = await res.json()
       setSchedule(data.schedule as ServiceSchedule)
+      setServiceType(data.schedule.service_type ?? null)
       setCurrentStep(data.schedule.work_step ?? 0)
       setIsAdmin(data.isAdmin ?? false)
     } catch (err) {
@@ -205,13 +207,15 @@ export default function ScheduleDetailPage() {
     })
   }
 
+  const isRegularService = serviceType === '정기딥케어' || serviceType === '정기엔드케어'
+
   const handleFinalComplete = async () => {
     const allChecked = CLOSING_ITEMS.every((item) => closingState[item.key])
     if (!allChecked) {
       toast.error('모든 마감 체크리스트를 완료해주세요.')
       return
     }
-    if (!conditionScore) {
+    if (isRegularService && !conditionScore) {
       toast.error('전반적 상태를 선택해주세요.')
       return
     }
@@ -232,8 +236,10 @@ export default function ScheduleDetailPage() {
         actual_completion: new Date().toISOString(),
         closing_checklist: {
           ...closingState,
-          condition_score: conditionScore,
-          recommended_services: recommendedServices,
+          ...(isRegularService && {
+            condition_score: conditionScore,
+            recommended_services: recommendedServices,
+          }),
         },
       })
 
@@ -413,118 +419,123 @@ export default function ScheduleDetailPage() {
               ))}
             </div>
 
-            {/* 전반적 상태 평가 */}
-            <div className="flex flex-col gap-2">
-              <div>
-                <h3 className="text-base font-bold text-text-primary">전반적 상태</h3>
-                <p className="text-xs text-text-tertiary mt-0.5">현장 상태를 평가해주세요. 고객 리포트에 반영됩니다.</p>
-              </div>
-              <div className="grid grid-cols-3 gap-2">
-                {CONDITION_OPTIONS.map((opt) => {
-                  const isActive = conditionScore === opt.value
-                  return (
-                    <button
-                      key={opt.value}
-                      type="button"
-                      onClick={() => setConditionScore(opt.value)}
-                      className={`py-3 rounded-xl border-2 text-sm font-bold transition-colors ${
-                        isActive ? opt.activeTone : opt.tone
-                      }`}
-                    >
-                      {opt.label}
-                    </button>
-                  )
-                })}
-              </div>
-            </div>
-
-            {/* 추가 추천 서비스 */}
-            <div className="flex flex-col gap-2">
-              <div>
-                <h3 className="text-base font-bold text-text-primary">추가 서비스 추천 (선택)</h3>
-                <p className="text-xs text-text-tertiary mt-0.5">고객에게 권장할 서비스를 선택하고 이유를 적어주세요.</p>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {RECOMMENDABLE_SERVICES.map((name) => {
-                  const selected = !!recommendations[name]
-                  return (
-                    <button
-                      key={name}
-                      type="button"
-                      onClick={() => toggleRecommendation(name)}
-                      className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${
-                        selected
-                          ? 'bg-brand-600 text-white border-brand-600'
-                          : 'bg-surface text-text-secondary border-border'
-                      }`}
-                    >
-                      {selected ? '✓ ' : '+ '}
-                      {name}
-                    </button>
-                  )
-                })}
-              </div>
-
-              {Object.entries(recommendations).length > 0 && (
-                <div className="mt-2 flex flex-col gap-3">
-                  {Object.entries(recommendations).map(([name, value]) => (
-                    <div
-                      key={name}
-                      className="rounded-2xl border border-border-subtle bg-surface shadow-soft p-4 flex flex-col gap-3"
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm font-bold text-text-primary">{name}</span>
+            {/* 정기딥케어·정기엔드케어만 상태 평가 + 추천 서비스 노출 */}
+            {isRegularService && (
+              <>
+                {/* 전반적 상태 평가 */}
+                <div className="flex flex-col gap-2">
+                  <div>
+                    <h3 className="text-base font-bold text-text-primary">전반적 상태</h3>
+                    <p className="text-xs text-text-tertiary mt-0.5">현장 상태를 평가해주세요. 고객 리포트에 반영됩니다.</p>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    {CONDITION_OPTIONS.map((opt) => {
+                      const isActive = conditionScore === opt.value
+                      return (
                         <button
+                          key={opt.value}
+                          type="button"
+                          onClick={() => setConditionScore(opt.value)}
+                          className={`py-3 rounded-xl border-2 text-sm font-bold transition-colors ${
+                            isActive ? opt.activeTone : opt.tone
+                          }`}
+                        >
+                          {opt.label}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+
+                {/* 추가 추천 서비스 */}
+                <div className="flex flex-col gap-2">
+                  <div>
+                    <h3 className="text-base font-bold text-text-primary">추가 서비스 추천 (선택)</h3>
+                    <p className="text-xs text-text-tertiary mt-0.5">고객에게 권장할 서비스를 선택하고 이유를 적어주세요.</p>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {RECOMMENDABLE_SERVICES.map((name) => {
+                      const selected = !!recommendations[name]
+                      return (
+                        <button
+                          key={name}
                           type="button"
                           onClick={() => toggleRecommendation(name)}
-                          className="text-xs text-text-tertiary hover:text-red-600"
+                          className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${
+                            selected
+                              ? 'bg-brand-600 text-white border-brand-600'
+                              : 'bg-surface text-text-secondary border-border'
+                          }`}
                         >
-                          제거
+                          {selected ? '✓ ' : '+ '}
+                          {name}
                         </button>
-                      </div>
-                      <div className="flex gap-2">
-                        {PRIORITY_OPTIONS.map((opt) => {
-                          const isActive = value.priority === opt.value
-                          return (
+                      )
+                    })}
+                  </div>
+
+                  {Object.entries(recommendations).length > 0 && (
+                    <div className="mt-2 flex flex-col gap-3">
+                      {Object.entries(recommendations).map(([name, value]) => (
+                        <div
+                          key={name}
+                          className="rounded-2xl border border-border-subtle bg-surface shadow-soft p-4 flex flex-col gap-3"
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm font-bold text-text-primary">{name}</span>
                             <button
-                              key={opt.value}
                               type="button"
-                              onClick={() =>
-                                updateRecommendation(name, { priority: opt.value })
-                              }
-                              className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
-                                isActive
-                                  ? 'border-brand-600 bg-brand-50 text-brand-700'
-                                  : 'border-border bg-surface text-text-secondary'
-                              }`}
+                              onClick={() => toggleRecommendation(name)}
+                              className="text-xs text-text-tertiary hover:text-red-600"
                             >
-                              <span className={`w-2 h-2 rounded-full ${opt.dotColor}`} />
-                              {opt.label}
+                              제거
                             </button>
-                          )
-                        })}
-                      </div>
-                      <textarea
-                        value={value.reason}
-                        onChange={(e) =>
-                          updateRecommendation(name, { reason: e.target.value })
-                        }
-                        placeholder="추천 이유를 간단히 적어주세요 (예: 바닥에 묵은 때가 누적되어 있음)"
-                        rows={2}
-                        className="w-full rounded-md border border-border bg-surface px-3 py-2 text-sm text-text-primary placeholder:text-text-tertiary focus:outline-none focus:border-brand-600"
-                      />
+                          </div>
+                          <div className="flex gap-2">
+                            {PRIORITY_OPTIONS.map((opt) => {
+                              const isActive = value.priority === opt.value
+                              return (
+                                <button
+                                  key={opt.value}
+                                  type="button"
+                                  onClick={() =>
+                                    updateRecommendation(name, { priority: opt.value })
+                                  }
+                                  className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+                                    isActive
+                                      ? 'border-brand-600 bg-brand-50 text-brand-700'
+                                      : 'border-border bg-surface text-text-secondary'
+                                  }`}
+                                >
+                                  <span className={`w-2 h-2 rounded-full ${opt.dotColor}`} />
+                                  {opt.label}
+                                </button>
+                              )
+                            })}
+                          </div>
+                          <textarea
+                            value={value.reason}
+                            onChange={(e) =>
+                              updateRecommendation(name, { reason: e.target.value })
+                            }
+                            placeholder="추천 이유를 간단히 적어주세요 (예: 바닥에 묵은 때가 누적되어 있음)"
+                            rows={2}
+                            className="w-full rounded-md border border-border bg-surface px-3 py-2 text-sm text-text-primary placeholder:text-text-tertiary focus:outline-none focus:border-brand-600"
+                          />
+                        </div>
+                      ))}
                     </div>
-                  ))}
+                  )}
                 </div>
-              )}
-            </div>
+              </>
+            )}
 
             <Button
               onClick={handleFinalComplete}
               disabled={
                 isSubmitting ||
                 !CLOSING_ITEMS.every((i) => closingState[i.key]) ||
-                !conditionScore
+                (isRegularService && !conditionScore)
               }
               isLoading={isSubmitting}
               variant="primary"

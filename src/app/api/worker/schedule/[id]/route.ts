@@ -29,7 +29,18 @@ export async function GET(
     return NextResponse.json({ error: '일정을 찾을 수 없습니다.' }, { status: 404 })
   }
 
-  return NextResponse.json({ schedule: data, isAdmin: session.role === 'admin' })
+  const { data: application } = await supabase
+    .from('service_applications')
+    .select('service_type')
+    .eq('customer_id', data.customer_id)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .single()
+
+  return NextResponse.json({
+    schedule: { ...data, service_type: application?.service_type ?? null },
+    isAdmin: session.role === 'admin',
+  })
 }
 
 export async function PATCH(
