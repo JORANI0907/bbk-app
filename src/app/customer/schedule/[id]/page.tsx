@@ -5,10 +5,9 @@ import Link from 'next/link'
 import { format, isPast, isToday } from 'date-fns'
 import { ko } from 'date-fns/locale'
 import { ChevronLeft, User, ClipboardList, Phone, FileText } from 'lucide-react'
-import { ServiceSchedule, WorkPhoto, WorkChecklist, ClosingChecklist } from '@/types/database'
+import { ServiceSchedule, WorkPhoto, WorkChecklist } from '@/types/database'
 import { SCHEDULE_STATUS_LABELS, SCHEDULE_STATUS_COLORS } from '@/lib/constants'
 import { BeforeAfterSlider } from '@/components/customer/BeforeAfterSlider'
-import { SatisfactionFormWrapper } from '@/components/customer/SatisfactionFormWrapper'
 
 interface PageProps {
   params: { id: string }
@@ -181,10 +180,9 @@ export default async function CustomerScheduleDetailPage({ params }: PageProps) 
 
   let photos: WorkPhoto[] = []
   let checklists: WorkChecklist[] = []
-  let closing: ClosingChecklist | null = null
 
   if (s.status === 'completed') {
-    const [photosRes, checklistsRes, closingRes] = await Promise.all([
+    const [photosRes, checklistsRes] = await Promise.all([
       supabase
         .from('work_photos')
         .select('*')
@@ -192,11 +190,9 @@ export default async function CustomerScheduleDetailPage({ params }: PageProps) 
         .in('photo_type', ['before', 'after'])
         .order('taken_at', { ascending: true }),
       supabase.from('work_checklists').select('*').eq('schedule_id', scheduleId),
-      supabase.from('closing_checklists').select('*').eq('schedule_id', scheduleId).maybeSingle(),
     ])
     photos     = (photosRes.data     ?? []) as WorkPhoto[]
     checklists = (checklistsRes.data ?? []) as WorkChecklist[]
-    closing    = closingRes.data as ClosingChecklist | null
   }
 
   let contract: ContractRow | null = null
@@ -225,7 +221,6 @@ export default async function CustomerScheduleDetailPage({ params }: PageProps) 
   const workerName  = (s.worker as { name?: string } | null)?.name
   const workerPhone = workerPhoneFromWorkers
   const paymentInfo = s.payment_status ? PAYMENT_STATUS_LABELS[s.payment_status] : null
-  const hasRating   = closing?.customer_rating != null
   const fullAddress = customer ? [customer.address, customer.address_detail].filter(Boolean).join(' ') : null
 
   // 금액: application에 supply_amount가 있으면 우선, 없으면 payment_amount
@@ -573,34 +568,6 @@ export default async function CustomerScheduleDetailPage({ params }: PageProps) 
           </p>
           <p className="text-sm text-text-primary whitespace-pre-wrap">{s.worker_memo}</p>
         </div>
-      )}
-
-      {/* ── 서비스 평가 ── */}
-      {s.status === 'completed' && (
-        <section>
-          <h2 className="text-sm font-bold text-text-primary mb-3">서비스 평가</h2>
-          {hasRating && closing ? (
-            <div className="bg-surface rounded-2xl shadow-soft border border-border-subtle p-5">
-              <div className="flex items-center gap-2 mb-3">
-                <div className="flex gap-0.5">
-                  {[1, 2, 3, 4, 5].map((star) => (
-                    <span key={star} className={`text-2xl ${
-                      closing.customer_rating && star <= closing.customer_rating ? 'text-yellow-400' : 'text-text-tertiary'
-                    }`}>★</span>
-                  ))}
-                </div>
-                <span className="text-lg font-bold text-text-primary">{closing.customer_rating}점</span>
-              </div>
-              {closing.customer_comment && (
-                <p className="text-sm text-text-secondary bg-surface-sunken rounded-xl px-4 py-3">
-                  {closing.customer_comment}
-                </p>
-              )}
-            </div>
-          ) : (
-            <SatisfactionFormWrapper scheduleId={scheduleId} />
-          )}
-        </section>
       )}
 
       {/* ── 담당 직원 ── */}
