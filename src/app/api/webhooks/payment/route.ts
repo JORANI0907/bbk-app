@@ -240,17 +240,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ matched: 'deposit', application_id: result.app.id, amount, notify_ok: ok })
     }
 
-    // ─── 예약금 이름 매칭 (fallback): deposit 미입력 상태에서 이름으로 찾기 ──
+    // ─── 예약금 이름 매칭 (fallback): deposit 미입력(0/null) 상태에서 이름으로 찾기 ──
     if (contact) {
       const { data: preApps } = await supabase
         .from('service_applications')
         .select('id, business_name, owner_name, phone, deposit, balance, status')
         .in('status', ['신규', '견적발송', '예약확정'])
+        .or('deposit.is.null,deposit.eq.0')   // 예약금 미설정 건만 대상
 
       if (preApps && preApps.length > 0) {
         const { best, score, secondScore } = pickBestByName(preApps as AppRow[], contact)
 
-        if (score >= 80 && score - secondScore >= 20) {
+        if (score >= 70 && score - secondScore >= 20) {
           // 자동 매칭: deposit 필드 업데이트 후 알림
           await supabase
             .from('service_applications')
@@ -266,7 +267,7 @@ export async function POST(request: NextRequest) {
           return NextResponse.json({ matched: 'deposit_by_name', application_id: best.id, amount, notify_ok: ok })
         }
 
-        if (score >= 50) {
+        if (score >= 40) {
           // 점수 애매 — Slack에 후보 목록 수동 처리 요청
           const scored = (preApps as AppRow[])
             .map(a => ({ app: a, score: calcMatchScore(contact, a.owner_name ?? '', a.business_name ?? '') }))
