@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { sendAlimtalk, sendSMS, sendSubscriptionPromoSMS } from '@/lib/solapi'
 import { createServiceClient } from '@/lib/supabase/server'
-import { notifySlack } from '@/lib/slack'
+import { saveNotificationHistory } from '@/lib/notification'
 import { sendPushToUsers } from '@/lib/push'
 
 const WORKER_NOTIFY_TYPE = '작업자 일정 안내'
@@ -277,14 +277,18 @@ export async function POST(request: NextRequest) {
         .update({ notification_log: [newEntry, ...existingLog] })
         .eq('id', application_id)
 
-      await notifySlack({
-        notifyType: '구독권유알림',
-        customerName: app.owner_name ?? '',
-        phone,
-        businessName: app.business_name ?? '',
-        constructionDate: app.construction_date?.slice(0, 10) ?? null,
+      await saveNotificationHistory({
+        category: 'sms',
+        type: '구독권유알림',
+        body: `구독권유알림 발송 완료 — ${app.owner_name ?? ''} (${phone})`,
+        title: '구독권유알림',
         method,
-      }).catch(() => { /* Slack 실패는 무시 */ })
+        recipientType: 'customer',
+        recipientName: String(app.owner_name ?? ''),
+        recipientPhone: phone,
+        metadata: { application_id },
+        status: 'sent',
+      })
 
       return NextResponse.json({ success: true, new_status: null })
     }
@@ -407,15 +411,19 @@ export async function POST(request: NextRequest) {
       .update(dbUpdates)
       .eq('id', application_id)
 
-    // ── Slack 보고 ──────────────────────────────────────────────────
-    await notifySlack({
-      notifyType: type,
-      customerName: app.owner_name ?? '',
-      phone,
-      businessName: app.business_name ?? '',
-      constructionDate: app.construction_date?.slice(0, 10) ?? null,
+    // ── 알림 이력 저장 ──────────────────────────────────────────────
+    await saveNotificationHistory({
+      category: 'alimtalk',
+      type,
+      body: `${type} 발송 완료 — ${app.owner_name ?? ''} (${phone})`,
+      title: type,
       method,
-    }).catch(() => { /* Slack 실패는 무시 */ })
+      recipientType: 'customer',
+      recipientName: String(app.owner_name ?? ''),
+      recipientPhone: phone,
+      metadata: { application_id, business_name: app.business_name ?? '' },
+      status: 'sent',
+    })
 
     // ── Web Push 발송 ───────────────────────────────────────────────
     // 담당 작업자 및 고객 계정에게 Push 발송 (실패해도 응답에 영향 없음)
@@ -453,14 +461,18 @@ export async function POST(request: NextRequest) {
             .from('service_applications')
             .update({ notification_log: promoLog })
             .eq('id', application_id)
-          await notifySlack({
-            notifyType: '구독권유알림',
-            customerName: app.owner_name ?? '',
-            phone,
-            businessName: app.business_name ?? '',
-            constructionDate: app.construction_date?.slice(0, 10) ?? null,
+          await saveNotificationHistory({
+            category: 'sms',
+            type: '구독권유알림',
+            body: `구독권유알림 자동 발송 — ${app.owner_name ?? ''} (${phone})`,
+            title: '구독권유알림',
             method: 'auto',
-          }).catch(() => { /* Slack 실패는 무시 */ })
+            recipientType: 'customer',
+            recipientName: String(app.owner_name ?? ''),
+            recipientPhone: phone,
+            metadata: { application_id, trigger: type },
+            status: 'sent',
+          })
         }
       } catch {
         // 구독권유알림 실패는 메인 응답에 영향 없음

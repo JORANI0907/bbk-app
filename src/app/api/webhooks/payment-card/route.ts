@@ -2,11 +2,11 @@ import { NextRequest, NextResponse } from 'next/server'
 import crypto from 'crypto'
 import { createServiceClient } from '@/lib/supabase/server'
 import { sendSubscriptionPromoSMS } from '@/lib/solapi'
+import { saveNotificationHistory } from '@/lib/notification'
 
 const SOLAPI_API_KEY = process.env.SOLAPI_API_KEY!
 const SOLAPI_API_SECRET = process.env.SOLAPI_API_SECRET!
 const SOLAPI_SENDER = process.env.SOLAPI_SENDER_NUMBER!
-const SLACK_WEBHOOK_URL = process.env.SLACK_WEBHOOK_URL ?? ''
 
 const PF_ID = 'KA01PF2508222339266591W2FSGJMegb'
 const TEMPLATE_ID = 'KA01TP251212135726272nAAAlElnQY7'
@@ -88,15 +88,6 @@ async function sendAlimtalk(to: string, variables: Record<string, string>): Prom
   }
 }
 
-async function notifySlack(text: string): Promise<void> {
-  if (!SLACK_WEBHOOK_URL) return
-  await fetch(SLACK_WEBHOOK_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ text }),
-  }).catch((e) => console.error('[payment-card] Slack 알림 실패', e))
-}
-
 export async function OPTIONS() {
   return new NextResponse(null, { status: 204, headers: CORS_HEADERS })
 }
@@ -139,9 +130,14 @@ export async function POST(request: NextRequest) {
   }
 
   if (!phone || !isValidPhone(phone)) {
-    await notifySlack(
-      `[카드결제알림] ❌ 전화번호 추출 실패\npayload: ${JSON.stringify(payload).slice(0, 300)}`,
-    )
+    await saveNotificationHistory({
+      category: 'payment',
+      type: '카드결제알림',
+      body: `[카드결제알림] 전화번호 추출 실패 — payload: ${JSON.stringify(payload).slice(0, 200)}`,
+      recipientType: 'admin',
+      status: 'failed',
+      errorMessage: '전화번호 추출 실패',
+    })
     return NextResponse.json(
       { ok: false, reason: 'no_phone' },
       { status: 400, headers: CORS_HEADERS },
@@ -160,9 +156,15 @@ export async function POST(request: NextRequest) {
     .order('created_at', { ascending: false })
 
   if (!apps || apps.length === 0) {
-    await notifySlack(
-      `[카드결제알림] ❌ 매칭 실패 — 수동 확인 필요\n전화번호: ${phoneFormatted}`,
-    )
+    await saveNotificationHistory({
+      category: 'payment',
+      type: '카드결제알림',
+      body: `[카드결제알림] 매칭 실패 — 수동 확인 필요. 전화번호: ${phoneFormatted}`,
+      recipientType: 'admin',
+      recipientPhone: phoneFormatted,
+      status: 'failed',
+      errorMessage: '매칭 실패 — 수동 확인 필요',
+    })
     return NextResponse.json(
       { ok: false, reason: 'no_match' },
       { headers: CORS_HEADERS },
@@ -179,9 +181,17 @@ export async function POST(request: NextRequest) {
     })
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
-    await notifySlack(
-      `[카드결제알림] ❌ 알림톡 발송 오류\n고객: ${app.business_name}\n오류: ${msg}`,
-    )
+    await saveNotificationHistory({
+      category: 'payment',
+      type: '카드결제알림',
+      body: `[카드결제알림] 알림톡 발송 오류 — 고객: ${app.business_name}`,
+      recipientType: 'admin',
+      recipientPhone: phoneFormatted,
+      recipientName: String(app.owner_name ?? ''),
+      metadata: { business_name: app.business_name, application_id: app.id },
+      status: 'failed',
+      errorMessage: msg,
+    })
     return NextResponse.json(
       { ok: false, reason: 'alimtalk_error' },
       { status: 500, headers: CORS_HEADERS },
@@ -201,9 +211,18 @@ export async function POST(request: NextRequest) {
       if (error) console.error('[payment-card] 발송 이력 저장 실패', error)
     })
 
-  await notifySlack(
-    `[카드결제알림] ✅ 알림톡 발송 완료\n고객: ${app.business_name} (${app.owner_name})\n연락처: ${phoneFormatted}`,
-  )
+  await saveNotificationHistory({
+    category: 'payment',
+    type: '카드결제알림',
+    body: `카드결제 알림톡 발송 완료 — ${app.business_name} (${app.owner_name}) / ${phoneFormatted}`,
+    title: '카드결제알림',
+    method: 'auto',
+    recipientType: 'customer',
+    recipientName: String(app.owner_name ?? ''),
+    recipientPhone: phoneFormatted,
+    metadata: { business_name: app.business_name, application_id: app.id },
+    status: 'sent',
+  })
 
   // 1회성케어인 경우 구독권유알림 자동 발송 (실패해도 메인 응답에 영향 없음)
   if (app.service_type === '1회성케어') {
@@ -219,9 +238,18 @@ export async function POST(request: NextRequest) {
           .from('service_applications')
           .update({ notification_log: [promoEntry, ...existingLog] })
           .eq('id', app.id)
-        await notifySlack(
-          `[카드결제알림] ✅ 구독권유 SMS 자동 발송\n고객: ${app.business_name} (${app.owner_name})`,
-        )
+        await saveNotificationHistory({
+          category: 'sms',
+          type: '구독권유알림',
+          body: `구독권유 SMS 자동 발송 — ${app.business_name} (${app.owner_name})`,
+          title: '구독권유알림',
+          method: 'auto',
+          recipientType: 'customer',
+          recipientName: String(app.owner_name ?? ''),
+          recipientPhone: phoneFormatted,
+          metadata: { business_name: app.business_name, application_id: app.id, trigger: '카드결제알림' },
+          status: 'sent',
+        })
       }
     } catch {
       // 구독권유알림 실패는 메인 응답에 영향 없음

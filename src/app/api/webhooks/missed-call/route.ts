@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import crypto from 'crypto'
+import { saveNotificationHistory } from '@/lib/notification'
 
 const SOLAPI_API_KEY = process.env.SOLAPI_API_KEY!
 const SOLAPI_API_SECRET = process.env.SOLAPI_API_SECRET!
@@ -64,19 +65,6 @@ function parsePhoneFromText(text: string): string | null {
 /** 연락처 미등록자 여부: na 필드가 비어있으면 미등록 */
 function isUnknownCaller(na: string | undefined): boolean {
   return !na || na.trim() === ''
-}
-
-const SLACK_WEBHOOK_URL = process.env.SLACK_WEBHOOK_URL
-
-async function notifySlack(phone: string) {
-  if (!SLACK_WEBHOOK_URL) return
-  await fetch(SLACK_WEBHOOK_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      text: `📱 *부재중 자동 명함 발송 완료*\n• 수신번호: ${phone}\n• 시각: ${new Date().toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' })}`,
-    }),
-  }).catch((err) => console.error('[missed-call] Slack 알림 실패', err))
 }
 
 function generateSolapiAuth() {
@@ -176,8 +164,14 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  console.log('[missed-call] 명함 발송 완료', { to: phone })
-  notifySlack(phone)
+  await saveNotificationHistory({
+    category: 'missed_call',
+    type: '부재중전화알림',
+    body: `부재중 자동 명함 발송 완료 — 수신번호: ${phone}`,
+    recipientType: 'admin',
+    recipientPhone: phone,
+    status: 'sent',
+  })
 
   return NextResponse.json(
     { success: true, to: phone },
