@@ -62,8 +62,11 @@ interface ApplicationRow {
 export async function GET(request: NextRequest) {
   const session = getServerSession()
   if (!session || session.role !== 'customer') {
+    console.error('[reports] 인증 실패 - session:', JSON.stringify(session))
     return NextResponse.json({ error: '인증이 필요합니다.' }, { status: 401 })
   }
+
+  console.log('[reports] userId:', session.userId)
 
   const supabase = createServiceClient()
 
@@ -73,7 +76,12 @@ export async function GET(request: NextRequest) {
     .eq('user_id', session.userId)
     .maybeSingle()
 
+  if (customerErr) {
+    console.error('[reports] customer lookup error:', customerErr.message)
+  }
+
   if (customerErr || !customerRow) {
+    console.error('[reports] customer not found for userId:', session.userId)
     const empty: CustomerReportsResponse = {
       totalCount: 0,
       schedules: [],
@@ -84,6 +92,7 @@ export async function GET(request: NextRequest) {
   }
 
   const customerId = customerRow.id
+  console.log('[reports] customerId:', customerId)
 
   const url = new URL(request.url)
   const monthsParam = url.searchParams.get('months')
@@ -143,6 +152,7 @@ export async function GET(request: NextRequest) {
 
   const scheduleRows = (scheduleResult.data ?? []) as ScheduleRow[]
   const appRows = (appResult.data ?? []) as ApplicationRow[]
+  console.log('[reports] scheduleRows:', scheduleRows.length, '| appRows:', appRows.length)
 
   // 신청서 배정 워커 이름 조회
   const assignedIds = [...new Set(appRows.map((a) => a.assigned_to).filter(Boolean))] as string[]
