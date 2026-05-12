@@ -108,6 +108,7 @@ export async function GET(request: NextRequest) {
       )
       .eq('customer_id', customerId)
       .eq('status', 'completed')
+      .is('deleted_at', null)
       .gte('scheduled_date', sinceIso)
       .order('scheduled_date', { ascending: false }),
 
@@ -128,7 +129,8 @@ export async function GET(request: NextRequest) {
       .from('service_schedules')
       .select('id', { count: 'exact', head: true })
       .eq('customer_id', customerId)
-      .eq('status', 'completed'),
+      .eq('status', 'completed')
+      .is('deleted_at', null),
 
     supabase
       .from('service_applications')

@@ -27,6 +27,7 @@ export async function GET() {
     .select('id, scheduled_date, items_this_visit, status')
     .eq('customer_id', customerRow.id)
     .gte('scheduled_date', today)
+    .is('deleted_at', null)
     .in('status', ['scheduled', 'confirmed'])
     .order('scheduled_date', { ascending: true })
     .limit(10)
