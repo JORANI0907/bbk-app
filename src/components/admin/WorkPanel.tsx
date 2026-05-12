@@ -14,6 +14,22 @@ const CONDITION_OPTIONS = [
   { value: 3 as const, label: '불량', activeTone: 'border-red-500 bg-red-50 text-red-700' },
 ]
 
+type RecommendedServiceRaw = { name: string; reason: string; priority: string }
+
+function toRecommendationState(arr: unknown[] | null | undefined): RecommendationState {
+  if (!Array.isArray(arr)) return {}
+  return Object.fromEntries(
+    (arr as RecommendedServiceRaw[]).map(({ name, reason, priority }) => [
+      name,
+      { reason: reason ?? '', priority: (priority ?? 'medium') as RecommendationState[string]['priority'] },
+    ]),
+  )
+}
+
+function fromRecommendationState(state: RecommendationState): RecommendedServiceRaw[] {
+  return Object.entries(state).map(([name, { reason, priority }]) => ({ name, reason, priority }))
+}
+
 interface WorkApp {
   id: string
   status?: string | null
@@ -74,6 +90,9 @@ export function WorkPanel({ app, onUpdate, isAdmin = false }: Props) {
   const [reportScore, setReportScore] = useState<number | null>(app.condition_score ?? null)
   const [reportMemo, setReportMemo] = useState(app.customer_memo ?? '')
   const [reportDriveUrl, setReportDriveUrl] = useState(app.drive_folder_url ?? '')
+  const [reportRecommendations, setReportRecommendations] = useState<RecommendationState>(
+    () => toRecommendationState(app.recommended_services as unknown[] | null),
+  )
   const [reportSaving, setReportSaving] = useState(false)
 
   const isRegularService = app.service_type === '정기딥케어' || app.service_type === '정기엔드케어'
@@ -93,6 +112,9 @@ export function WorkPanel({ app, onUpdate, isAdmin = false }: Props) {
   useEffect(() => { setReportScore(app.condition_score ?? null) }, [app.condition_score])
   useEffect(() => { setReportMemo(app.customer_memo ?? '') }, [app.customer_memo])
   useEffect(() => { setReportDriveUrl(app.drive_folder_url ?? '') }, [app.drive_folder_url])
+  useEffect(() => {
+    setReportRecommendations(toRecommendationState(app.recommended_services as unknown[] | null))
+  }, [app.recommended_services])
 
   const photosChecked = beforeChecked && afterChecked
   const canComplete =
@@ -509,6 +531,18 @@ export function WorkPanel({ app, onUpdate, isAdmin = false }: Props) {
             />
           </div>
 
+          {/* 권장 서비스 — 정기 서비스에만 표시 */}
+          {isRegularService && (
+            <div>
+              <label className="text-xs font-semibold text-text-secondary mb-1.5 block">권장 서비스</label>
+              <RecommendServicePicker
+                serviceType={app.service_type as '정기딥케어' | '정기엔드케어'}
+                value={reportRecommendations}
+                onChange={setReportRecommendations}
+              />
+            </div>
+          )}
+
           <button
             onClick={async () => {
               setReportSaving(true)
@@ -520,6 +554,9 @@ export function WorkPanel({ app, onUpdate, isAdmin = false }: Props) {
                     condition_score: reportScore,
                     customer_memo: reportMemo,
                     drive_folder_url: reportDriveUrl || null,
+                    ...(isRegularService && {
+                      recommended_services: fromRecommendationState(reportRecommendations),
+                    }),
                   }),
                 })
                 if (!res.ok) throw new Error((await res.json()).error)
@@ -527,6 +564,9 @@ export function WorkPanel({ app, onUpdate, isAdmin = false }: Props) {
                   condition_score: reportScore,
                   customer_memo: reportMemo,
                   drive_folder_url: reportDriveUrl || null,
+                  ...(isRegularService && {
+                    recommended_services: fromRecommendationState(reportRecommendations),
+                  }),
                 })
                 toast.success('리포트 내용이 저장됐습니다.')
               } catch (e) { toast.error(String(e)) }

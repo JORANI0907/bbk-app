@@ -12,12 +12,13 @@ export async function PATCH(request: NextRequest, { params }: Params) {
 
   const { id } = await params
   const body = await request.json()
-  const { condition_score, customer_memo, drive_folder_url } = body
+  const { condition_score, customer_memo, drive_folder_url, recommended_services } = body
 
   const updates: Record<string, unknown> = {}
   if (condition_score !== undefined) updates.condition_score = condition_score
   if (customer_memo !== undefined) updates.customer_memo = customer_memo
   if (drive_folder_url !== undefined) updates.drive_folder_url = drive_folder_url
+  if (recommended_services !== undefined) updates.recommended_services = recommended_services
 
   if (Object.keys(updates).length === 0) {
     return NextResponse.json({ error: '수정할 항목이 없습니다.' }, { status: 400 })
