@@ -29,13 +29,15 @@ export async function GET(
     return NextResponse.json({ error: '일정을 찾을 수 없습니다.' }, { status: 404 })
   }
 
-  const { data: application } = await supabase
-    .from('service_applications')
-    .select('service_type')
-    .eq('customer_id', data.customer_id)
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .single()
+  // application_id로 직접 조회 (customer_id 기반 조회는 null 이슈 있음)
+  const appId = data.application_id as string | null
+  const { data: application } = appId
+    ? await supabase
+        .from('service_applications')
+        .select('service_type')
+        .eq('id', appId)
+        .maybeSingle()
+    : { data: null }
 
   return NextResponse.json({
     schedule: { ...data, service_type: application?.service_type ?? null },
