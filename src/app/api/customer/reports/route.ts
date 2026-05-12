@@ -148,7 +148,7 @@ export async function GET(request: NextRequest) {
 
   const checklistMap = new Map<string, ClosingRow>()
   const photoMap = new Map<string, PhotoJoin[]>()
-  const schedAppMap = new Map<string, { drive_folder_url: string | null; customer_memo: string | null }>()
+  const schedAppMap = new Map<string, { drive_folder_url: string | null; customer_memo: string | null; recommended_services: RecommendedService[] | null }>()
 
   await Promise.all([
     scheduleIds.length > 0
@@ -179,15 +179,25 @@ export async function GET(request: NextRequest) {
     appIds.length > 0
       ? supabase
           .from('service_applications')
-          .select('id, drive_folder_url, customer_memo')
+          .select('id, drive_folder_url, customer_memo, recommended_services')
           .in('id', appIds)
           .then(({ data }) => {
             for (const a of data ?? []) {
-              if (a.id) schedAppMap.set(a.id, { drive_folder_url: a.drive_folder_url ?? null, customer_memo: a.customer_memo ?? null })
+              if (a.id) schedAppMap.set(a.id, {
+                drive_folder_url: a.drive_folder_url ?? null,
+                customer_memo: a.customer_memo ?? null,
+                recommended_services: (a.recommended_services as RecommendedService[] | null) ?? null,
+              })
             }
           })
       : Promise.resolve(),
   ])
+
+  // schedule_id → application_id 역참조 맵 (권장 서비스 fallback 조회용)
+  const scheduleIdToAppId = new Map<string, string>()
+  for (const r of scheduleRows) {
+    if (r.application_id) scheduleIdToAppId.set(r.id, r.application_id)
+  }
 
   // 신청서 배정 워커 이름 조회
   const assignedIds = Array.from(new Set(appRows.map((a) => a.assigned_to).filter(Boolean))) as string[]
@@ -252,26 +262,41 @@ export async function GET(request: NextRequest) {
 
   const totalCount = (scheduleTotalResult.count ?? 0) + (appTotalResult.count ?? 0)
 
-  // 가장 최근 추천 서비스 추출 (두 소스 통합)
-  let latestRecommendations: RecommendedService[] = []
-  let latestReportDate: string | null = null
+  // 모든 방문의 권장 서비스 누적 수집 (name 기준 중복 제거, 우선순위 높은 쪽 유지)
+  const PRIORITY_ORDER: Record<string, number> = { high: 3, medium: 2, low: 1 }
+  const recMap = new Map<string, RecommendedService>()
 
   for (const item of allItems) {
     let recs: RecommendedService[] | null = null
 
     if (item.source === 'schedule') {
-      recs = checklistMap.get(item.id)?.recommended_services ?? null
+      const checklistRecs = checklistMap.get(item.id)?.recommended_services ?? null
+      if (Array.isArray(checklistRecs) && checklistRecs.length > 0) {
+        recs = checklistRecs
+      } else {
+        const appId = scheduleIdToAppId.get(item.id)
+        if (appId) {
+          const appRecs = schedAppMap.get(appId)?.recommended_services
+          recs = Array.isArray(appRecs) && appRecs.length > 0 ? appRecs : null
+        }
+      }
     } else {
       const matchApp = appRows.find((a) => a.id === item.id)
       recs = matchApp?.recommended_services ?? null
     }
 
-    if (Array.isArray(recs) && recs.length > 0) {
-      latestRecommendations = recs
-      latestReportDate = item.scheduled_date
-      break
+    if (!Array.isArray(recs)) continue
+    for (const rec of recs) {
+      const existing = recMap.get(rec.name)
+      if (!existing || (PRIORITY_ORDER[rec.priority] ?? 0) > (PRIORITY_ORDER[existing.priority] ?? 0)) {
+        recMap.set(rec.name, rec)
+      }
     }
   }
+
+  const latestRecommendations: RecommendedService[] = Array.from(recMap.values())
+    .sort((a, b) => (PRIORITY_ORDER[b.priority] ?? 0) - (PRIORITY_ORDER[a.priority] ?? 0))
+  const latestReportDate: string | null = null
 
   const response: CustomerReportsResponse = {
     totalCount,

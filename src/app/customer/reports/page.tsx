@@ -356,8 +356,8 @@ export default function CustomerReportsPage() {
         <SectionHeader
           title="권장 서비스"
           subtitle={
-            data.latestReportDate
-              ? `${data.latestReportDate} 보고 기준`
+            data.latestRecommendations.length > 0
+              ? `총 ${data.latestRecommendations.length}개 항목`
               : '아직 보고된 추천 서비스가 없습니다.'
           }
         />
