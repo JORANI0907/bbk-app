@@ -13,23 +13,15 @@ import { EmptyState } from '@/components/ui/EmptyState'
 
 type UserTarget = 'all' | 'admin' | 'worker' | 'customer'
 type LogStatus = 'sent' | 'failed' | 'expired'
-type PageTab = 'send' | 'history' | 'rules'
+type PageTab = 'send' | 'rules' | 'notifications'
+
+type NotificationCategory = 'alimtalk' | 'sms' | 'missed_call' | 'payment' | 'system' | 'push'
+type NotificationStatus = 'sent' | 'failed'
 
 interface SubscriptionStats {
   admin: number
   worker: number
   customer: number
-}
-
-interface PushLog {
-  id: string
-  title: string
-  body: string
-  url: string | null
-  status: LogStatus
-  error_message: string | null
-  sent_at: string
-  subscription_id: string
 }
 
 interface SendFormState {
@@ -55,6 +47,35 @@ interface NotificationRule {
   sort_order: number
 }
 
+interface NotificationHistoryItem {
+  id: string
+  category: NotificationCategory
+  type: string
+  method: 'auto' | 'manual'
+  recipient_type: 'admin' | 'worker' | 'customer' | null
+  recipient_name: string | null
+  recipient_phone: string | null
+  title: string | null
+  body: string
+  status: NotificationStatus
+  error_message: string | null
+  created_at: string
+}
+
+interface NotificationApiResponse {
+  data: NotificationHistoryItem[]
+  total: number
+  page: number
+  pageSize: number
+  error?: string
+}
+
+interface NotificationFilterState {
+  category: string
+  from: string
+  to: string
+}
+
 // ─── 상수 ────────────────────────────────────────────────────────
 
 const EMPTY_FORM: SendFormState = {
@@ -62,6 +83,12 @@ const EMPTY_FORM: SendFormState = {
   title: '',
   body: '',
   url: '',
+}
+
+const EMPTY_NOTIFICATION_FILTER: NotificationFilterState = {
+  category: 'all',
+  from: '',
+  to: '',
 }
 
 const TARGET_OPTIONS: { value: UserTarget; label: string }[] = [
@@ -85,9 +112,59 @@ const STATUS_LABELS: Record<LogStatus, string> = {
 
 const TABS: { value: PageTab; label: string }[] = [
   { value: 'send', label: '푸시 발송' },
-  { value: 'history', label: '발송 이력' },
   { value: 'rules', label: '자동 알림 규칙' },
+  { value: 'notifications', label: '알림 이력' },
 ]
+
+const NOTIFICATION_CATEGORY_OPTIONS: { value: string; label: string }[] = [
+  { value: 'all', label: '전체' },
+  { value: 'alimtalk', label: '알림톡' },
+  { value: 'sms', label: 'SMS' },
+  { value: 'missed_call', label: '부재중' },
+  { value: 'payment', label: '결제' },
+  { value: 'push', label: '푸시' },
+  { value: 'system', label: '시스템' },
+]
+
+const NOTIFICATION_CATEGORY_STYLES: Record<NotificationCategory, string> = {
+  alimtalk: 'bg-yellow-50 text-yellow-700 border-yellow-200',
+  sms: 'bg-blue-50 text-blue-700 border-blue-200',
+  missed_call: 'bg-orange-50 text-orange-700 border-orange-200',
+  payment: 'bg-green-50 text-green-700 border-green-200',
+  system: 'bg-surface-sunken text-text-secondary border-border',
+  push: 'bg-purple-50 text-purple-700 border-purple-200',
+}
+
+const NOTIFICATION_CATEGORY_LABELS: Record<NotificationCategory, string> = {
+  alimtalk: '알림톡',
+  sms: 'SMS',
+  missed_call: '부재중',
+  payment: '결제',
+  system: '시스템',
+  push: '푸시',
+}
+
+const NOTIFICATION_STATUS_STYLES: Record<NotificationStatus, string> = {
+  sent: 'bg-state-success-bg text-state-success',
+  failed: 'bg-state-danger-bg text-state-danger',
+}
+
+const NOTIFICATION_STATUS_LABELS: Record<NotificationStatus, string> = {
+  sent: '발송',
+  failed: '실패',
+}
+
+// ─── 유틸 ─────────────────────────────────────────────────────────
+
+function formatDate(iso: string): string {
+  const d = new Date(iso)
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}.${pad(d.getMonth() + 1)}.${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+
+function truncate(text: string, len: number): string {
+  return text.length > len ? `${text.slice(0, len)}…` : text
+}
 
 // ─── 구독 현황 카드 ───────────────────────────────────────────────
 
@@ -173,7 +250,6 @@ function RulesTab() {
   const handleToggle = async (id: string, field: string, value: boolean) => {
     const key = `${id}-${field}`
     setUpdating(key)
-    // 낙관적 업데이트
     setRules((prev) =>
       prev.map((r) => (r.id === id ? { ...r, [field]: value } : r))
     )
@@ -187,7 +263,6 @@ function RulesTab() {
       if (json.error) throw new Error(json.error)
     } catch {
       toast.error('저장 실패')
-      // 롤백
       setRules((prev) =>
         prev.map((r) => (r.id === id ? { ...r, [field]: !value } : r))
       )
@@ -293,14 +368,213 @@ function RulesTab() {
   )
 }
 
+// ─── 알림 이력 탭 ────────────────────────────────────────────────
+
+function NotificationsTab() {
+  const [items, setItems] = useState<NotificationHistoryItem[]>([])
+  const [total, setTotal] = useState(0)
+  const [page, setPage] = useState(0)
+  const [loading, setLoading] = useState(true)
+  const [filter, setFilter] = useState<NotificationFilterState>(EMPTY_NOTIFICATION_FILTER)
+  const [appliedFilter, setAppliedFilter] = useState<NotificationFilterState>(EMPTY_NOTIFICATION_FILTER)
+
+  const fetchData = useCallback(async (f: NotificationFilterState, p: number) => {
+    setLoading(true)
+    try {
+      const params = new URLSearchParams({ page: String(p) })
+      if (f.category !== 'all') params.set('category', f.category)
+      if (f.from) params.set('from', f.from)
+      if (f.to) params.set('to', f.to)
+
+      const res = await fetch(`/api/admin/notification-history?${params}`)
+      const json = await res.json() as NotificationApiResponse
+
+      if (json.error) throw new Error(json.error)
+      setItems(json.data)
+      setTotal(json.total)
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : '조회 실패'
+      toast.error(msg)
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    fetchData(appliedFilter, page)
+  }, [fetchData, appliedFilter, page])
+
+  const handleSearch = () => {
+    setPage(0)
+    setAppliedFilter({ ...filter })
+  }
+
+  const handleReset = () => {
+    setFilter(EMPTY_NOTIFICATION_FILTER)
+    setAppliedFilter(EMPTY_NOTIFICATION_FILTER)
+    setPage(0)
+  }
+
+  const pageSize = 50
+  const totalPages = Math.ceil(total / pageSize)
+
+  return (
+    <div className="space-y-5">
+      {/* 필터 바 */}
+      <section className="bg-surface rounded-2xl shadow-soft p-5 space-y-4">
+        <div className="flex flex-wrap gap-3 items-end">
+          {/* 카테고리 */}
+          <div className="flex-1 min-w-[160px]">
+            <p className="text-xs font-medium text-text-secondary mb-1.5">카테고리</p>
+            <div className="flex flex-wrap gap-2">
+              {NOTIFICATION_CATEGORY_OPTIONS.map((opt) => (
+                <button
+                  key={opt.value}
+                  onClick={() => setFilter((prev) => ({ ...prev, category: opt.value }))}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+                    filter.category === opt.value
+                      ? 'bg-brand-600 text-white border-brand-600'
+                      : 'bg-surface text-text-secondary border-border hover:bg-surface-sunken'
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* 날짜 범위 */}
+          <div className="flex items-end gap-2">
+            <Input
+              label="시작일"
+              type="date"
+              value={filter.from}
+              onChange={(e) => setFilter((prev) => ({ ...prev, from: e.target.value }))}
+            />
+            <span className="text-text-tertiary pb-2">~</span>
+            <Input
+              label="종료일"
+              type="date"
+              value={filter.to}
+              onChange={(e) => setFilter((prev) => ({ ...prev, to: e.target.value }))}
+            />
+          </div>
+
+          {/* 버튼 */}
+          <div className="flex gap-2 pb-0.5">
+            <Button size="sm" onClick={handleSearch}>조회</Button>
+            <Button size="sm" variant="ghost" onClick={handleReset}>초기화</Button>
+          </div>
+        </div>
+      </section>
+
+      {/* 테이블 */}
+      <section className="bg-surface rounded-2xl shadow-soft overflow-hidden">
+        <div className="px-6 py-5 border-b border-border-subtle">
+          <SectionHeader
+            title="알림 이력"
+            subtitle={`총 ${total.toLocaleString()}건`}
+          />
+        </div>
+
+        {loading ? (
+          <div className="p-6 space-y-3">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <div key={i} className="h-10 rounded-xl bg-surface-sunken animate-pulse" />
+            ))}
+          </div>
+        ) : items.length === 0 ? (
+          <EmptyState
+            icon={<Bell size={36} />}
+            title="알림 이력이 없습니다"
+            description="조건에 맞는 알림 이력이 없습니다."
+            size="md"
+          />
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border-subtle bg-surface-sunken">
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-text-secondary whitespace-nowrap">발송일시</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-text-secondary whitespace-nowrap">유형</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-text-secondary">상세 유형</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-text-secondary hidden md:table-cell">수신자</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-text-secondary hidden lg:table-cell">내용</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-text-secondary whitespace-nowrap">상태</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border-subtle">
+                {items.map((item) => (
+                  <tr key={item.id} className="hover:bg-surface-sunken transition-colors">
+                    <td className="px-4 py-3 text-text-secondary whitespace-nowrap tabular-nums text-xs">
+                      {formatDate(item.created_at)}
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${NOTIFICATION_CATEGORY_STYLES[item.category]}`}>
+                        {NOTIFICATION_CATEGORY_LABELS[item.category]}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-text-primary font-medium max-w-[140px] truncate">
+                      {item.type}
+                    </td>
+                    <td className="px-4 py-3 hidden md:table-cell">
+                      <div className="flex flex-col">
+                        <span className="text-text-primary text-xs font-medium">{item.recipient_name ?? '-'}</span>
+                        <span className="text-text-tertiary text-xs">{item.recipient_phone ?? ''}</span>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-text-secondary hidden lg:table-cell text-xs max-w-[240px] truncate">
+                      {truncate(item.body, 40)}
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${NOTIFICATION_STATUS_STYLES[item.status]}`}>
+                        {NOTIFICATION_STATUS_LABELS[item.status]}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {/* 페이지네이션 */}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between px-4 py-3 border-t border-border-subtle">
+            <p className="text-xs text-text-secondary">
+              {page * pageSize + 1}–{Math.min((page + 1) * pageSize, total)} / {total.toLocaleString()}건
+            </p>
+            <div className="flex gap-2">
+              <Button
+                size="sm"
+                variant="ghost"
+                disabled={page === 0}
+                onClick={() => setPage((p) => p - 1)}
+              >
+                이전
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                disabled={page >= totalPages - 1}
+                onClick={() => setPage((p) => p + 1)}
+              >
+                다음
+              </Button>
+            </div>
+          </div>
+        )}
+      </section>
+    </div>
+  )
+}
+
 // ─── 메인 컴포넌트 ────────────────────────────────────────────────
 
 export default function PushPage() {
   const [activeTab, setActiveTab] = useState<PageTab>('send')
   const [stats, setStats] = useState<SubscriptionStats>({ admin: 0, worker: 0, customer: 0 })
   const [statsLoading, setStatsLoading] = useState(true)
-  const [logs, setLogs] = useState<PushLog[]>([])
-  const [logsLoading, setLogsLoading] = useState(true)
   const [form, setForm] = useState<SendFormState>(EMPTY_FORM)
   const [sending, setSending] = useState(false)
 
@@ -318,24 +592,9 @@ export default function PushPage() {
     }
   }, [])
 
-  const fetchLogs = useCallback(async () => {
-    setLogsLoading(true)
-    try {
-      const res = await fetch('/api/push/logs')
-      const json = await res.json() as { data?: PushLog[]; error?: string }
-      if (json.error) throw new Error(json.error)
-      setLogs(json.data ?? [])
-    } catch {
-      toast.error('발송 이력 조회 실패')
-    } finally {
-      setLogsLoading(false)
-    }
-  }, [])
-
   useEffect(() => {
     fetchStats()
-    fetchLogs()
-  }, [fetchStats, fetchLogs])
+  }, [fetchStats])
 
   const handleSend = async () => {
     if (!form.title.trim()) {
@@ -378,7 +637,6 @@ export default function PushPage() {
       toast.success(`${json.sent ?? 0}명에게 발송 완료`)
       setForm(EMPTY_FORM)
       await fetchStats()
-      await fetchLogs()
     } catch (err) {
       const message = err instanceof Error ? err.message : '발송 실패'
       toast.error(message)
@@ -484,77 +742,11 @@ export default function PushPage() {
         </section>
       )}
 
-      {/* 탭 2: 발송 이력 */}
-      {activeTab === 'history' && (
-        <section className="bg-surface rounded-2xl shadow-soft overflow-hidden">
-          <div className="px-6 py-5 border-b border-border-subtle">
-            <SectionHeader title="발송 이력" subtitle="최근 50건" />
-          </div>
-
-          {logsLoading ? (
-            <div className="p-6 space-y-3">
-              {Array.from({ length: 5 }).map((_, i) => (
-                <div key={i} className="h-12 rounded-xl bg-surface-sunken animate-pulse" />
-              ))}
-            </div>
-          ) : logs.length === 0 ? (
-            <EmptyState
-              icon={<Bell size={36} />}
-              title="발송 이력이 없습니다"
-              description="푸시알림을 발송하면 이곳에 이력이 표시됩니다."
-              size="md"
-            />
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-border-subtle bg-surface-sunken">
-                    <th className="text-left px-4 py-3 text-xs font-semibold text-text-secondary whitespace-nowrap">발송일시</th>
-                    <th className="text-left px-4 py-3 text-xs font-semibold text-text-secondary">제목</th>
-                    <th className="text-left px-4 py-3 text-xs font-semibold text-text-secondary hidden md:table-cell">내용</th>
-                    <th className="text-left px-4 py-3 text-xs font-semibold text-text-secondary whitespace-nowrap hidden lg:table-cell">URL</th>
-                    <th className="text-left px-4 py-3 text-xs font-semibold text-text-secondary whitespace-nowrap">상태</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border-subtle">
-                  {logs.map((log) => (
-                    <tr key={log.id} className="hover:bg-surface-sunken transition-colors">
-                      <td className="px-4 py-3 text-text-secondary whitespace-nowrap tabular-nums text-xs">
-                        {formatDate(log.sent_at)}
-                      </td>
-                      <td className="px-4 py-3 text-text-primary font-medium max-w-[160px] truncate">
-                        {log.title}
-                      </td>
-                      <td className="px-4 py-3 text-text-secondary max-w-[200px] truncate hidden md:table-cell">
-                        {log.body}
-                      </td>
-                      <td className="px-4 py-3 text-text-tertiary max-w-[120px] truncate hidden lg:table-cell text-xs">
-                        {log.url ?? '-'}
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_STYLES[log.status]}`}>
-                          {STATUS_LABELS[log.status]}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </section>
-      )}
-
-      {/* 탭 3: 자동 알림 규칙 */}
+      {/* 탭 2: 자동 알림 규칙 */}
       {activeTab === 'rules' && <RulesTab />}
+
+      {/* 탭 3: 알림 이력 */}
+      {activeTab === 'notifications' && <NotificationsTab />}
     </div>
   )
-}
-
-// ─── 유틸 ─────────────────────────────────────────────────────────
-
-function formatDate(iso: string): string {
-  const d = new Date(iso)
-  const pad = (n: number) => String(n).padStart(2, '0')
-  return `${d.getFullYear()}.${pad(d.getMonth() + 1)}.${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
