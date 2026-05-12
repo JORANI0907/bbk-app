@@ -51,6 +51,7 @@ interface Application {
   notification_send_at: string | null
   notification_sent_at: string | null
   pre_meeting_at: string | null
+  condition_score: number | null
 }
 
 interface User { id: string; name: string; role: string }
@@ -578,7 +579,7 @@ function DetailPanel({
 
           {/* 작업 현황 — 인라인 */}
           <div className="border-t border-border-subtle pt-5">
-            <WorkPanel app={app} onUpdate={(updates) => {
+            <WorkPanel app={app} isAdmin={isAdmin} onUpdate={(updates) => {
               const { status, ...rest } = updates as Partial<Application & { status?: string | null }>
               onAppUpdate({ ...rest, ...(status != null ? { status } : {}) })
             }} />
