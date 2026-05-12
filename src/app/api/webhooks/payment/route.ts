@@ -28,6 +28,35 @@ function extractAmount(text: string): number | null {
   return null
 }
 
+// 은행 SMS 원문에서 입금자명 추출
+// 지원 패턴: [은행명] 이름 금액원 / 이름 입금 금액원 / 이름에서 금액원 입금 등
+function extractContact(text: string): string | undefined {
+  if (!text) return undefined
+  const msg = text.replace(/[\r\n]+/g, ' ').trim()
+  const name = '[가-힣A-Za-z][가-힣A-Za-z0-9()（）]{1,18}'
+  const amount = '\\d{1,3}(?:,\\d{3})*원'
+  const patterns = [
+    // [은행명] {날짜?} 이름님? 금액원
+    new RegExp(`\\[[^\\]]+\\]\\s*(?:\\d+[/.]\\d+[\\s\\d:]*)?\\s*(${name})님?\\s+${amount}`),
+    // 이름 입금 금액원
+    new RegExp(`(${name})\\s+입금\\s+${amount}`),
+    // 이름 금액원 입금
+    new RegExp(`(${name})\\s+${amount}\\s*입금`),
+    // 이름에서 금액원
+    new RegExp(`(${name})에서\\s+${amount}`),
+    // 이름님 이체 금액원
+    new RegExp(`(${name})님\\s+이체\\s+${amount}`),
+  ]
+  for (const p of patterns) {
+    const m = msg.match(p)
+    if (m?.[1]) {
+      const n = m[1].replace(/님$/, '').trim()
+      if (n.length >= 2) return n
+    }
+  }
+  return undefined
+}
+
 // ─── 이름 매칭 유틸 ──────────────────────────────────────────────
 
 /**
@@ -197,7 +226,9 @@ function resolveCandidate(
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json() as PaymentPayload
-    const { message, sender, contact, amount: rawAmount } = body
+    const { message, sender, contact: bodyContact, amount: rawAmount } = body
+    // contact가 없으면 SMS 원문에서 입금자명 파싱 시도
+    const contact = bodyContact || extractContact(message ?? '')
 
     if (!message && rawAmount == null) {
       return NextResponse.json({ error: 'message 또는 amount 필요' }, { status: 400 })
