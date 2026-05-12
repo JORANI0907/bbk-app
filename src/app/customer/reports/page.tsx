@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
-import { ChevronDown, Camera, ClipboardList } from 'lucide-react'
+import { ChevronDown, Camera, ClipboardList, FolderOpen } from 'lucide-react'
 import { SectionHeader, EmptyState } from '@/components/ui'
 import {
   ConditionScore,
@@ -326,8 +326,8 @@ export default function CustomerReportsPage() {
                                   rel="noopener noreferrer"
                                   className="shrink-0 inline-flex items-center gap-1 text-xs font-semibold text-brand-600 hover:text-brand-700"
                                 >
-                                  <Camera size={14} />
-                                  사진 보기
+                                  <FolderOpen size={14} />
+                                  드라이브 보기
                                 </a>
                               ) : (
                                 <span className="shrink-0 text-xs text-text-tertiary">

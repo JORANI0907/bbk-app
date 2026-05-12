@@ -41,8 +41,7 @@ interface ScheduleRow {
   id: string
   scheduled_date: string
   status: string
-  worker_memo: string | null
-  memo_visible: boolean | null
+  application_id: string | null
   worker: WorkerJoin | WorkerJoin[] | null
 }
 
@@ -61,6 +60,7 @@ interface ApplicationRow {
   condition_score: number | null
   recommended_services: RecommendedService[] | null
   drive_folder_url: string | null
+  customer_memo: string | null
   assigned_to: string | null
 }
 
@@ -103,7 +103,7 @@ export async function GET(request: NextRequest) {
     supabase
       .from('service_schedules')
       .select(
-        `id, scheduled_date, status, worker_memo, memo_visible,
+        `id, scheduled_date, status, application_id,
          worker:users!worker_id(name)`,
       )
       .eq('customer_id', customerId)
@@ -116,7 +116,7 @@ export async function GET(request: NextRequest) {
       .from('service_applications')
       .select(
         `id, construction_date, work_completed_at,
-         condition_score, recommended_services, drive_folder_url, assigned_to`,
+         condition_score, recommended_services, drive_folder_url, customer_memo, assigned_to`,
       )
       .eq('customer_id', customerId)
       .eq('work_status', 'completed')
@@ -140,32 +140,52 @@ export async function GET(request: NextRequest) {
   const scheduleRows = (scheduleResult.data ?? []) as ScheduleRow[]
   const appRows = (appResult.data ?? []) as ApplicationRow[]
 
-  // closing_checklists + work_photos 별도 조회 (PostgREST 중첩 조인 우회)
+  // closing_checklists + work_photos + application 데이터 별도 조회
   const scheduleIds = scheduleRows.map((r) => r.id)
+  const appIds = Array.from(new Set(scheduleRows.map((r) => r.application_id).filter(Boolean))) as string[]
+
   const checklistMap = new Map<string, ClosingRow>()
   const photoMap = new Map<string, PhotoJoin[]>()
+  const schedAppMap = new Map<string, { drive_folder_url: string | null; customer_memo: string | null }>()
 
-  if (scheduleIds.length > 0) {
-    const [checklistRes, photoRes] = await Promise.all([
-      supabase
-        .from('closing_checklists')
-        .select('schedule_id, condition_score, recommended_services, completed_at, customer_comment')
-        .in('schedule_id', scheduleIds),
-      supabase
-        .from('work_photos')
-        .select('schedule_id, photo_type, photo_url')
-        .in('schedule_id', scheduleIds),
-    ])
-    for (const c of checklistRes.data ?? []) {
-      if (c.schedule_id) checklistMap.set(c.schedule_id, c as ClosingRow)
-    }
-    for (const p of photoRes.data ?? []) {
-      if (!p.schedule_id) continue
-      const arr = photoMap.get(p.schedule_id) ?? []
-      arr.push(p as PhotoJoin)
-      photoMap.set(p.schedule_id, arr)
-    }
-  }
+  await Promise.all([
+    scheduleIds.length > 0
+      ? supabase
+          .from('closing_checklists')
+          .select('schedule_id, condition_score, recommended_services, completed_at, customer_comment')
+          .in('schedule_id', scheduleIds)
+          .then(({ data }) => {
+            for (const c of data ?? []) {
+              if (c.schedule_id) checklistMap.set(c.schedule_id, c as ClosingRow)
+            }
+          })
+      : Promise.resolve(),
+    scheduleIds.length > 0
+      ? supabase
+          .from('work_photos')
+          .select('schedule_id, photo_type, photo_url')
+          .in('schedule_id', scheduleIds)
+          .then(({ data }) => {
+            for (const p of data ?? []) {
+              if (!p.schedule_id) return
+              const arr = photoMap.get(p.schedule_id) ?? []
+              arr.push(p as PhotoJoin)
+              photoMap.set(p.schedule_id, arr)
+            }
+          })
+      : Promise.resolve(),
+    appIds.length > 0
+      ? supabase
+          .from('service_applications')
+          .select('id, drive_folder_url, customer_memo')
+          .in('id', appIds)
+          .then(({ data }) => {
+            for (const a of data ?? []) {
+              if (a.id) schedAppMap.set(a.id, { drive_folder_url: a.drive_folder_url ?? null, customer_memo: a.customer_memo ?? null })
+            }
+          })
+      : Promise.resolve(),
+  ])
 
   // 신청서 배정 워커 이름 조회
   const assignedIds = Array.from(new Set(appRows.map((a) => a.assigned_to).filter(Boolean))) as string[]
@@ -187,6 +207,7 @@ export async function GET(request: NextRequest) {
   const scheduleItems: ReportScheduleItem[] = scheduleRows.map((row) => {
     const closing = checklistMap.get(row.id) ?? null
     const photos = photoMap.get(row.id) ?? []
+    const appData = row.application_id ? (schedAppMap.get(row.application_id) ?? null) : null
     const workerJoin = Array.isArray(row.worker) ? row.worker[0] : row.worker
     return {
       id: row.id,
@@ -194,13 +215,13 @@ export async function GET(request: NextRequest) {
       status: row.status,
       worker_name: workerJoin?.name ?? null,
       condition_score: closing?.condition_score ?? null,
-      notes: (row.memo_visible && row.worker_memo) ? row.worker_memo : null,
+      notes: appData?.customer_memo ?? null,
       photo_urls: photos.map((p) => p.photo_url).filter((u): u is string => !!u),
       has_before_photo: photos.some((p) => p.photo_type === 'before'),
       has_after_photo: photos.some((p) => p.photo_type === 'after'),
       closing_completed_at: closing?.completed_at ?? null,
       source: 'schedule' as const,
-      drive_folder_url: null,
+      drive_folder_url: appData?.drive_folder_url ?? null,
     }
   })
 
@@ -213,7 +234,7 @@ export async function GET(request: NextRequest) {
       status: 'completed',
       worker_name: app.assigned_to ? (workerNameMap[app.assigned_to] ?? null) : null,
       condition_score: (app.condition_score as ConditionScore) ?? null,
-      notes: null,
+      notes: app.customer_memo ?? null,
       photo_urls: [],
       has_before_photo: false,
       has_after_photo: false,
