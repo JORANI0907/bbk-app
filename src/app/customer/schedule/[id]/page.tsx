@@ -147,6 +147,7 @@ export default async function CustomerScheduleDetailPage({ params }: PageProps) 
     )
     .eq('id', scheduleId)
     .eq('customer_id', customerRow.id)
+    .is('deleted_at', null)
     .single()
 
   if (!schedule) notFound()

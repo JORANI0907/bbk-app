@@ -24,6 +24,7 @@ export default async function CustomerSchedulePage() {
     .from('service_schedules')
     .select('*, worker:users(id,name), application:service_applications(construction_time)')
     .eq('customer_id', customerId)
+    .is('deleted_at', null)
     .order('scheduled_date', { ascending: false })
 
   const allSchedules = (schedules ?? []) as ScheduleWithConstruction[]
