@@ -4,6 +4,27 @@ import { useState, useEffect, useRef } from 'react'
 import { User, Building2, PenLine, CheckCircle } from 'lucide-react'
 import { AddressSearch } from '@/components/AddressSearch'
 
+function Field({ label, required, error, children }: {
+  label: string; required?: boolean; error?: string; children: React.ReactNode
+}) {
+  return (
+    <div className="mb-5">
+      <label className="block text-sm font-semibold text-slate-700 mb-1.5">
+        {label}{required && <span className="text-red-500 ml-0.5">*</span>}
+      </label>
+      {children}
+      {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
+    </div>
+  )
+}
+
+function inputCls(err?: string) {
+  return `w-full px-3.5 py-2.5 rounded-xl border text-sm outline-none transition-all
+     ${err
+       ? 'border-red-400 ring-2 ring-red-100 bg-white'
+       : 'border-slate-200 bg-slate-50 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 focus:bg-white'
+     }`
+}
 
 export default function QuotePage() {
   const [splash, setSplash]           = useState(true)
@@ -83,27 +104,6 @@ export default function QuotePage() {
       setSubmitting(false)
     }
   }
-
-  function Field({ label, required, error, children }: {
-    label: string; required?: boolean; error?: string; children: React.ReactNode
-  }) {
-    return (
-      <div className="mb-5">
-        <label className="block text-sm font-semibold text-slate-700 mb-1.5">
-          {label}{required && <span className="text-red-500 ml-0.5">*</span>}
-        </label>
-        {children}
-        {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
-      </div>
-    )
-  }
-
-  const inputCls = (err?: string) =>
-    `w-full px-3.5 py-2.5 rounded-xl border text-sm outline-none transition-all
-     ${err
-       ? 'border-red-400 ring-2 ring-red-100 bg-white'
-       : 'border-slate-200 bg-slate-50 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 focus:bg-white'
-     }`
 
   return (
     <>
