@@ -364,13 +364,8 @@ export default async function CustomerScheduleDetailPage({ params }: PageProps) 
       {/* ── 금액 정보 ── */}
       {(quotedTotal != null || s.payment_amount != null) && (
         <section className="bg-surface rounded-2xl border border-border-subtle shadow-soft overflow-hidden">
-          <div className="px-5 py-3 border-b border-border-subtle flex items-center justify-between">
+          <div className="px-5 py-3 border-b border-border-subtle">
             <h2 className="text-sm font-bold text-text-primary">금액 정보</h2>
-            {paymentInfo && (
-              <span className={`text-xs px-2.5 py-1 rounded-full font-semibold ${paymentInfo.color}`}>
-                {paymentInfo.label}
-              </span>
-            )}
           </div>
           <div className="px-5 py-4 flex flex-col gap-2.5">
             {/* 견적 기준 금액 (application에서) */}
