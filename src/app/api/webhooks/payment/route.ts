@@ -245,74 +245,55 @@ export async function POST(request: NextRequest) {
     const supabase = createServiceClient()
     const origin = new URL(request.url).origin
 
-    // ─── 예약금 매칭: status='신규', deposit=amount ──────────────
-    const { data: depositApps } = await supabase
+    // ─── 예약금 매칭: deposit 미설정(0/null) 신청서에서 입금자명으로 찾기 ──────
+    // 신규 DB는 deposit=0이므로, 금액 조건 대신 이름 매칭으로 찾아 deposit을 업데이트
+    const { data: preApps } = await supabase
       .from('service_applications')
       .select('id, business_name, owner_name, phone, deposit, balance, status')
-      .eq('status', '신규')
-      .eq('deposit', amount)
+      .in('status', ['신규', '견적발송', '예약확정'])
+      .or('deposit.is.null,deposit.eq.0')
 
-    if (depositApps && depositApps.length > 0) {
-      const result = resolveCandidate(depositApps as AppRow[], contact)
-
-      if (!result.app) {
+    if (preApps && preApps.length > 0) {
+      if (!contact) {
+        // 입금자명 파싱 실패 — 수동 처리 요청
         await sendSlack(
-          `⚠️ *예약금 입금 — 수동 처리 필요*\n• 금액: ${amount.toLocaleString('ko-KR')}원\n• 입금자명: ${contact ?? '없음'}\n• 사유: ${result.reason}\n${result.detail}`
+          `⚠️ *예약금 입금 — 수동 처리 필요 (입금자명 파싱 실패)*\n• 금액: ${amount.toLocaleString('ko-KR')}원\n• SMS: ${(message ?? '').slice(0, 80)}\n• 발신: ${sender ?? '-'}`
         ).catch(() => {})
-        return NextResponse.json({ matched: 'deposit', count: depositApps.length, action: 'manual_required' })
+        return NextResponse.json({ matched: 'deposit', action: 'manual_required', reason: 'no_contact' })
       }
 
-      const { ok, newStatus } = await fireNotify(origin, result.app.id, '예약금 입금완료 알림')
+      const { best, score, secondScore } = pickBestByName(preApps as AppRow[], contact)
+
+      if (score >= 70 && score - secondScore >= 20) {
+        // 자동 매칭: deposit 업데이트 후 알림
+        await supabase
+          .from('service_applications')
+          .update({ deposit: amount })
+          .eq('id', best.id)
+
+        const { ok, newStatus } = await fireNotify(origin, best.id, '예약금 입금완료 알림')
+
+        await sendSlack(
+          `💰 *예약금 입금 확인*\n• 업체명: ${best.business_name}\n• 고객명: ${best.owner_name}\n• 입금자명: ${contact}\n• 금액: ${amount.toLocaleString('ko-KR')}원 → 예약금 저장\n• 이름유사도: ${score}점\n• 알림발송: ${ok ? '✅' : '❌'}\n• 상태변경: ${newStatus ?? '예약금 입금'}`
+        ).catch(() => {})
+
+        return NextResponse.json({ matched: 'deposit', application_id: best.id, amount, notify_ok: ok })
+      }
+
+      // 이름 불명확 — Slack 수동 처리 요청
+      const scored = (preApps as AppRow[])
+        .map(a => ({ app: a, score: calcMatchScore(contact, a.owner_name ?? '', a.business_name ?? '') }))
+        .sort((a, b) => b.score - a.score)
+        .filter(s => s.score > 0)
+      const detail = scored.length > 0
+        ? scored.map(s => `• ${s.app.business_name} (${s.app.owner_name}) — ${s.score}점`).join('\n')
+        : '• 유사한 이름 없음'
 
       await sendSlack(
-        `💰 *예약금 입금 확인*\n• 업체명: ${result.app.business_name}\n• 고객명: ${result.app.owner_name}\n• 입금자명: ${contact ?? '-'}\n• 금액: ${amount.toLocaleString('ko-KR')}원\n• 알림발송: ${ok ? '✅' : '❌'}${result.nameInfo}\n• 상태변경: ${newStatus ?? '예약금 입금'}`
+        `⚠️ *예약금 입금 — 수동 처리 필요*\n• 금액: ${amount.toLocaleString('ko-KR')}원\n• 입금자명: ${contact}\n• 1위 ${score}점 / 2위 ${secondScore}점\n${detail}`
       ).catch(() => {})
 
-      return NextResponse.json({ matched: 'deposit', application_id: result.app.id, amount, notify_ok: ok })
-    }
-
-    // ─── 예약금 이름 매칭 (fallback): deposit 미입력(0/null) 상태에서 이름으로 찾기 ──
-    if (contact) {
-      const { data: preApps } = await supabase
-        .from('service_applications')
-        .select('id, business_name, owner_name, phone, deposit, balance, status')
-        .in('status', ['신규', '견적발송', '예약확정'])
-        .or('deposit.is.null,deposit.eq.0')   // 예약금 미설정 건만 대상
-
-      if (preApps && preApps.length > 0) {
-        const { best, score, secondScore } = pickBestByName(preApps as AppRow[], contact)
-
-        if (score >= 70 && score - secondScore >= 20) {
-          // 자동 매칭: deposit 필드 업데이트 후 알림
-          await supabase
-            .from('service_applications')
-            .update({ deposit: amount })
-            .eq('id', best.id)
-
-          const { ok, newStatus } = await fireNotify(origin, best.id, '예약금 입금완료 알림')
-
-          await sendSlack(
-            `💰 *예약금 입금 확인 (이름매칭)*\n• 업체명: ${best.business_name}\n• 고객명: ${best.owner_name}\n• 입금자명: ${contact}\n• 금액: ${amount.toLocaleString('ko-KR')}원 → deposit 저장\n• 이름유사도: ${score}점\n• 알림발송: ${ok ? '✅' : '❌'}\n• 상태변경: ${newStatus ?? '예약금 입금'}`
-          ).catch(() => {})
-
-          return NextResponse.json({ matched: 'deposit_by_name', application_id: best.id, amount, notify_ok: ok })
-        }
-
-        if (score >= 40) {
-          // 점수 애매 — Slack에 후보 목록 수동 처리 요청
-          const scored = (preApps as AppRow[])
-            .map(a => ({ app: a, score: calcMatchScore(contact, a.owner_name ?? '', a.business_name ?? '') }))
-            .sort((a, b) => b.score - a.score)
-            .filter(s => s.score > 0)
-          const detail = scored.map(s => `• ${s.app.business_name} (${s.app.owner_name}) — ${s.score}점`).join('\n')
-
-          await sendSlack(
-            `⚠️ *예약금 입금 — 수동 처리 필요 (이름 불명확)*\n• 금액: ${amount.toLocaleString('ko-KR')}원\n• 입금자명: ${contact}\n• 1위 ${score}점 / 2위 ${secondScore}점\n${detail}`
-          ).catch(() => {})
-
-          return NextResponse.json({ matched: 'deposit_by_name', action: 'manual_required', score })
-        }
-      }
+      return NextResponse.json({ matched: 'deposit', action: 'manual_required', score })
     }
 
     // ─── 잔금 매칭: status='작업완료' or '결제', balance=amount ──
