@@ -36,6 +36,8 @@ function extractContact(text: string): string | undefined {
   const name = '[가-힣A-Za-z][가-힣A-Za-z0-9()（）]{1,18}'
   const amount = '\\d{1,3}(?:,\\d{3})*원'
   const patterns = [
+    // 보낸사람 : XXX(이름) — SMS 자동전달 앱 형식
+    new RegExp(`보낸사람\\s*:\\s*[^(（]*[（(](${name})[）)]`),
     // [은행명] {날짜?} 이름님? 금액원
     new RegExp(`\\[[^\\]]+\\]\\s*(?:\\d+[/.]\\d+[\\s\\d:]*)?\\s*(${name})님?\\s+${amount}`),
     // 이름 입금 금액원
