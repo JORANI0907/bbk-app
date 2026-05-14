@@ -43,15 +43,20 @@ export function loadGoogleAPIs(): Promise<void> {
 }
 
 /** OAuth2 액세스 토큰 요청 (Google 로그인 팝업) — 60초 타임아웃 */
-export function requestGoogleToken(): Promise<string> {
+export async function requestGoogleToken(): Promise<string> {
   if (!GOOGLE_CLIENT_ID) {
     return Promise.reject(new Error(
       'NEXT_PUBLIC_GOOGLE_CLIENT_ID가 설정되지 않았습니다.\n.env.local과 Netlify 환경변수를 확인해주세요.'
     ))
   }
+  await loadGoogleAPIs()
   const authPromise = new Promise<string>((resolve, reject) => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const g = (window as any).google
+    if (!g?.accounts?.oauth2) {
+      reject(new Error('Google Identity Services가 로드되지 않았습니다.'))
+      return
+    }
     const tokenClient = g.accounts.oauth2.initTokenClient({
       client_id: GOOGLE_CLIENT_ID,
       scope: 'https://www.googleapis.com/auth/drive',
@@ -69,13 +74,19 @@ export function requestGoogleToken(): Promise<string> {
 }
 
 /** OAuth2 액세스 토큰 요청 (Sheets + Drive + Gmail 스코프) */
-export function requestGoogleTokenWithScopes(): Promise<string> {
+export async function requestGoogleTokenWithScopes(): Promise<string> {
   if (!GOOGLE_CLIENT_ID) {
     return Promise.reject(new Error('NEXT_PUBLIC_GOOGLE_CLIENT_ID가 설정되지 않았습니다.'))
   }
+  // GIS 스크립트가 로드되지 않았을 수 있으므로 반드시 먼저 로드
+  await loadGoogleAPIs()
   return new Promise((resolve, reject) => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const g = (window as any).google
+    if (!g?.accounts?.oauth2) {
+      reject(new Error('Google Identity Services가 로드되지 않았습니다. 페이지를 새로고침 해주세요.'))
+      return
+    }
     const tokenClient = g.accounts.oauth2.initTokenClient({
       client_id: GOOGLE_CLIENT_ID,
       scope: [
