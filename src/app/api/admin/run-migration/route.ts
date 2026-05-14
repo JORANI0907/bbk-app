@@ -57,6 +57,8 @@ export async function POST(request: NextRequest) {
     `CREATE INDEX IF NOT EXISTS idx_schedules_deleted_at ON service_schedules(deleted_at) WHERE deleted_at IS NOT NULL`,
     // 2025-04 시공시간 필드 추가
     `ALTER TABLE service_applications ADD COLUMN IF NOT EXISTS construction_time TEXT`,
+    // 2026-05 견적서 항목 JSONB 필드 추가
+    `ALTER TABLE service_applications ADD COLUMN IF NOT EXISTS quote_items JSONB DEFAULT '[]'`,
   ]
 
   try {
