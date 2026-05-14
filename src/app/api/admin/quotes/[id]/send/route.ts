@@ -100,7 +100,8 @@ export async function POST(
   })
 
   let pdfUrl: string | undefined
-  const errors: Record<string, string> = {}
+  const errors: Record<string, string> = {}      // critical: sheet/email/db
+  const softErrors: Record<string, string> = {}  // non-blocking: kakao
 
   // ── 1~6. Google Sheets → PDF → Drive 업로드 ─────────────────────────
   try {
@@ -310,7 +311,7 @@ export async function POST(
     errors.sheet = e instanceof Error ? e.message : String(e)
   }
 
-  // 9. 카카오 알림톡
+  // 9. 카카오 알림톡 (soft — 실패해도 전체 성공에 영향 없음)
   try {
     await sendAlimtalk(
       phone,
@@ -327,7 +328,8 @@ export async function POST(
       `[BBK 공간케어] 견적서가 발송되었습니다. 견적서 번호: ${quoteNo}`,
     )
   } catch (e) {
-    errors.kakao = e instanceof Error ? e.message : String(e)
+    softErrors.kakao = e instanceof Error ? e.message : String(e)
+    console.error('카카오 알림톡 발송 실패 (non-critical):', softErrors.kakao)
   }
 
   // 10. DB에 견적서 정보 저장
@@ -355,10 +357,12 @@ export async function POST(
     method: 'manual',
   }).catch(() => {})
 
+  const allErrors = { ...errors, ...softErrors }
   return NextResponse.json({
     success: Object.keys(errors).length === 0,
     quote_no: quoteNo,
     pdf_url:  pdfUrl,
-    ...(Object.keys(errors).length > 0 && { errors }),
+    ...(Object.keys(allErrors).length > 0 && { errors: allErrors }),
+    ...(Object.keys(softErrors).length > 0 && { warnings: softErrors }),
   })
 }

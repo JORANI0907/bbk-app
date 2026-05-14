@@ -1,11 +1,11 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import toast from 'react-hot-toast'
 import { requestGoogleTokenWithScopes } from '@/lib/googleDrive'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
-import { Plus, X, FileText, ExternalLink } from 'lucide-react'
+import { Plus, X, FileText, ExternalLink, RefreshCw, ChevronLeft, ChevronRight } from 'lucide-react'
 
 // ─── 타입 ────────────────────────────────────────────────────────
 
@@ -30,6 +30,7 @@ interface ApplicationRow {
   created_at: string
   status: string
   notification_log: Array<{ type: string; sent_at: string; method?: string }> | null
+  source: string | null
 }
 
 // ─── 유틸 ────────────────────────────────────────────────────────
@@ -42,26 +43,43 @@ function fmtDate(dateStr: string): string {
   return dateStr.slice(0, 10)
 }
 
+const PAGE_SIZE = 20
+
 // ─── 컴포넌트 ────────────────────────────────────────────────────
 
 export default function QuotesPage() {
   const [applications, setApplications] = useState<ApplicationRow[]>([])
-  const [loading, setLoading] = useState(true)
-  const [search, setSearch] = useState('')
+  const [loading, setLoading]   = useState(true)
+  const [search, setSearch]     = useState('')
+  const [page, setPage]         = useState(1)
+  const [total, setTotal]       = useState(0)
+  const [loadedAt, setLoadedAt] = useState<Date | null>(null)
+
   const [selectedId, setSelectedId] = useState<string | null>(null)
-  const [quoteItems, setQuoteItems] = useState<QuoteItem[]>([])
-  const [sending, setSending] = useState(false)
+  const [quoteItems, setQuoteItems]  = useState<QuoteItem[]>([])
+  const [sending, setSending]        = useState(false)
+
+  // 검색 디바운스용
+  const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const selected = applications.find(a => a.id === selectedId) ?? null
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
 
-  // ─── 데이터 로딩 (API 라우트 경유 — createServiceClient RLS 우회) ────
-  const loadApplications = useCallback(async () => {
+  // ─── 데이터 로딩 ──────────────────────────────────────────────
+  const loadApplications = useCallback(async (p: number, q: string) => {
     setLoading(true)
     try {
-      const res = await fetch('/api/admin/quotes')
+      const params = new URLSearchParams({
+        page:  String(p),
+        limit: String(PAGE_SIZE),
+        ...(q ? { search: q } : {}),
+      })
+      const res = await fetch(`/api/admin/quotes?${params}`)
       if (!res.ok) throw new Error('목록 로딩 실패')
-      const { applications: data } = await res.json()
+      const { applications: data, total: t } = await res.json()
       setApplications((data as ApplicationRow[]) || [])
+      setTotal(t ?? 0)
+      setLoadedAt(new Date())
     } catch {
       toast.error('목록 로딩 실패')
     } finally {
@@ -69,32 +87,45 @@ export default function QuotesPage() {
     }
   }, [])
 
+  // 초기 로드
   useEffect(() => {
-    loadApplications()
+    loadApplications(1, '')
   }, [loadApplications])
 
-  // ─── 항목 선택 시 quote_items 초기화 ─────────────────────────
+  // 검색 디바운스 (500ms) — 페이지 1로 리셋
+  const handleSearchChange = (value: string) => {
+    setSearch(value)
+    if (searchTimer.current) clearTimeout(searchTimer.current)
+    searchTimer.current = setTimeout(() => {
+      setPage(1)
+      setSelectedId(null)
+      loadApplications(1, value)
+    }, 500)
+  }
+
+  // 페이지 변경
+  const handlePageChange = (newPage: number) => {
+    setPage(newPage)
+    setSelectedId(null)
+    loadApplications(newPage, search)
+  }
+
+  // 수동 새로고침
+  const handleRefresh = () => {
+    loadApplications(page, search)
+  }
+
+  // ─── 항목 선택 ────────────────────────────────────────────────
   const handleSelect = useCallback((app: ApplicationRow) => {
     setSelectedId(app.id)
-    if (app.quote_items && app.quote_items.length > 0) {
-      setQuoteItems(app.quote_items.map(item => ({ ...item })))
-    } else {
-      setQuoteItems([])
-    }
+    setQuoteItems(
+      app.quote_items && app.quote_items.length > 0
+        ? app.quote_items.map(item => ({ ...item }))
+        : []
+    )
   }, [])
 
-  // ─── 검색 필터 ───────────────────────────────────────────────
-  const filtered = applications.filter(a => {
-    if (!search.trim()) return true
-    const q = search.trim().toLowerCase()
-    return (
-      a.owner_name.toLowerCase().includes(q) ||
-      (a.business_name || '').toLowerCase().includes(q) ||
-      (a.phone || '').includes(q)
-    )
-  })
-
-  // ─── 견적 항목 편집 함수 ─────────────────────────────────────
+  // ─── 견적 항목 편집 ───────────────────────────────────────────
   const addItem = () => {
     setQuoteItems(prev => [...prev, { name: '', qty: 1, unit_price: 0, subtotal: 0 }])
   }
@@ -104,45 +135,40 @@ export default function QuotesPage() {
   }
 
   const updateItem = (idx: number, field: keyof QuoteItem, value: string | number) => {
-    setQuoteItems(prev => {
-      const next = prev.map((item, i) => {
+    setQuoteItems(prev =>
+      prev.map((item, i) => {
         if (i !== idx) return item
         const updated = { ...item, [field]: value }
         if (field === 'qty' || field === 'unit_price') {
-          const qty = field === 'qty' ? Number(value) : item.qty
+          const qty       = field === 'qty'        ? Number(value) : item.qty
           const unitPrice = field === 'unit_price' ? Number(value) : item.unit_price
           updated.subtotal = qty * unitPrice
         }
         return updated
       })
-      return next
-    })
+    )
   }
 
   // ─── 금액 계산 ────────────────────────────────────────────────
   const supplyAmount = quoteItems.reduce((sum, item) => sum + item.subtotal, 0)
-  const vatAmount = Math.round(supplyAmount * 0.1)
-  const totalAmount = supplyAmount + vatAmount
+  const vatAmount    = Math.round(supplyAmount * 0.1)
+  const totalAmount  = supplyAmount + vatAmount
 
   // ─── 유효성 검사 ─────────────────────────────────────────────
   const validate = (): string | null => {
     if (!selected) return '신청서를 선택해 주세요.'
     if (!selected.owner_name?.trim()) return '고객명이 없습니다.'
-    if (!selected.phone?.trim()) return '연락처가 없습니다.'
-    if (!selected.address?.trim()) return '주소가 없습니다.'
-    if (quoteItems.length === 0) return '견적 항목을 1개 이상 추가해 주세요.'
-    const emptyItem = quoteItems.find(item => !item.name.trim())
-    if (emptyItem) return '항목명이 비어있는 견적 항목이 있습니다.'
+    if (!selected.phone?.trim())      return '연락처가 없습니다.'
+    if (!selected.address?.trim())    return '주소가 없습니다.'
+    if (quoteItems.length === 0)      return '견적 항목을 1개 이상 추가해 주세요.'
+    if (quoteItems.some(item => !item.name.trim())) return '항목명이 비어있는 견적 항목이 있습니다.'
     return null
   }
 
   // ─── 견적서 발송 ─────────────────────────────────────────────
   const handleSend = async () => {
-    const validationError = validate()
-    if (validationError) {
-      toast.error(validationError)
-      return
-    }
+    const err = validate()
+    if (err) { toast.error(err); return }
     if (!selected) return
 
     setSending(true)
@@ -151,32 +177,38 @@ export default function QuotesPage() {
 
       const res = await fetch(`/api/admin/quotes/${selected.id}/send`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({
-          owner_name: selected.owner_name,
-          business_name: selected.business_name,
-          phone: selected.phone,
-          email: selected.email || '',
-          address: selected.address,
+          owner_name:        selected.owner_name,
+          business_name:     selected.business_name,
+          phone:             selected.phone,
+          email:             selected.email || '',
+          address:           selected.address,
           construction_date: selected.construction_date || '',
-          quote_items: quoteItems,
-          supply_amount: supplyAmount,
-          vat: vatAmount,
-          total_amount: totalAmount,
+          quote_items:       quoteItems,
+          supply_amount:     supplyAmount,
+          vat:               vatAmount,
+          total_amount:      totalAmount,
         }),
       })
 
       const result = await res.json()
       if (result.success) {
-        toast.success(`견적서 발송 완료 (${result.quote_no})`)
-        await loadApplications()
+        if (result.warnings?.kakao) {
+          toast.success(`견적서 발송 완료 (${result.quote_no})\n카카오 알림톡은 발송되지 않았습니다.`)
+        } else {
+          toast.success(`견적서 발송 완료 (${result.quote_no})`)
+        }
+        await loadApplications(page, search)
       } else {
-        const errMsg = result.errors ? Object.values(result.errors).join(', ') : '발송 실패'
-        toast.error(`일부 오류: ${errMsg}`)
-        await loadApplications()
+        const errMsg = result.errors
+          ? Object.entries(result.errors as Record<string, string>)
+              .filter(([k]) => k !== 'kakao')
+              .map(([, v]) => v)
+              .join(', ')
+          : '발송 실패'
+        toast.error(`발송 오류: ${errMsg}`)
+        await loadApplications(page, search)
       }
     } catch (e) {
       toast.error(e instanceof Error ? e.message : '견적서 발송 중 오류가 발생했습니다.')
@@ -190,32 +222,51 @@ export default function QuotesPage() {
     <div className="flex h-full gap-5 p-6">
 
       {/* ── 좌측: 신청 목록 ─────────────────────────────────── */}
-      <div className="w-80 flex-shrink-0 flex flex-col gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-text-primary leading-tight">견적관리</h1>
-          <p className="text-sm text-text-tertiary mt-1">신청서를 선택하여 견적서를 발송하세요.</p>
+      <div className="w-80 flex-shrink-0 flex flex-col gap-3">
+
+        {/* 헤더 */}
+        <div className="flex items-start justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-text-primary leading-tight">견적관리</h1>
+            <p className="text-xs text-text-tertiary mt-0.5">
+              {loadedAt ? `${loadedAt.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })} 기준` : ''}
+              {total > 0 ? ` · 총 ${total}건` : ''}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={handleRefresh}
+            disabled={loading}
+            title="새로고침"
+            className="mt-1 p-1.5 rounded-lg text-text-tertiary hover:text-text-primary hover:bg-surface-sunken transition-colors disabled:opacity-40"
+          >
+            <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
+          </button>
         </div>
 
+        {/* 검색 */}
         <Input
           placeholder="고객명·업체명·연락처 검색"
           value={search}
-          onChange={e => setSearch(e.target.value)}
+          onChange={e => handleSearchChange(e.target.value)}
         />
 
-        <div className="flex-1 overflow-y-auto rounded-2xl border border-border shadow-soft bg-surface">
+        {/* 목록 */}
+        <div className="flex-1 overflow-y-auto rounded-2xl border border-border shadow-soft bg-surface min-h-0">
           {loading ? (
             <div className="flex items-center justify-center h-32 text-sm text-text-tertiary">
               로딩 중...
             </div>
-          ) : filtered.length === 0 ? (
+          ) : applications.length === 0 ? (
             <div className="flex items-center justify-center h-32 text-sm text-text-tertiary">
               검색 결과 없음
             </div>
           ) : (
             <ul className="divide-y divide-border-subtle">
-              {filtered.map(app => {
-                const isSent = !!app.last_quote_no
+              {applications.map(app => {
+                const isSent   = !!app.last_quote_no
                 const isActive = selectedId === app.id
+                const isQuote  = app.source === 'quote'
                 return (
                   <li key={app.id}>
                     <button
@@ -229,13 +280,18 @@ export default function QuotesPage() {
                         <span className="font-medium text-sm text-text-primary truncate">
                           {app.owner_name}
                         </span>
-                        <span className={`flex-shrink-0 text-xs px-2 py-0.5 rounded-full font-medium ${
-                          isSent
-                            ? 'bg-green-100 text-green-700'
-                            : 'bg-amber-100 text-amber-700'
-                        }`}>
-                          {isSent ? '발송완료' : '미발송'}
-                        </span>
+                        <div className="flex items-center gap-1 flex-shrink-0">
+                          {isQuote && (
+                            <span className="text-xs px-1.5 py-0.5 rounded-full font-medium bg-blue-50 text-blue-600">
+                              견적신청
+                            </span>
+                          )}
+                          <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium ${
+                            isSent ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'
+                          }`}>
+                            {isSent ? '발송완료' : '미발송'}
+                          </span>
+                        </div>
                       </div>
                       <div className="text-xs text-text-secondary mt-0.5 truncate">
                         {app.business_name || '-'}
@@ -252,6 +308,31 @@ export default function QuotesPage() {
             </ul>
           )}
         </div>
+
+        {/* 페이지네이션 */}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between text-sm text-text-secondary">
+            <button
+              type="button"
+              onClick={() => handlePageChange(page - 1)}
+              disabled={page <= 1 || loading}
+              className="p-1.5 rounded-lg hover:bg-surface-sunken disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            >
+              <ChevronLeft size={16} />
+            </button>
+            <span className="text-xs tabular-nums">
+              {page} / {totalPages}
+            </span>
+            <button
+              type="button"
+              onClick={() => handlePageChange(page + 1)}
+              disabled={page >= totalPages || loading}
+              className="p-1.5 rounded-lg hover:bg-surface-sunken disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            >
+              <ChevronRight size={16} />
+            </button>
+          </div>
+        )}
       </div>
 
       {/* ── 우측: 세부 패널 ──────────────────────────────────── */}
@@ -268,12 +349,12 @@ export default function QuotesPage() {
             <section className="bg-surface rounded-2xl shadow-soft p-6">
               <h2 className="text-lg font-semibold text-text-primary leading-snug mb-4">고객 기본정보</h2>
               <div className="grid grid-cols-2 gap-x-8 gap-y-3 text-sm">
-                <InfoRow label="고객명" value={selected.owner_name} />
-                <InfoRow label="업체명" value={selected.business_name} />
-                <InfoRow label="연락처" value={selected.phone} />
-                <InfoRow label="이메일" value={selected.email || '-'} />
+                <InfoRow label="고객명"   value={selected.owner_name} />
+                <InfoRow label="업체명"   value={selected.business_name} />
+                <InfoRow label="연락처"   value={selected.phone} />
+                <InfoRow label="이메일"   value={selected.email || '-'} />
                 <InfoRow label="시공일자" value={selected.construction_date || '-'} />
-                <InfoRow label="상태" value={selected.status} />
+                <InfoRow label="상태"     value={selected.status} />
                 <div className="col-span-2">
                   <InfoRow label="주소" value={selected.address} />
                 </div>
@@ -284,14 +365,8 @@ export default function QuotesPage() {
             <section className="bg-surface rounded-2xl shadow-soft p-6">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-lg font-semibold text-text-primary leading-snug">견적 항목</h2>
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  onClick={addItem}
-                  className="flex items-center gap-1"
-                >
-                  <Plus size={14} />
-                  항목 추가
+                <Button size="sm" variant="secondary" onClick={addItem} className="flex items-center gap-1">
+                  <Plus size={14} />항목 추가
                 </Button>
               </div>
 
@@ -378,14 +453,9 @@ export default function QuotesPage() {
               </div>
             </section>
 
-            {/* 4. 견적서 보내기 버튼 */}
+            {/* 4. 견적서 보내기 */}
             <section className="bg-surface rounded-2xl shadow-soft p-6">
-              <Button
-                onClick={handleSend}
-                disabled={sending}
-                className="w-full"
-                size="lg"
-              >
+              <Button onClick={handleSend} disabled={sending} className="w-full" size="lg">
                 {sending ? '발송 중...' : '견적서 보내기'}
               </Button>
               <p className="text-xs text-text-tertiary mt-2 text-center">
@@ -398,12 +468,10 @@ export default function QuotesPage() {
               <section className="bg-surface rounded-2xl shadow-soft p-6">
                 <h2 className="text-lg font-semibold text-text-primary leading-snug mb-3">발송 이력</h2>
                 <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-text-secondary">
-                      최근 발송 번호:{' '}
-                      <span className="font-medium text-text-primary">{selected.last_quote_no}</span>
-                    </p>
-                  </div>
+                  <p className="text-sm text-text-secondary">
+                    최근 발송 번호:{' '}
+                    <span className="font-medium text-text-primary">{selected.last_quote_no}</span>
+                  </p>
                   {selected.last_quote_pdf_url && (
                     <a
                       href={selected.last_quote_pdf_url}
@@ -411,8 +479,7 @@ export default function QuotesPage() {
                       rel="noopener noreferrer"
                       className="flex items-center gap-1.5 text-sm text-brand-600 hover:text-brand-700 font-medium"
                     >
-                      <ExternalLink size={14} />
-                      PDF 보기
+                      <ExternalLink size={14} />PDF 보기
                     </a>
                   )}
                 </div>
@@ -426,7 +493,7 @@ export default function QuotesPage() {
   )
 }
 
-// ─── 헬퍼 컴포넌트 ────────────────────────────────────────────────
+// ─── 헬퍼 ────────────────────────────────────────────────────────
 
 function InfoRow({ label, value }: { label: string; value: string }) {
   return (

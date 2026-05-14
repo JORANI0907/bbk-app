@@ -131,6 +131,7 @@ export async function POST(request: NextRequest) {
           request_notes: requestNotes,
           construction_date: constructionDate ?? null,
           care_scope: careScope ?? null,
+          source: source ?? 'application',
           status: '신규',
         })
         .select()
