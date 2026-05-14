@@ -40,6 +40,13 @@ interface QuoteItem {
   subtotal: number
 }
 
+interface QuoteLogEntry {
+  quote_no: string
+  pdf_url: string | null
+  sent_at: string
+  total_amount: number
+}
+
 interface QuoteSendBody {
   owner_name: string
   business_name: string
@@ -333,15 +340,32 @@ export async function POST(
     console.error('카카오 알림톡 발송 실패 (non-critical):', softErrors.kakao)
   }
 
-  // 10. DB에 견적서 정보 저장
+  // 10. DB에 견적서 정보 저장 (quote_log 배열에 누적)
   try {
     const supabase = createServiceClient()
+
+    // 기존 quote_log 읽어서 새 항목 append
+    const { data: current } = await supabase
+      .from('service_applications')
+      .select('quote_log')
+      .eq('id', id)
+      .single()
+
+    const existingLog: QuoteLogEntry[] = Array.isArray(current?.quote_log) ? current.quote_log : []
+    const newEntry: QuoteLogEntry = {
+      quote_no: quoteNo,
+      pdf_url: pdfUrl || null,
+      sent_at: new Date().toISOString(),
+      total_amount: total_amount || 0,
+    }
+
     await supabase
       .from('service_applications')
       .update({
         last_quote_no: quoteNo,
         last_quote_pdf_url: pdfUrl || null,
         quote_items: quote_items,
+        quote_log: [...existingLog, newEntry],
       })
       .eq('id', id)
   } catch (e) {

@@ -16,6 +16,13 @@ interface QuoteItem {
   subtotal: number
 }
 
+interface QuoteLogEntry {
+  quote_no: string
+  pdf_url: string | null
+  sent_at: string
+  total_amount: number
+}
+
 interface ApplicationRow {
   id: string
   owner_name: string
@@ -27,6 +34,7 @@ interface ApplicationRow {
   last_quote_no: string | null
   last_quote_pdf_url: string | null
   quote_items: QuoteItem[] | null
+  quote_log: QuoteLogEntry[] | null
   created_at: string
   status: string
   notification_log: Array<{ type: string; sent_at: string; method?: string }> | null
@@ -464,25 +472,51 @@ export default function QuotesPage() {
             </section>
 
             {/* 5. 발송 이력 */}
-            {selected.last_quote_no && (
+            {selected.quote_log && selected.quote_log.length > 0 && (
               <section className="bg-surface rounded-2xl shadow-soft p-6">
-                <h2 className="text-lg font-semibold text-text-primary leading-snug mb-3">발송 이력</h2>
-                <div className="flex items-center justify-between">
-                  <p className="text-sm text-text-secondary">
-                    최근 발송 번호:{' '}
-                    <span className="font-medium text-text-primary">{selected.last_quote_no}</span>
-                  </p>
-                  {selected.last_quote_pdf_url && (
-                    <a
-                      href={selected.last_quote_pdf_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-1.5 text-sm text-brand-600 hover:text-brand-700 font-medium"
-                    >
-                      <ExternalLink size={14} />PDF 보기
-                    </a>
-                  )}
-                </div>
+                <h2 className="text-lg font-semibold text-text-primary leading-snug mb-3">
+                  발송 이력
+                  <span className="ml-2 text-sm font-normal text-text-tertiary">
+                    ({selected.quote_log.length}건)
+                  </span>
+                </h2>
+                <ul className="divide-y divide-border-subtle">
+                  {[...selected.quote_log].reverse().map((log, idx) => (
+                    <li key={log.quote_no} className="py-3 flex items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          {idx === 0 && (
+                            <span className="text-xs px-1.5 py-0.5 rounded-full bg-brand-50 text-brand-600 font-medium flex-shrink-0">
+                              최신
+                            </span>
+                          )}
+                          <span className="text-sm font-medium text-text-primary tabular-nums truncate">
+                            {log.quote_no}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2 mt-0.5 text-xs text-text-tertiary">
+                          <span>{new Date(log.sent_at).toLocaleString('ko-KR', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}</span>
+                          {log.total_amount > 0 && (
+                            <>
+                              <span>·</span>
+                              <span className="tabular-nums">{fmtKr(log.total_amount)}원</span>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                      {log.pdf_url && (
+                        <a
+                          href={log.pdf_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex-shrink-0 flex items-center gap-1 text-xs text-brand-600 hover:text-brand-700 font-medium"
+                        >
+                          <ExternalLink size={12} />PDF
+                        </a>
+                      )}
+                    </li>
+                  ))}
+                </ul>
               </section>
             )}
 
