@@ -66,6 +66,8 @@ interface Customer {
   supply_amount: number | null
   vat: number | null
   balance: number | null
+  // 포털 계정
+  user_id: string | null
   created_at: string
   updated_at: string
 }
@@ -975,6 +977,12 @@ export default function AdminCustomersPage() {
                           </p>
                         )}
                         <StatusBadges customer={c} />
+                        <div className="flex gap-1 mt-1">
+                          {c.user_id != null
+                            ? <span className="text-xs px-1.5 py-0.5 bg-green-100 text-green-700 rounded-full font-medium">계정생성완료</span>
+                            : <span className="text-xs px-1.5 py-0.5 bg-gray-100 text-gray-500 rounded-full font-medium">계정없음</span>
+                          }
+                        </div>
                       </td>
                       <td className="px-3 py-3 whitespace-nowrap">
                         <span className={`text-xs px-1.5 py-0.5 rounded-full ${tStyle.badge}`}>{type}</span>
@@ -1126,6 +1134,15 @@ export default function AdminCustomersPage() {
                       className="flex-1 border border-border rounded-lg px-2 py-1.5 text-xs text-text-primary focus:outline-none focus:ring-2 focus:ring-blue-500" />
                     <a href={`tel:${form.contact_phone}`} className="px-2 py-1.5 text-xs bg-brand-50 text-brand-600 rounded-lg hover:bg-brand-100"><Phone size={14} /></a>
                     <button onClick={() => navigator.clipboard.writeText(form.contact_phone).then(() => toast.success('연락처 복사됨'))} className="px-2 py-1.5 text-xs bg-surface-sunken rounded-lg hover:bg-surface-sunken"><ClipboardList size={14} /></button>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-text-secondary w-20 shrink-0">포털 계정</span>
+                  <div className="flex-1 flex items-center gap-1.5">
+                    {selected?.user_id != null
+                      ? <><span className="w-2 h-2 rounded-full bg-green-500 shrink-0" /><span className="text-xs text-green-700 font-medium">생성완료</span></>
+                      : <><span className="w-2 h-2 rounded-full bg-gray-400 shrink-0" /><span className="text-xs text-gray-500 font-medium">미생성</span></>
+                    }
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
