@@ -93,10 +93,11 @@ export async function POST(
   const matchedCount = quote_items.length
   quote_items.forEach((item, idx) => {
     const n = idx + 1
-    variables[`{{항목${n}}}`]  = item.name
-    variables[`{{수량${n}}}`]  = String(item.qty)
-    variables[`{{단가${n}}}`]  = fmtKr(item.unit_price)
-    variables[`{{소계${n}}}`]  = fmtKr(item.subtotal)
+    variables[`{{항목${n}}}`]        = item.name
+    variables[`{{수량${n}}}`]        = String(item.qty)
+    variables[`{{단가${n}}}`]        = fmtKr(item.unit_price)
+    variables[`{{소계${n}}}`]        = fmtKr(item.subtotal)
+    variables[`{{항목${n} 총 금액}}`] = fmtKr(item.subtotal)
   })
 
   let pdfUrl: string | undefined
@@ -136,8 +137,8 @@ export async function POST(
       const rows: string[][] = (await valRes.json()).values || []
 
       // 4. 변수 치환 + 항목 셀 수집
-      // 미매핑 행 감지 정규식: 4개 컬럼 모두 인식 (항목N, 수량N, 단가N, 소계N)
-      const itemCellRe = /({{항목(\d+)}}|{{수량(\d+)}}|{{단가(\d+)}}|{{소계(\d+)}})/
+      // 미매핑 행 감지 정규식: 5개 패턴 모두 인식 (항목N 총 금액 포함)
+      const itemCellRe = /({{항목(\d+) 총 금액}}|{{항목(\d+)}}|{{수량(\d+)}}|{{단가(\d+)}}|{{소계(\d+)}})/
       const updates: { range: string; values: string[][] }[] = []
       const itemCells: { rowIndex: number; colIndex: number }[] = []
 
@@ -193,8 +194,8 @@ export async function POST(
           hasUnmatched: row.some(cell => {
             const m = cell.match(itemCellRe)
             if (!m) return false
-            // 두 번째~다섯 번째 캡처 그룹 중 숫자를 찾음
-            const numStr = m[2] || m[3] || m[4] || m[5]
+            // 두 번째~여섯 번째 캡처 그룹 중 숫자를 찾음 (항목N 총 금액 포함)
+            const numStr = m[2] || m[3] || m[4] || m[5] || m[6]
             return numStr ? parseInt(numStr, 10) > matchedCount : false
           }),
         }))
