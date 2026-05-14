@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import toast from 'react-hot-toast'
-import { createClient } from '@/lib/supabase/client'
 import { requestGoogleTokenWithScopes } from '@/lib/googleDrive'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
@@ -46,8 +45,6 @@ function fmtDate(dateStr: string): string {
 // ─── 컴포넌트 ────────────────────────────────────────────────────
 
 export default function QuotesPage() {
-  const supabase = createClient()
-
   const [applications, setApplications] = useState<ApplicationRow[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -57,22 +54,20 @@ export default function QuotesPage() {
 
   const selected = applications.find(a => a.id === selectedId) ?? null
 
-  // ─── 데이터 로딩 ─────────────────────────────────────────────
+  // ─── 데이터 로딩 (API 라우트 경유 — createServiceClient RLS 우회) ────
   const loadApplications = useCallback(async () => {
     setLoading(true)
-    const { data, error } = await supabase
-      .from('service_applications')
-      .select('id, owner_name, business_name, phone, email, address, construction_date, last_quote_no, last_quote_pdf_url, quote_items, created_at, status, notification_log')
-      .is('deleted_at', null)
-      .order('created_at', { ascending: false })
-
-    if (error) {
-      toast.error('목록 로딩 실패')
-    } else {
+    try {
+      const res = await fetch('/api/admin/quotes')
+      if (!res.ok) throw new Error('목록 로딩 실패')
+      const { applications: data } = await res.json()
       setApplications((data as ApplicationRow[]) || [])
+    } catch {
+      toast.error('목록 로딩 실패')
+    } finally {
+      setLoading(false)
     }
-    setLoading(false)
-  }, [supabase])
+  }, [])
 
   useEffect(() => {
     loadApplications()
