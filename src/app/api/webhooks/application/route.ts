@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { sendSlack } from '@/lib/slack'
+import { sendAlimtalk } from '@/lib/solapi'
+
+const QUOTE_SUBMISSION_TEMPLATE_ID = 'KA01TP260514153343828rQpIWkeH7pg'
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -187,6 +190,20 @@ export async function POST(request: NextRequest) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ application_id: insertedId, type: '신청서작성완료알림', method: 'auto' }),
       }).catch(() => {})
+    }
+
+    // 견적서 신청 접수 확인 알림톡 (source='quote' 전용)
+    if (insertedId && source === 'quote' && phone) {
+      sendAlimtalk(
+        phone,
+        QUOTE_SUBMISSION_TEMPLATE_ID,
+        {
+          '고객명':  ownerName    ?? '',
+          '업체명':  businessName ?? '',
+          '시공일':  constructionDate ?? '미정',
+        },
+        `[BBK 공간케어] ${ownerName ?? ''}님, 견적 신청이 접수되었습니다. 담당자가 확인 후 연락드리겠습니다.`,
+      ).catch(() => {})
     }
 
     // Notion 미러링 (Supabase 성공 시에만)
