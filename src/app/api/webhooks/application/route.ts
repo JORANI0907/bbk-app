@@ -71,6 +71,7 @@ export async function POST(request: NextRequest) {
       paymentMethod, accountNumber,
       privacyConsent, serviceConsent, requestNotes,
       constructionDate, careScope,
+      source,
     } = body
 
     if (!ownerName || !businessName || !address) {
@@ -177,8 +178,8 @@ export async function POST(request: NextRequest) {
       `• 접수시각: ${kstTime}`
     ).catch(() => {})
 
-    // 신청서작성완료 알림 자동 발송 (Supabase 성공 시에만, fire-and-forget)
-    if (insertedId) {
+    // 신청서작성완료 알림 자동 발송 — 견적서 신청(source='quote')은 제외
+    if (insertedId && source !== 'quote') {
       const origin = new URL(request.url).origin
       fetch(`${origin}/api/admin/notify`, {
         method: 'POST',

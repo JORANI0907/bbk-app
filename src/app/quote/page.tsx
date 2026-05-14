@@ -91,6 +91,7 @@ export default function QuotePage() {
           constructionDate: constructionDate || null,
           careScope,
           requestNotes,
+          source: 'quote',
         }),
       })
       if (res.ok) {
