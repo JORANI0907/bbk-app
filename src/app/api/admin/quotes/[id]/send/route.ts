@@ -1,4 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { tmpdir } from 'os'
+import { writeFile, unlink } from 'fs/promises'
+import { join } from 'path'
 import { notifySlack } from '@/lib/slack'
 import { sendAlimtalk } from '@/lib/solapi'
 import { createServiceClient } from '@/lib/supabase/server'
@@ -85,18 +88,17 @@ export async function POST(
   const errors: Record<string, string>     = {}  // critical: pdf/upload/db
   const softErrors: Record<string, string> = {}  // non-blocking: email/kakao
 
-  // ── 0. 인감 이미지 → base64 data URL 변환 ───────────────────
-  // @react-pdf/renderer v4는 원격 URL 직접 로드를 지원하지 않으므로
-  // 서버에서 미리 fetch해서 data URL로 변환한다
-  let sealDataUrl: string | undefined
+  // ── 0. 인감 이미지 → 임시 로컬 파일로 저장 ─────────────────
+  // @react-pdf/renderer v4는 data URL의 MIME 파싱에 버그가 있어
+  // 로컬 파일 경로(fs)로 전달해야 정상 동작한다
+  let sealTmpPath: string | undefined
   if (seal_image_url) {
     try {
       const imgRes = await fetch(seal_image_url)
       if (imgRes.ok) {
-        const imgBuf     = Buffer.from(await imgRes.arrayBuffer())
-        const imgMime    = imgRes.headers.get('content-type') || 'image/png'
-        const cleanMime  = imgMime.split(';')[0].trim()
-        sealDataUrl = `data:${cleanMime};base64,${imgBuf.toString('base64')}`
+        const imgBuf = Buffer.from(await imgRes.arrayBuffer())
+        sealTmpPath  = join(tmpdir(), `bbk-seal-${Date.now()}.png`)
+        await writeFile(sealTmpPath, imgBuf)
       }
     } catch {
       // 인감 이미지 로드 실패 시 인감 없이 PDF 생성 계속
@@ -131,11 +133,13 @@ export async function POST(
       // 옵션
       notes:           notes            || undefined,
       hideItemPrices:  hide_item_prices ?? false,
-      sealImageUrl:    sealDataUrl,
+      sealImageUrl:    sealTmpPath,
     }
     pdfBuffer = await renderQuotePdf(pdfData)
   } catch (e) {
     errors.pdf = e instanceof Error ? e.message : String(e)
+  } finally {
+    if (sealTmpPath) unlink(sealTmpPath).catch(() => {})
   }
 
   // ── 2. Supabase Storage 업로드 ──────────────────────────────
