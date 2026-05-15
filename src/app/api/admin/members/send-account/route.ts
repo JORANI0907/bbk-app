@@ -13,7 +13,7 @@ export async function POST(request: NextRequest) {
     const supabase = createServiceClient()
     const { data: user, error } = await supabase
       .from('users')
-      .select('id, name, phone, email, role, auth_id')
+      .select('id, name, phone, role, auth_id, password_hint')
       .eq('id', userId)
       .single()
 
@@ -24,22 +24,27 @@ export async function POST(request: NextRequest) {
     const phone = (user.phone ?? '').replace(/-/g, '')
     if (!phone) return NextResponse.json({ error: '전화번호가 없습니다.' }, { status: 400 })
 
-    // 로그인 ID는 이메일 또는 전화번호@bbkorea.app
-    const loginId = user.email ?? `${phone}@bbkorea.app`
-    const loginPw = phone  // 초기 비밀번호는 전화번호
+    const loginId = phone
+    const loginPw = user.password_hint ?? (user.role === 'customer' ? phone : `${phone}bbk`)
+    const appUrl = 'https://app.bbkorea.co.kr/install'
 
-    const fallbackText = `[BBK 공간케어] ${user.name}님, 계정 정보를 안내드립니다.\nID: ${loginId}\nPW: ${loginPw}\n문의: 031-759-4877`
+    const fallbackText = `[BBK 공간케어] ${user.name}님, 계정 정보를 안내드립니다.\nID: ${loginId}\nPW: ${loginPw}\n앱 설치: ${appUrl}\n문의: 031-759-4877`
 
     await sendAlimtalk(
       phone,
       TEMPLATE_ID,
-      { '#{이름}': user.name, '#{아이디}': loginId, '#{비밀번호}': loginPw },
+      { '#{아이디}': loginId, '#{비밀번호}': loginPw, '#{앱URL}': appUrl },
       fallbackText,
     )
 
     await sendSlack(
-      `📨 *계정 발송 완료*\n직원: ${user.name} (${phone})\nID: ${loginId}\nPW: ${loginPw}`,
+      `📨 *계정 발송 완료*\n${user.name} (${phone})\nID: ${loginId}\nPW: ${loginPw}`,
     )
+
+    await supabase
+      .from('users')
+      .update({ account_sent_at: new Date().toISOString() })
+      .eq('id', userId)
 
     return NextResponse.json({ success: true })
   } catch (e) {
