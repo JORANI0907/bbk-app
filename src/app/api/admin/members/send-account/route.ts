@@ -3,7 +3,7 @@ import { createServiceClient } from '@/lib/supabase/server'
 import { sendAlimtalk } from '@/lib/solapi'
 import { sendSlack } from '@/lib/slack'
 
-const TEMPLATE_ID = 'KA01TP260404141110684azipFQYSyxX'
+const TEMPLATE_ID = 'KA01TP260515182858932rdNwPSJALBo'
 
 export async function POST(request: NextRequest) {
   try {
@@ -26,14 +26,12 @@ export async function POST(request: NextRequest) {
 
     const loginId = phone
     const loginPw = user.password_hint ?? (user.role === 'customer' ? phone : `${phone}bbk`)
-    const appUrl = 'https://app.bbkorea.co.kr/install'
-
-    const fallbackText = `[BBK 공간케어] ${user.name}님, 계정 정보를 안내드립니다.\nID: ${loginId}\nPW: ${loginPw}\n앱 설치: ${appUrl}\n문의: 031-759-4877`
+    const fallbackText = `[BBK 공간케어] ${user.name}님, 계정 정보를 안내드립니다.\nID: ${loginId}\nPW: ${loginPw}\n앱 설치: https://app.bbkorea.co.kr/install\n문의: 031-759-4877`
 
     await sendAlimtalk(
       phone,
       TEMPLATE_ID,
-      { '#{아이디}': loginId, '#{비밀번호}': loginPw, '#{앱URL}': appUrl },
+      { '#{고객명}': user.name, '#{아이디}': loginId, '#{비밀번호}': loginPw },
       fallbackText,
     )
 
