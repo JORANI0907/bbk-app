@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 
+export const dynamic = 'force-dynamic'
+
 const DEFAULTS = {
   company_name:    'BBK 공간케어',
   company_ceo:     '박범건',
@@ -8,6 +10,7 @@ const DEFAULTS = {
   company_phone:   '031-759-4877',
   company_address: '경기도 성남시',
   valid_days:      5,
+  seal_image_url:  null as string | null,
 }
 
 export async function GET() {
