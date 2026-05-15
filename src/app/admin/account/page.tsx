@@ -9,6 +9,7 @@ interface WorkerProfile {
   email: string | null
   phone: string | null
   role: string
+  password_hint: string | null
   employment_type?: string | null
   status?: string | null
 }
@@ -16,17 +17,20 @@ interface WorkerProfile {
 export default function AccountPage() {
   const [profile, setProfile] = useState<WorkerProfile | null>(null)
   const [loading, setLoading] = useState(true)
-  const [pwForm, setPwForm] = useState({ current: '', next: '', confirm: '' })
+  const [pwForm, setPwForm] = useState({ next: '', confirm: '' })
   const [pwSaving, setPwSaving] = useState(false)
   const [showPwForm, setShowPwForm] = useState(false)
+  const [showPw, setShowPw] = useState(false)
 
-  useEffect(() => {
+  const fetchProfile = () => {
     fetch('/api/admin/me')
       .then(r => r.json())
       .then(j => setProfile(j))
       .catch(() => toast.error('프로필 로드 실패'))
       .finally(() => setLoading(false))
-  }, [])
+  }
+
+  useEffect(() => { fetchProfile() }, [])
 
   const handlePasswordChange = async () => {
     if (!pwForm.next || pwForm.next.length < 6) {
@@ -48,8 +52,10 @@ export default function AccountPage() {
       const json = await res.json()
       if (!res.ok) { toast.error(json.error || '변경 실패'); return }
       toast.success('비밀번호가 변경되었습니다.')
-      setPwForm({ current: '', next: '', confirm: '' })
+      setPwForm({ next: '', confirm: '' })
       setShowPwForm(false)
+      setShowPw(false)
+      fetchProfile()
     } catch {
       toast.error('네트워크 오류')
     } finally {
@@ -70,6 +76,10 @@ export default function AccountPage() {
     const map: Record<string, string> = { admin: '관리자', worker: '직원', customer: '고객' }
     return map[role] ?? role
   }
+
+  const normalizedPhone = (profile?.phone ?? '').replace(/-/g, '')
+  const pwHint = profile?.password_hint
+    ?? (profile?.role === 'customer' ? normalizedPhone : `${normalizedPhone}bbk`)
 
   if (loading) {
     return (
@@ -110,12 +120,33 @@ export default function AccountPage() {
         {/* 정보 */}
         <div className="divide-y divide-border-subtle">
           <InfoRow label="이름" value={profile.name} />
-          <InfoRow label="이메일" value={profile.email ?? '-'} />
-          <InfoRow label="연락처" value={profile.phone ?? '-'} />
-          {profile.employment_type && (
-            <InfoRow label="고용 형태" value={profile.employment_type} />
-          )}
-          <InfoRow label="역할" value={roleLabel(profile.role)} />
+          <InfoRow label="회원유형" value={roleLabel(profile.role)} />
+          <InfoRow label="ID" value={normalizedPhone || '-'} mono />
+          {/* PW 행: 눈 아이콘 토글 */}
+          <div className="flex items-center justify-between px-5 py-3.5">
+            <span className="text-xs font-medium text-text-tertiary">PW</span>
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-text-primary font-medium font-mono">
+                {showPw ? pwHint : '••••••••'}
+              </span>
+              <button
+                type="button"
+                onClick={() => setShowPw(v => !v)}
+                className="text-text-tertiary hover:text-text-secondary"
+              >
+                {showPw ? (
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                  </svg>
+                ) : (
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                  </svg>
+                )}
+              </button>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -156,6 +187,9 @@ export default function AccountPage() {
                 className="w-full border border-border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
+            {pwForm.next && pwForm.confirm && pwForm.next !== pwForm.confirm && (
+              <p className="text-xs text-state-danger">비밀번호가 일치하지 않습니다.</p>
+            )}
             <button
               onClick={handlePasswordChange}
               disabled={pwSaving}
@@ -178,11 +212,11 @@ export default function AccountPage() {
   )
 }
 
-function InfoRow({ label, value }: { label: string; value: string }) {
+function InfoRow({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
   return (
     <div className="flex items-center justify-between px-5 py-3.5">
       <span className="text-xs font-medium text-text-tertiary">{label}</span>
-      <span className="text-sm text-text-primary font-medium">{value}</span>
+      <span className={`text-sm text-text-primary font-medium ${mono ? 'font-mono' : ''}`}>{value}</span>
     </div>
   )
 }
