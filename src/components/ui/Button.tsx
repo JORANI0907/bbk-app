@@ -31,9 +31,10 @@ export function Button({
 
   return (
     <button
+      type="button"
       className={`inline-flex items-center justify-center gap-2 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${variantStyles[variant]} ${sizeStyles[size]} ${className}`}
-      disabled={isLoading || props.disabled}
       {...props}
+      disabled={isLoading || props.disabled}
     >
       {isLoading && (
         <span className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
