@@ -45,6 +45,7 @@ export interface QuotePdfData {
   totalAmount: number
   // 선택 항목
   notes?: string
+  hideItemPrices?: boolean
 }
 
 const fmtKr = (n: number) => n.toLocaleString('ko-KR')
@@ -255,16 +256,16 @@ function QuotePdfDocument({ d }: { d: QuotePdfData }) {
         {/* Table */}
         <View style={s.tableHead}>
           <Text style={[s.th, s.cName]}>항  목  명</Text>
-          <Text style={[s.th, s.cQty]}>수량</Text>
-          <Text style={[s.th, s.cUnit]}>단가 (원)</Text>
-          <Text style={[s.th, s.cSub]}>소계 (원)</Text>
+          {!d.hideItemPrices && <Text style={[s.th, s.cQty]}>수량</Text>}
+          {!d.hideItemPrices && <Text style={[s.th, s.cUnit]}>단가 (원)</Text>}
+          {!d.hideItemPrices && <Text style={[s.th, s.cSub]}>소계 (원)</Text>}
         </View>
-        {d.quoteItems.map((item, idx) => (
+        {d.quoteItems.filter(item => item.name.trim()).map((item, idx) => (
           <View key={idx} style={[s.tableRow, ...(idx % 2 === 1 ? [s.tableRowAlt] : [])]}>
             <Text style={[s.td, s.cName]}>{item.name}</Text>
-            <Text style={[s.td, s.cQty]}>{item.qty}</Text>
-            <Text style={[s.td, s.cUnit]}>{fmtKr(item.unit_price)}</Text>
-            <Text style={[s.td, s.cSub]}>{fmtKr(item.subtotal)}</Text>
+            {!d.hideItemPrices && <Text style={[s.td, s.cQty]}>{item.qty}</Text>}
+            {!d.hideItemPrices && <Text style={[s.td, s.cUnit]}>{fmtKr(item.unit_price)}</Text>}
+            {!d.hideItemPrices && <Text style={[s.td, s.cSub]}>{fmtKr(item.subtotal)}</Text>}
           </View>
         ))}
 
