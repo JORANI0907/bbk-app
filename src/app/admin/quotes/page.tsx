@@ -25,6 +25,7 @@ interface ApplicationRow {
   last_quote_pdf_url: string | null
   quote_items: QuoteItem[] | null
   quote_log: QuoteLogEntry[] | null
+  quote_notes: string | null
   created_at: string
   status: string
   notification_log: Array<{ type: string; sent_at: string; method?: string }> | null
@@ -90,9 +91,10 @@ export default function QuotesPage() {
   const [directAmount, setDirectAmount] = useState(0)
 
   // 견적 조건
-  const [validDays, setValidDays] = useState(5)
-  const [notes, setNotes]         = useState('')
-  const [sending, setSending]     = useState(false)
+  const [validDays, setValidDays]   = useState(5)
+  const [notes, setNotes]           = useState('')
+  const [sending, setSending]       = useState(false)
+  const [savingDraft, setSavingDraft] = useState(false)
 
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const selected    = applications.find(a => a.id === selectedId) ?? null
@@ -231,8 +233,31 @@ export default function QuotesPage() {
     setQuoteItems(app.quote_items?.length ? app.quote_items.map(i => ({ ...i })) : [])
     setPricingMode('itemized')
     setDirectAmount(0)
-    setNotes('')
+    setNotes(app.quote_notes ?? '')
   }, [])
+
+  // ── 견적 항목·조건 임시 저장 ─────────────────────────────────
+  const handleSaveDraft = async () => {
+    if (!selectedId) return
+    setSavingDraft(true)
+    try {
+      const res = await fetch(`/api/admin/quotes/${selectedId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ quote_items: quoteItems, quote_notes: notes }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error ?? '저장 실패')
+      setApplications(prev => prev.map(a =>
+        a.id === selectedId ? { ...a, quote_items: quoteItems, quote_notes: notes } : a
+      ))
+      toast.success('저장되었습니다.')
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : '저장 실패')
+    } finally {
+      setSavingDraft(false)
+    }
+  }
 
   // ── 견적 항목 편집 ────────────────────────────────────────────
   const addItem    = () => setQuoteItems(p => [...p, { name: '', qty: 1, unit_price: 0, subtotal: 0 }])
@@ -491,6 +516,12 @@ export default function QuotesPage() {
             {/* ── 3. 견적 항목 & 금액 모드 ───────────────────── */}
             <Section>
               <SectionHeader title="견적 항목">
+                <div className="flex items-center gap-2">
+                  <Button size="sm" variant="secondary" onClick={handleSaveDraft} disabled={savingDraft || !selectedId}
+                    className="flex items-center gap-1.5 text-xs">
+                    <Save size={12} />
+                    {savingDraft ? '저장 중…' : '저장'}
+                  </Button>
                 {/* 금액 입력 방식 탭 */}
                 <div className="flex rounded-lg bg-surface-sunken border border-border-subtle p-0.5 gap-0.5">
                   {(['itemized', 'total', 'supply'] as PricingMode[]).map(m => (
@@ -504,6 +535,7 @@ export default function QuotesPage() {
                       {m === 'itemized' ? '항목별' : m === 'total' ? '합계기준' : '공급가기준'}
                     </button>
                   ))}
+                </div>
                 </div>
               </SectionHeader>
 
@@ -614,7 +646,13 @@ export default function QuotesPage() {
 
             {/* ── 4. 견적 조건 ───────────────────────────────── */}
             <Section>
-              <SectionHeader title="견적 조건" />
+              <SectionHeader title="견적 조건">
+                <Button size="sm" variant="secondary" onClick={handleSaveDraft} disabled={savingDraft || !selectedId}
+                  className="flex items-center gap-1.5 text-xs">
+                  <Save size={12} />
+                  {savingDraft ? '저장 중…' : '저장'}
+                </Button>
+              </SectionHeader>
               <div className="grid grid-cols-2 gap-x-4 gap-y-3">
                 <FieldGroup label="견적 유효기간">
                   <div className="flex items-center gap-2">
