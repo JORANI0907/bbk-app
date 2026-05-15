@@ -39,9 +39,9 @@ const NAV_ITEMS: NavItem[] = [
     children: [
       { href: '/admin/schedule', label: '배정관리', badgeKey: 'schedule' },
       { href: '/admin/applications', label: '서비스관리', badgeKey: 'applications' },
-      { href: '/admin/quotes', label: '견적관리' },
       { href: '/admin/customers', label: '고객관리' },
-      { href: '/admin/contracts', label: '온라인 계약서' },
+      { href: '/admin/quotes', label: '견적관리' },
+      { href: '/admin/contracts', label: '계약서 관리' },
       { href: '/admin/reports', label: '월간보고서' },
     ],
   },
