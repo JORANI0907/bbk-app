@@ -29,14 +29,20 @@ export default async function CustomerSchedulePage() {
 
   const allSchedules = (schedules ?? []) as ScheduleWithConstruction[]
 
-  // 예정: 워커가 완료/취소 처리하지 않은 일정 (날짜 무관)
+  const today = new Date().toISOString().slice(0, 10)
+
+  // 예정: 오늘 이후 날짜이면서 완료/취소 처리되지 않은 일정
   const upcoming = allSchedules.filter((s) =>
-    s.status !== 'completed' && s.status !== 'cancelled'
+    s.scheduled_date >= today &&
+    s.status !== 'completed' &&
+    s.status !== 'cancelled'
   )
 
-  // 완료: 워커가 실제로 완료 또는 취소 처리한 일정만
+  // 완료: 날짜가 지났거나 완료/취소 처리된 일정
   const past = allSchedules.filter((s) =>
-    s.status === 'completed' || s.status === 'cancelled'
+    s.scheduled_date < today ||
+    s.status === 'completed' ||
+    s.status === 'cancelled'
   )
 
   return (
