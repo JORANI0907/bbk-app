@@ -43,7 +43,7 @@ export async function middleware(request: NextRequest) {
     // 공개 경로 (정적 HTML 포함)
     if (pathname.endsWith('.html')) return NextResponse.next()
 
-    const publicPaths = ['/login', '/signup', '/quote', '/bbk-care', '/sign', '/api/auth', '/api/sms', '/api/admin', '/api/webhooks', '/api/form', '/api/cron', '/api/contracts', '/api/push', '/api/juso']
+    const publicPaths = ['/login', '/signup', '/install', '/quote', '/bbk-care', '/sign', '/api/auth', '/api/sms', '/api/admin', '/api/webhooks', '/api/form', '/api/cron', '/api/contracts', '/api/push', '/api/juso']
     const isPublic = publicPaths.some(p => pathname.startsWith(p))
 
     const sessionToken = request.cookies.get('bbk_session')?.value
