@@ -5,7 +5,7 @@ import toast from 'react-hot-toast'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Textarea } from '@/components/ui/Textarea'
-import { Plus, X, FileText, ExternalLink, RefreshCw, ChevronLeft, ChevronRight, Save, RotateCcw } from 'lucide-react'
+import { Plus, X, FileText, ExternalLink, RefreshCw, ChevronLeft, ChevronRight, Save, RotateCcw, Upload, Trash2 } from 'lucide-react'
 
 // ─── 타입 ────────────────────────────────────────────────────────
 
@@ -75,6 +75,9 @@ export default function QuotesPage() {
   // 공급자 (DB 연동)
   const [companyInfo, setCompanyInfo]       = useState<CompanyInfo>(BBK_DEFAULTS)
   const [savingSettings, setSavingSettings] = useState(false)
+  const [sealImageUrl, setSealImageUrl]     = useState<string | null>(null)
+  const [sealUploading, setSealUploading]   = useState(false)
+  const sealInputRef = useRef<HTMLInputElement>(null)
 
   // 고객
   const [customerInfo, setCustomerInfo] = useState<CustomerInfo>({
@@ -125,6 +128,7 @@ export default function QuotesPage() {
           company_address: d.company_address ?? BBK_DEFAULTS.company_address,
         })
         setValidDays(d.valid_days ?? 5)
+        setSealImageUrl(d.seal_image_url ?? null)
       })
       .catch(() => {})
   }, [])
@@ -138,12 +142,50 @@ export default function QuotesPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ...companyInfo, valid_days: validDays }),
       })
-      if (!res.ok) throw new Error()
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error ?? '저장 실패')
       toast.success('기본값으로 저장되었습니다.')
-    } catch {
-      toast.error('저장 실패')
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : '저장 실패')
     } finally {
       setSavingSettings(false)
+    }
+  }
+
+  // ── 인감 업로드 ───────────────────────────────────────────────
+  const handleSealUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setSealUploading(true)
+    try {
+      const form = new FormData()
+      form.append('file', file)
+      const res  = await fetch('/api/admin/quote-settings/seal', { method: 'POST', body: form })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error ?? '업로드 실패')
+      setSealImageUrl(data.seal_url)
+      toast.success('인감 이미지가 저장되었습니다.')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : '업로드 실패')
+    } finally {
+      setSealUploading(false)
+      if (sealInputRef.current) sealInputRef.current.value = ''
+    }
+  }
+
+  // ── 인감 삭제 ─────────────────────────────────────────────────
+  const handleSealDelete = async () => {
+    setSealUploading(true)
+    try {
+      const res  = await fetch('/api/admin/quote-settings/seal', { method: 'DELETE' })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error ?? '삭제 실패')
+      setSealImageUrl(null)
+      toast.success('인감 이미지가 삭제되었습니다.')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : '삭제 실패')
+    } finally {
+      setSealUploading(false)
     }
   }
 
@@ -249,6 +291,7 @@ export default function QuotesPage() {
           valid_days:        validDays,
           notes:             notes || undefined,
           hide_item_prices:  pricingMode !== 'itemized',
+          seal_image_url:    sealImageUrl ?? undefined,
         }),
       })
       const result = await res.json()
@@ -376,6 +419,45 @@ export default function QuotesPage() {
                     <Input value={companyInfo.company_address} onChange={e => setCompanyInfo(p => ({ ...p, company_address: e.target.value }))} />
                   </FieldGroup>
                 </div>
+              </div>
+
+              {/* 인감 이미지 */}
+              <div className="mt-4 pt-4 border-t border-border-subtle">
+                <FieldGroup label="인감 이미지 (PDF에 포함)">
+                  <div className="flex items-center gap-3 mt-1">
+                    {sealImageUrl ? (
+                      <>
+                        <div className="w-16 h-16 rounded-xl border border-border-subtle overflow-hidden flex-shrink-0 bg-surface-sunken flex items-center justify-center">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={`${sealImageUrl}?v=${Date.now()}`} alt="인감" className="w-full h-full object-contain" />
+                        </div>
+                        <div className="flex flex-col gap-1.5">
+                          <p className="text-xs text-text-secondary">인감 이미지가 등록되어 있습니다.</p>
+                          <div className="flex gap-2">
+                            <button type="button" onClick={() => sealInputRef.current?.click()} disabled={sealUploading}
+                              className="text-xs text-brand-600 hover:text-brand-700 font-medium disabled:opacity-40">
+                              변경
+                            </button>
+                            <span className="text-text-tertiary">·</span>
+                            <button type="button" onClick={handleSealDelete} disabled={sealUploading}
+                              className="text-xs text-state-danger hover:opacity-80 font-medium disabled:opacity-40 flex items-center gap-1">
+                              <Trash2 size={11} />삭제
+                            </button>
+                          </div>
+                        </div>
+                      </>
+                    ) : (
+                      <button type="button" onClick={() => sealInputRef.current?.click()} disabled={sealUploading}
+                        className="flex items-center gap-2 px-3 py-2 rounded-lg border border-dashed border-border text-xs text-text-secondary hover:border-brand-400 hover:text-brand-600 transition-colors disabled:opacity-40">
+                        <Upload size={13} />
+                        {sealUploading ? '업로드 중…' : 'PNG / JPG 업로드'}
+                      </button>
+                    )}
+                    <input ref={sealInputRef} type="file" accept="image/png,image/jpeg,image/webp"
+                      onChange={handleSealUpload} className="hidden" />
+                  </div>
+                  <p className="text-[10px] text-text-tertiary mt-1.5">투명 배경 PNG 권장 · 최대 2MB</p>
+                </FieldGroup>
               </div>
             </Section>
 
