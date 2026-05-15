@@ -1,14 +1,14 @@
 import path from 'path'
 import React from 'react'
-import { Document, Page, Text, View, StyleSheet, Font } from '@react-pdf/renderer'
+import { Document, Page, Text, View, Image, StyleSheet, Font } from '@react-pdf/renderer'
 
-// ─── Korean font (NanumGothic) ────────────────────────────────
+// ─── Pretendard 폰트 ──────────────────────────────────────────
 const fontDir = path.join(process.cwd(), 'public', 'fonts')
 Font.register({
-  family: 'NanumGothic',
+  family: 'Pretendard',
   fonts: [
-    { src: path.join(fontDir, 'NanumGothic-Regular.ttf'), fontWeight: 'normal' },
-    { src: path.join(fontDir, 'NanumGothic-Bold.ttf'),    fontWeight: 'bold' },
+    { src: path.join(fontDir, 'Pretendard-Regular.ttf'), fontWeight: 'normal' },
+    { src: path.join(fontDir, 'Pretendard-Bold.ttf'),    fontWeight: 'bold' },
   ],
 })
 Font.registerHyphenationCallback(word => [word])
@@ -32,7 +32,7 @@ export interface QuotePdfData {
   email: string
   address: string
   constructionDate: string
-  // 공급자 (동적)
+  // 공급자
   companyName: string
   companyCeo: string
   companyBizNo: string
@@ -43,168 +43,320 @@ export interface QuotePdfData {
   supplyAmount: number
   vat: number
   totalAmount: number
-  // 선택 항목
+  // 선택
   notes?: string
   hideItemPrices?: boolean
+  sealImageUrl?: string
 }
 
 const fmtKr = (n: number) => n.toLocaleString('ko-KR')
 
+// ─── 색상 토큰 ────────────────────────────────────────────────
+const C = {
+  brand:       '#1a73e8',
+  brandDark:   '#1557b0',
+  textPrimary: '#0f172a',
+  textSecond:  '#475569',
+  textTertiary:'#94a3b8',
+  surface:     '#f8fafc',
+  border:      '#e2e8f0',
+  borderStrong:'#cbd5e1',
+  white:       '#ffffff',
+  rowAlt:      '#f8fafc',
+  totalBg:     '#eff6ff',
+  totalBorder: '#bfdbfe',
+}
+
 // ─── Styles ───────────────────────────────────────────────────
 const s = StyleSheet.create({
   page: {
-    fontFamily: 'NanumGothic',
-    fontSize: 10.5,
-    color: '#222',
-    paddingTop: '20mm',
-    paddingLeft: '18mm',
-    paddingRight: '18mm',
-    paddingBottom: '15mm',
+    fontFamily: 'Pretendard',
+    fontSize: 9.5,
+    color: C.textPrimary,
+    paddingTop:    '20mm',
+    paddingLeft:   '18mm',
+    paddingRight:  '18mm',
+    paddingBottom: '16mm',
   },
 
-  // Header
-  headerRow: {
+  // ── Header ──
+  header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-end',
     borderBottomWidth: 2,
-    borderBottomColor: '#1a73e8',
+    borderBottomColor: C.brand,
     borderBottomStyle: 'solid',
     paddingBottom: 8,
     marginBottom: 14,
   },
-  title: { fontSize: 24, fontWeight: 'bold', color: '#111', letterSpacing: 6 },
-  quoteNo: { fontSize: 10, color: '#888', marginBottom: 2 },
+  title: {
+    fontSize: 26,
+    fontWeight: 'bold',
+    color: C.textPrimary,
+    letterSpacing: 8,
+  },
+  headerMeta: {
+    textAlign: 'right',
+  },
+  headerMetaNo: {
+    fontSize: 9,
+    color: C.textSecond,
+    marginBottom: 2,
+  },
+  headerMetaDate: {
+    fontSize: 8.5,
+    color: C.textTertiary,
+  },
 
-  // Info boxes
-  infoRow: { flexDirection: 'row', marginBottom: 10 },
+  // ── Info boxes ──
+  infoRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 10,
+  },
   infoBox: {
     flex: 1,
     borderWidth: 0.75,
-    borderColor: '#d0d0d0',
+    borderColor: C.border,
     borderStyle: 'solid',
-    borderRadius: 3,
+    borderRadius: 4,
+    overflow: 'hidden',
   },
-  infoBoxLeft: { marginRight: 10 },
-  infoBoxTitle: {
-    backgroundColor: '#f0f4f8',
-    paddingTop: 4,
-    paddingBottom: 4,
-    paddingLeft: 8,
-    paddingRight: 8,
-    fontSize: 9.5,
-    fontWeight: 'bold',
-    color: '#444',
-    borderBottomWidth: 0.5,
-    borderBottomColor: '#d0d0d0',
+  infoBoxHeader: {
+    backgroundColor: C.surface,
+    borderBottomWidth: 0.75,
+    borderBottomColor: C.border,
     borderBottomStyle: 'solid',
-  },
-  infoFieldRow: { flexDirection: 'row', paddingTop: 3, paddingBottom: 3, paddingLeft: 8, paddingRight: 8 },
-  infoLabel: { width: 50, color: '#777', fontSize: 9.5, flexShrink: 0 },
-  infoValue: { flex: 1, color: '#222', fontSize: 9.5, flexShrink: 1 },
-
-  // Meta bar
-  metaBar: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    backgroundColor: '#f7f9fc',
     paddingTop: 5,
     paddingBottom: 5,
     paddingLeft: 10,
     paddingRight: 10,
-    borderRadius: 3,
-    marginBottom: 10,
-    fontSize: 9.5,
-    color: '#555',
+  },
+  infoBoxTitle: {
+    fontSize: 9,
+    fontWeight: 'bold',
+    color: C.textSecond,
+    letterSpacing: 2,
+  },
+  infoRow2: {
+    flexDirection: 'row',
+    paddingTop: 3.5,
+    paddingBottom: 3.5,
+    paddingLeft: 10,
+    paddingRight: 10,
+    borderBottomWidth: 0.5,
+    borderBottomColor: C.border,
+    borderBottomStyle: 'solid',
+  },
+  infoLabel: {
+    width: 46,
+    fontSize: 8.5,
+    color: C.textTertiary,
+    flexShrink: 0,
+  },
+  infoValue: {
+    flex: 1,
+    fontSize: 8.5,
+    color: C.textPrimary,
+    flexShrink: 1,
   },
 
-  // Table
-  tableHead: { flexDirection: 'row', backgroundColor: '#1a73e8', borderRadius: 2 },
-  th: { paddingTop: 6, paddingBottom: 6, paddingLeft: 6, paddingRight: 6, fontSize: 10, fontWeight: 'bold', color: '#fff', textAlign: 'center' },
+  // ── Meta bar ──
+  metaBar: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    backgroundColor: C.surface,
+    borderWidth: 0.75,
+    borderColor: C.border,
+    borderStyle: 'solid',
+    borderRadius: 4,
+    paddingTop: 5,
+    paddingBottom: 5,
+    paddingLeft: 10,
+    paddingRight: 10,
+    marginBottom: 12,
+    fontSize: 8.5,
+    color: C.textSecond,
+  },
+
+  // ── Table ──
+  tableWrap: {
+    borderWidth: 0.75,
+    borderColor: C.border,
+    borderStyle: 'solid',
+    borderRadius: 4,
+    overflow: 'hidden',
+    marginBottom: 10,
+  },
+  tableHead: {
+    flexDirection: 'row',
+    backgroundColor: C.brand,
+  },
+  th: {
+    paddingTop: 6,
+    paddingBottom: 6,
+    paddingLeft: 8,
+    paddingRight: 8,
+    fontSize: 9,
+    fontWeight: 'bold',
+    color: C.white,
+    textAlign: 'center',
+  },
   tableRow: {
     flexDirection: 'row',
-    borderBottomWidth: 0.5,
-    borderBottomColor: '#ebebeb',
-    borderBottomStyle: 'solid',
-    minHeight: 24,
+    borderTopWidth: 0.5,
+    borderTopColor: C.border,
+    borderTopStyle: 'solid',
+    minHeight: 26,
     alignItems: 'flex-start',
   },
-  tableRowAlt: { backgroundColor: '#fafcff' },
-  td: { paddingTop: 5, paddingBottom: 5, paddingLeft: 6, paddingRight: 6, fontSize: 10, color: '#222', flexShrink: 1 },
+  tableRowAlt: { backgroundColor: C.rowAlt },
+  td: {
+    paddingTop: 5,
+    paddingBottom: 5,
+    paddingLeft: 8,
+    paddingRight: 8,
+    fontSize: 9.5,
+    color: C.textPrimary,
+    flexShrink: 1,
+  },
   cName: { flex: 5 },
   cQty:  { flex: 1.2, textAlign: 'right' },
   cUnit: { flex: 2.3, textAlign: 'right' },
   cSub:  { flex: 2.3, textAlign: 'right' },
 
-  // Totals
-  totalsWrap: { flexDirection: 'row', justifyContent: 'flex-end', marginTop: 8, marginBottom: 16 },
-  totalsBox: { width: '48%' },
+  // ── Totals ──
+  totalsWrap: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    marginBottom: 14,
+  },
+  totalsBox: {
+    width: '46%',
+    borderWidth: 0.75,
+    borderColor: C.border,
+    borderStyle: 'solid',
+    borderRadius: 4,
+    overflow: 'hidden',
+  },
   totalRow: {
     flexDirection: 'row',
+    paddingTop: 5,
+    paddingBottom: 5,
+    paddingLeft: 10,
+    paddingRight: 10,
     borderBottomWidth: 0.5,
-    borderBottomColor: '#eee',
+    borderBottomColor: C.border,
     borderBottomStyle: 'solid',
-    paddingTop: 4,
-    paddingBottom: 4,
-    paddingLeft: 6,
-    paddingRight: 6,
   },
-  totalLabel: { flex: 1, textAlign: 'right', paddingRight: 10, color: '#666', fontSize: 10 },
-  totalValue: { width: 90, textAlign: 'right', fontSize: 10, color: '#333' },
+  totalLabel: {
+    flex: 1,
+    textAlign: 'right',
+    paddingRight: 12,
+    color: C.textSecond,
+    fontSize: 9,
+  },
+  totalValue: {
+    width: 90,
+    textAlign: 'right',
+    fontSize: 9,
+    color: C.textPrimary,
+  },
   totalRowFinal: {
-    backgroundColor: '#eaf3ff',
-    borderTopWidth: 1,
-    borderTopColor: '#1a73e8',
-    borderTopStyle: 'solid',
-    marginTop: 2,
+    backgroundColor: C.totalBg,
+    borderBottomWidth: 0,
   },
-  totalLabelFinal: { fontWeight: 'bold', color: '#111', fontSize: 10.5 },
-  totalValueFinal: { fontWeight: 'bold', color: '#1a73e8', fontSize: 10.5 },
+  totalLabelFinal: {
+    fontWeight: 'bold',
+    color: C.textPrimary,
+    fontSize: 10,
+    letterSpacing: 2,
+  },
+  totalValueFinal: {
+    fontWeight: 'bold',
+    color: C.brand,
+    fontSize: 11,
+    width: 90,
+    textAlign: 'right',
+  },
 
-  // Notes
+  // ── Notes ──
   notesWrap: { marginBottom: 14 },
-  notesLabel: { fontSize: 9.5, fontWeight: 'bold', color: '#444', marginBottom: 4 },
+  notesLabel: {
+    fontSize: 8.5,
+    fontWeight: 'bold',
+    color: C.textSecond,
+    marginBottom: 4,
+    letterSpacing: 1,
+  },
   notesText: {
-    fontSize: 9.5,
-    color: '#555',
-    lineHeight: 1.6,
-    paddingLeft: 8,
-    paddingRight: 8,
-    paddingTop: 6,
-    paddingBottom: 6,
-    borderWidth: 0.5,
-    borderColor: '#d0d0d0',
+    fontSize: 9,
+    color: C.textSecond,
+    lineHeight: 1.7,
+    padding: 8,
+    borderWidth: 0.75,
+    borderColor: C.border,
     borderStyle: 'solid',
-    borderRadius: 3,
+    borderRadius: 4,
+    backgroundColor: C.surface,
   },
 
-  // Sign
-  signWrap: { flexDirection: 'row', justifyContent: 'flex-end', marginBottom: 8 },
-  signBox: { textAlign: 'right', fontSize: 10, color: '#444' },
-  signNote: { fontSize: 9.5, color: '#888', marginBottom: 4 },
+  // ── Sign ──
+  signWrap: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    marginBottom: 10,
+    marginTop: 4,
+  },
+  signInner: {
+    alignItems: 'flex-end',
+  },
+  signNote: {
+    fontSize: 8.5,
+    color: C.textTertiary,
+    marginBottom: 5,
+    letterSpacing: 0.5,
+  },
+  signLine: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  signText: {
+    fontSize: 10,
+    color: C.textSecond,
+    letterSpacing: 0.5,
+  },
+  sealImage: {
+    width: 58,
+    height: 58,
+    opacity: 0.88,
+  },
 
-  // Footer
+  // ── Footer ──
   footer: {
-    borderTopWidth: 0.5,
-    borderTopColor: '#ddd',
+    borderTopWidth: 0.75,
+    borderTopColor: C.border,
     borderTopStyle: 'solid',
-    paddingTop: 6,
+    paddingTop: 7,
     marginTop: 6,
     textAlign: 'center',
-    fontSize: 9,
-    color: '#aaa',
+    fontSize: 8,
+    color: C.textTertiary,
+    letterSpacing: 0.3,
   },
 })
 
-// ─── Document component ───────────────────────────────────────
+// ─── Document ─────────────────────────────────────────────────
 function QuotePdfDocument({ d }: { d: QuotePdfData }) {
   const customerFields: [string, string][] = [
     ['업체명', d.businessName],
     ['대표자', d.ownerName],
     ['연락처', d.phone],
-    ...(d.email            ? [['이메일', d.email] as [string, string]]            : []),
+    ...(d.email            ? [['이메일', d.email] as [string, string]]              : []),
     ['주  소', d.address],
-    ...(d.constructionDate ? [['시공일자', d.constructionDate] as [string, string]] : []),
+    ...(d.constructionDate ? [['시공일자', d.constructionDate] as [string, string]]  : []),
   ]
 
   const companyFields: [string, string][] = [
@@ -215,61 +367,75 @@ function QuotePdfDocument({ d }: { d: QuotePdfData }) {
     ['주  소', d.companyAddress],
   ]
 
+  const items = d.quoteItems.filter(i => i.name.trim())
+
   return (
     <Document>
       <Page size="A4" style={s.page}>
 
-        {/* Header */}
-        <View style={s.headerRow}>
+        {/* ── Header ── */}
+        <View style={s.header}>
           <Text style={s.title}>견  적  서</Text>
-          <Text style={s.quoteNo}>{d.quoteNo}</Text>
+          <View style={s.headerMeta}>
+            <Text style={s.headerMetaNo}>{d.quoteNo}</Text>
+            <Text style={s.headerMetaDate}>작성일 {d.createdAt}</Text>
+          </View>
         </View>
 
-        {/* Info: 수신 | 공급자 */}
+        {/* ── Info boxes ── */}
         <View style={s.infoRow}>
-          <View style={[s.infoBox, s.infoBoxLeft]}>
-            <Text style={s.infoBoxTitle}>수  신</Text>
-            {customerFields.map(([label, value]) => (
-              <View key={label} style={s.infoFieldRow}>
-                <Text style={s.infoLabel}>{label}</Text>
-                <Text style={s.infoValue}>{value || '-'}</Text>
-              </View>
-            ))}
-          </View>
+          {/* 수신 */}
           <View style={s.infoBox}>
-            <Text style={s.infoBoxTitle}>공  급  자</Text>
-            {companyFields.map(([label, value]) => (
-              <View key={label} style={s.infoFieldRow}>
+            <View style={s.infoBoxHeader}>
+              <Text style={s.infoBoxTitle}>수  신</Text>
+            </View>
+            {customerFields.map(([label, value]) => (
+              <View key={label} style={s.infoRow2}>
                 <Text style={s.infoLabel}>{label}</Text>
-                <Text style={s.infoValue}>{value || '-'}</Text>
+                <Text style={s.infoValue}>{value || '—'}</Text>
+              </View>
+            ))}
+          </View>
+
+          {/* 공급자 */}
+          <View style={s.infoBox}>
+            <View style={s.infoBoxHeader}>
+              <Text style={s.infoBoxTitle}>공  급  자</Text>
+            </View>
+            {companyFields.map(([label, value]) => (
+              <View key={label} style={s.infoRow2}>
+                <Text style={s.infoLabel}>{label}</Text>
+                <Text style={s.infoValue}>{value || '—'}</Text>
               </View>
             ))}
           </View>
         </View>
 
-        {/* Meta */}
+        {/* ── Meta bar ── */}
         <View style={s.metaBar}>
-          <Text>작성일: {d.createdAt}</Text>
-          <Text>유효기간: {d.validUntil}까지</Text>
+          <Text>작성일  {d.createdAt}</Text>
+          <Text>견적 유효기간  {d.validUntil}까지</Text>
         </View>
 
-        {/* Table */}
-        <View style={s.tableHead}>
-          <Text style={[s.th, s.cName]}>항  목  명</Text>
-          {!d.hideItemPrices && <Text style={[s.th, s.cQty]}>수량</Text>}
-          {!d.hideItemPrices && <Text style={[s.th, s.cUnit]}>단가 (원)</Text>}
-          {!d.hideItemPrices && <Text style={[s.th, s.cSub]}>소계 (원)</Text>}
-        </View>
-        {d.quoteItems.filter(item => item.name.trim()).map((item, idx) => (
-          <View key={idx} style={[s.tableRow, ...(idx % 2 === 1 ? [s.tableRowAlt] : [])]}>
-            <Text style={[s.td, s.cName]}>{item.name}</Text>
-            {!d.hideItemPrices && <Text style={[s.td, s.cQty]}>{item.qty}</Text>}
-            {!d.hideItemPrices && <Text style={[s.td, s.cUnit]}>{fmtKr(item.unit_price)}</Text>}
-            {!d.hideItemPrices && <Text style={[s.td, s.cSub]}>{fmtKr(item.subtotal)}</Text>}
+        {/* ── Table ── */}
+        <View style={s.tableWrap}>
+          <View style={s.tableHead}>
+            <Text style={[s.th, s.cName]}>항  목  명</Text>
+            {!d.hideItemPrices && <Text style={[s.th, s.cQty]}>수량</Text>}
+            {!d.hideItemPrices && <Text style={[s.th, s.cUnit]}>단가 (원)</Text>}
+            {!d.hideItemPrices && <Text style={[s.th, s.cSub]}>소계 (원)</Text>}
           </View>
-        ))}
+          {items.map((item, idx) => (
+            <View key={idx} style={[s.tableRow, ...(idx % 2 === 1 ? [s.tableRowAlt] : [])]}>
+              <Text style={[s.td, s.cName]}>{item.name}</Text>
+              {!d.hideItemPrices && <Text style={[s.td, s.cQty]}>{item.qty}</Text>}
+              {!d.hideItemPrices && <Text style={[s.td, s.cUnit]}>{fmtKr(item.unit_price)}</Text>}
+              {!d.hideItemPrices && <Text style={[s.td, s.cSub]}>{fmtKr(item.subtotal)}</Text>}
+            </View>
+          ))}
+        </View>
 
-        {/* Totals */}
+        {/* ── Totals ── */}
         <View style={s.totalsWrap}>
           <View style={s.totalsBox}>
             <View style={s.totalRow}>
@@ -282,12 +448,12 @@ function QuotePdfDocument({ d }: { d: QuotePdfData }) {
             </View>
             <View style={[s.totalRow, s.totalRowFinal]}>
               <Text style={[s.totalLabel, s.totalLabelFinal]}>합  계</Text>
-              <Text style={[s.totalValue, s.totalValueFinal]}>{fmtKr(d.totalAmount)}원</Text>
+              <Text style={s.totalValueFinal}>{fmtKr(d.totalAmount)}원</Text>
             </View>
           </View>
         </View>
 
-        {/* Notes */}
+        {/* ── Notes ── */}
         {d.notes && (
           <View style={s.notesWrap}>
             <Text style={s.notesLabel}>특이사항</Text>
@@ -295,15 +461,22 @@ function QuotePdfDocument({ d }: { d: QuotePdfData }) {
           </View>
         )}
 
-        {/* Sign */}
+        {/* ── Sign + Seal ── */}
         <View style={s.signWrap}>
-          <View style={s.signBox}>
+          <View style={s.signInner}>
             <Text style={s.signNote}>위 금액을 견적합니다.</Text>
-            <Text>{d.companyName}  대표  {d.companyCeo}  (인)</Text>
+            <View style={s.signLine}>
+              <Text style={s.signText}>
+                {d.companyName}  대표  {d.companyCeo}  (인)
+              </Text>
+              {d.sealImageUrl && (
+                <Image src={d.sealImageUrl} style={s.sealImage} />
+              )}
+            </View>
           </View>
         </View>
 
-        {/* Footer */}
+        {/* ── Footer ── */}
         <View style={s.footer}>
           <Text>
             {d.companyName}  ·  사업자등록번호 {d.companyBizNo}  ·  대표 {d.companyCeo}  ·  {d.companyPhone}
