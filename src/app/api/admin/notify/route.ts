@@ -40,6 +40,7 @@ const ALIMTALK_TEMPLATES: Record<string, string> = {
   'A/S방문알림':        'KA01TP260324125232887FY113tVp5zb',
   '방문견적알림':       'KA01TP260324125232920u1LmrtqCY0P',
   '신청서작성완료알림': 'KA01TP260225105100279pvfbwyZDT39',
+  '견적신청접수알림':   'KA01TP260514153343828rQpIWkeH7pg',
 }
 
 // ─── 요청시간 계산: 마감시간 +1h ~ +4h ("~3시간 후") ──────────────
@@ -195,6 +196,12 @@ function buildVariables(
       }
     case '신청서작성완료알림':
       return { '고객명': ownerName }
+    case '견적신청접수알림':
+      return {
+        '고객명': ownerName,
+        '업체명': businessName,
+        '시공일': (app.construction_date as string | null)?.slice(0, 10) ?? '미정',
+      }
     default:
       return { '고객명': ownerName }
   }
@@ -220,6 +227,7 @@ function buildFallback(type: string, app: Record<string, unknown>): string {
     'A/S방문알림':        `[BBK 공간케어] ${name}님, A/S 방문 일정을 안내드립니다.`,
     '방문견적알림':       `[BBK 공간케어] ${name}님, 방문견적 일정을 안내드립니다.`,
     '신청서작성완료알림': `[BBK 공간케어] ${name}님, 신청서가 정상적으로 접수되었습니다. 담당자가 확인 후 연락드리겠습니다.`,
+    '견적신청접수알림':   `[BBK 공간케어] ${name}님, 견적 신청이 접수되었습니다. 담당자가 확인 후 연락드리겠습니다.`,
   }
   return fallbacks[type] ?? `[BBK 공간케어] ${name}님께 알림을 발송합니다.`
 }
