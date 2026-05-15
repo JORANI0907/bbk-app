@@ -11,9 +11,14 @@ export function useInstallPWA() {
   const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null)
   const [isInstalled, setIsInstalled] = useState(false)
   const [isIOS, setIsIOS] = useState(false)
+  const [isKakaoTalk, setIsKakaoTalk] = useState(false)
+  const [isAndroid, setIsAndroid] = useState(false)
 
   useEffect(() => {
-    setIsIOS(/iphone|ipad|ipod/i.test(navigator.userAgent))
+    const ua = navigator.userAgent
+    setIsIOS(/iphone|ipad|ipod/i.test(ua))
+    setIsAndroid(/android/i.test(ua))
+    setIsKakaoTalk(/KAKAOTALK/i.test(ua))
 
     if (window.matchMedia('(display-mode: standalone)').matches) {
       setIsInstalled(true)
@@ -39,5 +44,5 @@ export function useInstallPWA() {
     return outcome === 'accepted'
   }
 
-  return { install, installPrompt, isInstalled, isIOS }
+  return { install, installPrompt, isInstalled, isIOS, isKakaoTalk, isAndroid }
 }

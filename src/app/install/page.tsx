@@ -11,6 +11,68 @@ function CheckIcon() {
   )
 }
 
+// 카카오톡 인앱브라우저 → Android: Chrome으로 강제 오픈
+function KakaoAndroidScreen() {
+  const intentUrl = 'intent://app.bbkorea.co.kr/install#Intent;scheme=https;package=com.android.chrome;end'
+
+  useEffect(() => {
+    // 페이지 진입 즉시 Chrome으로 리다이렉트 시도
+    window.location.href = intentUrl
+  }, [])
+
+  return (
+    <div className="min-h-screen flex flex-col items-center justify-center p-6 text-center"
+      style={{ background: 'linear-gradient(135deg, #0d1117 0%, #0f1923 100%)' }}>
+      <img src="/bbk-logo.png" alt="BBK" className="w-20 h-20 rounded-3xl object-cover mb-6"
+        style={{ boxShadow: '0 0 40px rgba(37,99,235,0.35)' }} />
+      <p className="text-xl font-black text-white mb-2">Chrome으로 이동 중...</p>
+      <p className="text-white/50 text-sm mb-8 leading-relaxed">
+        자동으로 열리지 않으면 아래 버튼을 탭하세요
+      </p>
+      <a href={intentUrl}
+        className="px-8 py-4 rounded-2xl text-white font-bold text-sm"
+        style={{ background: 'linear-gradient(135deg, #2563eb, #4f46e5)', boxShadow: '0 4px 20px rgba(37,99,235,0.4)' }}>
+        Chrome으로 열기
+      </a>
+      <p className="text-white/25 text-xs mt-6">
+        Chrome 설치 후 다시 시도하세요
+      </p>
+    </div>
+  )
+}
+
+// 카카오톡 인앱브라우저 → iOS: Safari 열기 안내
+function KakaoIOSScreen() {
+  return (
+    <div className="min-h-screen flex flex-col items-center justify-center p-6 text-center"
+      style={{ background: 'linear-gradient(135deg, #0d1117 0%, #0f1923 100%)' }}>
+      <img src="/bbk-logo.png" alt="BBK" className="w-20 h-20 rounded-3xl object-cover mb-6"
+        style={{ boxShadow: '0 0 40px rgba(37,99,235,0.35)' }} />
+      <p className="text-xl font-black text-white mb-2">Safari에서 열어주세요</p>
+      <p className="text-white/50 text-sm mb-8 leading-relaxed">
+        카카오톡에서는 앱 설치가 불가합니다.<br />
+        아래 방법으로 Safari에서 열어주세요.
+      </p>
+      <div className="w-full max-w-xs rounded-2xl p-5 space-y-4 text-left"
+        style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }}>
+        {[
+          { step: '1', text: '우측 하단 ··· 버튼 탭' },
+          { step: '2', text: '"Safari로 열기" 선택' },
+          { step: '3', text: 'Safari에서 "홈 화면에 추가" 탭' },
+        ].map(({ step, text }) => (
+          <div key={step} className="flex items-center gap-3">
+            <span className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
+              style={{ background: 'rgba(14,165,233,0.15)', color: '#38bdf8', border: '1px solid rgba(14,165,233,0.3)' }}>
+              {step}
+            </span>
+            <p className="text-white/80 text-sm">{text}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 function IOSGuideModal({ onClose }: { onClose: () => void }) {
   const steps = [
     { icon: '1', text: 'Safari 브라우저로 app.bbkorea.co.kr 접속' },
@@ -94,7 +156,7 @@ function AlreadyInstalledScreen() {
 }
 
 export default function InstallPage() {
-  const { install, installPrompt, isInstalled, isIOS } = useInstallPWA()
+  const { install, installPrompt, isInstalled, isIOS, isKakaoTalk, isAndroid } = useInstallPWA()
   const [installing, setInstalling] = useState(false)
   const [showIOSGuide, setShowIOSGuide] = useState(false)
   const [mounted, setMounted] = useState(false)
@@ -110,6 +172,10 @@ export default function InstallPage() {
   if (!mounted) return null
 
   if (isInstalled) return <AlreadyInstalledScreen />
+
+  // 카카오톡 인앱 브라우저: PWA 설치 불가 → 외부 브라우저로 유도
+  if (isKakaoTalk && isAndroid) return <KakaoAndroidScreen />
+  if (isKakaoTalk && isIOS) return <KakaoIOSScreen />
 
   const canDirectInstall = !!installPrompt && !isIOS
   const canIOSInstall = isIOS
