@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
-import { signInWithPassword, customerEmail } from '@/lib/auth-helpers'
+import { signInWithPassword, customerEmail, staffEmail } from '@/lib/auth-helpers'
 import { sendSlack } from '@/lib/slack'
 
 export async function POST(request: NextRequest) {
@@ -11,41 +11,40 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '아이디와 비밀번호를 입력해주세요.' }, { status: 400 })
     }
 
-    const rawId = phone.trim()
-    let email: string
-
-    if (rawId.includes('@')) {
-      // 관리자/직원: 전화번호@bbkorea.co.kr 형식 직접 입력
-      email = rawId.toLowerCase()
-    } else {
-      // 고객: 전화번호만 입력 → phone@bbkorea.app 으로 변환
-      email = customerEmail(rawId.replace(/-/g, ''))
-    }
-
-    const session = await signInWithPassword(email, password)
+    // 입력값에서 @, - 제거해서 전화번호만 추출
+    const normalized = phone.trim().replace(/@.*$/, '').replace(/-/g, '')
 
     const supabase = createServiceClient()
-    const { data: user, error: userError } = await supabase
+
+    // users 테이블에서 phone으로 role 조회 (is_active 포함)
+    const { data: userRow, error: userLookupError } = await supabase
       .from('users')
       .select('id, role, name, is_active')
-      .eq('auth_id', session.user.id)
+      .eq('phone', normalized)
       .single()
 
-    if (userError || !user) {
-      return NextResponse.json({ error: '등록되지 않은 계정입니다. 관리자에게 문의하세요.' }, { status: 404 })
+    if (userLookupError || !userRow) {
+      return NextResponse.json({ error: '등록되지 않은 계정입니다.' }, { status: 404 })
     }
 
-    if (!user.is_active) {
+    if (!userRow.is_active) {
       return NextResponse.json({ error: '비활성화된 계정입니다. 관리자에게 문의하세요.' }, { status: 403 })
     }
 
-    if (user.role === 'admin' || user.role === 'worker') {
-      sendSlack(`[로그인] ${user.name} (${user.role})`).catch(() => {})
+    // role에 따라 가상이메일 결정
+    const email = userRow.role === 'customer'
+      ? customerEmail(normalized)
+      : staffEmail(normalized)
+
+    const session = await signInWithPassword(email, password)
+
+    if (userRow.role === 'admin' || userRow.role === 'worker') {
+      sendSlack(`[로그인] ${userRow.name} (${userRow.role})`).catch(() => {})
     }
 
     return NextResponse.json({
       success: true,
-      user: { id: user.id, role: user.role, name: user.name },
+      user: { id: userRow.id, role: userRow.role, name: userRow.name },
       session: {
         access_token: session.access_token,
         refresh_token: session.refresh_token,
