@@ -64,7 +64,7 @@ const NAV_ITEMS: NavItem[] = [
     children: [
       { href: '/admin/notices', label: '공지·이벤트관리', badgeKey: 'notices' },
       { href: '/admin/automation', label: '자동화관리' },
-      { href: '/admin/members', label: '계정관리' },
+      { href: '/admin/members', label: '회원관리' },
       { href: '/admin/nav-settings', label: '메뉴 설정' },
     ],
   },

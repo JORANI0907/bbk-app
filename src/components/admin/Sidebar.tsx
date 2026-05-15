@@ -103,7 +103,7 @@ const NAV_ITEMS: NavItem[] = [
       { href: '/admin/push', label: '푸시알림 관리' },
       { href: '/admin/nav-settings', label: '하단 메뉴 설정' },
       { href: '/admin/permissions', label: '탭 권한 설정' },
-      { href: '/admin/members', label: '계정관리' },
+      { href: '/admin/members', label: '회원관리' },
     ],
   },
   {
