@@ -387,7 +387,7 @@ function QuotePdfDocument({ d }: { d: QuotePdfData }) {
           {/* 수신 */}
           <View style={s.infoBox}>
             <View style={s.infoBoxHeader}>
-              <Text style={s.infoBoxTitle}>수  신</Text>
+              <Text style={s.infoBoxTitle}>고  객  사</Text>
             </View>
             {customerFields.map(([label, value]) => (
               <View key={label} style={s.infoRow2}>
