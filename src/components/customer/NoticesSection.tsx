@@ -116,6 +116,10 @@ export function NoticesSection({ notices, events }: Props) {
   const [activeTab, setActiveTab]     = useState<TabType>('all')
   const [selected, setSelected]       = useState<NoticeItem | null>(null)  // 카드 탭 → 하단 시트
   const [popupNotice, setPopupNotice] = useState<NoticeItem | null>(null)  // 신규글 → 중앙 모달
+  const [showAll, setShowAll]         = useState(false)
+
+  const LIMIT_MOBILE  = 3
+  const LIMIT_DESKTOP = 5
 
   // 마운트 시: 아직 못 본 새 공지 중 최우선 항목을 중앙 모달로 표시
   useEffect(() => {
@@ -170,7 +174,7 @@ export function NoticesSection({ notices, events }: Props) {
           {tabs.map(tab => (
             <button
               key={tab.key}
-              onClick={() => setActiveTab(tab.key)}
+              onClick={() => { setActiveTab(tab.key); setShowAll(false) }}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${
                 activeTab === tab.key
                   ? 'bg-brand-600 text-white'
@@ -194,9 +198,19 @@ export function NoticesSection({ notices, events }: Props) {
           </div>
         ) : (
           <div className="flex flex-col gap-2">
-            {currentItems.map(item => (
-              <NoticeCard key={item.id} item={item} onClick={() => setSelected(item)} />
+            {(showAll ? currentItems : currentItems.slice(0, LIMIT_DESKTOP)).map((item, i) => (
+              <div key={item.id} className={!showAll && i >= LIMIT_MOBILE ? 'hidden sm:block' : ''}>
+                <NoticeCard item={item} onClick={() => setSelected(item)} />
+              </div>
             ))}
+            {!showAll && currentItems.length > LIMIT_MOBILE && (
+              <button
+                onClick={() => setShowAll(true)}
+                className="w-full py-2.5 text-xs font-medium text-text-secondary bg-surface-sunken hover:bg-surface border border-border-subtle rounded-xl transition-colors"
+              >
+                전체보기 ({currentItems.length}개)
+              </button>
+            )}
           </div>
         )}
       </section>

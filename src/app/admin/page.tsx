@@ -327,6 +327,7 @@ export default function AdminHomePage() {
   const [notices, setNotices] = useState<Notice[]>([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<'all' | 'notice' | 'event'>('all')
+  const [showAllNotices, setShowAllNotices] = useState(false)
   const [now, setNow] = useState(new Date())
 
   const dailyQuote = getDailyQuote()
@@ -353,6 +354,9 @@ export default function AdminHomePage() {
   useEffect(() => { fetchNotices() }, [fetchNotices])
 
   const filteredNotices = notices.filter(n => filter === 'all' || n.type === filter)
+  const NOTICE_LIMIT_DESKTOP = 5
+  const NOTICE_LIMIT_MOBILE  = 3
+  const slicedNotices = showAllNotices ? filteredNotices : filteredNotices.slice(0, NOTICE_LIMIT_DESKTOP)
 
   const urgentCount = notices.filter(n => n.priority === 'urgent').length
   const pinnedCount = notices.filter(n => n.pinned).length
@@ -423,7 +427,7 @@ export default function AdminHomePage() {
             </div>
             <div className="flex border border-border rounded-lg overflow-hidden text-xs">
               {(['all', 'notice', 'event'] as const).map(f => (
-                <button key={f} onClick={() => setFilter(f)}
+                <button key={f} onClick={() => { setFilter(f); setShowAllNotices(false) }}
                   className={`px-3 py-1.5 font-medium transition-colors ${filter === f ? 'bg-gray-800 text-white' : 'bg-surface text-text-secondary hover:bg-surface-sunken'}`}>
                   {f === 'all' ? '전체' : f === 'notice' ? <><Megaphone size={12} className="inline mr-0.5" />공지</> : <><PartyPopper size={12} className="inline mr-0.5" />이벤트</>}
                 </button>
@@ -442,7 +446,19 @@ export default function AdminHomePage() {
             </div>
           ) : (
             <div className="flex flex-col gap-2">
-              {filteredNotices.map(n => <NoticeCard key={n.id} notice={n} />)}
+              {slicedNotices.map((n, i) => (
+                <div key={n.id} className={!showAllNotices && i >= NOTICE_LIMIT_MOBILE ? 'hidden sm:block' : ''}>
+                  <NoticeCard notice={n} />
+                </div>
+              ))}
+              {!showAllNotices && filteredNotices.length > NOTICE_LIMIT_MOBILE && (
+                <button
+                  onClick={() => setShowAllNotices(true)}
+                  className="w-full py-2 text-xs font-medium text-text-secondary bg-surface-sunken hover:bg-surface border border-border rounded-xl transition-colors"
+                >
+                  전체보기 ({filteredNotices.length}개)
+                </button>
+              )}
             </div>
           )}
         </div>
