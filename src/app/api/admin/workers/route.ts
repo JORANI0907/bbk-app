@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
+import { updateAuthUserEmail, staffEmail } from '@/lib/auth-helpers'
 
 const ALLOWED_COLUMNS = [
   'name', 'employment_type', 'phone', 'account_number',
@@ -83,6 +84,19 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ error: 'id가 필요합니다.' }, { status: 400 })
   }
 
+  const phoneChanged = 'phone' in rest
+
+  // phone 변경 전 현재 worker의 user_id 조회
+  let existingUserId: string | null = null
+  if (phoneChanged) {
+    const { data: currentWorker } = await supabase
+      .from('workers')
+      .select('user_id')
+      .eq('id', id)
+      .single()
+    existingUserId = currentWorker?.user_id ?? null
+  }
+
   const updates: Record<string, unknown> = {}
 
   // user_id는 별도 처리 (null 허용 — 연결 해제 지원)
@@ -105,6 +119,29 @@ export async function PATCH(request: NextRequest) {
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+
+  // phone 변경 시 users + Auth 동기화 (실패해도 직원 정보 수정은 성공)
+  if (phoneChanged && existingUserId) {
+    const newPhone = ((rest.phone as string) ?? '').replace(/-/g, '')
+    try {
+      await supabase
+        .from('users')
+        .update({ phone: newPhone })
+        .eq('id', existingUserId)
+
+      const { data: userRow } = await supabase
+        .from('users')
+        .select('auth_id')
+        .eq('id', existingUserId)
+        .single()
+
+      if (userRow?.auth_id) {
+        await updateAuthUserEmail(userRow.auth_id, staffEmail(newPhone))
+      }
+    } catch (e) {
+      console.error('직원 전화번호 동기화 실패:', e instanceof Error ? e.message : e)
+    }
   }
 
   return NextResponse.json({ success: true })

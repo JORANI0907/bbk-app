@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
-import { createAuthUser, updateAuthUserEmailAndPassword, customerEmail } from '@/lib/auth-helpers'
+import { createAuthUser, updateAuthUserEmailAndPassword, updateAuthUserEmail, customerEmail } from '@/lib/auth-helpers'
 
 const ALLOWED = [
   // 일반정보
@@ -79,14 +79,22 @@ async function createPortalAccount(
   return password
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   const supabase = createServiceClient()
-  const { data, error } = await supabase
+  const { searchParams } = new URL(request.url)
+  const subscriptionOnly = searchParams.get('subscription_only') === 'true'
+
+  let query = supabase
     .from('customers')
     .select('id, business_name, contact_name, contact_phone, email, address, address_detail, business_number, account_number, platform_nickname, payment_method, elevator, building_access, access_method, business_hours_start, business_hours_end, door_password, parking_info, special_notes, care_scope, pipeline_status, customer_type, status, disposition, billing_cycle, billing_amount, supply_amount, vat, deposit, balance, billing_start_date, billing_next_date, contract_start_date, contract_end_date, unit_price, visit_interval_days, next_visit_date, visit_schedule_type, visit_weekdays, visit_monthly_dates, notes, rotation_type, visit_count_per_month, payment_status, payment_date, schedule_generation_day, assigned_user_id, assigned_worker_id, user_id, created_at, updated_at')
     .is('deleted_at', null)
     .order('business_name', { ascending: true })
 
+  if (subscriptionOnly) {
+    query = query.in('customer_type', ['정기딥케어', '정기엔드케어'])
+  }
+
+  const { data, error } = await query
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ customers: data })
 }
@@ -151,6 +159,19 @@ export async function PATCH(request: NextRequest) {
     if (key in rest) updates[key] = rest[key]
   }
 
+  const phoneChanged = 'contact_phone' in rest
+
+  // contact_phone 변경 전 현재 고객의 user_id 조회
+  let existingUserId: string | null = null
+  if (phoneChanged) {
+    const { data: currentCustomer } = await supabase
+      .from('customers')
+      .select('user_id')
+      .eq('id', id)
+      .single()
+    existingUserId = currentCustomer?.user_id ?? null
+  }
+
   const { data: updatedCustomer, error } = await supabase
     .from('customers')
     .update(updates)
@@ -158,6 +179,29 @@ export async function PATCH(request: NextRequest) {
     .select()
     .single()
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  // contact_phone 변경 시 users + Auth 동기화 (실패해도 고객 수정은 성공)
+  if (phoneChanged && existingUserId) {
+    const newPhone = ((rest.contact_phone as string) ?? '').replace(/-/g, '')
+    try {
+      await supabase
+        .from('users')
+        .update({ phone: newPhone })
+        .eq('id', existingUserId)
+
+      const { data: userRow } = await supabase
+        .from('users')
+        .select('auth_id')
+        .eq('id', existingUserId)
+        .single()
+
+      if (userRow?.auth_id) {
+        await updateAuthUserEmail(userRow.auth_id, customerEmail(newPhone))
+      }
+    } catch (e) {
+      console.error('고객 전화번호 동기화 실패:', e instanceof Error ? e.message : e)
+    }
+  }
 
   return NextResponse.json({ success: true, customer: updatedCustomer })
 }

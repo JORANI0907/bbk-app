@@ -36,6 +36,21 @@ export async function updateAuthUserPassword(authId: string, password: string) {
   return data
 }
 
+export async function updateAuthUserEmail(authId: string, email: string) {
+  const res = await fetch(`${SUPABASE_URL}/auth/v1/admin/users/${authId}`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      apikey: SERVICE_KEY,
+      Authorization: `Bearer ${SERVICE_KEY}`,
+    },
+    body: JSON.stringify({ email, email_confirm: true }),
+  })
+  const data = await res.json()
+  if (!res.ok) throw new Error(data.message ?? data.error ?? '이메일 변경 실패')
+  return data
+}
+
 export async function updateAuthUserEmailAndPassword(authId: string, email: string, password: string) {
   const res = await fetch(`${SUPABASE_URL}/auth/v1/admin/users/${authId}`, {
     method: 'PUT',
