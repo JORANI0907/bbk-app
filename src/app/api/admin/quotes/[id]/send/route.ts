@@ -85,6 +85,24 @@ export async function POST(
   const errors: Record<string, string>     = {}  // critical: pdf/upload/db
   const softErrors: Record<string, string> = {}  // non-blocking: email/kakao
 
+  // ── 0. 인감 이미지 → base64 data URL 변환 ───────────────────
+  // @react-pdf/renderer v4는 원격 URL 직접 로드를 지원하지 않으므로
+  // 서버에서 미리 fetch해서 data URL로 변환한다
+  let sealDataUrl: string | undefined
+  if (seal_image_url) {
+    try {
+      const imgRes = await fetch(seal_image_url)
+      if (imgRes.ok) {
+        const imgBuf     = Buffer.from(await imgRes.arrayBuffer())
+        const imgMime    = imgRes.headers.get('content-type') || 'image/png'
+        const cleanMime  = imgMime.split(';')[0].trim()
+        sealDataUrl = `data:${cleanMime};base64,${imgBuf.toString('base64')}`
+      }
+    } catch {
+      // 인감 이미지 로드 실패 시 인감 없이 PDF 생성 계속
+    }
+  }
+
   // ── 1. PDF 생성 ─────────────────────────────────────────────
   let pdfBuffer: Buffer | undefined
   try {
@@ -113,7 +131,7 @@ export async function POST(
       // 옵션
       notes:           notes            || undefined,
       hideItemPrices:  hide_item_prices ?? false,
-      sealImageUrl:    seal_image_url   || undefined,
+      sealImageUrl:    sealDataUrl,
     }
     pdfBuffer = await renderQuotePdf(pdfData)
   } catch (e) {
