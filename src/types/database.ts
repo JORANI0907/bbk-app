@@ -28,6 +28,8 @@ export interface User {
   email: string | null
   avatar_url: string | null
   is_active: boolean
+  account_sent_at: string | null
+  password_hint: string | null
   created_at: string
   updated_at: string
 }

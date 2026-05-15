@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
-import { createAuthUser, updateAuthUserPassword, customerEmail, staffEmail } from '@/lib/auth-helpers'
+import { createAuthUser, updateAuthUserPassword, updateAuthUserEmail, customerEmail, staffEmail } from '@/lib/auth-helpers'
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -60,8 +60,8 @@ export async function POST(request: NextRequest) {
     ? customerEmail(normalized)
     : staffEmail(normalized)
 
-  // 초기 비밀번호 결정: 고객은 사업자등록번호, 관리자/직원은 전화번호
-  let initialPassword = normalized
+  // 초기 비밀번호 결정: 고객은 사업자등록번호(없으면 전화번호), 직원/관리자는 {전화번호}bbk
+  let initialPassword = role === 'customer' ? normalized : `${normalized}bbk`
   if (role === 'customer' && customer_id) {
     const { data: customerData } = await supabase
       .from('customers')
@@ -84,7 +84,7 @@ export async function POST(request: NextRequest) {
 
   const { data, error } = await supabase
     .from('users')
-    .insert({ role, name, phone: normalized, email: virtualEmail, auth_id: authId, is_active: true })
+    .insert({ role, name, phone: normalized, email: virtualEmail, auth_id: authId, is_active: true, password_hint: initialPassword })
     .select()
     .single()
 
@@ -132,8 +132,10 @@ export async function PATCH(request: NextRequest) {
           ? customerEmail(phone)
           : staffEmail(phone))
         const newAuthUser = await createAuthUser(email, new_password, { role: user.role, name: user.name })
-        await supabase.from('users').update({ auth_id: newAuthUser.id, email }).eq('id', id)
+        await supabase.from('users').update({ auth_id: newAuthUser.id, email, password_hint: new_password }).eq('id', id)
+        return NextResponse.json({ success: true })
       }
+      await supabase.from('users').update({ password_hint: new_password }).eq('id', id)
       return NextResponse.json({ success: true })
     } catch (e) {
       const msg = e instanceof Error ? e.message : '비밀번호 변경 실패'
@@ -141,8 +143,32 @@ export async function PATCH(request: NextRequest) {
     }
   }
 
-  if (updates.phone) {
-    updates.phone = updates.phone.replace(/-/g, '')
+  const phoneChanged = 'phone' in updates
+  if (phoneChanged) {
+    updates.phone = (updates.phone as string).replace(/-/g, '')
+  }
+
+  // phone 변경 시: Auth 이메일 먼저 동기화 (실패하면 중단)
+  if (phoneChanged) {
+    const { data: currentUser } = await supabase
+      .from('users')
+      .select('auth_id, role')
+      .eq('id', id)
+      .single()
+
+    if (currentUser?.auth_id) {
+      const newPhone = updates.phone as string
+      const newEmail = currentUser.role === 'customer'
+        ? customerEmail(newPhone)
+        : staffEmail(newPhone)
+      try {
+        await updateAuthUserEmail(currentUser.auth_id, newEmail)
+        updates.email = newEmail
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : 'Auth 이메일 업데이트 실패'
+        return NextResponse.json({ error: msg }, { status: 500 })
+      }
+    }
   }
 
   const { data, error } = await supabase
@@ -153,6 +179,23 @@ export async function PATCH(request: NextRequest) {
     .single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  // phone 변경 시: 연결된 customers/workers DB 동기화
+  if (phoneChanged && data) {
+    const newPhone = data.phone as string
+    if (data.role === 'customer') {
+      await supabase
+        .from('customers')
+        .update({ contact_phone: newPhone })
+        .eq('user_id', id)
+    } else {
+      await supabase
+        .from('workers')
+        .update({ phone: newPhone })
+        .eq('user_id', id)
+    }
+  }
+
   return NextResponse.json({ user: data })
 }
 
