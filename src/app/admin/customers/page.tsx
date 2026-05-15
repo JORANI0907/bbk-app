@@ -55,7 +55,7 @@ interface Customer {
   notes: string | null
   disposition: CustomerDisposition | null
   grade: CustomerGrade | null
-  rotation_type: '3개월' | '6개월' | '12개월' | null
+  rotation_type: string | null
   visit_count_per_month: number | null
   payment_status: string[] | null
   payment_date: number | null
@@ -75,7 +75,6 @@ interface Customer {
 // ─── 상수 ─────────────────────────────────────────────────────
 const CUSTOMER_TYPES: CustomerType[] = ['1회성케어', '정기딥케어', '정기엔드케어']
 const PAYMENT_METHODS = ['현금', '카드', '계좌이체', '현금(부가세 X)']
-const ROTATION_TYPES = ['3개월', '6개월', '12개월'] as const
 const PAYMENT_STATUS_OPTIONS = ['미수령', '수령완료', '세금계산서발행', '결제완료']
 const ELEVATOR_OPTIONS = ['있음', '없음', '해당없음']
 const BUILDING_ACCESS_OPTIONS = ['신청필요', '신청불필요', '해당없음']
@@ -140,7 +139,7 @@ const EMPTY_FORM = {
   visit_interval_days: '',
   visit_schedule_type: '', notes: '',
   next_visit_date: '',
-  rotation_type: '' as '' | '3개월' | '6개월' | '12개월',
+  rotation_type: '',
   visit_count_per_month: '',
   payment_status: [] as string[],
   payment_date: '',
@@ -423,7 +422,7 @@ export default function AdminCustomersPage() {
     visit_schedule_type: c.visit_schedule_type ?? '',
     notes: c.notes ?? '',
     next_visit_date: c.next_visit_date ?? '',
-    rotation_type: (c.rotation_type ?? '') as '' | '3개월' | '6개월' | '12개월',
+    rotation_type: c.rotation_type ?? '',
     visit_count_per_month: c.visit_count_per_month?.toString() ?? '',
     payment_status: c.payment_status ?? [],
     payment_date: c.payment_date?.toString() ?? '',
@@ -1481,17 +1480,14 @@ export default function AdminCustomersPage() {
                     <p className="text-xs font-semibold text-text-primary">방문 주기 설정</p>
                     <div className="flex items-center gap-2">
                       <span className="text-xs text-text-secondary w-24 shrink-0">순환식</span>
-                      <div className="flex gap-1.5 flex-1">
-                        {ROTATION_TYPES.map(r => (
-                          <button key={r} onClick={() => set('rotation_type')(r)}
-                            className={`flex-1 py-1.5 text-xs rounded-lg font-medium transition-colors ${
-                              form.rotation_type === r ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                            }`}>{r}</button>
-                        ))}
-                        {form.rotation_type && (
-                          <button onClick={() => set('rotation_type')('')}
-                            className="px-2 py-1.5 text-xs text-gray-400 hover:text-gray-600 rounded-lg bg-gray-50 hover:bg-gray-100">✕</button>
-                        )}
+                      <div className="flex items-center gap-1.5 flex-1">
+                        <input
+                          type="text"
+                          value={form.rotation_type}
+                          onChange={e => set('rotation_type')(e.target.value)}
+                          placeholder="예: 3개월, 6개월"
+                          className="w-28 border border-border rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 bg-surface"
+                        />
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
