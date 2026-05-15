@@ -11,32 +11,62 @@ function CheckIcon() {
   )
 }
 
-// 카카오톡 인앱브라우저 → Android: Chrome으로 강제 오픈
+// 카카오톡 인앱브라우저 → Android: Chrome으로 열기 안내
 function KakaoAndroidScreen() {
-  const intentUrl = 'intent://app.bbkorea.co.kr/install#Intent;scheme=https;package=com.android.chrome;end'
+  const pageUrl = 'https://app.bbkorea.co.kr/install'
+  const intentUrl = `intent://${pageUrl.replace('https://', '')}#Intent;scheme=https;package=com.android.chrome;end`
+  const [copied, setCopied] = useState(false)
 
-  useEffect(() => {
-    // 페이지 진입 즉시 Chrome으로 리다이렉트 시도
-    window.location.href = intentUrl
-  }, [])
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(pageUrl)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch {
+      // clipboard API 실패 시 무시
+    }
+  }
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-6 text-center"
       style={{ background: 'linear-gradient(135deg, #0d1117 0%, #0f1923 100%)' }}>
       <img src="/bbk-logo.png" alt="BBK" className="w-20 h-20 rounded-3xl object-cover mb-6"
         style={{ boxShadow: '0 0 40px rgba(37,99,235,0.35)' }} />
-      <p className="text-xl font-black text-white mb-2">Chrome으로 이동 중...</p>
+      <p className="text-xl font-black text-white mb-2">Chrome에서 설치해주세요</p>
       <p className="text-white/50 text-sm mb-8 leading-relaxed">
-        자동으로 열리지 않으면 아래 버튼을 탭하세요
+        카카오톡에서는 앱 설치가 불가합니다.<br />
+        아래 방법 중 하나를 따라주세요.
       </p>
-      <a href={intentUrl}
-        className="px-8 py-4 rounded-2xl text-white font-bold text-sm"
-        style={{ background: 'linear-gradient(135deg, #2563eb, #4f46e5)', boxShadow: '0 4px 20px rgba(37,99,235,0.4)' }}>
-        Chrome으로 열기
-      </a>
-      <p className="text-white/25 text-xs mt-6">
-        Chrome 설치 후 다시 시도하세요
-      </p>
+
+      <div className="w-full max-w-xs space-y-3">
+        {/* 방법 1: intent 링크로 Chrome 직접 열기 */}
+        <div className="rounded-2xl p-4 text-left"
+          style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }}>
+          <p className="text-white/60 text-xs font-semibold mb-2">방법 1 — Chrome 앱으로 열기</p>
+          <a href={intentUrl}
+            className="flex items-center justify-center gap-2 w-full py-3 rounded-xl text-white font-bold text-sm"
+            style={{ background: 'linear-gradient(135deg, #2563eb, #4f46e5)', boxShadow: '0 4px 20px rgba(37,99,235,0.4)' }}>
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+            </svg>
+            Chrome으로 열기
+          </a>
+        </div>
+
+        {/* 방법 2: URL 복사 후 직접 접속 */}
+        <div className="rounded-2xl p-4 text-left"
+          style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }}>
+          <p className="text-white/60 text-xs font-semibold mb-2">방법 2 — 주소 복사 후 Chrome에서 접속</p>
+          <div className="flex items-center gap-2 bg-black/30 rounded-xl px-3 py-2.5 mb-2">
+            <span className="text-white/50 text-xs flex-1 font-mono">app.bbkorea.co.kr/install</span>
+          </div>
+          <button onClick={handleCopy}
+            className="flex items-center justify-center gap-2 w-full py-3 rounded-xl text-white font-bold text-sm transition-colors"
+            style={{ background: copied ? '#16a34a' : 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.15)' }}>
+            {copied ? '✓ 복사됨' : '주소 복사하기'}
+          </button>
+        </div>
+      </div>
     </div>
   )
 }
