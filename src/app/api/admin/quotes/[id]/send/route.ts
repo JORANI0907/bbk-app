@@ -46,6 +46,7 @@ interface QuoteSendBody {
   valid_days?: number
   notes?: string
   hide_item_prices?: boolean
+  seal_image_url?: string
 }
 
 function generateQuoteNo(): string {
@@ -71,7 +72,7 @@ export async function POST(
     company_name, company_ceo, company_biz_no, company_phone, company_address,
     owner_name, business_name, phone, email, address,
     construction_date, quote_items, supply_amount, vat, total_amount,
-    valid_days, notes, hide_item_prices,
+    valid_days, notes, hide_item_prices, seal_image_url,
   } = body
 
   const todayStr      = new Date().toISOString().slice(0, 10)
@@ -112,6 +113,7 @@ export async function POST(
       // 옵션
       notes:           notes            || undefined,
       hideItemPrices:  hide_item_prices ?? false,
+      sealImageUrl:    seal_image_url   || undefined,
     }
     pdfBuffer = await renderQuotePdf(pdfData)
   } catch (e) {
