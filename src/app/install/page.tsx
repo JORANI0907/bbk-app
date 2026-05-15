@@ -207,6 +207,23 @@ export default function InstallPage() {
   if (isKakaoTalk && isAndroid) return <KakaoAndroidScreen />
   if (isKakaoTalk && isIOS) return <KakaoIOSScreen />
 
+  // DEBUG: UA 확인용 임시 화면 (배포 후 제거)
+  return (
+    <div className="min-h-screen flex flex-col items-center justify-center p-6"
+      style={{ background: '#0d1117' }}>
+      <p className="text-white font-bold mb-4">🔍 UA 디버그</p>
+      <div className="w-full max-w-sm rounded-xl p-4 mb-4"
+        style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }}>
+        <p className="text-white/40 text-xs mb-1">isKakaoTalk: <span className="text-yellow-400">{String(isKakaoTalk)}</span></p>
+        <p className="text-white/40 text-xs mb-1">isAndroid: <span className="text-yellow-400">{String(isAndroid)}</span></p>
+        <p className="text-white/40 text-xs mb-1">isIOS: <span className="text-yellow-400">{String(isIOS)}</span></p>
+        <p className="text-white/40 text-xs mb-2">installPrompt: <span className="text-yellow-400">{installPrompt ? 'yes' : 'null'}</span></p>
+        <p className="text-white/40 text-xs mb-1 font-semibold">User Agent:</p>
+        <p className="text-white/70 text-xs break-all leading-relaxed">{typeof window !== 'undefined' ? navigator.userAgent : ''}</p>
+      </div>
+    </div>
+  )
+
   const canDirectInstall = !!installPrompt && !isIOS
   const canIOSInstall = isIOS
 
