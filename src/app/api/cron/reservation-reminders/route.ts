@@ -227,15 +227,16 @@ export async function GET(request: NextRequest) {
     results.push({ type: '예약당일알림', sent, failed, skipped })
   }
 
-  // ── 3. 결제알림: 작업완료 + 결제알림 미발송 ──────────────────────
+  // ── 3. 결제알림: 작업완료|결제 상태 + 오늘 미발송 ───────────────
   //     '작업완료(엔드)'는 정기엔드케어 전용 상태 → 상태 필터에서 제외
   //     service_type 필터도 추가 안전장치로 유지
   //     공급대가(supply_amount) 0원 또는 미입력 건 발송 제외
+  //     결제완료 전까지 매일 반복 발송 (alreadySentToday로 당일 중복만 방지)
   {
     const { data: apps } = await supabase
       .from('service_applications')
       .select('*')
-      .eq('status', '작업완료')
+      .in('status', ['작업완료', '결제'])
       .neq('service_type', '정기엔드케어')
       .gt('supply_amount', 0)
 
@@ -243,7 +244,7 @@ export async function GET(request: NextRequest) {
     for (const app of (apps ?? [])) {
       if (!app.phone) { skipped++; continue }
       const log = Array.isArray(app.notification_log) ? app.notification_log : []
-      if (alreadySentEver(log, '결제알림')) { skipped++; continue }
+      if (alreadySentToday(log, '결제알림', todayKST)) { skipped++; continue }
 
       try {
         await sendAndLog(supabase, app as Record<string, unknown>, '결제알림', '-', NOTIFY_TO_STATUS)
