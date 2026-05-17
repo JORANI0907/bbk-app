@@ -341,16 +341,32 @@ export async function POST(request: NextRequest) {
           `일자: ${date}\n` +
           `${timeLine}`
       } else {
-        smsText =
-          `[BBK 공간케어] ${worker.name ?? ''}님 자세한 일정 안내\n` +
-          `업체: ${app.business_name ?? '-'}\n` +
-          `주소: ${app.address ?? '-'}\n` +
-          `일자: ${date}\n` +
-          `${timeLine}\n` +
-          `케어범위: ${app.care_scope ?? '-'}\n` +
-          `고객 요청사항: ${app.request_notes ?? '-'}\n` +
-          `관리자 요청: ${app.admin_notes ?? '-'}\n` +
-          `사진(드라이브): ${app.drive_folder_url ?? '-'}`
+        const ctLine = ctLabel ? `시공시간: ${ctLabel}` : null
+        const bizHoursLine = (app.business_hours_start || app.business_hours_end)
+          ? `영업시간: ${app.business_hours_start ?? '-'} ~ ${app.business_hours_end ?? '-'}`
+          : null
+        const parts = [
+          `[BBK 공간케어] ${worker.name ?? ''}님 자세한 일정 안내`,
+          `\n[기본 정보]`,
+          `업체: ${app.business_name ?? '-'}`,
+          `주소: ${app.address ?? '-'}`,
+          `일자: ${date}`,
+          ...(ctLine ? [ctLine] : []),
+          ...(bizHoursLine ? [bizHoursLine] : []),
+          `\n[현장 연락]`,
+          `고객연락처: ${app.phone ?? '-'}`,
+          `\n[출입 안내]`,
+          `주차: ${app.parking ?? '-'}`,
+          `건물출입: ${app.building_access ?? '-'}`,
+          `엘리베이터: ${app.elevator ?? '-'}`,
+          `출입방법: ${app.access_method ?? '-'}`,
+          `\n[작업 안내]`,
+          `케어범위: ${app.care_scope ?? '-'}`,
+          `고객 요청: ${app.request_notes ?? '-'}`,
+          `관리자 요청: ${app.admin_notes ?? '-'}`,
+          `\n사진(드라이브): ${app.drive_folder_url ?? '-'}`,
+        ]
+        smsText = parts.join('\n')
       }
 
       await sendSMS(worker.phone, smsText)
