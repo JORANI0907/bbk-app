@@ -4,7 +4,7 @@ import { createServiceClient } from '@/lib/supabase/server'
 import { saveNotificationHistory } from '@/lib/notification'
 import { sendPushToUsers } from '@/lib/push'
 
-const WORKER_NOTIFY_TYPE = '작업자 일정 안내'
+const WORKER_NOTIFY_TYPES = new Set(['작업자 일정 안내', '작업자 자세한 일정 안내'])
 
 // ─── 계약상태 자동변경 매핑 ────────────────────────────────────────
 const NOTIFY_TO_STATUS: Record<string, string> = {
@@ -302,7 +302,7 @@ export async function POST(request: NextRequest) {
     }
 
     // ── 작업자 일정 안내 SMS (별도 처리) ──────────────────────────
-    if (type === WORKER_NOTIFY_TYPE) {
+    if (WORKER_NOTIFY_TYPES.has(type)) {
       const { data: app } = await supabase
         .from('service_applications')
         .select('*')
@@ -321,7 +321,6 @@ export async function POST(request: NextRequest) {
       const date = app.construction_date?.slice(0, 10) ?? '-'
       const start = app.business_hours_start ?? '-'
       const end = app.business_hours_end ?? '-'
-      const scope = app.care_scope ?? app.request_notes ?? '-'
       const ctTime = app.construction_time as string | null | undefined
       const ctLabel = (() => {
         if (!ctTime) return null
@@ -332,13 +331,27 @@ export async function POST(request: NextRequest) {
       const timeLine = ctLabel
         ? `시공시간: ${ctLabel}`
         : `시간: ${start} ~ ${end}`
-      const smsText =
-        `[BBK 공간케어] ${worker.name ?? ''}님 일정 안내\n` +
-        `업체: ${app.business_name ?? '-'}\n` +
-        `주소: ${app.address ?? '-'}\n` +
-        `일자: ${date}\n` +
-        `${timeLine}\n` +
-        `케어범위: ${scope}`
+
+      let smsText: string
+      if (type === '작업자 일정 안내') {
+        smsText =
+          `[BBK 공간케어] ${worker.name ?? ''}님 일정 안내\n` +
+          `업체: ${app.business_name ?? '-'}\n` +
+          `주소: ${app.address ?? '-'}\n` +
+          `일자: ${date}\n` +
+          `${timeLine}`
+      } else {
+        smsText =
+          `[BBK 공간케어] ${worker.name ?? ''}님 자세한 일정 안내\n` +
+          `업체: ${app.business_name ?? '-'}\n` +
+          `주소: ${app.address ?? '-'}\n` +
+          `일자: ${date}\n` +
+          `${timeLine}\n` +
+          `케어범위: ${app.care_scope ?? '-'}\n` +
+          `고객 요청사항: ${app.request_notes ?? '-'}\n` +
+          `관리자 요청: ${app.admin_notes ?? '-'}\n` +
+          `사진(드라이브): ${app.drive_folder_url ?? '-'}`
+      }
 
       await sendSMS(worker.phone, smsText)
 
@@ -349,6 +362,19 @@ export async function POST(request: NextRequest) {
         .from('service_applications')
         .update({ notification_log: [newEntry, ...existingLog] })
         .eq('id', application_id)
+
+      await saveNotificationHistory({
+        category: 'sms',
+        type,
+        body: `${type} 발송 완료 — ${worker.name ?? ''} (${worker.phone})`,
+        title: type,
+        method,
+        recipientType: 'worker',
+        recipientName: String(worker.name ?? ''),
+        recipientPhone: worker.phone,
+        metadata: { application_id },
+        status: 'sent',
+      })
 
       return NextResponse.json({ success: true, new_status: null, worker_phone: worker.phone })
     }
