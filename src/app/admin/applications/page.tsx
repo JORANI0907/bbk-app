@@ -103,7 +103,7 @@ const NOTIFICATION_TYPES = [
   '결제알림', '결제완료알림', '결제완료알림(잔금)', '계산서발행완료알림',
   '예약금 입금완료 알림', '예약금환급완료알림',
   '예약취소알림', 'A/S방문알림', '방문견적알림',
-  '작업자 일정 안내', '구독권유알림',
+  '작업자 일정 안내', '작업자 자세한 일정 안내', '구독권유알림',
 ]
 const NOTIFY_TYPE_CONFIG: Record<string, { badge: string; dot: string }> = {
   '예약확정알림':       { badge: 'bg-brand-100 text-brand-700',    dot: 'bg-brand-500' },
@@ -119,7 +119,8 @@ const NOTIFY_TYPE_CONFIG: Record<string, { badge: string; dot: string }> = {
   '예약취소알림':       { badge: 'bg-red-100 text-red-700',        dot: 'bg-red-500' },
   'A/S방문알림':        { badge: 'bg-yellow-100 text-yellow-700',  dot: 'bg-yellow-500' },
   '방문견적알림':       { badge: 'bg-indigo-100 text-indigo-700',  dot: 'bg-indigo-500' },
-  '작업자 일정 안내':  { badge: 'bg-slate-100 text-slate-700',    dot: 'bg-slate-500' },
+  '작업자 일정 안내':        { badge: 'bg-slate-100 text-slate-700',  dot: 'bg-slate-500' },
+  '작업자 자세한 일정 안내': { badge: 'bg-slate-200 text-slate-800',  dot: 'bg-slate-600' },
   '구독권유알림':      { badge: 'bg-pink-100 text-pink-700',       dot: 'bg-pink-500' },
 }
 const SORT_LABELS: Record<SortField, string> = {
@@ -1933,7 +1934,7 @@ export default function ServiceManagementPage() {
                   </Button>
                 </div>
                 {notifyType && (() => {
-                  const isWorker = notifyType === '작업자 일정 안내'
+                  const isWorker = notifyType === '작업자 일정 안내' || notifyType === '작업자 자세한 일정 안내'
                   const assignedWorker = isWorker ? workers.find(w => w.id === assignedTo) : null
                   const target = isWorker
                     ? (assignedWorker ? `${assignedWorker.name} (${assignedWorker.phone ?? '번호 없음'})` : '작업자 미배정')
