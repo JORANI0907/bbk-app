@@ -2,161 +2,53 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { sendSlack } from '@/lib/slack'
 
-// Make.com에서 파싱한 SMS 데이터를 수신
+// ─── 매칭 설정 ────────────────────────────────────────────────────
+// 아래 상수를 수정해 매칭 민감도를 조정합니다.
+
+/** 예약금 자동 매칭 기준 */
+const DEPOSIT_MATCH = {
+  /** 매칭 대상 상태 (이 상태 + 예약금 0/null인 건만) */
+  STATUSES:           ['신규', '견적발송', '예약확정'] as const,
+  /** 자동 매칭 최소 이름 점수 (0~100) */
+  MIN_SCORE:          70,
+  /** 1위–2위 최소 점수 차이 (이 이상이어야 단독 자동 선택) */
+  MIN_GAP:            20,
+  /** 이 점수 미만이면 이름 불일치로 보고 수동 처리 요청 */
+  MISMATCH_THRESHOLD: 30,
+} as const
+
+/** 잔금 자동 매칭 기준 */
+const BALANCE_MATCH = {
+  /** 매칭 대상 상태 (금액 정확 일치 필수) */
+  STATUSES:  ['작업완료', '결제'] as const,
+  /** 복수 금액 일치 시 이름 자동 선택 최소 점수 */
+  MIN_SCORE: 50,
+  /** 이름 자동 선택 최소 점수 차이 */
+  MIN_GAP:   20,
+} as const
+
+/** 이름 유사도 점수 매트릭스 */
+const NAME_SCORE = {
+  EXACT:          100,  // 정확 일치
+  CONTAINS:        80,  // 한쪽이 다른쪽에 포함
+  STARTS:          70,  // 앞부분으로 시작
+  CHAR_MIN_RATIO:  0.5, // 글자 교집합/합집합 비율 최솟값
+  CHAR_MULTIPLIER: 60,  // 부분 점수 = ratio × CHAR_MULTIPLIER
+} as const
+
+/** 이름 매칭 대상 DB 필드 */
+const MATCH_FIELDS: ('owner_name' | 'business_name')[] = ['owner_name', 'business_name']
+
+/** 입금 금액 허용 범위 (원) */
+const AMOUNT_RANGE = { MIN: 1_000, MAX: 30_000_000 } as const
+
+// ─── 타입 ─────────────────────────────────────────────────────────
+
 interface PaymentPayload {
-  message: string    // %mb% — 은행 SMS 원문
-  sender?: string    // %pni% — 발신번호/은행명
-  contact?: string   // %ct% — 입금자명 (이름, 이름(업체명), 업체명(이름) 등 다양)
-  amount?: number    // Make.com이 직접 파싱한 금액 (있으면 우선 사용)
+  message: string   // 은행 SMS 원문 (필수)
+  bank?: string     // 보낸사람/은행명 (로깅용, 매칭에 사용 안 함)
+  sender?: string   // 발신번호 (로깅용)
 }
-
-// 한국 은행 SMS에서 금액 추출
-// KB 등 일부 은행은 "613,536" 처럼 '원' 없이 마지막 줄에 금액만 옴
-function extractAmount(text: string): number | null {
-  // 1차: '원' 포함된 금액 (예: 613,536원)
-  const withWon = Array.from(text.matchAll(/(\d{1,3}(?:,\d{3})*|\d+)\s*원/g))
-  for (const match of withWon) {
-    const n = parseInt(match[1].replace(/,/g, ''), 10)
-    if (n >= 1_000 && n <= 30_000_000) return n
-  }
-  // 2차: '원' 없이 쉼표 포함된 숫자 (예: KB SMS 마지막 줄 "613,536")
-  const withComma = Array.from(text.matchAll(/(?<![0-9*])(\d{1,3}(?:,\d{3})+)(?![0-9원,])/g))
-  for (const match of withComma) {
-    const n = parseInt(match[1].replace(/,/g, ''), 10)
-    if (n >= 1_000 && n <= 30_000_000) return n
-  }
-  return null
-}
-
-// 은행 SMS 원문에서 입금자명 추출
-// 지원 패턴: [은행명] 이름 금액원 / 이름 입금 금액원 / 이름에서 금액원 입금 등
-function extractContact(text: string): string | undefined {
-  if (!text) return undefined
-  const msg = text.replace(/[\r\n]+/g, ' ').trim()
-  const name = '[가-힣A-Za-z][가-힣A-Za-z0-9()（）]{1,18}'
-  const amount = '\\d{1,3}(?:,\\d{3})*원'
-  const patterns = [
-    // 보낸사람 : XXX(이름) — SMS 자동전달 앱 형식
-    new RegExp(`보낸사람\\s*:\\s*[^(（]*[（(](${name})[）)]`),
-    // [은행명] {날짜?} 이름님? 금액원
-    new RegExp(`\\[[^\\]]+\\]\\s*(?:\\d+[/.]\\d+[\\s\\d:]*)?\\s*(${name})님?\\s+${amount}`),
-    // 이름 입금 금액원
-    new RegExp(`(${name})\\s+입금\\s+${amount}`),
-    // 이름 금액원 입금
-    new RegExp(`(${name})\\s+${amount}\\s*입금`),
-    // 이름에서 금액원
-    new RegExp(`(${name})에서\\s+${amount}`),
-    // 이름님 이체 금액원
-    new RegExp(`(${name})님\\s+이체\\s+${amount}`),
-  ]
-  for (const p of patterns) {
-    const m = msg.match(p)
-    if (m?.[1]) {
-      const n = m[1].replace(/님$/, '').trim()
-      if (n.length >= 2) return n
-    }
-  }
-  return undefined
-}
-
-// ─── 이름 매칭 유틸 ──────────────────────────────────────────────
-
-/**
- * 입금자명에서 이름 후보를 모두 추출
- * 예) "홍길동(BBK공간케어)" → ["홍길동", "BBK공간케어"]
- *     "BBK공간케어(홍길동)" → ["BBK공간케어", "홍길동"]
- *     "홍길동"              → ["홍길동"]
- */
-function extractNameCandidates(contact: string): string[] {
-  if (!contact) return []
-  const trimmed = contact.trim()
-  // 괄호 안팎 분리 (전각·반각 모두 처리)
-  const m = trimmed.match(/^([^(（]+)[（(]([^)）]+)[）)]?$/)
-  if (m) {
-    return [m[1].trim(), m[2].trim()].filter(Boolean)
-  }
-  return [trimmed]
-}
-
-/**
- * 두 문자열의 유사도를 0~100 점수로 반환
- * - 정확히 일치        → 100
- * - 한쪽이 다른쪽 포함  → 80  (예: 잘린 업체명이 실제 업체명에 포함)
- * - 앞부분으로 시작    → 70  (글자수 제한으로 뒤가 잘린 경우)
- * - 글자 교집합 비율   → 비례 (그 외 유사도)
- */
-function nameScore(a: string, b: string): number {
-  if (!a || !b) return 0
-  if (a === b) return 100
-  if (b.includes(a) || a.includes(b)) return 80
-  if (b.startsWith(a) || a.startsWith(b)) return 70
-  const charsA = Array.from(new Set(Array.from(a)))
-  const charsB = new Set(Array.from(b))
-  const intersection = charsA.filter(c => charsB.has(c)).length
-  const allChars = new Set(Array.from(a).concat(Array.from(b)))
-  const union = allChars.size
-  const ratio = intersection / union
-  return ratio > 0.5 ? Math.round(ratio * 60) : 0
-}
-
-/**
- * 입금자명 vs (owner_name, business_name) 최대 유사도 점수
- * 후보명 × DB 필드 2개 조합 중 최고값 반환
- */
-function calcMatchScore(contact: string, ownerName: string, businessName: string): number {
-  const candidates = extractNameCandidates(contact)
-  return Math.max(
-    0,
-    ...candidates.flatMap(c => [
-      nameScore(c, ownerName ?? ''),
-      nameScore(c, businessName ?? ''),
-    ])
-  )
-}
-
-/**
- * 여러 신청서 중 입금자명과 가장 유사한 항목을 선택
- * 반환: best(최고 후보), score(1위 점수), secondScore(2위 점수)
- */
-function pickBestByName<T extends { owner_name: string; business_name: string }>(
-  apps: T[],
-  contact: string,
-): { best: T; score: number; secondScore: number } {
-  const scored = apps
-    .map(a => ({
-      app: a,
-      score: calcMatchScore(contact, a.owner_name ?? '', a.business_name ?? ''),
-    }))
-    .sort((a, b) => b.score - a.score)
-
-  return {
-    best: scored[0].app,
-    score: scored[0].score,
-    secondScore: scored[1]?.score ?? 0,
-  }
-}
-
-// ─── 내부 알림 발송 ───────────────────────────────────────────────
-
-async function fireNotify(
-  origin: string,
-  applicationId: string,
-  type: string,
-): Promise<{ ok: boolean; newStatus?: string }> {
-  try {
-    const res = await fetch(`${origin}/api/admin/notify`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ application_id: applicationId, type, method: 'auto' }),
-    })
-    const data = await res.json()
-    return { ok: res.ok, newStatus: data.new_status }
-  } catch {
-    return { ok: false }
-  }
-}
-
-// ─── 매칭 결과 처리 (예약금 / 잔금 공통) ─────────────────────────
 
 type AppRow = {
   id: string
@@ -170,104 +62,180 @@ type AppRow = {
   status: string
 }
 
+// ─── SMS 파싱 유틸 ─────────────────────────────────────────────────
+
+/** 은행 SMS 원문에서 금액(원) 추출 */
+function extractAmount(text: string): number | null {
+  // 1차: '원' 포함 금액 (예: 613,536원 / 50000원)
+  for (const m of text.matchAll(/(\d{1,3}(?:,\d{3})*|\d+)\s*원/g)) {
+    const n = parseInt(m[1].replace(/,/g, ''), 10)
+    if (n >= AMOUNT_RANGE.MIN && n <= AMOUNT_RANGE.MAX) return n
+  }
+  // 2차: 쉼표 포함 숫자 (KB 등 '원' 없이 마지막 줄에 금액만 오는 형식)
+  for (const m of text.matchAll(/(?<![0-9*])(\d{1,3}(?:,\d{3})+)(?![0-9원,])/g)) {
+    const n = parseInt(m[1].replace(/,/g, ''), 10)
+    if (n >= AMOUNT_RANGE.MIN && n <= AMOUNT_RANGE.MAX) return n
+  }
+  return null
+}
+
 /**
- * exactMatches에서 단일 후보를 결정
- * - 1건이면 그대로 반환
- * - 여러 건 + contact 있으면 이름 점수로 자동 선택 시도
- * - 자동 선택 불가면 null 반환 (Slack 수동처리 알림은 호출자가 담당)
+ * 은행 SMS 원문에서 입금자명 추출
+ * 지원 포맷: [은행] 이름 금액원 / 이름 입금 금액원 / 이름에서 금액원 / 보낸사람: 이름(업체) 등
  */
-function resolveCandidate(
-  exactMatches: AppRow[],
-  contact: string | undefined,
-): { app: AppRow; nameInfo: string } | { app: null; reason: string; detail: string } {
-  if (exactMatches.length === 1) {
-    const only = exactMatches[0]
-    // contact가 있으면 이름 최소 검증 — 30점 미만이면 금액 우연 일치로 보고 수동 처리
-    if (contact) {
-      const score = calcMatchScore(contact, only.owner_name ?? '', only.business_name ?? '')
-      if (score < 30) {
-        return {
-          app: null,
-          reason: `금액 일치 1건이지만 입금자명 불일치 (이름유사도 ${score}점)`,
-          detail: `• ${only.business_name} (${only.owner_name}) — 유사도 ${score}점\n• 입금자명: ${contact}`,
-        }
-      }
-      return { app: only, nameInfo: score < 80 ? ` (이름매칭 ${score}점, 확인권장)` : '' }
+function extractDepositor(text: string): string | null {
+  if (!text) return null
+  const msg = text.replace(/[\r\n]+/g, ' ').trim()
+  const nm  = '[가-힣A-Za-z][가-힣A-Za-z0-9()（）]{1,18}'
+  const amt = '\\d{1,3}(?:,\\d{3})*원'
+
+  const patterns = [
+    // 보낸사람 : 이름(업체명) — SMS 자동전달 앱 형식
+    new RegExp(`보낸사람\\s*:\\s*[^(（]*[（(](${nm})[）)]`),
+    // [은행명] 이름님? 금액원
+    new RegExp(`\\[[^\\]]+\\]\\s*(?:\\d+[/.]\\d+[\\s\\d:]*)?\\s*(${nm})님?\\s+${amt}`),
+    // 이름 입금 금액원
+    new RegExp(`(${nm})\\s+입금\\s+${amt}`),
+    // 이름 금액원 입금
+    new RegExp(`(${nm})\\s+${amt}\\s*입금`),
+    // 이름에서 금액원
+    new RegExp(`(${nm})에서\\s+${amt}`),
+    // 이름님 이체 금액원
+    new RegExp(`(${nm})님\\s+이체\\s+${amt}`),
+    // 이름(업체명) 형식에서 이름 부분
+    new RegExp(`(${nm})[（(][^)）]+[）)]`),
+  ]
+
+  for (const p of patterns) {
+    const m = msg.match(p)
+    if (m?.[1]) {
+      const name = m[1].replace(/님$/, '').trim()
+      if (name.length >= 2) return name
     }
-    return { app: only, nameInfo: '' }
   }
+  return null
+}
 
-  if (!contact) {
-    const list = exactMatches.map(a => `• ${a.business_name} (${a.owner_name})`).join('\n')
-    return { app: null, reason: '복수 매칭 / 입금자명 없음', detail: list }
-  }
+/**
+ * 입금자명(contact)에서 이름 후보 전체 추출
+ * 예) "홍길동(가게명)" → ["홍길동", "가게명"]
+ *     "가게명(홍길동)" → ["가게명", "홍길동"]
+ *     "홍길동"         → ["홍길동"]
+ */
+function nameCandidates(contact: string): string[] {
+  const t = contact.trim()
+  const m = t.match(/^([^(（]+)[（(]([^)）]+)[）)]?$/)
+  return m ? [m[1].trim(), m[2].trim()].filter(Boolean) : [t]
+}
 
-  const { best, score, secondScore } = pickBestByName(exactMatches, contact)
+/** 두 문자열의 유사도를 0~100 점수로 반환 */
+function scoreNames(a: string, b: string): number {
+  if (!a || !b) return 0
+  if (a === b)                          return NAME_SCORE.EXACT
+  if (b.includes(a) || a.includes(b))  return NAME_SCORE.CONTAINS
+  if (b.startsWith(a) || a.startsWith(b)) return NAME_SCORE.STARTS
+  const setA = new Set(Array.from(a))
+  const setB = new Set(Array.from(b))
+  const inter = Array.from(setA).filter(c => setB.has(c)).length
+  const union  = new Set([...Array.from(setA), ...Array.from(setB)]).size
+  const ratio  = inter / union
+  return ratio >= NAME_SCORE.CHAR_MIN_RATIO ? Math.round(ratio * NAME_SCORE.CHAR_MULTIPLIER) : 0
+}
 
-  // 1위 점수 ≥ 50점 AND 2위와 차이 ≥ 20점이면 자동 선택
-  if (score >= 50 && score - secondScore >= 20) {
-    return { app: best, nameInfo: ` (이름매칭 ${score}점)` }
-  }
+/** 입금자명 vs DB 필드(MATCH_FIELDS) 최대 유사도 */
+function calcScore(contact: string, app: Pick<AppRow, 'owner_name' | 'business_name'>): number {
+  return Math.max(0, ...nameCandidates(contact).flatMap(c =>
+    MATCH_FIELDS.map(f => scoreNames(c, (app[f] as string) ?? ''))
+  ))
+}
 
-  // 점수 기반 후보 목록
-  const scored = exactMatches
-    .map(a => ({
-      app: a,
-      score: calcMatchScore(contact, a.owner_name ?? '', a.business_name ?? ''),
-    }))
+/** 여러 신청서 중 이름 점수 최고 항목 선택 */
+function pickBest<T extends Pick<AppRow, 'owner_name' | 'business_name'>>(
+  list: T[], contact: string,
+): { best: T; score: number; secondScore: number; ranked: Array<{ app: T; score: number }> } {
+  const ranked = list
+    .map(app => ({ app, score: calcScore(contact, app) }))
     .sort((a, b) => b.score - a.score)
-  const detail = scored
-    .map(s => `• ${s.app.business_name} (${s.app.owner_name}) — 유사도 ${s.score}점`)
-    .join('\n')
+  return {
+    best:        ranked[0].app,
+    score:       ranked[0].score,
+    secondScore: ranked[1]?.score ?? 0,
+    ranked,
+  }
+}
 
-  return { app: null, reason: `복수 매칭 / 이름 불명확 (1위 ${score}점, 2위 ${secondScore}점)`, detail }
+// ─── 내부 알림 발송 ───────────────────────────────────────────────
+
+async function fireNotify(
+  origin: string, appId: string, type: string,
+): Promise<{ ok: boolean; newStatus?: string }> {
+  try {
+    const res = await fetch(`${origin}/api/admin/notify`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ application_id: appId, type, method: 'auto' }),
+    })
+    const data = await res.json()
+    return { ok: res.ok, newStatus: data.new_status }
+  } catch {
+    return { ok: false }
+  }
 }
 
 // ─── 메인 핸들러 ─────────────────────────────────────────────────
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json() as PaymentPayload
-    const { message, sender, contact: bodyContact, amount: rawAmount } = body
-    // contact가 없으면 SMS 원문에서 입금자명 파싱 시도
-    const contact = bodyContact || extractContact(message ?? '')
+    const body     = await request.json() as PaymentPayload
+    const { message, bank, sender } = body
 
-    if (!message && rawAmount == null) {
-      return NextResponse.json({ error: 'message 또는 amount 필요' }, { status: 400 })
+    if (!message) {
+      return NextResponse.json({ error: 'message 필드 필수' }, { status: 400 })
     }
 
-    const amount = rawAmount ?? extractAmount(message ?? '')
+    const amount    = extractAmount(message)
+    const depositor = extractDepositor(message)
+    const origin    = new URL(request.url).origin
+    const supabase  = createServiceClient()
+
     if (!amount) {
       await sendSlack(
-        `⚠️ *입금 웹훅 수신 — 금액 파싱 실패*\n• 발신: ${sender ?? '-'}\n• 입금자명: ${contact ?? '-'}\n• 메시지: ${(message ?? '').slice(0, 100)}`
+        `⚠️ *입금 웹훅 — 금액 파싱 실패*\n• 은행: ${bank ?? sender ?? '-'}\n• 입금자: ${depositor ?? '-'}\n• SMS: ${message.slice(0, 100)}`
       ).catch(() => {})
-      return NextResponse.json({ error: '금액을 파싱할 수 없습니다.', message }, { status: 422 })
+      return NextResponse.json({ error: '금액 파싱 실패', message }, { status: 422 })
     }
 
-    const supabase = createServiceClient()
-    const origin = new URL(request.url).origin
-
-    // ─── 예약금 매칭: deposit 미설정(0/null) 신청서에서 입금자명으로 찾기 ──────
-    // 신규 DB는 deposit=0이므로, 금액 조건 대신 이름 매칭으로 찾아 deposit을 업데이트
-    const { data: preApps } = await supabase
+    // ── 예약금 매칭 ───────────────────────────────────────────────
+    // 대상: DEPOSIT_MATCH.STATUSES 상태 + 예약금 0/null 신청서
+    const { data: depositApps } = await supabase
       .from('service_applications')
       .select('id, business_name, owner_name, phone, deposit, balance, status')
-      .in('status', ['신규', '견적발송', '예약확정'])
+      .in('status', [...DEPOSIT_MATCH.STATUSES])
       .or('deposit.is.null,deposit.eq.0')
+      .is('deleted_at', null)
 
-    if (preApps && preApps.length > 0) {
-      if (!contact) {
-        // 입금자명 파싱 실패 — 수동 처리 요청
+    if (depositApps && depositApps.length > 0) {
+      if (!depositor) {
         await sendSlack(
-          `⚠️ *예약금 입금 — 수동 처리 필요 (입금자명 파싱 실패)*\n• 금액: ${amount.toLocaleString('ko-KR')}원\n• SMS: ${(message ?? '').slice(0, 80)}\n• 발신: ${sender ?? '-'}`
+          `⚠️ *예약금 입금 — 수동 처리 필요 (입금자명 파싱 실패)*\n• 금액: ${amount.toLocaleString('ko-KR')}원\n• 은행: ${bank ?? '-'}\n• SMS: ${message.slice(0, 80)}`
         ).catch(() => {})
-        return NextResponse.json({ matched: 'deposit', action: 'manual_required', reason: 'no_contact' })
+        return NextResponse.json({ matched: 'deposit', action: 'manual', reason: 'no_depositor' })
       }
 
-      const { best, score, secondScore } = pickBestByName(preApps as AppRow[], contact)
+      const { best, score, secondScore, ranked } = pickBest(depositApps as AppRow[], depositor)
 
-      if (score >= 70 && score - secondScore >= 20) {
-        // 자동 매칭: deposit 업데이트 후 알림
+      if (score >= DEPOSIT_MATCH.MIN_SCORE && score - secondScore >= DEPOSIT_MATCH.MIN_GAP) {
+        // 금액 불일치 최소 검증 (이름 우연 일치 방지)
+        if (score < DEPOSIT_MATCH.MISMATCH_THRESHOLD) {
+          const detail = ranked.filter(r => r.score > 0)
+            .map(r => `• ${r.app.business_name} (${r.app.owner_name}) — ${r.score}점`).join('\n')
+          await sendSlack(
+            `⚠️ *예약금 입금 — 수동 처리 필요 (이름 불일치)*\n• 금액: ${amount.toLocaleString('ko-KR')}원\n• 입금자: ${depositor}\n• 유사도: ${score}점\n${detail}`
+          ).catch(() => {})
+          return NextResponse.json({ matched: 'deposit', action: 'manual', reason: 'name_mismatch' })
+        }
+
+        // 자동 매칭: 예약금 업데이트 + 알림 발송
         await supabase
           .from('service_applications')
           .update({ deposit: amount })
@@ -276,77 +244,94 @@ export async function POST(request: NextRequest) {
         const { ok, newStatus } = await fireNotify(origin, best.id, '예약금 입금완료 알림')
 
         await sendSlack(
-          `💰 *예약금 입금 확인*\n• 업체명: ${best.business_name}\n• 고객명: ${best.owner_name}\n• 입금자명: ${contact}\n• 금액: ${amount.toLocaleString('ko-KR')}원 → 예약금 저장\n• 이름유사도: ${score}점\n• 알림발송: ${ok ? '✅' : '❌'}\n• 상태변경: ${newStatus ?? '예약금 입금'}`
+          `💰 *예약금 입금 확인*\n• 업체: ${best.business_name} / ${best.owner_name}\n• 입금자: ${depositor}\n• 금액: ${amount.toLocaleString('ko-KR')}원 (이름유사도 ${score}점)\n• 알림: ${ok ? '✅' : '❌'} | 상태: ${newStatus ?? '예약금 입금'}`
         ).catch(() => {})
 
         return NextResponse.json({ matched: 'deposit', application_id: best.id, amount, notify_ok: ok })
       }
 
-      // 이름 불명확 — Slack 수동 처리 요청
-      const scored = (preApps as AppRow[])
-        .map(a => ({ app: a, score: calcMatchScore(contact, a.owner_name ?? '', a.business_name ?? '') }))
-        .sort((a, b) => b.score - a.score)
-        .filter(s => s.score > 0)
-      const detail = scored.length > 0
-        ? scored.map(s => `• ${s.app.business_name} (${s.app.owner_name}) — ${s.score}점`).join('\n')
-        : '• 유사한 이름 없음'
+      // 이름 불명확 → 수동 처리
+      const detail = ranked.filter(r => r.score > 0)
+        .map(r => `• ${r.app.business_name} (${r.app.owner_name}) — ${r.score}점`).join('\n') || '• 유사한 이름 없음'
 
       await sendSlack(
-        `⚠️ *예약금 입금 — 수동 처리 필요*\n• 금액: ${amount.toLocaleString('ko-KR')}원\n• 입금자명: ${contact}\n• 1위 ${score}점 / 2위 ${secondScore}점\n${detail}`
+        `⚠️ *예약금 입금 — 수동 처리 필요*\n• 금액: ${amount.toLocaleString('ko-KR')}원\n• 입금자: ${depositor}\n• 1위 ${score}점 / 2위 ${secondScore}점 (기준: ${DEPOSIT_MATCH.MIN_SCORE}점+${DEPOSIT_MATCH.MIN_GAP}점차)\n${detail}`
       ).catch(() => {})
 
-      return NextResponse.json({ matched: 'deposit', action: 'manual_required', score })
+      return NextResponse.json({ matched: 'deposit', action: 'manual', score })
     }
 
-    // ─── 잔금 매칭: status='작업완료' or '결제', balance=amount ──
+    // ── 잔금 매칭 ─────────────────────────────────────────────────
+    // 대상: BALANCE_MATCH.STATUSES 상태, 금액 정확 일치 필수
     const { data: balanceApps } = await supabase
       .from('service_applications')
       .select('id, business_name, owner_name, phone, deposit, supply_amount, vat, balance, status')
-      .in('status', ['작업완료', '결제'])
+      .in('status', [...BALANCE_MATCH.STATUSES])
+      .is('deleted_at', null)
 
     if (balanceApps && balanceApps.length > 0) {
       const exactMatches = (balanceApps as AppRow[]).filter(a => {
-        const storedBalance = a.balance
-        const calcBalance = (a.supply_amount ?? 0) + (a.vat ?? 0) - (a.deposit ?? 0)
-        return storedBalance === amount || calcBalance === amount
+        const stored = a.balance ?? 0
+        const calc   = (a.supply_amount ?? 0) + (a.vat ?? 0) - (a.deposit ?? 0)
+        return stored === amount || calc === amount
       })
 
-      if (exactMatches.length >= 1) {
-        const result = resolveCandidate(exactMatches, contact)
-
-        if (!result.app) {
-          await sendSlack(
-            `⚠️ *잔금 입금 — 수동 처리 필요*\n• 금액: ${amount.toLocaleString('ko-KR')}원\n• 입금자명: ${contact ?? '없음'}\n• 사유: ${result.reason}\n${result.detail}`
-          ).catch(() => {})
-          return NextResponse.json({ matched: 'balance', count: exactMatches.length, action: 'manual_required' })
-        }
-
-        const { ok, newStatus } = await fireNotify(origin, result.app.id, '결제완료알림(잔금)')
-
+      if (exactMatches.length === 0) {
+        const nearest = (balanceApps as AppRow[]).reduce((p, c) =>
+          Math.abs((c.balance ?? 0) - amount) < Math.abs((p.balance ?? 0) - amount) ? c : p
+        )
         await sendSlack(
-          `💰 *잔금 입금 확인*\n• 업체명: ${result.app.business_name}\n• 고객명: ${result.app.owner_name}\n• 입금자명: ${contact ?? '-'}\n• 금액: ${amount.toLocaleString('ko-KR')}원\n• 알림발송: ${ok ? '✅' : '❌'}${result.nameInfo}\n• 상태변경: ${newStatus ?? '결제완료(잔금)'}`
+          `⚠️ *잔금 금액 불일치 — 수동 확인*\n• 입금액: ${amount.toLocaleString('ko-KR')}원\n• 입금자: ${depositor ?? '-'}\n• 가장 유사: ${nearest.business_name} (${nearest.owner_name}) — 잔금 ${(nearest.balance ?? 0).toLocaleString('ko-KR')}원`
         ).catch(() => {})
-
-        return NextResponse.json({ matched: 'balance', application_id: result.app.id, amount, notify_ok: ok })
+        return NextResponse.json({ matched: 'none', amount, action: 'manual' })
       }
 
-      // 금액 불일치 — 가장 가까운 잔금 찾아 알림
-      const nearest = (balanceApps as AppRow[]).reduce((prev, cur) => {
-        const prevDiff = Math.abs((prev.balance ?? 0) - amount)
-        const curDiff = Math.abs((cur.balance ?? 0) - amount)
-        return curDiff < prevDiff ? cur : prev
-      })
+      // 단일 금액 일치
+      if (exactMatches.length === 1) {
+        const only = exactMatches[0]
+        const nameOk = !depositor || calcScore(depositor, only) >= DEPOSIT_MATCH.MISMATCH_THRESHOLD
+        if (!nameOk) {
+          await sendSlack(
+            `⚠️ *잔금 입금 — 수동 처리 필요 (이름 불일치)*\n• 금액: ${amount.toLocaleString('ko-KR')}원\n• 입금자: ${depositor}\n• 후보: ${only.business_name} (${only.owner_name})`
+          ).catch(() => {})
+          return NextResponse.json({ matched: 'balance', action: 'manual', reason: 'name_mismatch' })
+        }
 
+        const { ok, newStatus } = await fireNotify(origin, only.id, '결제완료알림(잔금)')
+        await sendSlack(
+          `💰 *잔금 입금 확인*\n• 업체: ${only.business_name} / ${only.owner_name}\n• 입금자: ${depositor ?? '-'}\n• 금액: ${amount.toLocaleString('ko-KR')}원\n• 알림: ${ok ? '✅' : '❌'} | 상태: ${newStatus ?? '결제완료(잔금)'}`
+        ).catch(() => {})
+        return NextResponse.json({ matched: 'balance', application_id: only.id, amount, notify_ok: ok })
+      }
+
+      // 복수 금액 일치 → 이름으로 선택
+      if (!depositor) {
+        const list = exactMatches.map(a => `• ${a.business_name} (${a.owner_name})`).join('\n')
+        await sendSlack(
+          `⚠️ *잔금 입금 — 수동 처리 필요 (복수 일치 + 입금자명 없음)*\n• 금액: ${amount.toLocaleString('ko-KR')}원\n${list}`
+        ).catch(() => {})
+        return NextResponse.json({ matched: 'balance', action: 'manual', reason: 'multi_match' })
+      }
+
+      const { best, score, secondScore, ranked } = pickBest(exactMatches, depositor)
+      if (score >= BALANCE_MATCH.MIN_SCORE && score - secondScore >= BALANCE_MATCH.MIN_GAP) {
+        const { ok, newStatus } = await fireNotify(origin, best.id, '결제완료알림(잔금)')
+        await sendSlack(
+          `💰 *잔금 입금 확인*\n• 업체: ${best.business_name} / ${best.owner_name}\n• 입금자: ${depositor} (이름유사도 ${score}점)\n• 금액: ${amount.toLocaleString('ko-KR')}원\n• 알림: ${ok ? '✅' : '❌'} | 상태: ${newStatus ?? '결제완료(잔금)'}`
+        ).catch(() => {})
+        return NextResponse.json({ matched: 'balance', application_id: best.id, amount, notify_ok: ok })
+      }
+
+      const detail = ranked.map(r => `• ${r.app.business_name} (${r.app.owner_name}) — ${r.score}점`).join('\n')
       await sendSlack(
-        `⚠️ *잔금 금액 불일치 — 수동 확인 필요*\n• 입금액: ${amount.toLocaleString('ko-KR')}원\n• 입금자명: ${contact ?? '-'}\n• 가장 유사한 건: ${nearest.business_name} (${nearest.owner_name}) — 잔금 ${(nearest.balance ?? 0).toLocaleString('ko-KR')}원\n• 발신: ${sender ?? '-'}`
+        `⚠️ *잔금 입금 — 수동 처리 필요 (이름 불명확)*\n• 금액: ${amount.toLocaleString('ko-KR')}원\n• 입금자: ${depositor}\n• 1위 ${score}점 / 2위 ${secondScore}점\n${detail}`
       ).catch(() => {})
-
-      return NextResponse.json({ matched: 'none', amount, nearest: nearest.business_name, action: 'manual_required' })
+      return NextResponse.json({ matched: 'balance', action: 'manual', score })
     }
 
-    // ─── 매칭 없음 ──────────────────────────────────────────────
+    // ── 매칭 없음 ─────────────────────────────────────────────────
     await sendSlack(
-      `⚠️ *입금 매칭 실패 — 수동 확인 필요*\n• 금액: ${amount.toLocaleString('ko-KR')}원\n• 입금자명: ${contact ?? '-'}\n• 발신: ${sender ?? '-'}\n• 메시지: ${(message ?? '').slice(0, 80)}`
+      `⚠️ *입금 매칭 실패 — 수동 확인*\n• 금액: ${amount.toLocaleString('ko-KR')}원\n• 입금자: ${depositor ?? '-'}\n• 은행: ${bank ?? sender ?? '-'}`
     ).catch(() => {})
 
     return NextResponse.json({ matched: 'none', amount })
