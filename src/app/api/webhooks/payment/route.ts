@@ -104,6 +104,8 @@ function extractDepositor(text: string): string | null {
     new RegExp(`(${nm})님\\s+이체\\s+${amt}`),
     // 이름(업체명) 형식에서 이름 부분
     new RegExp(`(${nm})[（(][^)）]+[）)]`),
+    // 이름 입금 (원 없는 형식 — KB 등 별도 줄 금액)
+    new RegExp(`(${nm})\\s+입금(?:\\s|$)`),
   ]
 
   for (const p of patterns) {
