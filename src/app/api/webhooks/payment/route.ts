@@ -189,9 +189,21 @@ async function fireNotify(
 
 export async function POST(request: NextRequest) {
   try {
-    const body    = await request.json() as PaymentPayload
-    const message = body.message ?? body['메시지 내용'] ?? ''
-    const { bank, sender } = body
+    const contentType = request.headers.get('content-type') ?? ''
+    let message = '', bank = '', sender = ''
+
+    if (contentType.includes('application/x-www-form-urlencoded')) {
+      const text   = await request.text()
+      const params = new URLSearchParams(text)
+      message = params.get('message') ?? params.get('mb') ?? ''
+      bank    = params.get('bank') ?? ''
+      sender  = params.get('sender') ?? params.get('pni') ?? ''
+    } else {
+      const body = await request.json() as PaymentPayload
+      message = body.message ?? body['메시지 내용'] ?? ''
+      bank    = body.bank ?? ''
+      sender  = body.sender ?? ''
+    }
 
     if (!message) {
       return NextResponse.json({ error: 'message 필드 필수' }, { status: 400 })
