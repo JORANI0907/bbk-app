@@ -45,9 +45,10 @@ const AMOUNT_RANGE = { MIN: 1_000, MAX: 30_000_000 } as const
 // ─── 타입 ─────────────────────────────────────────────────────────
 
 interface PaymentPayload {
-  message: string   // 은행 SMS 원문 (필수)
-  bank?: string     // 보낸사람/은행명 (로깅용, 매칭에 사용 안 함)
-  sender?: string   // 발신번호 (로깅용)
+  message?: string       // 은행 SMS 원문
+  '메시지 내용'?: string  // SMS 자동전달 앱 기본 필드명
+  bank?: string          // 로깅용
+  sender?: string        // 로깅용
 }
 
 type AppRow = {
@@ -188,8 +189,9 @@ async function fireNotify(
 
 export async function POST(request: NextRequest) {
   try {
-    const body     = await request.json() as PaymentPayload
-    const { message, bank, sender } = body
+    const body    = await request.json() as PaymentPayload
+    const message = body.message ?? body['메시지 내용'] ?? ''
+    const { bank, sender } = body
 
     if (!message) {
       return NextResponse.json({ error: 'message 필드 필수' }, { status: 400 })
