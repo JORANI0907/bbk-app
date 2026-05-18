@@ -977,6 +977,8 @@ export default function ServiceManagementPage() {
       } : a))
       toast.success(`${notifyType} 발송 완료`)
       setNotifyType('')
+      // 작업완료알림은 서버에서 계정안내알림을 자동 발송하므로 DB 재조회
+      if (notifyType === '작업완료알림') setTimeout(() => fetchAll(), 1500)
     } catch (e) { toast.error(e instanceof Error ? e.message : '발송 실패') }
     finally { setSending(false) }
   }
@@ -1007,6 +1009,7 @@ export default function ServiceManagementPage() {
         ...(data.new_status ? { status: data.new_status } : {}),
       } : a))
       toast.success(`${type} 재발송 완료`)
+      if (type === '작업완료알림') setTimeout(() => fetchAll(), 1500)
     } catch (e) { toast.error(e instanceof Error ? e.message : '재발송 실패') }
     finally { setSending(false) }
   }
