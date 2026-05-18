@@ -54,11 +54,11 @@ function isNameMatch(depositor: string, ownerName: string, businessName: string)
 
 // ─── SMS 파싱 유틸 ────────────────────────────────────────────────
 
-/** 은행 SMS에서 금액(원) 추출 — '입금' 다음 줄 순수 숫자 형식 */
+/** 은행 SMS에서 금액(원) 추출 — '입금' 다음 줄 쉼표 포함 숫자 형식 (예: 1,000) */
 function extractAmount(text: string): number | null {
-  const m = text.match(/입금[\r\n]+\s*(\d+)/)
+  const m = text.match(/입금[\r\n]+\s*(\d{1,3}(?:,\d{3})*)/)
   if (!m) return null
-  const n = parseInt(m[1], 10)
+  const n = parseInt(m[1].replace(/,/g, ''), 10)
   return n >= AMOUNT_RANGE.MIN && n <= AMOUNT_RANGE.MAX ? n : null
 }
 
