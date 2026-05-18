@@ -20,5 +20,13 @@
       "type": "image/png",
       "purpose": "any"
     }
-  ]
+  ],
+  "share_target": {
+    "action": "/admin/sms-parse",
+    "method": "GET",
+    "params": {
+      "text": "text",
+      "title": "title"
+    }
+  }
 }

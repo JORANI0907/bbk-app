@@ -47,6 +47,7 @@ const AMOUNT_RANGE = { MIN: 1_000, MAX: 30_000_000 } as const
 interface PaymentPayload {
   message?: string       // 은행 SMS 원문
   '메시지 내용'?: string  // SMS 자동전달 앱 기본 필드명
+  key?: string           // SMS 자동전달 앱 JSON 전송 시 필드명
   bank?: string          // 로깅용
   sender?: string        // 로깅용
 }
@@ -192,21 +193,16 @@ export async function POST(request: NextRequest) {
     const contentType = request.headers.get('content-type') ?? ''
     const rawBody = await request.text()
 
-    // ── [임시] 수신 데이터 Slack 로깅 ──────────────────────────────
-    await sendSlack(
-      `🔍 *입금 웹훅 수신 (RAW)*\n• Content-Type: ${contentType}\n• Body:\n\`\`\`${rawBody.slice(0, 500)}\`\`\``
-    ).catch(() => {})
-
     let message = '', bank = '', sender = ''
 
     if (contentType.includes('application/x-www-form-urlencoded')) {
       const params = new URLSearchParams(rawBody)
-      message = params.get('message') ?? params.get('mb') ?? ''
+      message = params.get('message') ?? params.get('mb') ?? params.get('key') ?? ''
       bank    = params.get('bank') ?? ''
       sender  = params.get('sender') ?? params.get('pni') ?? ''
     } else {
       const body = JSON.parse(rawBody) as PaymentPayload
-      message = body.message ?? body['메시지 내용'] ?? ''
+      message = body.message ?? body['메시지 내용'] ?? body.key ?? ''
       bank    = body.bank ?? ''
       sender  = body.sender ?? ''
     }
