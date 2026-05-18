@@ -3,6 +3,7 @@ import { sendAlimtalk, sendSMS, sendSubscriptionPromoSMS } from '@/lib/solapi'
 import { createServiceClient } from '@/lib/supabase/server'
 import { saveNotificationHistory } from '@/lib/notification'
 import { sendPushToUsers } from '@/lib/push'
+import { sendSlack } from '@/lib/slack'
 
 const WORKER_NOTIFY_TYPES = new Set(['작업자 일정 안내', '작업자 자세한 일정 안내'])
 
@@ -41,6 +42,7 @@ const ALIMTALK_TEMPLATES: Record<string, string> = {
   '방문견적알림':       'KA01TP260324125232920u1LmrtqCY0P',
   '신청서작성완료알림': 'KA01TP260225105100279pvfbwyZDT39',
   '견적신청접수알림':   'KA01TP260514153343828rQpIWkeH7pg',
+  '계정안내알림':      'KA01TP260404141110684azipFQYSyxX',
 }
 
 // ─── 요청시간 계산: 마감시간 +1h ~ +4h ("~3시간 후") ──────────────
@@ -544,6 +546,94 @@ export async function POST(request: NextRequest) {
         }
       } catch {
         // 구독권유알림 실패는 메인 응답에 영향 없음
+      }
+    }
+
+    // ── 작업완료알림 발송 직후 계정안내알림 자동 발송 ────────────────
+    if (
+      type === '작업완료알림' &&
+      ['정기딥케어', '정기엔드케어'].includes(String(app.service_type ?? ''))
+    ) {
+      try {
+        // 고객 계정 조회: customer_id 우선, fallback은 phone
+        type AccountRow = { phone: string | null; password_hint: string | null; account_sent_at: string | null }
+        let accountUser: AccountRow | null = null
+
+        if (app.customer_id) {
+          const { data } = await supabase
+            .from('users')
+            .select('phone, password_hint, account_sent_at')
+            .eq('id', String(app.customer_id))
+            .single()
+          accountUser = data as AccountRow | null
+        }
+
+        if (!accountUser) {
+          const cleanPhone = (app.phone ?? '').replace(/-/g, '')
+          const { data } = await supabase
+            .from('users')
+            .select('phone, password_hint, account_sent_at')
+            .eq('phone', cleanPhone)
+            .eq('role', 'customer')
+            .maybeSingle()
+          accountUser = data as AccountRow | null
+        }
+
+        if (!accountUser?.phone || !accountUser?.password_hint) {
+          await sendSlack(
+            `⚠️ 계정안내알림 스킵 — ${app.owner_name ?? ''} (${app.business_name ?? ''}): 계정 정보 없음 (아이디 또는 비밀번호 미등록)`
+          ).catch(() => {})
+        } else if (accountUser.account_sent_at) {
+          // 이미 발송됨 — 스킵
+        } else {
+          const accountPhone = accountUser.phone.replace(/-/g, '')
+          const ACCOUNT_TEMPLATE = 'KA01TP260404141110684azipFQYSyxX'
+          const APP_URL = 'https://bbk-app.vercel.app'
+
+          await sendAlimtalk(
+            accountPhone,
+            ACCOUNT_TEMPLATE,
+            {
+              '아이디':   accountUser.phone,
+              '비밀번호': accountUser.password_hint,
+              '앱URL':    APP_URL,
+            },
+            `[BBK 공간케어] ${app.owner_name ?? ''}님, 고객 포털 계정을 안내드립니다.\n아이디: ${accountUser.phone}\n비밀번호: ${accountUser.password_hint}\n접속: ${APP_URL}`
+          )
+
+          const accountNow = new Date().toISOString()
+
+          // account_sent_at 기록
+          await supabase
+            .from('users')
+            .update({ account_sent_at: accountNow })
+            .eq('phone', accountUser.phone)
+
+          // notification_log에 추가 (updatedLog 기준)
+          const accountEntry: NotificationLogEntry = {
+            type: '계정안내알림', sent_at: accountNow,
+            phone: accountPhone, method: 'auto', template_id: ACCOUNT_TEMPLATE,
+          }
+          await supabase
+            .from('service_applications')
+            .update({ notification_log: [accountEntry, ...updatedLog] })
+            .eq('id', application_id)
+
+          await saveNotificationHistory({
+            category: 'alimtalk',
+            type: '계정안내알림',
+            body: `계정안내알림 자동 발송 — ${app.owner_name ?? ''} (${accountPhone})`,
+            title: '계정안내알림',
+            method: 'auto',
+            recipientType: 'customer',
+            recipientName: String(app.owner_name ?? ''),
+            recipientPhone: accountPhone,
+            metadata: { application_id, trigger: '작업완료알림' },
+            status: 'sent',
+          })
+        }
+      } catch {
+        // 계정안내알림 실패는 메인 응답에 영향 없음
       }
     }
 
