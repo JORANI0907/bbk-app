@@ -583,8 +583,6 @@ export async function POST(request: NextRequest) {
           await sendSlack(
             `⚠️ 계정안내알림 스킵 — ${app.owner_name ?? ''} (${app.business_name ?? ''}): 계정 정보 없음 (아이디 또는 비밀번호 미등록)`
           ).catch(() => {})
-        } else if (accountUser.account_sent_at) {
-          // 이미 발송됨 — 스킵
         } else {
           const accountPhone = accountUser.phone.replace(/-/g, '')
           const ACCOUNT_TEMPLATE = 'KA01TP260404141110684azipFQYSyxX'
