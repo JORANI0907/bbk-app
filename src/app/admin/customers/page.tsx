@@ -35,6 +35,7 @@ interface Customer {
   door_password: string | null
   parking_info: string | null
   special_notes: string | null
+  admin_notes: string | null
   care_scope: string | null
   pipeline_status: string
   customer_type: CustomerType | null
@@ -121,7 +122,7 @@ const EMPTY_FORM = {
   platform_nickname: '', payment_method: '',
   elevator: '', building_access: '', access_method: '',
   business_hours_start: '', business_hours_end: '',
-  door_password: '', parking_info: '', special_notes: '', care_scope: '',
+  door_password: '', parking_info: '', special_notes: '', admin_notes: '', care_scope: '',
   customer_type: '1회성케어' as CustomerType,
   status: 'active' as CustomerStatus,
   disposition: '보통' as CustomerDisposition,
@@ -401,6 +402,7 @@ export default function AdminCustomersPage() {
     door_password: c.door_password ?? '',
     parking_info: c.parking_info ?? '',
     special_notes: c.special_notes ?? '',
+    admin_notes: c.admin_notes ?? '',
     care_scope: c.care_scope ?? '',
     customer_type: c.customer_type ?? '1회성케어',
     status: c.status ?? 'active',
@@ -495,6 +497,7 @@ export default function AdminCustomersPage() {
     door_password: form.door_password || null,
     parking_info: form.parking_info || null,
     special_notes: form.special_notes || null,
+    admin_notes: form.admin_notes || null,
     care_scope: form.care_scope || null,
     customer_type: form.customer_type,
     status: form.status,
@@ -630,6 +633,7 @@ export default function AdminCustomersPage() {
           // 시공정보
           care_scope: selected.care_scope,
           request_notes: selected.special_notes,
+          admin_request_notes: selected.admin_notes,
           // 결제정보
           payment_method: selected.payment_method,
           unit_price_per_visit: (serviceType === '정기딥케어' || serviceType === '정기엔드케어') ? (selected.unit_price ?? null) : null,
@@ -750,6 +754,7 @@ export default function AdminCustomersPage() {
             // 시공정보
             care_scope: c.care_scope,
             request_notes: c.special_notes,
+            admin_request_notes: c.admin_notes,
             // 결제정보 (연간 계약주기인 경우 금액 매핑 제외)
             payment_method: c.payment_method,
             unit_price_per_visit: (c.billing_cycle === '연간') ? null : ((serviceType === '정기딥케어' || serviceType === '정기엔드케어') ? (c.unit_price ?? null) : null),
@@ -1209,8 +1214,13 @@ export default function AdminCustomersPage() {
                     className="flex-1 border border-border rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-green-500 resize-none text-text-primary" />
                 </div>
                 <div className="flex items-start gap-2">
-                  <span className="text-xs text-text-secondary w-20 shrink-0 pt-1.5">요청사항</span>
+                  <span className="text-xs text-text-secondary w-20 shrink-0 pt-1.5">고객 요청사항</span>
                   <textarea value={form.special_notes} onChange={e => set('special_notes')(e.target.value)} rows={2}
+                    className="flex-1 border border-border rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-green-500 resize-none text-text-primary" />
+                </div>
+                <div className="flex items-start gap-2">
+                  <span className="text-xs text-text-secondary w-20 shrink-0 pt-1.5">관리자 요청사항</span>
+                  <textarea value={form.admin_notes ?? ''} onChange={e => set('admin_notes')(e.target.value)} rows={2}
                     className="flex-1 border border-border rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-green-500 resize-none text-text-primary" />
                 </div>
                 <div className="flex items-start gap-2">
