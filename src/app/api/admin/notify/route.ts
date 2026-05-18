@@ -590,6 +590,7 @@ export async function POST(request: NextRequest) {
           const ACCOUNT_TEMPLATE = 'KA01TP260404141110684azipFQYSyxX'
           const APP_URL = 'https://bbk-app.vercel.app'
 
+          // 카카오 알림톡
           await sendAlimtalk(
             accountPhone,
             ACCOUNT_TEMPLATE,
@@ -600,6 +601,19 @@ export async function POST(request: NextRequest) {
             },
             `[BBK 공간케어] ${app.owner_name ?? ''}님, 고객 포털 계정을 안내드립니다.\n아이디: ${accountUser.phone}\n비밀번호: ${accountUser.password_hint}\n접속: ${APP_URL}`
           )
+
+          // SMS — 앱 설치 링크
+          const installSms =
+            `안녕하세요, BBK 공간케어입니다 😊\n\n` +
+            `BBK 앱 설치 링크 안내드립니다.\n` +
+            `아래 링크 접속 후 버튼 한 번만 탭하시면\n` +
+            `홈 화면에 앱이 바로 추가됩니다!\n\n` +
+            `📲 앱 설치하기\n` +
+            `https://app.bbkorea.co.kr/install\n\n` +
+            `▪ 안드로이드: 버튼 탭 → 바로 설치\n` +
+            `▪ 아이폰: Safari로 접속 후 설치\n\n` +
+            `문의사항은 031-759-4877로 연락 주세요 🙏`
+          await sendSMS(accountPhone, installSms)
 
           const accountNow = new Date().toISOString()
 
