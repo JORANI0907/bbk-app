@@ -54,25 +54,12 @@ function isNameMatch(depositor: string, ownerName: string, businessName: string)
 
 // ─── SMS 파싱 유틸 ────────────────────────────────────────────────
 
-/** 은행 SMS에서 금액(원) 추출 */
+/** 은행 SMS에서 금액(원) 추출 — '입금' 다음 줄 순수 숫자 형식 */
 function extractAmount(text: string): number | null {
-  // 1차: '원' 포함 형식 (예: 80,000원 / 100000원)
-  for (const m of text.matchAll(/(\d{1,3}(?:,\d{3})*|\d+)\s*원/g)) {
-    const n = parseInt(m[1].replace(/,/g, ''), 10)
-    if (n >= AMOUNT_RANGE.MIN && n <= AMOUNT_RANGE.MAX) return n
-  }
-  // 2차: KB 형식 — '입금' 다음 줄에 금액만 있는 형식 (쉼표 있든 없든)
-  //   예) 조동환\n입금\n80,000  or  조동환\n입금\n100000
-  for (const m of text.matchAll(/입금[\r\n]+\s*(\d[\d,]*)원?/g)) {
-    const n = parseInt(m[1].replace(/,/g, ''), 10)
-    if (n >= AMOUNT_RANGE.MIN && n <= AMOUNT_RANGE.MAX) return n
-  }
-  // 3차: 쉼표 포함 독립 숫자 (다른 은행 형식)
-  for (const m of text.matchAll(/(?<![0-9*])(\d{1,3}(?:,\d{3})+)(?![0-9원,])/g)) {
-    const n = parseInt(m[1].replace(/,/g, ''), 10)
-    if (n >= AMOUNT_RANGE.MIN && n <= AMOUNT_RANGE.MAX) return n
-  }
-  return null
+  const m = text.match(/입금[\r\n]+\s*(\d+)/)
+  if (!m) return null
+  const n = parseInt(m[1], 10)
+  return n >= AMOUNT_RANGE.MIN && n <= AMOUNT_RANGE.MAX ? n : null
 }
 
 /** 은행 SMS에서 입금자명 추출 */
