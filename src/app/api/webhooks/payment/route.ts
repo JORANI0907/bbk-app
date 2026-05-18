@@ -190,16 +190,22 @@ async function fireNotify(
 export async function POST(request: NextRequest) {
   try {
     const contentType = request.headers.get('content-type') ?? ''
+    const rawBody = await request.text()
+
+    // ── [임시] 수신 데이터 Slack 로깅 ──────────────────────────────
+    await sendSlack(
+      `🔍 *입금 웹훅 수신 (RAW)*\n• Content-Type: ${contentType}\n• Body:\n\`\`\`${rawBody.slice(0, 500)}\`\`\``
+    ).catch(() => {})
+
     let message = '', bank = '', sender = ''
 
     if (contentType.includes('application/x-www-form-urlencoded')) {
-      const text   = await request.text()
-      const params = new URLSearchParams(text)
+      const params = new URLSearchParams(rawBody)
       message = params.get('message') ?? params.get('mb') ?? ''
       bank    = params.get('bank') ?? ''
       sender  = params.get('sender') ?? params.get('pni') ?? ''
     } else {
-      const body = await request.json() as PaymentPayload
+      const body = JSON.parse(rawBody) as PaymentPayload
       message = body.message ?? body['메시지 내용'] ?? ''
       bank    = body.bank ?? ''
       sender  = body.sender ?? ''
