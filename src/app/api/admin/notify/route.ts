@@ -309,14 +309,27 @@ export async function POST(request: NextRequest) {
         .eq('id', application_id)
         .single()
       if (!app) return NextResponse.json({ error: '신청서를 찾을 수 없습니다.' }, { status: 404 })
-      if (!app.assigned_to) return NextResponse.json({ error: '담당 작업자가 배정되지 않았습니다.' }, { status: 400 })
 
-      const { data: worker } = await supabase
-        .from('users')
-        .select('name, phone')
-        .eq('id', app.assigned_to)
-        .single()
-      if (!worker?.phone) return NextResponse.json({ error: '직원 전화번호가 없습니다. 직원관리 탭에서 연락처를 확인해주세요.' }, { status: 400 })
+      // work_assignments에서 실제 배정된 작업자 조회
+      const { data: assignments } = await supabase
+        .from('work_assignments')
+        .select('worker_id')
+        .eq('application_id', application_id)
+
+      if (!assignments?.length) {
+        return NextResponse.json({ error: '배정된 작업자가 없습니다. 먼저 작업자를 배정해주세요.' }, { status: 400 })
+      }
+
+      const workerIds = assignments.map(a => a.worker_id)
+      const { data: workerRows } = await supabase
+        .from('workers')
+        .select('id, name, phone')
+        .in('id', workerIds)
+
+      const validWorkers = (workerRows ?? []).filter(w => w.phone)
+      if (!validWorkers.length) {
+        return NextResponse.json({ error: '배정된 작업자의 전화번호가 없습니다. 작업자 관리에서 연락처를 확인해주세요.' }, { status: 400 })
+      }
 
       const date = app.construction_date?.slice(0, 10) ?? '-'
       const start = app.business_hours_start ?? '-'
@@ -332,67 +345,72 @@ export async function POST(request: NextRequest) {
         ? `시공시간: ${ctLabel}`
         : `시간: ${start} ~ ${end}`
 
-      let smsText: string
-      if (type === '작업자 일정 안내') {
-        smsText =
-          `[BBK 공간케어] ${worker.name ?? ''}님 일정 안내\n` +
-          `업체: ${app.business_name ?? '-'}\n` +
-          `주소: ${app.address ?? '-'}\n` +
-          `일자: ${date}\n` +
-          `${timeLine}`
-      } else {
-        const ctLine = ctLabel ? `시공시간: ${ctLabel}` : null
-        const bizHoursLine = (app.business_hours_start || app.business_hours_end)
-          ? `영업시간: ${app.business_hours_start ?? '-'} ~ ${app.business_hours_end ?? '-'}`
-          : null
-        const parts = [
-          `[BBK 공간케어] ${worker.name ?? ''}님 자세한 일정 안내`,
-          `\n[기본 정보]`,
-          `업체: ${app.business_name ?? '-'}`,
-          `주소: ${app.address ?? '-'}`,
-          `일자: ${date}`,
-          ...(ctLine ? [ctLine] : []),
-          ...(bizHoursLine ? [bizHoursLine] : []),
-          `\n[현장 연락]`,
-          `고객연락처: ${app.phone ?? '-'}`,
-          `\n[출입 안내]`,
-          `주차: ${app.parking ?? '-'}`,
-          `건물출입: ${app.building_access ?? '-'}`,
-          `엘리베이터: ${app.elevator ?? '-'}`,
-          `출입방법: ${app.access_method ?? '-'}`,
-          `\n[작업 안내]`,
-          `케어범위: ${app.care_scope ?? '-'}`,
-          `고객 요청: ${app.request_notes ?? '-'}`,
-          `관리자 요청: ${app.admin_notes ?? '-'}`,
-          `\n사진(드라이브): ${app.drive_folder_url ?? '-'}`,
-        ]
-        smsText = parts.join('\n')
-      }
-
-      await sendSMS(worker.phone, smsText)
-
       const nowIso = new Date().toISOString()
       const existingLog = Array.isArray(app.notification_log) ? app.notification_log : []
-      const newEntry = { type, sent_at: nowIso, phone: worker.phone, method }
+      const sentPhones: string[] = []
+
+      for (const worker of validWorkers) {
+        let smsText: string
+        if (type === '작업자 일정 안내') {
+          smsText =
+            `[BBK 공간케어] ${worker.name ?? ''}님 일정 안내\n` +
+            `업체: ${app.business_name ?? '-'}\n` +
+            `주소: ${app.address ?? '-'}\n` +
+            `일자: ${date}\n` +
+            `${timeLine}`
+        } else {
+          const ctLine = ctLabel ? `시공시간: ${ctLabel}` : null
+          const bizHoursLine = (app.business_hours_start || app.business_hours_end)
+            ? `영업시간: ${app.business_hours_start ?? '-'} ~ ${app.business_hours_end ?? '-'}`
+            : null
+          const parts = [
+            `[BBK 공간케어] ${worker.name ?? ''}님 자세한 일정 안내`,
+            `\n[기본 정보]`,
+            `업체: ${app.business_name ?? '-'}`,
+            `주소: ${app.address ?? '-'}`,
+            `일자: ${date}`,
+            ...(ctLine ? [ctLine] : []),
+            ...(bizHoursLine ? [bizHoursLine] : []),
+            `\n[현장 연락]`,
+            `고객연락처: ${app.phone ?? '-'}`,
+            `\n[출입 안내]`,
+            `주차: ${app.parking ?? '-'}`,
+            `건물출입: ${app.building_access ?? '-'}`,
+            `엘리베이터: ${app.elevator ?? '-'}`,
+            `출입방법: ${app.access_method ?? '-'}`,
+            `\n[작업 안내]`,
+            `케어범위: ${app.care_scope ?? '-'}`,
+            `고객 요청: ${app.request_notes ?? '-'}`,
+            `관리자 요청: ${app.admin_notes ?? '-'}`,
+            `\n사진(드라이브): ${app.drive_folder_url ?? '-'}`,
+          ]
+          smsText = parts.join('\n')
+        }
+
+        await sendSMS(worker.phone!, smsText)
+        sentPhones.push(worker.phone!)
+
+        await saveNotificationHistory({
+          category: 'sms',
+          type,
+          body: `${type} 발송 완료 — ${worker.name ?? ''} (${worker.phone})`,
+          title: type,
+          method,
+          recipientType: 'worker',
+          recipientName: String(worker.name ?? ''),
+          recipientPhone: worker.phone!,
+          metadata: { application_id },
+          status: 'sent',
+        })
+      }
+
+      const newEntry = { type, sent_at: nowIso, phone: sentPhones.join(','), method }
       await supabase
         .from('service_applications')
         .update({ notification_log: [newEntry, ...existingLog] })
         .eq('id', application_id)
 
-      await saveNotificationHistory({
-        category: 'sms',
-        type,
-        body: `${type} 발송 완료 — ${worker.name ?? ''} (${worker.phone})`,
-        title: type,
-        method,
-        recipientType: 'worker',
-        recipientName: String(worker.name ?? ''),
-        recipientPhone: worker.phone,
-        metadata: { application_id },
-        status: 'sent',
-      })
-
-      return NextResponse.json({ success: true, new_status: null, worker_phone: worker.phone })
+      return NextResponse.json({ success: true, new_status: null, worker_phones: sentPhones })
     }
 
     const templateId = ALIMTALK_TEMPLATES[type]

@@ -1935,9 +1935,13 @@ export default function ServiceManagementPage() {
                 </div>
                 {notifyType && (() => {
                   const isWorker = notifyType === '작업자 일정 안내' || notifyType === '작업자 자세한 일정 안내'
-                  const assignedWorker = isWorker ? workers.find(w => w.id === assignedTo) : null
                   const target = isWorker
-                    ? (assignedWorker ? `${assignedWorker.name} (${assignedWorker.phone ?? '번호 없음'})` : '작업자 미배정')
+                    ? (selectedWorkerIds.length > 0
+                      ? selectedWorkerIds.map(wid => {
+                          const w = workers.find(w => w.id === wid)
+                          return w ? `${w.name} (${w.phone ?? '번호 없음'})` : wid
+                        }).join(', ')
+                      : '배정된 작업자 없음')
                     : phone
                   return (
                     <div className={`mb-3 px-3 py-2 rounded-lg text-xs ${isWorker ? 'bg-slate-50 border border-slate-200 text-slate-700' : 'bg-orange-50 border border-orange-200 text-orange-700'}`}>
