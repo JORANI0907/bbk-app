@@ -600,7 +600,7 @@ export async function POST(request: NextRequest) {
             `[BBK 공간케어] ${app.owner_name ?? ''}님, 고객 포털 계정을 안내드립니다.\n아이디: ${accountUser.phone}\n비밀번호: ${accountUser.password_hint}\n접속: ${APP_URL}`
           )
 
-          // SMS — 앱 설치 링크
+          // SMS — 앱 설치 링크 (앱설치안내알림)
           const installSms =
             `안녕하세요, BBK 공간케어입니다 😊\n\n` +
             `BBK 앱 설치 링크 안내드립니다.\n` +
@@ -621,21 +621,40 @@ export async function POST(request: NextRequest) {
             .update({ account_sent_at: accountNow })
             .eq('phone', accountUser.phone)
 
-          // notification_log에 추가 (updatedLog 기준)
+          // notification_log에 두 항목 추가
           const accountEntry: NotificationLogEntry = {
             type: '계정안내알림', sent_at: accountNow,
             phone: accountPhone, method: 'auto', template_id: ACCOUNT_TEMPLATE,
           }
+          const installEntry: NotificationLogEntry = {
+            type: '앱설치안내알림', sent_at: accountNow,
+            phone: accountPhone, method: 'auto',
+          }
           await supabase
             .from('service_applications')
-            .update({ notification_log: [accountEntry, ...updatedLog] })
+            .update({ notification_log: [installEntry, accountEntry, ...updatedLog] })
             .eq('id', application_id)
 
+          // 계정안내알림 이력
           await saveNotificationHistory({
             category: 'alimtalk',
             type: '계정안내알림',
             body: `계정안내알림 자동 발송 — ${app.owner_name ?? ''} (${accountPhone})`,
             title: '계정안내알림',
+            method: 'auto',
+            recipientType: 'customer',
+            recipientName: String(app.owner_name ?? ''),
+            recipientPhone: accountPhone,
+            metadata: { application_id, trigger: '작업완료알림' },
+            status: 'sent',
+          })
+
+          // 앱설치안내알림 이력
+          await saveNotificationHistory({
+            category: 'sms',
+            type: '앱설치안내알림',
+            body: `앱설치안내알림 SMS 자동 발송 — ${app.owner_name ?? ''} (${accountPhone})`,
+            title: '앱설치안내알림',
             method: 'auto',
             recipientType: 'customer',
             recipientName: String(app.owner_name ?? ''),

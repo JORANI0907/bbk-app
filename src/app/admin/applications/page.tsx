@@ -122,6 +122,8 @@ const NOTIFY_TYPE_CONFIG: Record<string, { badge: string; dot: string }> = {
   '작업자 일정 안내':        { badge: 'bg-slate-100 text-slate-700',  dot: 'bg-slate-500' },
   '작업자 자세한 일정 안내': { badge: 'bg-slate-200 text-slate-800',  dot: 'bg-slate-600' },
   '구독권유알림':      { badge: 'bg-pink-100 text-pink-700',       dot: 'bg-pink-500' },
+  '계정안내알림':      { badge: 'bg-purple-100 text-purple-700',   dot: 'bg-purple-500' },
+  '앱설치안내알림':    { badge: 'bg-fuchsia-100 text-fuchsia-700', dot: 'bg-fuchsia-500' },
 }
 const SORT_LABELS: Record<SortField, string> = {
   construction_date: '시공일자',
