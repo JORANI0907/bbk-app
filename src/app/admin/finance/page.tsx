@@ -543,6 +543,22 @@ export default function FinancePage() {
                       <span className="text-sm font-bold text-indigo-700 font-mono">{fmt(data.fixed.total)}원</span>
                     </div>
                   </div>
+                  {data.fixed.records.length > 0 && data.fixed.total > 0 && (
+                    <div className="px-4 py-3 border-b border-indigo-100 bg-indigo-50/30">
+                      <p className="text-xs font-semibold text-indigo-400 uppercase tracking-wide mb-2">항목별 구성</p>
+                      <div className="space-y-2">
+                        {[...data.fixed.records].sort((a, b) => b.amount - a.amount).map(r => (
+                          <div key={`chart-fixed-${r.id}`}>
+                            <div className="flex justify-between items-center text-xs mb-0.5">
+                              <span className="text-text-secondary truncate mr-2">{r.name}</span>
+                              <span className="font-mono shrink-0 text-text-primary font-medium">{fmt(r.amount)}원</span>
+                            </div>
+                            <Bar value={r.amount} total={data.fixed.total} color="bg-indigo-400" />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                   {data.fixed.records.length > 0 && (
                     <div className="px-4 py-2 border-b border-border-subtle flex items-center gap-3 bg-surface-sunken">
                       <label className="flex items-center gap-1.5 cursor-pointer">
@@ -614,6 +630,22 @@ export default function FinancePage() {
                       <span className="text-sm font-bold text-purple-700 font-mono">{fmt(data.variable.total)}원</span>
                     </div>
                   </div>
+                  {data.variable.records.length > 0 && data.variable.total > 0 && (
+                    <div className="px-4 py-3 border-b border-purple-100 bg-purple-50/30">
+                      <p className="text-xs font-semibold text-purple-400 uppercase tracking-wide mb-2">항목별 구성</p>
+                      <div className="space-y-2">
+                        {[...data.variable.records].sort((a, b) => b.amount - a.amount).map(r => (
+                          <div key={`chart-variable-${r.id}`}>
+                            <div className="flex justify-between items-center text-xs mb-0.5">
+                              <span className="text-text-secondary truncate mr-2">{r.name}</span>
+                              <span className="font-mono shrink-0 text-text-primary font-medium">{fmt(r.amount)}원</span>
+                            </div>
+                            <Bar value={r.amount} total={data.variable.total} color="bg-purple-400" />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                   {data.variable.records.length > 0 && (
                     <div className="px-4 py-2 border-b border-border-subtle flex items-center gap-3 bg-surface-sunken">
                       <label className="flex items-center gap-1.5 cursor-pointer">

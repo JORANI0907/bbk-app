@@ -11,9 +11,6 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'month 파라미터가 필요합니다. (YYYY-MM)' }, { status: 400 })
   }
 
-  const monthNum = parseInt(month.split('-')[1], 10)
-  const monthLabel = `${monthNum}월`
-
   const nextMonth = (() => {
     const [y, m] = month.split('-').map(Number)
     return m === 12 ? `${y + 1}-01-01` : `${y}-${String(m + 1).padStart(2, '0')}-01`
@@ -54,15 +51,15 @@ export async function GET(request: NextRequest) {
       .eq('category', 'variable')
       .order('created_at'),
 
-    // 정기엔드케어 매출: 고객관리 탭에서 이번달 결제현황 체크된 고객
-    // payment_status는 jsonb 배열 → cs 연산자로 직접 필터링
+    // 정기엔드케어 매출: service_billings 테이블에서 해당 월 결제완료 이력 조회
     supabase
-      .from('customers')
-      .select('id, business_name, billing_amount, payment_method')
-      .eq('customer_type', '정기엔드케어')
-      .filter('payment_status', 'cs', `["${monthLabel}"]`)
-      .not('billing_amount', 'is', null)
-      .is('deleted_at', null),
+      .from('service_billings')
+      .select('id, amount, customer_id, customers!inner(id, business_name, payment_method, customer_type, deleted_at)')
+      .eq('billing_period', month)
+      .eq('status', 'paid')
+      .eq('billing_type', 'monthly')
+      .eq('customers.customer_type', '정기엔드케어')
+      .is('customers.deleted_at', null),
 
     // 정기딥케어 연간 매출: 계약 시작일이 해당 월에 포함된 고객
     supabase
@@ -86,7 +83,6 @@ export async function GET(request: NextRequest) {
   const payrolls = payrollRes.data ?? []
   const fixedRecords = fixedRes.data ?? []
   const variableRecords = variableRes.data ?? []
-  const endCareCustomers = endCareRes.data ?? []
   const deepCareAnnualCustomers = deepCareAnnualRes.data ?? []
 
   // 부가세 미적용 여부: '비과세' 또는 '미희망' 키워드 포함 시 (legacy '현금(부가세 X)' 포함)
@@ -99,18 +95,21 @@ export async function GET(request: NextRequest) {
     return { ...a, total }
   })
 
-  // 정기엔드케어 매출 (고객관리 탭 billing_amount + 결제방법별 부가세 처리)
-  const endCareItems = endCareCustomers.map(c => {
-    const supply = c.billing_amount ?? 0
-    const vatAmt = isNoVat(c.payment_method) ? 0 : Math.round(supply * 0.1)
+  // 정기엔드케어 매출 (service_billings 결제완료 이력 기반)
+  type EndCareCustomer = { id: string; business_name: string; payment_method: string | null; customer_type: string; deleted_at: string | null }
+  type EndCareRaw = { id: string; amount: number; customer_id: string; customers: EndCareCustomer[] }
+  const endCareItems = ((endCareRes.data ?? []) as unknown as EndCareRaw[]).map(b => {
+    const customer = b.customers?.[0]
+    const supply = b.amount ?? 0
+    const vatAmt = isNoVat(customer?.payment_method ?? null) ? 0 : Math.round(supply * 0.1)
     return {
-      id: c.id,
-      business_name: c.business_name,
+      id: b.id,
+      business_name: customer?.business_name ?? '알 수 없음',
       service_type: '정기엔드케어',
       construction_date: null as string | null,
       supply_amount: supply,
       vat: vatAmt,
-      payment_method: c.payment_method as string | null,
+      payment_method: customer?.payment_method ?? null,
       total: supply + vatAmt,
     }
   })
