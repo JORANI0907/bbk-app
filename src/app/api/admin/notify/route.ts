@@ -12,8 +12,12 @@ const NOTIFY_TO_STATUS: Record<string, string> = {
   '예약확정알림':       '예약확정',
   '예약1일전알림':      '예약1일전',
   '예약당일알림':       '예약당일',
-  '작업완료알림':       '작업완료',
-  '결제알림':           '결제',
+  '작업완료알림':           '작업완료',
+  '작업완료알림(현금)':     '작업완료',
+  '작업완료알림(카드,플렛폼)': '작업완료',
+  '결제알림':               '결제',
+  '결제알림(현금)':         '결제',
+  '결제알림(카드,플렛폼)':  '결제',
   '결제완료알림':       '결제완료',
   '결제완료알림(잔금)':   '결제완료(잔금)',
   '예약금 입금완료 알림': '예약금 입금',
@@ -30,8 +34,12 @@ const ALIMTALK_TEMPLATES: Record<string, string> = {
   '예약확정알림':       'KA01TP260324131935207wzarljIsiyK',
   '예약1일전알림':      'KA01TP260324131935294IPmMhH8BWA8',
   '예약당일알림':       'KA01TP2603241319353583492vcrZ9c2',
-  '작업완료알림':       'KA01TP260324125200271OOXEk0LPiAS',
-  '결제알림':           'KA01TP260324125232471CIIHJKDOBsf',
+  '작업완료알림':           'KA01TP260324125200271OOXEk0LPiAS',
+  '작업완료알림(현금)':     'KA01TP260324125200310YfeiY0REGVv',
+  '작업완료알림(카드,플렛폼)': 'KA01TP260324132220016T20FiBMSKKA',
+  '결제알림':               'KA01TP260324125232471CIIHJKDOBsf',
+  '결제알림(현금)':         'KA01TP251127095540783njh0ig3nyjg',
+  '결제알림(카드,플렛폼)':  'KA01TP251201210650817mczUreAtEjU',
   '결제완료알림':       'KA01TP260324125232674HVfev9PAzUe',
   '결제완료알림(잔금)':   'KA01TP260324125232674HVfev9PAzUe',
   '예약금 입금완료 알림': 'KA01TP260220102437819kp8ysvD4XqB',
@@ -141,6 +149,8 @@ function buildVariables(
         '미팅시간': meetingTime,
       }
     case '작업완료알림':
+    case '작업완료알림(현금)':
+    case '작업완료알림(카드,플렛폼)':
       return {
         '고객명':     ownerName,
         '구글URL':    driveUrl,
@@ -148,6 +158,8 @@ function buildVariables(
         '입금자고객명': ownerName,
       }
     case '결제알림':
+    case '결제알림(현금)':
+    case '결제알림(카드,플렛폼)':
       return {
         '고객명':   ownerName,
         '청소비용': balance,
@@ -218,8 +230,12 @@ function buildFallback(type: string, app: Record<string, unknown>): string {
     '예약확정알림':       `[BBK 공간케어] ${name}님, ${bizName} 예약이 확정되었습니다. (${date})`,
     '예약1일전알림':      `[BBK 공간케어] ${name}님, 내일 ${bizName} 방문 예정입니다.`,
     '예약당일알림':       `[BBK 공간케어] ${name}님, 오늘 방문 예정입니다. 준비 확인 부탁드립니다.`,
-    '작업완료알림':       `[BBK 공간케어] ${name}님, 케어가 완료되었습니다. 감사합니다.`,
-    '결제알림':           `[BBK 공간케어] ${name}님, 잔금 결제를 요청드립니다.`,
+    '작업완료알림':           `[BBK 공간케어] ${name}님, 케어가 완료되었습니다. 감사합니다.`,
+    '작업완료알림(현금)':     `[BBK 공간케어] ${name}님, 케어가 완료되었습니다. 감사합니다.`,
+    '작업완료알림(카드,플렛폼)': `[BBK 공간케어] ${name}님, 케어가 완료되었습니다. 감사합니다.`,
+    '결제알림':               `[BBK 공간케어] ${name}님, 잔금 결제를 요청드립니다.`,
+    '결제알림(현금)':         `[BBK 공간케어] ${name}님, 잔금 결제를 요청드립니다.`,
+    '결제알림(카드,플렛폼)':  `[BBK 공간케어] ${name}님, 잔금 결제를 요청드립니다.`,
     '결제완료알림':       `[BBK 공간케어] ${name}님, 결제가 완료되었습니다. 감사합니다.`,
     '결제완료알림(잔금)': `[BBK 공간케어] ${name}님, 잔금 결제가 완료되었습니다. 감사합니다.`,
     '계산서발행완료알림': `[BBK 공간케어] ${name}님, 세금계산서가 발행되었습니다.`,
@@ -471,7 +487,11 @@ export async function POST(request: NextRequest) {
     const dbUpdates: Record<string, unknown> = { notification_log: updatedLog }
     if (newStatus) dbUpdates.status = newStatus
     // 작업완료알림 발송 시 notification_sent_at 기록 (WorkPanel 완료 표시용)
-    if (type === '작업완료알림') {
+    if (
+      type === '작업완료알림' ||
+      type === '작업완료알림(현금)' ||
+      type === '작업완료알림(카드,플렛폼)'
+    ) {
       dbUpdates.notification_sent_at = nowIso
       dbUpdates.notification_send_at = null
     }
@@ -551,7 +571,11 @@ export async function POST(request: NextRequest) {
 
     // ── 작업완료알림 발송 직후 계정안내알림 자동 발송 ────────────────
     if (
-      type === '작업완료알림' &&
+      (
+        type === '작업완료알림' ||
+        type === '작업완료알림(현금)' ||
+        type === '작업완료알림(카드,플렛폼)'
+      ) &&
       ['정기딥케어', '정기엔드케어'].includes(String(app.service_type ?? ''))
     ) {
       try {
