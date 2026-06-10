@@ -291,9 +291,27 @@ function AppCalendarView({
     return map
   }, [applications])
 
+  const dayAmountMap = useMemo(() => {
+    const map: Record<string, number> = {}
+    for (const app of applications) {
+      if (!app.construction_date) continue
+      const d = app.construction_date.slice(0, 10)
+      map[d] = (map[d] ?? 0) + rowTotal(app)
+    }
+    return map
+  }, [applications])
+
   const cells: (number | null)[] = []
   for (let i = 0; i < firstDay; i++) cells.push(null)
   for (let d = 1; d <= daysInMonth; d++) cells.push(d)
+
+  // 7개씩 묶어 주(week) 단위로 분리
+  const weeks: (number | null)[][] = []
+  for (let i = 0; i < cells.length; i += 7) {
+    const week = cells.slice(i, i + 7)
+    while (week.length < 7) week.push(null)
+    weeks.push(week)
+  }
 
   const DAYS = ['일', '월', '화', '수', '목', '금', '토']
 
@@ -329,40 +347,65 @@ function AppCalendarView({
             </div>
           ))}
         </div>
-        <div className="grid grid-cols-7 auto-rows-[5rem] sm:auto-rows-[7rem]">
-          {cells.map((day, i) => {
-            if (!day) return <div key={`e-${i}`} className="border-r border-b border-border-subtle bg-surface-sunken/40" />
-            const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
-            const apps = dayMap[dateStr] ?? []
-            const isToday = dateStr === todayStr
-            const dow = (firstDay + day - 1) % 7
-            const hasApps = apps.length > 0
-
+        <div className="flex flex-col">
+          {weeks.map((week, wi) => {
+            const weekTotal = week.reduce<number>((sum, day) => {
+              if (!day) return sum
+              const d = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+              return sum + (dayAmountMap[d] ?? 0)
+            }, 0)
             return (
-              <div
-                key={day}
-                onClick={() => hasApps && onDaySelect(dateStr, apps)}
-                className={`border-r border-b border-border-subtle p-1.5 flex flex-col gap-0.5
-                  ${isToday ? 'bg-brand-50' : (dow === 0 || dow === 6) ? 'bg-surface-sunken/50' : ''}
-                  ${hasApps ? 'cursor-pointer hover:bg-brand-50/30 transition-colors' : ''}`}
-              >
-                <div className={`text-xs font-bold w-6 h-6 flex items-center justify-center rounded-full shrink-0
-                  ${isToday ? 'bg-brand-600 text-white' : dow === 0 ? 'text-red-500' : dow === 6 ? 'text-brand-500' : 'text-text-primary'}`}>
-                  {day}
-                </div>
-                <div className="flex flex-col gap-0.5 overflow-hidden">
-                  {apps.slice(0, 3).map(app => {
-                    const cfg = STATUS_CONFIG[app.status] ?? STATUS_CONFIG['예약확정']
+              <div key={wi}>
+                <div className="grid grid-cols-7 auto-rows-[5rem] sm:auto-rows-[7rem]">
+                  {week.map((day, di) => {
+                    if (!day) return <div key={`e-${wi}-${di}`} className="border-r border-b border-border-subtle bg-surface-sunken/40" />
+                    const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+                    const apps = dayMap[dateStr] ?? []
+                    const isToday = dateStr === todayStr
+                    const dow = (firstDay + day - 1) % 7
+                    const hasApps = apps.length > 0
+                    const dayAmount = dayAmountMap[dateStr] ?? 0
                     return (
-                      <div key={app.id} className={`px-1 py-0.5 rounded text-[10px] font-semibold truncate leading-tight ${cfg.color}`}>
-                        {app.business_name}
+                      <div
+                        key={day}
+                        onClick={() => hasApps && onDaySelect(dateStr, apps)}
+                        className={`border-r border-b border-border-subtle p-1.5 flex flex-col gap-0.5
+                          ${isToday ? 'bg-brand-50' : (dow === 0 || dow === 6) ? 'bg-surface-sunken/50' : ''}
+                          ${hasApps ? 'cursor-pointer hover:bg-brand-50/30 transition-colors' : ''}`}
+                      >
+                        <div className="flex items-center justify-between min-w-0">
+                          <div className={`text-xs font-bold w-6 h-6 flex items-center justify-center rounded-full shrink-0
+                            ${isToday ? 'bg-brand-600 text-white' : dow === 0 ? 'text-red-500' : dow === 6 ? 'text-brand-500' : 'text-text-primary'}`}>
+                            {day}
+                          </div>
+                          {dayAmount > 0 && (
+                            <span className="text-[8px] font-semibold text-emerald-600 truncate leading-tight ml-0.5">
+                              {dayAmount >= 10000 ? `${+(dayAmount / 10000).toFixed(1)}만` : `${dayAmount.toLocaleString('ko-KR')}`}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex flex-col gap-0.5 overflow-hidden">
+                          {apps.slice(0, 3).map(app => {
+                            const cfg = STATUS_CONFIG[app.status] ?? STATUS_CONFIG['예약확정']
+                            return (
+                              <div key={app.id} className={`px-1 py-0.5 rounded text-[10px] font-semibold truncate leading-tight ${cfg.color}`}>
+                                {app.business_name}
+                              </div>
+                            )
+                          })}
+                          {apps.length > 3 && (
+                            <div className="text-[10px] text-text-tertiary px-1 font-medium">+{apps.length - 3}건</div>
+                          )}
+                        </div>
                       </div>
                     )
                   })}
-                  {apps.length > 3 && (
-                    <div className="text-[10px] text-text-tertiary px-1 font-medium">+{apps.length - 3}건</div>
-                  )}
                 </div>
+                {weekTotal > 0 && (
+                  <div className="flex justify-end items-center px-3 py-1 border-b border-border-subtle bg-emerald-50/60">
+                    <span className="text-xs font-semibold text-emerald-700">주간 합계 {weekTotal.toLocaleString('ko-KR')}원</span>
+                  </div>
+                )}
               </div>
             )
           })}
