@@ -106,11 +106,12 @@ function buildVariables(
   const email       = String(app.email ?? '')
   const emailParts  = email.includes('@') ? email.split('@') : [email, '']
 
-  // 잔금 계산 (supply_amount + vat - deposit)
+  // 금액 계산
   const supply  = Number(app.supply_amount ?? 0)
   const vat     = Number(app.vat ?? 0)
   const dep     = Number(app.deposit ?? 0)
-  const balance = String(((supply + vat) - dep).toLocaleString('ko-KR'))
+  const total   = String((supply + vat).toLocaleString('ko-KR'))          // 총액 (공급가액+부가세)
+  const balance = String(((supply + vat) - dep).toLocaleString('ko-KR'))  // 잔금 (총액-예약금)
 
   // 사전미팅 여부 / 시간
   const preMeetingAt = app.pre_meeting_at as string | null | undefined
@@ -150,19 +151,29 @@ function buildVariables(
       }
     case '작업완료알림':
     case '작업완료알림(현금)':
+      return {
+        '고객명':     ownerName,
+        '구글URL':    driveUrl,
+        '청소비용':   balance,   // 잔금 (총액 - 예약금)
+        '입금자고객명': ownerName,
+      }
     case '작업완료알림(카드,플렛폼)':
       return {
         '고객명':     ownerName,
         '구글URL':    driveUrl,
-        '청소비용':   balance,
+        '청소비용':   total,     // 총액 (예약금 환급 후 카드 전액 결제)
         '입금자고객명': ownerName,
       }
     case '결제알림':
     case '결제알림(현금)':
+      return {
+        '고객명':   ownerName,
+        '청소비용': balance,   // 잔금 (총액 - 예약금)
+      }
     case '결제알림(카드,플렛폼)':
       return {
         '고객명':   ownerName,
-        '청소비용': balance,
+        '청소비용': total,     // 총액 (예약금 환급 후 카드 전액 결제)
       }
     case '결제완료알림':
     case '결제완료알림(잔금)':
