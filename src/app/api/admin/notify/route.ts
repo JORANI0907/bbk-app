@@ -272,11 +272,13 @@ interface NotificationLogEntry {
 
 export async function POST(request: NextRequest) {
   try {
-    const { application_id, type, method = 'manual' } = await request.json() as {
+    const body = await request.json() as {
       application_id: string
       type: string
       method?: 'auto' | 'manual'
     }
+    const { application_id, method = 'manual' } = body
+    let type = body.type
     if (!application_id || !type) {
       return NextResponse.json({ error: '필수 항목 누락' }, { status: 400 })
     }
@@ -442,8 +444,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: true, new_status: null, worker_phones: sentPhones })
     }
 
-    const templateId = ALIMTALK_TEMPLATES[type]
-    if (!templateId) {
+    let templateId = ALIMTALK_TEMPLATES[type]
+    if (!templateId && type !== '작업완료알림') {
       return NextResponse.json({ error: '알 수 없는 알림 유형입니다.' }, { status: 400 })
     }
 
@@ -455,6 +457,20 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (!app) return NextResponse.json({ error: '신청서를 찾을 수 없습니다.' }, { status: 404 })
+
+    // 작업완료알림: payment_method에 따라 실제 알림 유형 결정
+    if (type === '작업완료알림') {
+      const pm = String(app.payment_method ?? '')
+      if (pm === '현금(비과세)') {
+        type = '작업완료알림(현금)'
+      } else if (pm === '카드(온라인 간편결제)' || pm === '플렛폼') {
+        type = '작업완료알림(카드,플렛폼)'
+      }
+      templateId = ALIMTALK_TEMPLATES[type]
+      if (!templateId) {
+        return NextResponse.json({ error: '알 수 없는 알림 유형입니다.' }, { status: 400 })
+      }
+    }
 
     // 신청서작성완료알림 1회 제한
     if (type === '신청서작성완료알림') {
