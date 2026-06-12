@@ -373,13 +373,13 @@ function AppCalendarView({
                           ${isToday ? 'bg-brand-50' : (dow === 0 || dow === 6) ? 'bg-surface-sunken/50' : ''}
                           ${hasApps ? 'cursor-pointer hover:bg-brand-50/30 transition-colors' : ''}`}
                       >
-                        <div className="flex items-center justify-between min-w-0">
+                        <div className="min-w-0">
                           <div className={`text-xs font-bold w-6 h-6 flex items-center justify-center rounded-full shrink-0
                             ${isToday ? 'bg-brand-600 text-white' : dow === 0 ? 'text-red-500' : dow === 6 ? 'text-brand-500' : 'text-text-primary'}`}>
                             {day}
                           </div>
                           {dayAmount > 0 && (
-                            <span className="text-[8px] font-semibold text-emerald-600 truncate leading-tight ml-0.5">
+                            <span className="text-[9px] font-semibold text-emerald-600 whitespace-nowrap leading-tight">
                               {dayAmount >= 10000 ? `${+(dayAmount / 10000).toFixed(1)}만` : `${dayAmount.toLocaleString('ko-KR')}`}
                             </span>
                           )}
