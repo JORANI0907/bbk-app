@@ -301,6 +301,10 @@ function AppCalendarView({
     return map
   }, [applications])
 
+  const monthTotal = useMemo(() =>
+    applications.reduce((sum, app) => sum + rowTotal(app), 0)
+  , [applications])
+
   const cells: (number | null)[] = []
   for (let i = 0; i < firstDay; i++) cells.push(null)
   for (let d = 1; d <= daysInMonth; d++) cells.push(d)
@@ -410,6 +414,16 @@ function AppCalendarView({
             )
           })}
         </div>
+
+        {/* 월간 총액 */}
+        {monthTotal > 0 && (
+          <div className="flex justify-between items-center px-4 py-3 border-t border-border bg-emerald-50">
+            <span className="text-sm font-bold text-emerald-800">{selectedMonth.slice(0, 4)}년 {selectedMonth.slice(5, 7)}월 총액</span>
+            <span className="text-sm font-bold text-emerald-700">{monthTotal.toLocaleString('ko-KR')}원</span>
+          </div>
+        )}
+
+        <div className="pb-20" />
       </div>
 
       {/* 날짜 목록 패널 */}
