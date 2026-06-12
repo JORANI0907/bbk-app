@@ -356,7 +356,7 @@ function AppCalendarView({
             }, 0)
             return (
               <div key={wi}>
-                <div className="grid grid-cols-7 auto-rows-[5rem] sm:auto-rows-[7rem]">
+                <div className="grid grid-cols-7">
                   {week.map((day, di) => {
                     if (!day) return <div key={`e-${wi}-${di}`} className="border-r border-b border-border-subtle bg-surface-sunken/40" />
                     const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
@@ -369,7 +369,7 @@ function AppCalendarView({
                       <div
                         key={day}
                         onClick={() => hasApps && onDaySelect(dateStr, apps)}
-                        className={`border-r border-b border-border-subtle p-1.5 flex flex-col gap-0.5
+                        className={`border-r border-b border-border-subtle p-1.5 flex flex-col gap-0.5 min-h-[5rem] sm:min-h-[7rem]
                           ${isToday ? 'bg-brand-50' : (dow === 0 || dow === 6) ? 'bg-surface-sunken/50' : ''}
                           ${hasApps ? 'cursor-pointer hover:bg-brand-50/30 transition-colors' : ''}`}
                       >
@@ -388,7 +388,7 @@ function AppCalendarView({
                           {apps.slice(0, 3).map(app => {
                             const cfg = STATUS_CONFIG[app.status] ?? STATUS_CONFIG['예약확정']
                             return (
-                              <div key={app.id} className={`px-1 py-0.5 rounded text-[10px] font-semibold truncate leading-tight ${cfg.color}`}>
+                              <div key={app.id} className={`px-1 py-px rounded text-[9px] font-semibold truncate leading-tight ${cfg.color}`}>
                                 {app.business_name}
                               </div>
                             )
