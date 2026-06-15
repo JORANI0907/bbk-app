@@ -26,5 +26,5 @@ export function getServerSession(): { userId: string; role: string; name: string
   if (!token) return null
   const payload = verifySession(token)
   if (!payload) return null
-  return payload as { userId: string; role: string; name: string; isPreview?: boolean }
+  return payload as unknown as { userId: string; role: string; name: string; isPreview?: boolean }
 }
