@@ -277,17 +277,21 @@ export function WorkPanel({ app, onUpdate, isAdmin = false }: Props) {
 
           {/* 사진 업로드 체크 */}
           <div className="bg-gray-50 rounded-xl p-3 space-y-2">
-            <div className="flex items-center justify-between">
-              <p className="text-xs font-semibold text-gray-600">사진 업로드 확인</p>
-              {app.drive_folder_url ? (
-                <a href={app.drive_folder_url} target="_blank" rel="noreferrer"
-                  className="inline-flex items-center gap-1 text-xs font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 px-2.5 py-1 rounded-lg transition-colors">
-                  Google Drive 열기
-                </a>
-              ) : (
-                <span className="text-xs text-amber-600">Drive 폴더 미생성</span>
-              )}
-            </div>
+            <p className="text-xs font-semibold text-gray-600">사진 업로드 확인</p>
+            {app.drive_folder_url ? (
+              <a
+                href={app.drive_folder_url}
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center justify-center gap-2 w-full py-2.5 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-bold text-sm rounded-xl transition-colors"
+              >
+                <Folder size={15} /> 드라이브 폴더 확인
+              </a>
+            ) : (
+              <div className="flex items-center justify-center gap-2 w-full py-2.5 bg-gray-200 text-gray-400 font-bold text-sm rounded-xl select-none">
+                <Folder size={15} /> 드라이브 폴더 미생성
+              </div>
+            )}
             <p className="text-xs text-gray-400">Drive에서 전/후 사진 업로드 후 체크해주세요.</p>
             <div className="space-y-1.5">
               <label className="flex items-center gap-2 cursor-pointer">
