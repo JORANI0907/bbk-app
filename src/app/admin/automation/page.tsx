@@ -6,8 +6,7 @@ import toast from 'react-hot-toast'
 import { Button } from '@/components/ui'
 import {
   MessageCircle, Clock, Package, Layers, Link, PenLine, ClipboardList,
-  FileText, Phone as PhoneIcon, Bot, Bell,
-  MessageSquare, Smartphone,
+  FileText, Phone as PhoneIcon, Bot, Bell, Smartphone, MessageSquare,
 } from 'lucide-react'
 
 // ─── 타입 ─────────────────────────────────────────────────────────
@@ -53,8 +52,8 @@ interface SmsItem {
 }
 
 type TabKey =
-  | 'customers' | 'notifications' | 'service'
-  | 'alimtalk' | 'sms' | 'system' | 'contracts'
+  | 'notifications' | 'service'
+  | 'sms' | 'system' | 'contracts'
 
 // ─── 데이터 ───────────────────────────────────────────────────────
 
@@ -589,11 +588,9 @@ function AutomationCard({ item, onToggle }: { item: AutomationItem; onToggle: (i
 // ─── 탭 설정 ──────────────────────────────────────────────────────
 
 const TABS: { key: TabKey; label: string; icon: React.ReactNode }[] = [
-  { key: 'customers',     label: '고객응대',    icon: <PhoneIcon size={12} /> },
   { key: 'notifications', label: '알림',        icon: <Bell size={12} /> },
-  { key: 'service',       label: '서비스관리',  icon: <Package size={12} /> },
-  { key: 'alimtalk',      label: '알림톡',      icon: <MessageSquare size={12} /> },
   { key: 'sms',           label: 'SMS',         icon: <Smartphone size={12} /> },
+  { key: 'service',       label: '서비스관리',  icon: <Package size={12} /> },
   { key: 'system',        label: '시스템 알림', icon: <Layers size={12} /> },
   { key: 'contracts',     label: '계약서',      icon: <PenLine size={12} /> },
 ]
@@ -605,6 +602,7 @@ export default function AutomationPage() {
   const [items, setItems] = useState<AutomationItem[]>(INITIAL_ITEMS)
   const [showAddModal, setShowAddModal] = useState(false)
   const [activeTab, setActiveTab] = useState<TabKey>('notifications')
+
 
   const handleToggle = async (id: string) => {
     const item = items.find(i => i.id === id)
@@ -658,7 +656,7 @@ export default function AutomationPage() {
 
       {/* 탭 (1줄 7칸) */}
       <div className="px-4 pb-2 shrink-0">
-        <div className="grid grid-cols-7 gap-1 bg-surface-sunken rounded-xl p-1">
+        <div className="grid grid-cols-5 gap-1 bg-surface-sunken rounded-xl p-1">
           {TABS.map(({ key, label, icon }) => (
             <button key={key} onClick={() => setActiveTab(key)}
               className={`py-1.5 text-[11px] font-semibold rounded-lg transition-colors flex flex-col items-center justify-center gap-0.5 ${activeTab === key ? 'bg-surface text-text-primary shadow-flat' : 'text-text-secondary hover:text-text-primary'}`}>
@@ -670,14 +668,6 @@ export default function AutomationPage() {
 
       {/* 콘텐츠 */}
       <div className="flex-1 overflow-y-auto px-4 pb-4">
-
-        {/* ── 고객응대 ── */}
-        {activeTab === 'customers' && (
-          <div className="space-y-2">
-            <p className="text-xs text-text-tertiary pb-1">부재중 전화 등 고객 접점 자동 응대</p>
-            {byCategory(['고객응대']).map(item => <AutomationCard key={item.id} item={item} onToggle={handleToggle} />)}
-          </div>
-        )}
 
         {/* ── 알림 (예약 + 작업완료 + 결제 통합) ── */}
         {activeTab === 'notifications' && (
@@ -707,59 +697,37 @@ export default function AutomationPage() {
           </div>
         )}
 
-        {/* ── 카카오 알림톡 ── */}
-        {activeTab === 'alimtalk' && (
-          <div className="space-y-3">
-            <div className="bg-yellow-50 border border-yellow-100 rounded-xl p-3">
-              <p className="text-xs font-bold text-yellow-800">카카오 알림톡 템플릿 {ALIMTALK_TEMPLATES.length}개 사용 중</p>
-              <p className="text-[11px] text-yellow-700 mt-0.5">실패 시 SMS로 자동 fallback · 카드결제 웹훅은 fallback 없음</p>
-            </div>
-            {ALIMTALK_TEMPLATES.map(tpl => (
-              <div key={tpl.id} className="bg-surface rounded-xl border border-border-subtle shadow-soft p-4">
-                <div className="flex items-center gap-1.5 mb-2 flex-wrap">
-                  <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-state-success-bg text-state-success">● 활성</span>
-                  <TriggerTypeBadge type={tpl.triggerType} />
-                  {tpl.schedule && <span className="text-[11px] text-text-tertiary">{tpl.schedule}</span>}
-                </div>
-                <h3 className="text-sm font-bold text-text-primary mb-1">{tpl.name}</h3>
-                <p className="text-xs text-text-secondary leading-relaxed mb-2">{tpl.trigger}</p>
-                <div className="bg-yellow-50 border border-yellow-100 rounded-lg px-3 py-2 mb-2">
-                  <p className="text-[10px] text-yellow-600 font-medium mb-0.5">템플릿 코드</p>
-                  <code className="text-[11px] text-yellow-800 font-mono break-all">{tpl.templateCode}</code>
-                </div>
-                <div>
-                  <p className="text-[10px] text-text-tertiary font-medium mb-1">변수</p>
-                  <div className="flex flex-wrap gap-1">
-                    {tpl.variables.map(v => <span key={v} className="text-[10px] px-1.5 py-0.5 bg-surface-sunken rounded text-text-secondary font-mono">{v}</span>)}
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-
         {/* ── SMS ── */}
         {activeTab === 'sms' && (
-          <div className="space-y-3">
-            <div className="bg-blue-50 border border-blue-100 rounded-xl p-3">
-              <p className="text-xs font-bold text-blue-800">SMS {SMS_ITEMS.length}개 항목</p>
-              <p className="text-[11px] text-blue-700 mt-0.5">OTP·광고·계약링크 등 알림톡으로 대체 불가한 항목만 유지</p>
-            </div>
-            {SMS_ITEMS.map(item => (
-              <div key={item.id} className="bg-surface rounded-xl border border-border-subtle shadow-soft p-4">
-                <div className="flex items-center gap-1.5 mb-2 flex-wrap">
-                  <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-state-success-bg text-state-success">● 활성</span>
-                  <TriggerTypeBadge type={item.triggerType} />
-                  {item.schedule && <span className="text-[11px] text-text-tertiary">{item.schedule}</span>}
-                </div>
-                <h3 className="text-sm font-bold text-text-primary mb-1">{item.name}</h3>
-                <p className="text-xs text-text-secondary leading-relaxed mb-1.5">{item.desc}</p>
-                <div className="flex items-center gap-1">
-                  <span className="text-[11px] text-text-tertiary">트리거:</span>
-                  <span className="text-[11px] text-text-secondary font-medium">{item.trigger}</span>
-                </div>
+          <div className="space-y-5">
+            {/* 고객응대 SMS */}
+            <div>
+              <p className="text-[11px] font-bold text-text-tertiary mb-2 uppercase tracking-wide">고객응대</p>
+              <div className="space-y-2">
+                {byCategory(['고객응대']).map(item => <AutomationCard key={item.id} item={item} onToggle={handleToggle} />)}
               </div>
-            ))}
+            </div>
+            {/* 일반 SMS 항목 */}
+            <div>
+              <p className="text-[11px] font-bold text-text-tertiary mb-2 uppercase tracking-wide">발송 항목</p>
+              <div className="space-y-2">
+                {SMS_ITEMS.map(item => (
+                  <div key={item.id} className="bg-surface rounded-xl border border-border-subtle shadow-soft p-4">
+                    <div className="flex items-center gap-1.5 mb-2 flex-wrap">
+                      <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-state-success-bg text-state-success">● 활성</span>
+                      <TriggerTypeBadge type={item.triggerType} />
+                      {item.schedule && <span className="text-[11px] text-text-tertiary">{item.schedule}</span>}
+                    </div>
+                    <h3 className="text-sm font-bold text-text-primary mb-1">{item.name}</h3>
+                    <p className="text-xs text-text-secondary leading-relaxed mb-1.5">{item.desc}</p>
+                    <div className="flex items-center gap-1">
+                      <span className="text-[11px] text-text-tertiary">트리거:</span>
+                      <span className="text-[11px] text-text-secondary font-medium">{item.trigger}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         )}
 
