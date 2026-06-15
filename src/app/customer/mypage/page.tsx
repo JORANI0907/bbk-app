@@ -3,8 +3,9 @@ import { getCustomerSession } from '@/lib/session'
 import { redirect } from 'next/navigation'
 import { format } from 'date-fns'
 import { ko } from 'date-fns/locale'
-import { Building2 } from 'lucide-react'
+import { Building2, BookOpen, ChevronRight } from 'lucide-react'
 import { LogoutButton } from '@/components/customer/LogoutButton'
+import Link from 'next/link'
 
 interface CustomerData {
   id: string
@@ -150,6 +151,24 @@ export default async function CustomerMyPage() {
             </div>
           )}
         </section>
+      )}
+
+      {/* 케어매뉴얼 링크 (정기딥케어 / 정기엔드케어만) */}
+      {customer && (customer.customer_type === '정기딥케어' || customer.customer_type === '정기엔드케어') && (
+        <Link href="/customer/care-manual">
+          <section className="bg-surface rounded-2xl border border-border-subtle shadow-soft overflow-hidden active:scale-[0.98] transition-transform">
+            <div className="px-5 py-4 flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-brand-100 flex items-center justify-center shrink-0">
+                <BookOpen size={18} className="text-brand-600" />
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-semibold text-text-primary">케어매뉴얼</p>
+                <p className="text-xs text-text-tertiary mt-0.5">서비스 케어 범위 및 작업 기준 안내</p>
+              </div>
+              <ChevronRight size={18} className="text-text-tertiary" />
+            </div>
+          </section>
+        </Link>
       )}
 
       {/* 업체 정보 */}

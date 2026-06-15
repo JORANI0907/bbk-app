@@ -6,7 +6,7 @@ import { useModalBackButton } from '@/hooks/useModalBackButton'
 import { MapSelectorModal } from '@/components/MapSelectorModal'
 import { BillingHistoryPanel } from '@/components/admin/BillingHistoryPanel'
 import { Button } from '@/components/ui'
-import { Phone, ClipboardList, Map, Banknote, Save, Megaphone, Calendar } from 'lucide-react'
+import { Phone, ClipboardList, Map, Banknote, Save, Megaphone, Calendar, BookOpen } from 'lucide-react'
 
 // ─── 타입 ─────────────────────────────────────────────────────
 type CustomerType = '1회성케어' | '정기딥케어' | '정기엔드케어'
@@ -1586,6 +1586,16 @@ export default function AdminCustomersPage() {
               <div className="w-full py-2.5 bg-surface-sunken text-text-secondary text-sm font-semibold rounded-lg text-center">
                 읽기 전용 (수정 권한 없음)
               </div>
+            )}
+
+            {/* 케어매뉴얼 (정기딥케어 / 정기엔드케어) */}
+            {!isNew && selected && isRegular && (
+              <a href={`/admin/customers/${selected.id}/care-manual`}>
+                <button className="w-full flex items-center gap-2 px-4 py-3 rounded-xl border border-border-subtle bg-surface hover:bg-surface-sunken transition-colors text-sm font-medium text-text-primary">
+                  <BookOpen size={16} className="text-brand-600" />
+                  케어매뉴얼 편집
+                </button>
+              </a>
             )}
 
             {/* 청구 이력 (정기딥케어 연간 / 정기엔드케어) */}
