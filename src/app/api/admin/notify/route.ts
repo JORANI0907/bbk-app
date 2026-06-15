@@ -458,13 +458,18 @@ export async function POST(request: NextRequest) {
 
     if (!app) return NextResponse.json({ error: '신청서를 찾을 수 없습니다.' }, { status: 404 })
 
-    // 작업완료알림: payment_method에 따라 실제 알림 유형 결정
+    // 작업완료알림: 정기엔드케어 제외 + payment_method에 따라 알림 유형 결정
     if (type === '작업완료알림') {
+      if (String(app.service_type ?? '') === '정기엔드케어') {
+        return NextResponse.json({ success: true, skipped: true, reason: '정기엔드케어는 별도 알림 사용' })
+      }
       const pm = String(app.payment_method ?? '')
       if (pm === '현금(비과세)') {
         type = '작업완료알림(현금)'
       } else if (pm === '카드(온라인 간편결제)' || pm === '플렛폼') {
         type = '작업완료알림(카드,플렛폼)'
+      } else if (pm !== '현금(세금계산서)') {
+        return NextResponse.json({ success: true, skipped: true, reason: `결제방법 '${pm}'은(는) 발송 대상이 아닙니다.` })
       }
       templateId = ALIMTALK_TEMPLATES[type]
       if (!templateId) {

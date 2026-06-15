@@ -6,9 +6,11 @@ const CRON_SECRET = process.env.CRON_SECRET
 
 // ─── 알림톡 템플릿 ID ─────────────────────────────────────────────
 const TEMPLATES = {
-  '예약1일전알림': 'KA01TP260324131935294IPmMhH8BWA8',
-  '예약당일알림':  'KA01TP2603241319353583492vcrZ9c2',
-  '결제알림':      'KA01TP260324125232471CIIHJKDOBsf',
+  '예약1일전알림':          'KA01TP260324131935294IPmMhH8BWA8',
+  '예약당일알림':           'KA01TP2603241319353583492vcrZ9c2',
+  '결제알림':               'KA01TP260324125232471CIIHJKDOBsf',
+  '결제알림(현금)':         'KA01TP251127095540783njh0ig3nyjg',
+  '결제알림(카드,플렛폼)':  'KA01TP251201210650817mczUreAtEjU',
 }
 
 // ─── 시공시간 기반 요청시간 계산: 0h ~ +2h ───────────────────────
@@ -49,6 +51,7 @@ function buildVariables(
   const supply       = Number(app.supply_amount ?? 0)
   const vat          = Number(app.vat ?? 0)
   const dep          = Number(app.deposit ?? 0)
+  const total        = (supply + vat).toLocaleString('ko-KR')
   const balance      = ((supply + vat) - dep).toLocaleString('ko-KR')
 
   switch (type) {
@@ -82,6 +85,16 @@ function buildVariables(
         '고객명':   ownerName,
         '청소비용': balance,
       }
+    case '결제알림(현금)':
+      return {
+        '고객명':       ownerName,
+        '청소현금비용': balance,
+      }
+    case '결제알림(카드,플렛폼)':
+      return {
+        '고객명':       ownerName,
+        '청소카드비용': total,
+      }
   }
 }
 
@@ -89,9 +102,11 @@ function buildFallback(type: keyof typeof TEMPLATES, app: Record<string, unknown
   const name    = String(app.owner_name ?? '')
   const bizName = String(app.business_name ?? '')
   switch (type) {
-    case '예약1일전알림': return `[BBK 공간케어] ${name}님, 내일 ${bizName} 방문 예정입니다.`
-    case '예약당일알림':  return `[BBK 공간케어] ${name}님, 오늘 방문 예정입니다. 준비 확인 부탁드립니다.`
-    case '결제알림':      return `[BBK 공간케어] ${name}님, 잔금 결제를 요청드립니다.`
+    case '예약1일전알림':         return `[BBK 공간케어] ${name}님, 내일 ${bizName} 방문 예정입니다.`
+    case '예약당일알림':          return `[BBK 공간케어] ${name}님, 오늘 방문 예정입니다. 준비 확인 부탁드립니다.`
+    case '결제알림':              return `[BBK 공간케어] ${name}님, 잔금 결제를 요청드립니다.`
+    case '결제알림(현금)':        return `[BBK 공간케어] ${name}님, 잔금 결제를 요청드립니다.`
+    case '결제알림(카드,플렛폼)': return `[BBK 공간케어] ${name}님, 잔금 결제를 요청드립니다.`
   }
 }
 
@@ -159,9 +174,11 @@ export async function GET(request: NextRequest) {
   const supabase = createServiceClient()
 
   const NOTIFY_TO_STATUS: Record<string, string> = {
-    '예약1일전알림': '예약1일전',
-    '예약당일알림':  '예약당일',
-    '결제알림':      '결제',
+    '예약1일전알림':          '예약1일전',
+    '예약당일알림':           '예약당일',
+    '결제알림':               '결제',
+    '결제알림(현금)':         '결제',
+    '결제알림(카드,플렛폼)':  '결제',
   }
 
   // 담당자 이름 캐싱 (N+1 방지)
@@ -243,11 +260,24 @@ export async function GET(request: NextRequest) {
     let sent = 0, failed = 0, skipped = 0
     for (const app of (apps ?? [])) {
       if (!app.phone) { skipped++; continue }
+
+      const pm = String(app.payment_method ?? '')
+      let billingType: keyof typeof TEMPLATES
+      if (pm === '현금(세금계산서)') {
+        billingType = '결제알림'
+      } else if (pm === '현금(비과세)') {
+        billingType = '결제알림(현금)'
+      } else if (pm === '카드(온라인 간편결제)' || pm === '플렛폼') {
+        billingType = '결제알림(카드,플렛폼)'
+      } else {
+        skipped++; continue
+      }
+
       const log = Array.isArray(app.notification_log) ? app.notification_log : []
-      if (alreadySentToday(log, '결제알림', todayKST)) { skipped++; continue }
+      if (alreadySentToday(log, billingType, todayKST)) { skipped++; continue }
 
       try {
-        await sendAndLog(supabase, app as Record<string, unknown>, '결제알림', '-', NOTIFY_TO_STATUS)
+        await sendAndLog(supabase, app as Record<string, unknown>, billingType, '-', NOTIFY_TO_STATUS)
         sent++
       } catch { failed++ }
     }
