@@ -36,6 +36,7 @@ interface AlimtalkTemplate {
   id: string
   templateCode: string
   name: string
+  body?: string
   variables: string[]
   trigger: string
   triggerType: 'auto' | 'manual' | 'webhook'
@@ -369,13 +370,25 @@ export default function AutomationPage() {
                         <p className="text-xs text-text-secondary leading-relaxed mb-2">{tpl.trigger}</p>
                         <div className="bg-yellow-50 border border-yellow-100 rounded-lg px-3 py-2 mb-2">
                           <p className="text-[10px] text-yellow-600 font-medium mb-0.5">템플릿 코드</p>
+                          <p className="text-xs font-semibold text-yellow-900 mb-0.5">{tpl.name}</p>
                           <code className="text-[11px] text-yellow-800 font-mono break-all">{tpl.templateCode}</code>
                         </div>
                         {tpl.variables.length > 0 && (
-                          <div className="flex flex-wrap gap-1">
+                          <div className="flex flex-wrap gap-1 mb-2">
                             {tpl.variables.map(v => <span key={v} className="text-[10px] px-1.5 py-0.5 bg-surface-sunken rounded text-text-secondary font-mono">{v}</span>)}
                           </div>
                         )}
+                        <details className="group">
+                          <summary className="text-[11px] text-text-tertiary cursor-pointer select-none list-none flex items-center gap-1 hover:text-text-primary transition-colors">
+                            <span className="group-open:rotate-90 transition-transform inline-block">▶</span> 본문 내용 보기
+                          </summary>
+                          <div className="mt-2 bg-surface-sunken rounded-lg px-3 py-2.5">
+                            {tpl.body
+                              ? <p className="text-[11px] text-text-primary leading-relaxed whitespace-pre-line">{tpl.body}</p>
+                              : <p className="text-[11px] text-text-tertiary italic">본문 미등록 — 솔라피 관리자에서 확인하세요.</p>
+                            }
+                          </div>
+                        </details>
                       </div>
                     ))}
                   </div>
