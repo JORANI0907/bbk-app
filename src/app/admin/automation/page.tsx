@@ -707,6 +707,7 @@ export default function AutomationPage() {
                     <p className="text-xs text-text-secondary leading-relaxed mb-2">{tpl.trigger}</p>
                     <div className="bg-yellow-50 border border-yellow-100 rounded-lg px-3 py-2 mb-2">
                       <p className="text-[10px] text-yellow-600 font-medium mb-0.5">템플릿 코드</p>
+                      <p className="text-xs font-semibold text-yellow-900 mb-0.5">{tpl.name}</p>
                       <code className="text-[11px] text-yellow-800 font-mono break-all">{tpl.templateCode}</code>
                     </div>
                     {tpl.variables.length > 0 && (
