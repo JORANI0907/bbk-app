@@ -40,6 +40,7 @@ interface AlimtalkTemplate {
   trigger: string
   triggerType: 'auto' | 'manual' | 'webhook'
   schedule?: string
+  category: '예약' | '작업완료' | '결제' | '견적/신청' | '계정'
 }
 
 interface SmsItem {
@@ -58,236 +59,38 @@ type TabKey =
 // ─── 데이터 ───────────────────────────────────────────────────────
 
 const ALIMTALK_TEMPLATES: AlimtalkTemplate[] = [
-  // ── 예약/확정 ────────────────────────────────────────────────────
-  {
-    id: 'confirm',
-    templateCode: 'KA01TP260324131935207wzarljIsiyK',
-    name: '예약확정 알림',
-    variables: ['고객명', '고객연락처', '상호명', '케어유형', '담당자', '주소', '시공일자', '요청시간', '미팅여부', '미팅시간'],
-    trigger: '매월 23일 다음달 일정 자동 생성 시 즉시',
-    triggerType: 'auto',
-    schedule: '매월 23일 09:00 KST',
-  },
-  {
-    id: 'reservation-day-before',
-    templateCode: 'KA01TP260324131935294IPmMhH8BWA8',
-    name: '예약 1일전 알림',
-    variables: ['고객명', '상호명', '케어유형', '담당자', '주소', '시공일자', '요청시간', '미팅여부', '미팅시간'],
-    trigger: '내일 시공 + 배정완료 건에 자동 발송 (정기엔드케어 제외)',
-    triggerType: 'auto',
-    schedule: '매일 06:00 KST',
-  },
-  {
-    id: 'reservation-today',
-    templateCode: 'KA01TP2603241319353583492vcrZ9c2',
-    name: '예약 당일 알림',
-    variables: ['고객명', '상호명', '케어유형', '담당자', '주소', '시공일자', '요청시간', '미팅여부', '미팅시간'],
-    trigger: '오늘 시공 + 배정완료 건에 자동 발송',
-    triggerType: 'auto',
-    schedule: '매일 06:00 KST',
-  },
-  {
-    id: 'regular-visit',
-    templateCode: 'KA01TP260324125257699vIDeuYdkbc0',
-    name: '정기방문 알림',
-    variables: ['고객명', '방문일자', '담당자'],
-    trigger: '정기고객 방문 예정 알림 (수동 발송)',
-    triggerType: 'manual',
-  },
-  {
-    id: 'reservation-cancel',
-    templateCode: 'KA01TP260324125232854lv8CCYK3Ozu',
-    name: '예약취소 알림',
-    variables: ['고객명', '시공일자'],
-    trigger: '예약 취소 처리 시 수동 발송',
-    triggerType: 'manual',
-  },
-  // ── 작업완료 ─────────────────────────────────────────────────────
-  {
-    id: 'end-care-complete',
-    templateCode: 'KA01TP251208071633315G1wZC9a3w4F',
-    name: '정기엔드케어 작업완료 알림',
-    variables: ['#{고객명}', '#{업체명}', '#{특이사항}', '#{드라이브링크}'],
-    trigger: '배정관리 > 작업완료 버튼 클릭 (수동)',
-    triggerType: 'manual',
-  },
-  {
-    id: 'work-complete-general',
-    templateCode: 'KA01TP260324125200271OOXEk0LPiAS',
-    name: '작업완료 알림 (일반)',
-    variables: ['고객명', '업체명', '시공일자', '청소비용', '결제방법'],
-    trigger: '배정관리 > 작업완료 버튼 클릭 (수동) — 계좌이체 외 결제',
-    triggerType: 'manual',
-  },
-  {
-    id: 'work-complete-cash',
-    templateCode: 'KA01TP260324125200310YfeiY0REGVv',
-    name: '작업완료 알림 (현금결제)',
-    variables: ['고객명', '업체명', '시공일자', '청소비용'],
-    trigger: '배정관리 > 작업완료 버튼 클릭 (수동) — 결제방법: 현금',
-    triggerType: 'manual',
-  },
-  {
-    id: 'work-complete-card-platform',
-    templateCode: 'KA01TP260324132220016T20FiBMSKKA',
-    name: '작업완료 알림 (카드·플랫폼 결제)',
-    variables: ['고객명', '업체명', '시공일자', '청소비용'],
-    trigger: '배정관리 > 작업완료 버튼 클릭 (수동) — 결제방법: 카드·플랫폼',
-    triggerType: 'manual',
-  },
-  // ── 결제 ─────────────────────────────────────────────────────────
-  {
-    id: 'billing',
-    templateCode: 'KA01TP260324125257636A2QdT1YNpL5',
-    name: '정기결제 알림',
-    variables: ['#{고객명}', '#{청소비용}'],
-    trigger: '정기엔드케어·정기딥케어(연간) 결제일 도래 후 미결제 시 매일 반복',
-    triggerType: 'auto',
-    schedule: '매일 14:00 KST',
-  },
-  {
-    id: 'payment-cron',
-    templateCode: 'KA01TP260324125232471CIIHJKDOBsf',
-    name: '잔금 결제 요청',
-    variables: ['고객명', '청소비용'],
-    trigger: '작업완료 후 결제완료 전 건 매일 반복 발송 (정기엔드케어 제외)',
-    triggerType: 'auto',
-    schedule: '매일 06:00 KST',
-  },
-  {
-    id: 'billing-cash',
-    templateCode: 'KA01TP251127095540783njh0ig3nyjg',
-    name: '결제 요청 (현금)',
-    variables: ['고객명', '청소비용'],
-    trigger: '작업완료 후 결제 미완료 건 자동 반복 — 결제방법: 현금',
-    triggerType: 'auto',
-    schedule: '매일 06:00 KST',
-  },
-  {
-    id: 'billing-card-platform',
-    templateCode: 'KA01TP251201210650817mczUreAtEjU',
-    name: '결제 요청 (카드·플랫폼)',
-    variables: ['고객명', '청소비용'],
-    trigger: '작업완료 후 결제 미완료 건 자동 반복 — 결제방법: 카드·플랫폼',
-    triggerType: 'auto',
-    schedule: '매일 06:00 KST',
-  },
-  {
-    id: 'billing-per-case',
-    templateCode: 'KA01TP260324125257773XLuybvXeleL',
-    name: '건당결제 알림',
-    variables: ['고객명', '청소비용'],
-    trigger: '정기딥케어 건별 결제 요청 (PENDING — SMS fallback 처리 중)',
-    triggerType: 'auto',
-    schedule: '매일 14:00 KST',
-  },
-  {
-    id: 'card-payment',
-    templateCode: 'KA01TP260324125232674HVfev9PAzUe',
-    name: '카드결제 완료 알림',
-    variables: ['고객명', '사업자등록번호', '페이백계좌번호'],
-    trigger: '카드 결제 승인 즉시 (결제 PG 웹훅)',
-    triggerType: 'webhook',
-  },
-  {
-    id: 'annual-renewal',
-    templateCode: 'KA01TP260324125257737g0vuFScqrCv',
-    name: '연간계약 갱신 안내',
-    variables: ['고객명', '만료일', '잔여일'],
-    trigger: '정기딥케어(연간) 계약만료 30일 전부터 매일 반복',
-    triggerType: 'auto',
-    schedule: '매일 14:00 KST',
-  },
-  {
-    id: 'deposit-complete',
-    templateCode: 'KA01TP260220102437819kp8ysvD4XqB',
-    name: '예약금 입금완료 알림',
-    variables: ['고객명', '입금금액'],
-    trigger: '예약금 입금 확인 후 수동 발송',
-    triggerType: 'manual',
-  },
-  {
-    id: 'deposit-refund',
-    templateCode: 'KA01TP260324125232819wDhAV1kuhAF',
-    name: '예약금 환급완료 알림',
-    variables: ['고객명', '환급금액'],
-    trigger: '예약금 환급 처리 시 수동 발송',
-    triggerType: 'manual',
-  },
-  {
-    id: 'invoice-complete',
-    templateCode: 'KA01TP260324125232783yjmHI9u6j6j',
-    name: '계산서 발행완료 알림',
-    variables: ['고객명', '발행금액', '발행일자'],
-    trigger: '세금계산서 발행 완료 시 수동 발송',
-    triggerType: 'manual',
-  },
-  // ── 견적/신청 ─────────────────────────────────────────────────────
-  {
-    id: 'quote-send',
-    templateCode: 'KA01TP260219115331451o0aakYaJSp8',
-    name: '견적서 발송 알림',
-    variables: ['고객명', '견적금액', '견적링크'],
-    trigger: '견적서 관리 > "견적서 발송" 버튼 클릭 (수동)',
-    triggerType: 'manual',
-  },
-  {
-    id: 'application-complete',
-    templateCode: 'KA01TP260225105100279pvfbwyZDT39',
-    name: '신청서 작성완료 알림',
-    variables: ['고객명', '업체명'],
-    trigger: '고객 신청서 작성 완료 시 자동 발송',
-    triggerType: 'auto',
-  },
-  {
-    id: 'quote-received',
-    templateCode: 'KA01TP260514153343828rQpIWkeH7pg',
-    name: '견적 신청 접수 알림',
-    variables: ['고객명', '업체명'],
-    trigger: '온라인 견적 신청 접수 시 자동 발송',
-    triggerType: 'auto',
-  },
-  {
-    id: 'site-estimate',
-    templateCode: 'KA01TP260324125232920u1LmrtqCY0P',
-    name: '방문견적 알림',
-    variables: ['고객명', '방문일자', '담당자'],
-    trigger: '방문 견적 일정 확정 시 수동 발송',
-    triggerType: 'manual',
-  },
-  {
-    id: 'as-visit',
-    templateCode: 'KA01TP260324125232887FY113tVp5zb',
-    name: 'A/S 방문 알림',
-    variables: ['고객명', '방문일자', '담당자'],
-    trigger: 'A/S 방문 일정 확정 시 수동 발송',
-    triggerType: 'manual',
-  },
+  // ── 예약 ──────────────────────────────────────────────────────────
+  { id: 'confirm',              category: '예약',    templateCode: 'KA01TP260324131935207wzarljIsiyK', name: '예약확정 알림',           variables: ['고객명', '고객연락처', '상호명', '케어유형', '담당자', '주소', '시공일자', '요청시간', '미팅여부', '미팅시간'], trigger: '매월 23일 다음달 일정 자동 생성 시 즉시',                          triggerType: 'auto',    schedule: '매월 23일 09:00 KST' },
+  { id: 'reservation-day-before', category: '예약',  templateCode: 'KA01TP260324131935294IPmMhH8BWA8', name: '예약 1일전 알림',          variables: ['고객명', '상호명', '케어유형', '담당자', '주소', '시공일자', '요청시간', '미팅여부', '미팅시간'],                  trigger: '내일 시공 + 배정완료 건에 자동 발송 (정기엔드케어 제외)',            triggerType: 'auto',    schedule: '매일 06:00 KST' },
+  { id: 'reservation-today',    category: '예약',    templateCode: 'KA01TP2603241319353583492vcrZ9c2', name: '예약 당일 알림',           variables: ['고객명', '상호명', '케어유형', '담당자', '주소', '시공일자', '요청시간', '미팅여부', '미팅시간'],                  trigger: '오늘 시공 + 배정완료 건에 자동 발송',                                triggerType: 'auto',    schedule: '매일 06:00 KST' },
+  { id: 'regular-visit',        category: '예약',    templateCode: 'KA01TP260324125257699vIDeuYdkbc0', name: '정기방문 알림',            variables: ['고객명', '방문일자', '담당자'],                                                                              trigger: '정기고객 방문 예정 알림 (수동)',                                      triggerType: 'manual' },
+  { id: 'reservation-cancel',   category: '예약',    templateCode: 'KA01TP260324125232854lv8CCYK3Ozu', name: '예약취소 알림',            variables: ['고객명', '시공일자'],                                                                                        trigger: '예약 취소 처리 시 수동',                                              triggerType: 'manual' },
+  // ── 작업완료 ──────────────────────────────────────────────────────
+  { id: 'end-care-complete',    category: '작업완료', templateCode: 'KA01TP251208071633315G1wZC9a3w4F', name: '작업완료 (정기엔드케어)',   variables: ['#{고객명}', '#{업체명}', '#{특이사항}', '#{드라이브링크}'],                                                      trigger: '배정관리 > 작업완료 버튼 클릭 (수동)',                                triggerType: 'manual' },
+  { id: 'work-complete-general',category: '작업완료', templateCode: 'KA01TP260324125200271OOXEk0LPiAS', name: '작업완료 (일반)',           variables: ['고객명', '업체명', '시공일자', '청소비용', '결제방법'],                                                          trigger: '배정관리 > 작업완료 버튼 클릭 (수동) — 계좌이체 외',                 triggerType: 'manual' },
+  { id: 'work-complete-cash',   category: '작업완료', templateCode: 'KA01TP260324125200310YfeiY0REGVv', name: '작업완료 (현금결제)',       variables: ['고객명', '업체명', '시공일자', '청소비용'],                                                                      trigger: '배정관리 > 작업완료 버튼 클릭 (수동) — 현금',                        triggerType: 'manual' },
+  { id: 'work-complete-card',   category: '작업완료', templateCode: 'KA01TP260324132220016T20FiBMSKKA', name: '작업완료 (카드·플랫폼)',    variables: ['고객명', '업체명', '시공일자', '청소비용'],                                                                      trigger: '배정관리 > 작업완료 버튼 클릭 (수동) — 카드·플랫폼',                 triggerType: 'manual' },
+  // ── 결제 ──────────────────────────────────────────────────────────
+  { id: 'billing',              category: '결제',    templateCode: 'KA01TP260324125257636A2QdT1YNpL5', name: '정기결제 알림',            variables: ['#{고객명}', '#{청소비용}'],                                                                                  trigger: '정기엔드케어·정기딥케어(연간) 결제일 도래 후 미결제 시 매일 반복',   triggerType: 'auto',    schedule: '매일 14:00 KST' },
+  { id: 'payment-cron',         category: '결제',    templateCode: 'KA01TP260324125232471CIIHJKDOBsf', name: '잔금 결제 요청',           variables: ['고객명', '청소비용'],                                                                                        trigger: '작업완료 후 결제 전 건 매일 반복 (정기엔드케어 제외)',                triggerType: 'auto',    schedule: '매일 06:00 KST' },
+  { id: 'billing-cash',         category: '결제',    templateCode: 'KA01TP251127095540783njh0ig3nyjg', name: '결제 요청 (현금)',          variables: ['고객명', '청소비용'],                                                                                        trigger: '작업완료 후 미결제 매일 반복 — 현금',                                 triggerType: 'auto',    schedule: '매일 06:00 KST' },
+  { id: 'billing-card',         category: '결제',    templateCode: 'KA01TP251201210650817mczUreAtEjU', name: '결제 요청 (카드·플랫폼)',   variables: ['고객명', '청소비용'],                                                                                        trigger: '작업완료 후 미결제 매일 반복 — 카드·플랫폼',                          triggerType: 'auto',    schedule: '매일 06:00 KST' },
+  { id: 'billing-per-case',     category: '결제',    templateCode: 'KA01TP260324125257773XLuybvXeleL', name: '건당결제 알림',            variables: ['고객명', '청소비용'],                                                                                        trigger: '정기딥케어 건별 결제 요청 (PENDING — SMS fallback 처리 중)',          triggerType: 'auto',    schedule: '매일 14:00 KST' },
+  { id: 'card-payment',         category: '결제',    templateCode: 'KA01TP260324125232674HVfev9PAzUe', name: '카드결제 완료 알림',        variables: ['고객명', '사업자등록번호', '페이백계좌번호'],                                                                trigger: '카드 결제 승인 즉시 (결제 PG 웹훅)',                                  triggerType: 'webhook' },
+  { id: 'annual-renewal',       category: '결제',    templateCode: 'KA01TP260324125257737g0vuFScqrCv', name: '연간계약 갱신 안내',        variables: ['고객명', '만료일', '잔여일'],                                                                                trigger: '정기딥케어(연간) 계약만료 30일 전부터 매일 반복',                     triggerType: 'auto',    schedule: '매일 14:00 KST' },
+  { id: 'deposit-complete',     category: '결제',    templateCode: 'KA01TP260220102437819kp8ysvD4XqB', name: '예약금 입금완료 알림',      variables: ['고객명', '입금금액'],                                                                                        trigger: '예약금 입금 확인 후 수동',                                            triggerType: 'manual' },
+  { id: 'deposit-refund',       category: '결제',    templateCode: 'KA01TP260324125232819wDhAV1kuhAF', name: '예약금 환급완료 알림',      variables: ['고객명', '환급금액'],                                                                                        trigger: '예약금 환급 처리 시 수동',                                            triggerType: 'manual' },
+  { id: 'invoice-complete',     category: '결제',    templateCode: 'KA01TP260324125232783yjmHI9u6j6j', name: '계산서 발행완료 알림',      variables: ['고객명', '발행금액', '발행일자'],                                                                            trigger: '세금계산서 발행 완료 시 수동',                                        triggerType: 'manual' },
+  // ── 견적/신청 ──────────────────────────────────────────────────────
+  { id: 'quote-send',           category: '견적/신청', templateCode: 'KA01TP260219115331451o0aakYaJSp8', name: '견적서 발송',              variables: ['고객명', '견적금액', '견적링크'],                                                                            trigger: '견적서 관리 > "견적서 발송" 버튼 클릭 (수동)',                        triggerType: 'manual' },
+  { id: 'application-complete', category: '견적/신청', templateCode: 'KA01TP260225105100279pvfbwyZDT39', name: '신청서 작성완료 알림',      variables: ['고객명', '업체명'],                                                                                          trigger: '고객 신청서 작성 완료 시 자동',                                       triggerType: 'auto' },
+  { id: 'quote-received',       category: '견적/신청', templateCode: 'KA01TP260514153343828rQpIWkeH7pg', name: '견적 신청 접수 알림',       variables: ['고객명', '업체명'],                                                                                          trigger: '온라인 견적 신청 접수 시 자동',                                       triggerType: 'auto' },
+  { id: 'site-estimate',        category: '견적/신청', templateCode: 'KA01TP260324125232920u1LmrtqCY0P', name: '방문견적 알림',             variables: ['고객명', '방문일자', '담당자'],                                                                              trigger: '방문 견적 일정 확정 시 수동',                                         triggerType: 'manual' },
+  { id: 'as-visit',             category: '견적/신청', templateCode: 'KA01TP260324125232887FY113tVp5zb', name: 'A/S 방문 알림',             variables: ['고객명', '방문일자', '담당자'],                                                                              trigger: 'A/S 방문 일정 확정 시 수동',                                          triggerType: 'manual' },
   // ── 계정 ──────────────────────────────────────────────────────────
-  {
-    id: 'account-info',
-    templateCode: 'KA01TP260404141110684azipFQYSyxX',
-    name: '계정 안내 알림 (일반)',
-    variables: ['고객명', '아이디', '비밀번호'],
-    trigger: '관리자 수동 계정 안내 발송 → /api/admin/notify',
-    triggerType: 'manual',
-  },
-  {
-    id: 'account-info-regular',
-    templateCode: 'KA01TP260324125257807O2QPegF6wmS',
-    name: '계정 안내 알림 (정기고객)',
-    variables: ['고객명', '아이디', '비밀번호'],
-    trigger: '정기고객 계정 생성 또는 안내 시 자동/수동 발송',
-    triggerType: 'manual',
-  },
-  {
-    id: 'member-account',
-    templateCode: 'KA01TP260515182858932rdNwPSJALBo',
-    name: '직원 계정 발송',
-    variables: ['#{고객명}', '#{아이디}', '#{비밀번호}'],
-    trigger: '관리자 > 계정관리 > "계정 발송" 버튼 클릭 (수동)',
-    triggerType: 'manual',
-  },
+  { id: 'account-info',         category: '계정',    templateCode: 'KA01TP260404141110684azipFQYSyxX', name: '계정 안내 (일반)',           variables: ['고객명', '아이디', '비밀번호'],                                                                              trigger: '관리자 수동 계정 안내',                                               triggerType: 'manual' },
+  { id: 'account-info-regular', category: '계정',    templateCode: 'KA01TP260324125257807O2QPegF6wmS', name: '계정 안내 (정기고객)',        variables: ['고객명', '아이디', '비밀번호'],                                                                              trigger: '정기고객 계정 생성 또는 안내 시 자동/수동',                           triggerType: 'manual' },
+  { id: 'member-account',       category: '계정',    templateCode: 'KA01TP260515182858932rdNwPSJALBo', name: '직원 계정 발송',             variables: ['#{고객명}', '#{아이디}', '#{비밀번호}'],                                                                     trigger: '관리자 > 계정관리 > "계정 발송" 버튼 클릭 (수동)',                    triggerType: 'manual' },
 ]
 
 const SMS_ITEMS: SmsItem[] = [
@@ -332,132 +135,6 @@ const INITIAL_ITEMS: AutomationItem[] = [
     trigger: 'Webhook (부재중 전화 감지)',
     slackEnabled: true,
     channelType: 'sms',
-  },
-  // ── 예약알림 ────────────────────────────────────────────────
-  {
-    id: 'schedule-notify-day-before',
-    name: '예약 1일전 알림 자동 발송',
-    description: '내일 시공 예정 + 배정완료 건에 카카오 알림톡을 자동 발송합니다. (정기엔드케어 제외)',
-    category: '예약알림',
-    active: true,
-    trigger: '매일 06:00 KST → /api/cron/reservation-reminders',
-    slackEnabled: true,
-    channelType: 'alimtalk',
-    templateId: 'KA01TP260324131935294IPmMhH8BWA8',
-  },
-  {
-    id: 'schedule-notify-today',
-    name: '예약 당일 알림 자동 발송',
-    description: '오늘 시공 예정 + 배정완료 건에 카카오 알림톡을 자동 발송합니다.',
-    category: '예약알림',
-    active: true,
-    trigger: '매일 06:00 KST → /api/cron/reservation-reminders',
-    slackEnabled: true,
-    channelType: 'alimtalk',
-    templateId: 'KA01TP2603241319353583492vcrZ9c2',
-  },
-  // ── 예약확정 ────────────────────────────────────────────────
-  {
-    id: 'cron-auto-schedule',
-    name: '정기딥케어·엔드케어 다음달 일정 자동 생성 + 예약확정 알림톡',
-    description: '매월 23일 활성 정기 고객 전체의 다음달 방문 일정을 자동 생성하고, 예약확정 카카오 알림톡을 발송합니다.',
-    category: '예약확정',
-    active: true,
-    trigger: '매월 23일 09:00 KST (Make 시나리오 #8990139)',
-    slackEnabled: true,
-    channelType: 'alimtalk',
-    templateId: 'KA01TP260324131935207wzarljIsiyK',
-  },
-  {
-    id: 'service-app-bulk-create',
-    name: '정기딥케어·엔드케어 월간 일정 수동 생성',
-    description: '관리자가 고객 선택 후 "다음달 일정 생성" 버튼 클릭 시 방문 일정을 일괄 생성합니다.',
-    category: '예약확정',
-    active: true,
-    trigger: '관리자 수동 실행 → /api/admin/customers/generate-schedules',
-    slackEnabled: false,
-    channelType: 'none',
-  },
-  // ── 작업완료 ────────────────────────────────────────────────
-  {
-    id: 'work-complete-notify-endcare',
-    name: '정기엔드케어 작업완료 알림',
-    description: '배정관리에서 작업완료 처리 시 카카오 알림톡을 발송합니다. 실패 시 SMS fallback.',
-    category: '작업완료',
-    active: true,
-    trigger: '배정관리 > 작업완료 버튼 클릭 (수동)',
-    slackEnabled: true,
-    channelType: 'alimtalk',
-    templateId: 'KA01TP251208071633315G1wZC9a3w4F',
-  },
-  {
-    id: 'work-complete-notify-others',
-    name: '1회성·정기딥케어 작업완료 알림',
-    description: '배정관리에서 작업완료 처리 시 SMS를 발송합니다. (완료 후 1시간 예약 발송)',
-    category: '작업완료',
-    active: true,
-    trigger: '배정관리 > 작업완료 버튼 클릭 후 1시간 뒤 자동 발송',
-    slackEnabled: true,
-    channelType: 'sms',
-  },
-  // ── 결제알림 ────────────────────────────────────────────────
-  {
-    id: 'payment-notify-end-care',
-    name: '정기엔드케어 결제알림',
-    description: '매월 결제일 도래 후 이번 달 미결제 고객에게 카카오 알림톡을 발송합니다. 결제 완료될 때까지 매일 반복.',
-    category: '결제알림',
-    active: true,
-    trigger: '매일 14:00 KST → /api/webhooks/payment-notify (type: afternoon)',
-    slackEnabled: true,
-    scenarioId: 9132732,
-    channelType: 'alimtalk',
-    templateId: 'KA01TP260324125257636A2QdT1YNpL5',
-  },
-  {
-    id: 'payment-notify-annual-billing',
-    name: '정기딥케어(연간) 결제알림',
-    description: '연간 결제 예정일이 도래한 미결제 건에 카카오 알림톡을 발송합니다. 결제 완료될 때까지 매일 반복.',
-    category: '결제알림',
-    active: true,
-    trigger: '매일 14:00 KST → /api/webhooks/payment-notify (type: afternoon)',
-    slackEnabled: true,
-    scenarioId: 9132732,
-    channelType: 'alimtalk',
-    templateId: 'KA01TP260324125257636A2QdT1YNpL5',
-  },
-  {
-    id: 'payment-notify-oneshot',
-    name: '1회성·정기딥케어(월간) 결제요청',
-    description: '작업완료 후 결제완료 전 건에 매일 카카오 알림톡을 발송합니다. 실패 시 SMS fallback.',
-    category: '결제알림',
-    active: true,
-    trigger: '매일 06:00 KST → /api/webhooks/payment-notify (type: morning)',
-    slackEnabled: true,
-    channelType: 'alimtalk',
-    templateId: 'KA01TP260324125257636A2QdT1YNpL5',
-  },
-  {
-    id: 'payment-notify-yearly',
-    name: '정기딥케어(연간) 계약 만료 알림',
-    description: '계약 만료 30일 전부터 매일 카카오 알림톡으로 연장 안내를 발송합니다. 실패 시 SMS fallback.',
-    category: '결제알림',
-    active: true,
-    trigger: '매일 14:00 KST → /api/webhooks/payment-notify (type: afternoon)',
-    slackEnabled: true,
-    scenarioId: 9132732,
-    channelType: 'alimtalk',
-    templateId: 'KA01TP260324125257737g0vuFScqrCv',
-  },
-  {
-    id: 'payment-card-webhook',
-    name: '카드결제 완료 알림',
-    description: '카드 결제 승인 즉시 카카오 알림톡을 발송합니다.',
-    category: '결제알림',
-    active: true,
-    trigger: '카드 결제 승인 즉시 (결제 PG 웹훅) → /api/webhooks/payment-card',
-    slackEnabled: false,
-    channelType: 'alimtalk',
-    templateId: 'KA01TP260324125232674HVfev9PAzUe',
   },
   // ── 서비스관리 ──────────────────────────────────────────────
   {
@@ -624,8 +301,8 @@ export default function AutomationPage() {
 
   const byCategory = (cats: string[]) => items.filter(i => cats.includes(i.category))
 
-  const totalAlimtalk = items.filter(i => i.active && (i.channelType === 'alimtalk' || i.channelType === 'both')).length
-  const totalSms = items.filter(i => i.active && (i.channelType === 'sms' || i.channelType === 'both')).length
+  const totalAlimtalk = ALIMTALK_TEMPLATES.length
+  const totalSms = SMS_ITEMS.length + items.filter(i => i.category === '고객응대' && i.channelType === 'sms').length
 
   return (
     <div className="flex flex-col h-full">
@@ -669,56 +346,42 @@ export default function AutomationPage() {
       {/* 콘텐츠 */}
       <div className="flex-1 overflow-y-auto px-4 pb-4">
 
-        {/* ── 알림 (예약 + 작업완료 + 결제 + 알림톡 템플릿 전체) ── */}
+        {/* ── 알림 (카카오 알림톡 전체, 카테고리별) ── */}
         {activeTab === 'notifications' && (
           <div className="space-y-6">
-            {/* 자동화 흐름 */}
-            {[
-              { label: '예약 알림', cats: ['예약알림', '예약확정'] },
-              { label: '작업완료 알림', cats: ['작업완료'] },
-              { label: '결제 알림', cats: ['결제알림'] },
-            ].map(({ label, cats }) => {
-              const catItems = byCategory(cats)
-              if (!catItems.length) return null
+            {(['예약', '작업완료', '결제', '견적/신청', '계정'] as const).map(cat => {
+              const tpls = ALIMTALK_TEMPLATES.filter(t => t.category === cat)
               return (
-                <div key={label}>
-                  <p className="text-[11px] font-bold text-text-tertiary mb-2 uppercase tracking-wide">{label}</p>
-                  <div className="space-y-2">{catItems.map(item => <AutomationCard key={item.id} item={item} onToggle={handleToggle} />)}</div>
+                <div key={cat}>
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-[11px] font-bold text-text-tertiary uppercase tracking-wide">{cat}</p>
+                    <span className="text-[10px] text-text-tertiary">{tpls.length}개</span>
+                  </div>
+                  <div className="space-y-2">
+                    {tpls.map(tpl => (
+                      <div key={tpl.id} className="bg-surface rounded-xl border border-border-subtle shadow-soft p-4">
+                        <div className="flex items-center gap-1.5 mb-2 flex-wrap">
+                          <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-700 flex items-center gap-1"><MessageSquare size={10} /> 알림톡</span>
+                          <TriggerTypeBadge type={tpl.triggerType} />
+                          {tpl.schedule && <span className="text-[11px] text-text-tertiary">{tpl.schedule}</span>}
+                        </div>
+                        <h3 className="text-sm font-bold text-text-primary mb-1">{tpl.name}</h3>
+                        <p className="text-xs text-text-secondary leading-relaxed mb-2">{tpl.trigger}</p>
+                        <div className="bg-yellow-50 border border-yellow-100 rounded-lg px-3 py-2 mb-2">
+                          <p className="text-[10px] text-yellow-600 font-medium mb-0.5">템플릿 코드</p>
+                          <code className="text-[11px] text-yellow-800 font-mono break-all">{tpl.templateCode}</code>
+                        </div>
+                        {tpl.variables.length > 0 && (
+                          <div className="flex flex-wrap gap-1">
+                            {tpl.variables.map(v => <span key={v} className="text-[10px] px-1.5 py-0.5 bg-surface-sunken rounded text-text-secondary font-mono">{v}</span>)}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )
             })}
-
-            {/* 카카오 알림톡 템플릿 전체 목록 */}
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <p className="text-[11px] font-bold text-text-tertiary uppercase tracking-wide">알림톡 템플릿 전체</p>
-                <span className="text-[11px] text-yellow-700 font-semibold bg-yellow-50 px-2 py-0.5 rounded-full">{ALIMTALK_TEMPLATES.length}개</span>
-              </div>
-              <p className="text-[11px] text-text-tertiary mb-3">실패 시 SMS 자동 fallback · 카드결제 웹훅은 fallback 없음</p>
-              <div className="space-y-2">
-                {ALIMTALK_TEMPLATES.map(tpl => (
-                  <div key={tpl.id} className="bg-surface rounded-xl border border-border-subtle shadow-soft p-4">
-                    <div className="flex items-center gap-1.5 mb-2 flex-wrap">
-                      <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-700 flex items-center gap-1"><MessageSquare size={10} /> 알림톡</span>
-                      <TriggerTypeBadge type={tpl.triggerType} />
-                      {tpl.schedule && <span className="text-[11px] text-text-tertiary">{tpl.schedule}</span>}
-                    </div>
-                    <h3 className="text-sm font-bold text-text-primary mb-1">{tpl.name}</h3>
-                    <p className="text-xs text-text-secondary leading-relaxed mb-2">{tpl.trigger}</p>
-                    <div className="bg-yellow-50 border border-yellow-100 rounded-lg px-3 py-2 mb-2">
-                      <p className="text-[10px] text-yellow-600 font-medium mb-0.5">템플릿 코드</p>
-                      <p className="text-xs font-semibold text-yellow-900 mb-0.5">{tpl.name}</p>
-                      <code className="text-[11px] text-yellow-800 font-mono break-all">{tpl.templateCode}</code>
-                    </div>
-                    {tpl.variables.length > 0 && (
-                      <div className="flex flex-wrap gap-1">
-                        {tpl.variables.map(v => <span key={v} className="text-[10px] px-1.5 py-0.5 bg-surface-sunken rounded text-text-secondary font-mono">{v}</span>)}
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
           </div>
         )}
 
