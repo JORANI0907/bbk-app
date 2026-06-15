@@ -8,6 +8,7 @@ import { User, UserRole } from '@/types/database'
 import toast from 'react-hot-toast'
 import RegisterForm, { CustomerItem, WorkerItem, RegisterFormData } from './RegisterForm'
 import EditForm, { EditFormData } from './EditForm'
+import LoginLogsDrawer from './LoginLogsDrawer'
 
 const ROLE_LABELS: Record<UserRole, string> = {
   admin: '관리자',
@@ -79,6 +80,12 @@ export default function MembersPage() {
   const [selfNewPw, setSelfNewPw] = useState('')
   const [selfConfirmPw, setSelfConfirmPw] = useState('')
   const [selfSaving, setSelfSaving] = useState(false)
+
+  // 로그인 기록 드로어
+  const [logsTarget, setLogsTarget] = useState<{ id: string; name: string } | null>(null)
+
+  // 포털 미리보기
+  const [previewingId, setPreviewingId] = useState<string | null>(null)
 
   const isWorker = currentRole === 'worker'
 
@@ -267,6 +274,24 @@ export default function MembersPage() {
     finally { setSendingId(null) }
   }
 
+  const handlePortalPreview = async (user: User) => {
+    setPreviewingId(user.id)
+    try {
+      const res = await fetch('/api/admin/portal-preview', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ targetUserId: user.id }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error)
+      window.open(`/portal-preview/${data.token}`, '_blank')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : '포털 열기 실패')
+    } finally {
+      setPreviewingId(null)
+    }
+  }
+
   const handleSelfPasswordChange = async () => {
     if (!currentUser) return
     if (selfNewPw.length < 8) { toast.error('비밀번호는 8자 이상이어야 합니다.'); return }
@@ -351,6 +376,15 @@ export default function MembersPage() {
   // ── 관리자 뷰 ──
   return (
     <div className="p-6 max-w-2xl mx-auto">
+
+      {/* 로그인 기록 드로어 */}
+      {logsTarget && (
+        <LoginLogsDrawer
+          userId={logsTarget.id}
+          userName={logsTarget.name}
+          onClose={() => setLogsTarget(null)}
+        />
+      )}
 
       {/* 커스텀 확인 모달 */}
       {confirmModal && (
@@ -521,6 +555,12 @@ export default function MembersPage() {
                       {sendingId === user.id ? '발송 중...' : '계정 발송'}
                     </Button>
                   )}
+                  {user.role === 'customer' && (
+                    <Button size="sm" variant="ghost" onClick={() => handlePortalPreview(user)} disabled={previewingId === user.id} className="text-brand-600 hover:bg-brand-50 whitespace-nowrap">
+                      {previewingId === user.id ? '열기...' : '포털확인'}
+                    </Button>
+                  )}
+                  <Button variant="ghost" size="sm" onClick={() => setLogsTarget({ id: user.id, name: user.name })}>기록</Button>
                   <Button variant="ghost" size="sm" onClick={() => handleEdit(user)}>수정</Button>
                   <Button variant="ghost" size="sm" onClick={() => handleToggleActive(user)} className={user.is_active ? 'text-orange-500 hover:bg-orange-50' : 'text-state-success hover:bg-state-success-bg'}>
                     {user.is_active ? '비활성화' : '활성화'}

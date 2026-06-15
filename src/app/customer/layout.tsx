@@ -1,6 +1,7 @@
 import { CustomerSidebar } from '@/components/customer/CustomerSidebar'
 import { CustomerMobileNav } from '@/components/customer/CustomerMobileNav'
 import { ScheduleChangeFAB } from '@/components/customer/ScheduleChangeFAB'
+import { PreviewBanner } from '@/components/customer/PreviewBanner'
 import { PushNotificationProvider } from '@/components/shared/PushNotificationProvider'
 import { getServerSession } from '@/lib/session'
 import { redirect } from 'next/navigation'
@@ -14,7 +15,10 @@ export default function CustomerLayout({
   if (!session) redirect('/login')
 
   return (
-    <div className="flex h-screen overflow-hidden bg-surface-sunken">
+    <div className={`flex h-screen overflow-hidden bg-surface-sunken ${session.isPreview ? 'pt-10' : ''}`}>
+      {/* 관리자 미리보기 배너 */}
+      {session.isPreview && <PreviewBanner userName={session.name} />}
+
       {/* 데스크탑 사이드바 */}
       <CustomerSidebar userName={session.name} />
 
@@ -33,8 +37,10 @@ export default function CustomerLayout({
       {/* 일정 변경 요청 FAB */}
       <ScheduleChangeFAB />
 
-      {/* Web Push 구독 등록 */}
-      <PushNotificationProvider userId={session.userId} userType="customer" />
+      {/* Web Push 구독 등록 (미리보기 모드에서는 비활성) */}
+      {!session.isPreview && (
+        <PushNotificationProvider userId={session.userId} userType="customer" />
+      )}
     </div>
   )
 }
