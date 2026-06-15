@@ -669,9 +669,10 @@ export default function AutomationPage() {
       {/* 콘텐츠 */}
       <div className="flex-1 overflow-y-auto px-4 pb-4">
 
-        {/* ── 알림 (예약 + 작업완료 + 결제 통합) ── */}
+        {/* ── 알림 (예약 + 작업완료 + 결제 + 알림톡 템플릿 전체) ── */}
         {activeTab === 'notifications' && (
-          <div className="space-y-5">
+          <div className="space-y-6">
+            {/* 자동화 흐름 */}
             {[
               { label: '예약 알림', cats: ['예약알림', '예약확정'] },
               { label: '작업완료 알림', cats: ['작업완료'] },
@@ -686,6 +687,37 @@ export default function AutomationPage() {
                 </div>
               )
             })}
+
+            {/* 카카오 알림톡 템플릿 전체 목록 */}
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-[11px] font-bold text-text-tertiary uppercase tracking-wide">알림톡 템플릿 전체</p>
+                <span className="text-[11px] text-yellow-700 font-semibold bg-yellow-50 px-2 py-0.5 rounded-full">{ALIMTALK_TEMPLATES.length}개</span>
+              </div>
+              <p className="text-[11px] text-text-tertiary mb-3">실패 시 SMS 자동 fallback · 카드결제 웹훅은 fallback 없음</p>
+              <div className="space-y-2">
+                {ALIMTALK_TEMPLATES.map(tpl => (
+                  <div key={tpl.id} className="bg-surface rounded-xl border border-border-subtle shadow-soft p-4">
+                    <div className="flex items-center gap-1.5 mb-2 flex-wrap">
+                      <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-700 flex items-center gap-1"><MessageSquare size={10} /> 알림톡</span>
+                      <TriggerTypeBadge type={tpl.triggerType} />
+                      {tpl.schedule && <span className="text-[11px] text-text-tertiary">{tpl.schedule}</span>}
+                    </div>
+                    <h3 className="text-sm font-bold text-text-primary mb-1">{tpl.name}</h3>
+                    <p className="text-xs text-text-secondary leading-relaxed mb-2">{tpl.trigger}</p>
+                    <div className="bg-yellow-50 border border-yellow-100 rounded-lg px-3 py-2 mb-2">
+                      <p className="text-[10px] text-yellow-600 font-medium mb-0.5">템플릿 코드</p>
+                      <code className="text-[11px] text-yellow-800 font-mono break-all">{tpl.templateCode}</code>
+                    </div>
+                    {tpl.variables.length > 0 && (
+                      <div className="flex flex-wrap gap-1">
+                        {tpl.variables.map(v => <span key={v} className="text-[10px] px-1.5 py-0.5 bg-surface-sunken rounded text-text-secondary font-mono">{v}</span>)}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         )}
 
