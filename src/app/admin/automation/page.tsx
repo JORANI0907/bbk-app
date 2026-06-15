@@ -4,11 +4,10 @@ import React, { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import toast from 'react-hot-toast'
 import { Button } from '@/components/ui'
-import { MarketingAgentSummary } from '@/components/admin/automation/MarketingAgentSummary'
 import {
   MessageCircle, Clock, Package, Layers, Link, PenLine, ClipboardList,
-  Megaphone, FileText, Phone as PhoneIcon, Bot, Bell, Brain, Tag, Monitor,
-  Palette, Crown, MessageSquare, Smartphone,
+  FileText, Phone as PhoneIcon, Bot, Bell,
+  MessageSquare, Smartphone,
 } from 'lucide-react'
 
 // ─── 타입 ─────────────────────────────────────────────────────────
@@ -54,9 +53,8 @@ interface SmsItem {
 }
 
 type TabKey =
-  | 'customers' | 'reservations' | 'workdone' | 'payment'
-  | 'service' | 'alimtalk' | 'sms' | 'slack'
-  | 'agents' | 'marketing' | 'contracts'
+  | 'customers' | 'notifications' | 'service'
+  | 'alimtalk' | 'sms' | 'system' | 'contracts'
 
 // ─── 데이터 ───────────────────────────────────────────────────────
 
@@ -591,17 +589,13 @@ function AutomationCard({ item, onToggle }: { item: AutomationItem; onToggle: (i
 // ─── 탭 설정 ──────────────────────────────────────────────────────
 
 const TABS: { key: TabKey; label: string; icon: React.ReactNode }[] = [
-  { key: 'customers',    label: '고객응대',    icon: <PhoneIcon size={12} /> },
-  { key: 'reservations', label: '예약',        icon: <Bell size={12} /> },
-  { key: 'workdone',     label: '작업완료',    icon: <ClipboardList size={12} /> },
-  { key: 'payment',      label: '결제알림',    icon: <MessageCircle size={12} /> },
-  { key: 'service',      label: '서비스관리',  icon: <Package size={12} /> },
-  { key: 'alimtalk',     label: '알림톡',      icon: <MessageSquare size={12} /> },
-  { key: 'sms',          label: 'SMS',         icon: <Smartphone size={12} /> },
-  { key: 'slack',        label: 'Slack',       icon: <Layers size={12} /> },
-  { key: 'agents',       label: '에이전트',    icon: <Brain size={12} /> },
-  { key: 'marketing',    label: '마케팅',      icon: <Megaphone size={12} /> },
-  { key: 'contracts',    label: '계약서',      icon: <PenLine size={12} /> },
+  { key: 'customers',     label: '고객응대',    icon: <PhoneIcon size={12} /> },
+  { key: 'notifications', label: '알림',        icon: <Bell size={12} /> },
+  { key: 'service',       label: '서비스관리',  icon: <Package size={12} /> },
+  { key: 'alimtalk',      label: '알림톡',      icon: <MessageSquare size={12} /> },
+  { key: 'sms',           label: 'SMS',         icon: <Smartphone size={12} /> },
+  { key: 'system',        label: '시스템 알림', icon: <Layers size={12} /> },
+  { key: 'contracts',     label: '계약서',      icon: <PenLine size={12} /> },
 ]
 
 // ─── 메인 컴포넌트 ────────────────────────────────────────────────
@@ -610,7 +604,7 @@ export default function AutomationPage() {
   const router = useRouter()
   const [items, setItems] = useState<AutomationItem[]>(INITIAL_ITEMS)
   const [showAddModal, setShowAddModal] = useState(false)
-  const [activeTab, setActiveTab] = useState<TabKey>('customers')
+  const [activeTab, setActiveTab] = useState<TabKey>('notifications')
 
   const handleToggle = async (id: string) => {
     const item = items.find(i => i.id === id)
@@ -662,21 +656,13 @@ export default function AutomationPage() {
         </div>
       </div>
 
-      {/* 탭 (2줄) */}
+      {/* 탭 (1줄 7칸) */}
       <div className="px-4 pb-2 shrink-0">
-        <div className="grid grid-cols-6 gap-1 bg-surface-sunken rounded-xl p-1 mb-1">
-          {TABS.slice(0, 6).map(({ key, label, icon }) => (
+        <div className="grid grid-cols-7 gap-1 bg-surface-sunken rounded-xl p-1">
+          {TABS.map(({ key, label, icon }) => (
             <button key={key} onClick={() => setActiveTab(key)}
-              className={`py-1.5 text-[11px] font-semibold rounded-lg transition-colors flex items-center justify-center gap-1 ${activeTab === key ? 'bg-surface text-text-primary shadow-flat' : 'text-text-secondary hover:text-text-primary'}`}>
-              {icon}{label}
-            </button>
-          ))}
-        </div>
-        <div className="grid grid-cols-5 gap-1 bg-surface-sunken rounded-xl p-1">
-          {TABS.slice(6).map(({ key, label, icon }) => (
-            <button key={key} onClick={() => setActiveTab(key)}
-              className={`py-1.5 text-[11px] font-semibold rounded-lg transition-colors flex items-center justify-center gap-1 ${activeTab === key ? 'bg-surface text-text-primary shadow-flat' : 'text-text-secondary hover:text-text-primary'}`}>
-              {icon}{label}
+              className={`py-1.5 text-[11px] font-semibold rounded-lg transition-colors flex flex-col items-center justify-center gap-0.5 ${activeTab === key ? 'bg-surface text-text-primary shadow-flat' : 'text-text-secondary hover:text-text-primary'}`}>
+              {icon}<span className="leading-tight">{label}</span>
             </button>
           ))}
         </div>
@@ -693,12 +679,13 @@ export default function AutomationPage() {
           </div>
         )}
 
-        {/* ── 예약 ── */}
-        {activeTab === 'reservations' && (
-          <div className="space-y-4">
+        {/* ── 알림 (예약 + 작업완료 + 결제 통합) ── */}
+        {activeTab === 'notifications' && (
+          <div className="space-y-5">
             {[
-              { label: '예약알림', cats: ['예약알림'] },
-              { label: '예약확정', cats: ['예약확정'] },
+              { label: '예약 알림', cats: ['예약알림', '예약확정'] },
+              { label: '작업완료 알림', cats: ['작업완료'] },
+              { label: '결제 알림', cats: ['결제알림'] },
             ].map(({ label, cats }) => {
               const catItems = byCategory(cats)
               if (!catItems.length) return null
@@ -709,22 +696,6 @@ export default function AutomationPage() {
                 </div>
               )
             })}
-          </div>
-        )}
-
-        {/* ── 작업완료 ── */}
-        {activeTab === 'workdone' && (
-          <div className="space-y-2">
-            <p className="text-xs text-text-tertiary pb-1">작업 완료 처리 시 자동/수동 발송</p>
-            {byCategory(['작업완료']).map(item => <AutomationCard key={item.id} item={item} onToggle={handleToggle} />)}
-          </div>
-        )}
-
-        {/* ── 결제알림 ── */}
-        {activeTab === 'payment' && (
-          <div className="space-y-2">
-            <p className="text-xs text-text-tertiary pb-1">결제 요청·완료 알림 자동화</p>
-            {byCategory(['결제알림']).map(item => <AutomationCard key={item.id} item={item} onToggle={handleToggle} />)}
           </div>
         )}
 
@@ -792,8 +763,8 @@ export default function AutomationPage() {
           </div>
         )}
 
-        {/* ── Slack ── */}
-        {activeTab === 'slack' && (
+        {/* ── 시스템 알림 ── */}
+        {activeTab === 'system' && (
           <div className="space-y-3">
             <div className="bg-violet-50 border border-violet-100 rounded-xl p-3">
               <p className="text-xs font-bold text-violet-800">앱 모든 활동 → Slack 실시간 보고</p>
@@ -817,36 +788,6 @@ export default function AutomationPage() {
             ))}
           </div>
         )}
-
-        {/* ── 에이전트 ── */}
-        {activeTab === 'agents' && (
-          <div className="space-y-3">
-            <div className="bg-violet-50 border border-violet-100 rounded-xl p-4">
-              <p className="text-sm font-semibold text-violet-800 mb-1">Claude Code 에이전트 시스템</p>
-              <p className="text-xs text-violet-600 leading-relaxed">BBK Lead를 포함한 에이전트의 관계도와 실시간 활동을 확인할 수 있습니다.</p>
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              {[
-                { icon: <Tag size={16} />, name: 'BBK Lead',   role: '요구사항 분석 / 분배', color: 'text-violet-700' },
-                { icon: <Monitor size={16} />, name: 'Developer', role: 'Next.js / Supabase',   color: 'text-brand-700' },
-                { icon: <Palette size={16} />, name: 'Designer',  role: 'UI/UX 컴포넌트',       color: 'text-cyan-700' },
-                { icon: <Crown size={16} />, name: 'MKT Leader', role: '마케팅 팀장',           color: 'text-amber-700' },
-              ].map(({ icon, name, role, color }) => (
-                <div key={name} className="bg-surface border border-border-subtle rounded-xl p-3">
-                  <div className="flex items-center gap-2 mb-1"><span className="text-lg">{icon}</span><span className={`text-xs font-bold ${color}`}>{name}</span></div>
-                  <p className="text-[10px] text-text-secondary">{role}</p>
-                </div>
-              ))}
-            </div>
-            <Button onClick={() => router.push('/admin/automation/agents')} className="w-full flex items-center justify-between px-4 py-3 bg-violet-600 hover:bg-violet-700">
-              <div className="flex items-center gap-2"><Brain size={14} /><span className="text-sm font-semibold">전체 에이전트 현황 보기</span></div>
-              <span className="text-sm opacity-80">→</span>
-            </Button>
-          </div>
-        )}
-
-        {/* ── 마케팅 ── */}
-        {activeTab === 'marketing' && <MarketingAgentSummary />}
 
         {/* ── 계약서 ── */}
         {activeTab === 'contracts' && (
@@ -893,7 +834,7 @@ export default function AutomationPage() {
               <div className="space-y-3">
                 {[
                   { icon: <ClipboardList size={14} />, title: '1. 계약서 작성', desc: '사이드바 → 영업관리 → 온라인 계약서 → "새 계약서 작성"\n고객 선택 시 정보가 자동 채워집니다.' },
-                  { icon: <Megaphone size={14} />,     title: '2. 서명 요청 발송', desc: '"서명 요청 발송" 버튼 클릭 → 고객 전화번호로 SMS 링크 전송 (유효기간 7일)' },
+                  { icon: <MessageSquare size={14} />, title: '2. 서명 요청 발송', desc: '"서명 요청 발송" 버튼 클릭 → 고객 전화번호로 SMS 링크 전송 (유효기간 7일)' },
                   { icon: <PenLine size={14} />,       title: '3. 최종 확인', desc: '고객 서명 완료 시 Slack 알림 수신 → "최종 확인 완료" 클릭 → 계약 성립' },
                 ].map(({ icon, title, desc }) => (
                   <div key={title} className="flex items-start gap-3">
