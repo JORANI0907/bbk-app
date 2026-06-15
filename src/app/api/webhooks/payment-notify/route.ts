@@ -155,10 +155,18 @@ export async function POST(request: NextRequest) {
       try {
         const balance = app.balance ?? 0
         const account = app.account_number ?? ''
-        const msg = `[BBK 공간케어] ${app.owner_name}님, 잔금 ${balance.toLocaleString()}원 결제를 요청드립니다.\n계좌: ${account} 문의: 031-759-4877`
-        await sendSMS(phone, msg)
+        const fallback = `[BBK 공간케어] ${app.owner_name}님, 잔금 ${balance.toLocaleString()}원 결제를 요청드립니다.\n계좌: ${account} 문의: 031-759-4877`
+        const variables = {
+          '#{고객명}': app.owner_name ?? '',
+          '#{청소비용}': balance.toLocaleString('ko-KR'),
+        }
+        try {
+          await sendAlimtalk(phone, ALIMTALK_BILLING, variables, fallback)
+        } catch {
+          await sendSMS(phone, fallback)
+        }
 
-        const entry: NotificationLogEntry = { type: '결제알림', sent_at: nowIso, phone, method: 'auto' }
+        const entry: NotificationLogEntry = { type: '결제알림', sent_at: nowIso, phone, method: 'auto', template_id: ALIMTALK_BILLING }
         await appendLog(supabase, app.id, existingLog, entry)
         await notifySlack({ notifyType: '결제알림', customerName: app.owner_name ?? '', phone, businessName: app.business_name ?? '', constructionDate: app.construction_date, method: 'auto' }).catch(() => { /* 무시 */ })
         results.case1++
@@ -191,8 +199,17 @@ export async function POST(request: NextRequest) {
       if (!phone) continue
 
       try {
-        const msg = `[BBK 공간케어] ${customer.contact_name}님, 연간 계약 만료가 ${daysUntilExpiry}일 후(${customer.contract_end_date})입니다.\n연장 관련 문의: 031-759-4877`
-        await sendSMS(phone, msg)
+        const fallback = `[BBK 공간케어] ${customer.contact_name}님, 연간 계약 만료가 ${daysUntilExpiry}일 후(${customer.contract_end_date})입니다.\n연장 관련 문의: 031-759-4877`
+        const variables = {
+          '#{고객명}': customer.contact_name ?? '',
+          '#{만료일}': customer.contract_end_date ?? '',
+          '#{잔여일}': String(daysUntilExpiry),
+        }
+        try {
+          await sendAlimtalk(phone, ALIMTALK_RENEWAL, variables, fallback)
+        } catch {
+          await sendSMS(phone, fallback)
+        }
 
         await notifySlack({ notifyType: '연간계약만료알림', customerName: customer.contact_name ?? '', phone, businessName: customer.business_name ?? '', constructionDate: customer.contract_end_date, method: 'auto' }).catch(() => { /* 무시 */ })
         results.case3++
