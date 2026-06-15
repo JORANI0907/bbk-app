@@ -1,11 +1,11 @@
 import { createServiceClient } from '@/lib/supabase/server'
-import { getServerSession } from '@/lib/session'
+import { getCustomerSession } from '@/lib/session'
 import { redirect } from 'next/navigation'
 import { ScheduleTabs, ScheduleWithConstruction } from '@/components/customer/ScheduleTabs'
 import { ScheduleChangeNoticeBar } from '@/components/customer/ScheduleChangeNoticeBar'
 
 export default async function CustomerSchedulePage() {
-  const session = getServerSession()
+  const session = getCustomerSession()
   if (!session || session.role !== 'customer') redirect('/login')
 
   const supabase = createServiceClient()

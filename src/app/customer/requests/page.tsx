@@ -1,11 +1,11 @@
 import { createServiceClient } from '@/lib/supabase/server'
-import { getServerSession } from '@/lib/session'
+import { getCustomerSession } from '@/lib/session'
 import { redirect } from 'next/navigation'
 import { CustomerRequest } from '@/types/database'
 import { RequestForm } from '@/components/customer/RequestForm'
 
 export default async function CustomerRequestsPage() {
-  const session = getServerSession()
+  const session = getCustomerSession()
   if (!session || session.role !== 'customer') redirect('/login')
 
   const supabase = createServiceClient()

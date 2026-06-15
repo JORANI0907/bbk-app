@@ -80,8 +80,13 @@ export async function middleware(request: NextRequest) {
       if (pathname.startsWith('/worker') && role !== 'worker' && role !== 'admin') {
         return NextResponse.redirect(new URL('/login', request.url))
       }
-      if (pathname.startsWith('/customer') && role !== 'customer' && !session.isPreview) {
-        return NextResponse.redirect(new URL('/login', request.url))
+      if (pathname.startsWith('/customer') && role !== 'customer') {
+        // 관리자 미리보기 쿠키 별도 확인
+        const previewToken = request.cookies.get('bbk_preview_session')?.value
+        const previewPayload = previewToken ? await verifySession(previewToken) : null
+        if (!previewPayload?.isPreview) {
+          return NextResponse.redirect(new URL('/login', request.url))
+        }
       }
     }
 

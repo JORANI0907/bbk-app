@@ -20,11 +20,26 @@ export function verifySession(token: string): Record<string, string> | null {
   }
 }
 
-export function getServerSession(): { userId: string; role: string; name: string; isPreview?: boolean } | null {
+export function getServerSession(): { userId: string; role: string; name: string } | null {
   const cookieStore = cookies()
   const token = cookieStore.get('bbk_session')?.value
   if (!token) return null
   const payload = verifySession(token)
   if (!payload) return null
-  return payload as unknown as { userId: string; role: string; name: string; isPreview?: boolean }
+  return payload as unknown as { userId: string; role: string; name: string }
+}
+
+// 고객 포털 전용: bbk_preview_session(관리자 미리보기) 우선, 없으면 bbk_session
+export function getCustomerSession(): { userId: string; role: string; name: string; isPreview?: boolean } | null {
+  const cookieStore = cookies()
+  const previewToken = cookieStore.get('bbk_preview_session')?.value
+  if (previewToken) {
+    const payload = verifySession(previewToken)
+    if (payload?.isPreview) return payload as unknown as { userId: string; role: string; name: string; isPreview: true }
+  }
+  const token = cookieStore.get('bbk_session')?.value
+  if (!token) return null
+  const payload = verifySession(token)
+  if (!payload) return null
+  return payload as unknown as { userId: string; role: string; name: string }
 }

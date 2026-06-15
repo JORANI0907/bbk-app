@@ -3,7 +3,7 @@ import { CustomerMobileNav } from '@/components/customer/CustomerMobileNav'
 import { ScheduleChangeFAB } from '@/components/customer/ScheduleChangeFAB'
 import { PreviewBanner } from '@/components/customer/PreviewBanner'
 import { PushNotificationProvider } from '@/components/shared/PushNotificationProvider'
-import { getServerSession } from '@/lib/session'
+import { getCustomerSession } from '@/lib/session'
 import { redirect } from 'next/navigation'
 
 export default function CustomerLayout({
@@ -11,7 +11,7 @@ export default function CustomerLayout({
 }: {
   children: React.ReactNode
 }) {
-  const session = getServerSession()
+  const session = getCustomerSession()
   if (!session) redirect('/login')
 
   return (

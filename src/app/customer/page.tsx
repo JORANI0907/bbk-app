@@ -1,5 +1,5 @@
 import { createServiceClient } from '@/lib/supabase/server'
-import { getServerSession } from '@/lib/session'
+import { getCustomerSession } from '@/lib/session'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { format } from 'date-fns'
@@ -90,7 +90,7 @@ function getOriginalMonthlyPrice(visitCountPerMonth: number | null): number {
 }
 
 export default async function CustomerHomePage() {
-  const session = getServerSession()
+  const session = getCustomerSession()
   if (!session || session.role !== 'customer') redirect('/login')
 
   const supabase = createServiceClient()

@@ -51,7 +51,8 @@ export async function GET(
     })
 
     const response = NextResponse.redirect(new URL('/customer', request.url))
-    response.cookies.set('bbk_session', sessionToken, {
+    // 기존 bbk_session(관리자)을 건드리지 않고 별도 미리보기 쿠키만 설정
+    response.cookies.set('bbk_preview_session', sessionToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',

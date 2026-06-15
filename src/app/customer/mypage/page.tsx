@@ -1,5 +1,5 @@
 import { createServiceClient } from '@/lib/supabase/server'
-import { getServerSession } from '@/lib/session'
+import { getCustomerSession } from '@/lib/session'
 import { redirect } from 'next/navigation'
 import { format } from 'date-fns'
 import { ko } from 'date-fns/locale'
@@ -56,7 +56,7 @@ function InfoRow({ label, value }: { label: string; value?: string | null }) {
 }
 
 export default async function CustomerMyPage() {
-  const session = getServerSession()
+  const session = getCustomerSession()
   if (!session || session.role !== 'customer') redirect('/login')
 
   const supabase = createServiceClient()

@@ -6,7 +6,7 @@ interface Props {
 
 export function PreviewBanner({ userName }: Props) {
   const handleExit = async () => {
-    await fetch('/api/auth/session', { method: 'DELETE' })
+    await fetch('/api/auth/preview-exit', { method: 'DELETE' })
     window.location.href = '/admin/members'
   }
 

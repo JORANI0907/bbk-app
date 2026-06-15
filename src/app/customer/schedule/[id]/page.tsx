@@ -1,5 +1,5 @@
 import { createServiceClient } from '@/lib/supabase/server'
-import { getServerSession } from '@/lib/session'
+import { getCustomerSession } from '@/lib/session'
 import { redirect, notFound } from 'next/navigation'
 import Link from 'next/link'
 import { format, isPast, isToday } from 'date-fns'
@@ -127,7 +127,7 @@ function InfoRow({ label, value }: { label: string; value: React.ReactNode }) {
 
 export default async function CustomerScheduleDetailPage({ params }: PageProps) {
   const { id: scheduleId } = params
-  const session = getServerSession()
+  const session = getCustomerSession()
   if (!session || session.role !== 'customer') redirect('/login')
 
   const supabase = createServiceClient()
