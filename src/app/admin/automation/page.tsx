@@ -95,33 +95,45 @@ const ALIMTALK_TEMPLATES: AlimtalkTemplate[] = [
     trigger: '카드 결제 승인 즉시 (결제 PG 웹훅)',
     triggerType: 'webhook',
   },
-]
-
-const SMS_ITEMS: SmsItem[] = [
   {
-    id: 'sms-reservation',
-    name: '예약 당일/1일전 알림',
-    desc: '내일/오늘 시공 예정 + 배정완료 건에 방문 일정을 안내합니다.',
-    trigger: '매일 06:00 KST 자동',
+    id: 'reservation-day-before',
+    templateCode: 'KA01TP260324131935294IPmMhH8BWA8',
+    name: '예약 1일전 알림',
+    variables: ['고객명', '상호명', '케어유형', '담당자', '주소', '시공일자', '요청시간', '미팅여부', '미팅시간'],
+    trigger: '내일 시공 + 배정완료 건에 자동 발송 (정기엔드케어 제외)',
     triggerType: 'auto',
     schedule: '매일 06:00 KST',
   },
   {
-    id: 'sms-payment-request',
-    name: '1회성·정기딥케어(월간) 결제요청',
-    desc: '작업완료 후 결제완료 전 건에 잔금 요청 문자를 발송합니다.',
-    trigger: '매일 06:00 KST 자동',
+    id: 'reservation-today',
+    templateCode: 'KA01TP2603241319353583492vcrZ9c2',
+    name: '예약 당일 알림',
+    variables: ['고객명', '상호명', '케어유형', '담당자', '주소', '시공일자', '요청시간', '미팅여부', '미팅시간'],
+    trigger: '오늘 시공 + 배정완료 건에 자동 발송',
     triggerType: 'auto',
     schedule: '매일 06:00 KST',
   },
   {
-    id: 'sms-contract-expiry',
-    name: '정기딥케어(연간) 계약만료 안내',
-    desc: '계약 만료 30일 전부터 연장 안내 문자를 발송합니다.',
-    trigger: '매일 14:00 KST 자동',
+    id: 'payment-cron',
+    templateCode: 'KA01TP260324125232471CIIHJKDOBsf',
+    name: '잔금 결제 요청',
+    variables: ['고객명', '청소비용'],
+    trigger: '작업완료 후 결제완료 전 건 매일 반복 발송 (정기엔드케어 제외)',
+    triggerType: 'auto',
+    schedule: '매일 06:00 KST',
+  },
+  {
+    id: 'annual-renewal',
+    templateCode: 'KA01TP260324125257737g0vuFScqrCv',
+    name: '연간계약 갱신 안내',
+    variables: ['고객명', '만료일', '잔여일'],
+    trigger: '정기딥케어(연간) 계약만료 30일 전부터 매일 반복',
     triggerType: 'auto',
     schedule: '매일 14:00 KST',
   },
+]
+
+const SMS_ITEMS: SmsItem[] = [
   {
     id: 'sms-work-complete',
     name: '1회성·정기딥케어 작업완료 알림',
@@ -157,39 +169,41 @@ const INITIAL_ITEMS: AutomationItem[] = [
   {
     id: 'missed-call',
     name: '부재중 전화 자동 명함 발송',
-    description: '부재중 전화 감지 시 카카오톡으로 명함과 안내 메시지를 자동 발송합니다.',
+    description: '부재중 전화 감지 시 명함 문자를 자동 발송합니다.',
     category: '고객응대',
     active: true,
     trigger: 'Webhook (부재중 전화 감지)',
     slackEnabled: true,
-    channelType: 'alimtalk',
+    channelType: 'sms',
   },
   // ── 예약알림 ────────────────────────────────────────────────
   {
     id: 'schedule-notify-day-before',
     name: '예약 1일전 알림 자동 발송',
-    description: '내일 시공 예정 + 배정완료 건에 SMS를 자동 발송합니다.',
+    description: '내일 시공 예정 + 배정완료 건에 카카오 알림톡을 자동 발송합니다. (정기엔드케어 제외)',
     category: '예약알림',
     active: true,
-    trigger: '매일 06:00 KST → /api/webhooks/schedule-notify',
+    trigger: '매일 06:00 KST → /api/cron/reservation-reminders',
     slackEnabled: true,
-    channelType: 'sms',
+    channelType: 'alimtalk',
+    templateId: 'KA01TP260324131935294IPmMhH8BWA8',
   },
   {
     id: 'schedule-notify-today',
     name: '예약 당일 알림 자동 발송',
-    description: '오늘 시공 예정 + 배정완료 건에 SMS를 자동 발송합니다.',
+    description: '오늘 시공 예정 + 배정완료 건에 카카오 알림톡을 자동 발송합니다.',
     category: '예약알림',
     active: true,
-    trigger: '매일 06:00 KST → /api/webhooks/schedule-notify',
+    trigger: '매일 06:00 KST → /api/cron/reservation-reminders',
     slackEnabled: true,
-    channelType: 'sms',
+    channelType: 'alimtalk',
+    templateId: 'KA01TP2603241319353583492vcrZ9c2',
   },
   // ── 예약확정 ────────────────────────────────────────────────
   {
     id: 'cron-auto-schedule',
-    name: '정기케어 다음달 일정 자동 생성 + 예약확정 알림톡',
-    description: '매월 23일 활성 정기케어 고객 전체의 다음달 방문 일정을 자동 생성하고, 예약확정 카카오 알림톡을 발송합니다.',
+    name: '정기딥케어·엔드케어 다음달 일정 자동 생성 + 예약확정 알림톡',
+    description: '매월 23일 활성 정기 고객 전체의 다음달 방문 일정을 자동 생성하고, 예약확정 카카오 알림톡을 발송합니다.',
     category: '예약확정',
     active: true,
     trigger: '매월 23일 09:00 KST (Make 시나리오 #8990139)',
@@ -199,7 +213,7 @@ const INITIAL_ITEMS: AutomationItem[] = [
   },
   {
     id: 'service-app-bulk-create',
-    name: '정기케어 월간 일정 수동 생성',
+    name: '정기딥케어·엔드케어 월간 일정 수동 생성',
     description: '관리자가 고객 선택 후 "다음달 일정 생성" 버튼 클릭 시 방문 일정을 일괄 생성합니다.',
     category: '예약확정',
     active: true,
@@ -257,23 +271,25 @@ const INITIAL_ITEMS: AutomationItem[] = [
   {
     id: 'payment-notify-oneshot',
     name: '1회성·정기딥케어(월간) 결제요청',
-    description: '작업완료 후 결제완료 전 건에 매일 결제 요청 SMS를 발송합니다.',
+    description: '작업완료 후 결제완료 전 건에 매일 카카오 알림톡을 발송합니다. 실패 시 SMS fallback.',
     category: '결제알림',
     active: true,
     trigger: '매일 06:00 KST → /api/webhooks/payment-notify (type: morning)',
     slackEnabled: true,
-    channelType: 'sms',
+    channelType: 'alimtalk',
+    templateId: 'KA01TP260324125257636A2QdT1YNpL5',
   },
   {
     id: 'payment-notify-yearly',
     name: '정기딥케어(연간) 계약 만료 알림',
-    description: '계약 만료 30일 전부터 매일 연장 안내 SMS를 발송합니다.',
+    description: '계약 만료 30일 전부터 매일 카카오 알림톡으로 연장 안내를 발송합니다. 실패 시 SMS fallback.',
     category: '결제알림',
     active: true,
     trigger: '매일 14:00 KST → /api/webhooks/payment-notify (type: afternoon)',
     slackEnabled: true,
     scenarioId: 9132732,
-    channelType: 'sms',
+    channelType: 'alimtalk',
+    templateId: 'KA01TP260324125257737g0vuFScqrCv',
   },
   {
     id: 'payment-card-webhook',
@@ -369,7 +385,9 @@ function TriggerTypeBadge({ type }: { type: 'auto' | 'manual' | 'webhook' }) {
     manual:  'bg-orange-100 text-orange-700 반자동',
     webhook: 'bg-purple-100 text-purple-700 자동(웹훅)',
   }
-  const [cls, label] = map[type].split(' ')
+  const parts = map[type].split(' ')
+  const cls = parts.slice(0, -1).join(' ')
+  const label = parts[parts.length - 1]
   return <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${cls}`}>{label}</span>
 }
 
@@ -563,7 +581,7 @@ export default function AutomationPage() {
           <div className="space-y-3">
             <div className="bg-yellow-50 border border-yellow-100 rounded-xl p-3">
               <p className="text-xs font-bold text-yellow-800">카카오 알림톡 템플릿 {ALIMTALK_TEMPLATES.length}개 사용 중</p>
-              <p className="text-[11px] text-yellow-700 mt-0.5">실패 시 SMS로 자동 fallback (카드결제 웹훅 제외)</p>
+              <p className="text-[11px] text-yellow-700 mt-0.5">실패 시 SMS로 자동 fallback · 카드결제 웹훅은 fallback 없음</p>
             </div>
             {ALIMTALK_TEMPLATES.map(tpl => (
               <div key={tpl.id} className="bg-surface rounded-xl border border-border-subtle shadow-soft p-4">
@@ -594,7 +612,7 @@ export default function AutomationPage() {
           <div className="space-y-3">
             <div className="bg-blue-50 border border-blue-100 rounded-xl p-3">
               <p className="text-xs font-bold text-blue-800">SMS {SMS_ITEMS.length}개 항목</p>
-              <p className="text-[11px] text-blue-700 mt-0.5">솔라피 일반 문자 · 템플릿 없음 (자유 문자)</p>
+              <p className="text-[11px] text-blue-700 mt-0.5">OTP·광고·계약링크 등 알림톡으로 대체 불가한 항목만 유지</p>
             </div>
             {SMS_ITEMS.map(item => (
               <div key={item.id} className="bg-surface rounded-xl border border-border-subtle shadow-soft p-4">
