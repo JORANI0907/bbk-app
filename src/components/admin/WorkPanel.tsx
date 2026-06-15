@@ -438,6 +438,101 @@ export function WorkPanel({ app, onUpdate, isAdmin = false }: Props) {
             </div>
           </div>
 
+          {/* 관리자 전용: 리포트 재저장 */}
+          {isAdmin && (
+            <div className="border-t border-border-subtle pt-3 space-y-3">
+              <p className="text-xs font-bold text-text-primary">고객 리포트 수정</p>
+
+              <div>
+                <label className="text-xs font-semibold text-text-secondary mb-1.5 block">작업 상태</label>
+                <div className="flex gap-2">
+                  {CONDITION_OPTIONS.map((opt) => (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => setReportScore(reportScore === opt.value ? null : opt.value)}
+                      className={`flex-1 py-1.5 text-xs font-semibold rounded-lg border transition-colors
+                        ${reportScore === opt.value
+                          ? opt.activeTone
+                          : 'border-border bg-surface text-text-secondary hover:bg-surface-sunken'
+                        }`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold text-text-secondary mb-1.5 block">특이사항</label>
+                <textarea
+                  value={reportMemo}
+                  onChange={(e) => setReportMemo(e.target.value)}
+                  rows={3}
+                  placeholder="고객에게 전달할 특이사항을 입력하세요"
+                  className="w-full text-xs text-text-primary border border-border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-500 resize-none bg-surface"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold text-text-secondary mb-1.5 block">드라이브 링크</label>
+                <input
+                  type="url"
+                  value={reportDriveUrl}
+                  onChange={(e) => setReportDriveUrl(e.target.value)}
+                  placeholder="https://drive.google.com/..."
+                  className="w-full text-xs text-text-primary border border-border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-500 bg-surface"
+                />
+              </div>
+
+              {isRegularService && (
+                <div>
+                  <label className="text-xs font-semibold text-text-secondary mb-1.5 block">권장 서비스</label>
+                  <RecommendServicePicker
+                    serviceType={app.service_type as '정기딥케어' | '정기엔드케어'}
+                    value={reportRecommendations}
+                    onChange={setReportRecommendations}
+                  />
+                </div>
+              )}
+
+              <button
+                onClick={async () => {
+                  setReportSaving(true)
+                  try {
+                    const res = await fetch(`/api/admin/applications/${app.id}/report`, {
+                      method: 'PATCH',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        condition_score: reportScore,
+                        customer_memo: reportMemo,
+                        drive_folder_url: reportDriveUrl || null,
+                        ...(isRegularService && {
+                          recommended_services: fromRecommendationState(reportRecommendations),
+                        }),
+                      }),
+                    })
+                    if (!res.ok) throw new Error((await res.json()).error)
+                    onUpdate({
+                      condition_score: reportScore,
+                      customer_memo: reportMemo,
+                      drive_folder_url: reportDriveUrl || null,
+                      ...(isRegularService && {
+                        recommended_services: fromRecommendationState(reportRecommendations),
+                      }),
+                    })
+                    toast.success('리포트 내용이 재저장됐습니다.')
+                  } catch (e) { toast.error(String(e)) }
+                  finally { setReportSaving(false) }
+                }}
+                disabled={reportSaving}
+                className="w-full py-2.5 bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white text-xs font-bold rounded-xl transition-colors"
+              >
+                {reportSaving ? '저장 중...' : '리포트 재저장'}
+              </button>
+            </div>
+          )}
+
           {/* 알림 발송 버튼 or 발송 완료 표시 */}
           {app.notification_sent_at ? (
             <div className="bg-green-50 border border-green-200 rounded-xl px-3 py-2.5 flex items-center justify-between gap-2">
@@ -482,105 +577,6 @@ export function WorkPanel({ app, onUpdate, isAdmin = false }: Props) {
               작업완료 취소 (내용 수정하러 가기)
             </button>
           )}
-        </div>
-      )}
-
-      {/* ── 관리자 전용: 리포트 내용 수정 ── */}
-      {isAdmin && status === 'completed' && (
-        <div className="mt-4 border-t border-border-subtle pt-4 space-y-3">
-          <p className="text-xs font-bold text-text-primary">고객 리포트 수정</p>
-
-          {/* 작업 상태 */}
-          <div>
-            <label className="text-xs font-semibold text-text-secondary mb-1.5 block">작업 상태</label>
-            <div className="flex gap-2">
-              {CONDITION_OPTIONS.map((opt) => (
-                <button
-                  key={opt.value}
-                  type="button"
-                  onClick={() => setReportScore(reportScore === opt.value ? null : opt.value)}
-                  className={`flex-1 py-1.5 text-xs font-semibold rounded-lg border transition-colors
-                    ${reportScore === opt.value
-                      ? opt.activeTone
-                      : 'border-border bg-surface text-text-secondary hover:bg-surface-sunken'
-                    }`}
-                >
-                  {opt.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* 특이사항 */}
-          <div>
-            <label className="text-xs font-semibold text-text-secondary mb-1.5 block">특이사항</label>
-            <textarea
-              value={reportMemo}
-              onChange={(e) => setReportMemo(e.target.value)}
-              rows={3}
-              placeholder="고객에게 전달할 특이사항을 입력하세요"
-              className="w-full text-xs text-text-primary border border-border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-500 resize-none bg-surface"
-            />
-          </div>
-
-          {/* 드라이브 링크 */}
-          <div>
-            <label className="text-xs font-semibold text-text-secondary mb-1.5 block">드라이브 링크</label>
-            <input
-              type="url"
-              value={reportDriveUrl}
-              onChange={(e) => setReportDriveUrl(e.target.value)}
-              placeholder="https://drive.google.com/..."
-              className="w-full text-xs text-text-primary border border-border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-500 bg-surface"
-            />
-          </div>
-
-          {/* 권장 서비스 — 정기 서비스에만 표시 */}
-          {isRegularService && (
-            <div>
-              <label className="text-xs font-semibold text-text-secondary mb-1.5 block">권장 서비스</label>
-              <RecommendServicePicker
-                serviceType={app.service_type as '정기딥케어' | '정기엔드케어'}
-                value={reportRecommendations}
-                onChange={setReportRecommendations}
-              />
-            </div>
-          )}
-
-          <button
-            onClick={async () => {
-              setReportSaving(true)
-              try {
-                const res = await fetch(`/api/admin/applications/${app.id}/report`, {
-                  method: 'PATCH',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({
-                    condition_score: reportScore,
-                    customer_memo: reportMemo,
-                    drive_folder_url: reportDriveUrl || null,
-                    ...(isRegularService && {
-                      recommended_services: fromRecommendationState(reportRecommendations),
-                    }),
-                  }),
-                })
-                if (!res.ok) throw new Error((await res.json()).error)
-                onUpdate({
-                  condition_score: reportScore,
-                  customer_memo: reportMemo,
-                  drive_folder_url: reportDriveUrl || null,
-                  ...(isRegularService && {
-                    recommended_services: fromRecommendationState(reportRecommendations),
-                  }),
-                })
-                toast.success('리포트 내용이 저장됐습니다.')
-              } catch (e) { toast.error(String(e)) }
-              finally { setReportSaving(false) }
-            }}
-            disabled={reportSaving}
-            className="w-full py-2.5 bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white text-xs font-bold rounded-xl transition-colors"
-          >
-            {reportSaving ? '저장 중...' : '리포트 저장'}
-          </button>
         </div>
       )}
     </section>
