@@ -2,8 +2,13 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { signInWithPassword, customerEmail, staffEmail } from '@/lib/auth-helpers'
 import { sendSlack } from '@/lib/slack'
+import { recordLoginLog } from '@/lib/login-log'
 
 export async function POST(request: NextRequest) {
+  const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
+    ?? request.headers.get('x-real-ip')
+    ?? 'unknown'
+
   try {
     const { phone, password } = await request.json()
 
@@ -36,7 +41,19 @@ export async function POST(request: NextRequest) {
       ? customerEmail(normalized)
       : staffEmail(normalized)
 
-    const session = await signInWithPassword(email, password)
+    let session
+    try {
+      session = await signInWithPassword(email, password)
+    } catch (authError) {
+      const authMsg = authError instanceof Error ? authError.message : String(authError)
+      if (authMsg.includes('Invalid login credentials')) {
+        recordLoginLog(userRow.id, userRow.role, false, ip, '비밀번호 오류').catch(() => {})
+        return NextResponse.json({ error: '아이디 또는 비밀번호가 올바르지 않습니다.' }, { status: 401 })
+      }
+      throw authError
+    }
+
+    recordLoginLog(userRow.id, userRow.role, true, ip).catch(() => {})
 
     if (userRow.role === 'admin' || userRow.role === 'worker') {
       sendSlack(`[로그인] ${userRow.name} (${userRow.role})`).catch(() => {})
@@ -52,9 +69,6 @@ export async function POST(request: NextRequest) {
     })
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error)
-    if (msg.includes('Invalid login credentials')) {
-      return NextResponse.json({ error: '아이디 또는 비밀번호가 올바르지 않습니다.' }, { status: 401 })
-    }
     return NextResponse.json({ error: msg }, { status: 500 })
   }
 }

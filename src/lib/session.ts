@@ -20,11 +20,11 @@ export function verifySession(token: string): Record<string, string> | null {
   }
 }
 
-export function getServerSession(): { userId: string; role: string; name: string } | null {
+export function getServerSession(): { userId: string; role: string; name: string; isPreview?: boolean } | null {
   const cookieStore = cookies()
   const token = cookieStore.get('bbk_session')?.value
   if (!token) return null
   const payload = verifySession(token)
   if (!payload) return null
-  return payload as { userId: string; role: string; name: string }
+  return payload as { userId: string; role: string; name: string; isPreview?: boolean }
 }
