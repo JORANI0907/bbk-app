@@ -691,52 +691,13 @@ export default function ServiceManagementPage() {
       .catch(() => { /* workers table 미생성 시 무시 */ })
   }
 
-  const handleWorkerToggle = async (workerId: string) => {
+  const handleWorkerToggle = (workerId: string) => {
     if (!selected) return
-    const isSelected = selectedWorkerIds.includes(workerId)
-    if (isSelected) {
-      // 제거: 해당 assignment 삭제
-      const asgn = savedAssignments.find(a => a.worker_id === workerId)
-      if (!asgn) {
-        toast.error('배정 데이터를 찾을 수 없습니다. 페이지를 새로고침 후 다시 시도하세요.')
-        return
-      }
-      try {
-        const res = await fetch('/api/admin/work-assignments', {
-          method: 'DELETE',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id: asgn.id }),
-        })
-        if (!res.ok) {
-          const d = await res.json()
-          throw new Error(d.error || '작업자 제거 실패')
-        }
-        setSavedAssignments(prev => prev.filter(a => a.id !== asgn.id))
-        setSelectedWorkerIds(prev => prev.filter(id => id !== workerId))
-      } catch (e) {
-        toast.error(e instanceof Error ? e.message : '작업자 제거 실패')
-      }
-    } else {
-      // 추가: 새 assignment 생성
-      try {
-        const res = await fetch('/api/admin/work-assignments', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            worker_id: workerId,
-            application_id: selected.id,
-            construction_date: selected.construction_date ?? null,
-            business_name: selected.business_name,
-          }),
-        })
-        const d = await res.json()
-        if (!res.ok) throw new Error(d.error || '작업자 추가 실패')
-        if (d.assignment) setSavedAssignments(prev => [...prev, d.assignment])
-        setSelectedWorkerIds(prev => [...prev, workerId])
-      } catch (e) {
-        toast.error(e instanceof Error ? e.message : '작업자 추가 실패')
-      }
-    }
+    setSelectedWorkerIds(prev =>
+      prev.includes(workerId)
+        ? prev.filter(id => id !== workerId)
+        : [...prev, workerId]
+    )
   }
 
   const handleSaveToCustomer = async () => {
@@ -992,6 +953,42 @@ export default function ServiceManagementPage() {
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || '저장 실패')
+
+      // 작업자 배정 동기화 (전체 저장 시 함께 처리)
+      const savedWorkerIds = savedAssignments.map(a => a.worker_id)
+      const toAdd = selectedWorkerIds.filter(id => !savedWorkerIds.includes(id))
+      const toRemove = savedAssignments.filter(a => !selectedWorkerIds.includes(a.worker_id))
+      const addedResults = await Promise.all(
+        toAdd.map(wid =>
+          fetch('/api/admin/work-assignments', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              worker_id: wid,
+              application_id: selected.id,
+              construction_date: constructionDate || selected.construction_date || null,
+              business_name: businessNameEdit || selected.business_name,
+            }),
+          }).then(r => r.json())
+        )
+      )
+      await Promise.all(
+        toRemove.map(asgn =>
+          fetch('/api/admin/work-assignments', {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: asgn.id }),
+          })
+        )
+      )
+      const addedAssignments: WorkAssignment[] = addedResults
+        .filter((d): d is { assignment: WorkAssignment } => !!d?.assignment)
+        .map(d => d.assignment)
+      setSavedAssignments([
+        ...savedAssignments.filter(a => selectedWorkerIds.includes(a.worker_id)),
+        ...addedAssignments,
+      ])
+
       toast.success('저장되었습니다.')
       await fetchAll()
     } catch (e) {
