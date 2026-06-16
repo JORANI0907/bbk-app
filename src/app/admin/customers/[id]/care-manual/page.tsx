@@ -74,10 +74,13 @@ export default function CareManualEditPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ sections }),
       })
-      if (!res.ok) throw new Error()
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}))
+        throw new Error(`[${res.status}] ${body.error ?? '저장 실패'}`)
+      }
       toast.success('케어매뉴얼 저장됨')
-    } catch {
-      toast.error('저장 실패')
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : '저장 실패')
     } finally {
       setSaving(false)
     }
