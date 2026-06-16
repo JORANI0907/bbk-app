@@ -595,8 +595,8 @@ export default function QuotesPage() {
                   {pricingMode === 'itemized' ? '항목 추가 버튼을 눌러 견적 항목을 입력하세요.' : '설명 항목을 추가할 수 있습니다. (선택사항)'}
                 </div>
               ) : (
-                <div className="rounded-xl border border-border-subtle overflow-hidden">
-                  <table className="w-full text-sm">
+                <div className="overflow-x-auto rounded-xl border border-border-subtle">
+                  <table className="w-full min-w-max text-sm">
                     <thead className="bg-surface-sunken border-b border-border-subtle">
                       <tr>
                         <th className="text-left px-4 py-2.5 text-xs font-medium text-text-secondary">항목명</th>
