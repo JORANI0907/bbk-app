@@ -328,7 +328,7 @@ function SelectField({ label, value, options, onChange }: {
 export default function AdminCustomersPage() {
   const [customers, setCustomers] = useState<Customer[]>([])
   const [loading, setLoading] = useState(true)
-  const [selectedTypes, setSelectedTypes] = useState<Set<CustomerType>>(new Set())
+  const [selectedTypes, setSelectedTypes] = useState<Set<CustomerType>>(new Set(['정기엔드케어']))
   const [search, setSearch] = useState('')
   const [selected, setSelected] = useState<Customer | null>(null)
   const [isNew, setIsNew] = useState(false)
