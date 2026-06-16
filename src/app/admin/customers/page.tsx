@@ -1231,6 +1231,15 @@ export default function AdminCustomersPage() {
                     placeholder="내부 메모를 입력하세요..."
                     className="flex-1 border border-border rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-green-500 resize-none text-text-primary" />
                 </div>
+                {/* 케어매뉴얼 편집 버튼 (정기 고객만) */}
+                {!isNew && selected && isRegular && (
+                  <a href={`/admin/customers/${selected.id}/care-manual`} className="block pt-1">
+                    <button type="button" className="w-full flex items-center gap-2 px-3 py-2.5 rounded-lg border border-green-300 bg-green-50 hover:bg-green-100 transition-colors text-sm font-medium text-green-800">
+                      <BookOpen size={15} className="text-green-700 shrink-0" />
+                      케어매뉴얼 편집
+                    </button>
+                  </a>
+                )}
               </div>
             </div>
 
@@ -1590,15 +1599,6 @@ export default function AdminCustomersPage() {
               </div>
             )}
 
-            {/* 케어매뉴얼 (정기딥케어 / 정기엔드케어) */}
-            {!isNew && selected && isRegular && (
-              <a href={`/admin/customers/${selected.id}/care-manual`}>
-                <button className="w-full flex items-center gap-2 px-4 py-3 rounded-xl border border-border-subtle bg-surface hover:bg-surface-sunken transition-colors text-sm font-medium text-text-primary">
-                  <BookOpen size={16} className="text-brand-600" />
-                  케어매뉴얼 편집
-                </button>
-              </a>
-            )}
 
             {/* 청구 이력 (정기딥케어 연간 / 정기엔드케어) */}
             {!isNew && selected && (
