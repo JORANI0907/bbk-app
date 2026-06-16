@@ -6,4 +6,5 @@ export interface CareManualItem {
 export interface CareManualSection {
   section: string
   items: CareManualItem[]
+  image_url?: string
 }

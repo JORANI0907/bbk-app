@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation'
 import { ChevronLeft, BookOpen } from 'lucide-react'
 import Link from 'next/link'
 import type { CareManualSection } from '@/types/care-manual'
+import { ImageViewer } from './ImageViewer'
 
 export default async function CustomerCareManualPage() {
   const session = getCustomerSession()
@@ -58,6 +59,14 @@ export default async function CustomerCareManualPage() {
           <div className="px-5 py-3 border-b border-border-subtle bg-surface-sunken">
             <span className="text-sm font-bold text-text-primary">{section.section}</span>
           </div>
+
+          {/* 섹션 사진 */}
+          {section.image_url && (
+            <div className="px-4 pt-3 pb-1">
+              <ImageViewer src={section.image_url} alt={section.section} />
+            </div>
+          )}
+
           <div className="divide-y divide-border-subtle">
             {section.items.map((item, ii) => (
               <div key={ii} className="px-5 py-3 flex gap-3 items-start">

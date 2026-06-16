@@ -2,22 +2,53 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { Plus, Trash2, ChevronLeft, Save, GripVertical } from 'lucide-react'
+import { Plus, Trash2, ChevronLeft, Save, GripVertical, ImagePlus, X } from 'lucide-react'
 import { Button } from '@/components/ui'
 import toast from 'react-hot-toast'
 import type { CareManualSection, CareManualItem } from '@/types/care-manual'
+import { createClient } from '@/lib/supabase/client'
 
+const BUCKET = 'care-manual-images'
 const EMPTY_ITEM: CareManualItem = { label: '', desc: '' }
 const EMPTY_SECTION: CareManualSection = { section: '', items: [{ ...EMPTY_ITEM }] }
+
+async function compressImage(file: File): Promise<Blob> {
+  const MAX = 1_000_000
+  if (file.size <= MAX) return file
+  return new Promise((resolve, reject) => {
+    const img = new window.Image()
+    const url = URL.createObjectURL(file)
+    img.onload = () => {
+      URL.revokeObjectURL(url)
+      const scale = Math.min(1, Math.sqrt(MAX / file.size) * 0.85)
+      const w = Math.round(img.width * scale)
+      const h = Math.round(img.height * scale)
+      const canvas = document.createElement('canvas')
+      canvas.width = w
+      canvas.height = h
+      canvas.getContext('2d')!.drawImage(img, 0, 0, w, h)
+      canvas.toBlob(
+        blob => { if (blob) resolve(blob); else reject(new Error('압축 실패')) },
+        'image/webp',
+        0.82
+      )
+    }
+    img.onerror = () => reject(new Error('이미지 로드 실패'))
+    img.src = url
+  })
+}
 
 export default function CareManualEditPage() {
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
+  const supabase = createClient()
 
   const [sections, setSections] = useState<CareManualSection[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [customerName, setCustomerName] = useState('')
+  const [uploadingSi, setUploadingSi] = useState<number | null>(null)
+  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null)
 
   const fetchManual = useCallback(async () => {
     try {
@@ -52,8 +83,11 @@ export default function CareManualEditPage() {
     }
   }
 
-  const updateSection = (si: number, key: keyof CareManualSection, value: string) =>
-    setSections(prev => prev.map((s, i) => i === si ? { ...s, [key]: value } : s))
+  const updateSectionName = (si: number, value: string) =>
+    setSections(prev => prev.map((s, i) => i === si ? { ...s, section: value } : s))
+
+  const setSectionImage = (si: number, image_url: string | undefined) =>
+    setSections(prev => prev.map((s, i) => i === si ? { ...s, image_url } : s))
 
   const addSection = () =>
     setSections(prev => [...prev, { ...EMPTY_SECTION, items: [{ ...EMPTY_ITEM }] }])
@@ -78,6 +112,39 @@ export default function CareManualEditPage() {
     setSections(prev => prev.map((s, i) =>
       i !== si ? s : { ...s, items: s.items.filter((_, j) => j !== ii) }
     ))
+
+  const handleImageUpload = async (si: number, file: File) => {
+    try {
+      setUploadingSi(si)
+      const blob = await compressImage(file)
+      const path = `${id}/${si}_${Date.now()}.webp`
+      const { error } = await supabase.storage.from(BUCKET).upload(path, blob, {
+        contentType: 'image/webp',
+        upsert: true,
+      })
+      if (error) throw error
+      const { data } = supabase.storage.from(BUCKET).getPublicUrl(path)
+      setSectionImage(si, data.publicUrl)
+      toast.success('사진 업로드 완료')
+    } catch {
+      toast.error('사진 업로드 실패')
+    } finally {
+      setUploadingSi(null)
+    }
+  }
+
+  const removeImage = async (si: number) => {
+    const url = sections[si]?.image_url
+    setSectionImage(si, undefined)
+    if (url) {
+      const marker = `${BUCKET}/`
+      const markerIdx = url.indexOf(marker)
+      if (markerIdx !== -1) {
+        const path = url.slice(markerIdx + marker.length)
+        await supabase.storage.from(BUCKET).remove([path])
+      }
+    }
+  }
 
   if (loading) {
     return (
@@ -106,7 +173,6 @@ export default function CareManualEditPage() {
         </Button>
       </div>
 
-      {/* 섹션 목록 */}
       {sections.length === 0 && (
         <div className="bg-surface-sunken rounded-2xl p-8 text-center">
           <p className="text-text-tertiary text-sm">케어매뉴얼이 없습니다.</p>
@@ -121,7 +187,7 @@ export default function CareManualEditPage() {
             <GripVertical size={16} className="text-text-tertiary shrink-0" />
             <input
               value={section.section}
-              onChange={e => updateSection(si, 'section', e.target.value)}
+              onChange={e => updateSectionName(si, e.target.value)}
               placeholder="섹션명 (예: 주방 후드)"
               className="flex-1 text-sm font-semibold bg-transparent outline-none text-text-primary placeholder:text-text-tertiary"
             />
@@ -131,6 +197,54 @@ export default function CareManualEditPage() {
             >
               <Trash2 size={15} />
             </button>
+          </div>
+
+          {/* 섹션 사진 */}
+          <div className="px-4 py-3 border-b border-border-subtle">
+            {section.image_url ? (
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setLightboxUrl(section.image_url!)}
+                  className="w-full overflow-hidden rounded-xl border border-border-subtle block"
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={section.image_url}
+                    alt={section.section}
+                    className="w-full object-cover max-h-48"
+                  />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => removeImage(si)}
+                  className="absolute top-2 right-2 p-1 rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+            ) : (
+              <label className="flex items-center gap-2 text-xs text-text-tertiary hover:text-brand-600 cursor-pointer transition-colors w-fit">
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={e => {
+                    const file = e.target.files?.[0]
+                    if (file) handleImageUpload(si, file)
+                    e.target.value = ''
+                  }}
+                />
+                {uploadingSi === si ? (
+                  <span className="text-xs text-brand-600 animate-pulse">업로드 중...</span>
+                ) : (
+                  <>
+                    <ImagePlus size={14} />
+                    <span>사진 추가 (선택)</span>
+                  </>
+                )}
+              </label>
+            )}
           </div>
 
           {/* 항목 목록 */}
@@ -181,11 +295,34 @@ export default function CareManualEditPage() {
         <Plus size={16} /> 섹션 추가
       </button>
 
-      {/* 저장 (하단 고정) */}
+      {/* 하단 저장 버튼 */}
       <Button onClick={handleSave} disabled={saving} size="lg" className="w-full">
         <Save size={16} className="mr-2" />
         {saving ? '저장 중...' : '케어매뉴얼 저장'}
       </Button>
+
+      {/* 라이트박스 */}
+      {lightboxUrl && (
+        <div
+          className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4"
+          onClick={() => setLightboxUrl(null)}
+        >
+          <button
+            type="button"
+            onClick={() => setLightboxUrl(null)}
+            className="absolute top-4 right-4 p-2 rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors"
+          >
+            <X size={20} />
+          </button>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={lightboxUrl}
+            alt="섹션 사진 확대"
+            className="max-w-full max-h-[90vh] object-contain rounded-xl"
+            onClick={e => e.stopPropagation()}
+          />
+        </div>
+      )}
     </div>
   )
 }
