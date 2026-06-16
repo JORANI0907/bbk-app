@@ -342,7 +342,7 @@ export default function QuotesPage() {
     <div className="flex h-full gap-6 p-6">
 
       {/* ── 좌측: 신청 목록 ──────────────────────────────────── */}
-      <aside className="w-72 flex-shrink-0 flex flex-col gap-3">
+      <aside className={`flex-shrink-0 flex flex-col gap-3 w-full md:w-72 ${selectedId !== null ? 'hidden md:flex' : 'flex'}`}>
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-xl font-bold text-text-primary tracking-tight">견적관리</h1>
@@ -401,7 +401,7 @@ export default function QuotesPage() {
       </aside>
 
       {/* ── 우측: 세부 패널 ───────────────────────────────────── */}
-      <div className="flex-1 overflow-y-auto min-w-0">
+      <div className={`flex-1 overflow-y-auto min-w-0 ${selectedId !== null ? 'block' : 'hidden md:block'}`}>
         {!selected ? (
           <div className="flex flex-col items-center justify-center h-64 gap-3 text-text-tertiary">
             <FileText size={36} className="opacity-20" />
@@ -409,6 +409,14 @@ export default function QuotesPage() {
           </div>
         ) : (
           <div className="space-y-4 max-w-3xl">
+
+            {/* 모바일 뒤로가기 */}
+            <div className="flex items-center md:hidden">
+              <button type="button" onClick={() => setSelectedId(null)}
+                className="flex items-center gap-1.5 text-sm font-medium text-brand-600">
+                <ChevronLeft size={16} />목록으로
+              </button>
+            </div>
 
             {/* ── 1. 공급자 정보 ─────────────────────────────── */}
             <Section>
