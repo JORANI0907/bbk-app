@@ -150,30 +150,40 @@ function buildVariables(
         '미팅시간': meetingTime,
       }
     case '작업완료알림':
+      return {
+        '고객명':       ownerName,
+        '구글URL':      driveUrl,
+        '청소비용':     balance,
+        '입금자고객명': ownerName,
+      }
     case '작업완료알림(현금)':
       return {
-        '고객명':     ownerName,
-        '구글URL':    driveUrl,
-        '청소비용':   balance,   // 잔금 (총액 - 예약금)
+        '고객명':       ownerName,
+        '구글URL':      driveUrl,
+        '현금잔금':     balance,
         '입금자고객명': ownerName,
       }
     case '작업완료알림(카드,플렛폼)':
       return {
-        '고객명':     ownerName,
-        '구글URL':    driveUrl,
-        '청소비용':   total,     // 총액 (예약금 환급 후 카드 전액 결제)
+        '고객명':       ownerName,
+        '구글URL':      driveUrl,
+        '청소비용':     total,
         '입금자고객명': ownerName,
       }
     case '결제알림':
-    case '결제알림(현금)':
       return {
         '고객명':   ownerName,
-        '청소비용': balance,   // 잔금 (총액 - 예약금)
+        '청소비용': balance,
+      }
+    case '결제알림(현금)':
+      return {
+        '고객명':       ownerName,
+        '청소현금비용': balance,
       }
     case '결제알림(카드,플렛폼)':
       return {
-        '고객명':   ownerName,
-        '청소비용': total,     // 총액 (예약금 환급 후 카드 전액 결제)
+        '고객명':       ownerName,
+        '청소카드비용': total,
       }
     case '결제완료알림':
     case '결제완료알림(잔금)':
