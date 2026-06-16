@@ -74,7 +74,7 @@ interface Customer {
 }
 
 // ─── 상수 ─────────────────────────────────────────────────────
-const CUSTOMER_TYPES: CustomerType[] = ['1회성케어', '정기딥케어', '정기엔드케어']
+const CUSTOMER_TYPES: CustomerType[] = ['정기엔드케어', '정기딥케어', '1회성케어']
 const PAYMENT_METHODS = ['현금', '카드', '계좌이체', '현금(부가세 X)']
 const PAYMENT_STATUS_OPTIONS = ['미수령', '수령완료', '세금계산서발행', '결제완료']
 const ELEVATOR_OPTIONS = ['있음', '없음', '해당없음']
@@ -880,12 +880,14 @@ export default function AdminCustomersPage() {
               </button>
             )
           })}
-          {selectedTypes.size > 0 && (
-            <button onClick={() => setSelectedTypes(new Set())}
-              className="px-2 py-1 text-xs text-text-tertiary hover:text-text-secondary border border-border rounded-lg bg-surface">
-              전체 ({typeCounts['전체'] ?? 0})
-            </button>
-          )}
+          <button onClick={() => setSelectedTypes(new Set())}
+            className={`px-2 py-1 text-xs border rounded-lg transition-colors ${
+              selectedTypes.size === 0
+                ? 'bg-brand-600 text-white border-brand-600'
+                : 'bg-surface text-text-secondary border-border hover:border-blue-400'
+            }`}>
+            전체 ({typeCounts['전체'] ?? 0})
+          </button>
         </div>
 
         {/* 액션 바 */}
