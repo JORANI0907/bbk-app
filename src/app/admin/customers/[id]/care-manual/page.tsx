@@ -295,12 +295,6 @@ export default function CareManualEditPage() {
         <Plus size={16} /> 섹션 추가
       </button>
 
-      {/* 하단 저장 버튼 */}
-      <Button onClick={handleSave} disabled={saving} size="lg" className="w-full">
-        <Save size={16} className="mr-2" />
-        {saving ? '저장 중...' : '케어매뉴얼 저장'}
-      </Button>
-
       {/* 라이트박스 */}
       {lightboxUrl && (
         <div
