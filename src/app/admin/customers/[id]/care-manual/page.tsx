@@ -6,7 +6,6 @@ import { Plus, Trash2, ChevronLeft, Save, GripVertical, ImagePlus, X } from 'luc
 import { Button } from '@/components/ui'
 import toast from 'react-hot-toast'
 import type { CareManualSection, CareManualItem } from '@/types/care-manual'
-import { createClient } from '@/lib/supabase/client'
 
 const BUCKET = 'care-manual-images'
 const EMPTY_ITEM: CareManualItem = { label: '', desc: '' }
@@ -41,7 +40,6 @@ async function compressImage(file: File): Promise<Blob> {
 export default function CareManualEditPage() {
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
-  const supabase = createClient()
 
   const [sections, setSections] = useState<CareManualSection[]>([])
   const [loading, setLoading] = useState(true)
@@ -120,17 +118,23 @@ export default function CareManualEditPage() {
     try {
       setUploadingSi(si)
       const blob = await compressImage(file)
-      const path = `${id}/${si}_${Date.now()}.webp`
-      const { error } = await supabase.storage.from(BUCKET).upload(path, blob, {
-        contentType: 'image/webp',
-        upsert: true,
+      const form = new FormData()
+      form.append('file', blob, `${si}_${Date.now()}.webp`)
+      form.append('si', String(si))
+
+      const res = await fetch(`/api/admin/customers/${id}/care-manual/image`, {
+        method: 'POST',
+        body: form,
       })
-      if (error) throw error
-      const { data } = supabase.storage.from(BUCKET).getPublicUrl(path)
-      setSectionImage(si, data.publicUrl)
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}))
+        throw new Error(body.error ?? '업로드 실패')
+      }
+      const { url } = await res.json()
+      setSectionImage(si, url)
       toast.success('사진 업로드 완료')
-    } catch {
-      toast.error('사진 업로드 실패')
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : '사진 업로드 실패')
     } finally {
       setUploadingSi(null)
     }
@@ -144,7 +148,11 @@ export default function CareManualEditPage() {
       const markerIdx = url.indexOf(marker)
       if (markerIdx !== -1) {
         const path = url.slice(markerIdx + marker.length)
-        await supabase.storage.from(BUCKET).remove([path])
+        await fetch(`/api/admin/customers/${id}/care-manual/image`, {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ path }),
+        })
       }
     }
   }
