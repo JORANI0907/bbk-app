@@ -269,7 +269,7 @@ export async function GET(request: NextRequest) {
         billingType = '결제알림'
       } else if (pm === '현금(비과세)') {
         billingType = '결제알림(현금)'
-      } else if (pm === '카드(온라인 간편결제)' || pm === '플렛폼') {
+      } else if (pm === '카드(온라인 간편결제)' || pm === '플랫폼') {
         billingType = '결제알림(카드,플렛폼)'
       } else {
         skipped++; continue

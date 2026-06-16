@@ -466,9 +466,9 @@ export async function POST(request: NextRequest) {
       const pm = String(app.payment_method ?? '')
       if (pm === '현금(비과세)') {
         type = '작업완료알림(현금)'
-      } else if (pm === '카드(온라인 간편결제)' || pm === '플렛폼') {
+      } else if (pm === '카드(온라인 간편결제)' || pm === '플랫폼') {
         type = '작업완료알림(카드,플렛폼)'
-      } else if (pm !== '현금(세금계산서)') {
+      } else if (pm !== '현금(계산서 희망)') {
         return NextResponse.json({ success: true, skipped: true, reason: `결제방법 '${pm}'은(는) 발송 대상이 아닙니다.` })
       }
       templateId = ALIMTALK_TEMPLATES[type]

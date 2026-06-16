@@ -196,6 +196,7 @@ export function WorkPanel({ app, onUpdate, isAdmin = false }: Props) {
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
+      if (data.skipped) throw new Error(data.reason ?? '발송 대상이 아닙니다. 결제방법을 확인해주세요.')
       onUpdate({
         notification_sent_at: new Date().toISOString(),
         notification_send_at: null,
