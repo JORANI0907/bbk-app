@@ -231,13 +231,6 @@ const ALIMTALK_TEMPLATES: AlimtalkTemplate[] = [
 
 const SMS_ITEMS: SmsItem[] = [
   {
-    id: 'sms-work-complete',
-    name: '1회성·정기딥케어 작업완료 알림',
-    desc: '배정관리에서 작업완료 처리 후 1시간 뒤 자동 발송됩니다. (정기엔드케어 제외)',
-    trigger: '배정관리 완료 처리 후 1시간 뒤 자동',
-    triggerType: 'manual',
-  },
-  {
     id: 'sms-subscription-promo',
     name: '1회성케어 구독권유 광고문자',
     desc: '카드결제 완료 후 구독 전환 안내 광고 문자를 1회 발송합니다.',

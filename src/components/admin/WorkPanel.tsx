@@ -38,7 +38,6 @@ interface WorkApp {
   work_completed_at: string | null
   customer_memo: string | null
   internal_memo: string | null
-  notification_send_at: string | null
   notification_sent_at: string | null
   drive_folder_url: string | null
   business_name: string
@@ -175,7 +174,6 @@ export function WorkPanel({ app, onUpdate, isAdmin = false }: Props) {
       onUpdate({
         work_status: 'completed',
         work_completed_at: new Date().toISOString(),
-        notification_send_at: null,
         customer_memo: customerMemo,
         internal_memo: internalMemo,
       })
@@ -199,7 +197,6 @@ export function WorkPanel({ app, onUpdate, isAdmin = false }: Props) {
       if (data.skipped) throw new Error(data.reason ?? '발송 대상이 아닙니다. 결제방법을 확인해주세요.')
       onUpdate({
         notification_sent_at: new Date().toISOString(),
-        notification_send_at: null,
         customer_memo: customerMemo,
         internal_memo: internalMemo,
         ...(data.new_status ? { status: data.new_status } : {}),
@@ -567,7 +564,7 @@ export function WorkPanel({ app, onUpdate, isAdmin = false }: Props) {
                     body: JSON.stringify({ action: 'cancel_complete' }),
                   })
                   if (!res.ok) throw new Error((await res.json()).error)
-                  onUpdate({ work_status: 'in_progress', work_completed_at: null, notification_send_at: null })
+                  onUpdate({ work_status: 'in_progress', work_completed_at: null })
                   toast.success('작업 완료가 취소되었습니다.')
                 } catch (e) { toast.error(String(e)) }
                 finally { setSaving(false) }
