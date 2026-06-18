@@ -12,9 +12,10 @@ const NOTIFY_TO_STATUS: Record<string, string> = {
   '예약확정알림':       '예약확정',
   '예약1일전알림':      '예약1일전',
   '예약당일알림':       '예약당일',
-  '작업완료알림':           '작업완료',
-  '작업완료알림(현금)':     '작업완료',
-  '작업완료알림(카드,플렛폼)': '작업완료',
+  '작업완료알림':               '작업완료',
+  '작업완료알림(현금)':         '작업완료',
+  '작업완료알림(카드,플렛폼)':  '작업완료',
+  '작업완료알림(정기엔드케어)': '작업완료',
   '결제알림':               '결제',
   '결제알림(현금)':         '결제',
   '결제알림(카드,플렛폼)':  '결제',
@@ -34,9 +35,10 @@ const ALIMTALK_TEMPLATES: Record<string, string> = {
   '예약확정알림':       'KA01TP260324131935207wzarljIsiyK',
   '예약1일전알림':      'KA01TP260324131935294IPmMhH8BWA8',
   '예약당일알림':       'KA01TP2603241319353583492vcrZ9c2',
-  '작업완료알림':           'KA01TP260324125200271OOXEk0LPiAS',
-  '작업완료알림(현금)':     'KA01TP260324125200310YfeiY0REGVv',
-  '작업완료알림(카드,플렛폼)': 'KA01TP260324132220016T20FiBMSKKA',
+  '작업완료알림':               'KA01TP260324125200271OOXEk0LPiAS',
+  '작업완료알림(현금)':         'KA01TP260324125200310YfeiY0REGVv',
+  '작업완료알림(카드,플렛폼)':  'KA01TP260324132220016T20FiBMSKKA',
+  '작업완료알림(정기엔드케어)': 'KA01TP251208071633315G1wZC9a3w4F',
   '결제알림':               'KA01TP260324125232471CIIHJKDOBsf',
   '결제알림(현금)':         'KA01TP251127095540783njh0ig3nyjg',
   '결제알림(카드,플렛폼)':  'KA01TP251201210650817mczUreAtEjU',
@@ -149,6 +151,11 @@ function buildVariables(
         '미팅여부': meetingYN,
         '미팅시간': meetingTime,
       }
+    case '작업완료알림(정기엔드케어)':
+      return {
+        '고객명':  ownerName,
+        '구글URL': driveUrl,
+      }
     case '작업완료알림':
       return {
         '고객명':       ownerName,
@@ -251,9 +258,10 @@ function buildFallback(type: string, app: Record<string, unknown>): string {
     '예약확정알림':       `[BBK 공간케어] ${name}님, ${bizName} 예약이 확정되었습니다. (${date})`,
     '예약1일전알림':      `[BBK 공간케어] ${name}님, 내일 ${bizName} 방문 예정입니다.`,
     '예약당일알림':       `[BBK 공간케어] ${name}님, 오늘 방문 예정입니다. 준비 확인 부탁드립니다.`,
-    '작업완료알림':           `[BBK 공간케어] ${name}님, 케어가 완료되었습니다. 감사합니다.`,
-    '작업완료알림(현금)':     `[BBK 공간케어] ${name}님, 케어가 완료되었습니다. 감사합니다.`,
-    '작업완료알림(카드,플렛폼)': `[BBK 공간케어] ${name}님, 케어가 완료되었습니다. 감사합니다.`,
+    '작업완료알림':               `[BBK 공간케어] ${name}님, 케어가 완료되었습니다. 감사합니다.`,
+    '작업완료알림(현금)':         `[BBK 공간케어] ${name}님, 케어가 완료되었습니다. 감사합니다.`,
+    '작업완료알림(카드,플렛폼)':  `[BBK 공간케어] ${name}님, 케어가 완료되었습니다. 감사합니다.`,
+    '작업완료알림(정기엔드케어)': `[BBK 공간케어] ${name}님, 오늘 진행한 청소 작업이 완료되었습니다. 감사합니다.`,
     '결제알림':               `[BBK 공간케어] ${name}님, 잔금 결제를 요청드립니다.`,
     '결제알림(현금)':         `[BBK 공간케어] ${name}님, 잔금 결제를 요청드립니다.`,
     '결제알림(카드,플렛폼)':  `[BBK 공간케어] ${name}님, 잔금 결제를 요청드립니다.`,
@@ -468,18 +476,19 @@ export async function POST(request: NextRequest) {
 
     if (!app) return NextResponse.json({ error: '신청서를 찾을 수 없습니다.' }, { status: 404 })
 
-    // 작업완료알림: 정기엔드케어 제외 + payment_method에 따라 알림 유형 결정
+    // 작업완료알림: 서비스 유형 및 payment_method에 따라 알림 유형 결정
     if (type === '작업완료알림') {
       if (String(app.service_type ?? '') === '정기엔드케어') {
-        return NextResponse.json({ success: true, skipped: true, reason: '정기엔드케어는 별도 알림 사용' })
-      }
-      const pm = String(app.payment_method ?? '')
-      if (pm === '현금(비과세)') {
-        type = '작업완료알림(현금)'
-      } else if (pm === '카드(온라인 간편결제)' || pm === '플랫폼') {
-        type = '작업완료알림(카드,플렛폼)'
-      } else if (pm !== '현금(계산서 희망)') {
-        return NextResponse.json({ success: true, skipped: true, reason: `결제방법 '${pm}'은(는) 발송 대상이 아닙니다.` })
+        type = '작업완료알림(정기엔드케어)'
+      } else {
+        const pm = String(app.payment_method ?? '')
+        if (pm === '현금(비과세)') {
+          type = '작업완료알림(현금)'
+        } else if (pm === '카드(온라인 간편결제)' || pm === '플랫폼') {
+          type = '작업완료알림(카드,플렛폼)'
+        } else if (pm !== '현금(계산서 희망)') {
+          return NextResponse.json({ success: true, skipped: true, reason: `결제방법 '${pm}'은(는) 발송 대상이 아닙니다.` })
+        }
       }
       templateId = ALIMTALK_TEMPLATES[type]
       if (!templateId) {
@@ -532,7 +541,8 @@ export async function POST(request: NextRequest) {
     if (
       type === '작업완료알림' ||
       type === '작업완료알림(현금)' ||
-      type === '작업완료알림(카드,플렛폼)'
+      type === '작업완료알림(카드,플렛폼)' ||
+      type === '작업완료알림(정기엔드케어)'
     ) {
       dbUpdates.notification_sent_at = nowIso
       dbUpdates.notification_send_at = null
@@ -616,7 +626,8 @@ export async function POST(request: NextRequest) {
       (
         type === '작업완료알림' ||
         type === '작업완료알림(현금)' ||
-        type === '작업완료알림(카드,플렛폼)'
+        type === '작업완료알림(카드,플렛폼)' ||
+        type === '작업완료알림(정기엔드케어)'
       ) &&
       ['정기딥케어', '정기엔드케어'].includes(String(app.service_type ?? ''))
     ) {
