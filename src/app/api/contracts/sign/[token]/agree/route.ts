@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { otpStore } from '@/lib/otp-store'
 import { sendSlack } from '@/lib/slack'
+import { renderTemplateWithVars } from '@/lib/contractTemplate'
 
 type RouteParams = { params: { token: string } }
 
@@ -19,7 +20,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
   const { data: contract, error } = await supabase
     .from('contracts')
-    .select('id, signing_status, token_expires_at, otp_code, otp_expires_at, subscription_plan, customers(business_name, contact_name)')
+    .select('id, signing_status, token_expires_at, otp_code, otp_expires_at, subscription_plan, contract_snapshot, customers(business_name, contact_name)')
     .eq('signing_token', params.token)
     .single()
 
@@ -99,6 +100,19 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
   if (updateError) {
     return NextResponse.json({ success: false, error: updateError.message }, { status: 500 })
+  }
+
+  // {{CUSTOMER_SIGNER_NAME}} 변수를 실제 성명으로 치환
+  if (customerSignerName) {
+    const snapshot = contract.contract_snapshot as { html?: string } | null
+    const currentHtml = snapshot?.html ?? ''
+    if (currentHtml.includes('{{CUSTOMER_SIGNER_NAME}}')) {
+      const updatedHtml = renderTemplateWithVars(currentHtml, { CUSTOMER_SIGNER_NAME: customerSignerName })
+      await supabase
+        .from('contracts')
+        .update({ contract_snapshot: { html: updatedHtml } })
+        .eq('id', contract.id as string)
+    }
   }
 
   // Slack 알림

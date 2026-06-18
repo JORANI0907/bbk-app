@@ -419,6 +419,7 @@ export const AUTO_FILL_FIELDS: Record<string, string> = {
   'contract.selected_items_list': '서비스 항목 (계약 생성 시 입력)',
   'signing.customer_signature': '고객 서명 (전자서명)',
   'signing.admin_signature': '관리자 서명 (전자서명)',
+  'signing.customer_signer_name': '고객 서명자 성명 (서명 시 입력)',
 }
 
 // 계약 진행 과정에서 자동 채워지는 필드 — DB 자동 매핑과 구분
@@ -426,6 +427,7 @@ export const PROCESS_AUTO_FIELDS = new Set([
   'contract.selected_items_list',
   'signing.customer_signature',
   'signing.admin_signature',
+  'signing.customer_signer_name',
 ])
 
 /**
@@ -519,6 +521,7 @@ export const TEMPLATE_KNOWN_VARS: Record<string, { label: string; auto: boolean 
   SELECTED_ITEMS_LIST: { label: '서비스 항목 (HTML 목록)', auto: false },
   CUSTOMER_SIGNATURE: { label: '고객 서명', auto: true },
   ADMIN_SIGNATURE: { label: '관리자 서명', auto: true },
+  CUSTOMER_SIGNER_NAME: { label: '고객 서명자 성명', auto: true },
 }
 
 // 미리보기용 샘플값
@@ -540,6 +543,7 @@ export const TEMPLATE_PREVIEW_VALUES: Record<string, string> = {
   SELECTED_ITEMS_LIST: '<ul><li>주방후드 청소</li><li>바닥 왁스 코팅</li></ul>',
   CUSTOMER_SIGNATURE: '<div style="display:block;width:180px;height:70px;margin:8px 0;border:1px dashed #bbb;border-radius:6px;text-align:center;line-height:70px;color:#ccc;font-size:11px;font-family:sans-serif;">(고객 서명)</div>',
   ADMIN_SIGNATURE: '<div style="display:block;width:180px;height:70px;margin:8px 0;border:1px dashed #bbb;border-radius:6px;text-align:center;line-height:70px;color:#ccc;font-size:11px;font-family:sans-serif;">(관리자 서명)</div>',
+  CUSTOMER_SIGNER_NAME: '홍길동',
 }
 
 /**
