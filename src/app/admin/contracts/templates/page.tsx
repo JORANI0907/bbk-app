@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import toast from 'react-hot-toast'
-import { FileText } from 'lucide-react'
+import { FileText, Copy } from 'lucide-react'
 import { Button } from '@/components/ui'
 import { SectionHeader } from '@/components/ui'
 import { EmptyState } from '@/components/ui'
@@ -60,6 +60,7 @@ export default function ContractTemplatesPage() {
   const [templates, setTemplates] = useState<TemplateListItem[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isCreating, setIsCreating] = useState(false)
+  const [duplicatingId, setDuplicatingId] = useState<string | null>(null)
 
   const fetchTemplates = useCallback(async () => {
     setIsLoading(true)
@@ -103,6 +104,24 @@ export default function ContractTemplatesPage() {
       toast.error('오류가 발생했습니다.')
     } finally {
       setIsCreating(false)
+    }
+  }
+
+  const handleDuplicate = async (id: string, name: string) => {
+    setDuplicatingId(id)
+    try {
+      const res = await fetch(`/api/admin/contract-templates/${id}/duplicate`, { method: 'POST' })
+      const json = await res.json()
+      if (json.success) {
+        toast.success(`'${name}' 양식이 복제됐습니다.`)
+        router.push(`/admin/contracts/templates/${json.data.id}`)
+      } else {
+        toast.error(json.error ?? '복제에 실패했습니다.')
+      }
+    } catch {
+      toast.error('오류가 발생했습니다.')
+    } finally {
+      setDuplicatingId(null)
     }
   }
 
@@ -181,13 +200,24 @@ export default function ContractTemplatesPage() {
                     수정일: {formatDate(tmpl.updated_at)}
                   </p>
                 </div>
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  onClick={() => router.push(`/admin/contracts/templates/${tmpl.id}`)}
-                >
-                  편집
-                </Button>
+                <div className="flex items-center gap-2 shrink-0">
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    isLoading={duplicatingId === tmpl.id}
+                    onClick={() => handleDuplicate(tmpl.id, tmpl.name)}
+                  >
+                    <Copy size={13} className="mr-1" />
+                    복제
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => router.push(`/admin/contracts/templates/${tmpl.id}`)}
+                  >
+                    편집
+                  </Button>
+                </div>
               </div>
             </div>
           ))}
