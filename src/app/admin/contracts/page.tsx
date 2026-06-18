@@ -265,6 +265,44 @@ export default function AdminContractsPage() {
     }
   }
 
+  const selectedCustomer = customers.find(c => c.id === formData.customer_id) ?? null
+
+  const today = new Date()
+  const varPreviewEntries = selectedTemplateId && Object.keys(templateVarConfig).length > 0
+    ? (Object.entries(templateVarConfig) as [string, VarConfig][]).map(([varName, cfg]) => {
+        let value = ''
+        if (cfg.mode === 'manual') {
+          value = manualVarValues[varName] ?? ''
+        } else if (cfg.autoField) {
+          const f = cfg.autoField
+          if (f === 'customer.business_name') value = selectedCustomer?.business_name ?? ''
+          else if (f === 'customer.contact_name') value = selectedCustomer?.contact_name ?? ''
+          else if (f === 'customer.contact_phone') value = selectedCustomer?.contact_phone ?? ''
+          else if (f === 'contract.monthly_price') value = formData.monthly_price ? `${Number(formData.monthly_price).toLocaleString()}원` : ''
+          else if (f === 'contract.annual_price') value = formData.annual_price ? `${Number(formData.annual_price).toLocaleString()}원` : ''
+          else if (f === 'contract.start_date') value = formData.contract_start_date
+          else if (f === 'contract.end_date') value = formData.contract_end_date
+          else if (f === 'system.today_year') value = String(today.getFullYear())
+          else if (f === 'system.today_month') value = String(today.getMonth() + 1).padStart(2, '0')
+          else if (f === 'system.today_day') value = String(today.getDate()).padStart(2, '0')
+          else if (f === 'contract.selected_items_list') value = formData.service_scope.trim() ? `${formData.service_scope.split('\n').filter(Boolean).length}개 항목` : ''
+        }
+        return { name: varName, label: cfg.label || varName, mode: cfg.mode, value }
+      })
+    : [
+        { name: 'CUSTOMER_BUSINESS_NAME', label: '고객사명', mode: 'auto' as const, value: selectedCustomer?.business_name ?? '' },
+        { name: 'CUSTOMER_OWNER_NAME', label: '담당자명', mode: 'auto' as const, value: selectedCustomer?.contact_name ?? '' },
+        { name: 'CUSTOMER_PHONE', label: '고객 연락처', mode: 'auto' as const, value: selectedCustomer?.contact_phone ?? '' },
+        { name: 'CONTRACT_YEAR', label: '계약 연도', mode: 'auto' as const, value: String(today.getFullYear()) },
+        { name: 'CONTRACT_MONTH', label: '계약 월', mode: 'auto' as const, value: String(today.getMonth() + 1).padStart(2, '0') },
+        { name: 'CONTRACT_DAY', label: '계약 일', mode: 'auto' as const, value: String(today.getDate()).padStart(2, '0') },
+        { name: 'MONTHLY_PRICE', label: '월 요금', mode: 'auto' as const, value: formData.monthly_price ? `${Number(formData.monthly_price).toLocaleString()}원` : '' },
+        { name: 'ANNUAL_PRICE', label: '연간 요금', mode: 'auto' as const, value: formData.annual_price ? `${Number(formData.annual_price).toLocaleString()}원` : '' },
+        { name: 'CONTRACT_START_DATE', label: '계약 시작일', mode: 'auto' as const, value: formData.contract_start_date },
+        { name: 'CONTRACT_END_DATE', label: '계약 종료일', mode: 'auto' as const, value: formData.contract_end_date },
+        { name: 'SELECTED_ITEMS_LIST', label: '서비스 항목', mode: 'auto' as const, value: formData.service_scope.trim() ? `${formData.service_scope.split('\n').filter(Boolean).length}개 항목` : '' },
+      ]
+
   const handleDeleteConfirm = async () => {
     if (!contractToDelete) return
     setIsDeleting(true)
@@ -485,7 +523,10 @@ export default function AdminContractsPage() {
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-sm font-medium text-text-primary mb-1.5">월 요금 (원)</label>
+              <label className="block text-sm font-medium text-text-primary mb-1.5">
+                월 요금 (원)
+                <span className="ml-1.5 text-[10px] font-mono text-brand-600 bg-brand-50 px-1 py-0.5 rounded">{'{{MONTHLY_PRICE}}'}</span>
+              </label>
               <input
                 type="number"
                 value={formData.monthly_price}
@@ -495,7 +536,10 @@ export default function AdminContractsPage() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-text-primary mb-1.5">연간 요금 (원)</label>
+              <label className="block text-sm font-medium text-text-primary mb-1.5">
+                연간 요금 (원)
+                <span className="ml-1.5 text-[10px] font-mono text-brand-600 bg-brand-50 px-1 py-0.5 rounded">{'{{ANNUAL_PRICE}}'}</span>
+              </label>
               <input
                 type="number"
                 value={formData.annual_price}
@@ -508,7 +552,10 @@ export default function AdminContractsPage() {
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-sm font-medium text-text-primary mb-1.5">계약 시작일</label>
+              <label className="block text-sm font-medium text-text-primary mb-1.5">
+                계약 시작일
+                <span className="ml-1.5 text-[10px] font-mono text-brand-600 bg-brand-50 px-1 py-0.5 rounded">{'{{CONTRACT_START_DATE}}'}</span>
+              </label>
               <input
                 type="date"
                 value={formData.contract_start_date}
@@ -517,7 +564,10 @@ export default function AdminContractsPage() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-text-primary mb-1.5">계약 종료일</label>
+              <label className="block text-sm font-medium text-text-primary mb-1.5">
+                계약 종료일
+                <span className="ml-1.5 text-[10px] font-mono text-brand-600 bg-brand-50 px-1 py-0.5 rounded">{'{{CONTRACT_END_DATE}}'}</span>
+              </label>
               <input
                 type="date"
                 value={formData.contract_end_date}
@@ -528,7 +578,10 @@ export default function AdminContractsPage() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-text-primary mb-1.5">서비스 범위 (품목)</label>
+            <label className="block text-sm font-medium text-text-primary mb-1.5">
+              서비스 범위 (품목)
+              <span className="ml-1.5 text-[10px] font-mono text-brand-600 bg-brand-50 px-1 py-0.5 rounded">{'{{SELECTED_ITEMS_LIST}}'}</span>
+            </label>
             <textarea
               value={formData.service_scope}
               onChange={(e) => setFormData((prev) => ({ ...prev, service_scope: e.target.value }))}
@@ -560,6 +613,35 @@ export default function AdminContractsPage() {
                     />
                   </div>
                 ))}
+            </div>
+          )}
+
+          {/* 변수 매핑 확인 패널 */}
+          {formData.customer_id && (
+            <div className="rounded-xl border border-border-subtle overflow-hidden">
+              <div className="px-3 py-2 bg-surface-sunken border-b border-border-subtle flex items-center justify-between">
+                <p className="text-xs font-semibold text-text-secondary">변수 매핑 확인</p>
+                <span className="text-[10px] text-text-tertiary">
+                  {varPreviewEntries.filter(e => e.value).length}/{varPreviewEntries.length} 매핑됨
+                </span>
+              </div>
+              <div className="divide-y divide-border-subtle max-h-48 overflow-y-auto">
+                {varPreviewEntries.map((entry) => (
+                  <div key={entry.name} className="flex items-center gap-2 px-3 py-1.5">
+                    <code className="text-[10px] font-mono text-brand-600 shrink-0 leading-none">
+                      {`{{${entry.name}}}`}
+                    </code>
+                    <span className="text-xs text-text-tertiary flex-1 truncate">{entry.label}</span>
+                    {entry.value ? (
+                      <span className="text-[11px] text-state-success font-medium truncate max-w-[100px] shrink-0">
+                        ✓ {entry.value}
+                      </span>
+                    ) : (
+                      <span className="text-[11px] text-state-warning shrink-0">⚠ 미입력</span>
+                    )}
+                  </div>
+                ))}
+              </div>
             </div>
           )}
 
