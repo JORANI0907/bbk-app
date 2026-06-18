@@ -3,10 +3,6 @@
     {
       "path": "/api/cron/auto-schedule",
       "schedule": "0 0 23 * *"
-    },
-    {
-      "path": "/api/cron/work-notifications",
-      "schedule": "0 0 * * *"
     }
   ],
   "functions": {
