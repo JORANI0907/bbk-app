@@ -265,7 +265,7 @@ export async function GET(request: NextRequest) {
 
       const pm = String(app.payment_method ?? '')
       let billingType: keyof typeof TEMPLATES
-      if (pm === '현금(세금계산서)') {
+      if (pm === '현금(계산서 희망)') {
         billingType = '결제알림'
       } else if (pm === '현금(비과세)') {
         billingType = '결제알림(현금)'
