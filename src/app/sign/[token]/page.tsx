@@ -37,6 +37,7 @@ export default function SignContractPage() {
   // 서명 + OTP 모달
   const [showModal, setShowModal] = useState(false)
   const [modalStep, setModalStep] = useState<ModalStep>('signature')
+  const [signerName, setSignerName] = useState('')
   const [sigError, setSigError] = useState('')
   const sigPadRef = useRef<SignaturePadHandle | null>(null)
   const [signatureDataUrl, setSignatureDataUrl] = useState('')
@@ -104,6 +105,7 @@ export default function SignContractPage() {
   const resetModal = () => {
     setShowModal(false)
     setModalStep('signature')
+    setSignerName('')
     setSigError('')
     setSignatureDataUrl('')
     setOtpError('')
@@ -113,6 +115,10 @@ export default function SignContractPage() {
   }
 
   const handleNextToOtp = () => {
+    if (!signerName.trim()) {
+      setSigError('성명을 입력해주세요.')
+      return
+    }
     if (!sigPadRef.current || sigPadRef.current.isEmpty()) {
       setSigError('서명란에 서명을 그려주세요.')
       return
@@ -159,6 +165,7 @@ export default function SignContractPage() {
           article8Agree: true,
           article14Agree: true,
           customerSignature: signatureDataUrl,
+          customerSignerName: signerName.trim(),
         }),
       })
       const json = await res.json()
@@ -360,15 +367,30 @@ export default function SignContractPage() {
       >
         {modalStep === 'signature' ? (
           <div className="space-y-4 pt-1">
-            <SignaturePad ref={sigPadRef} />
-            <div className="flex justify-end">
-              <button
-                type="button"
-                onClick={() => sigPadRef.current?.clear()}
-                className="text-xs text-text-tertiary hover:text-text-secondary transition-colors"
-              >
-                다시 그리기
-              </button>
+            <div>
+              <label className="block text-sm font-medium text-text-primary mb-1.5">
+                성명 <span className="text-state-danger">*</span>
+              </label>
+              <input
+                type="text"
+                value={signerName}
+                onChange={(e) => { setSignerName(e.target.value); setSigError('') }}
+                placeholder="홍길동"
+                className="w-full border border-border rounded-md px-3 py-2 text-sm bg-surface text-text-primary focus:outline-none focus:ring-2 focus:ring-brand-600"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-text-primary mb-1.5">서명</label>
+              <SignaturePad ref={sigPadRef} />
+              <div className="flex justify-end mt-1">
+                <button
+                  type="button"
+                  onClick={() => sigPadRef.current?.clear()}
+                  className="text-xs text-text-tertiary hover:text-text-secondary transition-colors"
+                >
+                  다시 그리기
+                </button>
+              </div>
             </div>
             {sigError && (
               <p className="text-sm text-state-danger bg-state-danger-bg rounded-lg px-3 py-2">
@@ -381,11 +403,21 @@ export default function SignContractPage() {
           </div>
         ) : (
           <div className="space-y-4 pt-1">
-            {/* 서명 미리보기 */}
-            {signatureDataUrl && (
-              <div className="border border-border rounded-xl p-2 bg-surface-sunken text-center">
-                <p className="text-xs text-text-tertiary mb-1">내 서명</p>
-                <img src={signatureDataUrl} alt="서명" className="max-h-16 mx-auto object-contain" />
+            {/* 성명 + 서명 미리보기 */}
+            {(signerName || signatureDataUrl) && (
+              <div className="border border-border rounded-xl p-3 bg-surface-sunken space-y-2">
+                {signerName && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-text-tertiary w-10 shrink-0">성명</span>
+                    <span className="text-sm font-semibold text-text-primary">{signerName}</span>
+                  </div>
+                )}
+                {signatureDataUrl && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-text-tertiary w-10 shrink-0">서명</span>
+                    <img src={signatureDataUrl} alt="서명" className="max-h-12 object-contain" />
+                  </div>
+                )}
               </div>
             )}
 

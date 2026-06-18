@@ -38,14 +38,14 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     )
   }
 
-  let body: { phone?: string; otp?: string; article8Agree?: boolean; article14Agree?: boolean; customerSignature?: string }
+  let body: { phone?: string; otp?: string; article8Agree?: boolean; article14Agree?: boolean; customerSignature?: string; customerSignerName?: string }
   try {
     body = await request.json()
   } catch {
     return NextResponse.json({ success: false, error: '잘못된 요청 형식입니다.' }, { status: 400 })
   }
 
-  const { phone, otp, article8Agree, article14Agree, customerSignature } = body
+  const { phone, otp, article8Agree, article14Agree, customerSignature, customerSignerName } = body
 
   if (!phone || !otp) {
     return NextResponse.json({ success: false, error: '전화번호와 인증번호는 필수입니다.' }, { status: 400 })
@@ -91,6 +91,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       article8_agree: true,
       article14_agree: true,
       customer_signature: customerSignature ?? null,
+      customer_signer_name: customerSignerName ?? null,
       otp_code: null,
       otp_expires_at: null,
     })
