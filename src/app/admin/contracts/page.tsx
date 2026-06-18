@@ -96,7 +96,14 @@ export default function AdminContractsPage() {
   const [isCreating, setIsCreating] = useState(false)
   const [templateVarConfig, setTemplateVarConfig] = useState<TemplateVarConfigMap>({})
   const [manualVarValues, setManualVarValues] = useState<Record<string, string>>({})
-  const handleCloseCreateModal = useCallback(() => setShowCreateModal(false), [])
+  const [createStep, setCreateStep] = useState<'form' | 'preview'>('form')
+  const [previewHtml, setPreviewHtml] = useState('')
+  const [isPreviewLoading, setIsPreviewLoading] = useState(false)
+  const handleCloseCreateModal = useCallback(() => {
+    setShowCreateModal(false)
+    setCreateStep('form')
+    setPreviewHtml('')
+  }, [])
 
   const fetchContracts = useCallback(async () => {
     setIsLoading(true)
@@ -223,6 +230,48 @@ export default function AdminContractsPage() {
     setShowCustomerDropdown(false)
   }
 
+  const buildContractPayload = () => {
+    const selectedItems = formData.service_scope.split('\n').map((l) => l.trim()).filter(Boolean)
+    return {
+      customer_id: formData.customer_id,
+      monthly_price: formData.monthly_price ? Number(formData.monthly_price) : null,
+      annual_price: formData.annual_price ? Number(formData.annual_price) : null,
+      contract_start_date: formData.contract_start_date || null,
+      contract_end_date: formData.contract_end_date || null,
+      customer_phone: formData.customer_phone,
+      selected_items: selectedItems,
+      template_id: selectedTemplateId || undefined,
+      custom_vars: Object.keys(manualVarValues).length > 0 ? manualVarValues : undefined,
+    }
+  }
+
+  const handlePreview = async () => {
+    if (!formData.customer_id) {
+      toast.error('고객을 선택해주세요.')
+      return
+    }
+    setIsPreviewLoading(true)
+    try {
+      const res = await fetch('/api/admin/contracts/preview', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(buildContractPayload()),
+      })
+      const json = await res.json()
+      if (json.success) {
+        setPreviewHtml(json.data.html)
+        setShowCreateModal(false)
+        setCreateStep('preview')
+      } else {
+        toast.error(json.error ?? '미리보기 생성에 실패했습니다.')
+      }
+    } catch {
+      toast.error('오류가 발생했습니다.')
+    } finally {
+      setIsPreviewLoading(false)
+    }
+  }
+
   const handleCreate = async () => {
     if (!formData.customer_id) {
       toast.error('고객을 선택해주세요.')
@@ -230,30 +279,20 @@ export default function AdminContractsPage() {
     }
     setIsCreating(true)
     try {
-      const selectedItems = formData.service_scope
-        .split('\n')
-        .map((line) => line.trim())
-        .filter(Boolean)
-
       const res = await fetch('/api/admin/contracts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          customer_id: formData.customer_id,
-          monthly_price: formData.monthly_price ? Number(formData.monthly_price) : null,
-          annual_price: formData.annual_price ? Number(formData.annual_price) : null,
-          contract_start_date: formData.contract_start_date || null,
-          contract_end_date: formData.contract_end_date || null,
-          customer_phone: formData.customer_phone,
-          selected_items: selectedItems,
-          template_id: selectedTemplateId || undefined,
-          custom_vars: Object.keys(manualVarValues).length > 0 ? manualVarValues : undefined,
+          ...buildContractPayload(),
+          html_body: previewHtml || undefined,
         }),
       })
       const json = await res.json()
       if (json.success) {
         toast.success('계약서가 생성되었습니다.')
         setShowCreateModal(false)
+        setCreateStep('form')
+        setPreviewHtml('')
         router.push(`/admin/contracts/${json.data.id}`)
       } else {
         toast.error(json.error ?? '생성에 실패했습니다.')
@@ -666,14 +705,56 @@ export default function AdminContractsPage() {
             </Button>
             <Button
               className="flex-1"
-              onClick={handleCreate}
-              isLoading={isCreating}
+              onClick={handlePreview}
+              isLoading={isPreviewLoading}
             >
-              계약서 생성
+              미리보기 →
             </Button>
           </div>
         </div>
       </Modal>
+      {/* 계약서 미리보기 + 편집 오버레이 */}
+      {createStep === 'preview' && (
+        <div className="fixed inset-0 z-50 bg-surface flex flex-col">
+          {/* 헤더 */}
+          <div className="flex items-center justify-between px-6 py-3 border-b border-border-subtle shrink-0 bg-surface">
+            <button
+              onClick={() => { setCreateStep('form'); setShowCreateModal(true) }}
+              className="flex items-center gap-1 text-sm text-text-secondary hover:text-text-primary transition-colors"
+            >
+              ← 수정하기
+            </button>
+            <p className="text-sm font-semibold text-text-primary">계약서 미리보기</p>
+            <Button onClick={handleCreate} isLoading={isCreating} size="sm">
+              계약서 생성
+            </Button>
+          </div>
+          {/* 본문: 미리보기 + HTML 편집기 */}
+          <div className="flex flex-1 overflow-hidden">
+            {/* 왼쪽: 렌더링 미리보기 */}
+            <div className="flex-1 overflow-auto bg-surface-sunken p-4 border-r border-border-subtle">
+              <iframe
+                srcDoc={previewHtml}
+                className="w-full h-full min-h-[600px] bg-white rounded-xl shadow-soft border border-border-subtle"
+                title="계약서 미리보기"
+              />
+            </div>
+            {/* 오른쪽: HTML 직접 편집 */}
+            <div className="w-[42%] flex flex-col overflow-hidden">
+              <div className="px-4 py-2 border-b border-border-subtle bg-surface-sunken shrink-0">
+                <p className="text-xs font-semibold text-text-tertiary">HTML 직접 편집</p>
+                <p className="text-[10px] text-text-tertiary mt-0.5">수정하면 왼쪽 미리보기에 즉시 반영됩니다.</p>
+              </div>
+              <textarea
+                value={previewHtml}
+                onChange={(e) => setPreviewHtml(e.target.value)}
+                className="flex-1 font-mono text-xs p-4 resize-none outline-none text-text-primary bg-surface leading-relaxed"
+                spellCheck={false}
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
