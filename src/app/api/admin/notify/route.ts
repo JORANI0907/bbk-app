@@ -439,6 +439,15 @@ export async function POST(request: NextRequest) {
         await sendSMS(worker.phone!, smsText)
         sentPhones.push(worker.phone!)
 
+        // 발송 내용 Slack 보고
+        sendSlack([
+          `📤 *작업자 알림* | ${type}`,
+          `수신: ${worker.name ?? '-'} (${worker.phone})`,
+          ``,
+          `[발송 내용]`,
+          smsText,
+        ].join('\n')).catch(() => {})
+
         await saveNotificationHistory({
           category: 'sms',
           type,
@@ -522,6 +531,22 @@ export async function POST(request: NextRequest) {
     const fallbackText = buildFallback(type, app as Record<string, unknown>)
 
     await sendAlimtalk(phone, templateId, variables, fallbackText)
+
+    // ── 발송 내용 Slack 보고 ───────────────────────────────────────
+    const varLines = Object.entries(variables)
+      .map(([k, v]) => `  ${k}: ${v || '(빈값)'}`)
+      .join('\n')
+    sendSlack([
+      `📤 *알림 발송* | ${type}`,
+      `업체: ${String(app.business_name ?? '-')} / 고객: ${String(app.owner_name ?? '-')} (${phone})`,
+      `발송: ${method === 'manual' ? '수동' : '자동'} | 템플릿: ${templateId}`,
+      ``,
+      `[적용 변수]`,
+      varLines,
+      ``,
+      `[폴백 SMS]`,
+      fallbackText,
+    ].join('\n')).catch(() => {})
 
     // ── 계약상태 자동변경 ──────────────────────────────────────────
     const newStatus = NOTIFY_TO_STATUS[type]
