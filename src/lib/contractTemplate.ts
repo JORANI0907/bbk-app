@@ -543,7 +543,7 @@ export const TEMPLATE_PREVIEW_VALUES: Record<string, string> = {
   SELECTED_ITEMS_LIST: '<ul><li>주방후드 청소</li><li>바닥 왁스 코팅</li></ul>',
   CUSTOMER_SIGNATURE: '<div style="display:block;width:180px;height:70px;margin:8px 0;border:1px dashed #bbb;border-radius:6px;text-align:center;line-height:70px;color:#ccc;font-size:11px;font-family:sans-serif;">(고객 서명)</div>',
   ADMIN_SIGNATURE: '<div style="display:block;width:180px;height:70px;margin:8px 0;border:1px dashed #bbb;border-radius:6px;text-align:center;line-height:70px;color:#ccc;font-size:11px;font-family:sans-serif;">(관리자 서명)</div>',
-  CUSTOMER_SIGNER_NAME: '홍길동',
+  CUSTOMER_SIGNER_NAME: '<div style="display:inline-block;width:120px;height:40px;margin:4px 0;border:1px dashed #bbb;border-radius:6px;text-align:center;line-height:40px;color:#ccc;font-size:11px;font-family:sans-serif;">(서명자 성명)</div>',
 }
 
 /**
@@ -561,7 +561,24 @@ export function renderTemplateWithVars(
  */
 export function extractTemplateVars(htmlBody: string): string[] {
   const matches = Array.from(htmlBody.matchAll(/\{\{([A-Z0-9_]+)\}\}/g))
-  return Array.from(new Set(matches.map((m) => m[1])))}
+  return Array.from(new Set(matches.map((m) => m[1])))
+}
+
+const DISPLAY_PLACEHOLDER_HTML: Record<string, string> = {
+  CUSTOMER_SIGNATURE: TEMPLATE_PREVIEW_VALUES.CUSTOMER_SIGNATURE,
+  ADMIN_SIGNATURE: TEMPLATE_PREVIEW_VALUES.ADMIN_SIGNATURE,
+  CUSTOMER_SIGNER_NAME: TEMPLATE_PREVIEW_VALUES.CUSTOMER_SIGNER_NAME,
+}
+
+/**
+ * 읽기 전용 뷰 전용 — 서명·성명 변수 자리를 빈 박스로 대체
+ * (ContractEditor 편집 컨텍스트에는 사용하지 말 것)
+ */
+export function injectProcessFieldPlaceholders(html: string): string {
+  return html.replace(/\{\{([A-Z0-9_]+)\}\}/g, (match, key) =>
+    DISPLAY_PLACEHOLDER_HTML[key] ?? match,
+  )
+}
 
 
 /**

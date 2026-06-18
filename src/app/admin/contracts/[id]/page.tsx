@@ -29,6 +29,7 @@ interface ContractDetail {
   article14_agree: boolean | null
   contract_snapshot: { html?: string } | null
   customer_signature: string | null
+  customer_signer_name: string | null
   admin_signature: string | null
   signed_pdf_url: string | null
   voided_at: string | null
@@ -214,8 +215,8 @@ export default function AdminContractDetailPage() {
 
   if (!contract) return null
 
-  const SIG_PLACEHOLDER = (label: string) =>
-    `<div style="display:block;width:180px;height:60px;margin:8px 0;border:1px dashed #bbb;border-radius:6px;text-align:center;line-height:60px;color:#ccc;font-size:11px;font-family:sans-serif;">${label}</div>`
+  const SIG_PLACEHOLDER = (label: string, w = 180, h = 60) =>
+    `<div style="display:block;width:${w}px;height:${h}px;margin:8px 0;border:1px dashed #bbb;border-radius:6px;text-align:center;line-height:${h}px;color:#ccc;font-size:11px;font-family:sans-serif;">${label}</div>`
   const rawSnapshot = contract.contract_snapshot?.html ?? ''
   const snapshotHtml = rawSnapshot
     .replace(/\{\{CUSTOMER_SIGNATURE\}\}/g,
@@ -226,6 +227,10 @@ export default function AdminContractDetailPage() {
       contract.admin_signature
         ? `<img src="${contract.admin_signature}" style="display:block;max-width:200px;max-height:80px;object-fit:contain;margin:8px 0;" />`
         : SIG_PLACEHOLDER('(관리자 서명)'))
+    .replace(/\{\{CUSTOMER_SIGNER_NAME\}\}/g,
+      contract.customer_signer_name
+        ? `<img src="${contract.customer_signer_name}" style="display:inline-block;max-width:160px;max-height:40px;object-fit:contain;vertical-align:middle;margin:4px 0;" />`
+        : SIG_PLACEHOLDER('(서명자 성명)', 120, 40))
   const isVoided = contract.signing_status === 'voided'
 
   return (

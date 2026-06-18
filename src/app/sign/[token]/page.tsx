@@ -6,6 +6,7 @@ import { Button } from '@/components/ui'
 import { Modal } from '@/components/ui'
 import SignaturePad, { type SignaturePadHandle } from '@/components/contracts/SignaturePad'
 import { Clock, CheckCircle, AlertTriangle, Maximize2, X } from 'lucide-react'
+import { injectProcessFieldPlaceholders } from '@/lib/contractTemplate'
 
 interface ContractData {
   id: string
@@ -243,6 +244,7 @@ export default function SignContractPage() {
 
   // ── 서명 메인 화면 ─────────────────────────────────────────
   const canSign = article8 && article14
+  const contractDisplayHtml = injectProcessFieldPlaceholders(contractData?.html ?? '')
 
   return (
     <div className="min-h-screen bg-surface-sunken">
@@ -304,7 +306,7 @@ export default function SignContractPage() {
           <div
             className="overflow-y-auto p-4"
             style={{ maxHeight: '50vh' }}
-            dangerouslySetInnerHTML={{ __html: contractData?.html ?? '' }}
+            dangerouslySetInnerHTML={{ __html: contractDisplayHtml }}
           />
         </div>
 
@@ -530,7 +532,7 @@ export default function SignContractPage() {
           </div>
           <div
             className="flex-1 overflow-auto p-4"
-            dangerouslySetInnerHTML={{ __html: contractData?.html ?? '' }}
+            dangerouslySetInnerHTML={{ __html: contractDisplayHtml }}
           />
           <div className="p-4 border-t border-border-subtle bg-surface">
             <Button className="w-full" onClick={() => setShowContractFull(false)}>
