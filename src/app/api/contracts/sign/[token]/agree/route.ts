@@ -102,12 +102,13 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ success: false, error: updateError.message }, { status: 500 })
   }
 
-  // {{CUSTOMER_SIGNER_NAME}} 변수를 실제 성명으로 치환
+  // {{CUSTOMER_SIGNER_NAME}} 변수를 손글씨 성명 이미지로 치환
   if (customerSignerName) {
     const snapshot = contract.contract_snapshot as { html?: string } | null
     const currentHtml = snapshot?.html ?? ''
     if (currentHtml.includes('{{CUSTOMER_SIGNER_NAME}}')) {
-      const updatedHtml = renderTemplateWithVars(currentHtml, { CUSTOMER_SIGNER_NAME: customerSignerName })
+      const nameImgTag = `<img src="${customerSignerName}" style="max-height:40px;max-width:160px;display:inline-block;vertical-align:middle;" alt="서명자 성명" />`
+      const updatedHtml = renderTemplateWithVars(currentHtml, { CUSTOMER_SIGNER_NAME: nameImgTag })
       await supabase
         .from('contracts')
         .update({ contract_snapshot: { html: updatedHtml } })

@@ -5,7 +5,7 @@ import { useParams } from 'next/navigation'
 import { Button } from '@/components/ui'
 import { Modal } from '@/components/ui'
 import SignaturePad, { type SignaturePadHandle } from '@/components/contracts/SignaturePad'
-import { Clock, CheckCircle, AlertTriangle } from 'lucide-react'
+import { Clock, CheckCircle, AlertTriangle, Maximize2, X } from 'lucide-react'
 
 interface ContractData {
   id: string
@@ -37,10 +37,12 @@ export default function SignContractPage() {
   // 서명 + OTP 모달
   const [showModal, setShowModal] = useState(false)
   const [modalStep, setModalStep] = useState<ModalStep>('signature')
-  const [signerName, setSignerName] = useState('')
+  const [signerName, setSignerName] = useState('') // 성명 손글씨 data URL
   const [sigError, setSigError] = useState('')
   const sigPadRef = useRef<SignaturePadHandle | null>(null)
+  const signerNamePadRef = useRef<SignaturePadHandle | null>(null)
   const [signatureDataUrl, setSignatureDataUrl] = useState('')
+  const [showContractFull, setShowContractFull] = useState(false)
 
   // OTP
   const [phone, setPhone] = useState('')
@@ -112,11 +114,12 @@ export default function SignContractPage() {
     setOtp('')
     setOtpSent(false)
     setCooldown(0)
+    signerNamePadRef.current?.clear()
   }
 
   const handleNextToOtp = () => {
-    if (!signerName.trim()) {
-      setSigError('성명을 입력해주세요.')
+    if (!signerNamePadRef.current || signerNamePadRef.current.isEmpty()) {
+      setSigError('성명란에 성명을 손으로 써주세요.')
       return
     }
     if (!sigPadRef.current || sigPadRef.current.isEmpty()) {
@@ -124,6 +127,7 @@ export default function SignContractPage() {
       return
     }
     setSigError('')
+    setSignerName(signerNamePadRef.current.toDataURL())
     setSignatureDataUrl(sigPadRef.current.toDataURL())
     setModalStep('otp')
   }
@@ -283,13 +287,23 @@ export default function SignContractPage() {
 
         {/* 계약서 본문 */}
         <div className="bg-surface rounded-2xl shadow-soft border border-border-subtle overflow-hidden">
-          <div className="p-4 border-b border-border-subtle">
-            <p className="text-sm font-medium text-text-secondary">계약서 전문</p>
-            <p className="text-xs text-text-tertiary mt-0.5">아래 내용을 끝까지 읽어주세요</p>
+          <div className="p-4 border-b border-border-subtle flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-text-secondary">계약서 전문</p>
+              <p className="text-xs text-text-tertiary mt-0.5">아래 내용을 끝까지 읽어주세요</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowContractFull(true)}
+              className="flex items-center gap-1 text-xs text-brand-600 font-medium hover:underline flex-shrink-0 ml-3"
+            >
+              <Maximize2 size={13} />
+              전체 보기
+            </button>
           </div>
           <div
             className="overflow-y-auto p-4"
-            style={{ maxHeight: '60vh' }}
+            style={{ maxHeight: '50vh' }}
             dangerouslySetInnerHTML={{ __html: contractData?.html ?? '' }}
           />
         </div>
@@ -368,19 +382,26 @@ export default function SignContractPage() {
         {modalStep === 'signature' ? (
           <div className="space-y-4 pt-1">
             <div>
-              <label className="block text-sm font-medium text-text-primary mb-1.5">
+              <label className="block text-sm font-medium text-text-primary mb-1">
                 성명 <span className="text-state-danger">*</span>
               </label>
-              <input
-                type="text"
-                value={signerName}
-                onChange={(e) => { setSignerName(e.target.value); setSigError('') }}
-                placeholder="홍길동"
-                className="w-full border border-border rounded-md px-3 py-2 text-sm bg-surface text-text-primary focus:outline-none focus:ring-2 focus:ring-brand-600"
-              />
+              <p className="text-xs text-text-tertiary mb-2">아래 칸에 성함을 직접 손으로 써주세요</p>
+              <SignaturePad ref={signerNamePadRef} />
+              <div className="flex justify-end mt-1">
+                <button
+                  type="button"
+                  onClick={() => { signerNamePadRef.current?.clear(); setSigError('') }}
+                  className="text-xs text-text-tertiary hover:text-text-secondary transition-colors"
+                >
+                  다시 쓰기
+                </button>
+              </div>
             </div>
             <div>
-              <label className="block text-sm font-medium text-text-primary mb-1.5">서명</label>
+              <label className="block text-sm font-medium text-text-primary mb-1">
+                서명 <span className="text-state-danger">*</span>
+              </label>
+              <p className="text-xs text-text-tertiary mb-2">아래 칸에 서명을 그려주세요</p>
               <SignaturePad ref={sigPadRef} />
               <div className="flex justify-end mt-1">
                 <button
@@ -409,7 +430,7 @@ export default function SignContractPage() {
                 {signerName && (
                   <div className="flex items-center gap-2">
                     <span className="text-xs text-text-tertiary w-10 shrink-0">성명</span>
-                    <span className="text-sm font-semibold text-text-primary">{signerName}</span>
+                    <img src={signerName} alt="성명" className="max-h-10 object-contain" />
                   </div>
                 )}
                 {signatureDataUrl && (
@@ -492,6 +513,32 @@ export default function SignContractPage() {
           </div>
         )}
       </Modal>
+
+      {/* 계약서 전체 보기 풀스크린 */}
+      {showContractFull && (
+        <div className="fixed inset-0 z-50 bg-surface flex flex-col">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-border-subtle bg-surface sticky top-0">
+            <p className="text-sm font-semibold text-text-primary">계약서 전문</p>
+            <button
+              type="button"
+              onClick={() => setShowContractFull(false)}
+              className="p-2 rounded-lg hover:bg-surface-sunken text-text-secondary"
+              aria-label="닫기"
+            >
+              <X size={20} />
+            </button>
+          </div>
+          <div
+            className="flex-1 overflow-auto p-4"
+            dangerouslySetInnerHTML={{ __html: contractData?.html ?? '' }}
+          />
+          <div className="p-4 border-t border-border-subtle bg-surface">
+            <Button className="w-full" onClick={() => setShowContractFull(false)}>
+              확인했습니다
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
