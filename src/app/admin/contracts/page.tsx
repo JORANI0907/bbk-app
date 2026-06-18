@@ -7,6 +7,7 @@ import { Button } from '@/components/ui'
 import { Modal } from '@/components/ui'
 import { SectionHeader } from '@/components/ui'
 import { type VarConfig, type TemplateVarConfigMap } from '@/lib/contractTemplate'
+import ContractEditor from '@/components/contracts/ContractEditor'
 
 type SigningStatus = 'draft' | 'pending_customer' | 'customer_signed' | 'completed' | 'voided'
 
@@ -724,34 +725,14 @@ export default function AdminContractsPage() {
             >
               ← 수정하기
             </button>
-            <p className="text-sm font-semibold text-text-primary">계약서 미리보기</p>
+            <p className="text-sm font-semibold text-text-primary">계약서 확인 및 편집</p>
             <Button onClick={handleCreate} isLoading={isCreating} size="sm">
               계약서 생성
             </Button>
           </div>
-          {/* 본문: 미리보기 + HTML 편집기 */}
-          <div className="flex flex-1 overflow-hidden">
-            {/* 왼쪽: 렌더링 미리보기 */}
-            <div className="flex-1 overflow-auto bg-surface-sunken p-4 border-r border-border-subtle">
-              <iframe
-                srcDoc={previewHtml}
-                className="w-full h-full min-h-[600px] bg-white rounded-xl shadow-soft border border-border-subtle"
-                title="계약서 미리보기"
-              />
-            </div>
-            {/* 오른쪽: HTML 직접 편집 */}
-            <div className="w-[42%] flex flex-col overflow-hidden">
-              <div className="px-4 py-2 border-b border-border-subtle bg-surface-sunken shrink-0">
-                <p className="text-xs font-semibold text-text-tertiary">HTML 직접 편집</p>
-                <p className="text-[10px] text-text-tertiary mt-0.5">수정하면 왼쪽 미리보기에 즉시 반영됩니다.</p>
-              </div>
-              <textarea
-                value={previewHtml}
-                onChange={(e) => setPreviewHtml(e.target.value)}
-                className="flex-1 font-mono text-xs p-4 resize-none outline-none text-text-primary bg-surface leading-relaxed"
-                spellCheck={false}
-              />
-            </div>
+          {/* 에디터 본문 */}
+          <div className="flex-1 overflow-auto p-6 max-w-5xl mx-auto w-full">
+            <ContractEditor value={previewHtml} onChange={setPreviewHtml} />
           </div>
         </div>
       )}
