@@ -285,15 +285,18 @@ export async function POST(request: NextRequest) {
     }
 
     // ── Make 웹훅으로 구글 드라이브 폴더 자동생성 요청 (건별) ─────────────────
+    // Vercel 서버리스: return 전에 반드시 await 해야 함 (미await 시 컨테이너 종료로 fetch kill)
     if (insertedApps.length > 0 && customer.customer_type) {
-      for (const app of insertedApps) {
-        triggerDriveFolderCreation(
-          app.id,
-          customer.business_name,
-          (app.construction_date as string).slice(0, 10),
-          customer.customer_type,
-        ).catch(() => {})
-      }
+      await Promise.all(
+        insertedApps.map((app: { id: string; construction_date: string }) =>
+          triggerDriveFolderCreation(
+            app.id,
+            customer.business_name,
+            (app.construction_date as string).slice(0, 10),
+            customer.customer_type!,
+          ).catch(() => {})
+        )
+      )
     }
 
     results.push({ customer_id: customer.id, inserted: insertedCount, skipped })
