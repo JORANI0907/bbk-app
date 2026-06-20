@@ -204,6 +204,7 @@ export async function GET(request: NextRequest) {
       .eq('construction_date', tomorrowKST)
       .not('assigned_to', 'is', null)
       .neq('service_type', '정기엔드케어')
+      .is('deleted_at', null)
 
     let sent = 0, failed = 0, skipped = 0
     for (const app of (apps ?? [])) {
@@ -228,6 +229,7 @@ export async function GET(request: NextRequest) {
       .in('status', ['예약확정', '예약1일전'])
       .eq('construction_date', todayKST)
       .not('assigned_to', 'is', null)
+      .is('deleted_at', null)
 
     let sent = 0, failed = 0, skipped = 0
     for (const app of (apps ?? [])) {
@@ -256,6 +258,7 @@ export async function GET(request: NextRequest) {
       .in('status', ['작업완료', '결제'])
       .neq('service_type', '정기엔드케어')
       .gt('supply_amount', 0)
+      .is('deleted_at', null)
 
     let sent = 0, failed = 0, skipped = 0
     for (const app of (apps ?? [])) {
