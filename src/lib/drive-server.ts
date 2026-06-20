@@ -1,4 +1,4 @@
-const MAKE_DRIVE_WEBHOOK = 'https://hook.eu2.make.com/d6rjjszhes75r9wwhngqhhseevo8qttc'
+const MAKE_DRIVE_WEBHOOK = 'https://hook.eu2.make.com/w4r1ki9j3hx94y6r9t21dlkorjxd797x'
 
 /**
  * Make 시나리오를 통해 Google Drive 폴더 자동생성 요청
