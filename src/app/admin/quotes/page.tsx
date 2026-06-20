@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { useSearchParams } from 'next/navigation'
 import toast from 'react-hot-toast'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
@@ -64,9 +63,6 @@ const fmtDate = (s: string) => s.slice(0, 10)
 // ─── 컴포넌트 ────────────────────────────────────────────────────
 
 export default function QuotesPage() {
-  const searchParams   = useSearchParams()
-  const appIdFromUrl   = searchParams.get('appId')
-
   // 목록
   const [applications, setApplications] = useState<ApplicationRow[]>([])
   const [loading, setLoading]   = useState(true)
@@ -257,17 +253,19 @@ export default function QuotesPage() {
     setNotes(app.quote_notes ?? '')
   }, [])
 
-  // URL에 appId가 있으면 해당 신청서 자동 선택
+  // 서비스관리에서 이동 시 sessionStorage에서 appId 읽어 자동 선택
   useEffect(() => {
-    if (!appIdFromUrl) return
-    fetch(`/api/admin/quotes?appId=${appIdFromUrl}`)
+    const appId = sessionStorage.getItem('quotes_appId')
+    if (!appId) return
+    sessionStorage.removeItem('quotes_appId')
+    fetch(`/api/admin/quotes?appId=${appId}`)
       .then(r => r.json())
       .then(d => {
         const app = d.applications?.[0]
         if (app) handleSelect(app)
       })
       .catch(() => {})
-  }, [appIdFromUrl, handleSelect])
+  }, [handleSelect])
 
   // ── 견적 항목·조건 임시 저장 ─────────────────────────────────
   const handleSaveDraft = async () => {

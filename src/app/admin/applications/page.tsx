@@ -2053,7 +2053,10 @@ export default function ServiceManagementPage() {
 
               {/* 견적서 관리 이동 */}
               <Section title="견적서">
-                <Button onClick={() => router.push(`/admin/quotes?appId=${selected.id}`)} className="w-full">
+                <Button onClick={() => {
+                  sessionStorage.setItem('quotes_appId', selected.id)
+                  router.push('/admin/quotes')
+                }} className="w-full">
                   <FileText size={14} />
                   <span>견적서 관리로 이동</span>
                 </Button>
