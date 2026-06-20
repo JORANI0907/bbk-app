@@ -848,8 +848,15 @@ export default function AdminCustomersPage() {
           const diff = (a.visit_interval_days ?? 0) - (b.visit_interval_days ?? 0)
           return sortDir === 'asc' ? diff : -diff
         } else if (sortKey === 'next_visit') {
-          av = a.next_visit_date ?? ''
-          bv = b.next_visit_date ?? ''
+          const scheduleText = (c: Customer) => {
+            if (c.visit_schedule_type === 'weekday' && c.visit_weekdays?.length)
+              return `매 ${WEEKDAYS.filter(w => c.visit_weekdays!.includes(w.value)).map(w => w.label).join('·')}요일`
+            if (c.visit_schedule_type === 'monthly_date' && c.visit_monthly_dates?.length)
+              return `매월 ${[...c.visit_monthly_dates].sort((x, y) => x - y).join('·')}일`
+            return ''
+          }
+          av = scheduleText(a)
+          bv = scheduleText(b)
         }
         const cmp = COLLATOR.compare(av, bv)
         return sortDir === 'asc' ? cmp : -cmp
