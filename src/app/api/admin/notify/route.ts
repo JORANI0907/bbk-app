@@ -476,11 +476,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '알 수 없는 알림 유형입니다.' }, { status: 400 })
     }
 
-    // 신청서 + 담당자 이름 조회
+    // 신청서 + 담당자 이름 조회 (삭제된 레코드 제외)
     const { data: app } = await supabase
       .from('service_applications')
       .select('*')
       .eq('id', application_id)
+      .is('deleted_at', null)
       .single()
 
     if (!app) return NextResponse.json({ error: '신청서를 찾을 수 없습니다.' }, { status: 404 })
