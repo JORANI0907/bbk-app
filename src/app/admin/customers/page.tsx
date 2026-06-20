@@ -832,6 +832,7 @@ export default function AdminCustomersPage() {
       )
     }
     if (sortKey) {
+      const COLLATOR = new Intl.Collator('ko', { sensitivity: 'variant', numeric: true, caseFirst: 'lower' })
       list = [...list].sort((a, b) => {
         let av = '', bv = ''
         if (sortKey === 'business_name') {
@@ -844,16 +845,13 @@ export default function AdminCustomersPage() {
           av = a.contract_start_date ?? ''
           bv = b.contract_start_date ?? ''
         } else if (sortKey === 'interval') {
-          av = String(a.visit_interval_days ?? 0)
-          bv = String(b.visit_interval_days ?? 0)
-          return sortDir === 'asc'
-            ? Number(av) - Number(bv)
-            : Number(bv) - Number(av)
+          const diff = (a.visit_interval_days ?? 0) - (b.visit_interval_days ?? 0)
+          return sortDir === 'asc' ? diff : -diff
         } else if (sortKey === 'next_visit') {
           av = a.next_visit_date ?? ''
           bv = b.next_visit_date ?? ''
         }
-        const cmp = av.localeCompare(bv, 'ko')
+        const cmp = COLLATOR.compare(av, bv)
         return sortDir === 'asc' ? cmp : -cmp
       })
     }
