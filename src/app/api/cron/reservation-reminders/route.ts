@@ -261,8 +261,6 @@ export async function GET(request: NextRequest) {
     for (const app of (apps ?? [])) {
       if (!app.phone) { skipped++; continue }
 
-      if (!app.total_amount || Number(app.total_amount) <= 0) { skipped++; continue }
-
       const pm = String(app.payment_method ?? '')
       let billingType: keyof typeof TEMPLATES
       if (pm === '현금(계산서 희망)') {
