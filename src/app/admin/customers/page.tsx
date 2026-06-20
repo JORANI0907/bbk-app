@@ -338,6 +338,8 @@ export default function AdminCustomersPage() {
   const [sending, setSending] = useState(false)
   const [checkedIds, setCheckedIds] = useState<string[]>([])
   const [bulkCreating, setBulkCreating] = useState(false)
+  const [sortKey, setSortKey] = useState<string | null>(null)
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
   const [visitWeekdays, setVisitWeekdays] = useState<number[]>([])
   const [visitMonthlyDates, setVisitMonthlyDates] = useState<number[]>([])
   const [prepaidPeriods, setPrepaidPeriods] = useState(1)
@@ -362,6 +364,15 @@ export default function AdminCustomersPage() {
 
   const toggleCheck = (id: string) =>
     setCheckedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
+
+  const toggleSort = (key: string) => {
+    if (sortKey === key) {
+      setSortDir(prev => prev === 'asc' ? 'desc' : 'asc')
+    } else {
+      setSortKey(key)
+      setSortDir('asc')
+    }
+  }
 
   const fetchAll = useCallback(async () => {
     setLoading(true)
@@ -820,8 +831,35 @@ export default function AdminCustomersPage() {
         (c.business_number ?? '').toLowerCase().includes(q)
       )
     }
+    if (sortKey) {
+      list = [...list].sort((a, b) => {
+        let av = '', bv = ''
+        if (sortKey === 'business_name') {
+          av = a.business_name ?? ''
+          bv = b.business_name ?? ''
+        } else if (sortKey === 'service') {
+          av = a.customer_type ?? ''
+          bv = b.customer_type ?? ''
+        } else if (sortKey === 'contract') {
+          av = a.contract_start_date ?? ''
+          bv = b.contract_start_date ?? ''
+        } else if (sortKey === 'interval') {
+          av = String(a.visit_interval_days ?? 0)
+          bv = String(b.visit_interval_days ?? 0)
+          return sortDir === 'asc'
+            ? Number(av) - Number(bv)
+            : Number(bv) - Number(av)
+        } else if (sortKey === 'next_visit') {
+          av = a.next_visit_date ?? ''
+          bv = b.next_visit_date ?? ''
+        }
+        const cmp = av.localeCompare(bv, 'ko')
+        return sortDir === 'asc' ? cmp : -cmp
+      })
+    }
+
     return list
-  }, [customers, isAdmin, currentUserId, selectedTypes, search])
+  }, [customers, isAdmin, currentUserId, selectedTypes, search, sortKey, sortDir])
 
   const toggleType = (t: CustomerType) => {
     setSelectedTypes(prev => {
@@ -933,13 +971,37 @@ export default function AdminCustomersPage() {
             <table className="w-full text-sm">
               <thead className="bg-surface-sunken border-b border-border sticky top-0 z-10">
                 <tr>
-                  <th className="px-3 py-3 w-8"></th>
-                  <th className="text-left px-3 py-3 text-xs font-semibold text-text-secondary whitespace-nowrap">업체명 / 연락처</th>
-                  <th className="text-left px-3 py-3 text-xs font-semibold text-text-secondary whitespace-nowrap">서비스</th>
-                  <th className="text-left px-3 py-3 text-xs font-semibold text-text-secondary whitespace-nowrap">성향</th>
-                  <th className="text-left px-3 py-3 text-xs font-semibold text-text-secondary whitespace-nowrap">계약기간</th>
-                  <th className="text-left px-3 py-3 text-xs font-semibold text-text-secondary whitespace-nowrap">방문주기</th>
-                  <th className="text-left px-3 py-3 text-xs font-semibold text-text-secondary whitespace-nowrap">방문일정</th>
+                  <th className="px-3 py-3 w-8">
+                    <input
+                      type="checkbox"
+                      checked={filtered.length > 0 && filtered.every(c => checkedIds.includes(c.id))}
+                      onChange={e => setCheckedIds(e.target.checked ? filtered.map(c => c.id) : [])}
+                      className="accent-blue-600 cursor-pointer"
+                    />
+                  </th>
+                  {([
+                    { key: 'business_name', label: '업체명 / 연락처' },
+                    { key: 'service',       label: '서비스' },
+                    { key: null,            label: '성향' },
+                    { key: 'contract',      label: '계약기간' },
+                    { key: 'interval',      label: '방문주기' },
+                    { key: 'next_visit',    label: '방문일정' },
+                  ] as const).map(col => (
+                    <th
+                      key={col.label}
+                      onClick={col.key ? () => toggleSort(col.key!) : undefined}
+                      className={`text-left px-3 py-3 text-xs font-semibold text-text-secondary whitespace-nowrap select-none ${col.key ? 'cursor-pointer hover:text-text-primary' : ''}`}
+                    >
+                      <span className="inline-flex items-center gap-1">
+                        {col.label}
+                        {col.key && (
+                          <span className="text-[10px] text-text-tertiary">
+                            {sortKey === col.key ? (sortDir === 'asc' ? '▲' : '▼') : '⇅'}
+                          </span>
+                        )}
+                      </span>
+                    </th>
+                  ))}
                 </tr>
               </thead>
               <tbody className="divide-y divide-border-subtle">
