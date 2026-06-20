@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { useSearchParams } from 'next/navigation'
 import toast from 'react-hot-toast'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
@@ -21,6 +22,7 @@ interface ApplicationRow {
   email: string | null
   address: string
   construction_date: string | null
+  care_scope: string | null
   last_quote_no: string | null
   last_quote_pdf_url: string | null
   quote_items: QuoteItem[] | null
@@ -62,6 +64,9 @@ const fmtDate = (s: string) => s.slice(0, 10)
 // ─── 컴포넌트 ────────────────────────────────────────────────────
 
 export default function QuotesPage() {
+  const searchParams   = useSearchParams()
+  const appIdFromUrl   = searchParams.get('appId')
+
   // 목록
   const [applications, setApplications] = useState<ApplicationRow[]>([])
   const [loading, setLoading]   = useState(true)
@@ -219,6 +224,16 @@ export default function QuotesPage() {
   const handlePageChange = (p: number) => { setPage(p); setSelectedId(null); loadApplications(p, search) }
   const handleRefresh    = () => loadApplications(page, search)
 
+  // ── 케어범위 → 견적 항목 파싱 ────────────────────────────────
+  const parseCareScope = (careScope: string): QuoteItem[] =>
+    careScope
+      .split('\n')
+      .map(l => l.trim())
+      .filter(l => l.startsWith('-'))
+      .map(l => l.replace(/^-\s*/, '').trim())
+      .filter(l => l.length > 0)
+      .map(name => ({ name, qty: 1, unit_price: 0, subtotal: 0 }))
+
   // ── 항목 선택 ─────────────────────────────────────────────────
   const handleSelect = useCallback((app: ApplicationRow) => {
     setSelectedId(app.id)
@@ -230,11 +245,29 @@ export default function QuotesPage() {
       address:           app.address           || '',
       construction_date: app.construction_date || '',
     })
-    setQuoteItems(app.quote_items?.length ? app.quote_items.map(i => ({ ...i })) : [])
+    // 기존 견적 항목이 있으면 그대로, 없으면 케어범위에서 자동 파싱
+    const items = app.quote_items?.length
+      ? app.quote_items.map(i => ({ ...i }))
+      : app.care_scope
+        ? parseCareScope(app.care_scope)
+        : []
+    setQuoteItems(items)
     setPricingMode('itemized')
     setDirectAmount(0)
     setNotes(app.quote_notes ?? '')
   }, [])
+
+  // URL에 appId가 있으면 해당 신청서 자동 선택
+  useEffect(() => {
+    if (!appIdFromUrl) return
+    fetch(`/api/admin/quotes?appId=${appIdFromUrl}`)
+      .then(r => r.json())
+      .then(d => {
+        const app = d.applications?.[0]
+        if (app) handleSelect(app)
+      })
+      .catch(() => {})
+  }, [appIdFromUrl, handleSelect])
 
   // ── 견적 항목·조건 임시 저장 ─────────────────────────────────
   const handleSaveDraft = async () => {

@@ -3,9 +3,10 @@ import { createServiceClient } from '@/lib/supabase/server'
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
-  const page  = Math.max(1, parseInt(searchParams.get('page')  || '1'))
-  const limit = Math.min(50, Math.max(1, parseInt(searchParams.get('limit') || '20')))
+  const page   = Math.max(1, parseInt(searchParams.get('page')  || '1'))
+  const limit  = Math.min(50, Math.max(1, parseInt(searchParams.get('limit') || '20')))
   const search = searchParams.get('search')?.trim() || ''
+  const appId  = searchParams.get('appId')?.trim() || ''
   const offset = (page - 1) * limit
 
   const supabase = createServiceClient()
@@ -13,17 +14,21 @@ export async function GET(request: NextRequest) {
   let query = supabase
     .from('service_applications')
     .select(
-      'id, owner_name, business_name, phone, email, address, construction_date, last_quote_no, last_quote_pdf_url, quote_items, quote_log, quote_notes, created_at, status, notification_log, source',
+      'id, owner_name, business_name, phone, email, address, construction_date, care_scope, last_quote_no, last_quote_pdf_url, quote_items, quote_log, quote_notes, created_at, status, notification_log, source',
       { count: 'exact' }
     )
     .is('deleted_at', null)
     .order('created_at', { ascending: false })
-    .range(offset, offset + limit - 1)
 
-  if (search) {
-    query = query.or(
-      `owner_name.ilike.%${search}%,business_name.ilike.%${search}%,phone.ilike.%${search}%`
-    )
+  if (appId) {
+    query = query.eq('id', appId)
+  } else {
+    if (search) {
+      query = query.or(
+        `owner_name.ilike.%${search}%,business_name.ilike.%${search}%,phone.ilike.%${search}%`
+      )
+    }
+    query = query.range(offset, offset + limit - 1)
   }
 
   const { data, error, count } = await query

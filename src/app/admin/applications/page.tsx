@@ -1,12 +1,12 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
+import { useRouter } from 'next/navigation'
 import toast from 'react-hot-toast'
 import {
   type DriveFolder,
   loadGoogleAPIs,
   requestGoogleToken,
-  requestGoogleTokenWithScopes,
   openFolderPicker,
   resolveFolder,
   saveDriveFolderCookie,
@@ -491,6 +491,7 @@ function AppCalendarView({
 }
 
 export default function ServiceManagementPage() {
+  const router = useRouter()
   const [applications, setApplications] = useState<Application[]>([])
   const [users, setUsers] = useState<User[]>([])
   const [workers, setWorkers] = useState<Worker[]>([])
@@ -548,10 +549,6 @@ export default function ServiceManagementPage() {
   const [driveCreating, setDriveCreating] = useState(false)
   const [driveApisReady, setDriveApisReady] = useState(false)
   const [driveConfirming, setDriveConfirming] = useState(false)
-
-  // 견적서 발송
-  const [quoteSending, setQuoteSending] = useState(false)
-  const [quoteLog, setQuoteLog] = useState<{ quoteNo: string; sentAt: string; pdfUrl?: string } | null>(null)
 
   // 편집 필드
   const [ownerName, setOwnerName] = useState('')
@@ -641,11 +638,6 @@ export default function ServiceManagementPage() {
     setOwnerName(app.owner_name ?? '')
     setBusinessNameEdit(app.business_name ?? '')
     setAdminNotes(app.admin_notes ?? '')
-    setQuoteLog(
-      app.last_quote_no
-        ? { quoteNo: app.last_quote_no, sentAt: app.notification_log?.find(l => l.type === '견적서발송')?.sent_at ?? app.created_at, pdfUrl: app.last_quote_pdf_url ?? undefined }
-        : null
-    )
     setAssignedTo(app.assigned_to ?? '')
     setConstructionDate(app.construction_date ?? '')
     setConstructionTime(app.construction_time ?? '')
@@ -1177,61 +1169,6 @@ export default function ServiceManagementPage() {
         }
       })
       .catch(e => toast.error(e instanceof Error ? e.message : 'Google Drive 연결 실패'))
-  }
-
-  const getQuoteValidationErrors = () => {
-    const missing: string[] = []
-    if (!ownerName.trim()) missing.push('고객명')
-    if (!businessNameEdit.trim()) missing.push('업체명')
-    if (!phone.trim()) missing.push('연락처')
-    if (!email.trim()) missing.push('이메일')
-    if (!address.trim()) missing.push('주소')
-    if (!careScope.trim()) missing.push('케어범위')
-    if (!supplyAmount || Number(supplyAmount) === 0) missing.push('공급가액')
-    return missing
-  }
-
-  const handleSendQuote = async () => {
-    if (!selected) return
-    const errors = getQuoteValidationErrors()
-    if (errors.length > 0) {
-      toast.error(`${errors.join(', ')} 미작성 됨`, { duration: 4000 })
-      return
-    }
-    setQuoteSending(true)
-    try {
-      const token = await requestGoogleTokenWithScopes()
-
-      const res = await fetch(`/api/admin/applications/${selected.id}/send-quote`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          owner_name: ownerName,
-          business_name: businessNameEdit,
-          phone,
-          email,
-          address,
-          care_scope: careScope,
-          construction_date: constructionDate,
-          supply_amount: Number(supplyAmount) || 0,
-          vat: effectiveVat,
-          total_amount: totalAmount,
-        }),
-      })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || '견적서 발송 실패')
-      setQuoteLog({ quoteNo: data.quote_no, sentAt: new Date().toISOString(), pdfUrl: data.pdf_url })
-      if (data.errors?.email) {
-        toast.success(`견적서 발송 완료! (${data.quote_no}) — 이메일 오류: ${data.errors.email}`)
-      } else {
-        toast.success(`견적서 발송 완료! (${data.quote_no})`)
-      }
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : '견적서 발송 실패')
-    } finally { setQuoteSending(false) }
   }
 
   const toggleSort = (field: SortField) => {
@@ -1893,9 +1830,12 @@ export default function ServiceManagementPage() {
                 <div className="border-2 border-green-200 rounded-xl p-3 space-y-2 bg-green-50/30">
                   <div className="flex items-start gap-2">
                     <span className="text-xs text-text-secondary w-20 shrink-0 pt-1.5">케어범위</span>
-                    <textarea value={careScope} onChange={e => setCareScope(e.target.value)} rows={3}
-                      placeholder="예) - 후드청소&#10;- 덕트청소&#10;- 계단청소"
-                      className="flex-1 border border-border rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-green-500 resize-none text-text-primary" />
+                    <div className="flex-1">
+                      <textarea value={careScope} onChange={e => setCareScope(e.target.value)} rows={3}
+                        placeholder="예) - 후드청소&#10;- 덕트청소&#10;- 계단청소"
+                        className="w-full border border-border rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-green-500 resize-none text-text-primary" />
+                      <p className="text-[10px] text-text-tertiary mt-0.5">범위는 1건씩 앞에 - 를 붙여서 작성</p>
+                    </div>
                   </div>
                   <div className="flex items-start gap-2">
                     <span className="text-xs text-text-secondary w-20 shrink-0 pt-1.5">고객요청사항</span>
@@ -2111,35 +2051,15 @@ export default function ServiceManagementPage() {
                 </a>
               )}
 
-              {/* 견적서 발송 */}
-              <Section title="견적서 발송">
-                <div className="space-y-2">
-                  {(() => {
-                    const errors = getQuoteValidationErrors()
-                    return errors.length > 0 ? (
-                      <div className="px-3 py-2 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-700">
-                        <AlertTriangle size={14} className="inline" /> {errors.join(', ')} 미작성 됨
-                      </div>
-                    ) : null
-                  })()}
-                  <Button onClick={handleSendQuote} disabled={quoteSending} className="w-full">
-                    <FileText size={14} />
-                    <span>{quoteSending ? '발송 중...' : '견적서 보내기'}</span>
-                  </Button>
-                  {quoteLog && (
-                    <div className="space-y-1">
-                      <div className="text-xs text-text-secondary px-1">
-                        마지막 발송: {new Date(quoteLog.sentAt).toLocaleString('ko-KR', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })} ({quoteLog.quoteNo})
-                      </div>
-                      {quoteLog.pdfUrl && (
-                        <a href={quoteLog.pdfUrl} target="_blank" rel="noopener noreferrer"
-                          className="flex items-center gap-1.5 text-xs text-brand-600 hover:text-brand-700 underline px-1">
-                          <FileText size={14} />견적서 확인
-                        </a>
-                      )}
-                    </div>
-                  )}
-                </div>
+              {/* 견적서 관리 이동 */}
+              <Section title="견적서">
+                <Button onClick={() => router.push(`/admin/quotes?appId=${selected.id}`)} className="w-full">
+                  <FileText size={14} />
+                  <span>견적서 관리로 이동</span>
+                </Button>
+                <p className="text-[11px] text-text-tertiary mt-2 text-center">
+                  견적서 탭에서 고객이 자동 선택되고 케어범위 항목이 자동 입력됩니다
+                </p>
               </Section>
 
               {/* 전체 저장 */}
