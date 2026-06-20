@@ -400,12 +400,12 @@ export default function MembersPage() {
         </div>
       )}
 
-      <div className="flex items-center justify-between mb-6">
-        <div>
+      <div className="flex items-start justify-between gap-3 mb-6">
+        <div className="min-w-0">
           <h1 className="text-2xl font-bold text-text-primary">회원 관리</h1>
-          <p className="text-sm text-text-secondary mt-0.5">전체 계정을 등록·수정·삭제하고 비밀번호를 초기화할 수 있습니다</p>
+          <p className="text-sm text-text-secondary mt-0.5 break-keep">전체 계정을 등록·수정·삭제하고 비밀번호를 초기화할 수 있습니다</p>
         </div>
-        <Button onClick={() => { setShowForm(true); setForm(EMPTY_FORM); closeEditForm() }}>+ 등록</Button>
+        <Button onClick={() => { setShowForm(true); setForm(EMPTY_FORM); closeEditForm() }} className="shrink-0">+ 등록</Button>
       </div>
 
       {/* 승인 대기 */}
@@ -418,23 +418,21 @@ export default function MembersPage() {
           <div className="space-y-2">
             {pendingWorkers.map(user => (
               <Card key={user.id} className="p-4 border-orange-200 bg-orange-50">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-full bg-orange-100 flex items-center justify-center font-semibold text-orange-600 text-sm">{user.name[0]}</div>
-                    <div>
-                      <p className="font-semibold text-text-primary text-sm">{user.name}</p>
-                      <p className="text-xs text-text-secondary">{user.phone}</p>
-                      {user.email && <p className="text-xs text-text-tertiary">{user.email}</p>}
-                    </div>
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="w-9 h-9 rounded-full bg-orange-100 flex items-center justify-center font-semibold text-orange-600 text-sm shrink-0">{user.name[0]}</div>
+                  <div className="min-w-0">
+                    <p className="font-semibold text-text-primary text-sm">{user.name}</p>
+                    <p className="text-xs text-text-secondary">{user.phone}</p>
+                    {user.email && <p className="text-xs text-text-tertiary truncate">{user.email}</p>}
                   </div>
-                  <div className="flex gap-2">
-                    <Button size="sm" onClick={() => handleApprove(user)} disabled={approvingId === user.id} className="bg-green-600 hover:bg-green-700">
-                      {approvingId === user.id ? '처리중...' : '승인'}
-                    </Button>
-                    <Button variant="secondary" size="sm" onClick={() => handleRejectSignup(user)} disabled={deletingId === user.id} className="text-state-danger border border-red-200 hover:bg-state-danger-bg">
-                      거절
-                    </Button>
-                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <Button size="sm" onClick={() => handleApprove(user)} disabled={approvingId === user.id} className="flex-1 bg-green-600 hover:bg-green-700">
+                    {approvingId === user.id ? '처리중...' : '승인'}
+                  </Button>
+                  <Button variant="secondary" size="sm" onClick={() => handleRejectSignup(user)} disabled={deletingId === user.id} className="flex-1 text-state-danger border border-red-200 hover:bg-state-danger-bg">
+                    거절
+                  </Button>
                 </div>
               </Card>
             ))}
@@ -443,12 +441,12 @@ export default function MembersPage() {
       )}
 
       {/* 역할 필터 */}
-      <div className="flex gap-2 mb-4">
+      <div className="flex gap-2 mb-4 overflow-x-auto pb-1 -mx-1 px-1">
         {(['all', 'admin', 'worker', 'customer'] as const).map(r => (
           <button
             key={r}
             onClick={() => setFilterRole(r)}
-            className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${filterRole === r ? 'bg-brand-600 text-white' : 'bg-surface-sunken text-text-secondary'}`}
+            className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors shrink-0 ${filterRole === r ? 'bg-brand-600 text-white' : 'bg-surface-sunken text-text-secondary'}`}
           >
             {r === 'all' ? `전체 (${users.length})` : `${ROLE_LABELS[r]} (${users.filter(u => u.role === r).length})`}
           </button>
@@ -502,73 +500,73 @@ export default function MembersPage() {
         <div className="space-y-2">
           {filtered.map(user => (
             <Card key={user.id} className="p-4">
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="w-10 h-10 rounded-full bg-brand-100 flex items-center justify-center font-semibold text-brand-600 text-sm shrink-0">{user.name[0]}</div>
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-semibold text-text-primary text-sm">{user.name}</span>
-                      <Badge variant={ROLE_BADGE[user.role]}>{ROLE_LABELS[user.role]}</Badge>
-                      {!user.is_active && <Badge variant="default">비활성</Badge>}
-                      <span className={`text-xs ${user.auth_id ? 'text-state-success' : 'text-text-tertiary'}`} title={user.auth_id ? '로그인 계정 있음' : '로그인 계정 없음'}>●</span>
-                    </div>
-                    <p className="text-xs text-text-secondary mt-1">
-                      <span className="text-text-tertiary">ID</span>
-                      <span className="mx-1">:</span>
-                      <span className="font-mono">{(user.phone ?? '').replace(/-/g, '')}</span>
-                    </p>
-                    <p className="text-xs text-text-secondary flex items-center gap-1">
-                      <span className="text-text-tertiary">PW</span>
-                      <span>:</span>
-                      <span className="font-mono">
-                        {showPwIds.has(user.id) ? cardPwHint(user) : '••••••••'}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => setShowPwIds(prev => {
-                          const next = new Set(prev)
-                          next.has(user.id) ? next.delete(user.id) : next.add(user.id)
-                          return next
-                        })}
-                        className="text-text-tertiary hover:text-text-secondary"
-                      >
-                        {showPwIds.has(user.id) ? (
-                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
-                          </svg>
-                        ) : (
-                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                          </svg>
-                        )}
-                      </button>
-                    </p>
+              {/* 사용자 정보 */}
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-10 h-10 rounded-full bg-brand-100 flex items-center justify-center font-semibold text-brand-600 text-sm shrink-0">{user.name[0]}</div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-semibold text-text-primary text-sm">{user.name}</span>
+                    <Badge variant={ROLE_BADGE[user.role]}>{ROLE_LABELS[user.role]}</Badge>
+                    {!user.is_active && <Badge variant="default">비활성</Badge>}
+                    <span className={`text-xs ${user.auth_id ? 'text-state-success' : 'text-text-tertiary'}`} title={user.auth_id ? '로그인 계정 있음' : '로그인 계정 없음'}>●</span>
+                    {user.account_sent_at && (
+                      <span className="text-xs text-state-success font-medium">발송완료</span>
+                    )}
                   </div>
+                  <p className="text-xs text-text-secondary mt-1">
+                    <span className="text-text-tertiary">ID</span>
+                    <span className="mx-1">:</span>
+                    <span className="font-mono">{(user.phone ?? '').replace(/-/g, '')}</span>
+                  </p>
+                  <p className="text-xs text-text-secondary flex items-center gap-1">
+                    <span className="text-text-tertiary">PW</span>
+                    <span>:</span>
+                    <span className="font-mono">
+                      {showPwIds.has(user.id) ? cardPwHint(user) : '••••••••'}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setShowPwIds(prev => {
+                        const next = new Set(prev)
+                        next.has(user.id) ? next.delete(user.id) : next.add(user.id)
+                        return next
+                      })}
+                      className="text-text-tertiary hover:text-text-secondary"
+                    >
+                      {showPwIds.has(user.id) ? (
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                        </svg>
+                      ) : (
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                        </svg>
+                      )}
+                    </button>
+                  </p>
                 </div>
-                <div className="flex items-center gap-1 shrink-0 flex-wrap justify-end">
-                  {user.account_sent_at && (
-                    <span className="text-xs text-state-success font-medium whitespace-nowrap">발송완료</span>
-                  )}
-                  {user.auth_id && (
-                    <Button size="sm" onClick={() => handleSendAccount(user)} disabled={sendingId === user.id} className="bg-yellow-300 text-yellow-900 hover:bg-yellow-400 whitespace-nowrap">
-                      {sendingId === user.id ? '발송 중...' : '계정 발송'}
-                    </Button>
-                  )}
-                  {user.role === 'customer' && (
-                    <Button size="sm" variant="ghost" onClick={() => handlePortalPreview(user)} disabled={previewingId === user.id} className="text-brand-600 hover:bg-brand-50 whitespace-nowrap">
-                      {previewingId === user.id ? '열기...' : '포털확인'}
-                    </Button>
-                  )}
-                  <Button variant="ghost" size="sm" onClick={() => setLogsTarget({ id: user.id, name: user.name })}>기록</Button>
-                  <Button variant="ghost" size="sm" onClick={() => handleEdit(user)}>수정</Button>
-                  <Button variant="ghost" size="sm" onClick={() => handleToggleActive(user)} className={user.is_active ? 'text-orange-500 hover:bg-orange-50' : 'text-state-success hover:bg-state-success-bg'}>
-                    {user.is_active ? '비활성화' : '활성화'}
+              </div>
+              {/* 액션 버튼 — 가로 스크롤 */}
+              <div className="flex items-center gap-1 overflow-x-auto border-t border-border-subtle pt-2.5 -mx-1 px-1">
+                {user.auth_id && (
+                  <Button size="sm" onClick={() => handleSendAccount(user)} disabled={sendingId === user.id} className="bg-yellow-300 text-yellow-900 hover:bg-yellow-400 whitespace-nowrap shrink-0">
+                    {sendingId === user.id ? '발송 중...' : '계정 발송'}
                   </Button>
-                  <Button variant="ghost" size="sm" onClick={() => handleDelete(user)} disabled={deletingId === user.id} className="text-state-danger hover:bg-state-danger-bg">
-                    삭제
+                )}
+                {user.role === 'customer' && (
+                  <Button size="sm" variant="ghost" onClick={() => handlePortalPreview(user)} disabled={previewingId === user.id} className="text-brand-600 hover:bg-brand-50 whitespace-nowrap shrink-0">
+                    {previewingId === user.id ? '열기...' : '포털확인'}
                   </Button>
-                </div>
+                )}
+                <Button variant="ghost" size="sm" onClick={() => setLogsTarget({ id: user.id, name: user.name })} className="shrink-0">기록</Button>
+                <Button variant="ghost" size="sm" onClick={() => handleEdit(user)} className="shrink-0">수정</Button>
+                <Button variant="ghost" size="sm" onClick={() => handleToggleActive(user)} className={`shrink-0 ${user.is_active ? 'text-orange-500 hover:bg-orange-50' : 'text-state-success hover:bg-state-success-bg'}`}>
+                  {user.is_active ? '비활성화' : '활성화'}
+                </Button>
+                <Button variant="ghost" size="sm" onClick={() => handleDelete(user)} disabled={deletingId === user.id} className="text-state-danger hover:bg-state-danger-bg shrink-0">
+                  삭제
+                </Button>
               </div>
             </Card>
           ))}
