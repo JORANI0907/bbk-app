@@ -203,6 +203,7 @@ export default function LoginPage() {
             { href: '/terms', label: '이용약관' },
             { href: '/privacy', label: '개인정보처리방침' },
             { href: '/refund', label: '환불규정' },
+            { href: '/company', label: '회사정보' },
           ].map(({ href, label }, i, arr) => (
             <span key={href} className="flex items-center gap-3">
               <Link href={href} className="text-xs text-white/45 hover:text-white/75 transition-colors underline underline-offset-2">
