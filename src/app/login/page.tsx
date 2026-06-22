@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import toast from 'react-hot-toast'
 import { useInstallPWA } from '@/hooks/useInstallPWA'
 
@@ -195,7 +196,24 @@ export default function LoginPage() {
           </button>
         )}
 
-        <p className="text-center text-xs text-white/40 mt-6">© 2025 BBK Korea. All rights reserved.</p>
+        {/* 공개 페이지 링크 */}
+        <div className="flex justify-center gap-3 mt-5 flex-wrap">
+          {[
+            { href: '/services', label: '서비스 안내' },
+            { href: '/terms', label: '이용약관' },
+            { href: '/privacy', label: '개인정보처리방침' },
+            { href: '/refund', label: '환불규정' },
+          ].map(({ href, label }, i, arr) => (
+            <span key={href} className="flex items-center gap-3">
+              <Link href={href} className="text-xs text-white/45 hover:text-white/75 transition-colors underline underline-offset-2">
+                {label}
+              </Link>
+              {i < arr.length - 1 && <span className="text-white/20 text-xs">·</span>}
+            </span>
+          ))}
+        </div>
+
+        <p className="text-center text-xs text-white/40 mt-4">© 2025 BBK Korea. All rights reserved.</p>
       </div>
 
       {/* iOS 설치 안내 모달 */}
