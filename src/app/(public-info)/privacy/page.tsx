@@ -57,7 +57,7 @@ export default function PrivacyPage() {
         style={{ background: 'rgba(255,255,255,0.05)' }}
       >
         <p className="text-white/40 text-xs">문의: 031-759-4877 | sunrise@bbkorea.co.kr</p>
-        <p className="text-white/40 text-xs mt-1">범빌드코리아 | 사업자등록번호: 298-78-00455</p>
+        <p className="text-white/40 text-xs mt-1">범빌드코리아 | 사업자등록번호: 398-81-04260</p>
       </div>
     </div>
   )

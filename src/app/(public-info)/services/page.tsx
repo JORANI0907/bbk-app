@@ -40,20 +40,6 @@ export default function ServicesPage() {
         <p className="text-white/60 text-sm mt-2">청결한 공간, 신뢰할 수 있는 서비스</p>
       </div>
 
-      {/* 회사 소개 */}
-      <div
-        className="rounded-2xl border border-white/15 p-5"
-        style={{ background: 'rgba(255,255,255,0.08)', backdropFilter: 'blur(16px)' }}
-      >
-        <h2 className="text-white font-bold text-base mb-2">범빌드코리아 (BBK Korea)</h2>
-        <ul className="space-y-1.5 text-white/65 text-sm leading-normal">
-          <li>• 사업자등록번호: 298-78-00455</li>
-          <li>• 업종: 상업 공간 전문 청소 (주방후드/덕트/바닥/에어컨/식기세척기 등)</li>
-          <li>• 운영 지역: 성남시 중심, 서울 수도권</li>
-          <li>• 문의: 031-759-4877 | sunrise@bbkorea.co.kr</li>
-        </ul>
-      </div>
-
       {/* 서비스 패키지 */}
       {services.map((svc) => (
         <div
@@ -86,6 +72,20 @@ export default function ServicesPage() {
           ※ 모든 금액은 부가세(VAT 10%) 포함 기준입니다.<br />
           ※ 예약 및 상세 견적은 전화(031-759-4877) 또는 이메일로 문의해 주세요.
         </p>
+      </div>
+
+      {/* 회사 소개 */}
+      <div
+        className="rounded-2xl border border-white/15 p-5"
+        style={{ background: 'rgba(255,255,255,0.08)', backdropFilter: 'blur(16px)' }}
+      >
+        <h2 className="text-white font-bold text-base mb-2">범빌드코리아 (BBK Korea)</h2>
+        <ul className="space-y-1.5 text-white/65 text-sm leading-normal">
+          <li>• 사업자등록번호: 398-81-04260</li>
+          <li>• 업종: 상업 공간 전문 청소 (주방후드/덕트/바닥/에어컨/식기세척기 등)</li>
+          <li>• 운영 지역: 성남시 중심, 서울 수도권</li>
+          <li>• 문의: 031-759-4877 | sunrise@bbkorea.co.kr</li>
+        </ul>
       </div>
     </div>
   )
