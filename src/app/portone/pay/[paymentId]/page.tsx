@@ -70,6 +70,7 @@ export default function PortOnePayPage() {
         orderName: `BBK 공간케어 ${stage === 'deposit' ? '예약금' : '잔금'} — ${app.business_name}`,
         totalAmount: amount,
         currency: 'KRW',
+        billingKeyAndPayMethod: 'CARD' as 'MOBILE',
         customer: {
           fullName: app.owner_name,
           phoneNumber: app.phone.replace(/-/g, ''),
