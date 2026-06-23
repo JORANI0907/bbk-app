@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server'
 import { getServerSession } from '@/lib/session'
 
+export const dynamic = 'force-dynamic'
+
+
 export async function GET() {
   const session = getServerSession()
   if (!session) return NextResponse.json({ user: null })

@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 
+export const dynamic = 'force-dynamic'
+
+
 // GET /api/admin/contract-templates — 템플릿 목록 조회
 export async function GET() {
   const supabase = createServiceClient()

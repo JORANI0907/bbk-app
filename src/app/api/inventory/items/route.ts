@@ -3,6 +3,9 @@ import { cookies } from 'next/headers'
 import { createServiceClient } from '@/lib/supabase/server'
 import { verifySession } from '@/lib/session'
 
+export const dynamic = 'force-dynamic'
+
+
 export async function GET() {
   const cookieStore = cookies()
   const token = cookieStore.get('bbk_session')?.value

@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { getServerSession } from '@/lib/session'
 
+export const dynamic = 'force-dynamic'
+
+
 const SETTING_KEY = 'payroll_drive_folder'
 
 /** GET: 저장된 급여정산 Drive 폴더 조회 */

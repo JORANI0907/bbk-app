@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { getServerSession } from '@/lib/session'
 
+export const dynamic = 'force-dynamic'
+
+
 const SETTING_KEY = 'inventory_drive_folder'
 
 /** GET: 관리자 + 직원 모두 조회 가능 */

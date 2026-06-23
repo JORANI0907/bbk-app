@@ -4,6 +4,9 @@ import { createServiceClient } from '@/lib/supabase/server'
 import { verifySession } from '@/lib/session'
 import { sendSlack } from '@/lib/slack'
 
+export const dynamic = 'force-dynamic'
+
+
 async function getAdminSession() {
   const cookieStore = await cookies()
   const token = cookieStore.get('bbk_session')?.value

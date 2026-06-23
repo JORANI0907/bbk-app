@@ -7,12 +7,7 @@ import {
   CATEGORY_CONFIG,
 } from '@/lib/notion-services'
 
-export const revalidate = 30
-
-export async function generateStaticParams() {
-  const items = await fetchServiceItems()
-  return items.map((item) => ({ slug: item.slug }))
-}
+export const dynamic = 'force-dynamic'
 
 type Props = { params: { slug: string } }
 

@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { getServerSession } from '@/lib/session'
 
+export const dynamic = 'force-dynamic'
+
+
 export async function GET() {
   const session = getServerSession()
   if (!session) return NextResponse.json({ error: '인증 필요' }, { status: 401 })

@@ -2,6 +2,9 @@ import { NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { getServerSession } from '@/lib/session'
 
+export const dynamic = 'force-dynamic'
+
+
 export async function GET() {
   const session = getServerSession()
   if (!session || session.role !== 'admin') {

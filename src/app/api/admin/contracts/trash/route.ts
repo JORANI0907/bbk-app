@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 
+export const dynamic = 'force-dynamic'
+
 // GET /api/admin/contracts/trash — 휴지통에 있는 계약서 목록
 export async function GET() {
   const supabase = createServiceClient()

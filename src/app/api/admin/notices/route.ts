@@ -3,6 +3,9 @@ import { createServiceClient } from '@/lib/supabase/server'
 import { getServerSession } from '@/lib/session'
 import { sendSlack } from '@/lib/slack'
 
+export const dynamic = 'force-dynamic'
+
+
 export async function GET() {
   const supabase = createServiceClient()
   const { data, error } = await supabase
