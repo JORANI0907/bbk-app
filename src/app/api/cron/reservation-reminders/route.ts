@@ -61,7 +61,7 @@ function buildVariables(
       const constructionTime = app.construction_time as string | null | undefined
       const meetingYN   = preMeetingAt ? '진행 예정' : '-'
       const meetingTime = preMeetingAt
-        ? new Date(preMeetingAt).toLocaleString('ko-KR', {
+        ? new Date(preMeetingAt.slice(0, 16)).toLocaleString('ko-KR', {
             month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit',
           })
         : '-'

@@ -529,7 +529,7 @@ function DetailPanel({
                 <div>
                   <p className="text-xs font-semibold text-purple-700">미팅 일정</p>
                   <p className="text-sm text-gray-800 font-medium">
-                    {new Date(app.pre_meeting_at).toLocaleString('ko-KR', {
+                    {new Date(app.pre_meeting_at.slice(0, 16)).toLocaleString('ko-KR', {
                       year: 'numeric', month: '2-digit', day: '2-digit',
                       hour: '2-digit', minute: '2-digit',
                     })}
