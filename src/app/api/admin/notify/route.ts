@@ -227,7 +227,6 @@ function buildVariables(
         '시공일자': date,
       }
     case 'A/S방문알림':
-    case '방문견적알림':
       return {
         '고객명':   ownerName,
         '성함':     ownerName,
@@ -235,6 +234,15 @@ function buildVariables(
         '케어유형': serviceType,
         '시공일자': date,
         '방문시간': hoursStart,
+      }
+    case '방문견적알림':
+      return {
+        '고객명':   ownerName,
+        '성함':     ownerName,
+        '연락처':   phone,
+        '케어유형': serviceType,
+        '시공일자': date,
+        '방문시간': constructionTime ?? '-',
       }
     case '신청서작성완료알림':
       return { '고객명': ownerName }
