@@ -139,7 +139,7 @@ export default function WorkerDetail({ worker, onWorkerUpdated, onWorkerDeleted 
     setPhotoUploading(true)
     try {
       const { default: imageCompression } = await import('browser-image-compression')
-      const compressed = await imageCompression(file, { maxSizeMB: 0.5, maxWidthOrHeight: 400 })
+      const compressed = await imageCompression(file, { maxSizeMB: 1, maxWidthOrHeight: 800, useWebWorker: true })
 
       const fd = new FormData()
       fd.append('file', compressed, file.name)
