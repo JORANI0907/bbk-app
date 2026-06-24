@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
-import { sendAlimtalk } from '@/lib/solapi'
+import { sendAlimtalk, sendSMS } from '@/lib/solapi'
 import { sendSlack } from '@/lib/slack'
 
+// Solapi 카카오 알림톡 템플릿 ID — 변경 시 이 값만 수정
 const TEMPLATE_ID = 'KA01TP260515182858932rdNwPSJALBo'
 
 export async function POST(request: NextRequest) {
@@ -26,17 +27,25 @@ export async function POST(request: NextRequest) {
 
     const loginId = phone
     const loginPw = user.password_hint ?? (user.role === 'customer' ? phone : `${phone}bbk`)
-    const fallbackText = `[BBK 공간케어] ${user.name}님, 계정 정보를 안내드립니다.\nID: ${loginId}\nPW: ${loginPw}\n앱 설치: https://app.bbkorea.co.kr/install\n문의: 031-759-4877`
+    const smsText = `[BBK 공간케어] ${user.name}님, 계정 정보를 안내드립니다.\nID: ${loginId}\nPW: ${loginPw}\n앱 설치: https://app.bbkorea.co.kr/install\n문의: 031-759-4877`
 
-    await sendAlimtalk(
-      phone,
-      TEMPLATE_ID,
-      { '#{고객명}': user.name, '#{아이디}': loginId, '#{비밀번호}': loginPw },
-      fallbackText,
-    )
+    // 알림톡 시도 → 실패 시 SMS 폴백
+    let channel = '알림톡'
+    try {
+      await sendAlimtalk(
+        phone,
+        TEMPLATE_ID,
+        { '#{고객명}': user.name, '#{아이디}': loginId, '#{비밀번호}': loginPw },
+        smsText,
+      )
+    } catch (alimtalkErr) {
+      console.warn('알림톡 발송 실패, SMS 폴백:', alimtalkErr instanceof Error ? alimtalkErr.message : alimtalkErr)
+      await sendSMS(phone, smsText)
+      channel = 'SMS'
+    }
 
     await sendSlack(
-      `📨 *계정 발송 완료*\n${user.name} (${phone})\nID: ${loginId}\nPW: ${loginPw}`,
+      `📨 *계정 발송 완료* (${channel})\n${user.name} (${phone})\nID: ${loginId}\nPW: ${loginPw}`,
     )
 
     await supabase
@@ -44,7 +53,7 @@ export async function POST(request: NextRequest) {
       .update({ account_sent_at: new Date().toISOString() })
       .eq('id', userId)
 
-    return NextResponse.json({ success: true })
+    return NextResponse.json({ success: true, channel })
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
     return NextResponse.json({ error: msg }, { status: 500 })
