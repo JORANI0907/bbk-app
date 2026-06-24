@@ -71,7 +71,6 @@ function SectionTitle({ icon, title }: { icon: string; title: string }) {
 interface UserAccount { id: string; name: string; phone: string }
 
 export default function WorkerDetail({ worker, onWorkerUpdated, onWorkerDeleted }: Props) {
-  const cardRef = useRef<HTMLDivElement>(null)
   const photoInputRef = useRef<HTMLInputElement>(null)
 
   const [allAccounts, setAllAccounts] = useState<UserAccount[]>([])
@@ -287,39 +286,49 @@ export default function WorkerDetail({ worker, onWorkerUpdated, onWorkerDeleted 
   }
 
   const handleDownloadPDF = async () => {
-    if (!cardRef.current) return
     setPdfLoading(true)
     try {
-      const [html2canvasMod, jspdfMod] = await Promise.all([
-        import('html2canvas'),
-        import('jspdf'),
+      const [{ pdf }, { createElement }] = await Promise.all([
+        import('@react-pdf/renderer'),
+        import('react'),
       ])
-      const html2canvas = html2canvasMod.default
-      // jsPDF v4는 named export, v3 이하는 default export — 둘 다 대응
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const jsPDF = (jspdfMod as any).jsPDF ?? jspdfMod.default
+      const { WorkerPDFDocument } = await import('./WorkerPDF')
 
-      // 개인정보 섹션 펼쳐서 캡처
-      setPrivacyExpanded(true)
-      await new Promise(r => setTimeout(r, 150))
+      const workerForPDF: Worker = {
+        ...worker,
+        name: form.name,
+        employment_type: form.employment_type || null,
+        birth_date: form.birth_date || null,
+        gender: form.gender || null,
+        blood_type: form.blood_type || null,
+        phone: form.phone || null,
+        email: form.email || null,
+        home_address: form.home_address || null,
+        department: form.department || null,
+        position: form.position || null,
+        job_title: form.job_title || null,
+        join_date: form.join_date || null,
+        skill_level: form.skill_level || null,
+        specialties: form.specialties || null,
+        account_number: form.account_number || null,
+        day_wage: form.day_wage ? Number(form.day_wage) : null,
+        night_wage: form.night_wage ? Number(form.night_wage) : null,
+        avg_salary: form.avg_salary ? Number(form.avg_salary) : null,
+        emergency_contact: form.emergency_contact || null,
+      }
 
-      const canvas = await html2canvas(cardRef.current, {
-        scale: 2,
-        useCORS: true,
-        backgroundColor: '#ffffff',
-        logging: false,
-      })
-
-      const imgW = 210  // A4 너비(mm)
-      const imgH = (canvas.height * imgW) / canvas.width
-      const pdf = new jsPDF({ orientation: imgH > 297 ? 'p' : 'p', unit: 'mm', format: 'a4' })
-
-      pdf.addImage(canvas.toDataURL('image/jpeg', 0.92), 'JPEG', 0, 0, imgW, Math.min(imgH, 297))
-      pdf.save(`인사카드_${worker.name}_${new Date().toLocaleDateString('ko-KR').replace(/\./g, '').replace(/ /g, '')}.pdf`)
-
+      const blob = await pdf(createElement(WorkerPDFDocument, { worker: workerForPDF })).toBlob()
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `인사카드_${worker.name}_${new Date().toLocaleDateString('ko-KR')}.pdf`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      URL.revokeObjectURL(url)
       toast.success('PDF 저장 완료')
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'PDF 변환 실패')
+      toast.error(e instanceof Error ? e.message : 'PDF 생성 실패')
     } finally {
       setPdfLoading(false)
     }
@@ -329,8 +338,7 @@ export default function WorkerDetail({ worker, onWorkerUpdated, onWorkerDeleted 
 
   return (
     <div className="flex flex-col h-full overflow-y-auto">
-      {/* 인사카드 캡처 영역 */}
-      <div ref={cardRef} className="bg-white p-5 flex flex-col gap-5">
+      <div className="bg-white p-5 flex flex-col gap-5">
 
         {/* ── 상단 헤더: 사진 + 이름/뱃지/상태 ── */}
         <div className="flex items-start gap-4 pb-4 border-b border-gray-100">
@@ -510,9 +518,9 @@ export default function WorkerDetail({ worker, onWorkerUpdated, onWorkerDeleted 
           )}
         </div>
 
-      </div>{/* cardRef end */}
+      </div>
 
-      {/* ── 하단 액션 버튼 (PDF 캡처 범위 밖) ── */}
+      {/* ── 하단 액션 버튼 ── */}
       <div className="sticky bottom-0 bg-white border-t border-gray-100 p-4 flex flex-col gap-2">
         <div className="flex gap-2">
           <button
