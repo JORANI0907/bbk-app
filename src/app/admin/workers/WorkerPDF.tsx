@@ -23,9 +23,7 @@ export interface PDFSections {
 }
 
 export interface WorkHistoryEntry {
-  period:      string
-  company:     string
-  description: string
+  company: string
 }
 
 const s = StyleSheet.create({
@@ -269,16 +267,9 @@ export function WorkerPDFDocument({
         {sections.history && hasHistory && (
           <View style={s.table}>
             <SectionBar title="업무 이력" />
-            <View style={s.historyHeaderRow}>
-              <Text style={[s.historyHeaderCell, { width: 80 }]}>기간</Text>
-              <Text style={[s.historyHeaderCell, { width: 95 }]}>근무처 / 프로젝트</Text>
-              <Text style={[s.historyHeaderCell, { flex: 1, borderRight: undefined }]}>담당 업무</Text>
-            </View>
             {history.map((item, i) => (
               <View key={i} style={s.historyRow}>
-                <Text style={[s.historyCell, { width: 80 }]}>{item.period || '-'}</Text>
-                <Text style={[s.historyCell, { width: 95 }]}>{item.company || '-'}</Text>
-                <Text style={[s.historyCell, { flex: 1, borderRight: undefined }]}>{item.description || '-'}</Text>
+                <Text style={[s.historyCell, { flex: 1, borderRight: undefined }]}>{item.company || '-'}</Text>
               </View>
             ))}
           </View>

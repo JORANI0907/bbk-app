@@ -230,7 +230,7 @@ export default function WorkerDetail({ worker, onWorkerUpdated, onWorkerDeleted 
     setForm(prev => ({ ...prev, [key]: v }))
 
   const addHistory = () =>
-    setWorkHistory(prev => [...prev, { period: '', company: '', description: '' }])
+    setWorkHistory(prev => [...prev, { company: '' }])
   const removeHistory = (i: number) =>
     setWorkHistory(prev => prev.filter((_, idx) => idx !== i))
   const updateHistory = (i: number, key: keyof WorkHistoryEntry, value: string) =>
@@ -477,30 +477,17 @@ export default function WorkerDetail({ worker, onWorkerUpdated, onWorkerDeleted 
           <SectionTitle icon="📋" title="업무 이력" />
           <div className="flex flex-col gap-2">
             {workHistory.map((item, i) => (
-              <div key={i} className="border border-gray-200 rounded-xl p-3 flex flex-col gap-2 relative bg-gray-50">
-                <button
-                  onClick={() => removeHistory(i)}
-                  className="absolute top-2 right-2 text-gray-400 hover:text-red-500 text-xs leading-none"
-                >✕</button>
-                <input
-                  value={item.period}
-                  onChange={e => updateHistory(i, 'period', e.target.value)}
-                  placeholder="기간 (예: 2022.03 ~ 2023.12)"
-                  className="border border-gray-200 rounded-md px-2.5 py-1.5 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 pr-6"
-                />
+              <div key={i} className="flex items-center gap-2">
                 <input
                   value={item.company}
                   onChange={e => updateHistory(i, 'company', e.target.value)}
-                  placeholder="회사 / 기관명 / 프로젝트명"
-                  className="border border-gray-200 rounded-md px-2.5 py-1.5 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="근무처 / 프로젝트명"
+                  className="flex-1 border border-gray-200 rounded-md px-2.5 py-1.5 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
-                <textarea
-                  value={item.description}
-                  onChange={e => updateHistory(i, 'description', e.target.value)}
-                  placeholder="담당 업무 및 내용"
-                  rows={2}
-                  className="border border-gray-200 rounded-md px-2.5 py-1.5 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
-                />
+                <button
+                  onClick={() => removeHistory(i)}
+                  className="text-gray-400 hover:text-red-500 text-xs shrink-0"
+                >✕</button>
               </div>
             ))}
             <button
