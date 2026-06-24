@@ -7,6 +7,7 @@ const ALLOWED_COLUMNS = [
   'department', 'position', 'job_title', 'email', 'join_date',
   'skill_level', 'specialties', 'day_wage', 'night_wage', 'avg_salary',
   'anniversary', 'hobby', 'home_address', 'emergency_contact', 'personal_id',
+  'photo_url', 'birth_date', 'gender', 'blood_type',
 ]
 
 export async function GET(request: NextRequest) {

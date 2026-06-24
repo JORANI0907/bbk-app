@@ -53,6 +53,10 @@ export interface Worker {
   home_address: string | null
   emergency_contact: string | null
   personal_id: string | null
+  photo_url: string | null
+  birth_date: string | null
+  gender: string | null
+  blood_type: string | null
   created_at: string
   user_id: string | null
 }

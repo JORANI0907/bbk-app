@@ -202,7 +202,14 @@ export default function WorkerList({
                 selectedId === worker.id ? 'bg-blue-50 border-l-2 border-l-blue-600' : ''
               }`}
             >
-              <div className="flex items-start justify-between gap-1">
+              <div className="flex items-center gap-2.5">
+                {/* 사진 썸네일 */}
+                <div className="w-9 h-9 rounded-full bg-gray-100 border border-gray-200 overflow-hidden shrink-0 flex items-center justify-center">
+                  {worker.photo_url
+                    ? <img src={worker.photo_url} alt={worker.name} className="w-full h-full object-cover" />
+                    : <span className="text-base text-gray-400">👤</span>
+                  }
+                </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5 mb-0.5">
                     <span className="text-sm font-semibold text-gray-900 truncate">{worker.name}</span>
