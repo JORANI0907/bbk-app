@@ -3,12 +3,12 @@ export const metadata = {
 }
 
 const COMPANY_INFO = [
-  { label: 'COMPANY', value: '범빌드코리아 주식회사' },
-  { label: 'CEO', value: '조동환' },
-  { label: 'REG', value: '398-81-04260' },
-  { label: 'TEL', value: '031-759-4877 / 010-5434-4877' },
-  { label: 'EMAIL', value: 'sunrise@bbkorea.co.kr' },
-  { label: 'ADDRESS', value: '성남시 둔촌대로268번길 22 201호' },
+  { label: '상호명',        value: '범빌드코리아 주식회사' },
+  { label: '대표자',        value: '조동환' },
+  { label: '사업자등록번호', value: '398-81-04260' },
+  { label: '전화',          value: '031-759-4877 / 010-5434-4877' },
+  { label: '이메일',        value: 'sunrise@bbkorea.co.kr' },
+  { label: '주소',          value: '경기도 성남시 중원구 둔촌대로268번길 22 201호' },
 ]
 
 export default function CompanyPage() {
@@ -29,7 +29,7 @@ export default function CompanyPage() {
         <div className="divide-y divide-white/10">
           {COMPANY_INFO.map(({ label, value }) => (
             <div key={label} className="flex items-start gap-4 px-5 py-4">
-              <span className="font-mono text-[10px] uppercase tracking-widest text-white/30 w-16 shrink-0 pt-0.5">
+              <span className="text-xs text-white/40 w-24 shrink-0 pt-0.5">
                 {label}
               </span>
               <span className="text-white/80 text-sm leading-relaxed">{value}</span>
