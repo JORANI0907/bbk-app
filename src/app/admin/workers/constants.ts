@@ -57,6 +57,7 @@ export interface Worker {
   birth_date: string | null
   gender: string | null
   blood_type: string | null
+  work_history: string | null
   created_at: string
   user_id: string | null
 }

@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, type ReactElement } from 'react'
 import toast from 'react-hot-toast'
 import type { Worker } from './constants'
 import type { DocumentProps } from '@react-pdf/renderer'
+import type { PDFSections, WorkHistoryEntry } from './WorkerPDF'
 
 interface Props {
   worker: Worker
@@ -71,6 +72,15 @@ function SectionTitle({ icon, title }: { icon: string; title: string }) {
 
 interface UserAccount { id: string; name: string; phone: string }
 
+const DEFAULT_PDF_SECTIONS: PDFSections = {
+  personal: true, job: true, salary: true, emergency: true, history: true,
+}
+
+function parseHistory(raw: string | null): WorkHistoryEntry[] {
+  try { return JSON.parse(raw ?? '[]') as WorkHistoryEntry[] }
+  catch { return [] }
+}
+
 export default function WorkerDetail({ worker, onWorkerUpdated, onWorkerDeleted }: Props) {
   const photoInputRef = useRef<HTMLInputElement>(null)
 
@@ -81,6 +91,9 @@ export default function WorkerDetail({ worker, onWorkerUpdated, onWorkerDeleted 
   const [saving, setSaving] = useState(false)
   const [pdfLoading, setPdfLoading] = useState(false)
   const [privacyExpanded, setPrivacyExpanded] = useState(false)
+  const [workHistory, setWorkHistory] = useState<WorkHistoryEntry[]>(() => parseHistory(worker.work_history))
+  const [showPDFModal, setShowPDFModal] = useState(false)
+  const [pdfSections, setPdfSections] = useState<PDFSections>(DEFAULT_PDF_SECTIONS)
 
   useEffect(() => {
     fetch('/api/admin/workers?accounts=true')
@@ -210,10 +223,18 @@ export default function WorkerDetail({ worker, onWorkerUpdated, onWorkerDeleted 
       hobby: worker.hobby ?? '',
     })
     setPrivacyExpanded(false)
+    setWorkHistory(parseHistory(worker.work_history))
   }, [worker.id])
 
   const setField = (key: keyof typeof form) => (v: string) =>
     setForm(prev => ({ ...prev, [key]: v }))
+
+  const addHistory = () =>
+    setWorkHistory(prev => [...prev, { period: '', company: '', description: '' }])
+  const removeHistory = (i: number) =>
+    setWorkHistory(prev => prev.filter((_, idx) => idx !== i))
+  const updateHistory = (i: number, key: keyof WorkHistoryEntry, value: string) =>
+    setWorkHistory(prev => prev.map((item, idx) => idx === i ? { ...item, [key]: value } : item))
 
   const handleSave = async () => {
     if (!form.name.trim()) { toast.error('이름을 입력하세요.'); return }
@@ -235,6 +256,7 @@ export default function WorkerDetail({ worker, onWorkerUpdated, onWorkerDeleted 
         hobby: form.hobby || null,
         personal_id: form.personal_id || null,
         emergency_contact: form.emergency_contact || null,
+        work_history: workHistory.length > 0 ? JSON.stringify(workHistory) : null,
       }
 
       const isPartTime = form.employment_type !== '정직원'
@@ -286,8 +308,9 @@ export default function WorkerDetail({ worker, onWorkerUpdated, onWorkerDeleted 
     }
   }
 
-  const handleDownloadPDF = async () => {
+  const generatePDF = async (sections: PDFSections) => {
     setPdfLoading(true)
+    setShowPDFModal(false)
     try {
       const [{ pdf }, { createElement }] = await Promise.all([
         import('@react-pdf/renderer'),
@@ -316,9 +339,10 @@ export default function WorkerDetail({ worker, onWorkerUpdated, onWorkerDeleted 
         night_wage: form.night_wage ? Number(form.night_wage) : null,
         avg_salary: form.avg_salary ? Number(form.avg_salary) : null,
         emergency_contact: form.emergency_contact || null,
+        work_history: workHistory.length > 0 ? JSON.stringify(workHistory) : null,
       }
 
-      const elem = createElement(WorkerPDFDocument, { worker: workerForPDF }) as ReactElement<DocumentProps>
+      const elem = createElement(WorkerPDFDocument, { worker: workerForPDF, sections }) as ReactElement<DocumentProps>
       const blob = await pdf(elem).toBlob()
       const url = URL.createObjectURL(blob)
       const link = document.createElement('a')
@@ -339,6 +363,7 @@ export default function WorkerDetail({ worker, onWorkerUpdated, onWorkerDeleted 
   const isPartTime = form.employment_type !== '정직원'
 
   return (
+    <>
     <div className="flex flex-col h-full overflow-y-auto">
       <div className="bg-white p-5 flex flex-col gap-5">
 
@@ -447,7 +472,47 @@ export default function WorkerDetail({ worker, onWorkerUpdated, onWorkerDeleted 
           </div>
         </div>
 
-        {/* ── 섹션 4: 보호 정보 (접이식) ── */}
+        {/* ── 섹션 4: 업무 이력 ── */}
+        <div>
+          <SectionTitle icon="📋" title="업무 이력" />
+          <div className="flex flex-col gap-2">
+            {workHistory.map((item, i) => (
+              <div key={i} className="border border-gray-200 rounded-xl p-3 flex flex-col gap-2 relative bg-gray-50">
+                <button
+                  onClick={() => removeHistory(i)}
+                  className="absolute top-2 right-2 text-gray-400 hover:text-red-500 text-xs leading-none"
+                >✕</button>
+                <input
+                  value={item.period}
+                  onChange={e => updateHistory(i, 'period', e.target.value)}
+                  placeholder="기간 (예: 2022.03 ~ 2023.12)"
+                  className="border border-gray-200 rounded-md px-2.5 py-1.5 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 pr-6"
+                />
+                <input
+                  value={item.company}
+                  onChange={e => updateHistory(i, 'company', e.target.value)}
+                  placeholder="회사 / 기관명 / 프로젝트명"
+                  className="border border-gray-200 rounded-md px-2.5 py-1.5 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <textarea
+                  value={item.description}
+                  onChange={e => updateHistory(i, 'description', e.target.value)}
+                  placeholder="담당 업무 및 내용"
+                  rows={2}
+                  className="border border-gray-200 rounded-md px-2.5 py-1.5 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                />
+              </div>
+            ))}
+            <button
+              onClick={addHistory}
+              className="border border-dashed border-gray-300 rounded-xl py-2.5 text-xs text-gray-400 hover:border-blue-400 hover:text-blue-500 transition-colors"
+            >
+              + 이력 추가
+            </button>
+          </div>
+        </div>
+
+        {/* ── 섹션 5: 보호 정보 (접이식) ── */}
         <div className="border border-gray-100 rounded-xl overflow-hidden">
           <button
             onClick={() => setPrivacyExpanded(v => !v)}
@@ -469,7 +534,7 @@ export default function WorkerDetail({ worker, onWorkerUpdated, onWorkerDeleted 
           )}
         </div>
 
-        {/* ── 섹션 5: 앱 계정 연결 ── */}
+        {/* ── 섹션 6: 앱 계정 연결 ── */}
         <div className="bg-gray-50 rounded-xl p-4 flex flex-col gap-3">
           <SectionTitle icon="📱" title="앱 계정 연결" />
           <p className="text-[11px] text-gray-400 -mt-2">연결된 계정이 있어야 배정된 일정이 작업자 앱에 표시됩니다.</p>
@@ -533,11 +598,11 @@ export default function WorkerDetail({ worker, onWorkerUpdated, onWorkerDeleted 
             {saving ? '저장 중...' : '저장'}
           </button>
           <button
-            onClick={handleDownloadPDF}
+            onClick={() => setShowPDFModal(true)}
             disabled={pdfLoading}
             className="flex-1 bg-gray-700 hover:bg-gray-800 text-white text-xs py-2.5 rounded-lg disabled:opacity-50 transition-colors font-medium"
           >
-            {pdfLoading ? 'PDF 변환 중...' : '📄 PDF 저장'}
+            {pdfLoading ? 'PDF 생성 중...' : '📄 PDF 저장'}
           </button>
         </div>
         <button
@@ -548,5 +613,50 @@ export default function WorkerDetail({ worker, onWorkerUpdated, onWorkerDeleted 
         </button>
       </div>
     </div>
+
+    {/* ── PDF 섹션 선택 모달 ── */}
+    {showPDFModal && (
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+        <div className="bg-white rounded-2xl p-6 w-72 shadow-2xl">
+          <h3 className="text-sm font-bold text-gray-800 mb-1">PDF 섹션 선택</h3>
+          <p className="text-xs text-gray-400 mb-4">포함할 섹션을 선택하세요</p>
+          <div className="flex flex-col gap-3 mb-5">
+            {([
+              { key: 'personal',  label: '👤 인적사항' },
+              { key: 'job',       label: '💼 직무 정보' },
+              { key: 'salary',    label: '💰 급여 정보' },
+              { key: 'emergency', label: '🚨 비상 연락처' },
+              { key: 'history',   label: '📋 업무 이력' },
+            ] as const).map(({ key, label }) => (
+              <label key={key} className="flex items-center gap-3 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={pdfSections[key]}
+                  onChange={e => setPdfSections(prev => ({ ...prev, [key]: e.target.checked }))}
+                  className="w-4 h-4 accent-blue-600"
+                />
+                <span className="text-sm text-gray-700">{label}</span>
+              </label>
+            ))}
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setShowPDFModal(false)}
+              className="flex-1 border border-gray-200 text-gray-600 text-xs py-2.5 rounded-lg hover:bg-gray-50 transition-colors"
+            >
+              취소
+            </button>
+            <button
+              onClick={() => generatePDF(pdfSections)}
+              disabled={pdfLoading}
+              className="flex-1 bg-gray-700 hover:bg-gray-800 text-white text-xs py-2.5 rounded-lg disabled:opacity-50 transition-colors font-medium"
+            >
+              {pdfLoading ? '생성 중...' : '확인'}
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+    </>
   )
 }
