@@ -1,8 +1,9 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, type ReactElement } from 'react'
 import toast from 'react-hot-toast'
 import type { Worker } from './constants'
+import type { DocumentProps } from '@react-pdf/renderer'
 
 interface Props {
   worker: Worker
@@ -317,7 +318,8 @@ export default function WorkerDetail({ worker, onWorkerUpdated, onWorkerDeleted 
         emergency_contact: form.emergency_contact || null,
       }
 
-      const blob = await pdf(createElement(WorkerPDFDocument, { worker: workerForPDF })).toBlob()
+      const elem = createElement(WorkerPDFDocument, { worker: workerForPDF }) as ReactElement<DocumentProps>
+      const blob = await pdf(elem).toBlob()
       const url = URL.createObjectURL(blob)
       const link = document.createElement('a')
       link.href = url
