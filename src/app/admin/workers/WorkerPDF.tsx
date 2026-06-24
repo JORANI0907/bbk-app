@@ -1,11 +1,12 @@
 import { Document, Page, Text, View, StyleSheet, Image, Font } from '@react-pdf/renderer'
 import type { Worker } from './constants'
 
+const origin = typeof window !== 'undefined' ? window.location.origin : ''
 Font.register({
   family: 'Pretendard',
   fonts: [
-    { src: '/fonts/Pretendard-Regular.ttf', fontWeight: 400 },
-    { src: '/fonts/Pretendard-Bold.ttf',    fontWeight: 700 },
+    { src: `${origin}/fonts/Pretendard-Regular.ttf`, fontWeight: 400 },
+    { src: `${origin}/fonts/Pretendard-Bold.ttf`,    fontWeight: 700 },
   ],
 })
 
