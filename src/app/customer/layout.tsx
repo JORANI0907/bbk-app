@@ -20,7 +20,7 @@ export default function CustomerLayout({
       {session.isPreview && <PreviewBanner userName={session.name} />}
 
       {/* 데스크탑 사이드바 */}
-      <CustomerSidebar userName={session.name} />
+      <CustomerSidebar userName={session.name} userId={session.userId} />
 
       {/* 메인 콘텐츠 */}
       <main className="flex-1 flex flex-col min-w-0 overflow-hidden">
@@ -32,7 +32,7 @@ export default function CustomerLayout({
       </main>
 
       {/* 모바일 하단 탭바 */}
-      <CustomerMobileNav />
+      <CustomerMobileNav userId={session.userId} />
 
       {/* 일정 변경 요청 FAB */}
       <ScheduleChangeFAB />

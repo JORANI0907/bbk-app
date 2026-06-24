@@ -2,8 +2,32 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { useEffect, useState } from 'react'
 
-const NAV_ITEMS = [
+interface NavItem {
+  href: string
+  label: string
+  exact?: boolean
+  showBadge?: boolean
+  icon: React.ReactNode
+}
+
+const BELL_ICON = (
+  <svg
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className="w-5 h-5"
+  >
+    <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+    <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+  </svg>
+)
+
+const NAV_ITEMS: NavItem[] = [
   {
     href: '/customer',
     label: '홈',
@@ -41,12 +65,8 @@ const NAV_ITEMS = [
   {
     href: '/customer/notifications',
     label: '알림',
-    icon: (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
-        <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
-        <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
-      </svg>
-    ),
+    showBadge: true,
+    icon: BELL_ICON,
   },
   {
     href: '/customer/mypage',
@@ -60,17 +80,53 @@ const NAV_ITEMS = [
   },
 ]
 
-export function CustomerMobileNav() {
+interface Props {
+  userId?: string
+}
+
+export function CustomerMobileNav({ userId }: Props) {
   const pathname = usePathname()
+  const [unreadCount, setUnreadCount] = useState(0)
 
   const isActive = (href: string, exact?: boolean) =>
     exact ? pathname === href : pathname.startsWith(href)
+
+  // 알림 탭이 아닐 때만 미읽음 카운트 조회
+  useEffect(() => {
+    if (!userId || pathname === '/customer/notifications') {
+      setUnreadCount(0)
+      return
+    }
+
+    let cancelled = false
+    const fetchCount = async () => {
+      try {
+        const res = await fetch(
+          `/api/user/notifications/unread-count?userId=${encodeURIComponent(userId)}`,
+        )
+        if (!res.ok) return
+        const json = await res.json() as { count: number }
+        if (!cancelled) setUnreadCount(json.count ?? 0)
+      } catch {
+        // 무시
+      }
+    }
+
+    void fetchCount()
+    const timer = setInterval(fetchCount, 30_000)
+    return () => {
+      cancelled = true
+      clearInterval(timer)
+    }
+  }, [userId, pathname])
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 bg-surface/95 backdrop-blur-sm border-t border-border-subtle md:hidden z-50 safe-area-pb shadow-[0_-1px_12px_rgba(0,0,0,0.06)]">
       <div className="flex">
         {NAV_ITEMS.map((item) => {
           const active = isActive(item.href, item.exact)
+          const showDot = item.showBadge && unreadCount > 0
+
           return (
             <Link
               key={item.href}
@@ -82,7 +138,14 @@ export function CustomerMobileNav() {
               {active && (
                 <span className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 bg-brand-600 rounded-full" />
               )}
-              {item.icon}
+              <span className="relative">
+                {item.icon}
+                {showDot && (
+                  <span className="absolute -top-1 -right-1 min-w-[16px] h-4 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-0.5">
+                    {unreadCount > 99 ? '99+' : unreadCount}
+                  </span>
+                )}
+              </span>
               <span className="text-[11px] font-medium leading-none">{item.label}</span>
             </Link>
           )

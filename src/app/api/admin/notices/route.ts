@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { getServerSession } from '@/lib/session'
 import { sendSlack } from '@/lib/slack'
+import { broadcastInAppNotification } from '@/lib/in-app-notification'
 
 export const dynamic = 'force-dynamic'
 
@@ -52,6 +53,19 @@ export async function POST(req: NextRequest) {
 
   // Slack 알림 (fire-and-forget)
   sendSlack(`[공지등록] ${title.trim()}`).catch(() => {})
+
+  // 활성 고객 전원에게 인앱 알림 발송 (fire-and-forget)
+  const shouldNotifyCustomers =
+    target_audience === 'all' || target_audience === 'customer'
+  if (shouldNotifyCustomers) {
+    void broadcastInAppNotification({
+      type: 'notice_created',
+      title: `[공지] ${title.trim()}`,
+      body: String(content).slice(0, 100),
+      actionUrl: '/customer/notifications',
+      metadata: { notice_id: data?.id ?? '' },
+    })
+  }
 
   return NextResponse.json({ notice: data })
 }

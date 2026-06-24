@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { getServerSession } from '@/lib/session'
+import { createInAppNotification } from '@/lib/in-app-notification'
 
 export async function GET(
   _request: NextRequest,
@@ -94,7 +95,59 @@ export async function PATCH(
 
     const { error } = await query
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+    // 작업 완료 시 고객 인앱 알림
+    if (scheduleUpdates.status === 'completed') {
+      void notifyWorkCompleted(supabase, params.id)
+    }
   }
 
   return NextResponse.json({ success: true })
+}
+
+interface ScheduleForNotify {
+  scheduled_date: string
+  customer_id: string | null
+  customers: { user_id: string | null }[] | { user_id: string | null } | null
+}
+
+function extractUserId(
+  customers: ScheduleForNotify['customers'],
+): string | null {
+  if (!customers) return null
+  if (Array.isArray(customers)) return customers[0]?.user_id ?? null
+  return customers.user_id
+}
+
+async function notifyWorkCompleted(
+  supabase: ReturnType<typeof createServiceClient>,
+  scheduleId: string,
+): Promise<void> {
+  const { data } = await supabase
+    .from('service_schedules')
+    .select('scheduled_date, customer_id, customers(user_id)')
+    .eq('id', scheduleId)
+    .maybeSingle()
+
+  if (!data) return
+  const row = data as unknown as ScheduleForNotify
+  const userId = extractUserId(row.customers)
+  if (!row.customer_id || !userId) return
+
+  const dateLabel = row.scheduled_date
+    ? new Date(row.scheduled_date).toLocaleDateString('ko-KR', {
+        month: 'long',
+        day: 'numeric',
+      })
+    : ''
+
+  await createInAppNotification({
+    customerId: row.customer_id,
+    userId,
+    type: 'work_completed',
+    title: '방문 청소가 완료됐어요',
+    body: `${dateLabel} 방문 서비스가 완료됐습니다. 리포트를 확인해보세요.`,
+    actionUrl: `/customer/schedule/${scheduleId}`,
+    metadata: { schedule_id: scheduleId },
+  })
 }

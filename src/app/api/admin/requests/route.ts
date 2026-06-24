@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { getServerSession } from '@/lib/session'
 import { sendSlack } from '@/lib/slack'
+import { createInAppNotification } from '@/lib/in-app-notification'
 
 const ALLOWED_POST = ['category', 'content', 'extra_data']
 const ALLOWED_PATCH_ADMIN = ['status', 'admin_memo']
@@ -102,10 +103,10 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ error: '관리자 전용' }, { status: 403 })
   }
 
-  // Slack용 요청 내용 조회
+  // Slack + 인앱 알림용 요청 내용 조회
   const { data: reqRow } = await supabase
     .from('requests')
-    .select('category, content, requester_name')
+    .select('category, content, requester_name, requester_id')
     .eq('id', id)
     .maybeSingle()
 
@@ -130,7 +131,47 @@ export async function PATCH(request: NextRequest) {
     const statusLabel = rest.status === 'done' ? '완료' : rest.status === 'rejected' ? '반려' : '처리'
     const preview = String(reqRow.content ?? '').slice(0, 40)
     sendSlack(`[요청] 요청 ${statusLabel} · ${reqRow.requester_name ?? ''} · ${reqRow.category ?? ''} · ${preview}`).catch(() => {})
+
+    // 일정 변경 요청 처리 시 인앱 알림 (done / rejected)
+    const isScheduleChange = reqRow.category === 'schedule_change'
+    const isResolved = rest.status === 'done' || rest.status === 'rejected'
+    if (isScheduleChange && isResolved && reqRow.requester_id) {
+      void notifyScheduleChangeResult(
+        reqRow.requester_id as string,
+        rest.status as 'done' | 'rejected',
+        id as string,
+      )
+    }
   }
 
   return NextResponse.json({ success: true })
+}
+
+async function notifyScheduleChangeResult(
+  requesterId: string,
+  status: 'done' | 'rejected',
+  requestId: string,
+): Promise<void> {
+  const supabase = createServiceClient()
+  const { data: customer } = await supabase
+    .from('customers')
+    .select('id')
+    .eq('user_id', requesterId)
+    .is('deleted_at', null)
+    .maybeSingle()
+
+  if (!customer) return
+
+  const isApproved = status === 'done'
+  await createInAppNotification({
+    customerId: customer.id,
+    userId: requesterId,
+    type: isApproved ? 'schedule_change_approved' : 'schedule_change_rejected',
+    title: isApproved ? '일정 변경 요청이 승인됐어요' : '일정 변경 요청이 거절됐어요',
+    body: isApproved
+      ? '요청하신 일정 변경이 승인됐습니다.'
+      : '요청하신 일정 변경이 거절됐습니다. 자세한 내용은 담당자에게 문의하세요.',
+    actionUrl: '/customer/schedule',
+    metadata: { request_id: requestId },
+  })
 }
