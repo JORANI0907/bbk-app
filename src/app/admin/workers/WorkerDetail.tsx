@@ -73,7 +73,7 @@ function SectionTitle({ icon, title }: { icon: string; title: string }) {
 interface UserAccount { id: string; name: string; phone: string }
 
 const DEFAULT_PDF_SECTIONS: PDFSections = {
-  personal: true, job: true, salary: true, emergency: true, history: true,
+  personal: true, job: true, salary: true, emergency: true, history: true, documents: true,
 }
 
 function parseHistory(raw: string | null): WorkHistoryEntry[] {
@@ -195,6 +195,14 @@ export default function WorkerDetail({ worker, onWorkerUpdated, onWorkerDeleted 
     emergency_contact: worker.emergency_contact ?? '',
     anniversary: worker.anniversary ?? '',
     hobby: worker.hobby ?? '',
+    nationality: worker.nationality ?? '',
+    certifications: worker.certifications ?? '',
+    safety_edu_status: worker.safety_edu_status ?? '',
+    safety_edu_date: worker.safety_edu_date ?? '',
+    health_cert_status: worker.health_cert_status ?? '',
+    health_cert_date: worker.health_cert_date ?? '',
+    contract_signed: worker.contract_signed ?? '',
+    bank_copy_submitted: worker.bank_copy_submitted ?? '',
   })
 
   useEffect(() => {
@@ -221,6 +229,14 @@ export default function WorkerDetail({ worker, onWorkerUpdated, onWorkerDeleted 
       emergency_contact: worker.emergency_contact ?? '',
       anniversary: worker.anniversary ?? '',
       hobby: worker.hobby ?? '',
+      nationality: worker.nationality ?? '',
+      certifications: worker.certifications ?? '',
+      safety_edu_status: worker.safety_edu_status ?? '',
+      safety_edu_date: worker.safety_edu_date ?? '',
+      health_cert_status: worker.health_cert_status ?? '',
+      health_cert_date: worker.health_cert_date ?? '',
+      contract_signed: worker.contract_signed ?? '',
+      bank_copy_submitted: worker.bank_copy_submitted ?? '',
     })
     setPrivacyExpanded(false)
     setWorkHistory(parseHistory(worker.work_history))
@@ -257,6 +273,14 @@ export default function WorkerDetail({ worker, onWorkerUpdated, onWorkerDeleted 
         personal_id: form.personal_id || null,
         emergency_contact: form.emergency_contact || null,
         work_history: workHistory.length > 0 ? JSON.stringify(workHistory) : null,
+        nationality: form.nationality || null,
+        certifications: form.certifications || null,
+        safety_edu_status: form.safety_edu_status || null,
+        safety_edu_date: form.safety_edu_date || null,
+        health_cert_status: form.health_cert_status || null,
+        health_cert_date: form.health_cert_date || null,
+        contract_signed: form.contract_signed || null,
+        bank_copy_submitted: form.bank_copy_submitted || null,
       }
 
       const isPartTime = form.employment_type !== '정직원'
@@ -340,6 +364,14 @@ export default function WorkerDetail({ worker, onWorkerUpdated, onWorkerDeleted 
         avg_salary: form.avg_salary ? Number(form.avg_salary) : null,
         emergency_contact: form.emergency_contact || null,
         work_history: workHistory.length > 0 ? JSON.stringify(workHistory) : null,
+        nationality: form.nationality || null,
+        certifications: form.certifications || null,
+        safety_edu_status: form.safety_edu_status || null,
+        safety_edu_date: form.safety_edu_date || null,
+        health_cert_status: form.health_cert_status || null,
+        health_cert_date: form.health_cert_date || null,
+        contract_signed: form.contract_signed || null,
+        bank_copy_submitted: form.bank_copy_submitted || null,
       }
 
       const elem = createElement(WorkerPDFDocument, { worker: workerForPDF, sections }) as ReactElement<DocumentProps>
@@ -499,7 +531,46 @@ export default function WorkerDetail({ worker, onWorkerUpdated, onWorkerDeleted 
           </div>
         </div>
 
-        {/* ── 섹션 5: 보호 정보 (접이식) ── */}
+        {/* ── 섹션 5: 서류 / 자격 ── */}
+        <div>
+          <SectionTitle icon="📁" title="서류 / 자격" />
+          <div className="flex flex-col gap-2.5">
+            <Field label="국적" value={form.nationality} onChange={setField('nationality')} placeholder="대한민국" />
+            <Field label="자격증" value={form.certifications} onChange={setField('certifications')} placeholder="자격증명 (쉼표로 구분)" />
+            <SelectField
+              label="건설안전교육"
+              value={form.safety_edu_status}
+              options={['이수완료', '미이수']}
+              onChange={setField('safety_edu_status')}
+            />
+            {form.safety_edu_status === '이수완료' && (
+              <Field label="이수일자" value={form.safety_edu_date} onChange={setField('safety_edu_date')} type="date" />
+            )}
+            <SelectField
+              label="보건증 제출"
+              value={form.health_cert_status}
+              options={['제출완료', '미제출', '갱신필요']}
+              onChange={setField('health_cert_status')}
+            />
+            {form.health_cert_status === '제출완료' && (
+              <Field label="보건증 일자" value={form.health_cert_date} onChange={setField('health_cert_date')} type="date" />
+            )}
+            <SelectField
+              label="근로계약서"
+              value={form.contract_signed}
+              options={['서명완료', '미서명']}
+              onChange={setField('contract_signed')}
+            />
+            <SelectField
+              label="통장사본"
+              value={form.bank_copy_submitted}
+              options={['제출완료', '미제출']}
+              onChange={setField('bank_copy_submitted')}
+            />
+          </div>
+        </div>
+
+        {/* ── 섹션 6: 보호 정보 (접이식) ── */}
         <div className="border border-gray-100 rounded-xl overflow-hidden">
           <button
             onClick={() => setPrivacyExpanded(v => !v)}
@@ -614,6 +685,7 @@ export default function WorkerDetail({ worker, onWorkerUpdated, onWorkerDeleted 
               { key: 'salary',    label: '💰 급여 정보' },
               { key: 'emergency', label: '🚨 비상 연락처' },
               { key: 'history',   label: '📋 업무 이력' },
+              { key: 'documents', label: '📁 서류 / 자격' },
             ] as const).map(({ key, label }) => (
               <label key={key} className="flex items-center gap-3 cursor-pointer select-none">
                 <input

@@ -20,6 +20,7 @@ export interface PDFSections {
   salary:    boolean
   emergency: boolean
   history:   boolean
+  documents: boolean
 }
 
 export interface WorkHistoryEntry {
@@ -188,6 +189,11 @@ export function WorkerPDFDocument({
   const hasSalary = !!(worker.account_number || wage)
   const hasEmergency = !!worker.emergency_contact
   const hasHistory = history.length > 0
+  const hasDocuments = !!(
+    worker.nationality || worker.certifications ||
+    worker.safety_edu_status || worker.health_cert_status ||
+    worker.contract_signed || worker.bank_copy_submitted
+  )
 
   return (
     <Document>
@@ -272,6 +278,33 @@ export function WorkerPDFDocument({
                 <Text style={[s.historyCell, { flex: 1, borderRight: undefined }]}>{item.company || '-'}</Text>
               </View>
             ))}
+          </View>
+        )}
+
+        {/* ── 서류 / 자격 ── */}
+        {sections.documents && hasDocuments && (
+          <View style={s.table}>
+            <SectionBar title="서류 / 자격" />
+            <Row1 label="국    적" value={worker.nationality} />
+            <Row1 label="자  격  증" value={worker.certifications} />
+            <Row2
+              l1="건설안전교육"
+              v1={worker.safety_edu_status}
+              l2="이  수  일  자"
+              v2={worker.safety_edu_date ?? undefined}
+            />
+            <Row2
+              l1="보  건  증"
+              v1={worker.health_cert_status}
+              l2="제  출  일  자"
+              v2={worker.health_cert_date ?? undefined}
+            />
+            <Row2
+              l1="근로계약서"
+              v1={worker.contract_signed}
+              l2="통  장  사  본"
+              v2={worker.bank_copy_submitted}
+            />
           </View>
         )}
 

@@ -8,6 +8,8 @@ const ALLOWED_COLUMNS = [
   'skill_level', 'specialties', 'day_wage', 'night_wage', 'avg_salary',
   'anniversary', 'hobby', 'home_address', 'emergency_contact', 'personal_id',
   'photo_url', 'birth_date', 'gender', 'blood_type', 'work_history',
+  'safety_edu_status', 'safety_edu_date', 'health_cert_status', 'health_cert_date',
+  'nationality', 'certifications', 'contract_signed', 'bank_copy_submitted',
 ]
 
 export async function GET(request: NextRequest) {

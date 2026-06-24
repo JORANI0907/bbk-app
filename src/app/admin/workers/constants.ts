@@ -58,6 +58,14 @@ export interface Worker {
   gender: string | null
   blood_type: string | null
   work_history: string | null
+  safety_edu_status: string | null
+  safety_edu_date: string | null
+  health_cert_status: string | null
+  health_cert_date: string | null
+  nationality: string | null
+  certifications: string | null
+  contract_signed: string | null
+  bank_copy_submitted: string | null
   created_at: string
   user_id: string | null
 }
