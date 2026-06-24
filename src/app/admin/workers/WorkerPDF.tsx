@@ -4,14 +4,8 @@ import type { Worker } from './constants'
 Font.register({
   family: 'Pretendard',
   fonts: [
-    {
-      src: 'https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/public/static/OTF/Pretendard-Regular.otf',
-      fontWeight: 400,
-    },
-    {
-      src: 'https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/public/static/OTF/Pretendard-Bold.otf',
-      fontWeight: 700,
-    },
+    { src: '/fonts/Pretendard-Regular.ttf', fontWeight: 400 },
+    { src: '/fonts/Pretendard-Bold.ttf',    fontWeight: 700 },
   ],
 })
 
