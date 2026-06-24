@@ -2,11 +2,7 @@ import { NextResponse } from 'next/server'
 import webpush from 'web-push'
 import { createServiceClient } from '@/lib/supabase/server'
 
-webpush.setVapidDetails(
-  process.env.VAPID_SUBJECT!,
-  process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!,
-  process.env.VAPID_PRIVATE_KEY!
-)
+export const dynamic = 'force-dynamic'
 
 interface PushSendPayload {
   userIds?: string[]
@@ -31,6 +27,12 @@ interface SendResult {
 
 export async function POST(req: Request) {
   try {
+    webpush.setVapidDetails(
+      process.env.VAPID_SUBJECT!,
+      process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!,
+      process.env.VAPID_PRIVATE_KEY!
+    )
+
     const { userIds, userType, title, body, url = '/' } =
       (await req.json()) as PushSendPayload
 
