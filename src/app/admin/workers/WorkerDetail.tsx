@@ -394,6 +394,21 @@ export default function WorkerDetail({ worker, onWorkerUpdated, onWorkerDeleted 
 
   const isPartTime = form.employment_type !== '정직원'
 
+  const sectionHasData: Record<keyof PDFSections, boolean> = {
+    personal: true,
+    job: isPartTime
+      ? !!(form.skill_level || form.specialties)
+      : !!(form.department || form.position || form.job_title || form.join_date || form.specialties),
+    salary: !!(form.account_number || form.day_wage || form.night_wage || form.avg_salary),
+    emergency: !!form.emergency_contact,
+    history: workHistory.length > 0,
+    documents: !!(
+      form.nationality || form.certifications ||
+      form.safety_edu_status || form.health_cert_status ||
+      form.contract_signed || form.bank_copy_submitted
+    ),
+  }
+
   return (
     <>
     <div className="flex flex-col h-full overflow-y-auto">
@@ -686,7 +701,7 @@ export default function WorkerDetail({ worker, onWorkerUpdated, onWorkerDeleted 
               { key: 'emergency', label: '🚨 비상 연락처' },
               { key: 'history',   label: '📋 업무 이력' },
               { key: 'documents', label: '📁 서류 / 자격' },
-            ] as const).map(({ key, label }) => (
+            ] as const).filter(({ key }) => sectionHasData[key]).map(({ key, label }) => (
               <label key={key} className="flex items-center gap-3 cursor-pointer select-none">
                 <input
                   type="checkbox"
