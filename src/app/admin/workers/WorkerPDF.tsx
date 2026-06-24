@@ -10,9 +10,9 @@ Font.register({
   ],
 })
 
-const ACCENT    = '#1a3a5c'
-const BORDER    = '#bbb'
-const LABEL_BG  = '#f0f2f5'
+const ACCENT   = '#1a3a5c'
+const BORDER   = '#bbb'
+const LABEL_BG = '#f0f2f5'
 
 export interface PDFSections {
   personal:  boolean
@@ -36,7 +36,6 @@ const s = StyleSheet.create({
     color: '#111',
     backgroundColor: '#fff',
   },
-  // ── 헤더 ──
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -48,16 +47,19 @@ const s = StyleSheet.create({
   companyName: { fontSize: 9, fontWeight: 700, color: ACCENT, marginBottom: 3 },
   docTitle:    { fontSize: 17, fontWeight: 700, color: ACCENT },
   issueDate:   { fontSize: 7.5, color: '#666' },
-  // ── 테이블 공통 ──
-  table: { border: `0.5pt solid ${BORDER}`, marginBottom: 7 },
+  // 테이블: overflow hidden으로 마지막 행 이중보더 제거
+  table: {
+    border: `0.5pt solid ${BORDER}`,
+    marginBottom: 7,
+    overflow: 'hidden',
+  },
   sectionBar: {
     backgroundColor: ACCENT,
     paddingHorizontal: 7,
     paddingVertical: 3.5,
   },
   sectionBarText: { color: '#fff', fontWeight: 700, fontSize: 8 },
-  row:     { flexDirection: 'row', borderBottom: `0.5pt solid ${BORDER}` },
-  rowLast: { flexDirection: 'row' },
+  row: { flexDirection: 'row', borderBottom: `0.5pt solid ${BORDER}` },
   labelCell: {
     backgroundColor: LABEL_BG,
     width: 58,
@@ -76,11 +78,11 @@ const s = StyleSheet.create({
     justifyContent: 'center',
     fontSize: 8.5,
   },
-  // ── 인적사항+사진 ──
   topBlock: {
     flexDirection: 'row',
     border: `0.5pt solid ${BORDER}`,
     marginBottom: 7,
+    overflow: 'hidden',
   },
   infoCol: { flex: 1, borderRight: `0.5pt solid ${BORDER}` },
   photoCol: {
@@ -89,7 +91,7 @@ const s = StyleSheet.create({
     justifyContent: 'center',
     padding: 6,
   },
-  photoImg: { width: 68, height: 88, objectFit: 'cover' },
+  photoImg:       { width: 68, height: 88, objectFit: 'cover' },
   photoEmpty: {
     width: 68,
     height: 88,
@@ -99,8 +101,8 @@ const s = StyleSheet.create({
     justifyContent: 'center',
   },
   photoEmptyText: { fontSize: 7, color: '#aaa' },
-  // ── 업무이력 ──
-  historyHeader: {
+  // 업무이력
+  historyHeaderRow: {
     flexDirection: 'row',
     backgroundColor: LABEL_BG,
     borderBottom: `0.5pt solid ${BORDER}`,
@@ -113,18 +115,11 @@ const s = StyleSheet.create({
     color: '#333',
     borderRight: `0.5pt solid ${BORDER}`,
   },
-  historyRow: {
-    flexDirection: 'row',
-    borderBottom: `0.5pt solid ${BORDER}`,
-  },
-  historyRowLast: { flexDirection: 'row' },
-  historyCell: {
-    paddingHorizontal: 6,
-    paddingVertical: 5,
-    fontSize: 8.2,
-    borderRight: `0.5pt solid ${BORDER}`,
-  },
+  historyRow:  { flexDirection: 'row', borderBottom: `0.5pt solid ${BORDER}` },
+  historyCell: { paddingHorizontal: 6, paddingVertical: 5, fontSize: 8.2, borderRight: `0.5pt solid ${BORDER}` },
 })
+
+// ─── 헬퍼 컴포넌트 ───────────────────────────────────────────────
 
 function SectionBar({ title }: { title: string }) {
   return (
@@ -134,29 +129,36 @@ function SectionBar({ title }: { title: string }) {
   )
 }
 
-function Row1({ label, value, last }: { label: string; value?: string | null; last?: boolean }) {
+// 값이 없으면 행 자체를 렌더링하지 않음
+function Row1({ label, value }: { label: string; value?: string | null }) {
+  if (!value) return null
   return (
-    <View style={last ? s.rowLast : s.row}>
+    <View style={s.row}>
       <View style={s.labelCell}><Text>{label}</Text></View>
-      <View style={s.valueCell}><Text>{value || '-'}</Text></View>
+      <View style={s.valueCell}><Text>{value}</Text></View>
     </View>
   )
 }
 
-function Row2({ l1, v1, l2, v2, last }: {
+// 두 값이 모두 없으면 숨김. 한쪽만 없으면 '-' 표시
+function Row2({ l1, v1, l2, v2 }: {
   l1: string; v1?: string | null
   l2: string; v2?: string | null
-  last?: boolean
 }) {
+  if (!v1 && !v2) return null
   return (
-    <View style={last ? s.rowLast : s.row}>
+    <View style={s.row}>
       <View style={s.labelCell}><Text>{l1}</Text></View>
-      <View style={[s.valueCell, { borderRight: `0.5pt solid ${BORDER}` }]}><Text>{v1 || '-'}</Text></View>
+      <View style={[s.valueCell, { borderRight: `0.5pt solid ${BORDER}` }]}>
+        <Text>{v1 || '-'}</Text>
+      </View>
       <View style={s.labelCell}><Text>{l2}</Text></View>
       <View style={s.valueCell}><Text>{v2 || '-'}</Text></View>
     </View>
   )
 }
+
+// ─── 본문 ────────────────────────────────────────────────────────
 
 export function WorkerPDFDocument({
   worker,
@@ -172,13 +174,22 @@ export function WorkerPDFDocument({
     ? [
         worker.day_wage   ? `주간 ${worker.day_wage.toLocaleString()}원`  : null,
         worker.night_wage ? `야간 ${worker.night_wage.toLocaleString()}원` : null,
-      ].filter(Boolean).join('  /  ') || '-'
-    : worker.avg_salary ? `${worker.avg_salary.toLocaleString()}원` : '-'
+      ].filter(Boolean).join('  /  ') || null
+    : worker.avg_salary ? `${worker.avg_salary.toLocaleString()}원` : null
 
   const history: WorkHistoryEntry[] = (() => {
     try { return JSON.parse(worker.work_history ?? '[]') as WorkHistoryEntry[] }
     catch { return [] }
   })()
+
+  // 섹션별 표시할 데이터 존재 여부 사전 계산
+  const hasPersonal = true // 이름은 항상 있음
+  const hasJob = isPartTime
+    ? !!(worker.skill_level || worker.specialties)
+    : !!(worker.department || worker.position || worker.job_title || worker.join_date || worker.specialties)
+  const hasSalary = !!(worker.account_number || wage)
+  const hasEmergency = !!worker.emergency_contact
+  const hasHistory = history.length > 0
 
   return (
     <Document>
@@ -194,10 +205,11 @@ export function WorkerPDFDocument({
         </View>
 
         {/* ── 인적사항 + 사진 ── */}
-        {sections.personal && (
+        {sections.personal && hasPersonal && (
           <View style={s.topBlock}>
             <View style={s.infoCol}>
               <SectionBar title="인적사항" />
+              {/* 성명은 항상 표시 */}
               <View style={s.row}>
                 <View style={s.labelCell}><Text>성    명</Text></View>
                 <View style={[s.valueCell, { fontWeight: 700, flex: 1.5, borderRight: `0.5pt solid ${BORDER}` }]}>
@@ -206,32 +218,10 @@ export function WorkerPDFDocument({
                 <View style={s.labelCell}><Text>고용형태</Text></View>
                 <View style={s.valueCell}><Text>{worker.employment_type || '-'}</Text></View>
               </View>
-              <View style={s.row}>
-                <View style={s.labelCell}><Text>생년월일</Text></View>
-                <View style={[s.valueCell, { flex: 1.5, borderRight: `0.5pt solid ${BORDER}` }]}>
-                  <Text>{worker.birth_date || '-'}</Text>
-                </View>
-                <View style={s.labelCell}><Text>혈  액  형</Text></View>
-                <View style={s.valueCell}>
-                  <Text>{worker.blood_type ? `${worker.blood_type}형` : '-'}</Text>
-                </View>
-              </View>
-              <View style={s.row}>
-                <View style={s.labelCell}><Text>성    별</Text></View>
-                <View style={[s.valueCell, { flex: 1.5, borderRight: `0.5pt solid ${BORDER}` }]}>
-                  <Text>{worker.gender || '-'}</Text>
-                </View>
-                <View style={s.labelCell}><Text>연  락  처</Text></View>
-                <View style={s.valueCell}><Text>{worker.phone || '-'}</Text></View>
-              </View>
-              <View style={s.row}>
-                <View style={s.labelCell}><Text>이  메  일</Text></View>
-                <View style={[s.valueCell, { flex: 3 }]}><Text>{worker.email || '-'}</Text></View>
-              </View>
-              <View style={s.rowLast}>
-                <View style={s.labelCell}><Text>주    소</Text></View>
-                <View style={[s.valueCell, { flex: 3 }]}><Text>{worker.home_address || '-'}</Text></View>
-              </View>
+              <Row2 l1="생년월일" v1={worker.birth_date} l2="혈  액  형" v2={worker.blood_type ? `${worker.blood_type}형` : null} />
+              <Row2 l1="성    별"  v1={worker.gender}     l2="연  락  처" v2={worker.phone} />
+              <Row1 label="이  메  일" value={worker.email} />
+              <Row1 label="주    소"   value={worker.home_address} />
             </View>
             <View style={s.photoCol}>
               {worker.photo_url
@@ -243,57 +233,54 @@ export function WorkerPDFDocument({
         )}
 
         {/* ── 직무 정보 ── */}
-        {sections.job && (
+        {sections.job && hasJob && (
           <View style={s.table}>
             <SectionBar title="직무 정보" />
             {!isPartTime ? (
               <>
-                <Row2 l1="부    서" v1={worker.department} l2="직    급" v2={worker.position} />
-                <Row2 l1="직    책" v1={worker.job_title}  l2="입  사  일" v2={worker.join_date || undefined} />
+                <Row2 l1="부    서"  v1={worker.department} l2="직    급"   v2={worker.position} />
+                <Row2 l1="직    책"  v1={worker.job_title}  l2="입  사  일" v2={worker.join_date || undefined} />
               </>
             ) : (
               <Row2 l1="숙  련  도" v1={worker.skill_level} l2="고용형태" v2={worker.employment_type} />
             )}
-            <Row1 label="특화작업" value={worker.specialties} last />
+            <Row1 label="특화작업" value={worker.specialties} />
           </View>
         )}
 
         {/* ── 급여 정보 ── */}
-        {sections.salary && (
+        {sections.salary && hasSalary && (
           <View style={s.table}>
             <SectionBar title="급여 정보" />
             <Row1 label="계좌번호" value={worker.account_number} />
-            <Row1 label={isPartTime ? '일    당' : '월 기본급'} value={wage} last />
+            <Row1 label={isPartTime ? '일    당' : '월 기본급'} value={wage} />
           </View>
         )}
 
         {/* ── 비상 연락처 ── */}
-        {sections.emergency && (
+        {sections.emergency && hasEmergency && (
           <View style={s.table}>
             <SectionBar title="비상 연락처" />
-            <Row1 label="비상연락처" value={worker.emergency_contact} last />
+            <Row1 label="비상연락처" value={worker.emergency_contact} />
           </View>
         )}
 
         {/* ── 업무 이력 ── */}
-        {sections.history && history.length > 0 && (
+        {sections.history && hasHistory && (
           <View style={s.table}>
             <SectionBar title="업무 이력" />
-            <View style={s.historyHeader}>
+            <View style={s.historyHeaderRow}>
               <Text style={[s.historyHeaderCell, { width: 80 }]}>기간</Text>
-              <Text style={[s.historyHeaderCell, { width: 90 }]}>근무처 / 프로젝트</Text>
+              <Text style={[s.historyHeaderCell, { width: 95 }]}>근무처 / 프로젝트</Text>
               <Text style={[s.historyHeaderCell, { flex: 1, borderRight: undefined }]}>담당 업무</Text>
             </View>
-            {history.map((item, i) => {
-              const isLast = i === history.length - 1
-              return (
-                <View key={i} style={isLast ? s.historyRowLast : s.historyRow}>
-                  <Text style={[s.historyCell, { width: 80 }]}>{item.period || '-'}</Text>
-                  <Text style={[s.historyCell, { width: 90 }]}>{item.company || '-'}</Text>
-                  <Text style={[s.historyCell, { flex: 1, borderRight: undefined }]}>{item.description || '-'}</Text>
-                </View>
-              )
-            })}
+            {history.map((item, i) => (
+              <View key={i} style={s.historyRow}>
+                <Text style={[s.historyCell, { width: 80 }]}>{item.period || '-'}</Text>
+                <Text style={[s.historyCell, { width: 95 }]}>{item.company || '-'}</Text>
+                <Text style={[s.historyCell, { flex: 1, borderRight: undefined }]}>{item.description || '-'}</Text>
+              </View>
+            ))}
           </View>
         )}
 
