@@ -290,10 +290,14 @@ export default function WorkerDetail({ worker, onWorkerUpdated, onWorkerDeleted 
     if (!cardRef.current) return
     setPdfLoading(true)
     try {
-      const [{ default: html2canvas }, { default: jsPDF }] = await Promise.all([
+      const [html2canvasMod, jspdfMod] = await Promise.all([
         import('html2canvas'),
         import('jspdf'),
       ])
+      const html2canvas = html2canvasMod.default
+      // jsPDF v4는 named export, v3 이하는 default export — 둘 다 대응
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const jsPDF = (jspdfMod as any).jsPDF ?? jspdfMod.default
 
       // 개인정보 섹션 펼쳐서 캡처
       setPrivacyExpanded(true)
