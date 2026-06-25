@@ -202,11 +202,15 @@ export default function DeepcaredPage() {
             <p className="text-xs text-gray-400 mt-0.5">해당하는 설비를 모두 선택하세요</p>
           </div>
           {(Object.entries(ITEMS) as [ItemCategory, string[]][]).map(([cat, items]) => {
-            const icon = cat === '주방조리설비' ? '🔴' : cat === '냉장냉동설비' ? '🔵' : '🟢'
+            const labelColor = cat === '주방조리설비'
+              ? 'text-rose-400'
+              : cat === '냉장냉동설비'
+              ? 'text-sky-400'
+              : 'text-emerald-400'
             return (
               <div key={cat}>
-                <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2.5">
-                  {icon} {cat}
+                <p className={`text-xs font-bold uppercase tracking-wider mb-2.5 ${labelColor}`}>
+                  {cat}
                 </p>
                 <div className="flex flex-wrap gap-2">
                   {items.map(item => (
@@ -238,7 +242,7 @@ export default function DeepcaredPage() {
                   : 'bg-white text-gray-600 border-gray-200 hover:border-indigo-400'
               }`}
             >
-              ✏️ 직접입력
+              직접입력
             </button>
             {showCustomItem && (
               <input
