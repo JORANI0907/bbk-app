@@ -11,8 +11,6 @@ const ITEMS = {
   위생환경설비: ['주방바닥', '주방벽면', '주방보조선반', '에어컨(벽걸이형)', '트렌치/트랩', '화장실', '홀 테이블 덕트'],
 }
 
-const OPTIONS = ['가스배관 세척', '냉장고 내부세척', '환풍기 세척', '업소용 커피머신 세척', '정수기 위생관리']
-
 const FREQ_UNITS = ['주', '월'] as const
 type FreqUnit = typeof FREQ_UNITS[number]
 const FREQ_COUNTS = ['1회', '2회', '3회', '4회', '5회'] as const
@@ -29,9 +27,10 @@ export default function DeepcaredPage() {
   })
   const [businessTypes, setBusinessTypes] = useState<string[]>([])
   const [selectedItems, setSelectedItems] = useState<string[]>([])
+  const [customItem, setCustomItem] = useState('')
+  const [showCustomItem, setShowCustomItem] = useState(false)
   const [freqUnit, setFreqUnit] = useState<FreqUnit>('월')
   const [freqCount, setFreqCount] = useState('')
-  const [selectedOptions, setSelectedOptions] = useState<string[]>([])
   const [loading, setLoading] = useState(false)
   const [submitted, setSubmitted] = useState(false)
 
@@ -41,9 +40,6 @@ export default function DeepcaredPage() {
   function toggleItem(item: string) {
     setSelectedItems(prev => prev.includes(item) ? prev.filter(x => x !== item) : [...prev, item])
   }
-  function toggleOption(o: string) {
-    setSelectedOptions(prev => prev.includes(o) ? prev.filter(x => x !== o) : [...prev, o])
-  }
   function setField(key: keyof typeof form, val: string) {
     setForm(prev => ({ ...prev, [key]: val }))
   }
@@ -51,7 +47,8 @@ export default function DeepcaredPage() {
   function buildCareScope() {
     const parts: string[] = []
     if (businessTypes.length) parts.push(`업종: ${businessTypes.join(', ')}`)
-    if (selectedItems.length) {
+    const allItems = [...selectedItems, ...(customItem.trim() ? [`기타: ${customItem.trim()}`] : [])]
+    if (allItems.length) {
       const byCategory = (Object.keys(ITEMS) as ItemCategory[]).reduce<Record<string, string[]>>(
         (acc, cat) => {
           const matched = ITEMS[cat].filter(i => selectedItems.includes(i))
@@ -59,13 +56,13 @@ export default function DeepcaredPage() {
           return acc
         }, {}
       )
-      const itemStr = Object.entries(byCategory)
+      const categoryStr = Object.entries(byCategory)
         .map(([cat, items]) => `[${cat}] ${items.join(', ')}`)
         .join(' / ')
-      parts.push(`품목: ${itemStr}`)
+      const customStr = customItem.trim() ? `[직접입력] ${customItem.trim()}` : ''
+      parts.push(`품목: ${[categoryStr, customStr].filter(Boolean).join(' / ')}`)
     }
     if (freqCount) parts.push(`방문주기: ${freqUnit} ${freqCount}`)
-    if (selectedOptions.length) parts.push(`선택사항: ${selectedOptions.join(', ')}`)
     return parts.join(' | ')
   }
 
@@ -230,6 +227,29 @@ export default function DeepcaredPage() {
               </div>
             )
           })}
+          {/* 직접입력 */}
+          <div>
+            <button
+              type="button"
+              onClick={() => setShowCustomItem(v => !v)}
+              className={`px-3.5 py-2 rounded-full text-sm font-medium border transition-all ${
+                showCustomItem
+                  ? 'bg-indigo-700 text-white border-indigo-700'
+                  : 'bg-white text-gray-600 border-gray-200 hover:border-indigo-400'
+              }`}
+            >
+              ✏️ 직접입력
+            </button>
+            {showCustomItem && (
+              <input
+                type="text"
+                value={customItem}
+                onChange={e => setCustomItem(e.target.value)}
+                placeholder="목록에 없는 설비를 직접 입력하세요"
+                className="mt-2.5 w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent"
+              />
+            )}
+          </div>
         </section>
 
         {/* 방문 주기 */}
@@ -272,30 +292,6 @@ export default function DeepcaredPage() {
               선택: {freqUnit} {freqCount}
             </p>
           )}
-        </section>
-
-        {/* 선택 사항 */}
-        <section className="bg-white rounded-2xl p-5 shadow-sm space-y-3">
-          <div>
-            <h2 className="font-bold text-gray-900 text-base">선택 사항</h2>
-            <p className="text-xs text-gray-400 mt-0.5">추가로 원하시는 항목을 선택하세요</p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {OPTIONS.map(o => (
-              <button
-                key={o}
-                type="button"
-                onClick={() => toggleOption(o)}
-                className={`px-3.5 py-2 rounded-full text-sm font-medium border transition-all ${
-                  selectedOptions.includes(o)
-                    ? 'bg-sky-600 text-white border-sky-600'
-                    : 'bg-white text-gray-600 border-gray-200 hover:border-sky-400'
-                }`}
-              >
-                {o}
-              </button>
-            ))}
-          </div>
         </section>
 
         {/* 특이사항 */}
