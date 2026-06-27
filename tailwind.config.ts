@@ -11,6 +11,7 @@ import type { Config } from "tailwindcss";
  * 상세: apps/bbk-app/docs/UI_REFINEMENT_PLAN.md
  */
 const config: Config = {
+  darkMode: 'class',
   content: [
     "./src/pages/**/*.{js,ts,jsx,tsx,mdx}",
     "./src/components/**/*.{js,ts,jsx,tsx,mdx}",
