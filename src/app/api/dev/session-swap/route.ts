@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { signSession } from '@/lib/session'
+import { signSession, getServerSession } from '@/lib/session'
 
 export async function POST(request: NextRequest) {
-  if (process.env.SHOW_DEV_PANEL !== 'true') {
+  const session = getServerSession()
+  const ownerId = process.env.DEV_OWNER_ID
+  if (!session || !ownerId || session.userId !== ownerId) {
     return NextResponse.json({ error: 'Not available' }, { status: 404 })
   }
 

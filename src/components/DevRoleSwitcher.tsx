@@ -44,11 +44,16 @@ function DevRoleSwitcherInner() {
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
 
+  const [isOwner, setIsOwner] = useState(false)
+
   useEffect(() => {
     fetch('/api/dev/me')
       .then(r => r.json())
-      .then((d: { role: string | null }) => {
-        if (d.role) setCurrentRole(d.role as Role)
+      .then((d: { role: string | null; isOwner?: boolean }) => {
+        if (d.isOwner) {
+          setIsOwner(true)
+          if (d.role) setCurrentRole(d.role as Role)
+        }
       })
       .catch(() => {})
   }, [])
@@ -117,6 +122,8 @@ function DevRoleSwitcherInner() {
     setTargetRole(null)
     setErr('')
   }
+
+  if (!isOwner) return null
 
   return (
     <div className="fixed bottom-4 right-4 z-[9999] flex flex-col items-end gap-2">
@@ -202,8 +209,7 @@ function DevRoleSwitcherInner() {
   )
 }
 
-// 외부 진입점 — NEXT_PUBLIC_SHOW_DEV_PANEL=true 일 때만 렌더링
+// 외부 진입점 — isOwner 체크는 내부에서 처리
 export default function DevRoleSwitcher() {
-  if (process.env.NEXT_PUBLIC_SHOW_DEV_PANEL !== 'true') return null
   return <DevRoleSwitcherInner />
 }
