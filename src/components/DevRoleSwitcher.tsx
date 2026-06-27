@@ -34,6 +34,14 @@ function saveStored(role: Role, data: StoredSession) {
   localStorage.setItem(`dev_session_${role}`, JSON.stringify(data))
 }
 
+function saveLastPage(role: Role) {
+  localStorage.setItem(`dev_last_page_${role}`, window.location.href)
+}
+
+function getLastPage(role: Role): string {
+  return localStorage.getItem(`dev_last_page_${role}`) ?? ROLE_PORTAL[role]
+}
+
 // 내부 구현 — hooks를 여기에 모음
 function DevRoleSwitcherInner() {
   const [currentRole, setCurrentRole] = useState<Role | null>(null)
@@ -59,13 +67,14 @@ function DevRoleSwitcherInner() {
   }, [])
 
   async function swap(userId: string, role: Role, name: string) {
+    if (currentRole) saveLastPage(currentRole)
     const res = await fetch('/api/dev/session-swap', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ userId, role, name }),
     })
     if (!res.ok) throw new Error('세션 교체 실패')
-    window.location.href = ROLE_PORTAL[role]
+    window.location.href = getLastPage(role)
   }
 
   async function handleRoleClick(role: Role) {
