@@ -202,8 +202,8 @@ function DevRoleSwitcherInner() {
   )
 }
 
-// 외부 진입점 — production에서 null 반환 (hooks 규칙 준수)
+// 외부 진입점 — NEXT_PUBLIC_SHOW_DEV_PANEL=true 일 때만 렌더링
 export default function DevRoleSwitcher() {
-  if (process.env.NODE_ENV === 'production') return null
+  if (process.env.NEXT_PUBLIC_SHOW_DEV_PANEL !== 'true') return null
   return <DevRoleSwitcherInner />
 }
