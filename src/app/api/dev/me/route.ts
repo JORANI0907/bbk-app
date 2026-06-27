@@ -4,7 +4,7 @@ import { getServerSession } from '@/lib/session'
 export const dynamic = 'force-dynamic'
 
 export async function GET() {
-  if (process.env.NODE_ENV === 'production') {
+  if (process.env.SHOW_DEV_PANEL !== 'true') {
     return NextResponse.json({ error: 'Not available' }, { status: 404 })
   }
   const session = getServerSession()

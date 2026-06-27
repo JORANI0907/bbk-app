@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { signSession } from '@/lib/session'
 
 export async function POST(request: NextRequest) {
-  if (process.env.NODE_ENV === 'production') {
-    return NextResponse.json({ error: 'Not available in production' }, { status: 404 })
+  if (process.env.SHOW_DEV_PANEL !== 'true') {
+    return NextResponse.json({ error: 'Not available' }, { status: 404 })
   }
 
   const body = await request.json() as { userId?: string; role?: string; name?: string }
