@@ -215,7 +215,7 @@ export default function LoginPage() {
         <div className="mt-5 text-center">
           <p className="text-white/25 text-[10px]">범빌드코리아 주식회사 · 대표자: 조동환 · 사업자등록번호: 398-81-04260</p>
         </div>
-        <p className="text-center text-xs text-white/40 mt-3">© 2026 BBK Korea. All rights reserved.</p>
+        <p className="text-center text-xs text-white/40 mt-3">© 2026 BUMBUILDKOREA. All rights reserved.</p>
       </div>
 
       {/* iOS 설치 안내 모달 */}
