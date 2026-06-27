@@ -1,12 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { signSession, getServerSession } from '@/lib/session'
+import { cookies } from 'next/headers'
 
 export async function POST(request: NextRequest) {
   const session = getServerSession()
   const ownerId = process.env.DEV_OWNER_ID
-  if (!session || !ownerId || session.userId !== ownerId) {
-    return NextResponse.json({ error: 'Not available' }, { status: 404 })
-  }
+
+  if (!ownerId) return NextResponse.json({ error: 'Not available' }, { status: 404 })
+
+  const cookieStore = cookies()
+  const devOwnerCookie = cookieStore.get('bbk_dev_owner')
+  const isOwner = session?.userId === ownerId || devOwnerCookie?.value === ownerId
+
+  if (!isOwner) return NextResponse.json({ error: 'Not available' }, { status: 404 })
 
   const body = await request.json() as { userId?: string; role?: string; name?: string }
   const { userId, role, name } = body
