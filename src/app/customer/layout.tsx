@@ -3,6 +3,7 @@ import { CustomerMobileNav } from '@/components/customer/CustomerMobileNav'
 import { ScheduleChangeFAB } from '@/components/customer/ScheduleChangeFAB'
 import { PreviewBanner } from '@/components/customer/PreviewBanner'
 import { PushNotificationProvider } from '@/components/shared/PushNotificationProvider'
+import DevRoleSwitcher from '@/components/DevRoleSwitcher'
 import { getCustomerSession } from '@/lib/session'
 import { redirect } from 'next/navigation'
 
@@ -41,6 +42,8 @@ export default function CustomerLayout({
       {!session.isPreview && (
         <PushNotificationProvider userId={session.userId} userType="customer" />
       )}
+
+      <DevRoleSwitcher />
     </div>
   )
 }

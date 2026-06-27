@@ -1,6 +1,7 @@
 import { BottomNav } from '@/components/worker/BottomNav'
 import { TodayLabel } from '@/components/worker/TodayLabel'
 import { PushNotificationProvider } from '@/components/shared/PushNotificationProvider'
+import DevRoleSwitcher from '@/components/DevRoleSwitcher'
 import { getServerSession } from '@/lib/session'
 
 export default function WorkerLayout({
@@ -30,6 +31,8 @@ export default function WorkerLayout({
       {session && (
         <PushNotificationProvider userId={session.userId} userType="worker" />
       )}
+
+      <DevRoleSwitcher />
     </div>
   )
 }
