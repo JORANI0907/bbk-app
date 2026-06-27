@@ -199,10 +199,8 @@ export default function LoginPage() {
         {/* 공개 페이지 링크 */}
         <div className="flex justify-center gap-3 mt-5 flex-wrap">
           {[
-            { href: '/services', label: '서비스 안내' },
             { href: '/terms', label: '이용약관' },
             { href: '/privacy', label: '개인정보처리방침' },
-            { href: '/refund', label: '환불규정' },
             { href: '/company', label: '회사정보' },
           ].map(({ href, label }, i, arr) => (
             <span key={href} className="flex items-center gap-3">
@@ -214,12 +212,10 @@ export default function LoginPage() {
           ))}
         </div>
 
-        <div className="mt-5 text-center space-y-1">
+        <div className="mt-5 text-center">
           <p className="text-white/25 text-[10px]">범빌드코리아 주식회사 · 대표자: 조동환 · 사업자등록번호: 398-81-04260</p>
-          <p className="text-white/25 text-[10px]">주소: 경기도 성남시 중원구 둔촌대로268번길 22 201호</p>
-          <p className="text-white/25 text-[10px]">서비스 요금: 1회성케어 120,000원~ · 정기딥케어 150,000원~/회 · 정기엔드케어 100,000원~/회</p>
         </div>
-        <p className="text-center text-xs text-white/40 mt-3">© 2025 BBK Korea. All rights reserved.</p>
+        <p className="text-center text-xs text-white/40 mt-3">© 2026 BBK Korea. All rights reserved.</p>
       </div>
 
       {/* iOS 설치 안내 모달 */}
