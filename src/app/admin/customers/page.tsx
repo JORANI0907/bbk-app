@@ -257,7 +257,7 @@ function getPrepaidMonthLabels(startDate: string, cycle: BillingCycle, prepaidPe
 }
 
 // ─── 상태 배지 ────────────────────────────────────────────────
-function StatusBadges({ customer }: { customer: Customer }) {
+function StatusBadges({ customer, hideContract }: { customer: Customer; hideContract?: boolean }) {
   const billingDays = daysUntil(customer.billing_next_date)
   const visitDays   = daysUntil(customer.next_visit_date)
   const contractDays = daysUntil(customer.contract_end_date)
@@ -271,7 +271,7 @@ function StatusBadges({ customer }: { customer: Customer }) {
   }
   if (visitDays != null && visitDays >= 0 && visitDays <= 5)
     badges.push(<span key="v" className="text-xs px-1.5 py-0.5 bg-brand-100 text-brand-700 rounded-full font-medium">방문 {visitDays}일 후</span>)
-  if (contractDays != null) {
+  if (!hideContract && contractDays != null) {
     if (contractDays < 0)
       badges.push(<span key="c0" className="text-xs px-1.5 py-0.5 bg-state-danger-bg text-state-danger rounded-full font-medium">계약만료</span>)
     else if (contractDays <= 30)
@@ -988,7 +988,7 @@ export default function AdminCustomersPage() {
                     { key: 'business_name', label: '업체명 / 연락처' },
                     { key: 'service',       label: '서비스' },
                     { key: null,            label: '성향' },
-                    { key: 'contract',      label: '계약기간' },
+                    ...(!isWorker ? [{ key: 'contract' as const, label: '계약기간' }] : []),
                     { key: 'interval',      label: '방문주기' },
                     { key: 'next_visit',    label: '방문일정' },
                   ] as const).map(col => (
@@ -1049,7 +1049,7 @@ export default function AdminCustomersPage() {
                             {c.next_visit_date && `방문 ${fmtDate(c.next_visit_date)}`}
                           </p>
                         )}
-                        <StatusBadges customer={c} />
+                        <StatusBadges customer={c} hideContract={isWorker} />
                         <div className="flex gap-1 mt-1">
                           {c.user_id != null
                             ? <span className="text-xs px-1.5 py-0.5 bg-green-100 text-green-700 rounded-full font-medium">계정생성완료</span>
@@ -1066,11 +1066,13 @@ export default function AdminCustomersPage() {
                           return <span className={`text-xs px-1.5 py-0.5 rounded-full ${DISPOSITION_STYLE[d].badge}`}>{d}</span>
                         })()}
                       </td>
+                      {!isWorker && (
                       <td className="px-3 py-3 text-xs text-text-secondary whitespace-nowrap">
                         {(c.contract_start_date || c.contract_end_date)
                           ? <>{fmtDate(c.contract_start_date)} ~ {fmtDate(c.contract_end_date)}</>
                           : <span className="text-text-tertiary">-</span>}
                       </td>
+                      )}
                       <td className="px-3 py-3 text-xs text-text-secondary whitespace-nowrap">
                         {visitIntervalText || <span className="text-text-tertiary">-</span>}
                       </td>
@@ -1667,8 +1669,8 @@ export default function AdminCustomersPage() {
             )}
 
 
-            {/* 청구 이력 (정기딥케어 연간 / 정기엔드케어) */}
-            {!isNew && selected && (
+            {/* 청구 이력 (정기딥케어 연간 / 정기엔드케어) — worker 숨김 */}
+            {!isWorker && !isNew && selected && (
               (form.customer_type === '정기딥케어' && form.billing_cycle === '연간') ||
               form.customer_type === '정기엔드케어'
             ) && (
