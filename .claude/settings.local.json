@@ -13,7 +13,25 @@
       "mcp__claude_ai_Make__executions_get-detail",
       "mcp__claude_ai_Make__app-module_get",
       "mcp__claude_ai_Make__validate_module_configuration",
-      "mcp__supabase__apply_migration"
+      "mcp__supabase__apply_migration",
+      "mcp__claude_ai_Make__scenarios_list",
+      "mcp__claude_ai_Make__scenarios_delete",
+      "mcp__claude_ai_Make__hooks_get",
+      "mcp__claude_ai_Make__executions_get",
+      "mcp__claude_ai_Make__hooks_update",
+      "mcp__plugin_vercel_vercel__deploy_to_vercel",
+      "mcp__plugin_vercel_vercel__list_deployments",
+      "mcp__plugin_vercel_vercel__list_teams",
+      "mcp__plugin_vercel_vercel__list_projects",
+      "mcp__claude_ai_Make__scenarios_deactivate",
+      "mcp__claude_ai_Make__connections_get",
+      "mcp__claude_ai_Make__hook-config_get",
+      "mcp__claude_ai_Make__data-structures_create",
+      "mcp__claude_ai_Make__app-modules_list",
+      "mcp__claude_ai_Make__rpc_execute",
+      "mcp__claude_ai_Make__s9108703_bbk",
+      "mcp__claude_ai_Make__scenarios_set-interface",
+      "mcp__claude_ai_Make__data-structures_get"
     ]
   }
 }
