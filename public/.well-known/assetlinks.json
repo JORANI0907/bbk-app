@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "co.kr.bbkorea.app",
+      "sha256_cert_fingerprints": [
+        "F1:D9:11:6B:D4:52:51:FD:87:46:04:D8:63:02:60:0A:53:BB:41:9C:6A:2C:79:EA:92:3B:39:11:8C:A8:83:32"
+      ]
+    }
+  }
+]
