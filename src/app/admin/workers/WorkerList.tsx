@@ -39,6 +39,7 @@ interface Props {
   filterSkill: string
   filterSpecialty: string
   showAddForm: boolean
+  canAdd?: boolean
   onSearchChange: (v: string) => void
   onFilterTypeChange: (v: string) => void
   onFilterSkillChange: (v: string) => void
@@ -51,7 +52,7 @@ interface Props {
 export default function WorkerList({
   workers, selectedId, loading,
   search, filterType, filterSkill, filterSpecialty,
-  showAddForm,
+  showAddForm, canAdd = false,
   onSearchChange, onFilterTypeChange, onFilterSkillChange, onFilterSpecialtyChange,
   onSelectWorker, onShowAddForm, onWorkerAdded,
 }: Props) {
@@ -95,12 +96,14 @@ export default function WorkerList({
       <div className="p-3 border-b border-gray-100">
         <div className="flex items-center justify-between mb-2">
           <span className="text-sm font-semibold text-gray-700">직원 목록 ({workers.length}명)</span>
-          <button
-            onClick={() => onShowAddForm(!showAddForm)}
-            className="text-xs bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 rounded-lg transition-colors"
-          >
-            + 직원 추가
-          </button>
+          {canAdd && (
+            <button
+              onClick={() => onShowAddForm(!showAddForm)}
+              className="text-xs bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 rounded-lg transition-colors"
+            >
+              + 직원 추가
+            </button>
+          )}
         </div>
 
         {/* Search */}
@@ -142,8 +145,8 @@ export default function WorkerList({
         />
       </div>
 
-      {/* Add form (inline) */}
-      {showAddForm && (
+      {/* Add form (inline) — 관리자 전용 */}
+      {canAdd && showAddForm && (
         <div className="p-3 bg-blue-50 border-b border-blue-100">
           <p className="text-xs font-semibold text-blue-700 mb-2">새 직원 추가</p>
           <div className="flex flex-col gap-1.5">
