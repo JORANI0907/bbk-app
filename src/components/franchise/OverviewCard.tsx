@@ -1,5 +1,5 @@
 import { CircularGauge } from '@/components/customer/CircularGauge'
-import { CustomerIndices } from '@/lib/customer-indices'
+import { CustomerIndices, GAUGE_DESCRIPTIONS } from '@/lib/customer-indices'
 
 interface OverviewCardProps {
   branchCount: number
@@ -37,6 +37,7 @@ export function OverviewCard({ branchCount, brandName, indices }: OverviewCardPr
             displayTop={comfortIndex !== null ? `${comfortIndex}` : '-'}
             displaySub="점"
             title="범위 쾌적"
+            description={GAUGE_DESCRIPTIONS.comfort}
           />
           <CircularGauge
             variant="dark"
@@ -46,6 +47,7 @@ export function OverviewCard({ branchCount, brandName, indices }: OverviewCardPr
             displayTop={outerComfortIndex !== null ? `${outerComfortIndex}` : '-'}
             displaySub="점"
             title="범위 외 쾌적"
+            description={GAUGE_DESCRIPTIONS.outerComfort}
           />
           <CircularGauge
             variant="dark"
@@ -55,6 +57,7 @@ export function OverviewCard({ branchCount, brandName, indices }: OverviewCardPr
             displayTop={progressPct !== null ? `${progressPct}` : '-'}
             displaySub="%"
             title="이번달 진행률"
+            description={GAUGE_DESCRIPTIONS.progress}
           />
         </div>
       </div>

@@ -106,6 +106,18 @@ export function aggregateIndices(indicesList: CustomerIndices[]): CustomerIndice
   }
 }
 
+/**
+ * 게이지 설명 (고객 홈 + 프렌차이즈 대시보드에서 공통 사용).
+ * 단일 진실 소스 — 문구 변경 시 한 곳만 수정.
+ */
+export const GAUGE_DESCRIPTIONS = {
+  comfort:
+    '고객님이 받고 계신 범위에 대한 작업 후 쾌적 지수입니다. 쾌적지수가 낮은 경우 계약 전 보다 작업 전 오염이 더 높아졌을 가능성이 있어요.',
+  outerComfort:
+    '요청하신 범위 외에 BBK 위생 파트너가 확인한 위생이 부족한 부분의 지수입니다. 추가 케어를 요청하여 더 깨끗한 공간을 유지해보세요.',
+  progress: '이번달에 진행하기로 약속한 일정 달성률입니다.',
+} as const
+
 export function gaugeStrokeColor(pct: number | null): string {
   if (pct === null) return '#94a3b8'
   if (pct >= 85) return '#34d399'

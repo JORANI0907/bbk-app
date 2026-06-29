@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import toast from 'react-hot-toast'
 import { CircularGauge } from '@/components/customer/CircularGauge'
-import { CustomerIndices, CustomerGrade } from '@/lib/customer-indices'
+import { CustomerIndices, CustomerGrade, GAUGE_DESCRIPTIONS } from '@/lib/customer-indices'
 
 export interface BranchSummary {
   customerId: string
@@ -88,6 +88,7 @@ export function BranchCard({ branch }: { branch: BranchSummary }) {
           displayTop={comfortIndex !== null ? `${comfortIndex}` : '-'}
           displaySub="점"
           title="쾌적"
+          description={GAUGE_DESCRIPTIONS.comfort}
         />
         <CircularGauge
           variant="light"
@@ -97,6 +98,7 @@ export function BranchCard({ branch }: { branch: BranchSummary }) {
           displayTop={outerComfortIndex !== null ? `${outerComfortIndex}` : '-'}
           displaySub="점"
           title="범위 외"
+          description={GAUGE_DESCRIPTIONS.outerComfort}
         />
         <CircularGauge
           variant="light"
@@ -106,6 +108,7 @@ export function BranchCard({ branch }: { branch: BranchSummary }) {
           displayTop={progressPct !== null ? `${progressPct}` : '-'}
           displaySub="%"
           title="진행률"
+          description={GAUGE_DESCRIPTIONS.progress}
         />
       </div>
 
