@@ -182,12 +182,6 @@ export default async function CustomerMyPage() {
               <InfoRow label="방문 주기" value={`${customer.visit_interval_days}일마다`} />
             )}
           </div>
-          {customer.care_scope && (
-            <div className="mx-5 mb-4 mt-1 bg-surface-sunken rounded-xl p-3">
-              <p className="text-xs text-text-tertiary mb-1">케어 범위</p>
-              <p className="text-sm text-text-secondary whitespace-pre-wrap">{customer.care_scope}</p>
-            </div>
-          )}
         </section>
       )}
 
