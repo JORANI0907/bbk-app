@@ -217,6 +217,7 @@ export async function POST(request: NextRequest) {
         request_notes?: string | null
       }) => ({
         worker_id: app.assigned_to,
+        customer_id: customer.id,
         scheduled_date: app.construction_date.slice(0, 10),
         scheduled_time_start: toTime(customer.business_hours_start, '09:00:00'),
         scheduled_time_end: toTime(customer.business_hours_end, '18:00:00'),

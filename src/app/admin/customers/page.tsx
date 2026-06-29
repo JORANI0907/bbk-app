@@ -692,6 +692,17 @@ export default function AdminCustomersPage() {
       toast.error('정기딥케어 또는 정기엔드케어 고객을 선택해주세요.')
       return
     }
+
+    // 담당자 미설정 고객 사전 차단
+    const noManagerCustomers = regularIds
+      .map(id => customers.find(c => c.id === id))
+      .filter((c): c is NonNullable<typeof c> => !!c && !c.assigned_user_id)
+    if (noManagerCustomers.length > 0) {
+      const names = noManagerCustomers.map(c => c.business_name).join(', ')
+      toast.error(`${names} 담당자 설정이 안되어있습니다.`)
+      return
+    }
+
     setBulkCreating(true)
     try {
       const res = await fetch('/api/admin/customers/generate-schedules', {
