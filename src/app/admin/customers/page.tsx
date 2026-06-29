@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import toast from 'react-hot-toast'
 import { useModalBackButton } from '@/hooks/useModalBackButton'
 import { MapSelectorModal } from '@/components/MapSelectorModal'
@@ -326,6 +327,8 @@ function SelectField({ label, value, options, onChange }: {
 
 // ─── 메인 페이지 ──────────────────────────────────────────────
 export default function AdminCustomersPage() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
   const [customers, setCustomers] = useState<Customer[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedTypes, setSelectedTypes] = useState<Set<CustomerType>>(new Set(['정기엔드케어']))
@@ -381,6 +384,18 @@ export default function AdminCustomersPage() {
     setCustomers(data.customers ?? [])
     setLoading(false)
   }, [])
+
+  // 케어매뉴얼 편집에서 돌아올 때 ?detail=ID 파라미터로 세부화면 복원
+  useEffect(() => {
+    const detailId = searchParams.get('detail')
+    if (!detailId || customers.length === 0 || selected) return
+    const target = customers.find(c => c.id === detailId)
+    if (target) {
+      setSelected(target)
+      setIsNew(false)
+      router.replace('/admin/customers', { scroll: false })
+    }
+  }, [customers, searchParams, selected, router])
 
   useEffect(() => {
     fetchAll()

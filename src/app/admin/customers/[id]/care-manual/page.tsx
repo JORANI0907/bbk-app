@@ -48,6 +48,16 @@ export default function CareManualEditPage() {
   const [uploadingSi, setUploadingSi] = useState<number | null>(null)
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null)
 
+  // 브라우저 뒤로가기도 세부화면이 열린 채로 돌아가도록
+  useEffect(() => {
+    history.pushState(null, '')
+    const handlePopState = () => {
+      router.push(`/admin/customers?detail=${id}`)
+    }
+    window.addEventListener('popstate', handlePopState)
+    return () => window.removeEventListener('popstate', handlePopState)
+  }, [id, router])
+
   const fetchManual = useCallback(async () => {
     try {
       setLoading(true)
@@ -184,7 +194,7 @@ export default function CareManualEditPage() {
     <div className="max-w-2xl mx-auto px-4 py-5 flex flex-col gap-4">
       {/* 헤더 */}
       <div className="flex items-center gap-3">
-        <button onClick={() => router.back()} className="p-1.5 rounded-lg hover:bg-surface-sunken">
+        <button onClick={() => router.push(`/admin/customers?detail=${id}`)} className="p-1.5 rounded-lg hover:bg-surface-sunken">
           <ChevronLeft size={20} className="text-text-secondary" />
         </button>
         <div className="flex-1">
