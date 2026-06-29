@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useState } from 'react'
-import { Home, Calendar, User, LogOut } from 'lucide-react'
+import { Home, Calendar, User, LogOut, FileText } from 'lucide-react'
 
 type NavIcon = React.ElementType
 
@@ -12,20 +12,25 @@ interface NavItem {
   label: string
   Icon: NavIcon
   exact?: boolean
+  requiresRegularService?: boolean
 }
 
 const NAV_ITEMS: NavItem[] = [
   { href: '/customer', label: '홈', Icon: Home, exact: true },
   { href: '/customer/schedule', label: '서비스 일정', Icon: Calendar },
+  { href: '/customer/care-manual', label: '케어매뉴얼', Icon: FileText, requiresRegularService: true },
   { href: '/customer/mypage', label: '마이페이지', Icon: User },
 ]
 
 interface Props {
   userName: string
   userId?: string
+  customerType?: string | null
 }
 
-export function CustomerSidebar({ userName, userId: _userId }: Props) {
+export function CustomerSidebar({ userName, userId: _userId, customerType }: Props) {
+  const isRegular = customerType === '정기딥케어' || customerType === '정기엔드케어'
+  const visibleItems = NAV_ITEMS.filter((item) => !item.requiresRegularService || isRegular)
   const pathname = usePathname()
   const router = useRouter()
   const [loggingOut, setLoggingOut] = useState(false)
@@ -62,7 +67,7 @@ export function CustomerSidebar({ userName, userId: _userId }: Props) {
 
       {/* 메뉴 */}
       <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-0.5">
-        {NAV_ITEMS.map((item) => {
+        {visibleItems.map((item) => {
           const active = isActive(item.href, item.exact)
 
           return (

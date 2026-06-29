@@ -3,6 +3,7 @@
 import { useState, useRef } from 'react'
 import { Upload, X, Loader2 } from 'lucide-react'
 import toast from 'react-hot-toast'
+import { compressImageTo1MB } from '@/lib/image-compress'
 
 interface Props {
   value: string
@@ -14,9 +15,12 @@ export function LogoUploader({ value, onChange, disabled }: Props) {
   const inputRef = useRef<HTMLInputElement>(null)
   const [uploading, setUploading] = useState(false)
 
-  const handleFile = async (file: File) => {
+  const handleFile = async (rawFile: File) => {
     setUploading(true)
     try {
+      // 1MB 이하로 자동 압축 (SVG는 원본 유지)
+      const file = await compressImageTo1MB(rawFile)
+
       const formData = new FormData()
       formData.append('file', file)
       const res = await fetch('/api/admin/franchise-hq/upload-logo', {
@@ -26,7 +30,13 @@ export function LogoUploader({ value, onChange, disabled }: Props) {
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? '업로드 실패')
       onChange(data.logo_url)
-      toast.success('로고가 업로드되었습니다.')
+
+      const compressed = rawFile.size > file.size
+      toast.success(
+        compressed
+          ? `로고 업로드 완료 (${(rawFile.size / 1024).toFixed(0)}KB → ${(file.size / 1024).toFixed(0)}KB)`
+          : '로고가 업로드되었습니다.'
+      )
     } catch (err) {
       toast.error(err instanceof Error ? err.message : '업로드 실패')
     } finally {
@@ -87,7 +97,7 @@ export function LogoUploader({ value, onChange, disabled }: Props) {
               로고 제거
             </button>
           )}
-          <p className="text-[10px] text-text-tertiary leading-tight">JPG · PNG · WebP · SVG (최대 5MB)</p>
+          <p className="text-[10px] text-text-tertiary leading-tight">JPG · PNG · WebP · SVG · 자동으로 1MB 이하 압축</p>
         </div>
       </div>
 

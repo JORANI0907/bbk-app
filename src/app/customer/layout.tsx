@@ -6,15 +6,24 @@ import { BranchSwitcherFAB } from '@/components/franchise/BranchSwitcherFAB'
 import { PushNotificationProvider } from '@/components/shared/PushNotificationProvider'
 import DevRoleSwitcher from '@/components/DevRoleSwitcher'
 import { getCustomerSession } from '@/lib/session'
+import { createServiceClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 
-export default function CustomerLayout({
+export default async function CustomerLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
   const session = getCustomerSession()
   if (!session) redirect('/login')
+
+  const supabase = createServiceClient()
+  const { data: customerRow } = await supabase
+    .from('customers')
+    .select('customer_type')
+    .eq('user_id', session.userId)
+    .maybeSingle()
+  const customerType = (customerRow as { customer_type: string | null } | null)?.customer_type ?? null
 
   const isFranchiseView = session.isPreview && session.originRole === 'franchise_hq'
   // 본사 모드는 floating 버튼(FAB)으로 표시 → 상단 패딩 불필요
@@ -29,7 +38,7 @@ export default function CustomerLayout({
       {isFranchiseView && <BranchSwitcherFAB branchName={session.name} />}
 
       {/* 데스크탑 사이드바 */}
-      <CustomerSidebar userName={session.name} userId={session.userId} />
+      <CustomerSidebar userName={session.name} userId={session.userId} customerType={customerType} />
 
       {/* 메인 콘텐츠 */}
       <main className="flex-1 flex flex-col min-w-0 overflow-hidden">
@@ -41,7 +50,7 @@ export default function CustomerLayout({
       </main>
 
       {/* 모바일 하단 탭바 */}
-      <CustomerMobileNav userId={session.userId} />
+      <CustomerMobileNav userId={session.userId} customerType={customerType} />
 
       {/* 일정 변경 요청 FAB */}
       <ScheduleChangeFAB userId={session.userId} />
