@@ -56,13 +56,22 @@ export async function PUT(
       .from('customers')
       .update({ care_manual: sections })
       .eq('id', id)
-      .select('care_manual')
-      .single()
+      .select('id, business_name, care_manual')
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    if (!updated || updated.length === 0) {
+      return NextResponse.json(
+        { error: `customer not found (id=${id})` },
+        { status: 404 }
+      )
+    }
+    const savedSections = updated[0]?.care_manual ?? sections
     return NextResponse.json({
       success: true,
-      sections: updated?.care_manual ?? sections,
+      customer_id: updated[0]?.id,
+      business_name: updated[0]?.business_name,
+      sections: savedSections,
+      sections_count: Array.isArray(savedSections) ? savedSections.length : 0,
     })
   } catch (e) {
     return NextResponse.json(

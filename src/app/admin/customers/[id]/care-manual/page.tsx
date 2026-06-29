@@ -38,7 +38,9 @@ async function compressImage(file: File): Promise<Blob> {
 }
 
 export default function CareManualEditPage() {
-  const { id } = useParams<{ id: string }>()
+  const params = useParams<{ id: string }>()
+  // Next.js 버전별로 string | string[] 양쪽 케이스 모두 대응
+  const id = Array.isArray(params.id) ? params.id[0] : params.id
   const router = useRouter()
 
   const [sections, setSections] = useState<CareManualSection[]>([])
@@ -63,14 +65,25 @@ export default function CareManualEditPage() {
   }, [id, router])
 
   const fetchManual = useCallback(async () => {
+    if (!id) {
+      toast.error('잘못된 URL — customer id 없음')
+      setLoading(false)
+      return
+    }
     try {
       setLoading(true)
       const res = await fetch(`/api/admin/customers/${id}/care-manual`, { cache: 'no-store' })
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}))
+        throw new Error(`[GET ${res.status}] ${body.error ?? '불러오기 실패'}`)
+      }
       const data = await res.json()
-      setSections(data.sections ?? [])
+      const fetched = Array.isArray(data.sections) ? data.sections : []
+      console.log(`[care-manual GET] id=${id}, sections=${fetched.length}, business=${data.business_name}`)
+      setSections(fetched)
       setCustomerName(data.business_name ?? '')
-    } catch {
-      toast.error('불러오기 실패')
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : '불러오기 실패')
     } finally {
       setLoading(false)
     }
@@ -91,17 +104,36 @@ export default function CareManualEditPage() {
   }
 
   const handleSave = async () => {
+    if (!id) {
+      toast.error('잘못된 URL — customer id 없음')
+      return
+    }
+    // 빈 sections 가드 — 의도치 않은 데이터 손실 방지
+    if (sections.length === 0) {
+      const ok = confirm('섹션이 0개입니다. 그래도 저장하시겠습니까? (DB의 기존 내용이 모두 삭제됩니다)')
+      if (!ok) return
+    }
     try {
       setSaving(true)
-      await putSections(sections)
-      // 사용자 입력이 이미 화면에 있고 PUT 성공했으므로 그대로 유지.
-      // fresh fetch로 덮어쓰지 않음 — 빈 응답 또는 race condition으로
-      // 사용자 입력이 사라지는 버그 방지.
+      console.log(`[care-manual SAVE] id=${id}, sections=${sections.length}, payload=`, JSON.stringify(sections).slice(0, 300))
+      const res = await fetch(`/api/admin/customers/${id}/care-manual`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sections }),
+      })
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        throw new Error(`[PUT ${res.status}] ${body.error ?? '저장 실패'}`)
+      }
+      console.log(`[care-manual SAVE OK] response=`, body)
       sectionsRef.current = sections
-      toast.success('케어매뉴얼 저장됨')
-      // 다른 페이지(고객 세부화면 등) server cache invalidate
+      const savedCount = Array.isArray(body.sections) ? body.sections.length : sections.length
+      const now = new Date()
+      const timeStr = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}`
+      toast.success(`저장됨 · 섹션 ${savedCount}개 · ${timeStr}`)
       router.refresh()
     } catch (e) {
+      console.error('[care-manual SAVE FAIL]', e)
       toast.error(e instanceof Error ? e.message : '저장 실패')
     } finally {
       setSaving(false)
