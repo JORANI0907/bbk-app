@@ -64,18 +64,22 @@ export default function CareManualEditPage() {
 
   useEffect(() => { fetchManual() }, [fetchManual])
 
+  const putSections = async (sectionsToSave: CareManualSection[]) => {
+    const res = await fetch(`/api/admin/customers/${id}/care-manual`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sections: sectionsToSave }),
+    })
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}))
+      throw new Error(`[${res.status}] ${body.error ?? '저장 실패'}`)
+    }
+  }
+
   const handleSave = async () => {
     try {
       setSaving(true)
-      const res = await fetch(`/api/admin/customers/${id}/care-manual`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sections }),
-      })
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}))
-        throw new Error(`[${res.status}] ${body.error ?? '저장 실패'}`)
-      }
+      await putSections(sections)
       toast.success('케어매뉴얼 저장됨')
     } catch (e) {
       toast.error(e instanceof Error ? e.message : '저장 실패')
@@ -130,9 +134,12 @@ export default function CareManualEditPage() {
         const body = await res.json().catch(() => ({}))
         throw new Error(body.error ?? '업로드 실패')
       }
-      const { url } = await res.json()
-      setSectionImage(si, url)
-      toast.success('사진 업로드 완료')
+      const { url } = await res.json() as { url: string }
+      // 업로드 완료 즉시 DB 저장 (state 업데이트와 동시에 새 배열로 직접 저장)
+      const next = sections.map((s, i) => i === si ? { ...s, image_url: url } : s)
+      setSections(next)
+      await putSections(next)
+      toast.success('사진 업로드 및 저장 완료')
     } catch (e) {
       toast.error(e instanceof Error ? e.message : '사진 업로드 실패')
     } finally {
@@ -142,7 +149,15 @@ export default function CareManualEditPage() {
 
   const removeImage = async (si: number) => {
     const url = sections[si]?.image_url
-    setSectionImage(si, undefined)
+    // state와 DB를 동시에 업데이트
+    const next = sections.map((s, i) => i === si ? { ...s, image_url: undefined } : s)
+    setSections(next)
+    try {
+      await putSections(next)
+    } catch {
+      toast.error('이미지 정보 저장 실패')
+    }
+    // storage에서도 삭제
     if (url) {
       const marker = `${BUCKET}/`
       const markerIdx = url.indexOf(marker)
@@ -152,7 +167,7 @@ export default function CareManualEditPage() {
           method: 'DELETE',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ path }),
-        })
+        }).catch(() => {})
       }
     }
   }
@@ -178,9 +193,9 @@ export default function CareManualEditPage() {
             {customerName || '고객'}
           </h1>
         </div>
-        <Button onClick={handleSave} disabled={saving} size="sm">
+        <Button onClick={handleSave} disabled={saving || uploadingSi !== null} size="sm">
           <Save size={14} className="mr-1" />
-          {saving ? '저장 중...' : '저장'}
+          {saving ? '저장 중...' : uploadingSi !== null ? '업로드 중...' : '저장'}
         </Button>
       </div>
 
