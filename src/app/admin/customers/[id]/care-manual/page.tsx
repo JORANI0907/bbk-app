@@ -309,6 +309,7 @@ export default function CareManualEditPage() {
                   src={section.image_url}
                   alt={section.section}
                   className="w-full h-full object-cover"
+                  loading="lazy"
                 />
                 {/* 확대 버튼 — 튀는 amber 색상 */}
                 <button
@@ -388,6 +389,7 @@ export default function CareManualEditPage() {
                         src={item.image_url}
                         alt={item.label}
                         className="max-h-20 w-auto object-contain block"
+                        loading="lazy"
                       />
                     </div>
                     {/* 확대 버튼 — amber */}

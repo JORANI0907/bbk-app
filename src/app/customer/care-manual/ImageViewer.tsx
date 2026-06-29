@@ -46,7 +46,7 @@ export function ImageViewer({ src, alt, variant = 'section' }: Props) {
             className="block rounded-lg overflow-hidden border border-border-subtle"
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={src} alt={alt} className="max-h-20 w-auto object-contain block" />
+            <img src={src} alt={alt} className="max-h-20 w-auto object-contain block" loading="lazy" />
           </button>
           {/* 확대 가능 표시 — amber 배지 (터치 영역은 버튼 전체) */}
           <span className="absolute top-1 left-1 p-0.5 rounded bg-amber-400 text-black pointer-events-none shadow-sm">
@@ -63,7 +63,7 @@ export function ImageViewer({ src, alt, variant = 'section' }: Props) {
       {/* 섹션 이미지 — 16:9 고정 비율 */}
       <div className="relative w-1/2 aspect-video rounded-xl overflow-hidden border border-border-subtle">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={src} alt={alt} className="w-full h-full object-cover" />
+        <img src={src} alt={alt} className="w-full h-full object-cover" loading="lazy" />
         {/* 확대 버튼 — amber 튀는 색상 */}
         <button
           type="button"
