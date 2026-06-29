@@ -93,6 +93,11 @@ export default function CareManualEditPage() {
     try {
       setSaving(true)
       await putSections(sections)
+      // 저장 후 DB에서 다시 불러와 실제 반영 여부 확인
+      const res = await fetch(`/api/admin/customers/${id}/care-manual`, { cache: 'no-store' })
+      const data = await res.json()
+      setSections(data.sections ?? [])
+      sectionsRef.current = data.sections ?? []
       toast.success('케어매뉴얼 저장됨')
     } catch (e) {
       toast.error(e instanceof Error ? e.message : '저장 실패')
