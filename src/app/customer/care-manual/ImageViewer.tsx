@@ -39,14 +39,20 @@ export function ImageViewer({ src, alt, variant = 'section' }: Props) {
   if (variant === 'item') {
     return (
       <>
-        <button
-          type="button"
-          onClick={() => setOpen(true)}
-          className="block rounded-lg overflow-hidden border border-border-subtle active:scale-[0.98] transition-transform"
-        >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={src} alt={alt} className="max-h-20 w-auto object-contain" />
-        </button>
+        <div className="relative inline-block active:scale-[0.98] transition-transform">
+          <button
+            type="button"
+            onClick={() => setOpen(true)}
+            className="block rounded-lg overflow-hidden border border-border-subtle"
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={src} alt={alt} className="max-h-20 w-auto object-contain block" />
+          </button>
+          {/* 확대 가능 표시 — amber 배지 (터치 영역은 버튼 전체) */}
+          <span className="absolute top-1 left-1 p-0.5 rounded bg-amber-400 text-black pointer-events-none shadow-sm">
+            <Maximize2 size={10} />
+          </span>
+        </div>
         {open && <Lightbox src={src} alt={alt} onClose={() => setOpen(false)} />}
       </>
     )

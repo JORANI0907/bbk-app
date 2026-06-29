@@ -382,18 +382,24 @@ export default function CareManualEditPage() {
                 {/* 항목 사진 — 원본 비율, 소형 */}
                 {item.image_url ? (
                   <div className="relative inline-block self-start">
-                    <button
-                      type="button"
-                      onClick={() => setLightboxUrl(item.image_url!)}
-                      className="block rounded-lg overflow-hidden border border-border-subtle"
-                    >
+                    <div className="rounded-lg overflow-hidden border border-border-subtle">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src={item.image_url}
                         alt={item.label}
-                        className="max-h-20 w-auto object-contain"
+                        className="max-h-20 w-auto object-contain block"
                       />
+                    </div>
+                    {/* 확대 버튼 — amber */}
+                    <button
+                      type="button"
+                      onClick={() => setLightboxUrl(item.image_url!)}
+                      className="absolute top-1 left-1 p-0.5 rounded bg-amber-400 hover:bg-amber-300 text-black transition-colors shadow-sm"
+                      title="확대 보기"
+                    >
+                      <Maximize2 size={10} />
                     </button>
+                    {/* 삭제 버튼 */}
                     <button
                       type="button"
                       onClick={() => removeItemImage(si, ii)}
