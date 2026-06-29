@@ -43,14 +43,16 @@ const PRIORITY_CHIP: Record<string, { label: string; chip: string }> = {
 
 type RecommendedServiceRaw = { name: string; reason?: string; priority: string }
 
-interface RecentReport {
-  id: string
-  construction_date: string | null
+interface ClosingChecklistRow {
   condition_score: number | null
   recommended_services: unknown
-  customer_memo: string | null
-  drive_folder_url: string | null
-  notification_sent_at: string | null
+  customer_comment: string | null
+}
+
+interface RecentScheduleRow {
+  id: string
+  scheduled_date: string
+  closing_checklists: ClosingChecklistRow[] | null
 }
 
 function formatDateKo(dateStr: string | null): string {
@@ -231,13 +233,14 @@ export default async function CustomerHomePage() {
 
     customer
       ? supabase
-          .from('service_applications')
-          .select('id, construction_date, condition_score, recommended_services, customer_memo, drive_folder_url, notification_sent_at')
+          .from('service_schedules')
+          .select('id, scheduled_date, closing_checklists(condition_score, recommended_services, customer_comment)')
           .eq('customer_id', customer.id)
-          .not('notification_sent_at', 'is', null)
-          .order('notification_sent_at', { ascending: false })
+          .eq('status', 'completed')
+          .is('deleted_at', null)
+          .order('scheduled_date', { ascending: false })
           .limit(5)
-      : Promise.resolve({ data: null }),
+      : Promise.resolve({ data: [] }),
 
     customer
       ? supabase
@@ -259,22 +262,24 @@ export default async function CustomerHomePage() {
   const noticeList = allNotices.filter(n => n.type === 'notice')
   const eventList = allNotices.filter(n => n.type === 'event')
 
-  const recentReports = (recentReportsResult.data ?? []) as RecentReport[]
+  const recentSchedules = (recentReportsResult.data ?? []) as RecentScheduleRow[]
 
-  // 쾌적 지수: 최근 5개 리포트 condition_score 가중 평균
+  // 쾌적 지수: 최근 5개 완료 일정의 condition_score 평균
   const comfortIndex = (() => {
-    const scores = recentReports
-      .filter(r => r.condition_score !== null)
-      .map(r => CONDITION_SCORE_POINTS[r.condition_score!] ?? 0)
+    const scores = recentSchedules
+      .map(r => r.closing_checklists?.[0]?.condition_score ?? null)
+      .filter((s): s is number => s !== null)
+      .map(s => CONDITION_SCORE_POINTS[s] ?? 0)
     if (scores.length === 0) return null
     return Math.round(scores.reduce((a, b) => a + b, 0) / scores.length)
   })()
 
   // 범위 외 쾌적 지수: recommended_services priority 평균 (30–50 → 0–100 정규화)
   const outerComfortIndex = (() => {
-    const points = recentReports.flatMap(r => {
-      if (!Array.isArray(r.recommended_services)) return []
-      return (r.recommended_services as RecommendedServiceRaw[]).map(s => PRIORITY_POINTS[s.priority] ?? 40)
+    const points = recentSchedules.flatMap(r => {
+      const recs = r.closing_checklists?.[0]?.recommended_services
+      if (!Array.isArray(recs)) return []
+      return (recs as RecommendedServiceRaw[]).map(s => PRIORITY_POINTS[s.priority] ?? 40)
     })
     if (points.length === 0) return null
     const avgRaw = points.reduce((a, b) => a + b, 0) / points.length
@@ -355,7 +360,7 @@ export default async function CustomerHomePage() {
       </div>
 
       {/* 최근 관리 리포트 */}
-      {recentReports.length > 0 && (
+      {recentSchedules.length > 0 && (
         <div>
           <div className="flex items-center justify-between mb-2">
             <p className="text-xs font-semibold text-brand-600 uppercase tracking-wide">최근 관리 리포트</p>
@@ -364,12 +369,13 @@ export default async function CustomerHomePage() {
             </Link>
           </div>
           <div className="flex flex-col gap-2">
-            {recentReports.map(report => {
-              const cond = report.condition_score !== null
-                ? CONDITION_META[report.condition_score]
+            {recentSchedules.map(report => {
+              const closing = report.closing_checklists?.[0] ?? null
+              const cond = closing?.condition_score != null
+                ? CONDITION_META[closing.condition_score]
                 : null
-              const recs = Array.isArray(report.recommended_services)
-                ? (report.recommended_services as RecommendedServiceRaw[])
+              const recs = Array.isArray(closing?.recommended_services)
+                ? (closing!.recommended_services as RecommendedServiceRaw[])
                 : []
               return (
                 <div
@@ -378,7 +384,7 @@ export default async function CustomerHomePage() {
                 >
                   <div className="flex items-center justify-between gap-2">
                     <p className="text-sm font-semibold text-text-primary">
-                      {formatDateKo(report.construction_date)} 관리
+                      {formatDateKo(report.scheduled_date)} 관리
                     </p>
                     {cond ? (
                       <span className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full border ${cond.bg} ${cond.border} ${cond.text}`}>
@@ -407,9 +413,9 @@ export default async function CustomerHomePage() {
                       )}
                     </div>
                   )}
-                  {report.customer_memo && (
+                  {closing?.customer_comment && (
                     <p className="mt-1.5 text-xs text-text-secondary leading-relaxed break-keep line-clamp-2">
-                      {report.customer_memo}
+                      {closing.customer_comment}
                     </p>
                   )}
                 </div>
