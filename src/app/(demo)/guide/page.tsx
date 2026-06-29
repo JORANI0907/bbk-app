@@ -5,16 +5,6 @@ export const metadata = {
 
 const SERVICES = [
   {
-    category: '1회성케어',
-    desc: '단발성 전문 청소 서비스',
-    items: [
-      { name: '소형 (20평 이하)', price: '120,000원~' },
-      { name: '중형 (21~40평)', price: '200,000원~' },
-      { name: '대형 (41~60평)', price: '300,000원~' },
-      { name: '특대형 (61평 이상)', price: '400,000원~' },
-    ],
-  },
-  {
     category: '정기딥케어',
     desc: '정기 딥 클리닝 구독 서비스',
     items: [
