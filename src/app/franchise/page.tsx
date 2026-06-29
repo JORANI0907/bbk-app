@@ -12,8 +12,8 @@ import {
 import { OverviewCard } from '@/components/franchise/OverviewCard'
 import { BranchCard, BranchSummary } from '@/components/franchise/BranchCard'
 
-interface ClosingRow {
-  schedule_id: string
+interface AppMarkRow {
+  id: string
   condition_score: number | null
   recommended_services: unknown
 }
@@ -22,6 +22,7 @@ interface CompletedScheduleRow {
   id: string
   customer_id: string
   scheduled_date: string | null
+  application_id: string | null
 }
 
 interface MonthlyRow {
@@ -83,7 +84,7 @@ export default async function FranchiseHomePage() {
 
     supabase
       .from('service_schedules')
-      .select('id, customer_id, scheduled_date')
+      .select('id, customer_id, scheduled_date, application_id')
       .in('customer_id', customerIds)
       .eq('status', 'completed')
       .is('deleted_at', null)
@@ -101,33 +102,37 @@ export default async function FranchiseHomePage() {
   const completedRows = (completedResult.data ?? []) as CompletedScheduleRow[]
   const monthlyRows = (monthlyResult.data ?? []) as MonthlyRow[]
 
-  // closing_checklists 별도 조회 (PostgREST nested embed 우회 — customer 페이지와 동일)
-  const completedIds = completedRows.map((s) => s.id)
-  const { data: closingsRaw } = completedIds.length > 0
-    ? await supabase
-        .from('closing_checklists')
-        .select('schedule_id, condition_score, recommended_services')
-        .in('schedule_id', completedIds)
-    : { data: [] as ClosingRow[] }
+  // 마감 데이터는 service_applications에 저장됨 (closing_checklists 테이블은 비어있음)
+  // service_schedules.application_id로 연결
+  const applicationIds = completedRows
+    .map((s) => s.application_id)
+    .filter((id): id is string => !!id)
 
-  const closingsBySchedule = new Map<string, ClosingRow>()
-  for (const c of (closingsRaw ?? []) as ClosingRow[]) {
-    closingsBySchedule.set(c.schedule_id, c)
+  const { data: appsRaw } = applicationIds.length > 0
+    ? await supabase
+        .from('service_applications')
+        .select('id, condition_score, recommended_services')
+        .in('id', applicationIds)
+    : { data: [] as AppMarkRow[] }
+
+  const appsById = new Map<string, AppMarkRow>()
+  for (const a of (appsRaw ?? []) as AppMarkRow[]) {
+    appsById.set(a.id, a)
   }
 
-  // 지점별 최근 5개 완료 일정 + closing_checklists in-memory join
+  // 지점별 최근 5개 완료 일정 + service_applications 마감 데이터 in-memory join
   const recentByCustomer = new Map<string, RecentScheduleRow[]>()
   for (const row of completedRows) {
     const list = recentByCustomer.get(row.customer_id) ?? []
     if (list.length < 5) {
-      const closing = closingsBySchedule.get(row.id)
+      const app = row.application_id ? appsById.get(row.application_id) : undefined
       list.push({
         id: row.id,
         scheduled_date: row.scheduled_date,
-        closing_checklists: closing
+        closing_checklists: app
           ? [{
-              condition_score: closing.condition_score,
-              recommended_services: closing.recommended_services,
+              condition_score: app.condition_score,
+              recommended_services: app.recommended_services,
               customer_comment: null,
             }]
           : [],

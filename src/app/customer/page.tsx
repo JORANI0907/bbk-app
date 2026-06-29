@@ -1,9 +1,7 @@
 import { createServiceClient } from '@/lib/supabase/server'
 import { getCustomerSession } from '@/lib/session'
 import { redirect } from 'next/navigation'
-import Link from 'next/link'
 import { format, addMonths } from 'date-fns'
-import { BookOpen, ChevronRight } from 'lucide-react'
 import { NoticesSection } from '@/components/customer/NoticesSection'
 import { CircularGauge } from '@/components/customer/CircularGauge'
 import { ReportToggle } from '@/components/customer/ReportToggle'
@@ -169,21 +167,34 @@ export default async function CustomerHomePage() {
   const upcomingSchedules = (upcomingResult.data ?? []) as ScheduleListItem[]
   const rawCompleted = (completedSchedulesResult.data ?? []) as Array<{ id: string } & Record<string, unknown>>
 
-  // closing_checklists는 별도 쿼리로 in-memory join (PostgREST nested embed 우회)
-  const completedIds = rawCompleted.map((s) => s.id)
-  const { data: closingsRaw } = completedIds.length > 0
+  // 마감 데이터는 service_applications에 저장됨 (closing_checklists 테이블은 비어있음)
+  // service_schedules.application_id로 연결
+  const applicationIds = rawCompleted
+    .map((s) => (s as { application_id?: string | null }).application_id)
+    .filter((id): id is string => !!id)
+
+  const { data: appsRaw } = applicationIds.length > 0
     ? await supabase
-        .from('closing_checklists')
-        .select('schedule_id, condition_score, recommended_services, customer_comment')
-        .in('schedule_id', completedIds)
-    : { data: [] as Array<{ schedule_id: string; condition_score: number | null; recommended_services: unknown; customer_comment: string | null }> }
+        .from('service_applications')
+        .select('id, condition_score, recommended_services, customer_memo')
+        .in('id', applicationIds)
+    : { data: [] as Array<{ id: string; condition_score: number | null; recommended_services: unknown; customer_memo: string | null }> }
+
+  const appsById = new Map<string, { condition_score: number | null; recommended_services: unknown; customer_memo: string | null }>()
+  for (const a of appsRaw ?? []) {
+    appsById.set(a.id, a)
+  }
 
   const closingsBySchedule = new Map<string, { condition_score: number | null; recommended_services: unknown; customer_comment: string | null }>()
-  for (const c of closingsRaw ?? []) {
-    closingsBySchedule.set(c.schedule_id, {
-      condition_score: c.condition_score,
-      recommended_services: c.recommended_services,
-      customer_comment: c.customer_comment,
+  for (const s of rawCompleted) {
+    const appId = (s as { application_id?: string | null }).application_id
+    if (!appId) continue
+    const app = appsById.get(appId)
+    if (!app) continue
+    closingsBySchedule.set(s.id, {
+      condition_score: app.condition_score,
+      recommended_services: app.recommended_services,
+      customer_comment: app.customer_memo,
     })
   }
 
@@ -291,24 +302,6 @@ export default async function CustomerHomePage() {
         completedSchedules={completedSchedules}
         driveFolderUrl={customer?.drive_folder_url ?? null}
       />
-
-      {/* 케어매뉴얼 베너 (정기딥케어 / 정기엔드케어만) */}
-      {customer && (customer.customer_type === '정기딥케어' || customer.customer_type === '정기엔드케어') && (
-        <Link href="/customer/care-manual" className="block">
-          <section className="bg-surface rounded-2xl border border-border-subtle shadow-soft overflow-hidden active:scale-[0.98] transition-transform">
-            <div className="px-5 py-4 flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-brand-100 flex items-center justify-center shrink-0">
-                <BookOpen size={20} className="text-brand-600" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-bold text-text-primary">케어매뉴얼</p>
-                <p className="text-xs text-text-tertiary mt-0.5">서비스 케어 범위 및 작업 기준 안내</p>
-              </div>
-              <ChevronRight size={18} className="text-text-tertiary shrink-0" />
-            </div>
-          </section>
-        </Link>
-      )}
 
       {/* 공지 & 이벤트 */}
       <NoticesSection notices={noticeList} events={eventList} />
