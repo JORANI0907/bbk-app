@@ -74,7 +74,7 @@ export function ScheduleChangeFAB({ userId, isFranchiseView, branchName }: Props
             본사모드{branchName ? `(${branchName})` : ''}
           </p>
           <p className="text-xs font-bold text-white leading-tight mt-1 flex items-center gap-1 whitespace-nowrap">
-            {returning ? '이동 중...' : '본사홈'}
+            {returning ? '이동 중...' : '본사 홈 이동'}
             <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
             </svg>
