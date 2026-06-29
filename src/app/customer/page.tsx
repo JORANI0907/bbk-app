@@ -3,17 +3,10 @@ import { getCustomerSession } from '@/lib/session'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { format } from 'date-fns'
-import { ServiceSchedule } from '@/types/database'
 import { NoticesSection } from '@/components/customer/NoticesSection'
 import { ScheduleCard, ScheduleWithConstruction } from '@/components/customer/ScheduleCard'
 
 type CustomerGrade = '화이트' | '블루' | '블랙'
-
-const CUSTOMER_TYPE_COLORS: Record<string, string> = {
-  '정기딥케어': 'bg-indigo-100 text-indigo-700',
-  '정기엔드케어': 'bg-sky-100 text-sky-700',
-  '1회성케어': 'bg-surface-sunken text-text-secondary',
-}
 
 const GRADE_TIER: Record<CustomerGrade, { abbr: string; year: string; activeNode: string; futureNode: string }> = {
   '화이트': {
@@ -31,6 +24,101 @@ const GRADE_TIER: Record<CustomerGrade, { abbr: string; year: string; activeNode
     activeNode: 'bg-gray-900 text-white ring-2 ring-gray-400 shadow-lg',
     futureNode: 'bg-gray-800/25 text-white/30',
   },
+}
+
+const CONDITION_SCORE_POINTS: Record<number, number> = { 1: 100, 2: 80, 3: 50 }
+const PRIORITY_POINTS: Record<string, number> = { high: 30, medium: 40, low: 50 }
+
+const CONDITION_META: Record<number, { label: string; text: string; bg: string; border: string; dot: string }> = {
+  1: { label: '양호', text: 'text-green-700', bg: 'bg-green-50', border: 'border-green-200', dot: 'bg-green-500' },
+  2: { label: '주의', text: 'text-yellow-700', bg: 'bg-yellow-50', border: 'border-yellow-200', dot: 'bg-yellow-500' },
+  3: { label: '불량', text: 'text-red-700', bg: 'bg-red-50', border: 'border-red-200', dot: 'bg-red-500' },
+}
+
+const PRIORITY_CHIP: Record<string, { label: string; chip: string }> = {
+  high: { label: '불량', chip: 'bg-red-50 text-red-700 border-red-200' },
+  medium: { label: '주의', chip: 'bg-yellow-50 text-yellow-700 border-yellow-200' },
+  low: { label: '관심', chip: 'bg-surface-sunken text-text-secondary border-border' },
+}
+
+type RecommendedServiceRaw = { name: string; reason?: string; priority: string }
+
+interface RecentReport {
+  id: string
+  construction_date: string | null
+  condition_score: number | null
+  recommended_services: unknown
+  customer_memo: string | null
+  drive_folder_url: string | null
+  notification_sent_at: string | null
+}
+
+function formatDateKo(dateStr: string | null): string {
+  if (!dateStr) return '날짜 미정'
+  const [, m, d] = dateStr.slice(0, 10).split('-')
+  return `${parseInt(m, 10)}월 ${parseInt(d, 10)}일`
+}
+
+function gaugeStrokeColor(pct: number | null): string {
+  if (pct === null) return '#94a3b8'
+  if (pct >= 85) return '#34d399'
+  if (pct >= 65) return '#fbbf24'
+  return '#f87171'
+}
+
+function CircularGauge({
+  pct,
+  displayTop,
+  displaySub,
+  title,
+}: {
+  pct: number | null
+  displayTop: string
+  displaySub: string
+  title: string
+}) {
+  const S = 72
+  const sw = 7
+  const r = (S - sw) / 2
+  const circ = 2 * Math.PI * r
+  const offset = circ * (1 - (pct ?? 0) / 100)
+  const color = gaugeStrokeColor(pct)
+  return (
+    <div className="flex flex-col items-center gap-1.5">
+      <div className="relative" style={{ width: S, height: S }}>
+        <svg
+          width={S}
+          height={S}
+          style={{ transform: 'rotate(-90deg)', display: 'block' }}
+        >
+          <circle
+            cx={S / 2}
+            cy={S / 2}
+            r={r}
+            fill="none"
+            stroke="rgba(255,255,255,0.15)"
+            strokeWidth={sw}
+          />
+          <circle
+            cx={S / 2}
+            cy={S / 2}
+            r={r}
+            fill="none"
+            stroke={color}
+            strokeWidth={sw}
+            strokeLinecap="round"
+            strokeDasharray={`${circ}`}
+            strokeDashoffset={`${offset}`}
+          />
+        </svg>
+        <div className="absolute inset-0 flex flex-col items-center justify-center">
+          <span className="text-base font-black text-white leading-none">{displayTop}</span>
+          <span className="text-[9px] text-white/70 leading-none mt-0.5">{displaySub}</span>
+        </div>
+      </div>
+      <p className="text-[9px] font-semibold text-white/70 text-center leading-tight break-keep">{title}</p>
+    </div>
+  )
 }
 
 function GradeProgressCard({ currentGrade }: { currentGrade: CustomerGrade }) {
@@ -82,7 +170,6 @@ function GradeProgressCard({ currentGrade }: { currentGrade: CustomerGrade }) {
   )
 }
 
-// 오리지널 월 단가 (방문 횟수별)
 function getOriginalMonthlyPrice(visitCountPerMonth: number | null): number {
   if (!visitCountPerMonth || visitCountPerMonth <= 1) return 198000
   if (visitCountPerMonth === 2) return 396000
@@ -119,51 +206,97 @@ export default async function CustomerHomePage() {
     grade: CustomerGrade | null
   } | null
 
-  // 예정 일정 조회
   const today = format(new Date(), 'yyyy-MM-dd')
-  const { data: upcomingSchedules } = customer
-    ? await supabase
-        .from('service_schedules')
-        .select('*, worker:users(id,name), application:service_applications(construction_time)')
-        .eq('customer_id', customer.id)
-        .gte('scheduled_date', today)
-        .in('status', ['scheduled', 'confirmed'])
-        .order('scheduled_date', { ascending: true })
-        .limit(1)
-    : { data: null }
+  const thisMonth = today.slice(0, 7)
 
-  const nextSchedule = (upcomingSchedules?.[0] ?? null) as ScheduleWithConstruction | null
+  const [upcomingResult, noticesResult, recentReportsResult, thisMonthSchedulesResult] = await Promise.all([
+    customer
+      ? supabase
+          .from('service_schedules')
+          .select('*, worker:users(id,name), application:service_applications(construction_time)')
+          .eq('customer_id', customer.id)
+          .gte('scheduled_date', today)
+          .in('status', ['scheduled', 'confirmed'])
+          .order('scheduled_date', { ascending: true })
+          .limit(1)
+      : Promise.resolve({ data: null }),
 
-  // 공지·이벤트 조회 (limit 20, 5개 제한 없이 전달)
-  const { data: noticesRaw } = await supabase
-    .from('notices')
-    .select('id, title, content, type, priority, pinned, event_date, image_url, created_at')
-    .in('target_audience', ['all', 'customer'])
-    .order('pinned', { ascending: false })
-    .order('created_at', { ascending: false })
-    .limit(20)
+    supabase
+      .from('notices')
+      .select('id, title, content, type, priority, pinned, event_date, image_url, created_at')
+      .in('target_audience', ['all', 'customer'])
+      .order('pinned', { ascending: false })
+      .order('created_at', { ascending: false })
+      .limit(20),
+
+    customer
+      ? supabase
+          .from('service_applications')
+          .select('id, construction_date, condition_score, recommended_services, customer_memo, drive_folder_url, notification_sent_at')
+          .eq('customer_id', customer.id)
+          .not('notification_sent_at', 'is', null)
+          .order('notification_sent_at', { ascending: false })
+          .limit(5)
+      : Promise.resolve({ data: null }),
+
+    customer
+      ? supabase
+          .from('service_schedules')
+          .select('id, status')
+          .eq('customer_id', customer.id)
+          .like('scheduled_date', `${thisMonth}%`)
+      : Promise.resolve({ data: null }),
+  ])
+
+  const nextSchedule = (upcomingResult.data?.[0] ?? null) as ScheduleWithConstruction | null
 
   type NoticeItem = {
     id: string; title: string; content: string
     type: 'notice' | 'event'; priority: 'normal' | 'high' | 'urgent'
     pinned: boolean; event_date: string | null; image_url: string | null; created_at: string
   }
-  const allNotices = (noticesRaw ?? []) as NoticeItem[]
+  const allNotices = (noticesResult.data ?? []) as NoticeItem[]
   const noticeList = allNotices.filter(n => n.type === 'notice')
   const eventList = allNotices.filter(n => n.type === 'event')
 
-  // 절약 금액 계산 (연간 결제인 경우만)
-  const savingsAmount = (() => {
-    if (
-      customer?.billing_cycle !== '연간' ||
-      !customer?.billing_amount
-    ) return null
+  const recentReports = (recentReportsResult.data ?? []) as RecentReport[]
 
+  // 쾌적 지수: 최근 5개 리포트 condition_score 가중 평균
+  const comfortIndex = (() => {
+    const scores = recentReports
+      .filter(r => r.condition_score !== null)
+      .map(r => CONDITION_SCORE_POINTS[r.condition_score!] ?? 0)
+    if (scores.length === 0) return null
+    return Math.round(scores.reduce((a, b) => a + b, 0) / scores.length)
+  })()
+
+  // 범위 외 쾌적 지수: recommended_services priority 평균 (30–50 → 0–100 정규화)
+  const outerComfortIndex = (() => {
+    const points = recentReports.flatMap(r => {
+      if (!Array.isArray(r.recommended_services)) return []
+      return (r.recommended_services as RecommendedServiceRaw[]).map(s => PRIORITY_POINTS[s.priority] ?? 40)
+    })
+    if (points.length === 0) return null
+    const avgRaw = points.reduce((a, b) => a + b, 0) / points.length
+    return Math.round((avgRaw - 30) / 20 * 100)
+  })()
+
+  // 이번달 진행률: completed / total * 100
+  const progressPct = (() => {
+    const schedules = (thisMonthSchedulesResult.data ?? []) as { id: string; status: string }[]
+    if (schedules.length === 0) return null
+    const completed = schedules.filter(s => s.status === 'completed').length
+    return Math.round(completed / schedules.length * 100)
+  })()
+
+  const savingsAmount = (() => {
+    if (customer?.billing_cycle !== '연간' || !customer?.billing_amount) return null
     const originalMonthly = getOriginalMonthlyPrice(customer.visit_count_per_month)
-    const originalAnnual = originalMonthly * 12
-    const savings = originalAnnual - customer.billing_amount
+    const savings = originalMonthly * 12 - customer.billing_amount
     return savings > 0 ? savings : null
   })()
+
+  const hasAnyGauge = comfortIndex !== null || outerComfortIndex !== null || progressPct !== null
 
   return (
     <div className="px-4 py-5 flex flex-col gap-5 max-w-2xl mx-auto md:px-6 md:py-8 md:gap-6">
@@ -192,11 +325,99 @@ export default async function CustomerHomePage() {
           )}
           <p className="text-white/70 text-xs mt-1.5">BBK 공간케어를 이용해 주셔서 감사합니다.</p>
           {customer?.grade && <GradeProgressCard currentGrade={customer.grade} />}
+
+          {/* 3개 원형 게이지 */}
+          {hasAnyGauge && (
+            <div className="mt-4 grid grid-cols-3 gap-3">
+              <CircularGauge
+                pct={comfortIndex}
+                displayTop={comfortIndex !== null ? `${comfortIndex}` : '-'}
+                displaySub="점"
+                title="쾌적 지수"
+              />
+              <CircularGauge
+                pct={outerComfortIndex}
+                displayTop={outerComfortIndex !== null ? `${outerComfortIndex}` : '-'}
+                displaySub="점"
+                title="범위 외 쾌적"
+              />
+              <CircularGauge
+                pct={progressPct}
+                displayTop={progressPct !== null ? `${progressPct}` : '-'}
+                displaySub="%"
+                title="이번달 진행률"
+              />
+            </div>
+          )}
         </div>
-        {/* 장식 원 */}
         <div className="absolute -right-6 -top-6 w-28 h-28 rounded-full bg-white/10" />
         <div className="absolute -right-2 -bottom-8 w-20 h-20 rounded-full bg-white/10" />
       </div>
+
+      {/* 최근 관리 리포트 */}
+      {recentReports.length > 0 && (
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-xs font-semibold text-brand-600 uppercase tracking-wide">최근 관리 리포트</p>
+            <Link href="/customer/reports" className="text-xs text-text-tertiary hover:text-text-secondary">
+              전체보기
+            </Link>
+          </div>
+          <div className="flex flex-col gap-2">
+            {recentReports.map(report => {
+              const cond = report.condition_score !== null
+                ? CONDITION_META[report.condition_score]
+                : null
+              const recs = Array.isArray(report.recommended_services)
+                ? (report.recommended_services as RecommendedServiceRaw[])
+                : []
+              return (
+                <div
+                  key={report.id}
+                  className="rounded-2xl border border-border-subtle bg-surface shadow-soft p-4"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-sm font-semibold text-text-primary">
+                      {formatDateKo(report.construction_date)} 관리
+                    </p>
+                    {cond ? (
+                      <span className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full border ${cond.bg} ${cond.border} ${cond.text}`}>
+                        <span className={`w-1.5 h-1.5 rounded-full ${cond.dot}`} />
+                        {cond.label}
+                      </span>
+                    ) : (
+                      <span className="text-[11px] text-text-tertiary">상태 미입력</span>
+                    )}
+                  </div>
+                  {recs.length > 0 && (
+                    <div className="mt-2 flex flex-wrap gap-1">
+                      {recs.slice(0, 3).map(rec => {
+                        const meta = PRIORITY_CHIP[rec.priority]
+                        return (
+                          <span
+                            key={rec.name}
+                            className={`text-[10px] px-2 py-0.5 rounded-full border font-medium ${meta?.chip ?? 'bg-surface-sunken text-text-secondary border-border'}`}
+                          >
+                            {rec.name}
+                          </span>
+                        )
+                      })}
+                      {recs.length > 3 && (
+                        <span className="text-[10px] text-text-tertiary self-center">+{recs.length - 3}</span>
+                      )}
+                    </div>
+                  )}
+                  {report.customer_memo && (
+                    <p className="mt-1.5 text-xs text-text-secondary leading-relaxed break-keep line-clamp-2">
+                      {report.customer_memo}
+                    </p>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
 
       {/* 다음 방문 카드 */}
       <div>

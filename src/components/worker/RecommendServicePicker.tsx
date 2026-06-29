@@ -112,9 +112,9 @@ const END_CARE_ITEMS: ServiceItem[] = [
 type FilterTab = '전체' | '주방' | '홀' | '기타'
 
 const PRIORITY_OPTIONS: { value: RecommendationPriority; label: string; dotColor: string }[] = [
-  { value: 'high', label: '높음', dotColor: 'bg-red-500' },
-  { value: 'medium', label: '보통', dotColor: 'bg-yellow-500' },
-  { value: 'low', label: '낮음', dotColor: 'bg-gray-400' },
+  { value: 'high', label: '불량', dotColor: 'bg-red-500' },
+  { value: 'medium', label: '주의', dotColor: 'bg-yellow-500' },
+  { value: 'low', label: '관심', dotColor: 'bg-gray-400' },
 ]
 
 interface Props {

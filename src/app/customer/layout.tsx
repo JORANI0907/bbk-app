@@ -36,7 +36,7 @@ export default function CustomerLayout({
       <CustomerMobileNav userId={session.userId} />
 
       {/* 일정 변경 요청 FAB */}
-      <ScheduleChangeFAB />
+      <ScheduleChangeFAB userId={session.userId} />
 
       {/* Web Push 구독 등록 (미리보기 모드에서는 비활성) */}
       {!session.isPreview && (
