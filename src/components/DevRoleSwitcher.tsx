@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { usePathname } from 'next/navigation'
 
 type Role = 'admin' | 'worker' | 'customer'
 
@@ -53,6 +54,9 @@ function DevRoleSwitcherInner() {
   const [err, setErr] = useState('')
 
   const [isOwner, setIsOwner] = useState(false)
+  const pathname = usePathname()
+  const HOME_PATHS = ['/admin', '/worker', '/customer']
+  const isHomePage = HOME_PATHS.includes(pathname)
 
   useEffect(() => {
     fetch('/api/dev/me')
@@ -132,7 +136,7 @@ function DevRoleSwitcherInner() {
     setErr('')
   }
 
-  if (!isOwner) return null
+  if (!isOwner || !isHomePage) return null
 
   return (
     <div className="fixed bottom-4 right-4 z-[9999] flex flex-col items-end gap-2">
