@@ -25,7 +25,7 @@ export default function CustomerLayout({
       {/* 관리자 미리보기 — 상단 배너 유지 */}
       {isAdminPreview && <PreviewBanner userName={session.name} />}
 
-      {/* 본사 모드 — 우측 하단 floating 버튼 */}
+      {/* 본사 모드 — 좌측 하단 floating 버튼 (일정변경 FAB과 겹치지 않도록 좌측) */}
       {isFranchiseView && <BranchSwitcherFAB branchName={session.name} />}
 
       {/* 데스크탑 사이드바 */}
@@ -51,7 +51,8 @@ export default function CustomerLayout({
         <PushNotificationProvider userId={session.userId} userType="customer" />
       )}
 
-      <DevRoleSwitcher />
+      {/* 본사 모드에서는 DEV 버튼 숨김 (혼동 방지) */}
+      {!isFranchiseView && <DevRoleSwitcher />}
     </div>
   )
 }
