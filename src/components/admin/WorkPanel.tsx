@@ -287,7 +287,7 @@ export function WorkPanel({ app, onUpdate, isAdmin = false }: Props) {
                   rel="noreferrer"
                   className="flex items-center justify-center gap-2 w-full py-2.5 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-bold text-sm rounded-xl transition-colors"
                 >
-                  <Folder size={15} /> 드라이브 폴더 확인
+                  <Folder size={15} /> 사진 올리기
                 </a>
               ) : (
                 <div className="flex items-center justify-center gap-2 w-full py-2.5 bg-gray-200 text-gray-400 font-bold text-sm rounded-xl select-none">
