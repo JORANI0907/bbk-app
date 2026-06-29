@@ -3,6 +3,8 @@ import Link from 'next/link'
 import { createServiceClient } from '@/lib/supabase/server'
 import { FranchiseHqDetail } from '@/components/admin/franchise-hq/FranchiseHqDetail'
 
+export const dynamic = 'force-dynamic'
+
 export default async function FranchiseHqDetailPage({ params }: { params: { id: string } }) {
   const supabase = createServiceClient()
 
