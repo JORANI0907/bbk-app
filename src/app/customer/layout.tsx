@@ -2,6 +2,7 @@ import { CustomerSidebar } from '@/components/customer/CustomerSidebar'
 import { CustomerMobileNav } from '@/components/customer/CustomerMobileNav'
 import { ScheduleChangeFAB } from '@/components/customer/ScheduleChangeFAB'
 import { PreviewBanner } from '@/components/customer/PreviewBanner'
+import { BranchSwitcherBanner } from '@/components/franchise/BranchSwitcherBanner'
 import { PushNotificationProvider } from '@/components/shared/PushNotificationProvider'
 import DevRoleSwitcher from '@/components/DevRoleSwitcher'
 import { getCustomerSession } from '@/lib/session'
@@ -15,10 +16,16 @@ export default function CustomerLayout({
   const session = getCustomerSession()
   if (!session) redirect('/login')
 
+  const isFranchiseView = session.isPreview && session.originRole === 'franchise_hq'
+
   return (
     <div className={`flex h-screen overflow-hidden bg-surface-sunken ${session.isPreview ? 'pt-10' : ''}`}>
-      {/* 관리자 미리보기 배너 */}
-      {session.isPreview && <PreviewBanner userName={session.name} />}
+      {/* 본사 지점전환 배너 (우선) — 그 외에는 관리자 미리보기 배너 */}
+      {isFranchiseView ? (
+        <BranchSwitcherBanner branchName={session.name} />
+      ) : (
+        session.isPreview && <PreviewBanner userName={session.name} />
+      )}
 
       {/* 데스크탑 사이드바 */}
       <CustomerSidebar userName={session.name} userId={session.userId} />

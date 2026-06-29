@@ -6,7 +6,10 @@ import Link from 'next/link'
 import toast from 'react-hot-toast'
 import { useInstallPWA } from '@/hooks/useInstallPWA'
 
-async function setSession(user: { id: string; role: string; name: string }, session: { access_token: string; refresh_token: string }) {
+async function setSession(
+  user: { id: string; role: string; name: string; franchiseHqId?: string },
+  session: { access_token: string; refresh_token: string },
+) {
   const res = await fetch('/api/auth/session', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -14,6 +17,7 @@ async function setSession(user: { id: string; role: string; name: string }, sess
       userId: user.id,
       role: user.role,
       name: user.name,
+      ...(user.franchiseHqId ? { franchiseHqId: user.franchiseHqId } : {}),
       accessToken: session.access_token,
       refreshToken: session.refresh_token,
     }),
@@ -25,6 +29,7 @@ function redirectByRole(role: string) {
   if (role === 'admin') window.location.href = '/admin'
   else if (role === 'worker') window.location.href = '/worker'
   else if (role === 'customer') window.location.href = '/customer'
+  else if (role === 'franchise_hq') window.location.href = '/franchise'
   else toast.error('접근 권한이 없습니다.')
 }
 

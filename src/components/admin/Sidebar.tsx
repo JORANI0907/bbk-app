@@ -40,6 +40,7 @@ const NAV_ITEMS: NavItem[] = [
       { href: '/admin/schedule', label: '배정관리', badgeKey: 'schedule' },
       { href: '/admin/applications', label: '서비스관리', badgeKey: 'applications' },
       { href: '/admin/customers', label: '고객관리' },
+      { href: '/admin/franchise-hq', label: '프렌차이즈 본사' },
       { href: '/admin/quotes', label: '견적관리' },
       { href: '/admin/contracts', label: '계약서 관리' },
       { href: '/admin/reports', label: '월간보고서' },

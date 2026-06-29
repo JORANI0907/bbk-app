@@ -86,3 +86,8 @@ export function customerEmail(phone: string) {
 export function staffEmail(phone: string) {
   return `${phone.replace(/-/g, '')}@bbkorea.co.kr`
 }
+
+/** 프렌차이즈 본사용 가상 이메일 (전화번호 기반) */
+export function franchiseEmail(phone: string) {
+  return `${phone.replace(/-/g, '')}@bbkorea.hq`
+}

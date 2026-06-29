@@ -61,6 +61,7 @@ export async function middleware(request: NextRequest) {
         if (role === 'admin') return NextResponse.redirect(new URL('/admin', request.url))
         if (role === 'worker') return NextResponse.redirect(new URL('/admin', request.url))
         if (role === 'customer') return NextResponse.redirect(new URL('/customer', request.url))
+        if (role === 'franchise_hq') return NextResponse.redirect(new URL('/franchise', request.url))
       }
 
       // 어드민 경로: admin과 worker 모두 허용
@@ -80,11 +81,21 @@ export async function middleware(request: NextRequest) {
       if (pathname.startsWith('/worker') && role !== 'worker' && role !== 'admin') {
         return NextResponse.redirect(new URL('/login', request.url))
       }
+
+      // 본사 포털: franchise_hq만 허용
+      if (pathname.startsWith('/franchise') && role !== 'franchise_hq') {
+        return NextResponse.redirect(new URL('/login', request.url))
+      }
+
       if (pathname.startsWith('/customer') && role !== 'customer') {
-        // 관리자 미리보기 쿠키 별도 확인
+        // 관리자 미리보기 / 본사 지점전환 쿠키 별도 확인
         const previewToken = request.cookies.get('bbk_preview_session')?.value
         const previewPayload = previewToken ? await verifySession(previewToken) : null
         if (!previewPayload?.isPreview) {
+          // 본사 로그인 상태로 /customer 직접 접근 시 본사 홈으로 안내
+          if (role === 'franchise_hq') {
+            return NextResponse.redirect(new URL('/franchise', request.url))
+          }
           return NextResponse.redirect(new URL('/login', request.url))
         }
       }

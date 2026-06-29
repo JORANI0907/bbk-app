@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
-import { signInWithPassword, customerEmail, staffEmail } from '@/lib/auth-helpers'
+import { signInWithPassword, customerEmail, staffEmail, franchiseEmail } from '@/lib/auth-helpers'
 import { sendSlack } from '@/lib/slack'
 import { recordLoginLog } from '@/lib/login-log'
 
@@ -39,7 +39,9 @@ export async function POST(request: NextRequest) {
     // role에 따라 가상이메일 결정
     const email = userRow.role === 'customer'
       ? customerEmail(normalized)
-      : staffEmail(normalized)
+      : userRow.role === 'franchise_hq'
+        ? franchiseEmail(normalized)
+        : staffEmail(normalized)
 
     let session
     try {
@@ -59,9 +61,28 @@ export async function POST(request: NextRequest) {
       sendSlack(`[로그인] ${userRow.name} (${userRow.role})`).catch(() => {})
     }
 
+    // franchise_hq는 franchise_hq.id를 세션에 포함시키기 위해 함께 반환
+    let franchiseHqId: string | undefined
+    if (userRow.role === 'franchise_hq') {
+      const { data: hq } = await supabase
+        .from('franchise_hq')
+        .select('id')
+        .eq('user_id', userRow.id)
+        .single()
+      if (!hq) {
+        return NextResponse.json({ error: '본사 정보가 설정되어 있지 않습니다.' }, { status: 404 })
+      }
+      franchiseHqId = hq.id
+    }
+
     return NextResponse.json({
       success: true,
-      user: { id: userRow.id, role: userRow.role, name: userRow.name },
+      user: {
+        id: userRow.id,
+        role: userRow.role,
+        name: userRow.name,
+        ...(franchiseHqId ? { franchiseHqId } : {}),
+      },
       session: {
         access_token: session.access_token,
         refresh_token: session.refresh_token,

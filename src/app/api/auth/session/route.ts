@@ -3,9 +3,11 @@ import { signSession } from '@/lib/session'
 
 // POST: 세션 쿠키 설정
 export async function POST(request: NextRequest) {
-  const { userId, role, name, accessToken, refreshToken } = await request.json()
+  const { userId, role, name, accessToken, refreshToken, franchiseHqId } = await request.json()
 
-  const sessionToken = signSession({ userId, role, name })
+  const payload: Record<string, string> = { userId, role, name }
+  if (franchiseHqId) payload.franchiseHqId = franchiseHqId
+  const sessionToken = signSession(payload)
 
   const response = NextResponse.json({ success: true })
 
