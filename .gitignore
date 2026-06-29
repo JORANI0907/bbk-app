@@ -47,3 +47,11 @@ __pycache__/
 # Marketing cache
 scripts/marketing/characters/cache/
 .env.vercel.tmp
+
+# Build artifacts / temp / outputs (자동 생성, 트래킹 불필요)
+/public/sw.js
+/public/sw.js.map
+/public/workbox-*.js
+/public/workbox-*.js.map
+/supabase/.temp/
+/outputs/
