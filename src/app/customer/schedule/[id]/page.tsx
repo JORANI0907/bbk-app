@@ -597,11 +597,9 @@ export default async function CustomerScheduleDetailPage({ params }: PageProps) 
             <div className="flex flex-col gap-1.5 flex-1 min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="text-sm font-bold text-text-primary">{workerName}</span>
-                {workerInfo?.job_title && (
-                  <span className="text-xs text-text-tertiary bg-surface-sunken px-2 py-0.5 rounded-full">
-                    {workerInfo.job_title}
-                  </span>
-                )}
+                <span className="text-xs text-text-tertiary bg-surface-sunken px-2 py-0.5 rounded-full">
+                  위생 파트너
+                </span>
               </div>
               {workerPhone && (
                 <a
