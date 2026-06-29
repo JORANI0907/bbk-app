@@ -36,6 +36,14 @@ interface CustomerJoin {
   customer_type: string | null
   drive_folder_url: string | null
   business_number: string | null
+  assigned_user_id: string | null
+}
+
+interface ManagerInfo {
+  name: string
+  phone: string | null
+  job_title: string | null
+  photo_url: string | null
 }
 
 interface ApplicationRow {
@@ -143,7 +151,7 @@ export default async function CustomerScheduleDetailPage({ params }: PageProps) 
   const { data: schedule } = await supabase
     .from('service_schedules')
     .select(
-      '*, customer:customers(id, business_name, contact_name, contact_phone, address, address_detail, customer_type, drive_folder_url, business_number), worker:users(id, name)'
+      '*, customer:customers(id, business_name, contact_name, contact_phone, address, address_detail, customer_type, drive_folder_url, business_number, assigned_user_id), worker:users(id, name)'
     )
     .eq('id', scheduleId)
     .eq('customer_id', customerRow.id)
@@ -164,6 +172,18 @@ export default async function CustomerScheduleDetailPage({ params }: PageProps) 
       .eq('user_id', s.worker_id)
       .maybeSingle()
     workerPhoneFromWorkers = workerRecord?.phone ?? undefined
+  }
+
+  // 담당자 정보 조회 (customers.assigned_user_id → workers.user_id)
+  let assignedManager: ManagerInfo | null = null
+  if (customer?.assigned_user_id) {
+    const { data: mgr } = await supabase
+      .from('workers')
+      .select('name, phone, job_title, photo_url')
+      .eq('user_id', customer.assigned_user_id)
+      .is('deleted_at', null)
+      .maybeSingle()
+    if (mgr) assignedManager = mgr as ManagerInfo
   }
 
   // 연결된 service_applications 조회 (있을 때만)
@@ -299,6 +319,48 @@ export default async function CustomerScheduleDetailPage({ params }: PageProps) 
         )}
       </div>
 
+      {/* ── 담당자 정보 ── */}
+      {assignedManager && (
+        <section className="bg-surface rounded-2xl border border-border-subtle shadow-soft overflow-hidden">
+          <div className="px-5 py-3 border-b border-border-subtle">
+            <h2 className="text-sm font-bold text-text-primary">담당자 정보</h2>
+          </div>
+          <div className="px-5 py-4 flex items-center gap-4">
+            {assignedManager.photo_url ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={assignedManager.photo_url}
+                alt={assignedManager.name}
+                className="w-14 h-14 rounded-full object-cover border border-border-subtle shrink-0"
+              />
+            ) : (
+              <div className="w-14 h-14 rounded-full bg-brand-50 border border-brand-100 flex items-center justify-center shrink-0">
+                <User size={24} className="text-brand-600" />
+              </div>
+            )}
+            <div className="flex flex-col gap-1.5 flex-1 min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-sm font-bold text-text-primary">{assignedManager.name}</span>
+                {assignedManager.job_title && (
+                  <span className="text-xs text-text-tertiary bg-surface-sunken px-2 py-0.5 rounded-full">
+                    {assignedManager.job_title}
+                  </span>
+                )}
+              </div>
+              {assignedManager.phone && (
+                <a
+                  href={`tel:${assignedManager.phone}`}
+                  className="flex items-center gap-1.5 text-xs text-brand-600 font-medium w-fit"
+                >
+                  <Phone size={12} />
+                  {formatPhone(assignedManager.phone)}
+                </a>
+              )}
+            </div>
+          </div>
+        </section>
+      )}
+
       {/* ── 업체 정보 ── */}
       {customer && (
         <section className="bg-surface rounded-2xl border border-border-subtle shadow-soft overflow-hidden">
@@ -325,6 +387,13 @@ export default async function CustomerScheduleDetailPage({ params }: PageProps) 
                   </a>
                 }
               />
+            )}
+            {(application?.payment_method || application?.account_number || customer.business_number) && (
+              <div className="border-t border-border-subtle pt-3 flex flex-col gap-3">
+                {application?.payment_method && <InfoRow label="결제방법" value={application.payment_method} />}
+                {application?.account_number && <InfoRow label="계좌번호" value={application.account_number} />}
+                {customer.business_number && <InfoRow label="사업자번호" value={customer.business_number} />}
+              </div>
             )}
           </div>
         </section>
@@ -398,20 +467,6 @@ export default async function CustomerScheduleDetailPage({ params }: PageProps) 
             {s.payment_amount != null && quotedTotal != null && (
               <InfoRow label="청구 금액" value={`${Number(s.payment_amount).toLocaleString()}원`} />
             )}
-          </div>
-        </section>
-      )}
-
-      {/* ── 결제 정보 ── */}
-      {(application?.payment_method || application?.account_number || customer?.business_number) && (
-        <section className="bg-surface rounded-2xl border border-border-subtle shadow-soft overflow-hidden">
-          <div className="px-5 py-3 border-b border-border-subtle">
-            <h2 className="text-sm font-bold text-text-primary">결제 정보</h2>
-          </div>
-          <div className="px-5 py-4 flex flex-col gap-3">
-            {application?.payment_method && <InfoRow label="결제방법" value={application.payment_method} />}
-            {application?.account_number && <InfoRow label="계좌번호" value={application.account_number} />}
-            {customer?.business_number && <InfoRow label="사업자번호" value={customer.business_number} />}
           </div>
         </section>
       )}
