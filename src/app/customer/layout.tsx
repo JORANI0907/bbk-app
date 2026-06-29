@@ -2,7 +2,6 @@ import { CustomerSidebar } from '@/components/customer/CustomerSidebar'
 import { CustomerMobileNav } from '@/components/customer/CustomerMobileNav'
 import { ScheduleChangeFAB } from '@/components/customer/ScheduleChangeFAB'
 import { PreviewBanner } from '@/components/customer/PreviewBanner'
-import { BranchSwitcherFAB } from '@/components/franchise/BranchSwitcherFAB'
 import { PushNotificationProvider } from '@/components/shared/PushNotificationProvider'
 import DevRoleSwitcher from '@/components/DevRoleSwitcher'
 import { getCustomerSession } from '@/lib/session'
@@ -34,9 +33,6 @@ export default async function CustomerLayout({
       {/* 관리자 미리보기 — 상단 배너 유지 */}
       {isAdminPreview && <PreviewBanner userName={session.name} />}
 
-      {/* 본사 모드 — 좌측 하단 floating 버튼 (일정변경 FAB과 겹치지 않도록 좌측) */}
-      {isFranchiseView && <BranchSwitcherFAB branchName={session.name} />}
-
       {/* 데스크탑 사이드바 */}
       <CustomerSidebar userName={session.name} userId={session.userId} customerType={customerType} />
 
@@ -52,8 +48,12 @@ export default async function CustomerLayout({
       {/* 모바일 하단 탭바 */}
       <CustomerMobileNav userId={session.userId} customerType={customerType} />
 
-      {/* 일정 변경 요청 FAB */}
-      <ScheduleChangeFAB userId={session.userId} />
+      {/* 우측 하단 FAB — 본사 모드일 때 본사홈 버튼 + 알림 + 이용안내 */}
+      <ScheduleChangeFAB
+        userId={session.userId}
+        isFranchiseView={isFranchiseView}
+        branchName={isFranchiseView ? session.name : undefined}
+      />
 
       {/* Web Push 구독 등록 (미리보기 모드에서는 비활성) */}
       {!session.isPreview && (

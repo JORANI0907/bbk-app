@@ -7,6 +7,8 @@ import { BookOpen } from 'lucide-react'
 
 interface Props {
   userId?: string
+  isFranchiseView?: boolean
+  branchName?: string
 }
 
 const BELL_ICON = (
@@ -22,9 +24,21 @@ const BELL_ICON = (
  * - 이용안내 (브랜드색)
  * 일정변경 모달은 /customer/guide 페이지 하단으로 이동했음.
  */
-export function ScheduleChangeFAB({ userId }: Props) {
+export function ScheduleChangeFAB({ userId, isFranchiseView, branchName }: Props) {
   const pathname = usePathname()
   const [unreadCount, setUnreadCount] = useState(0)
+  const [returning, setReturning] = useState(false)
+
+  const handleReturn = async () => {
+    if (returning) return
+    setReturning(true)
+    try {
+      await fetch('/api/auth/preview-exit', { method: 'DELETE' })
+      window.location.href = '/franchise'
+    } catch {
+      setReturning(false)
+    }
+  }
 
   useEffect(() => {
     if (!userId || pathname === '/customer/notifications') {
@@ -47,6 +61,26 @@ export function ScheduleChangeFAB({ userId }: Props) {
 
   return (
     <div className="fixed bottom-24 right-4 z-50 flex flex-col items-center gap-3">
+
+      {/* 본사 모드 — 알림 위에 표시 */}
+      {isFranchiseView && (
+        <button
+          onClick={handleReturn}
+          disabled={returning}
+          className="bg-gray-950 text-white rounded-2xl px-3 py-2 shadow-modal border border-gray-700 hover:bg-gray-800 active:scale-[0.97] transition-all select-none disabled:opacity-60 max-w-[180px]"
+          aria-label="본사 홈으로 이동"
+        >
+          <p className="text-[10px] font-bold text-sky-300 uppercase tracking-widest leading-none whitespace-nowrap">
+            본사모드{branchName ? `(${branchName})` : ''}
+          </p>
+          <p className="text-xs font-bold text-white leading-tight mt-1 flex items-center gap-1 whitespace-nowrap">
+            {returning ? '이동 중...' : '본사홈'}
+            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
+            </svg>
+          </p>
+        </button>
+      )}
 
       {/* 알림 (노란색) */}
       <Link
