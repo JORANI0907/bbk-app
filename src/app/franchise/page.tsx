@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation'
-import { format } from 'date-fns'
+import { format, addMonths } from 'date-fns'
 import { getFranchiseSession } from '@/lib/session'
 import { createServiceClient } from '@/lib/supabase/server'
 import {
@@ -11,6 +11,24 @@ import {
 } from '@/lib/customer-indices'
 import { OverviewCard } from '@/components/franchise/OverviewCard'
 import { BranchCard, BranchSummary } from '@/components/franchise/BranchCard'
+
+interface ClosingRow {
+  schedule_id: string
+  condition_score: number | null
+  recommended_services: unknown
+}
+
+interface CompletedScheduleRow {
+  id: string
+  customer_id: string
+  scheduled_date: string | null
+}
+
+interface MonthlyRow {
+  id: string
+  customer_id: string
+  status: string
+}
 
 export default async function FranchiseHomePage() {
   const session = getFranchiseSession()
@@ -25,7 +43,6 @@ export default async function FranchiseHomePage() {
 
   if (!hq) redirect('/login')
 
-  // 매핑된 지점(customer) 목록
   const { data: mappings } = await supabase
     .from('franchise_branch_map')
     .select('customer_id, display_order')
@@ -51,51 +68,84 @@ export default async function FranchiseHomePage() {
     )
   }
 
-  // 지점 기본 정보
-  const { data: customers } = await supabase
-    .from('customers')
-    .select('id, business_name, address, grade, next_visit_date')
-    .in('id', customerIds)
-    .is('deleted_at', null)
-
   const today = format(new Date(), 'yyyy-MM-dd')
   const thisMonth = today.slice(0, 7)
+  const thisMonthStart = `${thisMonth}-01`
+  const nextMonthStart = format(addMonths(new Date(thisMonthStart), 1), 'yyyy-MM-dd')
 
-  // 각 지점별 최근 5개 완료 일정 (지수 계산용)
-  const { data: recentSchedules } = await supabase
-    .from('service_schedules')
-    .select('id, customer_id, scheduled_date, closing_checklists(condition_score, recommended_services, customer_comment)')
-    .in('customer_id', customerIds)
-    .eq('status', 'completed')
-    .is('deleted_at', null)
-    .order('scheduled_date', { ascending: false })
+  // 매핑된 지점의 기본 정보 + 완료 일정 + 이번달 일정 동시 조회
+  const [customersResult, completedResult, monthlyResult] = await Promise.all([
+    supabase
+      .from('customers')
+      .select('id, business_name, address, grade, next_visit_date')
+      .in('id', customerIds)
+      .is('deleted_at', null),
 
-  // 이번달 일정 (진행률 계산용)
-  const { data: monthlySchedules } = await supabase
-    .from('service_schedules')
-    .select('id, customer_id, status')
-    .in('customer_id', customerIds)
-    .like('scheduled_date', `${thisMonth}%`)
+    supabase
+      .from('service_schedules')
+      .select('id, customer_id, scheduled_date')
+      .in('customer_id', customerIds)
+      .eq('status', 'completed')
+      .is('deleted_at', null)
+      .order('scheduled_date', { ascending: false }),
 
-  // 지점별 그룹화 → 지수 계산
+    supabase
+      .from('service_schedules')
+      .select('id, customer_id, status')
+      .in('customer_id', customerIds)
+      .gte('scheduled_date', thisMonthStart)
+      .lt('scheduled_date', nextMonthStart),
+  ])
+
+  const customers = customersResult.data ?? []
+  const completedRows = (completedResult.data ?? []) as CompletedScheduleRow[]
+  const monthlyRows = (monthlyResult.data ?? []) as MonthlyRow[]
+
+  // closing_checklists 별도 조회 (PostgREST nested embed 우회 — customer 페이지와 동일)
+  const completedIds = completedRows.map((s) => s.id)
+  const { data: closingsRaw } = completedIds.length > 0
+    ? await supabase
+        .from('closing_checklists')
+        .select('schedule_id, condition_score, recommended_services')
+        .in('schedule_id', completedIds)
+    : { data: [] as ClosingRow[] }
+
+  const closingsBySchedule = new Map<string, ClosingRow>()
+  for (const c of (closingsRaw ?? []) as ClosingRow[]) {
+    closingsBySchedule.set(c.schedule_id, c)
+  }
+
+  // 지점별 최근 5개 완료 일정 + closing_checklists in-memory join
   const recentByCustomer = new Map<string, RecentScheduleRow[]>()
-  for (const row of (recentSchedules ?? []) as Array<RecentScheduleRow & { customer_id: string }>) {
+  for (const row of completedRows) {
     const list = recentByCustomer.get(row.customer_id) ?? []
     if (list.length < 5) {
-      list.push(row)
+      const closing = closingsBySchedule.get(row.id)
+      list.push({
+        id: row.id,
+        scheduled_date: row.scheduled_date,
+        closing_checklists: closing
+          ? [{
+              condition_score: closing.condition_score,
+              recommended_services: closing.recommended_services,
+              customer_comment: null,
+            }]
+          : [],
+      })
       recentByCustomer.set(row.customer_id, list)
     }
   }
 
+  // 지점별 이번달 일정
   const monthlyByCustomer = new Map<string, MonthlyScheduleRow[]>()
-  for (const row of (monthlySchedules ?? []) as Array<MonthlyScheduleRow & { customer_id: string }>) {
+  for (const row of monthlyRows) {
     const list = monthlyByCustomer.get(row.customer_id) ?? []
-    list.push(row)
+    list.push({ id: row.id, status: row.status })
     monthlyByCustomer.set(row.customer_id, list)
   }
 
   // 매핑 순서대로 정렬된 지점 카드 데이터 생성
-  const customerById = new Map((customers ?? []).map((c) => [c.id, c]))
+  const customerById = new Map(customers.map((c) => [c.id, c]))
   const branches: BranchSummary[] = customerIds
     .map((cid): BranchSummary | null => {
       const c = customerById.get(cid)
