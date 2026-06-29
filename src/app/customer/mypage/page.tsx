@@ -5,6 +5,7 @@ import { format } from 'date-fns'
 import { ko } from 'date-fns/locale'
 import { Building2, BookOpen, ChevronRight } from 'lucide-react'
 import { LogoutButton } from '@/components/customer/LogoutButton'
+import { PasswordField } from '@/components/customer/PasswordField'
 import Link from 'next/link'
 
 interface CustomerData {
@@ -64,7 +65,7 @@ export default async function CustomerMyPage() {
 
   const { data: user } = await supabase
     .from('users')
-    .select('id, name, phone, email')
+    .select('id, name, phone, email, password_hint')
     .eq('id', session.userId)
     .single()
 
@@ -105,8 +106,40 @@ export default async function CustomerMyPage() {
         <div className="px-5 py-1 pb-4">
           <InfoRow label="이름" value={user.name} />
           <InfoRow label="아이디" value={user.phone ? formatPhone(user.phone) : undefined} />
+          {(user as { password_hint?: string | null }).password_hint && (
+            <PasswordField password={(user as { password_hint: string }).password_hint} />
+          )}
         </div>
       </section>
+
+      {/* 업체 정보 */}
+      {customer && (
+        <section className="bg-surface rounded-2xl border border-border-subtle shadow-soft overflow-hidden">
+          <div className="px-5 py-3.5 border-b border-border-subtle">
+            <span className="text-sm font-bold text-text-primary">업체 정보</span>
+          </div>
+          <div className="px-5 py-1">
+            <InfoRow label="업체명" value={customer.business_name} />
+            <InfoRow label="담당자" value={customer.contact_name} />
+            <InfoRow
+              label="연락처"
+              value={customer.contact_phone ? formatPhone(customer.contact_phone) : null}
+            />
+            <InfoRow
+              label="주소"
+              value={[customer.address, customer.address_detail].filter(Boolean).join(' ')}
+            />
+          </div>
+        </section>
+      )}
+
+      {!customer && (
+        <div className="flex flex-col items-center justify-center py-12 gap-3 text-center bg-surface rounded-2xl border border-border-subtle">
+          <Building2 size={40} className="text-text-tertiary" />
+          <p className="text-sm font-semibold text-text-primary">연결된 업체 정보가 없습니다</p>
+          <p className="text-xs text-text-tertiary">관리자에게 문의해주세요.</p>
+        </div>
+      )}
 
       {/* 계약 정보 */}
       {customer && (
@@ -169,35 +202,6 @@ export default async function CustomerMyPage() {
             </div>
           </section>
         </Link>
-      )}
-
-      {/* 업체 정보 */}
-      {customer && (
-        <section className="bg-surface rounded-2xl border border-border-subtle shadow-soft overflow-hidden">
-          <div className="px-5 py-3.5 border-b border-border-subtle">
-            <span className="text-sm font-bold text-text-primary">업체 정보</span>
-          </div>
-          <div className="px-5 py-1">
-            <InfoRow label="업체명" value={customer.business_name} />
-            <InfoRow label="담당자" value={customer.contact_name} />
-            <InfoRow
-              label="연락처"
-              value={customer.contact_phone ? formatPhone(customer.contact_phone) : null}
-            />
-            <InfoRow
-              label="주소"
-              value={[customer.address, customer.address_detail].filter(Boolean).join(' ')}
-            />
-          </div>
-        </section>
-      )}
-
-      {!customer && (
-        <div className="flex flex-col items-center justify-center py-12 gap-3 text-center bg-surface rounded-2xl border border-border-subtle">
-          <Building2 size={40} className="text-text-tertiary" />
-          <p className="text-sm font-semibold text-text-primary">연결된 업체 정보가 없습니다</p>
-          <p className="text-xs text-text-tertiary">관리자에게 문의해주세요.</p>
-        </div>
       )}
 
       <p className="text-center text-xs text-text-tertiary pb-2">
