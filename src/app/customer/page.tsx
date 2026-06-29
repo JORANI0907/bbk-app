@@ -12,6 +12,7 @@ import {
   calcComfortIndex,
   calcOuterComfortIndex,
   calcProgressPct,
+  GAUGE_DESCRIPTIONS,
 } from '@/lib/customer-indices'
 
 const GRADE_TIER: Record<CustomerGrade, { abbr: string; year: string; activeNode: string; futureNode: string }> = {
@@ -254,8 +255,9 @@ export default async function CustomerHomePage() {
             </div>
           )}
           <p className="text-white/80 text-sm mb-0.5">안녕하세요</p>
-          <h1 className="text-xl font-black text-white leading-tight">
-            {customer?.business_name ?? userProfile?.name ?? '고객'}님
+          <h1 className="text-xl font-black text-white leading-tight flex items-baseline gap-2 flex-wrap">
+            <span>{customer?.business_name ?? userProfile?.name ?? '고객'}</span>
+            <span className="text-sm font-semibold text-white/70">× 범빌드코리아</span>
           </h1>
           {savingsAmount !== null && (
             <p className="text-white/90 text-xs mt-1.5 font-semibold">
@@ -274,6 +276,7 @@ export default async function CustomerHomePage() {
                 displaySub="점"
                 title="쾌적 지수"
                 caption={comfortSampleCount > 0 ? `최근 ${comfortSampleCount}회 기준` : '데이터 없음'}
+                description={GAUGE_DESCRIPTIONS.comfort}
               />
               <CircularGauge
                 pct={outerComfortIndex}
@@ -281,6 +284,7 @@ export default async function CustomerHomePage() {
                 displaySub="점"
                 title="범위 외 쾌적"
                 caption={outerSampleCount > 0 ? `최근 ${outerSampleCount}회 기준` : '데이터 없음'}
+                description={GAUGE_DESCRIPTIONS.outerComfort}
               />
               <CircularGauge
                 pct={progressPct}
@@ -288,6 +292,7 @@ export default async function CustomerHomePage() {
                 displaySub="%"
                 title="이번달 진행률"
                 caption={monthlySchedules.length > 0 ? `${monthlyCompletedCount}/${monthlySchedules.length}회` : '일정 없음'}
+                description={GAUGE_DESCRIPTIONS.progress}
               />
             </div>
           )}

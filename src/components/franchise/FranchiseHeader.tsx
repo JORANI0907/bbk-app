@@ -44,8 +44,9 @@ export function FranchiseHeader({ brandName, logoUrl, managerName }: FranchiseHe
             <p className="text-[10px] font-semibold text-text-tertiary uppercase tracking-widest leading-none">
               본사 포털
             </p>
-            <p className="text-base font-bold text-text-primary leading-tight truncate mt-0.5">
-              {brandName}
+            <p className="text-base font-bold text-text-primary leading-tight truncate mt-0.5 flex items-baseline gap-1.5">
+              <span className="truncate">{brandName}</span>
+              <span className="text-xs font-semibold text-text-tertiary shrink-0">× 범빌드코리아</span>
             </p>
           </div>
         </div>
