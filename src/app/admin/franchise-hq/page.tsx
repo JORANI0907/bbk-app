@@ -2,6 +2,8 @@ import Link from 'next/link'
 import { createServiceClient } from '@/lib/supabase/server'
 import { CreateFranchiseHqButton } from '@/components/admin/franchise-hq/CreateFranchiseHqButton'
 
+export const dynamic = 'force-dynamic'
+
 interface HqRow {
   id: string
   brand_name: string
