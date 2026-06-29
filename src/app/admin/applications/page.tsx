@@ -578,6 +578,11 @@ export default function ServiceManagementPage() {
   const [businessHoursEnd, setBusinessHoursEnd] = useState('')
   const [preMeetingAt, setPreMeetingAt] = useState('')
 
+  // 신규 일정 생성 모달
+  const [showCreateModal, setShowCreateModal] = useState(false)
+  const [creating, setCreating] = useState(false)
+  const [newForm, setNewForm] = useState({ business_name: '', owner_name: '', phone: '', address: '', service_type: '' })
+
   const vatManual = useRef(false)
 
   // 스크롤 복원 (모바일 뒤로가기 후 선택 행으로 돌아오기)
@@ -865,6 +870,39 @@ export default function ServiceManagementPage() {
       toast.error('네트워크 오류가 발생했습니다.')
     } finally {
       setBulkSaving(false)
+    }
+  }
+
+  const handleCreateApplication = async () => {
+    if (!newForm.business_name.trim() || !newForm.owner_name.trim() || !newForm.phone.trim() || !newForm.address.trim()) {
+      toast.error('업체명, 대표자명, 연락처, 주소는 필수입니다.')
+      return
+    }
+    setCreating(true)
+    try {
+      const body: Record<string, string> = {
+        business_name: newForm.business_name.trim(),
+        owner_name: newForm.owner_name.trim(),
+        phone: newForm.phone.trim(),
+        address: newForm.address.trim(),
+      }
+      if (newForm.service_type) body.service_type = newForm.service_type
+      const res = await fetch('/api/admin/applications', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || '생성 실패')
+      toast.success('신규 일정이 생성됐습니다.')
+      setShowCreateModal(false)
+      setNewForm({ business_name: '', owner_name: '', phone: '', address: '', service_type: '' })
+      setSelected(data as Application)
+      await fetchAll()
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : '생성 실패')
+    } finally {
+      setCreating(false)
     }
   }
 
@@ -1275,6 +1313,71 @@ export default function ServiceManagementPage() {
         <MapSelectorModal address={mapAddress} onClose={() => setMapAddress(null)} />
       )}
 
+      {showCreateModal && (
+        <div className="fixed inset-0 z-[9998] flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-surface rounded-2xl shadow-modal w-full max-w-md p-6">
+            <h2 className="text-lg font-bold text-text-primary mb-4">신규 일정 생성</h2>
+            <div className="flex flex-col gap-3">
+              <div>
+                <label className="text-xs font-semibold text-text-secondary mb-1 block">업체명 *</label>
+                <input
+                  type="text" value={newForm.business_name}
+                  onChange={e => setNewForm(f => ({ ...f, business_name: e.target.value }))}
+                  placeholder="예) 돈카츠마켓 의왕점"
+                  className="w-full border border-border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-text-secondary mb-1 block">대표자명 *</label>
+                <input
+                  type="text" value={newForm.owner_name}
+                  onChange={e => setNewForm(f => ({ ...f, owner_name: e.target.value }))}
+                  placeholder="예) 홍길동"
+                  className="w-full border border-border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-text-secondary mb-1 block">연락처 *</label>
+                <input
+                  type="text" value={newForm.phone}
+                  onChange={e => setNewForm(f => ({ ...f, phone: e.target.value }))}
+                  placeholder="예) 010-1234-5678"
+                  className="w-full border border-border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-text-secondary mb-1 block">주소 *</label>
+                <input
+                  type="text" value={newForm.address}
+                  onChange={e => setNewForm(f => ({ ...f, address: e.target.value }))}
+                  placeholder="예) 경기도 의왕시 ..."
+                  className="w-full border border-border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-text-secondary mb-1 block">서비스 유형 (선택)</label>
+                <select
+                  value={newForm.service_type}
+                  onChange={e => setNewForm(f => ({ ...f, service_type: e.target.value }))}
+                  className="w-full border border-border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 bg-surface"
+                >
+                  <option value="">선택 안 함</option>
+                  {SERVICE_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                </select>
+              </div>
+            </div>
+            <div className="flex gap-2 mt-5">
+              <Button variant="primary" className="flex-1" onClick={handleCreateApplication} disabled={creating}>
+                {creating ? '생성 중...' : '생성'}
+              </Button>
+              <Button variant="secondary" className="flex-1" onClick={() => { setShowCreateModal(false); setNewForm({ business_name: '', owner_name: '', phone: '', address: '', service_type: '' }) }}>
+                취소
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="relative flex h-full gap-0 min-h-0">
         {/* ── 좌측: 목록 ── */}
         <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
@@ -1287,7 +1390,10 @@ export default function ServiceManagementPage() {
                 <p className="text-sm text-orange-600 mt-0.5">담당자가 배정되지 않은 일정입니다. 클릭하여 담당자를 지정하세요.</p>
               )}
             </div>
-            <Button variant="secondary" size="sm" onClick={fetchAll}>새로고침</Button>
+            <div className="flex items-center gap-2">
+              <Button variant="secondary" size="sm" onClick={fetchAll}>새로고침</Button>
+              <Button variant="primary" size="sm" onClick={() => setShowCreateModal(true)}>+ 신규 생성</Button>
+            </div>
           </div>
           <div className="flex items-center gap-2 mb-3 flex-wrap">
             {SERVICE_TYPES.map(t => {
