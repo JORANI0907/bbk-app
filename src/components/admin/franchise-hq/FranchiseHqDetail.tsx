@@ -3,6 +3,7 @@
 import { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import toast from 'react-hot-toast'
+import { LogoUploader } from './LogoUploader'
 
 interface BranchCustomer {
   id: string
@@ -186,7 +187,21 @@ export function FranchiseHqDetail({ hq, mappedBranches, candidates }: Props) {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <Field label="브랜드명" value={form.brand_name} onChange={(v) => setForm((s) => ({ ...s, brand_name: v }))} readOnly={!editing} />
-          <Field label="로고 URL" value={form.logo_url} onChange={(v) => setForm((s) => ({ ...s, logo_url: v }))} readOnly={!editing} placeholder="https://..." />
+          {editing ? (
+            <LogoUploader value={form.logo_url} onChange={(v) => setForm((s) => ({ ...s, logo_url: v }))} disabled={busy} />
+          ) : (
+            <div className="flex flex-col gap-2">
+              <span className="block text-xs font-semibold text-text-secondary">로고</span>
+              <div className="w-20 h-20 rounded-xl border border-border-subtle bg-surface-sunken flex items-center justify-center overflow-hidden">
+                {form.logo_url ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={form.logo_url} alt="로고" className="w-full h-full object-cover" />
+                ) : (
+                  <span className="text-[10px] text-text-tertiary">없음</span>
+                )}
+              </div>
+            </div>
+          )}
           <Field label="담당자명" value={form.name} onChange={(v) => setForm((s) => ({ ...s, name: v }))} readOnly={!editing} />
           <Field label="연락처" value={form.phone} onChange={(v) => setForm((s) => ({ ...s, phone: v }))} readOnly={!editing} />
           {editing && (

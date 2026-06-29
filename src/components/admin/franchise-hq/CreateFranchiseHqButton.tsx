@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import toast from 'react-hot-toast'
+import { LogoUploader } from './LogoUploader'
 
 export function CreateFranchiseHqButton() {
   const router = useRouter()
@@ -61,7 +62,7 @@ export function CreateFranchiseHqButton() {
 
             <div className="flex flex-col gap-3">
               <Field label="브랜드명 *" value={form.brandName} onChange={(v) => update('brandName', v)} placeholder="예: 깔끔치킨" />
-              <Field label="로고 URL (선택)" value={form.logoUrl} onChange={(v) => update('logoUrl', v)} placeholder="https://..." />
+              <LogoUploader value={form.logoUrl} onChange={(v) => update('logoUrl', v)} disabled={loading} />
               <Field label="담당자명 *" value={form.managerName} onChange={(v) => update('managerName', v)} placeholder="홍길동" />
               <Field label="연락처 *" value={form.phone} onChange={(v) => update('phone', v)} placeholder="01012345678" />
               <Field label="비밀번호 * (6자 이상)" value={form.password} onChange={(v) => update('password', v)} type="password" />
