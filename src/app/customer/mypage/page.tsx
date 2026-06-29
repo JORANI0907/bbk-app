@@ -106,9 +106,12 @@ export default async function CustomerMyPage() {
         <div className="px-5 py-1 pb-4">
           <InfoRow label="이름" value={user.name} />
           <InfoRow label="아이디" value={user.phone ? formatPhone(user.phone) : undefined} />
-          {(user as { password_hint?: string | null }).password_hint && (
-            <PasswordField password={(user as { password_hint: string }).password_hint} />
-          )}
+          <PasswordField
+            password={
+              (user as { password_hint?: string | null }).password_hint ??
+              (user.phone ? user.phone.replace(/-/g, '') : '')
+            }
+          />
         </div>
       </section>
 
