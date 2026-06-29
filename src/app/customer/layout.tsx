@@ -2,7 +2,7 @@ import { CustomerSidebar } from '@/components/customer/CustomerSidebar'
 import { CustomerMobileNav } from '@/components/customer/CustomerMobileNav'
 import { ScheduleChangeFAB } from '@/components/customer/ScheduleChangeFAB'
 import { PreviewBanner } from '@/components/customer/PreviewBanner'
-import { BranchSwitcherBanner } from '@/components/franchise/BranchSwitcherBanner'
+import { BranchSwitcherFAB } from '@/components/franchise/BranchSwitcherFAB'
 import { PushNotificationProvider } from '@/components/shared/PushNotificationProvider'
 import DevRoleSwitcher from '@/components/DevRoleSwitcher'
 import { getCustomerSession } from '@/lib/session'
@@ -17,15 +17,16 @@ export default function CustomerLayout({
   if (!session) redirect('/login')
 
   const isFranchiseView = session.isPreview && session.originRole === 'franchise_hq'
+  // 본사 모드는 floating 버튼(FAB)으로 표시 → 상단 패딩 불필요
+  const isAdminPreview = session.isPreview && !isFranchiseView
 
   return (
-    <div className={`flex h-screen overflow-hidden bg-surface-sunken ${session.isPreview ? 'pt-10' : ''}`}>
-      {/* 본사 지점전환 배너 (우선) — 그 외에는 관리자 미리보기 배너 */}
-      {isFranchiseView ? (
-        <BranchSwitcherBanner branchName={session.name} />
-      ) : (
-        session.isPreview && <PreviewBanner userName={session.name} />
-      )}
+    <div className={`flex h-screen overflow-hidden bg-surface-sunken ${isAdminPreview ? 'pt-10' : ''}`}>
+      {/* 관리자 미리보기 — 상단 배너 유지 */}
+      {isAdminPreview && <PreviewBanner userName={session.name} />}
+
+      {/* 본사 모드 — 우측 하단 floating 버튼 */}
+      {isFranchiseView && <BranchSwitcherFAB branchName={session.name} />}
 
       {/* 데스크탑 사이드바 */}
       <CustomerSidebar userName={session.name} userId={session.userId} />
