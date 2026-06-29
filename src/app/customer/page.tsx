@@ -124,7 +124,7 @@ export default async function CustomerHomePage() {
   const thisMonthStart = `${thisMonth}-01`
   const nextMonthStart = format(addMonths(new Date(thisMonthStart), 1), 'yyyy-MM-dd')
 
-  const [upcomingResult, noticesResult, recentReportsResult, thisMonthSchedulesResult] = await Promise.all([
+  const [upcomingResult, noticesResult, completedSchedulesResult, thisMonthSchedulesResult] = await Promise.all([
     customer
       ? supabase
           .from('service_schedules')
@@ -147,7 +147,7 @@ export default async function CustomerHomePage() {
     customer
       ? supabase
           .from('service_schedules')
-          .select('*, worker:users(id,name), closing_checklists(condition_score, recommended_services, customer_comment)')
+          .select('*, worker:users(id,name)')
           .eq('customer_id', customer.id)
           .eq('status', 'completed')
           .is('deleted_at', null)
@@ -166,7 +166,30 @@ export default async function CustomerHomePage() {
   ])
 
   const upcomingSchedules = (upcomingResult.data ?? []) as ScheduleWithConstruction[]
-  const completedSchedules = (recentReportsResult.data ?? []) as CompletedScheduleData[]
+  const rawCompleted = (completedSchedulesResult.data ?? []) as Array<{ id: string } & Record<string, unknown>>
+
+  // closing_checklists는 별도 쿼리로 in-memory join (PostgREST nested embed 우회)
+  const completedIds = rawCompleted.map((s) => s.id)
+  const { data: closingsRaw } = completedIds.length > 0
+    ? await supabase
+        .from('closing_checklists')
+        .select('schedule_id, condition_score, recommended_services, customer_comment')
+        .in('schedule_id', completedIds)
+    : { data: [] as Array<{ schedule_id: string; condition_score: number | null; recommended_services: unknown; customer_comment: string | null }> }
+
+  const closingsBySchedule = new Map<string, { condition_score: number | null; recommended_services: unknown; customer_comment: string | null }>()
+  for (const c of closingsRaw ?? []) {
+    closingsBySchedule.set(c.schedule_id, {
+      condition_score: c.condition_score,
+      recommended_services: c.recommended_services,
+      customer_comment: c.customer_comment,
+    })
+  }
+
+  const completedSchedules = rawCompleted.map((s) => ({
+    ...s,
+    closing_checklists: closingsBySchedule.has(s.id) ? [closingsBySchedule.get(s.id)!] : [],
+  })) as unknown as CompletedScheduleData[]
 
   type NoticeItem = {
     id: string; title: string; content: string
@@ -177,7 +200,7 @@ export default async function CustomerHomePage() {
   const noticeList = allNotices.filter(n => n.type === 'notice')
   const eventList = allNotices.filter(n => n.type === 'event')
 
-  const recentSchedules = (recentReportsResult.data ?? []) as RecentScheduleRow[]
+  const recentSchedules = completedSchedules as unknown as RecentScheduleRow[]
   const monthlySchedules = (thisMonthSchedulesResult.data ?? []) as { id: string; status: string }[]
 
   const comfortIndex = calcComfortIndex(recentSchedules)
