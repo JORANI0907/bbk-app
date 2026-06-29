@@ -10,11 +10,11 @@
  * SVG는 압축 불필요 (벡터). PNG/JPEG/WebP 대상.
  */
 
-const MAX_BYTES = 1 * 1024 * 1024
+const MAX_BYTES = 3 * 1024 * 1024
 const MIN_QUALITY = 0.5
 const QUALITY_STEP = 0.05
 const INITIAL_QUALITY = 0.92
-const INITIAL_MAX_WIDTH = 1024
+const INITIAL_MAX_WIDTH = 1600
 
 async function readImage(file: File): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
@@ -36,10 +36,10 @@ function canvasToBlob(canvas: HTMLCanvasElement, type: string, quality: number):
   return new Promise((resolve) => canvas.toBlob(resolve, type, quality))
 }
 
-export async function compressImageTo1MB(file: File): Promise<File> {
+export async function compressImage(file: File): Promise<File> {
   // SVG는 압축할 게 없음
   if (file.type === 'image/svg+xml') return file
-  // 이미 1MB 이하면 그대로
+  // 이미 목표 크기 이하면 그대로
   if (file.size <= MAX_BYTES) return file
 
   const img = await readImage(file)

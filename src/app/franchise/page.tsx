@@ -38,11 +38,13 @@ export default async function FranchiseHomePage() {
   const supabase = createServiceClient()
   const { data: hq } = await supabase
     .from('franchise_hq')
-    .select('id')
+    .select('id, brand_name')
     .eq('user_id', session.userId)
     .single()
 
   if (!hq) redirect('/login')
+
+  const brandName = (hq as { brand_name: string }).brand_name
 
   const { data: mappings } = await supabase
     .from('franchise_branch_map')
@@ -57,6 +59,7 @@ export default async function FranchiseHomePage() {
       <div className="flex flex-col gap-6">
         <OverviewCard
           branchCount={0}
+          brandName={brandName}
           indices={{ comfortIndex: null, outerComfortIndex: null, progressPct: null }}
         />
         <div className="bg-surface border border-border-subtle rounded-2xl p-8 text-center">
@@ -173,7 +176,7 @@ export default async function FranchiseHomePage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <OverviewCard branchCount={branches.length} indices={overviewIndices} />
+      <OverviewCard branchCount={branches.length} brandName={brandName} indices={overviewIndices} />
 
       <div>
         <div className="flex items-center justify-between mb-3">

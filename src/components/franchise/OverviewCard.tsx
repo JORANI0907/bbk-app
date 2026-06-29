@@ -3,10 +3,11 @@ import { CustomerIndices } from '@/lib/customer-indices'
 
 interface OverviewCardProps {
   branchCount: number
+  brandName: string
   indices: CustomerIndices
 }
 
-export function OverviewCard({ branchCount, indices }: OverviewCardProps) {
+export function OverviewCard({ branchCount, brandName, indices }: OverviewCardProps) {
   const { comfortIndex, outerComfortIndex, progressPct } = indices
 
   return (
@@ -16,14 +17,14 @@ export function OverviewCard({ branchCount, indices }: OverviewCardProps) {
     >
       <div className="relative z-10 flex flex-col md:flex-row md:items-center md:justify-between gap-5">
         <div>
-          <p className="text-white/70 text-xs font-semibold uppercase tracking-widest">
-            총괄 지수
+          <p className="text-white text-xl font-black leading-tight">
+            {brandName}님 안녕하세요!
           </p>
-          <p className="text-white text-xl font-black mt-1 leading-tight">
-            전체 {branchCount}개 지점 평균
+          <p className="text-white/85 text-sm mt-1.5 leading-snug break-keep">
+            BBK 공간케어와 함께 모든 지점의 위생관리 해보세요.
           </p>
-          <p className="text-white/60 text-[11px] mt-1">
-            범위 쾌적 · 범위 외 쾌적 · 이번 달 진행률
+          <p className="text-white/60 text-[11px] mt-2">
+            쉽고 편하게 관리 데이트 확인 · 전체 {branchCount}개 지점
           </p>
         </div>
 

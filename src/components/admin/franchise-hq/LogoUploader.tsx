@@ -3,7 +3,7 @@
 import { useState, useRef } from 'react'
 import { Upload, X, Loader2 } from 'lucide-react'
 import toast from 'react-hot-toast'
-import { compressImageTo1MB } from '@/lib/image-compress'
+import { compressImage } from '@/lib/image-compress'
 
 interface Props {
   value: string
@@ -18,8 +18,8 @@ export function LogoUploader({ value, onChange, disabled }: Props) {
   const handleFile = async (rawFile: File) => {
     setUploading(true)
     try {
-      // 1MB 이하로 자동 압축 (SVG는 원본 유지)
-      const file = await compressImageTo1MB(rawFile)
+      // 3MB 이하로 자동 압축 (SVG는 원본 유지)
+      const file = await compressImage(rawFile)
 
       const formData = new FormData()
       formData.append('file', file)
@@ -97,7 +97,7 @@ export function LogoUploader({ value, onChange, disabled }: Props) {
               로고 제거
             </button>
           )}
-          <p className="text-[10px] text-text-tertiary leading-tight">JPG · PNG · WebP · SVG · 자동으로 1MB 이하 압축</p>
+          <p className="text-[10px] text-text-tertiary leading-tight">JPG · PNG · WebP · SVG · 자동으로 3MB 이하 압축</p>
         </div>
       </div>
 
