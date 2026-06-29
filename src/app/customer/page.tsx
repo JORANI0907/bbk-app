@@ -2,7 +2,7 @@ import { createServiceClient } from '@/lib/supabase/server'
 import { getCustomerSession } from '@/lib/session'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { format } from 'date-fns'
+import { format, addMonths } from 'date-fns'
 import { NoticesSection } from '@/components/customer/NoticesSection'
 import { ScheduleCard, ScheduleWithConstruction } from '@/components/customer/ScheduleCard'
 import { CircularGauge } from '@/components/customer/CircularGauge'
@@ -138,6 +138,8 @@ export default async function CustomerHomePage() {
 
   const today = format(new Date(), 'yyyy-MM-dd')
   const thisMonth = today.slice(0, 7)
+  const thisMonthStart = `${thisMonth}-01`
+  const nextMonthStart = format(addMonths(new Date(thisMonthStart), 1), 'yyyy-MM-dd')
 
   const [upcomingResult, noticesResult, recentReportsResult, thisMonthSchedulesResult] = await Promise.all([
     customer
@@ -175,7 +177,8 @@ export default async function CustomerHomePage() {
           .from('service_schedules')
           .select('id, status')
           .eq('customer_id', customer.id)
-          .like('scheduled_date', `${thisMonth}%`)
+          .gte('scheduled_date', thisMonthStart)
+          .lt('scheduled_date', nextMonthStart)
       : Promise.resolve({ data: null }),
   ])
 
