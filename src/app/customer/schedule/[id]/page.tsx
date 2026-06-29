@@ -163,15 +163,15 @@ export default async function CustomerScheduleDetailPage({ params }: PageProps) 
   const s = schedule as ServiceSchedule & { application_id?: string | null; worker_id?: string | null }
   const customer = (s.customer as unknown as CustomerJoin | null)
 
-  // workers 테이블에서 전화번호 조회 (직원관리 기준)
-  let workerPhoneFromWorkers: string | undefined
+  // workers 테이블에서 직원 정보 조회 (직원관리 기준)
+  let workerInfo: { phone: string | null; job_title: string | null; photo_url: string | null } | null = null
   if (s.worker_id) {
     const { data: workerRecord } = await supabase
       .from('workers')
-      .select('phone')
+      .select('phone, job_title, photo_url')
       .eq('user_id', s.worker_id)
       .maybeSingle()
-    workerPhoneFromWorkers = workerRecord?.phone ?? undefined
+    if (workerRecord) workerInfo = workerRecord
   }
 
   // 담당자 정보 조회 (customers.assigned_user_id → workers.user_id)
@@ -240,7 +240,7 @@ export default async function CustomerScheduleDetailPage({ params }: PageProps) 
   })()
 
   const workerName  = (s.worker as { name?: string } | null)?.name
-  const workerPhone = workerPhoneFromWorkers
+  const workerPhone = workerInfo?.phone ?? undefined
   const paymentInfo = s.payment_status ? PAYMENT_STATUS_LABELS[s.payment_status] : null
   const fullAddress = customer ? [customer.address, customer.address_detail].filter(Boolean).join(' ') : null
 
@@ -399,20 +399,6 @@ export default async function CustomerScheduleDetailPage({ params }: PageProps) 
         </section>
       )}
 
-      {/* ── 작업장 정보 ── */}
-      {(application?.parking || application?.building_access || application?.elevator || application?.access_method) && (
-        <section className="bg-surface rounded-2xl border border-border-subtle shadow-soft overflow-hidden">
-          <div className="px-5 py-3 border-b border-border-subtle">
-            <h2 className="text-sm font-bold text-text-primary">작업장 정보</h2>
-          </div>
-          <div className="px-5 py-4 flex flex-col gap-3">
-            {application.parking && <InfoRow label="주차" value={application.parking} />}
-            {application.building_access && <InfoRow label="건물출입" value={application.building_access} />}
-            {application.elevator && <InfoRow label="엘리베이터" value={application.elevator} />}
-            {application.access_method && <InfoRow label="출입방법" value={application.access_method} />}
-          </div>
-        </section>
-      )}
 
       {/* ── 서비스 항목 ── */}
       {s.items_this_visit?.length > 0 && (
@@ -595,52 +581,42 @@ export default async function CustomerScheduleDetailPage({ params }: PageProps) 
           <div className="px-5 py-3 border-b border-border-subtle">
             <h2 className="text-sm font-bold text-text-primary">담당 직원</h2>
           </div>
-          <div className="px-5 py-4 flex items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-full bg-brand-50 border border-brand-100 flex items-center justify-center shrink-0">
-                <User size={16} className="text-brand-600" />
+          <div className="px-5 py-4 flex items-center gap-4">
+            {workerInfo?.photo_url ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={workerInfo.photo_url}
+                alt={workerName}
+                className="w-14 h-14 rounded-full object-cover border border-border-subtle shrink-0"
+              />
+            ) : (
+              <div className="w-14 h-14 rounded-full bg-brand-50 border border-brand-100 flex items-center justify-center shrink-0">
+                <User size={24} className="text-brand-600" />
               </div>
-              <span className="text-sm font-semibold text-text-primary">{workerName}</span>
-            </div>
-            {workerPhone && (
-              <a
-                href={`tel:${workerPhone}`}
-                className="flex items-center gap-1.5 text-xs text-brand-600 font-medium bg-brand-50 px-3 py-1.5 rounded-full"
-              >
-                <Phone size={12} />
-                전화하기
-              </a>
             )}
+            <div className="flex flex-col gap-1.5 flex-1 min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-sm font-bold text-text-primary">{workerName}</span>
+                {workerInfo?.job_title && (
+                  <span className="text-xs text-text-tertiary bg-surface-sunken px-2 py-0.5 rounded-full">
+                    {workerInfo.job_title}
+                  </span>
+                )}
+              </div>
+              {workerPhone && (
+                <a
+                  href={`tel:${workerPhone}`}
+                  className="flex items-center gap-1.5 text-xs text-brand-600 font-medium w-fit"
+                >
+                  <Phone size={12} />
+                  {formatPhone(workerPhone)}
+                </a>
+              )}
+            </div>
           </div>
         </section>
       )}
 
-      {/* ── 시공 정보 ── */}
-      {(careScope || application?.request_notes) && (
-        <section className="bg-surface rounded-2xl border border-border-subtle shadow-soft overflow-hidden">
-          <div className="px-5 py-3 border-b border-border-subtle">
-            <h2 className="text-sm font-bold text-text-primary">시공 정보</h2>
-          </div>
-          <div className="px-5 py-4 flex flex-col gap-3">
-            {careScope && (
-              <div className="flex flex-col gap-1">
-                <span className="text-xs text-text-tertiary">케어 범위</span>
-                <div className="bg-surface-sunken rounded-xl p-3">
-                  <p className="text-sm text-text-secondary whitespace-pre-wrap leading-relaxed">{careScope}</p>
-                </div>
-              </div>
-            )}
-            {application?.request_notes && (
-              <div className="flex flex-col gap-1">
-                <span className="text-xs text-text-tertiary">고객요청사항</span>
-                <div className="bg-surface-sunken rounded-xl p-3">
-                  <p className="text-sm text-text-secondary whitespace-pre-wrap leading-relaxed">{application.request_notes}</p>
-                </div>
-              </div>
-            )}
-          </div>
-        </section>
-      )}
 
       {/* ── 견적서 ── */}
       {quotePdfUrl && (
@@ -662,6 +638,23 @@ export default async function CustomerScheduleDetailPage({ params }: PageProps) 
           <ChevronLeft size={16} className="text-text-tertiary rotate-180" />
         </a>
       )}
+
+      {/* ── 케어메뉴얼 이동 버튼 ── */}
+      <Link
+        href="/customer/care-manual"
+        className="flex items-center justify-between w-full bg-brand-50 border border-brand-200 rounded-2xl px-5 py-4 active:scale-[0.98] transition-transform"
+      >
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-full bg-brand-100 flex items-center justify-center shrink-0">
+            <FileText size={16} className="text-brand-600" />
+          </div>
+          <div>
+            <p className="text-sm font-bold text-brand-700">케어 메뉴얼 보기</p>
+            <p className="text-xs text-brand-500 mt-0.5">서비스 안내 및 케어 지침 확인</p>
+          </div>
+        </div>
+        <ChevronLeft size={16} className="text-brand-400 rotate-180" />
+      </Link>
     </div>
   )
 }
