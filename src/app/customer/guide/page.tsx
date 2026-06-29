@@ -1,6 +1,35 @@
 import Link from 'next/link'
+import { createServiceClient } from '@/lib/supabase/server'
+import { getCustomerSession } from '@/lib/session'
+import { redirect } from 'next/navigation'
+import { ScheduleChangeRequest } from '@/components/customer/ScheduleChangeRequest'
+import { ServiceSchedule } from '@/types/database'
 
-export default function CustomerGuidePage() {
+export default async function CustomerGuidePage() {
+  const session = getCustomerSession()
+  if (!session || session.role !== 'customer') redirect('/login')
+
+  const supabase = createServiceClient()
+  const { data: customerRow } = await supabase
+    .from('customers')
+    .select('id')
+    .eq('user_id', session.userId)
+    .maybeSingle()
+
+  const today = new Date().toISOString().slice(0, 10)
+  let upcomingSchedules: ServiceSchedule[] = []
+  if (customerRow) {
+    const { data } = await supabase
+      .from('service_schedules')
+      .select('*')
+      .eq('customer_id', customerRow.id)
+      .gte('scheduled_date', today)
+      .in('status', ['scheduled', 'confirmed'])
+      .is('deleted_at', null)
+      .order('scheduled_date', { ascending: true })
+    upcomingSchedules = (data ?? []) as ServiceSchedule[]
+  }
+
   return (
     <div className="px-4 py-5 flex flex-col gap-6 max-w-2xl mx-auto md:px-6 md:py-8">
       <h1 className="text-2xl font-bold text-text-primary leading-tight">이용안내</h1>
@@ -155,6 +184,28 @@ export default function CustomerGuidePage() {
             <polyline points="9 18 15 12 9 6"/>
           </svg>
         </Link>
+      </section>
+
+      {/* 일정 변경 요청 (가장 하단) */}
+      <section className="flex flex-col gap-3">
+        <h2 className="text-sm font-bold text-text-secondary uppercase tracking-wide">일정 변경</h2>
+        <div className="bg-surface rounded-2xl border border-border-subtle shadow-soft p-5 flex flex-col gap-3">
+          <div>
+            <p className="text-sm font-bold text-text-primary">일정 변경 요청</p>
+            <p className="text-xs text-text-secondary mt-1 leading-normal">
+              방문일 <span className="font-semibold text-text-primary">7일 전</span>까지 가능합니다.
+              <br />
+              이내 변경은 고객센터(<span className="text-text-secondary font-medium">031-759-4877</span>)로 직접 연락 바랍니다.
+            </p>
+          </div>
+          {upcomingSchedules.length > 0 ? (
+            <ScheduleChangeRequest upcomingSchedules={upcomingSchedules} />
+          ) : (
+            <div className="bg-surface-sunken rounded-xl px-4 py-3 text-center">
+              <p className="text-xs text-text-tertiary">변경할 예정 일정이 없습니다.</p>
+            </div>
+          )}
+        </div>
       </section>
     </div>
   )
