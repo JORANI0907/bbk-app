@@ -303,7 +303,7 @@ export default function CareManualEditPage() {
           {/* 섹션 사진 — 16:9 고정 비율 */}
           <div className="px-4 py-3 border-b border-border-subtle">
             {section.image_url ? (
-              <div className="relative w-full aspect-video rounded-xl overflow-hidden border border-border-subtle">
+              <div className="relative w-1/2 aspect-video rounded-xl overflow-hidden border border-border-subtle">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={section.image_url}

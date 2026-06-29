@@ -61,7 +61,7 @@ export function ImageViewer({ src, alt, variant = 'section' }: Props) {
   return (
     <>
       {/* 섹션 이미지 — 16:9 고정 비율 */}
-      <div className="relative w-full aspect-video rounded-xl overflow-hidden border border-border-subtle">
+      <div className="relative w-1/2 aspect-video rounded-xl overflow-hidden border border-border-subtle">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={src} alt={alt} className="w-full h-full object-cover" />
         {/* 확대 버튼 — amber 튀는 색상 */}
