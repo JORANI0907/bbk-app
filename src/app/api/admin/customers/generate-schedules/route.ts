@@ -144,6 +144,7 @@ export async function POST(request: NextRequest) {
         : null
 
     const toInsert = newDates.map(date => ({
+      customer_id: customer.id,
       business_name: customer.business_name,
       owner_name: customer.contact_name || customer.business_name,
       phone: customer.contact_phone || '',
