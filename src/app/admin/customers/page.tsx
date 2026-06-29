@@ -393,6 +393,9 @@ export default function AdminCustomersPage() {
     if (target) {
       setSelected(target)
       setIsNew(false)
+      setForm(toForm(target))
+      setVisitWeekdays(target.visit_weekdays ?? [])
+      setVisitMonthlyDates(target.visit_monthly_dates ?? [])
       router.replace('/admin/customers', { scroll: false })
     }
   }, [customers, searchParams, selected, router])
