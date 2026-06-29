@@ -12,13 +12,14 @@ export default async function CustomerSchedulePage() {
 
   const { data: customerRow } = await supabase
     .from('customers')
-    .select('id')
+    .select('id, drive_folder_url')
     .eq('user_id', session.userId)
     .maybeSingle()
 
   if (!customerRow) redirect('/customer')
 
   const customerId = customerRow.id
+  const customerDriveUrl = (customerRow as { drive_folder_url: string | null }).drive_folder_url
 
   const { data: schedules } = await supabase
     .from('service_schedules')
@@ -29,16 +30,32 @@ export default async function CustomerSchedulePage() {
 
   const allSchedules = (schedules ?? []) as ScheduleWithConstruction[]
 
+  // 완료된 일정의 closing_checklist를 별도 쿼리로 가져와 in-memory join
+  const completedIds = allSchedules.filter(s => s.status === 'completed').map(s => s.id)
+  const { data: closingsRaw } = completedIds.length > 0
+    ? await supabase
+        .from('closing_checklists')
+        .select('schedule_id, condition_score, recommended_services, customer_comment')
+        .in('schedule_id', completedIds)
+    : { data: [] as Array<{ schedule_id: string; condition_score: number | null; recommended_services: unknown; customer_comment: string | null }> }
+
+  const closingsBySchedule: Record<string, { condition_score: number | null; recommended_services: unknown; customer_comment: string | null }> = {}
+  for (const c of closingsRaw ?? []) {
+    closingsBySchedule[c.schedule_id] = {
+      condition_score: c.condition_score,
+      recommended_services: c.recommended_services,
+      customer_comment: c.customer_comment,
+    }
+  }
+
   const today = new Date().toISOString().slice(0, 10)
 
-  // 예정: 오늘 이후 날짜이면서 완료/취소 처리되지 않은 일정
   const upcoming = allSchedules.filter((s) =>
     s.scheduled_date >= today &&
     s.status !== 'completed' &&
     s.status !== 'cancelled'
   )
 
-  // 완료: 날짜가 지났거나 완료/취소 처리된 일정
   const past = allSchedules.filter((s) =>
     s.scheduled_date < today ||
     s.status === 'completed' ||
@@ -48,7 +65,12 @@ export default async function CustomerSchedulePage() {
   return (
     <div className="px-4 py-5 flex flex-col gap-4 max-w-2xl mx-auto">
       <ScheduleChangeNoticeBar />
-      <ScheduleTabs upcoming={upcoming} past={past} />
+      <ScheduleTabs
+        upcoming={upcoming}
+        past={past}
+        driveFolderUrl={customerDriveUrl}
+        closingsBySchedule={closingsBySchedule}
+      />
     </div>
   )
 }

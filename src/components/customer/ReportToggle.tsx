@@ -3,14 +3,13 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { ChevronRight } from 'lucide-react'
-import { ScheduleCard, ScheduleWithConstruction } from './ScheduleCard'
-import { CompletedScheduleCard, CompletedScheduleData } from './CompletedScheduleCard'
+import { ScheduleListCard, ScheduleListItem } from './ScheduleListCard'
 
 type Tab = 'upcoming' | 'completed'
 
 interface Props {
-  upcomingSchedules: ScheduleWithConstruction[]
-  completedSchedules: CompletedScheduleData[]
+  upcomingSchedules: ScheduleListItem[]
+  completedSchedules: ScheduleListItem[]
   driveFolderUrl?: string | null
 }
 
@@ -21,6 +20,8 @@ export function ReportToggle({ upcomingSchedules, completedSchedules, driveFolde
     { value: 'upcoming', label: '예정', count: upcomingSchedules.length },
     { value: 'completed', label: '완료', count: completedSchedules.length },
   ]
+
+  const schedules = tab === 'upcoming' ? upcomingSchedules : completedSchedules
 
   return (
     <section>
@@ -66,48 +67,26 @@ export function ReportToggle({ upcomingSchedules, completedSchedules, driveFolde
 
         {/* 콘텐츠 */}
         <div className="p-3">
-          {tab === 'upcoming' && (
-            <>
-              {upcomingSchedules.length > 0 ? (
-                <div className="flex flex-col gap-2">
-                  {upcomingSchedules.map(s => (
-                    <Link key={s.id} href={`/customer/schedule/${s.id}`} className="block">
-                      <ScheduleCard
-                        schedule={s}
-                        workerName={(s.worker as { name?: string } | null)?.name}
-                      />
-                    </Link>
-                  ))}
-                </div>
-              ) : (
-                <div className="py-8 text-center">
-                  <p className="text-sm text-text-secondary font-medium">예정된 서비스가 없습니다</p>
-                  <p className="text-xs text-text-tertiary mt-1">담당자에게 문의해주세요.</p>
-                </div>
-              )}
-            </>
-          )}
-
-          {tab === 'completed' && (
-            <>
-              {completedSchedules.length > 0 ? (
-                <div className="flex flex-col gap-2">
-                  {completedSchedules.map(s => (
-                    <CompletedScheduleCard
-                      key={s.id}
-                      schedule={s}
-                      detailHref={`/customer/schedule/${s.id}`}
-                      driveFolderUrl={driveFolderUrl}
-                    />
-                  ))}
-                </div>
-              ) : (
-                <div className="py-8 text-center">
-                  <p className="text-sm text-text-secondary font-medium">완료된 서비스가 없습니다</p>
-                  <p className="text-xs text-text-tertiary mt-1">서비스 완료 후 표시됩니다.</p>
-                </div>
-              )}
-            </>
+          {schedules.length > 0 ? (
+            <div className="flex flex-col gap-2">
+              {schedules.map(s => (
+                <ScheduleListCard
+                  key={s.id}
+                  schedule={s}
+                  detailHref={`/customer/schedule/${s.id}`}
+                  driveFolderUrl={driveFolderUrl}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="py-8 text-center">
+              <p className="text-sm text-text-secondary font-medium">
+                {tab === 'upcoming' ? '예정된 서비스가 없습니다' : '완료된 서비스가 없습니다'}
+              </p>
+              <p className="text-xs text-text-tertiary mt-1">
+                {tab === 'upcoming' ? '담당자에게 문의해주세요.' : '서비스 완료 후 표시됩니다.'}
+              </p>
+            </div>
           )}
         </div>
       </div>

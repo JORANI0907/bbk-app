@@ -3,10 +3,9 @@ import { getCustomerSession } from '@/lib/session'
 import { redirect } from 'next/navigation'
 import { format, addMonths } from 'date-fns'
 import { NoticesSection } from '@/components/customer/NoticesSection'
-import { ScheduleWithConstruction } from '@/components/customer/ScheduleCard'
 import { CircularGauge } from '@/components/customer/CircularGauge'
 import { ReportToggle } from '@/components/customer/ReportToggle'
-import { CompletedScheduleData } from '@/components/customer/CompletedScheduleCard'
+import { ScheduleListItem } from '@/components/customer/ScheduleListCard'
 import {
   CustomerGrade,
   RecentScheduleRow,
@@ -165,7 +164,7 @@ export default async function CustomerHomePage() {
       : Promise.resolve({ data: null }),
   ])
 
-  const upcomingSchedules = (upcomingResult.data ?? []) as ScheduleWithConstruction[]
+  const upcomingSchedules = (upcomingResult.data ?? []) as ScheduleListItem[]
   const rawCompleted = (completedSchedulesResult.data ?? []) as Array<{ id: string } & Record<string, unknown>>
 
   // closing_checklists는 별도 쿼리로 in-memory join (PostgREST nested embed 우회)
@@ -189,7 +188,7 @@ export default async function CustomerHomePage() {
   const completedSchedules = rawCompleted.map((s) => ({
     ...s,
     closing_checklists: closingsBySchedule.has(s.id) ? [closingsBySchedule.get(s.id)!] : [],
-  })) as unknown as CompletedScheduleData[]
+  })) as unknown as ScheduleListItem[]
 
   type NoticeItem = {
     id: string; title: string; content: string

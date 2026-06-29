@@ -1,9 +1,9 @@
 'use client'
 
 import { useState, useMemo } from 'react'
-import Link from 'next/link'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
-import { ScheduleCard, ScheduleWithConstruction } from './ScheduleCard'
+import { ScheduleListCard, ScheduleListItem } from './ScheduleListCard'
+import { ScheduleWithConstruction } from './ScheduleCard'
 
 export type { ScheduleWithConstruction }
 
@@ -13,6 +13,8 @@ type TypeFilter = '딥케어' | '엔드케어'
 interface Props {
   upcoming: ScheduleWithConstruction[]
   past: ScheduleWithConstruction[]
+  driveFolderUrl?: string | null
+  closingsBySchedule?: Record<string, { condition_score: number | null; recommended_services: unknown; customer_comment: string | null }>
 }
 
 const MONTH_LABELS = ['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월']
@@ -28,7 +30,7 @@ function classifyStatus(s: ScheduleWithConstruction, today: string): StatusFilte
   return '완료'
 }
 
-export function ScheduleTabs({ upcoming, past }: Props) {
+export function ScheduleTabs({ upcoming, past, driveFolderUrl, closingsBySchedule }: Props) {
   const now = new Date()
   const todayStr = now.toISOString().slice(0, 10)
 
@@ -234,15 +236,22 @@ export function ScheduleTabs({ upcoming, past }: Props) {
           </div>
         </div>
       ) : (
-        <div className="flex flex-col gap-3">
-          {filteredSchedules.map(s => (
-            <Link key={s.id} href={`/customer/schedule/${s.id}`} className="block">
-              <ScheduleCard
-                schedule={s}
-                workerName={(s.worker as { name?: string } | null)?.name}
+        <div className="flex flex-col gap-2">
+          {filteredSchedules.map(s => {
+            const closing = closingsBySchedule?.[s.id]
+            const item: ScheduleListItem = {
+              ...(s as unknown as ScheduleListItem),
+              closing_checklists: closing ? [closing] : [],
+            }
+            return (
+              <ScheduleListCard
+                key={s.id}
+                schedule={item}
+                detailHref={`/customer/schedule/${s.id}`}
+                driveFolderUrl={driveFolderUrl ?? null}
               />
-            </Link>
-          ))}
+            )
+          })}
           {totalCompleted > 0 && (
             <div className="text-center py-1">
               <span className="text-xs text-text-tertiary bg-surface-sunken px-3 py-1.5 rounded-full">
