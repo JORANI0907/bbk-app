@@ -5,8 +5,15 @@ import Link from 'next/link'
 import { format } from 'date-fns'
 import { NoticesSection } from '@/components/customer/NoticesSection'
 import { ScheduleCard, ScheduleWithConstruction } from '@/components/customer/ScheduleCard'
-
-type CustomerGrade = '화이트' | '블루' | '블랙'
+import { CircularGauge } from '@/components/customer/CircularGauge'
+import {
+  CustomerGrade,
+  RecentScheduleRow,
+  RecommendedServiceRaw,
+  calcComfortIndex,
+  calcOuterComfortIndex,
+  calcProgressPct,
+} from '@/lib/customer-indices'
 
 const GRADE_TIER: Record<CustomerGrade, { abbr: string; year: string; activeNode: string; futureNode: string }> = {
   '화이트': {
@@ -26,9 +33,6 @@ const GRADE_TIER: Record<CustomerGrade, { abbr: string; year: string; activeNode
   },
 }
 
-const CONDITION_SCORE_POINTS: Record<number, number> = { 1: 100, 2: 80, 3: 50 }
-const PRIORITY_POINTS: Record<string, number> = { high: 30, medium: 40, low: 50 }
-
 const CONDITION_META: Record<number, { label: string; text: string; bg: string; border: string; dot: string }> = {
   1: { label: '양호', text: 'text-green-700', bg: 'bg-green-50', border: 'border-green-200', dot: 'bg-green-500' },
   2: { label: '주의', text: 'text-yellow-700', bg: 'bg-yellow-50', border: 'border-yellow-200', dot: 'bg-yellow-500' },
@@ -41,86 +45,10 @@ const PRIORITY_CHIP: Record<string, { label: string; chip: string }> = {
   low: { label: '관심', chip: 'bg-surface-sunken text-text-secondary border-border' },
 }
 
-type RecommendedServiceRaw = { name: string; reason?: string; priority: string }
-
-interface ClosingChecklistRow {
-  condition_score: number | null
-  recommended_services: unknown
-  customer_comment: string | null
-}
-
-interface RecentScheduleRow {
-  id: string
-  scheduled_date: string
-  closing_checklists: ClosingChecklistRow[] | null
-}
-
 function formatDateKo(dateStr: string | null): string {
   if (!dateStr) return '날짜 미정'
   const [, m, d] = dateStr.slice(0, 10).split('-')
   return `${parseInt(m, 10)}월 ${parseInt(d, 10)}일`
-}
-
-function gaugeStrokeColor(pct: number | null): string {
-  if (pct === null) return '#94a3b8'
-  if (pct >= 85) return '#34d399'
-  if (pct >= 65) return '#fbbf24'
-  return '#f87171'
-}
-
-function CircularGauge({
-  pct,
-  displayTop,
-  displaySub,
-  title,
-}: {
-  pct: number | null
-  displayTop: string
-  displaySub: string
-  title: string
-}) {
-  const S = 72
-  const sw = 7
-  const r = (S - sw) / 2
-  const circ = 2 * Math.PI * r
-  const offset = circ * (1 - (pct ?? 0) / 100)
-  const color = gaugeStrokeColor(pct)
-  return (
-    <div className="flex flex-col items-center gap-1.5">
-      <div className="relative" style={{ width: S, height: S }}>
-        <svg
-          width={S}
-          height={S}
-          style={{ transform: 'rotate(-90deg)', display: 'block' }}
-        >
-          <circle
-            cx={S / 2}
-            cy={S / 2}
-            r={r}
-            fill="none"
-            stroke="rgba(255,255,255,0.15)"
-            strokeWidth={sw}
-          />
-          <circle
-            cx={S / 2}
-            cy={S / 2}
-            r={r}
-            fill="none"
-            stroke={color}
-            strokeWidth={sw}
-            strokeLinecap="round"
-            strokeDasharray={`${circ}`}
-            strokeDashoffset={`${offset}`}
-          />
-        </svg>
-        <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <span className="text-base font-black text-white leading-none">{displayTop}</span>
-          <span className="text-[9px] text-white/70 leading-none mt-0.5">{displaySub}</span>
-        </div>
-      </div>
-      <p className="text-[9px] font-semibold text-white/70 text-center leading-tight break-keep">{title}</p>
-    </div>
-  )
 }
 
 function GradeProgressCard({ currentGrade }: { currentGrade: CustomerGrade }) {
@@ -264,35 +192,11 @@ export default async function CustomerHomePage() {
 
   const recentSchedules = (recentReportsResult.data ?? []) as RecentScheduleRow[]
 
-  // 쾌적 지수: 최근 5개 완료 일정의 condition_score 평균
-  const comfortIndex = (() => {
-    const scores = recentSchedules
-      .map(r => r.closing_checklists?.[0]?.condition_score ?? null)
-      .filter((s): s is number => s !== null)
-      .map(s => CONDITION_SCORE_POINTS[s] ?? 0)
-    if (scores.length === 0) return null
-    return Math.round(scores.reduce((a, b) => a + b, 0) / scores.length)
-  })()
-
-  // 범위 외 쾌적 지수: recommended_services priority 평균 (30–50 → 0–100 정규화)
-  const outerComfortIndex = (() => {
-    const points = recentSchedules.flatMap(r => {
-      const recs = r.closing_checklists?.[0]?.recommended_services
-      if (!Array.isArray(recs)) return []
-      return (recs as RecommendedServiceRaw[]).map(s => PRIORITY_POINTS[s.priority] ?? 40)
-    })
-    if (points.length === 0) return null
-    const avgRaw = points.reduce((a, b) => a + b, 0) / points.length
-    return Math.round((avgRaw - 30) / 20 * 100)
-  })()
-
-  // 이번달 진행률: completed / total * 100
-  const progressPct = (() => {
-    const schedules = (thisMonthSchedulesResult.data ?? []) as { id: string; status: string }[]
-    if (schedules.length === 0) return null
-    const completed = schedules.filter(s => s.status === 'completed').length
-    return Math.round(completed / schedules.length * 100)
-  })()
+  const comfortIndex = calcComfortIndex(recentSchedules)
+  const outerComfortIndex = calcOuterComfortIndex(recentSchedules)
+  const progressPct = calcProgressPct(
+    (thisMonthSchedulesResult.data ?? []) as { id: string; status: string }[]
+  )
 
   const savingsAmount = (() => {
     if (customer?.billing_cycle !== '연간' || !customer?.billing_amount) return null
