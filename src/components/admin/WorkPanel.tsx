@@ -273,82 +273,87 @@ export function WorkPanel({ app, onUpdate, isAdmin = false }: Props) {
             )}
           </div>
 
-          {/* 사진 업로드 체크 */}
-          <div className="bg-gray-50 rounded-xl p-3 space-y-2">
-            <p className="text-xs font-semibold text-gray-600">사진 업로드 확인</p>
-            {app.drive_folder_url ? (
-              <a
-                href={app.drive_folder_url}
-                target="_blank"
-                rel="noreferrer"
-                className="flex items-center justify-center gap-2 w-full py-2.5 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-bold text-sm rounded-xl transition-colors"
-              >
-                <Folder size={15} /> 드라이브 폴더 확인
-              </a>
-            ) : (
-              <div className="flex items-center justify-center gap-2 w-full py-2.5 bg-gray-200 text-gray-400 font-bold text-sm rounded-xl select-none">
-                <Folder size={15} /> 드라이브 폴더 미생성
+          {/* ── 작업 정보 섹션 박스 (파란색) ── */}
+          <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4 space-y-3">
+            <p className="text-xs font-bold text-blue-700">작업 내용</p>
+
+            {/* 사진 업로드 체크 */}
+            <div className="bg-white rounded-xl p-3 space-y-2">
+              <p className="text-xs font-semibold text-gray-600">사진 업로드 확인</p>
+              {app.drive_folder_url ? (
+                <a
+                  href={app.drive_folder_url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex items-center justify-center gap-2 w-full py-2.5 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-bold text-sm rounded-xl transition-colors"
+                >
+                  <Folder size={15} /> 드라이브 폴더 확인
+                </a>
+              ) : (
+                <div className="flex items-center justify-center gap-2 w-full py-2.5 bg-gray-200 text-gray-400 font-bold text-sm rounded-xl select-none">
+                  <Folder size={15} /> 드라이브 폴더 미생성
+                </div>
+              )}
+              <p className="text-xs text-gray-400">Drive에서 전/후 사진 업로드 후 체크해주세요.</p>
+              <div className="space-y-1.5">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input type="checkbox" checked={beforeChecked} onChange={e => setBeforeChecked(e.target.checked)}
+                    className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
+                  <span className="text-xs text-gray-700">작업 전 사진 업로드 완료</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input type="checkbox" checked={afterChecked} onChange={e => setAfterChecked(e.target.checked)}
+                    className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
+                  <span className="text-xs text-gray-700">작업 후 사진 업로드 완료</span>
+                </label>
               </div>
-            )}
-            <p className="text-xs text-gray-400">Drive에서 전/후 사진 업로드 후 체크해주세요.</p>
-            <div className="space-y-1.5">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input type="checkbox" checked={beforeChecked} onChange={e => setBeforeChecked(e.target.checked)}
-                  className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
-                <span className="text-xs text-gray-700">작업 전 사진 업로드 완료</span>
-              </label>
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input type="checkbox" checked={afterChecked} onChange={e => setAfterChecked(e.target.checked)}
-                  className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
-                <span className="text-xs text-gray-700">작업 후 사진 업로드 완료</span>
-              </label>
             </div>
-          </div>
 
-          {/* 메모 */}
-          <div>
-            <label className="text-xs font-semibold text-gray-600 mb-1 block">
-              고객 전달 특이사항 <span className="text-red-400">*</span>
-            </label>
-            <textarea value={customerMemo} onChange={e => setCustomerMemo(e.target.value)} onBlur={saveMemos}
-              placeholder="고객에게 전달할 내용 (완료 알림에 포함됩니다)" rows={3}
-              className="w-full text-xs text-gray-900 border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none" />
-          </div>
-          <div>
-            <label className="text-xs font-semibold text-gray-600 mb-1 block">내부 메모</label>
-            <textarea value={internalMemo} onChange={e => setInternalMemo(e.target.value)} onBlur={saveMemos}
-              placeholder="내부 참고용 (고객에게 발송되지 않음)" rows={2}
-              className="w-full text-xs text-gray-900 border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none bg-gray-50" />
-          </div>
+            {/* 메모 */}
+            <div>
+              <label className="text-xs font-semibold text-gray-600 mb-1 block">
+                고객 전달 특이사항 <span className="text-red-400">*</span>
+              </label>
+              <textarea value={customerMemo} onChange={e => setCustomerMemo(e.target.value)} onBlur={saveMemos}
+                placeholder="고객에게 전달할 내용 (완료 알림에 포함됩니다)" rows={3}
+                className="w-full text-xs text-gray-900 border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none bg-white" />
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-gray-600 mb-1 block">내부 메모</label>
+              <textarea value={internalMemo} onChange={e => setInternalMemo(e.target.value)} onBlur={saveMemos}
+                placeholder="내부 참고용 (고객에게 발송되지 않음)" rows={2}
+                className="w-full text-xs text-gray-900 border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none bg-blue-50" />
+            </div>
 
-          {/* 정기딥케어·정기엔드케어 전용: 전반적 상태 + 추천 서비스 */}
-          {isRegularService && (
-            <div className="space-y-3">
-              <div>
-                <p className="text-xs font-semibold text-gray-600 mb-1.5">
-                  전반적 상태 (작업 후) <span className="text-red-400">*</span>
-                </p>
-                <div className="grid grid-cols-3 gap-2">
-                  {CONDITION_OPTIONS.map((opt) => (
-                    <button key={opt.value} type="button" onClick={() => setConditionScore(opt.value)}
-                      className={`py-2 rounded-xl border-2 text-xs font-bold transition-colors ${conditionScore === opt.value ? opt.activeTone : 'border-gray-200 bg-white text-gray-500'}`}>
-                      {opt.label}
-                    </button>
-                  ))}
+            {/* 정기딥케어·정기엔드케어 전용: 전반적 상태 + 추천 서비스 */}
+            {isRegularService && (
+              <div className="space-y-3">
+                <div>
+                  <p className="text-xs font-semibold text-gray-600 mb-1.5">
+                    전반적 상태 (작업 후) <span className="text-red-400">*</span>
+                  </p>
+                  <div className="grid grid-cols-3 gap-2">
+                    {CONDITION_OPTIONS.map((opt) => (
+                      <button key={opt.value} type="button" onClick={() => setConditionScore(opt.value)}
+                        className={`py-2 rounded-xl border-2 text-xs font-bold transition-colors ${conditionScore === opt.value ? opt.activeTone : 'border-gray-200 bg-white text-gray-500'}`}>
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <p className="text-xs font-semibold text-gray-600 mb-1.5">
+                    추가 서비스 추천 <span className="text-red-400">*</span>
+                  </p>
+                  <RecommendServicePicker
+                    serviceType={app.service_type as '정기딥케어' | '정기엔드케어'}
+                    value={recommendations}
+                    onChange={setRecommendations}
+                  />
                 </div>
               </div>
-              <div>
-                <p className="text-xs font-semibold text-gray-600 mb-1.5">
-                  추가 서비스 추천 <span className="text-red-400">*</span>
-                </p>
-                <RecommendServicePicker
-                  serviceType={app.service_type as '정기딥케어' | '정기엔드케어'}
-                  value={recommendations}
-                  onChange={setRecommendations}
-                />
-              </div>
-            </div>
-          )}
+            )}
+          </div>
 
           {!canComplete && (
             <div className="text-xs text-gray-400 space-y-0.5">
@@ -438,8 +443,8 @@ export function WorkPanel({ app, onUpdate, isAdmin = false }: Props) {
 
           {/* 관리자 전용: 리포트 재저장 */}
           {isAdmin && (
-            <div className="border-t border-border-subtle pt-3 space-y-3">
-              <p className="text-xs font-bold text-text-primary">고객 리포트 수정</p>
+            <div className="bg-purple-50 border border-purple-200 rounded-2xl p-4 space-y-3">
+              <p className="text-xs font-bold text-purple-700">고객 리포트 수정</p>
 
               <div>
                 <label className="text-xs font-semibold text-text-secondary mb-1.5 block">작업 상태</label>
@@ -524,7 +529,7 @@ export function WorkPanel({ app, onUpdate, isAdmin = false }: Props) {
                   finally { setReportSaving(false) }
                 }}
                 disabled={reportSaving}
-                className="w-full py-2.5 bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white text-xs font-bold rounded-xl transition-colors"
+                className="w-full py-2.5 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white text-xs font-bold rounded-xl transition-colors"
               >
                 {reportSaving ? '저장 중...' : '리포트 재저장'}
               </button>
