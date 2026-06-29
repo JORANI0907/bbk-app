@@ -43,8 +43,15 @@ export async function middleware(request: NextRequest) {
     // 공개 경로 (정적 HTML 포함)
     if (pathname.endsWith('.html')) return NextResponse.next()
 
-    const publicPaths = ['/login', '/signup', '/install', '/quote', '/bbk-care', '/sign', '/portal-preview', '/api/auth', '/api/sms', '/api/admin', '/api/webhooks', '/api/form', '/api/cron', '/api/contracts', '/api/push', '/api/juso', '/services', '/terms', '/privacy', '/refund', '/company', '/apply', '/api/apply']
-    const isPublic = publicPaths.some(p => pathname.startsWith(p))
+    // 데모 진입 경로 (비로그인 사용자가 PG/서비스 안내 확인용)
+    const isDemoPath =
+      pathname === '/' ||
+      pathname === '/schedule' ||
+      pathname === '/care-manual' ||
+      pathname === '/guide'
+
+    const publicPaths = ['/login', '/signup', '/install', '/quote', '/bbk-care', '/sign', '/portal-preview', '/api/auth', '/api/sms', '/api/admin', '/api/webhooks', '/api/form', '/api/cron', '/api/contracts', '/api/push', '/api/juso', '/terms', '/privacy', '/apply', '/api/apply']
+    const isPublic = isDemoPath || publicPaths.some(p => pathname.startsWith(p))
 
     const sessionToken = request.cookies.get('bbk_session')?.value
     const session = sessionToken ? await verifySession(sessionToken) : null

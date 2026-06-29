@@ -4,6 +4,7 @@ import { Toaster } from 'react-hot-toast'
 import { AuthProvider } from '@/components/AuthProvider'
 import { SplashScreen } from '@/components/SplashScreen'
 import { SwUpdateReloader } from '@/components/SwUpdateReloader'
+import { GlobalFooter } from '@/components/GlobalFooter'
 import './globals.css'
 
 const notoSansKR = Noto_Sans_KR({
@@ -52,6 +53,7 @@ export default function RootLayout({
         <SplashScreen />
         <AuthProvider>
           {children}
+          <GlobalFooter />
         </AuthProvider>
         <Toaster
           position="top-center"
