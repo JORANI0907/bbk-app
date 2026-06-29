@@ -18,12 +18,16 @@ export async function POST(
     const formData = await req.formData()
     const file = formData.get('file') as File | null
     const si = formData.get('si') as string | null
+    const ii = formData.get('ii') as string | null
 
     if (!file) return NextResponse.json({ error: '파일 없음' }, { status: 400 })
 
     const arrayBuffer = await file.arrayBuffer()
     const buffer = Buffer.from(arrayBuffer)
-    const path = `${id}/${si ?? '0'}_${Date.now()}.webp`
+    // ii 있으면 항목 이미지, 없으면 섹션 이미지
+    const path = ii !== null
+      ? `${id}/s${si ?? '0'}_i${ii}_${Date.now()}.webp`
+      : `${id}/s${si ?? '0'}_${Date.now()}.webp`
 
     const supabase = createServiceClient()
     const { error } = await supabase.storage.from(BUCKET).upload(path, buffer, {

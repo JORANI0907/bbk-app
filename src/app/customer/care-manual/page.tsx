@@ -60,20 +60,26 @@ export default async function CustomerCareManualPage() {
             <span className="text-sm font-bold text-text-primary">{section.section}</span>
           </div>
 
-          {/* 섹션 사진 */}
+          {/* 섹션 사진 — 16:9 비율 + amber 확대버튼 */}
           {section.image_url && (
             <div className="px-4 pt-3 pb-1">
-              <ImageViewer src={section.image_url} alt={section.section} />
+              <ImageViewer src={section.image_url} alt={section.section} variant="section" />
             </div>
           )}
 
           <div className="divide-y divide-border-subtle">
             {section.items.map((item, ii) => (
-              <div key={ii} className="px-5 py-3 flex gap-3 items-start">
-                <span className="text-sm font-medium text-text-primary w-28 shrink-0 break-keep">
-                  {item.label}
-                </span>
-                <span className="text-sm text-text-secondary flex-1">{item.desc}</span>
+              <div key={ii} className="px-5 py-3 flex flex-col gap-2">
+                <div className="flex gap-3 items-start">
+                  <span className="text-sm font-medium text-text-primary w-28 shrink-0 break-keep">
+                    {item.label}
+                  </span>
+                  <span className="text-sm text-text-secondary flex-1">{item.desc}</span>
+                </div>
+                {/* 항목 사진 — 원본 비율, 클릭 시 확대 */}
+                {item.image_url && (
+                  <ImageViewer src={item.image_url} alt={item.label} variant="item" />
+                )}
               </div>
             ))}
           </div>

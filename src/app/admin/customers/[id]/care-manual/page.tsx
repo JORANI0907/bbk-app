@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { Plus, Trash2, ChevronLeft, Save, GripVertical, ImagePlus, X } from 'lucide-react'
+import { Plus, Trash2, ChevronLeft, Save, GripVertical, ImagePlus, X, Maximize2 } from 'lucide-react'
 import { Button } from '@/components/ui'
 import toast from 'react-hot-toast'
 import type { CareManualSection, CareManualItem } from '@/types/care-manual'
@@ -49,6 +49,7 @@ export default function CareManualEditPage() {
   const [saving, setSaving] = useState(false)
   const [customerName, setCustomerName] = useState('')
   const [uploadingSi, setUploadingSi] = useState<number | null>(null)
+  const [uploadingItem, setUploadingItem] = useState<[number, number] | null>(null)
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null)
 
   // 브라우저 뒤로가기도 세부화면이 열린 채로 돌아가도록
@@ -167,7 +168,6 @@ export default function CareManualEditPage() {
 
   const removeImage = async (si: number) => {
     const url = sectionsRef.current[si]?.image_url
-    // ref로 최신 sections 참조하여 state와 DB 동시 업데이트
     const next = sectionsRef.current.map((s, i) => i === si ? { ...s, image_url: undefined } : s)
     setSections(next)
     try {
@@ -175,7 +175,64 @@ export default function CareManualEditPage() {
     } catch {
       toast.error('이미지 정보 저장 실패')
     }
-    // storage에서도 삭제
+    if (url) {
+      const marker = `${BUCKET}/`
+      const markerIdx = url.indexOf(marker)
+      if (markerIdx !== -1) {
+        const path = url.slice(markerIdx + marker.length)
+        await fetch(`/api/admin/customers/${id}/care-manual/image`, {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ path }),
+        }).catch(() => {})
+      }
+    }
+  }
+
+  const handleItemImageUpload = async (si: number, ii: number, file: File) => {
+    try {
+      setUploadingItem([si, ii])
+      const blob = await compressImage(file)
+      const form = new FormData()
+      form.append('file', blob, `s${si}_i${ii}_${Date.now()}.webp`)
+      form.append('si', String(si))
+      form.append('ii', String(ii))
+      const res = await fetch(`/api/admin/customers/${id}/care-manual/image`, { method: 'POST', body: form })
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}))
+        throw new Error(body.error ?? '업로드 실패')
+      }
+      const { url } = await res.json() as { url: string }
+      const next = sectionsRef.current.map((s, si2) =>
+        si2 !== si ? s : {
+          ...s,
+          items: s.items.map((item, ii2) => ii2 === ii ? { ...item, image_url: url } : item)
+        }
+      )
+      setSections(next)
+      await putSections(next)
+      toast.success('항목 사진 업로드 완료')
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : '사진 업로드 실패')
+    } finally {
+      setUploadingItem(null)
+    }
+  }
+
+  const removeItemImage = async (si: number, ii: number) => {
+    const url = sectionsRef.current[si]?.items[ii]?.image_url
+    const next = sectionsRef.current.map((s, si2) =>
+      si2 !== si ? s : {
+        ...s,
+        items: s.items.map((item, ii2) => ii2 === ii ? { ...item, image_url: undefined } : item)
+      }
+    )
+    setSections(next)
+    try {
+      await putSections(next)
+    } catch {
+      toast.error('이미지 정보 저장 실패')
+    }
     if (url) {
       const marker = `${BUCKET}/`
       const markerIdx = url.indexOf(marker)
@@ -211,9 +268,9 @@ export default function CareManualEditPage() {
             {customerName || '고객'}
           </h1>
         </div>
-        <Button onClick={handleSave} disabled={saving || uploadingSi !== null} size="sm">
+        <Button onClick={handleSave} disabled={saving || uploadingSi !== null || uploadingItem !== null} size="sm">
           <Save size={14} className="mr-1" />
-          {saving ? '저장 중...' : uploadingSi !== null ? '업로드 중...' : '저장'}
+          {saving ? '저장 중...' : (uploadingSi !== null || uploadingItem !== null) ? '업로드 중...' : '저장'}
         </Button>
       </div>
 
@@ -243,28 +300,32 @@ export default function CareManualEditPage() {
             </button>
           </div>
 
-          {/* 섹션 사진 */}
+          {/* 섹션 사진 — 16:9 고정 비율 */}
           <div className="px-4 py-3 border-b border-border-subtle">
             {section.image_url ? (
-              <div className="relative">
+              <div className="relative w-full aspect-video rounded-xl overflow-hidden border border-border-subtle">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={section.image_url}
+                  alt={section.section}
+                  className="w-full h-full object-cover"
+                />
+                {/* 확대 버튼 — 튀는 amber 색상 */}
                 <button
                   type="button"
                   onClick={() => setLightboxUrl(section.image_url!)}
-                  className="w-full overflow-hidden rounded-xl border border-border-subtle block"
+                  className="absolute top-2 right-10 p-1.5 rounded-lg bg-amber-400 hover:bg-amber-300 text-black transition-colors shadow-sm"
+                  title="확대 보기"
                 >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={section.image_url}
-                    alt={section.section}
-                    className="w-full object-cover max-h-48"
-                  />
+                  <Maximize2 size={13} />
                 </button>
+                {/* 삭제 버튼 */}
                 <button
                   type="button"
                   onClick={() => removeImage(si)}
-                  className="absolute top-2 right-2 p-1 rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors"
+                  className="absolute top-2 right-2 p-1.5 rounded-lg bg-black/50 text-white hover:bg-black/70 transition-colors"
                 >
-                  <X size={14} />
+                  <X size={13} />
                 </button>
               </div>
             ) : (
@@ -284,7 +345,7 @@ export default function CareManualEditPage() {
                 ) : (
                   <>
                     <ImagePlus size={14} />
-                    <span>사진 추가 (선택)</span>
+                    <span>섹션 사진 추가 (선택)</span>
                   </>
                 )}
               </label>
@@ -294,27 +355,75 @@ export default function CareManualEditPage() {
           {/* 항목 목록 */}
           <div className="divide-y divide-border-subtle">
             {section.items.map((item, ii) => (
-              <div key={ii} className="px-4 py-3 flex gap-3 items-start">
-                <div className="flex-1 grid grid-cols-2 gap-2">
-                  <input
-                    value={item.label}
-                    onChange={e => updateItem(si, ii, 'label', e.target.value)}
-                    placeholder="항목명"
-                    className="text-sm bg-surface-sunken rounded-lg px-3 py-2 outline-none focus:ring-1 focus:ring-brand-600 text-text-primary placeholder:text-text-tertiary"
-                  />
-                  <input
-                    value={item.desc}
-                    onChange={e => updateItem(si, ii, 'desc', e.target.value)}
-                    placeholder="설명"
-                    className="text-sm bg-surface-sunken rounded-lg px-3 py-2 outline-none focus:ring-1 focus:ring-brand-600 text-text-primary placeholder:text-text-tertiary"
-                  />
+              <div key={ii} className="px-4 py-3 flex flex-col gap-2">
+                {/* 입력 행 */}
+                <div className="flex gap-3 items-start">
+                  <div className="flex-1 grid grid-cols-2 gap-2">
+                    <input
+                      value={item.label}
+                      onChange={e => updateItem(si, ii, 'label', e.target.value)}
+                      placeholder="항목명"
+                      className="text-sm bg-surface-sunken rounded-lg px-3 py-2 outline-none focus:ring-1 focus:ring-brand-600 text-text-primary placeholder:text-text-tertiary"
+                    />
+                    <input
+                      value={item.desc}
+                      onChange={e => updateItem(si, ii, 'desc', e.target.value)}
+                      placeholder="설명"
+                      className="text-sm bg-surface-sunken rounded-lg px-3 py-2 outline-none focus:ring-1 focus:ring-brand-600 text-text-primary placeholder:text-text-tertiary"
+                    />
+                  </div>
+                  <button
+                    onClick={() => removeItem(si, ii)}
+                    className="p-1.5 mt-1 rounded-lg hover:bg-state-danger-bg text-text-tertiary hover:text-state-danger transition-colors shrink-0"
+                  >
+                    <Trash2 size={14} />
+                  </button>
                 </div>
-                <button
-                  onClick={() => removeItem(si, ii)}
-                  className="p-1.5 mt-1 rounded-lg hover:bg-state-danger-bg text-text-tertiary hover:text-state-danger transition-colors shrink-0"
-                >
-                  <Trash2 size={14} />
-                </button>
+                {/* 항목 사진 — 원본 비율, 소형 */}
+                {item.image_url ? (
+                  <div className="relative inline-block self-start">
+                    <button
+                      type="button"
+                      onClick={() => setLightboxUrl(item.image_url!)}
+                      className="block rounded-lg overflow-hidden border border-border-subtle"
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={item.image_url}
+                        alt={item.label}
+                        className="max-h-20 w-auto object-contain"
+                      />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => removeItemImage(si, ii)}
+                      className="absolute -top-1.5 -right-1.5 p-0.5 rounded-full bg-black/60 text-white hover:bg-black/80 transition-colors"
+                    >
+                      <X size={11} />
+                    </button>
+                  </div>
+                ) : (
+                  <label className="flex items-center gap-1.5 text-xs text-text-tertiary hover:text-brand-600 cursor-pointer transition-colors w-fit">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={e => {
+                        const file = e.target.files?.[0]
+                        if (file) handleItemImageUpload(si, ii, file)
+                        e.target.value = ''
+                      }}
+                    />
+                    {uploadingItem && uploadingItem[0] === si && uploadingItem[1] === ii ? (
+                      <span className="animate-pulse">업로드 중...</span>
+                    ) : (
+                      <>
+                        <ImagePlus size={12} />
+                        <span>항목 사진</span>
+                      </>
+                    )}
+                  </label>
+                )}
               </div>
             ))}
           </div>
