@@ -72,14 +72,19 @@ export default function CareManualEditPage() {
     }
     try {
       setLoading(true)
-      const res = await fetch(`/api/admin/customers/${id}/care-manual`, { cache: 'no-store' })
+      // timestamp query param으로 모든 캐시(브라우저/CDN/SW) 우회
+      const res = await fetch(`/api/admin/customers/${id}/care-manual?t=${Date.now()}`, {
+        cache: 'no-store',
+        headers: { 'Cache-Control': 'no-cache' },
+      })
       if (!res.ok) {
         const body = await res.json().catch(() => ({}))
         throw new Error(`[GET ${res.status}] ${body.error ?? '불러오기 실패'}`)
       }
       const data = await res.json()
       const fetched = Array.isArray(data.sections) ? data.sections : []
-      console.log(`[care-manual GET] id=${id}, sections=${fetched.length}, business=${data.business_name}`)
+      const itemsCount = fetched[0]?.items?.length ?? 0
+      console.log(`[care-manual GET] id=${id}, sections=${fetched.length}, items_in_first=${itemsCount}, business=${data.business_name}`)
       setSections(fetched)
       setCustomerName(data.business_name ?? '')
     } catch (e) {
@@ -116,9 +121,9 @@ export default function CareManualEditPage() {
     try {
       setSaving(true)
       console.log(`[care-manual SAVE] id=${id}, sections=${sections.length}, payload=`, JSON.stringify(sections).slice(0, 300))
-      const res = await fetch(`/api/admin/customers/${id}/care-manual`, {
+      const res = await fetch(`/api/admin/customers/${id}/care-manual?t=${Date.now()}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-cache' },
         body: JSON.stringify({ sections }),
       })
       const body = await res.json().catch(() => ({}))

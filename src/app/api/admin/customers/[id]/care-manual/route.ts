@@ -4,6 +4,14 @@ import { getServerSession } from '@/lib/session'
 import type { CareManualSection } from '@/types/care-manual'
 
 export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
+// 브라우저 HTTP cache 완전 차단을 위한 공통 헤더 — force-dynamic만으론 부족
+const NO_CACHE_HEADERS = {
+  'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0',
+  'Pragma': 'no-cache',
+  'Expires': '0',
+} as const
 
 export async function GET(
   _req: NextRequest,
@@ -18,14 +26,22 @@ export async function GET(
       .eq('id', id)
       .single()
 
-    if (error || !data) return NextResponse.json({ sections: [], business_name: '', customer_type: '' })
-    return NextResponse.json({
-      sections: data.care_manual ?? [],
-      business_name: data.business_name ?? '',
-      customer_type: data.customer_type ?? '',
-    })
+    if (error || !data) {
+      return NextResponse.json(
+        { sections: [], business_name: '', customer_type: '' },
+        { headers: NO_CACHE_HEADERS }
+      )
+    }
+    return NextResponse.json(
+      {
+        sections: data.care_manual ?? [],
+        business_name: data.business_name ?? '',
+        customer_type: data.customer_type ?? '',
+      },
+      { headers: NO_CACHE_HEADERS }
+    )
   } catch {
-    return NextResponse.json({ error: '조회 실패' }, { status: 500 })
+    return NextResponse.json({ error: '조회 실패' }, { status: 500, headers: NO_CACHE_HEADERS })
   }
 }
 
@@ -72,11 +88,11 @@ export async function PUT(
       business_name: updated[0]?.business_name,
       sections: savedSections,
       sections_count: Array.isArray(savedSections) ? savedSections.length : 0,
-    })
+    }, { headers: NO_CACHE_HEADERS })
   } catch (e) {
     return NextResponse.json(
       { error: e instanceof Error ? e.message : '저장 실패' },
-      { status: 500 }
+      { status: 500, headers: NO_CACHE_HEADERS }
     )
   }
 }
