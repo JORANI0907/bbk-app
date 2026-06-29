@@ -9,7 +9,6 @@ import { CircularGauge } from '@/components/customer/CircularGauge'
 import {
   CustomerGrade,
   RecentScheduleRow,
-  RecommendedServiceRaw,
   calcComfortIndex,
   calcOuterComfortIndex,
   calcProgressPct,
@@ -31,24 +30,6 @@ const GRADE_TIER: Record<CustomerGrade, { abbr: string; year: string; activeNode
     activeNode: 'bg-gray-900 text-white ring-2 ring-gray-400 shadow-lg',
     futureNode: 'bg-gray-800/25 text-white/30',
   },
-}
-
-const CONDITION_META: Record<number, { label: string; text: string; bg: string; border: string; dot: string }> = {
-  1: { label: '양호', text: 'text-green-700', bg: 'bg-green-50', border: 'border-green-200', dot: 'bg-green-500' },
-  2: { label: '주의', text: 'text-yellow-700', bg: 'bg-yellow-50', border: 'border-yellow-200', dot: 'bg-yellow-500' },
-  3: { label: '불량', text: 'text-red-700', bg: 'bg-red-50', border: 'border-red-200', dot: 'bg-red-500' },
-}
-
-const PRIORITY_CHIP: Record<string, { label: string; chip: string }> = {
-  high: { label: '불량', chip: 'bg-red-50 text-red-700 border-red-200' },
-  medium: { label: '주의', chip: 'bg-yellow-50 text-yellow-700 border-yellow-200' },
-  low: { label: '관심', chip: 'bg-surface-sunken text-text-secondary border-border' },
-}
-
-function formatDateKo(dateStr: string | null): string {
-  if (!dateStr) return '날짜 미정'
-  const [, m, d] = dateStr.slice(0, 10).split('-')
-  return `${parseInt(m, 10)}월 ${parseInt(d, 10)}일`
 }
 
 function GradeProgressCard({ currentGrade }: { currentGrade: CustomerGrade }) {
@@ -194,12 +175,20 @@ export default async function CustomerHomePage() {
   const eventList = allNotices.filter(n => n.type === 'event')
 
   const recentSchedules = (recentReportsResult.data ?? []) as RecentScheduleRow[]
+  const monthlySchedules = (thisMonthSchedulesResult.data ?? []) as { id: string; status: string }[]
 
   const comfortIndex = calcComfortIndex(recentSchedules)
   const outerComfortIndex = calcOuterComfortIndex(recentSchedules)
-  const progressPct = calcProgressPct(
-    (thisMonthSchedulesResult.data ?? []) as { id: string; status: string }[]
-  )
+  const progressPct = calcProgressPct(monthlySchedules)
+
+  const comfortSampleCount = recentSchedules.filter(
+    (r) => r.closing_checklists?.[0]?.condition_score != null
+  ).length
+  const outerSampleCount = recentSchedules.filter(
+    (r) => Array.isArray(r.closing_checklists?.[0]?.recommended_services)
+      && (r.closing_checklists![0].recommended_services as unknown[]).length > 0
+  ).length
+  const monthlyCompletedCount = monthlySchedules.filter((s) => s.status === 'completed').length
 
   const savingsAmount = (() => {
     if (customer?.billing_cycle !== '연간' || !customer?.billing_amount) return null
@@ -246,18 +235,21 @@ export default async function CustomerHomePage() {
                 displayTop={comfortIndex !== null ? `${comfortIndex}` : '-'}
                 displaySub="점"
                 title="쾌적 지수"
+                caption={comfortSampleCount > 0 ? `최근 ${comfortSampleCount}회 기준` : '데이터 없음'}
               />
               <CircularGauge
                 pct={outerComfortIndex}
                 displayTop={outerComfortIndex !== null ? `${outerComfortIndex}` : '-'}
                 displaySub="점"
                 title="범위 외 쾌적"
+                caption={outerSampleCount > 0 ? `최근 ${outerSampleCount}회 기준` : '데이터 없음'}
               />
               <CircularGauge
                 pct={progressPct}
                 displayTop={progressPct !== null ? `${progressPct}` : '-'}
                 displaySub="%"
                 title="이번달 진행률"
+                caption={monthlySchedules.length > 0 ? `${monthlyCompletedCount}/${monthlySchedules.length}회` : '일정 없음'}
               />
             </div>
           )}
@@ -265,72 +257,6 @@ export default async function CustomerHomePage() {
         <div className="absolute -right-6 -top-6 w-28 h-28 rounded-full bg-white/10" />
         <div className="absolute -right-2 -bottom-8 w-20 h-20 rounded-full bg-white/10" />
       </div>
-
-      {/* 최근 관리 리포트 */}
-      {recentSchedules.length > 0 && (
-        <div>
-          <div className="flex items-center justify-between mb-2">
-            <p className="text-xs font-semibold text-brand-600 uppercase tracking-wide">최근 관리 리포트</p>
-            <Link href="/customer/reports" className="text-xs text-text-tertiary hover:text-text-secondary">
-              전체보기
-            </Link>
-          </div>
-          <div className="flex flex-col gap-2">
-            {recentSchedules.map(report => {
-              const closing = report.closing_checklists?.[0] ?? null
-              const cond = closing?.condition_score != null
-                ? CONDITION_META[closing.condition_score]
-                : null
-              const recs = Array.isArray(closing?.recommended_services)
-                ? (closing!.recommended_services as RecommendedServiceRaw[])
-                : []
-              return (
-                <div
-                  key={report.id}
-                  className="rounded-2xl border border-border-subtle bg-surface shadow-soft p-4"
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="text-sm font-semibold text-text-primary">
-                      {formatDateKo(report.scheduled_date)} 관리
-                    </p>
-                    {cond ? (
-                      <span className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full border ${cond.bg} ${cond.border} ${cond.text}`}>
-                        <span className={`w-1.5 h-1.5 rounded-full ${cond.dot}`} />
-                        {cond.label}
-                      </span>
-                    ) : (
-                      <span className="text-[11px] text-text-tertiary">상태 미입력</span>
-                    )}
-                  </div>
-                  {recs.length > 0 && (
-                    <div className="mt-2 flex flex-wrap gap-1">
-                      {recs.slice(0, 3).map(rec => {
-                        const meta = PRIORITY_CHIP[rec.priority]
-                        return (
-                          <span
-                            key={rec.name}
-                            className={`text-[10px] px-2 py-0.5 rounded-full border font-medium ${meta?.chip ?? 'bg-surface-sunken text-text-secondary border-border'}`}
-                          >
-                            {rec.name}
-                          </span>
-                        )
-                      })}
-                      {recs.length > 3 && (
-                        <span className="text-[10px] text-text-tertiary self-center">+{recs.length - 3}</span>
-                      )}
-                    </div>
-                  )}
-                  {closing?.customer_comment && (
-                    <p className="mt-1.5 text-xs text-text-secondary leading-relaxed break-keep line-clamp-2">
-                      {closing.customer_comment}
-                    </p>
-                  )}
-                </div>
-              )
-            })}
-          </div>
-        </div>
-      )}
 
       {/* 다음 방문 카드 */}
       <div>

@@ -5,6 +5,7 @@ interface CircularGaugeProps {
   displayTop: string
   displaySub: string
   title: string
+  caption?: string
   size?: number
   strokeWidth?: number
   variant?: 'dark' | 'light'
@@ -19,6 +20,7 @@ export function CircularGauge({
   displayTop,
   displaySub,
   title,
+  caption,
   size = 72,
   strokeWidth = 7,
   variant = 'dark',
@@ -32,6 +34,7 @@ export function CircularGauge({
   const topTextClass = variant === 'dark' ? 'text-white' : 'text-text-primary'
   const subTextClass = variant === 'dark' ? 'text-white/70' : 'text-text-tertiary'
   const titleClass = variant === 'dark' ? 'text-white/70' : 'text-text-secondary'
+  const captionClass = variant === 'dark' ? 'text-white/45' : 'text-text-tertiary'
 
   return (
     <div className="flex flex-col items-center gap-1.5">
@@ -69,6 +72,11 @@ export function CircularGauge({
       <p className={`text-[9px] font-semibold text-center leading-tight break-keep ${titleClass}`}>
         {title}
       </p>
+      {caption && (
+        <p className={`text-[8px] text-center leading-tight break-keep ${captionClass}`}>
+          {caption}
+        </p>
+      )}
     </div>
   )
 }

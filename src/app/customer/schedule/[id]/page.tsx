@@ -199,11 +199,18 @@ export default async function CustomerScheduleDetailPage({ params }: PageProps) 
     application = appData as ApplicationRow | null
   }
 
+  type ClosingChecklistRow = {
+    condition_score: number | null
+    recommended_services: unknown
+    customer_comment: string | null
+  }
+
   let photos: WorkPhoto[] = []
   let checklists: WorkChecklist[] = []
+  let closingChecklist: ClosingChecklistRow | null = null
 
   if (s.status === 'completed') {
-    const [photosRes, checklistsRes] = await Promise.all([
+    const [photosRes, checklistsRes, closingRes] = await Promise.all([
       supabase
         .from('work_photos')
         .select('*')
@@ -211,9 +218,32 @@ export default async function CustomerScheduleDetailPage({ params }: PageProps) 
         .in('photo_type', ['before', 'after'])
         .order('taken_at', { ascending: true }),
       supabase.from('work_checklists').select('*').eq('schedule_id', scheduleId),
+      supabase
+        .from('closing_checklists')
+        .select('condition_score, recommended_services, customer_comment')
+        .eq('schedule_id', scheduleId)
+        .maybeSingle(),
     ])
     photos     = (photosRes.data     ?? []) as WorkPhoto[]
     checklists = (checklistsRes.data ?? []) as WorkChecklist[]
+    closingChecklist = (closingRes.data as ClosingChecklistRow | null) ?? null
+  }
+
+  const recommendedServices = Array.isArray(closingChecklist?.recommended_services)
+    ? (closingChecklist!.recommended_services as Array<{ name: string; reason?: string; priority: string }>)
+    : []
+  const customerComment = closingChecklist?.customer_comment ?? null
+  const conditionScore = closingChecklist?.condition_score ?? null
+
+  const CONDITION_META: Record<number, { label: string; bg: string; text: string; border: string; dot: string }> = {
+    1: { label: '양호', bg: 'bg-green-50', text: 'text-green-700', border: 'border-green-200', dot: 'bg-green-500' },
+    2: { label: '주의', bg: 'bg-yellow-50', text: 'text-yellow-700', border: 'border-yellow-200', dot: 'bg-yellow-500' },
+    3: { label: '불량', bg: 'bg-red-50', text: 'text-red-700', border: 'border-red-200', dot: 'bg-red-500' },
+  }
+  const PRIORITY_CHIP: Record<string, { label: string; chip: string }> = {
+    high: { label: '불량', chip: 'bg-red-50 text-red-700 border-red-200' },
+    medium: { label: '주의', chip: 'bg-yellow-50 text-yellow-700 border-yellow-200' },
+    low: { label: '관심', chip: 'bg-surface-sunken text-text-secondary border-border' },
   }
 
   let contract: ContractRow | null = null
@@ -533,6 +563,56 @@ export default async function CustomerScheduleDetailPage({ params }: PageProps) 
                 </div>
               )
             })}
+          </div>
+        </section>
+      )}
+
+      {/* ── 위생 점검 결과 (closing_checklist) ── */}
+      {(conditionScore != null || recommendedServices.length > 0 || customerComment) && (
+        <section className="bg-surface rounded-2xl border border-border-subtle shadow-soft overflow-hidden">
+          <div className="px-5 py-3 border-b border-border-subtle flex items-center justify-between gap-2">
+            <h2 className="text-sm font-bold text-text-primary">위생 점검 결과</h2>
+            {conditionScore != null && CONDITION_META[conditionScore] && (
+              <span className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full border ${CONDITION_META[conditionScore].bg} ${CONDITION_META[conditionScore].border} ${CONDITION_META[conditionScore].text}`}>
+                <span className={`w-1.5 h-1.5 rounded-full ${CONDITION_META[conditionScore].dot}`} />
+                {CONDITION_META[conditionScore].label}
+              </span>
+            )}
+          </div>
+          <div className="px-5 py-4 flex flex-col gap-4">
+            {recommendedServices.length > 0 && (
+              <div>
+                <p className="text-xs font-semibold text-text-secondary mb-2">권장 서비스</p>
+                <div className="flex flex-col gap-2">
+                  {recommendedServices.map((rec) => {
+                    const meta = PRIORITY_CHIP[rec.priority]
+                    return (
+                      <div key={rec.name} className="flex flex-col gap-1 rounded-xl border border-border-subtle bg-surface-sunken/50 px-3 py-2.5">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-sm font-semibold text-text-primary">{rec.name}</span>
+                          {meta && (
+                            <span className={`text-[10px] px-2 py-0.5 rounded-full border font-medium shrink-0 ${meta.chip}`}>
+                              {meta.label}
+                            </span>
+                          )}
+                        </div>
+                        {rec.reason && (
+                          <p className="text-xs text-text-secondary leading-relaxed break-keep">{rec.reason}</p>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+            {customerComment && (
+              <div>
+                <p className="text-xs font-semibold text-text-secondary mb-2">고객 전달 특이사항</p>
+                <p className="text-sm text-text-primary leading-relaxed break-keep whitespace-pre-wrap rounded-xl border border-border-subtle bg-surface-sunken/50 px-3 py-2.5">
+                  {customerComment}
+                </p>
+              </div>
+            )}
           </div>
         </section>
       )}
