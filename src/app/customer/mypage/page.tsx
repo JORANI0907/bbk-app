@@ -106,12 +106,14 @@ export default async function CustomerMyPage() {
         <div className="px-5 py-1 pb-4">
           <InfoRow label="이름" value={user.name} />
           <InfoRow label="아이디" value={user.phone ? formatPhone(user.phone) : undefined} />
-          <PasswordField
-            password={
-              (user as { password_hint?: string | null }).password_hint ??
-              (user.phone ? user.phone.replace(/-/g, '') : '')
-            }
-          />
+          {(user as { password_hint?: string | null }).password_hint ? (
+            <PasswordField password={(user as { password_hint: string }).password_hint} />
+          ) : (
+            <div className="flex items-start gap-3 py-2.5 border-b border-border-subtle last:border-0">
+              <span className="text-xs text-text-tertiary w-20 shrink-0 pt-0.5">비밀번호</span>
+              <span className="text-sm text-text-tertiary">담당자에게 문의해주세요</span>
+            </div>
+          )}
         </div>
       </section>
 
