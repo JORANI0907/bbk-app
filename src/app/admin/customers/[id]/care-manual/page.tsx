@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { Plus, Trash2, ChevronLeft, Save, GripVertical, ImagePlus, X } from 'lucide-react'
 import { Button } from '@/components/ui'
@@ -42,6 +42,9 @@ export default function CareManualEditPage() {
   const router = useRouter()
 
   const [sections, setSections] = useState<CareManualSection[]>([])
+  const sectionsRef = useRef<CareManualSection[]>([])
+  // sections 변경 시 ref 동기화 — 비동기 함수 내 stale 클로저 방지
+  useEffect(() => { sectionsRef.current = sections }, [sections])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [customerName, setCustomerName] = useState('')
@@ -61,7 +64,7 @@ export default function CareManualEditPage() {
   const fetchManual = useCallback(async () => {
     try {
       setLoading(true)
-      const res = await fetch(`/api/admin/customers/${id}/care-manual`)
+      const res = await fetch(`/api/admin/customers/${id}/care-manual`, { cache: 'no-store' })
       const data = await res.json()
       setSections(data.sections ?? [])
       setCustomerName(data.business_name ?? '')
@@ -145,8 +148,8 @@ export default function CareManualEditPage() {
         throw new Error(body.error ?? '업로드 실패')
       }
       const { url } = await res.json() as { url: string }
-      // 업로드 완료 즉시 DB 저장 (state 업데이트와 동시에 새 배열로 직접 저장)
-      const next = sections.map((s, i) => i === si ? { ...s, image_url: url } : s)
+      // ref로 최신 sections 참조 (업로드 대기 중 텍스트 편집이 있어도 반영)
+      const next = sectionsRef.current.map((s, i) => i === si ? { ...s, image_url: url } : s)
       setSections(next)
       await putSections(next)
       toast.success('사진 업로드 및 저장 완료')
@@ -158,9 +161,9 @@ export default function CareManualEditPage() {
   }
 
   const removeImage = async (si: number) => {
-    const url = sections[si]?.image_url
-    // state와 DB를 동시에 업데이트
-    const next = sections.map((s, i) => i === si ? { ...s, image_url: undefined } : s)
+    const url = sectionsRef.current[si]?.image_url
+    // ref로 최신 sections 참조하여 state와 DB 동시 업데이트
+    const next = sectionsRef.current.map((s, i) => i === si ? { ...s, image_url: undefined } : s)
     setSections(next)
     try {
       await putSections(next)

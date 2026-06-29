@@ -3,6 +3,8 @@ import { createServiceClient } from '@/lib/supabase/server'
 import { getServerSession } from '@/lib/session'
 import type { CareManualSection } from '@/types/care-manual'
 
+export const dynamic = 'force-dynamic'
+
 export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
