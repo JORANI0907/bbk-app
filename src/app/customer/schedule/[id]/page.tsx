@@ -151,7 +151,7 @@ export default async function CustomerScheduleDetailPage({ params }: PageProps) 
   const { data: schedule } = await supabase
     .from('service_schedules')
     .select(
-      '*, customer:customers(id, business_name, contact_name, contact_phone, address, address_detail, customer_type, drive_folder_url, business_number, assigned_user_id), worker:users(id, name)'
+      '*, customer:customers(id, business_name, contact_name, contact_phone, address, address_detail, customer_type, drive_folder_url, business_number, assigned_user_id), worker:users(id, name, phone)'
     )
     .eq('id', scheduleId)
     .eq('customer_id', customerRow.id)
@@ -239,8 +239,8 @@ export default async function CustomerScheduleDetailPage({ params }: PageProps) 
     return Math.ceil((target.getTime() - today.getTime()) / 86400000)
   })()
 
-  const workerName  = (s.worker as { name?: string } | null)?.name
-  const workerPhone = workerInfo?.phone ?? undefined
+  const workerName  = (s.worker as { name?: string; phone?: string } | null)?.name
+  const workerPhone = workerInfo?.phone ?? (s.worker as { phone?: string } | null)?.phone ?? undefined
   const paymentInfo = s.payment_status ? PAYMENT_STATUS_LABELS[s.payment_status] : null
   const fullAddress = customer ? [customer.address, customer.address_detail].filter(Boolean).join(' ') : null
 
