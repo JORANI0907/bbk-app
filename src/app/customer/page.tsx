@@ -132,6 +132,7 @@ export default async function CustomerHomePage() {
           .eq('customer_id', customer.id)
           .gte('scheduled_date', today)
           .in('status', ['scheduled', 'confirmed'])
+          .is('deleted_at', null)
           .order('scheduled_date', { ascending: true })
           .limit(3)
       : Promise.resolve({ data: null }),
@@ -162,6 +163,7 @@ export default async function CustomerHomePage() {
           .eq('customer_id', customer.id)
           .gte('scheduled_date', thisMonthStart)
           .lt('scheduled_date', nextMonthStart)
+          .is('deleted_at', null)
       : Promise.resolve({ data: null }),
   ])
 
