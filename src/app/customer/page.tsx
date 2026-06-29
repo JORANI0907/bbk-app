@@ -1,11 +1,12 @@
 import { createServiceClient } from '@/lib/supabase/server'
 import { getCustomerSession } from '@/lib/session'
 import { redirect } from 'next/navigation'
-import Link from 'next/link'
 import { format, addMonths } from 'date-fns'
 import { NoticesSection } from '@/components/customer/NoticesSection'
-import { ScheduleCard, ScheduleWithConstruction } from '@/components/customer/ScheduleCard'
+import { ScheduleWithConstruction } from '@/components/customer/ScheduleCard'
 import { CircularGauge } from '@/components/customer/CircularGauge'
+import { ReportToggle } from '@/components/customer/ReportToggle'
+import { CompletedScheduleData } from '@/components/customer/CompletedScheduleCard'
 import {
   CustomerGrade,
   RecentScheduleRow,
@@ -101,7 +102,7 @@ export default async function CustomerHomePage() {
 
   const { data: rawCustomer } = await supabase
     .from('customers')
-    .select('id, business_name, customer_type, status, next_visit_date, billing_cycle, billing_amount, visit_count_per_month, grade')
+    .select('id, business_name, customer_type, status, next_visit_date, billing_cycle, billing_amount, visit_count_per_month, grade, drive_folder_url')
     .eq('user_id', session.userId)
     .maybeSingle()
 
@@ -115,6 +116,7 @@ export default async function CustomerHomePage() {
     billing_amount: number | null
     visit_count_per_month: number | null
     grade: CustomerGrade | null
+    drive_folder_url: string | null
   } | null
 
   const today = format(new Date(), 'yyyy-MM-dd')
@@ -131,7 +133,7 @@ export default async function CustomerHomePage() {
           .gte('scheduled_date', today)
           .in('status', ['scheduled', 'confirmed'])
           .order('scheduled_date', { ascending: true })
-          .limit(1)
+          .limit(3)
       : Promise.resolve({ data: null }),
 
     supabase
@@ -145,7 +147,7 @@ export default async function CustomerHomePage() {
     customer
       ? supabase
           .from('service_schedules')
-          .select('id, scheduled_date, closing_checklists(condition_score, recommended_services, customer_comment)')
+          .select('*, worker:users(id,name), closing_checklists(condition_score, recommended_services, customer_comment)')
           .eq('customer_id', customer.id)
           .eq('status', 'completed')
           .is('deleted_at', null)
@@ -163,7 +165,8 @@ export default async function CustomerHomePage() {
       : Promise.resolve({ data: null }),
   ])
 
-  const nextSchedule = (upcomingResult.data?.[0] ?? null) as ScheduleWithConstruction | null
+  const upcomingSchedules = (upcomingResult.data ?? []) as ScheduleWithConstruction[]
+  const completedSchedules = (recentReportsResult.data ?? []) as CompletedScheduleData[]
 
   type NoticeItem = {
     id: string; title: string; content: string
@@ -258,23 +261,12 @@ export default async function CustomerHomePage() {
         <div className="absolute -right-2 -bottom-8 w-20 h-20 rounded-full bg-white/10" />
       </div>
 
-      {/* 다음 방문 카드 */}
-      <div>
-        <p className="text-xs font-semibold text-brand-600 uppercase tracking-wide mb-2">다음 서비스</p>
-        {nextSchedule ? (
-          <Link href={`/customer/schedule/${nextSchedule.id}`} className="block">
-            <ScheduleCard
-              schedule={nextSchedule}
-              workerName={(nextSchedule.worker as { name?: string } | null)?.name}
-            />
-          </Link>
-        ) : (
-          <div className="bg-surface rounded-2xl border border-border-subtle p-5 text-center">
-            <p className="text-sm text-text-secondary font-medium">예정된 서비스가 없습니다</p>
-            <p className="text-xs text-text-tertiary mt-1">담당자에게 문의해주세요.</p>
-          </div>
-        )}
-      </div>
+      {/* 관리 리포트 (예정/완료 토글) */}
+      <ReportToggle
+        upcomingSchedules={upcomingSchedules}
+        completedSchedules={completedSchedules}
+        driveFolderUrl={customer?.drive_folder_url ?? null}
+      />
 
       {/* 공지 & 이벤트 */}
       <NoticesSection notices={noticeList} events={eventList} />

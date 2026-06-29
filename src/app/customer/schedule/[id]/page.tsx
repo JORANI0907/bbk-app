@@ -4,7 +4,7 @@ import { redirect, notFound } from 'next/navigation'
 import Link from 'next/link'
 import { format, isPast, isToday } from 'date-fns'
 import { ko } from 'date-fns/locale'
-import { ChevronLeft, User, Phone, FileText } from 'lucide-react'
+import { ChevronLeft, User, Phone, FileText, FolderOpen } from 'lucide-react'
 import { ServiceSchedule, WorkPhoto, WorkChecklist } from '@/types/database'
 import { SCHEDULE_STATUS_LABELS, SCHEDULE_STATUS_COLORS } from '@/lib/constants'
 import { BeforeAfterSlider } from '@/components/customer/BeforeAfterSlider'
@@ -711,6 +711,27 @@ export default async function CustomerScheduleDetailPage({ params }: PageProps) 
             <div>
               <p className="text-sm font-semibold text-text-primary">견적서 보기</p>
               {quoteNo && <p className="text-xs text-text-tertiary mt-0.5">No. {quoteNo}</p>}
+            </div>
+          </div>
+          <ChevronLeft size={16} className="text-text-tertiary rotate-180" />
+        </a>
+      )}
+
+      {/* ── 관리 자료(드라이브) 이동 버튼 ── */}
+      {driveFolderUrl && (
+        <a
+          href={driveFolderUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center justify-between w-full bg-surface border border-border-subtle rounded-2xl px-5 py-4 active:scale-[0.98] transition-transform shadow-soft"
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-full bg-surface-sunken flex items-center justify-center shrink-0">
+              <FolderOpen size={16} className="text-text-secondary" />
+            </div>
+            <div>
+              <p className="text-sm font-bold text-text-primary">관리 자료 보기</p>
+              <p className="text-xs text-text-tertiary mt-0.5">구글 드라이브에서 사진·문서 확인</p>
             </div>
           </div>
           <ChevronLeft size={16} className="text-text-tertiary rotate-180" />
