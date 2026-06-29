@@ -35,8 +35,14 @@ export async function PUT(
 ) {
   try {
     const session = getServerSession()
-    if (!session || session.role !== 'admin') {
-      return NextResponse.json({ error: '권한 없음' }, { status: 403 })
+    if (!session) {
+      return NextResponse.json({ error: '로그인이 필요합니다' }, { status: 401 })
+    }
+    if (session.role !== 'admin') {
+      return NextResponse.json(
+        { error: `권한 부족 (현재 권한: ${session.role}, 필요: admin)` },
+        { status: 403 }
+      )
     }
 
     const { id } = await params
@@ -46,14 +52,22 @@ export async function PUT(
     }
 
     const supabase = createServiceClient()
-    const { error } = await supabase
+    const { data: updated, error } = await supabase
       .from('customers')
       .update({ care_manual: sections })
       .eq('id', id)
+      .select('care_manual')
+      .single()
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-    return NextResponse.json({ success: true })
-  } catch {
-    return NextResponse.json({ error: '저장 실패' }, { status: 500 })
+    return NextResponse.json({
+      success: true,
+      sections: updated?.care_manual ?? sections,
+    })
+  } catch (e) {
+    return NextResponse.json(
+      { error: e instanceof Error ? e.message : '저장 실패' },
+      { status: 500 }
+    )
   }
 }

@@ -94,12 +94,13 @@ export default function CareManualEditPage() {
     try {
       setSaving(true)
       await putSections(sections)
-      // 저장 후 DB에서 다시 불러와 실제 반영 여부 확인
-      const res = await fetch(`/api/admin/customers/${id}/care-manual`, { cache: 'no-store' })
-      const data = await res.json()
-      setSections(data.sections ?? [])
-      sectionsRef.current = data.sections ?? []
+      // 사용자 입력이 이미 화면에 있고 PUT 성공했으므로 그대로 유지.
+      // fresh fetch로 덮어쓰지 않음 — 빈 응답 또는 race condition으로
+      // 사용자 입력이 사라지는 버그 방지.
+      sectionsRef.current = sections
       toast.success('케어매뉴얼 저장됨')
+      // 다른 페이지(고객 세부화면 등) server cache invalidate
+      router.refresh()
     } catch (e) {
       toast.error(e instanceof Error ? e.message : '저장 실패')
     } finally {
