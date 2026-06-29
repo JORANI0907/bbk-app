@@ -38,10 +38,10 @@ export function ScheduleTabs({ upcoming, past, driveFolderUrl, closingsBySchedul
   const [viewMonth, setViewMonth] = useState(now.getMonth()) // 0-indexed
   const [showYearPicker, setShowYearPicker] = useState(false)
   const [selectedStatuses, setSelectedStatuses] = useState<Set<StatusFilter>>(
-    new Set<StatusFilter>(['예정'])
+    new Set<StatusFilter>(['예정', '완료'])
   )
   const [selectedTypes, setSelectedTypes] = useState<Set<TypeFilter>>(
-    new Set<TypeFilter>()
+    new Set<TypeFilter>(['딥케어', '엔드케어'])
   )
 
   const allSchedules = useMemo(
