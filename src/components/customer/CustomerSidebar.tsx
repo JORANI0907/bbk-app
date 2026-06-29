@@ -2,8 +2,8 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { useState, useEffect } from 'react'
-import { Home, Calendar, BookOpen, User, LogOut, Bell, FileText } from 'lucide-react'
+import { useState } from 'react'
+import { Home, Calendar, BookOpen, User, LogOut, FileText } from 'lucide-react'
 
 type NavIcon = React.ElementType
 
@@ -12,7 +12,6 @@ interface NavItem {
   label: string
   Icon: NavIcon
   exact?: boolean
-  showBadge?: boolean
 }
 
 const NAV_ITEMS: NavItem[] = [
@@ -20,7 +19,6 @@ const NAV_ITEMS: NavItem[] = [
   { href: '/customer/schedule', label: '서비스 일정', Icon: Calendar },
   { href: '/customer/reports', label: '관리 리포트', Icon: FileText },
   { href: '/customer/guide', label: '이용안내', Icon: BookOpen },
-  { href: '/customer/notifications', label: '알림 이력', Icon: Bell, showBadge: true },
   { href: '/customer/mypage', label: '마이페이지', Icon: User },
 ]
 
@@ -29,43 +27,13 @@ interface Props {
   userId?: string
 }
 
-export function CustomerSidebar({ userName, userId }: Props) {
+export function CustomerSidebar({ userName, userId: _userId }: Props) {
   const pathname = usePathname()
   const router = useRouter()
   const [loggingOut, setLoggingOut] = useState(false)
-  const [unreadCount, setUnreadCount] = useState(0)
 
   const isActive = (href: string, exact?: boolean) =>
     exact ? pathname === href : pathname.startsWith(href)
-
-  // 알림 탭이 아닐 때만 미읽음 카운트 조회
-  useEffect(() => {
-    if (!userId || pathname === '/customer/notifications') {
-      setUnreadCount(0)
-      return
-    }
-
-    let cancelled = false
-    const fetchCount = async () => {
-      try {
-        const res = await fetch(
-          `/api/user/notifications/unread-count?userId=${encodeURIComponent(userId)}`,
-        )
-        if (!res.ok) return
-        const json = await res.json() as { count: number }
-        if (!cancelled) setUnreadCount(json.count ?? 0)
-      } catch {
-        // 무시
-      }
-    }
-
-    void fetchCount()
-    const timer = setInterval(fetchCount, 30_000)
-    return () => {
-      cancelled = true
-      clearInterval(timer)
-    }
-  }, [userId, pathname])
 
   const handleLogout = async () => {
     setLoggingOut(true)
@@ -98,7 +66,6 @@ export function CustomerSidebar({ userName, userId }: Props) {
       <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-0.5">
         {NAV_ITEMS.map((item) => {
           const active = isActive(item.href, item.exact)
-          const showDot = item.showBadge && unreadCount > 0
 
           return (
             <Link
@@ -112,11 +79,6 @@ export function CustomerSidebar({ userName, userId }: Props) {
             >
               <item.Icon size={16} className="shrink-0" />
               <span className="flex-1">{item.label}</span>
-              {showDot && (
-                <span className="min-w-[20px] h-5 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-1">
-                  {unreadCount > 99 ? '99+' : unreadCount}
-                </span>
-              )}
             </Link>
           )
         })}
