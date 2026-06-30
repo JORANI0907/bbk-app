@@ -1,8 +1,10 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import { useSearchParams } from 'next/navigation'
+import Link from 'next/link'
 import toast from 'react-hot-toast'
-import { Banknote, BarChart2, ClipboardList, Tag } from 'lucide-react'
+import { Banknote, BarChart2, ClipboardList, Tag, LayoutDashboard } from 'lucide-react'
 import ExportModal from './ExportModal'
 import ManagerCard from './ManagerCard'
 import WorkerCard from './WorkerCard'
@@ -11,8 +13,16 @@ import UnitPriceSettings from './UnitPriceSettings'
 import { currentYM } from './utils'
 import type { ManagerEntry, WorkerEntry, PayrollRecord } from './types'
 
+// URL ?month=YYYY-MM 형식 검증
+function parseMonthParam(raw: string | null): string | null {
+  if (!raw) return null
+  return /^\d{4}-\d{2}$/.test(raw) ? raw : null
+}
+
 export default function PayrollPage() {
-  const [month, setMonth] = useState(currentYM)
+  const searchParams = useSearchParams()
+  const initialMonth = parseMonthParam(searchParams.get('month')) ?? currentYM()
+  const [month, setMonth] = useState(initialMonth)
   const [tab, setTab] = useState<'payroll' | 'unit_price'>('payroll')
   const [personFilter, setPersonFilter] = useState<'all' | 'manager' | 'worker'>('all')
   const [loading, setLoading] = useState(false)
@@ -68,7 +78,7 @@ export default function PayrollPage() {
   return (
     <div className="flex flex-col h-full">
       <div className="flex-1 overflow-y-auto px-4 pb-6">
-        {/* Month selector */}
+        {/* Month selector + 재무 대시보드 링크 */}
         <div className="flex items-center justify-between my-4">
           <button onClick={prevMonth} className="p-2 rounded-lg hover:bg-surface-sunken text-text-secondary transition-colors">‹</button>
           <div className="text-center">
@@ -77,6 +87,15 @@ export default function PayrollPage() {
           </div>
           <button onClick={nextMonth} className="p-2 rounded-lg hover:bg-surface-sunken text-text-secondary transition-colors">›</button>
         </div>
+
+        {/* 재무 대시보드 빠른 이동 */}
+        <Link
+          href="/admin/finance"
+          className="mb-3 flex items-center justify-center gap-1.5 py-1.5 text-xs font-medium text-brand-600 bg-brand-50 hover:bg-brand-100 rounded-lg transition"
+        >
+          <LayoutDashboard size={12} />
+          재무 대시보드로 이동
+        </Link>
 
         {/* Sub-tab selector */}
         <div className="flex gap-1 bg-surface-sunken rounded-xl p-1 mb-4">
