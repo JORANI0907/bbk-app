@@ -1,5 +1,14 @@
 import nodemailer from 'nodemailer'
 
+/** 가상 이메일(포털 로그인용) 및 잘못된 형식 제외, 실제 발송 가능한 이메일만 통과 */
+function isValidRealEmail(email: string | null | undefined): email is string {
+  if (!email) return false
+  if (email.endsWith('@bbkorea.app')) return false    // 고객 포털 가상 이메일
+  if (email.endsWith('@bbkorea.co.kr')) return false  // 직원 포털 가상 이메일
+  if (email.endsWith('@bbkorea.hq')) return false     // 가맹 포털 가상 이메일
+  return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)
+}
+
 function createTransporter() {
   const user = process.env.GMAIL_USER
   const pass = process.env.GMAIL_APP_PASSWORD
@@ -50,7 +59,11 @@ export async function sendContractCompletedEmails({
   }
 
   const recipients: string[] = [adminEmail]
-  if (customerEmail) recipients.push(customerEmail)
+  if (isValidRealEmail(customerEmail)) {
+    recipients.push(customerEmail)
+  } else if (customerEmail) {
+    console.warn(`[email] 고객 이메일 발송 건너뜀 (가상/잘못된 형식): ${customerEmail}`)
+  }
 
   const results = await Promise.allSettled(
     recipients.map(to =>

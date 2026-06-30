@@ -76,7 +76,15 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
   const customer = contract.customers as { business_name?: string; contact_name?: string; email?: string | null } | null
   const businessName = customer?.business_name ?? '고객'
-  const customerEmail = (customer?.email as string | null) ?? null
+  const rawEmail = (customer?.email as string | null) ?? null
+  // 포털 가상 이메일·형식 오류 이메일은 발송 대상에서 제외
+  const customerEmail = rawEmail &&
+    !rawEmail.endsWith('@bbkorea.app') &&
+    !rawEmail.endsWith('@bbkorea.co.kr') &&
+    !rawEmail.endsWith('@bbkorea.hq') &&
+    /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(rawEmail)
+    ? rawEmail
+    : null
 
   // 이메일 발송 (실패해도 계약 완료는 유지)
   if (pdfBase64) {
