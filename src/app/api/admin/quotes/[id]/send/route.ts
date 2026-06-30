@@ -7,6 +7,7 @@ import { sendAlimtalk } from '@/lib/solapi'
 import { createServiceClient } from '@/lib/supabase/server'
 import { renderQuotePdf, type QuotePdfData } from '@/lib/quotePdf'
 import { Resend } from 'resend'
+import { uploadQuoteToDrive } from '@/lib/driveUpload'
 
 export const maxDuration = 60
 
@@ -160,6 +161,19 @@ export async function POST(
       pdfUrl = urlData.publicUrl
     } catch (e) {
       errors.upload = e instanceof Error ? e.message : String(e)
+    }
+  }
+
+  // ── 2-b. Google Drive 업로드 (non-blocking) ─────────────────
+  if (pdfBuffer) {
+    try {
+      const driveUrl = await uploadQuoteToDrive(
+        pdfBuffer,
+        `${quoteNo}_${business_name}.pdf`,
+      )
+      if (driveUrl) console.log('[send] Drive 업로드 완료:', driveUrl)
+    } catch (e) {
+      console.error('[send] Drive 업로드 실패 (non-critical):', e)
     }
   }
 
