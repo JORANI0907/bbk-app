@@ -57,6 +57,57 @@ function Bar({ value, total, color }: { value: number; total: number; color: str
   )
 }
 
+// 항목별 구성: 1줄 stacked bar + legend (퍼센트 한눈에)
+const COMPOSITION_PALETTE = [
+  '#6366f1', '#8b5cf6', '#ec4899', '#f43f5e', '#f97316',
+  '#eab308', '#22c55e', '#10b981', '#14b8a6', '#06b6d4',
+  '#3b82f6', '#a855f7', '#d946ef', '#ef4444', '#84cc16',
+]
+
+function StackedComposition({ records }: { records: { id: string; name: string; amount: number }[] }) {
+  const total = records.reduce((s, r) => s + Number(r.amount), 0)
+  if (total === 0 || records.length === 0) return null
+  const sorted = [...records].sort((a, b) => Number(b.amount) - Number(a.amount))
+
+  return (
+    <div>
+      {/* Stacked bar — 한 줄에 모든 항목 비율 */}
+      <div className="flex h-7 rounded-md overflow-hidden bg-surface-sunken border border-border-subtle">
+        {sorted.map((r, i) => {
+          const pct = (Number(r.amount) / total) * 100
+          const color = COMPOSITION_PALETTE[i % COMPOSITION_PALETTE.length]
+          return (
+            <div
+              key={r.id}
+              style={{ width: `${pct}%`, backgroundColor: color }}
+              title={`${r.name} · ${Number(r.amount).toLocaleString('ko-KR')}원 · ${pct.toFixed(1)}%`}
+              className="hover:brightness-110 transition-all flex items-center justify-center text-white text-[10px] font-bold overflow-hidden"
+            >
+              {pct >= 8 && <span className="px-1 truncate">{pct.toFixed(0)}%</span>}
+            </div>
+          )
+        })}
+      </div>
+
+      {/* Legend — 색 · 이름 · 금액 · 퍼센트 */}
+      <div className="flex flex-wrap gap-x-3 gap-y-1 mt-2">
+        {sorted.map((r, i) => {
+          const pct = (Number(r.amount) / total) * 100
+          const color = COMPOSITION_PALETTE[i % COMPOSITION_PALETTE.length]
+          return (
+            <div key={r.id} className="flex items-center gap-1 text-[11px]">
+              <span style={{ backgroundColor: color }} className="w-2.5 h-2.5 rounded-sm shrink-0" />
+              <span className="text-text-secondary">{r.name}</span>
+              <span className="text-text-tertiary font-mono">{Number(r.amount).toLocaleString('ko-KR')}원</span>
+              <span className="text-text-tertiary">({pct.toFixed(1)}%)</span>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
 // ─── AddItemForm ──────────────────────────────────────────────────────────────
 
 function AddItemForm({ onAdd }: { onAdd: (name: string, amount: string, note: string) => Promise<void> }) {
@@ -515,17 +566,7 @@ export default function FinancePage() {
                   {data.fixed.records.length > 0 && data.fixed.total > 0 && (
                     <div className="px-4 py-3 border-b border-indigo-100 bg-indigo-50/30">
                       <p className="text-xs font-semibold text-indigo-400 uppercase tracking-wide mb-2">항목별 구성</p>
-                      <div className="space-y-2">
-                        {[...data.fixed.records].sort((a, b) => b.amount - a.amount).map(r => (
-                          <div key={`chart-fixed-${r.id}`}>
-                            <div className="flex justify-between items-center text-xs mb-0.5">
-                              <span className="text-text-secondary truncate mr-2">{r.name}</span>
-                              <span className="font-mono shrink-0 text-text-primary font-medium">{fmt(r.amount)}원</span>
-                            </div>
-                            <Bar value={r.amount} total={data.fixed.total} color="bg-indigo-400" />
-                          </div>
-                        ))}
-                      </div>
+                      <StackedComposition records={data.fixed.records} />
                     </div>
                   )}
                   {data.fixed.records.length > 0 && (
@@ -602,17 +643,7 @@ export default function FinancePage() {
                   {data.variable.records.length > 0 && data.variable.total > 0 && (
                     <div className="px-4 py-3 border-b border-purple-100 bg-purple-50/30">
                       <p className="text-xs font-semibold text-purple-400 uppercase tracking-wide mb-2">항목별 구성</p>
-                      <div className="space-y-2">
-                        {[...data.variable.records].sort((a, b) => b.amount - a.amount).map(r => (
-                          <div key={`chart-variable-${r.id}`}>
-                            <div className="flex justify-between items-center text-xs mb-0.5">
-                              <span className="text-text-secondary truncate mr-2">{r.name}</span>
-                              <span className="font-mono shrink-0 text-text-primary font-medium">{fmt(r.amount)}원</span>
-                            </div>
-                            <Bar value={r.amount} total={data.variable.total} color="bg-purple-400" />
-                          </div>
-                        ))}
-                      </div>
+                      <StackedComposition records={data.variable.records} />
                     </div>
                   )}
                   {data.variable.records.length > 0 && (
