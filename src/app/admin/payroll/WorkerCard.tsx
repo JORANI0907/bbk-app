@@ -11,12 +11,12 @@ export default function WorkerCard({
   entry,
   month,
   onUpdated,
-  onRefresh,
+  onJobUpdated,
 }: {
   entry: WorkerEntry
   month: string
   onUpdated: (record: PayrollRecord) => void
-  onRefresh: () => void
+  onJobUpdated: (jobId: string, newSalary: number | null) => void
 }) {
   const [expanded, setExpanded] = useState(false)
   const [finalInput, setFinalInput] = useState(entry.record?.final_amount?.toString() ?? '')
@@ -90,10 +90,11 @@ export default function WorkerCard({
     if (val === undefined) return
     setSavingJob(job.id)
     try {
+      const newSalary = val === '' ? null : Number(val)
       const res = await fetch('/api/admin/work-assignments', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: job.id, salary: val === '' ? null : Number(val) }),
+        body: JSON.stringify({ id: job.id, salary: newSalary }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
@@ -103,7 +104,8 @@ export default function WorkerCard({
         delete next[job.id]
         return next
       })
-      onRefresh()
+      // 낙관적 업데이트 — 부모 state의 해당 job salary만 갱신 (펼침 상태 유지)
+      onJobUpdated(job.id, newSalary)
     } catch (err) {
       toast.error(err instanceof Error ? err.message : '저장 실패')
     } finally {

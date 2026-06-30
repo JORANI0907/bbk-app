@@ -11,12 +11,12 @@ export default function ManagerCard({
   entry,
   month,
   onUpdated,
-  onRefresh,
+  onJobUpdated,
 }: {
   entry: ManagerEntry
   month: string
   onUpdated: (record: PayrollRecord) => void
-  onRefresh: () => void
+  onJobUpdated: (jobId: string, newPay: number | null) => void
 }) {
   const [expanded, setExpanded] = useState(false)
   const [finalInput, setFinalInput] = useState(entry.record?.final_amount?.toString() ?? '')
@@ -90,10 +90,11 @@ export default function ManagerCard({
     if (val === undefined) return
     setSavingJob(job.id)
     try {
+      const newPay = val === '' ? null : Number(val)
       const res = await fetch('/api/admin/applications', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: job.id, manager_pay: val === '' ? null : Number(val) }),
+        body: JSON.stringify({ id: job.id, manager_pay: newPay }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
@@ -103,7 +104,8 @@ export default function ManagerCard({
         delete next[job.id]
         return next
       })
-      onRefresh()
+      // 낙관적 업데이트 — 전체 refetch 대신 해당 job만 부모 state에 반영 (펼침 상태 유지)
+      onJobUpdated(job.id, newPay)
     } catch (err) {
       toast.error(err instanceof Error ? err.message : '저장 실패')
     } finally {

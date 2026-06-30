@@ -71,6 +71,32 @@ export default function PayrollPage() {
     ))
   }
 
+  // 건별 단가(manager_pay) 저장 후 — 전체 refetch 대신 해당 job만 갱신 (페이지 새로고침 방지)
+  const handleManagerJobUpdated = (personId: string, jobId: string, newPay: number | null) => {
+    setManagers(prev => prev.map(e => {
+      if (e.person.id !== personId) return e
+      const newJobs = e.jobs.map(j =>
+        j.id === jobId
+          ? { ...j, manager_pay: newPay, resolved_pay: newPay ?? j.unit_price_per_visit ?? 0 }
+          : j
+      )
+      const newAuto = newJobs.reduce((s, j) => s + j.resolved_pay, 0)
+      return { ...e, jobs: newJobs, auto_amount: newAuto }
+    }))
+  }
+
+  // 건별 급여(salary) 저장 후 — 동일 패턴
+  const handleWorkerJobUpdated = (personId: string, jobId: string, newSalary: number | null) => {
+    setWorkersPayroll(prev => prev.map(e => {
+      if (e.person.id !== personId) return e
+      const newJobs = e.jobs.map(j =>
+        j.id === jobId ? { ...j, salary: newSalary } : j
+      )
+      const newAuto = newJobs.reduce((s, j) => s + (j.salary ?? 0), 0)
+      return { ...e, jobs: newJobs, auto_amount: newAuto }
+    }))
+  }
+
   const displayMonth = (() => {
     const [y, m] = month.split('-')
     return `${y}년 ${Number(m)}월`
@@ -207,7 +233,7 @@ export default function PayrollPage() {
                         entry={entry}
                         month={month}
                         onUpdated={handleManagerRecordUpdated}
-                        onRefresh={fetchData}
+                        onJobUpdated={(jobId, newPay) => handleManagerJobUpdated(entry.person.id, jobId, newPay)}
                       />
                     ))}
                     {showWorkers && workersPayroll.map(entry => (
@@ -216,7 +242,7 @@ export default function PayrollPage() {
                         entry={entry}
                         month={month}
                         onUpdated={handleWorkerRecordUpdated}
-                        onRefresh={fetchData}
+                        onJobUpdated={(jobId, newSalary) => handleWorkerJobUpdated(entry.person.id, jobId, newSalary)}
                       />
                     ))}
                   </div>
