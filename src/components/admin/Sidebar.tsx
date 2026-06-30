@@ -88,8 +88,9 @@ const NAV_ITEMS: NavItem[] = [
     icon: <TrendingUp size={16} />,
     roles: ['admin'],
     children: [
+      { href: '/admin/finance', label: '재무 대시보드' },
+      { href: '/admin/finance/details', label: '매출매입 상세' },
       { href: '/admin/payroll', label: '급여정산' },
-      { href: '/admin/finance', label: '매출매입' },
     ],
   },
   {
