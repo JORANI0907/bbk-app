@@ -628,7 +628,8 @@ export default function ServiceManagementPage() {
     const userData = await userRes.json()
     const workerData = await workerRes.json()
     setApplications(appData.applications ?? [])
-    setUsers((userData.users ?? []).filter((u: User) => u.role !== 'customer'))
+    // 담당자 드롭다운은 우리 직원(admin/worker)만 — franchise_hq 등 외부 계정 제외
+    setUsers((userData.users ?? []).filter((u: User) => u.role === 'admin' || u.role === 'worker'))
     setWorkers(workerData.workers ?? [])
     setLoading(false)
   }, [])

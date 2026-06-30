@@ -1200,7 +1200,7 @@ export default function AdminCustomersPage() {
                 <select value={form.assigned_user_id} onChange={e => set('assigned_user_id')(e.target.value)}
                   className="flex-1 border border-border rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 bg-surface">
                   <option value="">담당자 없음</option>
-                  {usersList.filter(u => u.role !== 'customer').map(u => (
+                  {usersList.filter(u => u.role === 'admin' || u.role === 'worker').map(u => (
                     <option key={u.id} value={u.id}>{u.name} ({u.role === 'admin' ? '관리자' : '직원'})</option>
                   ))}
                 </select>

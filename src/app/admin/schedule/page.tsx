@@ -749,7 +749,8 @@ export default function SchedulePage() {
       fetch('/api/admin/users').then(r => r.json()),
       fetch('/api/admin/workers').then(r => r.json()),
     ]).then(([userData, workerData]) => {
-      setUsers((userData.users ?? []).filter((u: User) => u.role !== 'customer'))
+      // 담당자 필터는 우리 직원(admin/worker)만 — franchise_hq 등 외부 계정 제외
+      setUsers((userData.users ?? []).filter((u: User) => u.role === 'admin' || u.role === 'worker'))
       setWorkers(workerData.workers ?? [])
       setRefLoaded(true)
     }).catch(() => toast.error('데이터 로드 실패'))
