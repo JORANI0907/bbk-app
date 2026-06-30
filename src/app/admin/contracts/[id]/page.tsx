@@ -392,12 +392,25 @@ export default function AdminContractDetailPage() {
                   {contract.customer_ip && (
                     <span className="text-xs text-text-tertiary block">IP: {contract.customer_ip}</span>
                   )}
+                  {contract.customer_signer_name && (
+                    <div className="mt-1">
+                      <span className="text-xs text-text-tertiary block mb-0.5">성명</span>
+                      <img
+                        src={contract.customer_signer_name}
+                        alt="서명자 성명"
+                        className="max-h-10 border border-border rounded-md bg-white"
+                      />
+                    </div>
+                  )}
                   {contract.customer_signature && (
-                    <img
-                      src={contract.customer_signature}
-                      alt="고객 서명"
-                      className="mt-1 max-h-12 border border-border rounded-md bg-white"
-                    />
+                    <div className="mt-1">
+                      <span className="text-xs text-text-tertiary block mb-0.5">서명</span>
+                      <img
+                        src={contract.customer_signature}
+                        alt="고객 서명"
+                        className="max-h-12 border border-border rounded-md bg-white"
+                      />
+                    </div>
                   )}
                 </div>
               )}
