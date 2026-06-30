@@ -348,7 +348,8 @@ const CONTRACT_HTML_TEMPLATE = `<!DOCTYPE html>
     <div class="party-row"><span class="party-label">주소</span><span class="party-value">{{CUSTOMER_ADDRESS}}</span></div>
     <div class="party-row"><span class="party-label">연락처</span><span class="party-value">{{CUSTOMER_PHONE}}</span></div>
     <div class="party-row"><span class="party-label">이메일</span><span class="party-value">{{CUSTOMER_EMAIL}}</span></div>
-    <div class="party-row" style="margin-top:12px;align-items:flex-start;"><span class="party-label">직인</span><span class="party-value">{{CUSTOMER_STAMP}}</span></div>
+    <div class="party-row" style="margin-top:12px;align-items:flex-start;"><span class="party-label">서명</span><span class="party-value">{{CUSTOMER_SIGNER_NAME}}</span></div>
+    <div class="party-row" style="margin-top:8px;align-items:flex-start;"><span class="party-label">직인</span><span class="party-value">{{CUSTOMER_STAMP}}</span></div>
   </div>
 </div>
 
