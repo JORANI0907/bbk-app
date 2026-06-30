@@ -3,6 +3,7 @@ import { createServiceClient } from '@/lib/supabase/server'
 import { sendSMS } from '@/lib/solapi'
 import { sendSlack } from '@/lib/slack'
 import { sendContractCompletedEmails } from '@/lib/email'
+import { renderTemplateWithVars } from '@/lib/contractTemplate'
 
 type RouteParams = { params: { id: string } }
 
@@ -12,7 +13,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
   const { data: contract, error: fetchError } = await supabase
     .from('contracts')
-    .select('id, signing_status, customer_phone, subscription_plan, customers(business_name, contact_name, email)')
+    .select('id, signing_status, customer_phone, subscription_plan, contract_snapshot, customers(business_name, contact_name, email)')
     .eq('id', params.id)
     .single()
 
@@ -27,14 +28,14 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     )
   }
 
-  let body: { adminSignature?: string; pdfBase64?: string }
+  let body: { adminSignature?: string; pdfBase64?: string; supplierStamp?: string }
   try {
     body = await request.json()
   } catch {
     body = {}
   }
 
-  const { adminSignature, pdfBase64 } = body
+  const { adminSignature, pdfBase64, supplierStamp } = body
   const now = new Date().toISOString()
 
   // PDF를 Supabase Storage에 업로드
@@ -96,6 +97,19 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       )
     } catch {
       // SMS 실패는 무시
+    }
+  }
+
+  // 공급사 직인 → 스냅샷에 주입
+  if (supplierStamp) {
+    const currentHtml = (contract.contract_snapshot as { html?: string } | null)?.html ?? ''
+    if (currentHtml.includes('{{SUPPLIER_STAMP}}')) {
+      const stampImg = `<img src="${supplierStamp}" style="display:block;max-width:100px;max-height:100px;object-fit:contain;" alt="공급사 직인" />`
+      const updatedHtml = renderTemplateWithVars(currentHtml, { SUPPLIER_STAMP: stampImg })
+      await supabase
+        .from('contracts')
+        .update({ contract_snapshot: { html: updatedHtml } })
+        .eq('id', params.id)
     }
   }
 
