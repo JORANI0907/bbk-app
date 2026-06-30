@@ -4,6 +4,7 @@ import { createServiceClient } from '@/lib/supabase/server'
 import { saveNotificationHistory } from '@/lib/notification'
 import { sendPushToUsers } from '@/lib/push'
 import { sendSlack } from '@/lib/slack'
+import { dispatch, lookupFranchiseHqIdsForCustomer } from '@/lib/notification-dispatcher'
 
 const WORKER_NOTIFY_TYPES = new Set(['작업자 일정 안내', '작업자 자세한 일정 안내'])
 
@@ -601,19 +602,37 @@ export async function POST(request: NextRequest) {
       status: 'sent',
     })
 
-    // ── Web Push 발송 ───────────────────────────────────────────────
-    // 담당 작업자 및 고객 계정에게 Push 발송 (실패해도 응답에 영향 없음)
+    // ── Web Push 발송 (notification_rules의 role 토글에 따라 분기) ──
+    // dispatcher가 notify_admin/worker/customer/franchise_hq 규칙을 적용함
     try {
-      const pushTargetIds: string[] = []
-      if (app.assigned_to) pushTargetIds.push(String(app.assigned_to))
-      if (app.customer_id) pushTargetIds.push(String(app.customer_id))
-      if (pushTargetIds.length) {
-        const pushTitle = `BBK 공간케어 — ${type}`
-        const pushBody = `${String(app.business_name ?? '')} ${type}`
-        await sendPushToUsers(pushTargetIds, { title: pushTitle, body: pushBody, url: '/admin' })
-      }
+      const customerIdRaw = app.customer_id ? String(app.customer_id) : undefined
+      const customerUserId = await (async () => {
+        if (!customerIdRaw) return undefined
+        const { data } = await supabase
+          .from('customers')
+          .select('user_id')
+          .eq('id', customerIdRaw)
+          .maybeSingle()
+        return (data as { user_id: string | null } | null)?.user_id ?? undefined
+      })()
+      const franchiseHqIds = customerIdRaw ? await lookupFranchiseHqIdsForCustomer(customerIdRaw) : []
+
+      await dispatch(type, {
+        customer: {
+          id: customerIdRaw,
+          userId: customerUserId,
+          phone,
+          name: String(app.owner_name ?? ''),
+          businessName: String(app.business_name ?? ''),
+        },
+        workerIds: app.assigned_to ? [String(app.assigned_to)] : [],
+        franchiseHqIds,
+        push: { title: `BBK 공간케어 — ${type}`, body: `${String(app.business_name ?? '')} ${type}`, url: '/admin' },
+        method,
+        metadata: { application_id, business_name: app.business_name ?? '', source: 'admin/notify' },
+      })
     } catch {
-      // Web Push 실패는 알림톡 응답에 영향 없음
+      // dispatcher 실패는 알림톡 응답에 영향 없음
     }
 
     // ── 결제완료알림 발송 직후 구독권유알림 자동 발송 ────────────
