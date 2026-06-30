@@ -2,7 +2,16 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { createAuthUser } from '@/lib/auth-helpers'
 
+// A안 정책: 자가 가입 비활성화. 모든 계정은 관리자가 회원관리 탭에서 직접 발급.
+const SELF_SIGNUP_ENABLED = false
+
 export async function POST(request: NextRequest) {
+  if (!SELF_SIGNUP_ENABLED) {
+    return NextResponse.json(
+      { error: '자가 가입은 비활성화되어 있습니다. 관리자에게 계정 발급을 요청하세요.' },
+      { status: 403 },
+    )
+  }
   try {
     const { name, email, phone, password } = await request.json()
 

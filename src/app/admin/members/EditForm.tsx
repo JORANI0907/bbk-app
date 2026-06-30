@@ -29,10 +29,9 @@ interface Props {
 }
 
 function currentPwHint(user: User): string {
+  // password_hint가 있으면 그것이 진실. 없으면 "재발급 필요" 명시
   if (user.password_hint) return user.password_hint
-  const phone = (user.phone ?? '').replace(/-/g, '')
-  if (user.role === 'customer') return `사업자등록번호 (없으면 ${phone})`
-  return `${phone}bbk`
+  return '— (재발급 필요)'
 }
 
 export default function EditForm({ user, form, setForm, saving, onSubmit, onClose }: Props) {
@@ -70,16 +69,7 @@ export default function EditForm({ user, form, setForm, saving, onSubmit, onClos
           />
         </div>
 
-        <div>
-          <label className="text-xs font-medium text-text-secondary mb-1.5 block">이메일 (선택)</label>
-          <input
-            type="email"
-            value={form.email}
-            onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
-            placeholder="example@email.com"
-            className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 bg-surface"
-          />
-        </div>
+        {/* 이메일 입력 필드 제거 — 가상 이메일은 시스템이 전화번호 기반으로 자동 생성 */}
 
         {/* 현재 비밀번호 */}
         <div>
@@ -109,7 +99,7 @@ export default function EditForm({ user, form, setForm, saving, onSubmit, onClos
             </button>
           </div>
           <p className="text-xs text-text-tertiary mt-1">
-            {user.role === 'customer' ? '고객 초기 PW: 사업자등록번호' : '직원/관리자 초기 PW: 전화번호+bbk'}
+            초기 PW: 자동 생성된 값(전화번호+bbk). 변경하면 위 표시도 함께 갱신됩니다.
           </p>
         </div>
 
@@ -123,7 +113,7 @@ export default function EditForm({ user, form, setForm, saving, onSubmit, onClos
               type={showNewPw ? 'text' : 'password'}
               value={form.new_password}
               onChange={e => setForm(f => ({ ...f, new_password: e.target.value }))}
-              placeholder="8자 이상 입력 시 변경"
+              placeholder="6자 이상 입력 시 변경"
               className="w-full px-3 py-2.5 pr-10 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 bg-surface"
             />
             <button

@@ -38,10 +38,10 @@ function normalizePhone(phone: string) {
 }
 
 function cardPwHint(user: User): string {
+  // password_hint가 있으면 항상 그것이 진실 (자동생성·변경 모두 동기화됨)
+  // 없으면 "추정값" 대신 "확인 필요" 명시 — 표시 ≠ 실제 혼동 차단
   if (user.password_hint) return user.password_hint
-  const phone = (user.phone ?? '').replace(/-/g, '')
-  if (user.role === 'customer') return `사업자번호 (없으면 ${phone})`
-  return `${phone}bbk`
+  return '— (재발급 필요)'
 }
 
 export default function MembersPage() {
@@ -241,14 +241,14 @@ export default function MembersPage() {
   const handleEditSubmit = async () => {
     if (!editingUser) return
     if (!editForm.name.trim() || !editForm.phone.trim()) { toast.error('이름과 전화번호를 입력해주세요.'); return }
-    if (editForm.new_password && editForm.new_password.length < 8) { toast.error('비밀번호는 8자 이상이어야 합니다.'); return }
+    if (editForm.new_password && editForm.new_password.length < 6) { toast.error('비밀번호는 6자 이상이어야 합니다.'); return }
     setEditSaving(true)
     try {
-      // 1) 이름/전화번호/이메일 업데이트
+      // 1) 이름/전화번호 업데이트 — email은 시스템이 자동 관리 (phone 변경 시 가상 이메일 동기화)
       const infoRes = await fetch('/api/admin/users', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: editingUser.id, name: editForm.name, phone: editForm.phone, email: editForm.email }),
+        body: JSON.stringify({ id: editingUser.id, name: editForm.name, phone: editForm.phone }),
       })
       const infoData = await infoRes.json()
       if (!infoRes.ok) throw new Error(infoData.error)

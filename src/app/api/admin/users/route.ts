@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
-import { createAuthUser, updateAuthUserPassword, updateAuthUserEmail, customerEmail, staffEmail } from '@/lib/auth-helpers'
+import { createAuthUser, updateAuthUserPassword, updateAuthUserEmail, customerEmail, staffEmail, franchiseEmail } from '@/lib/auth-helpers'
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -55,12 +55,15 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: '이미 등록된 전화번호입니다.' }, { status: 409 })
   }
 
-  // 역할별 이메일 도메인: 관리자/직원 → @bbkorea.co.kr, 고객 → @bbkorea.app
+  // 역할별 가상 이메일 도메인 — 로그인 라우트와 일치해야 함
+  // admin/worker → @bbkorea.co.kr, customer → @bbkorea.app, franchise_hq → @bbkorea.hq
   const virtualEmail = role === 'customer'
     ? customerEmail(normalized)
-    : staffEmail(normalized)
+    : role === 'franchise_hq'
+      ? franchiseEmail(normalized)
+      : staffEmail(normalized)
 
-  // 초기 비밀번호 결정: 고객은 사업자등록번호(없으면 전화번호), 직원/관리자는 {전화번호}bbk
+  // 초기 비밀번호 — A안 정책: 모두 {전화번호}bbk 통일 (고객의 사업자번호 우선 유지)
   let initialPassword = role === 'customer' ? normalized : `${normalized}bbk`
   if (role === 'customer' && customer_id) {
     const { data: customerData } = await supabase
@@ -109,10 +112,10 @@ export async function PATCH(request: NextRequest) {
 
   if (!id) return NextResponse.json({ error: 'id가 필요합니다.' }, { status: 400 })
 
-  // 비밀번호 설정 또는 변경
+  // 비밀번호 설정 또는 변경 — A안 정책: 최소 6자(자동생성 {phone}bbk 기준 11자 이상)
   if (reset_password && new_password) {
-    if (new_password.length < 8) {
-      return NextResponse.json({ error: '비밀번호는 8자 이상이어야 합니다.' }, { status: 400 })
+    if (new_password.length < 6) {
+      return NextResponse.json({ error: '비밀번호는 6자 이상이어야 합니다.' }, { status: 400 })
     }
     const { data: user } = await supabase
       .from('users')
@@ -126,15 +129,18 @@ export async function PATCH(request: NextRequest) {
       if (user.auth_id) {
         await updateAuthUserPassword(user.auth_id, new_password)
       } else {
-        // Auth 계정 없음 → 역할에 맞는 이메일로 신규 생성
+        // Auth 계정 없음 → 역할별 가상 이메일로 신규 생성 (로그인 라우트와 일치)
         const phone = (user.phone ?? '').replace(/-/g, '')
         const email = user.email ?? (user.role === 'customer'
           ? customerEmail(phone)
-          : staffEmail(phone))
+          : user.role === 'franchise_hq'
+            ? franchiseEmail(phone)
+            : staffEmail(phone))
         const newAuthUser = await createAuthUser(email, new_password, { role: user.role, name: user.name })
         await supabase.from('users').update({ auth_id: newAuthUser.id, email, password_hint: new_password }).eq('id', id)
         return NextResponse.json({ success: true })
       }
+      // password_hint 동기화 — 회원관리 UI 표시와 실제 비번 일치 보장
       await supabase.from('users').update({ password_hint: new_password }).eq('id', id)
       return NextResponse.json({ success: true })
     } catch (e) {
@@ -160,7 +166,9 @@ export async function PATCH(request: NextRequest) {
       const newPhone = updates.phone as string
       const newEmail = currentUser.role === 'customer'
         ? customerEmail(newPhone)
-        : staffEmail(newPhone)
+        : currentUser.role === 'franchise_hq'
+          ? franchiseEmail(newPhone)
+          : staffEmail(newPhone)
       try {
         await updateAuthUserEmail(currentUser.auth_id, newEmail)
         updates.email = newEmail

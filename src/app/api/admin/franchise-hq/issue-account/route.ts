@@ -66,7 +66,7 @@ export async function POST(request: NextRequest) {
     const email = franchiseEmail(normalizedPhone)
     const authUser = await createAuthUser(email, password, { role: 'franchise_hq' })
 
-    // 2. users 행 생성
+    // 2. users 행 생성 — email + password_hint도 함께 저장 (회원관리 UI 표시 정확성)
     const { data: newUser, error: userError } = await supabase
       .from('users')
       .insert({
@@ -74,6 +74,8 @@ export async function POST(request: NextRequest) {
         role: 'franchise_hq',
         name: name.trim(),
         phone: normalizedPhone,
+        email,
+        password_hint: password,
         is_active: true,
       })
       .select('id')
