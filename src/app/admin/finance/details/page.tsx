@@ -385,31 +385,32 @@ export default function FinancePage() {
 
             {/* 매출 섹션 — 매출 탭에서만 표시 */}
             {section === 'revenue' && (
-            <div className="bg-surface border border-border-subtle rounded-xl overflow-hidden max-w-3xl mx-auto w-full">
-              <div className="px-4 py-3 bg-brand-50 border-b border-brand-100 flex items-center justify-between gap-3">
-                <div className="min-w-0">
-                  <span className="text-sm font-bold text-brand-700">매출</span>
-                  <span className="text-xs text-brand-500 ml-2">서비스통합관리 자동산정</span>
+            <div className="bg-surface border border-border-subtle rounded-xl overflow-hidden max-w-2xl mx-auto w-full">
+              {/* 헤더 (컴팩트) */}
+              <div className="px-3 py-2 bg-brand-50 border-b border-brand-100 flex items-center justify-between gap-2">
+                <div className="min-w-0 flex items-baseline gap-1.5">
+                  <span className="text-xs font-bold text-brand-700">매출</span>
+                  <span className="text-[10px] text-brand-500">자동산정</span>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
-                  {/* 금액 정렬 토글 (클릭하면 desc → asc → none 순환) */}
                   <button
                     onClick={() => setRevenueSort(prev => prev === 'none' ? 'desc' : prev === 'desc' ? 'asc' : 'none')}
-                    title="금액 정렬 (클릭하여 변경)"
-                    className="text-xs text-brand-600 hover:text-brand-700 hover:underline font-medium"
+                    title="금액 정렬"
+                    className="text-[11px] text-brand-600 hover:text-brand-700 hover:underline font-medium"
                   >
                     금액 {revenueSort === 'desc' ? '↓' : revenueSort === 'asc' ? '↑' : '⇅'}
                   </button>
-                  <span className="text-sm font-bold text-brand-700 font-mono">{fmt(filteredRevenue.reduce((s, i) => s + i.total, 0))}원</span>
+                  <span className="text-xs font-bold text-brand-700 font-mono">{fmt(filteredRevenue.reduce((s, i) => s + i.total, 0))}원</span>
                 </div>
               </div>
-              {/* 서비스 유형 필터 칩 */}
-              <div className="px-4 py-2.5 flex gap-2 flex-wrap border-b border-border-subtle bg-surface-sunken">
+
+              {/* 서비스 유형 필터 칩 (컴팩트) */}
+              <div className="px-3 py-1.5 flex gap-1 flex-wrap border-b border-border-subtle bg-surface-sunken">
                 {SERVICE_TYPES.map(type => (
                   <button
                     key={type}
                     onClick={() => toggleServiceType(type)}
-                    className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+                    className={`px-2 py-0.5 rounded-full text-[11px] font-medium transition-colors ${
                       selectedTypes.includes(type)
                         ? 'bg-brand-600 text-white'
                         : 'bg-surface border border-border text-text-secondary hover:border-blue-400'
@@ -419,15 +420,16 @@ export default function FinancePage() {
                   </button>
                 ))}
                 {selectedTypes.length > 0 && (
-                  <button onClick={() => setSelectedTypes([])} className="px-2 py-1 text-xs text-text-tertiary hover:text-text-secondary">
+                  <button onClick={() => setSelectedTypes([])} className="px-1.5 py-0.5 text-[11px] text-text-tertiary hover:text-text-secondary">
                     전체
                   </button>
                 )}
-                <span className="ml-auto text-xs text-text-tertiary self-center">{filteredRevenue.length}건</span>
+                <span className="ml-auto text-[11px] text-text-tertiary self-center">{filteredRevenue.length}건</span>
               </div>
-              {/* 서비스 유형별 소계 (필터 적용 후) */}
+
+              {/* 서비스 유형별 소계 */}
               {filteredRevenue.length > 0 && (
-                <div className="px-4 py-2 flex gap-x-4 gap-y-1 flex-wrap border-b border-border-subtle bg-blue-50">
+                <div className="px-3 py-1 flex gap-x-3 gap-y-0.5 flex-wrap border-b border-border-subtle bg-blue-50">
                   {Object.entries(
                     filteredRevenue.reduce<Record<string, { total: number; count: number }>>((acc, item) => {
                       const key = item.service_type ?? '미분류'
@@ -439,26 +441,28 @@ export default function FinancePage() {
                   )
                     .sort((a, b) => b[1].total - a[1].total)
                     .map(([type, { total, count }]) => (
-                      <span key={type} className="text-xs whitespace-nowrap">
+                      <span key={type} className="text-[11px] whitespace-nowrap">
                         <span className="text-text-secondary">{type}</span>
-                        <span className="text-text-tertiary mx-1">{count}건</span>
+                        <span className="text-text-tertiary mx-0.5">{count}</span>
                         <span className="font-semibold text-brand-700 font-mono">{fmt(total)}원</span>
                       </span>
                     ))}
                 </div>
               )}
+
+              {/* 항목 리스트 (컴팩트) */}
               <div className="divide-y divide-border-subtle">
                 {filteredRevenue.length === 0 ? (
-                  <p className="text-xs text-text-tertiary text-center py-4">
+                  <p className="text-[11px] text-text-tertiary text-center py-3">
                     {selectedTypes.length > 0 ? '선택한 유형의 매출 없음' : `${displayMonth} 매출 없음`}
                   </p>
                 ) : sortedRevenue.map(item => (
-                  <div key={item.id} className="px-4 py-2.5 flex items-center gap-2">
+                  <div key={item.id} className="px-3 py-1.5 flex items-center gap-2">
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-text-primary truncate">{item.business_name}</p>
-                      <p className="text-xs text-text-tertiary">{fmtDate(item.construction_date)} · {item.service_type} · {item.payment_method ?? '-'}</p>
+                      <p className="text-xs font-medium text-text-primary truncate leading-tight">{item.business_name}</p>
+                      <p className="text-[10px] text-text-tertiary leading-tight">{fmtDate(item.construction_date)} · {item.service_type} · {item.payment_method ?? '-'}</p>
                     </div>
-                    <span className="text-sm font-semibold text-brand-600 font-mono whitespace-nowrap">{fmt(item.total)}원</span>
+                    <span className="text-xs font-semibold text-brand-600 font-mono whitespace-nowrap">{fmt(item.total)}원</span>
                   </div>
                 ))}
               </div>
