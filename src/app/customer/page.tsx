@@ -15,42 +15,21 @@ import {
   GAUGE_DESCRIPTIONS,
 } from '@/lib/customer-indices'
 
-const GRADE_HERO: Record<CustomerGrade, {
-  label: string
-  year: string
-  bg: string
-  text: string
-  border: string
-  ring: string
-}> = {
-  '화이트': {
-    label: 'WHITE', year: '1년차',
-    bg: 'bg-white', text: 'text-blue-700',
-    border: 'border-white/50', ring: 'ring-white/40',
-  },
-  '블루': {
-    label: 'BLUE', year: '2년차',
-    bg: 'bg-sky-300', text: 'text-sky-900',
-    border: 'border-sky-200/60', ring: 'ring-sky-200/40',
-  },
-  '블랙': {
-    label: 'BLACK', year: '3년차',
-    bg: 'bg-gray-900', text: 'text-white',
-    border: 'border-gray-700', ring: 'ring-white/20',
-  },
+const GRADE_HERO: Record<CustomerGrade, { label: string; year: string; dot: string }> = {
+  '화이트': { label: 'WHITE', year: '1년차', dot: 'bg-white' },
+  '블루':   { label: 'BLUE',  year: '2년차', dot: 'bg-sky-300' },
+  '블랙':   { label: 'BLACK', year: '3년차', dot: 'bg-gray-900 ring-1 ring-white/40' },
 }
 
 function GradeBadge({ grade }: { grade: CustomerGrade }) {
   const meta = GRADE_HERO[grade]
   return (
-    <div className={`absolute top-4 right-4 z-20 rounded-2xl px-3 py-2 border ${meta.bg} ${meta.border} shadow-lg ring-2 ${meta.ring}`}>
-      <p className={`text-[9px] font-bold uppercase tracking-widest opacity-70 ${meta.text} leading-none`}>등급</p>
-      <p className={`text-base font-black leading-tight mt-0.5 ${meta.text}`}>
-        {meta.label}
-      </p>
-      <p className={`text-[10px] mt-0.5 font-semibold opacity-80 ${meta.text} leading-none`}>
-        {meta.year}
-      </p>
+    <div className="absolute top-4 right-4 z-20 text-right">
+      <div className="flex items-center justify-end gap-1.5 leading-none">
+        <span className={`w-2 h-2 rounded-full ${meta.dot}`} />
+        <p className="text-sm font-bold text-white">{meta.label} 등급</p>
+      </div>
+      <p className="text-[11px] text-white/70 mt-1 leading-none">{meta.year}</p>
     </div>
   )
 }
