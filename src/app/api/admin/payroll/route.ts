@@ -19,17 +19,18 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'month 파라미터가 필요합니다. (YYYY-MM)' }, { status: 400 })
   }
 
-  const [appsRes, assignmentsRes, usersRes, workersRes, recordsRes, monthlyPricesRes] = await Promise.all([
-    // 담당자 배정 서비스
+  const [appsRes, assignmentsRes, usersRes, workersRes, recordsRes, monthlyPricesRes, deletedAppIdsRes] = await Promise.all([
+    // 담당자 배정 서비스 — 삭제되지 않은 것만
     supabase
       .from('service_applications')
       .select('id, assigned_to, business_name, service_type, construction_date, manager_pay, unit_price_per_visit')
       .not('assigned_to', 'is', null)
+      .is('deleted_at', null)
       .gte('construction_date', `${month}-01`)
       .lte('construction_date', getMonthEndDate(month))
       .order('construction_date'),
 
-    // 작업자 배정
+    // 작업자 배정 (work_assignments에 deleted_at 없음 → application 삭제 여부는 응답에서 필터)
     supabase
       .from('work_assignments')
       .select('id, worker_id, business_name, construction_date, salary, application_id')
@@ -62,6 +63,12 @@ export async function GET(request: NextRequest) {
       .from('unit_price_monthly')
       .select('application_id, unit_price')
       .eq('year_month', month),
+
+    // 삭제된 service_application id 목록 (work_assignments 필터링용 — 해당 테이블엔 deleted_at 없음)
+    supabase
+      .from('service_applications')
+      .select('id')
+      .not('deleted_at', 'is', null),
   ])
 
   if (appsRes.error) return NextResponse.json({ error: appsRes.error.message }, { status: 500 })
@@ -71,7 +78,11 @@ export async function GET(request: NextRequest) {
   if (recordsRes.error) return NextResponse.json({ error: recordsRes.error.message }, { status: 500 })
 
   const apps = appsRes.data ?? []
-  const assignments = assignmentsRes.data ?? []
+  // 작업자 배정: 삭제된 application id를 가리키는 것 제외 (application_id 없는 임시 배정은 통과)
+  const deletedAppIds = new Set((deletedAppIdsRes.data ?? []).map(a => a.id))
+  const assignments = (assignmentsRes.data ?? []).filter(a =>
+    !a.application_id || !deletedAppIds.has(a.application_id)
+  )
   const users = usersRes.data ?? []
   const workers = workersRes.data ?? []
   const records = recordsRes.data ?? []
