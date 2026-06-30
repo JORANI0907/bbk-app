@@ -90,7 +90,6 @@ const NAV_ITEMS: NavItem[] = [
     children: [
       { href: '/admin/payroll', label: '급여정산' },
       { href: '/admin/finance', label: '매출매입' },
-      { href: '/admin/invoices', label: '세금계산서' },
     ],
   },
   {
