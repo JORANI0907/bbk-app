@@ -448,14 +448,23 @@ export async function POST(request: NextRequest) {
         await sendSMS(worker.phone!, smsText)
         sentPhones.push(worker.phone!)
 
-        // 발송 내용 Slack 보고
-        sendSlack([
-          `📤 *작업자 알림* | ${type}`,
-          `수신: ${worker.name ?? '-'} (${worker.phone})`,
-          ``,
-          `[발송 내용]`,
-          smsText,
-        ].join('\n')).catch(() => {})
+        // 발송 내용 Slack 보고 (notification_rules.notify_admin 토글 OFF면 건너뜀)
+        const { data: ruleWorkerSlack } = await supabase
+          .from('notification_rules')
+          .select('notify_admin, is_active')
+          .eq('type', type)
+          .maybeSingle()
+        const workerSlackEnabled = (ruleWorkerSlack as { notify_admin?: boolean; is_active?: boolean } | null)
+        const shouldWorkerSlack = !workerSlackEnabled || (workerSlackEnabled.notify_admin && workerSlackEnabled.is_active !== false)
+        if (shouldWorkerSlack) {
+          sendSlack([
+            `📤 *작업자 알림* | ${type}`,
+            `수신: ${worker.name ?? '-'} (${worker.phone})`,
+            ``,
+            `[발송 내용]`,
+            smsText,
+          ].join('\n')).catch(() => {})
+        }
 
         await saveNotificationHistory({
           category: 'sms',
@@ -542,21 +551,30 @@ export async function POST(request: NextRequest) {
 
     await sendAlimtalk(phone, templateId, variables, fallbackText)
 
-    // ── 발송 내용 Slack 보고 ───────────────────────────────────────
-    const varLines = Object.entries(variables)
-      .map(([k, v]) => `  ${k}: ${v || '(빈값)'}`)
-      .join('\n')
-    sendSlack([
-      `📤 *알림 발송* | ${type}`,
-      `업체: ${String(app.business_name ?? '-')} / 고객: ${String(app.owner_name ?? '-')} (${phone})`,
-      `발송: ${method === 'manual' ? '수동' : '자동'} | 템플릿: ${templateId}`,
-      ``,
-      `[적용 변수]`,
-      varLines,
-      ``,
-      `[폴백 SMS]`,
-      fallbackText,
-    ].join('\n')).catch(() => {})
+    // ── 발송 내용 Slack 보고 (notification_rules.notify_admin 토글 OFF면 건너뜀) ──
+    const { data: ruleAdmin } = await supabase
+      .from('notification_rules')
+      .select('notify_admin, is_active')
+      .eq('type', type)
+      .maybeSingle()
+    const adminSlackEnabled = (ruleAdmin as { notify_admin?: boolean; is_active?: boolean } | null)
+    const shouldSlack = !adminSlackEnabled || (adminSlackEnabled.notify_admin && adminSlackEnabled.is_active !== false)
+    if (shouldSlack) {
+      const varLines = Object.entries(variables)
+        .map(([k, v]) => `  ${k}: ${v || '(빈값)'}`)
+        .join('\n')
+      sendSlack([
+        `📤 *알림 발송* | ${type}`,
+        `업체: ${String(app.business_name ?? '-')} / 고객: ${String(app.owner_name ?? '-')} (${phone})`,
+        `발송: ${method === 'manual' ? '수동' : '자동'} | 템플릿: ${templateId}`,
+        ``,
+        `[적용 변수]`,
+        varLines,
+        ``,
+        `[폴백 SMS]`,
+        fallbackText,
+      ].join('\n')).catch(() => {})
+    }
 
     // ── 계약상태 자동변경 ──────────────────────────────────────────
     const newStatus = NOTIFY_TO_STATUS[type]
