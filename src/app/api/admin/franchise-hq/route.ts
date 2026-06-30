@@ -3,8 +3,31 @@ import { createServiceClient } from '@/lib/supabase/server'
 import { getServerSession } from '@/lib/session'
 
 /**
- * 본사 등록 (DB 메타정보만 생성 — 계정은 회원관리에서 별도 등록)
- * 직원관리 → 회원관리 패턴과 동일한 분리 구조.
+ * GET: 전체 본사 목록 (회원관리에서 user_id → brand_name 매핑용)
+ */
+export async function GET() {
+  const session = getServerSession()
+  if (!session || session.role !== 'admin') {
+    return NextResponse.json({ error: '권한이 없습니다.' }, { status: 403 })
+  }
+
+  try {
+    const supabase = createServiceClient()
+    const { data, error } = await supabase
+      .from('franchise_hq')
+      .select('id, brand_name, logo_url, user_id, manager_name, manager_phone')
+      .order('created_at', { ascending: false })
+
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json({ franchises: data ?? [] })
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error)
+    return NextResponse.json({ error: msg }, { status: 500 })
+  }
+}
+
+/**
+ * POST: 본사 등록 (DB 메타정보만 생성 — 계정은 회원관리에서 별도 등록)
  */
 export async function POST(request: NextRequest) {
   const session = getServerSession()

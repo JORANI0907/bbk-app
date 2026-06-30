@@ -35,6 +35,8 @@ export function CreateFranchiseHqButton() {
       setOpen(false)
       setForm({ brandName: '', logoUrl: '', managerName: '', managerPhone: '' })
       router.refresh()
+      // 클라이언트 라우터 캐시 보장 — 즉시 갱신 후 동기화 안 될 때 새 페이지 도착 보장
+      setTimeout(() => router.refresh(), 100)
     } catch (err) {
       toast.error(err instanceof Error ? err.message : '등록 실패')
     } finally {

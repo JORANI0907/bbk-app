@@ -76,6 +76,9 @@ export default function MembersPage() {
   const [franchiseSearch, setFranchiseSearch] = useState('')
   const [showFranchiseDropdown, setShowFranchiseDropdown] = useState(false)
 
+  // 본사 사용자 카드에 브랜드명 표시용 매핑 (user_id → brand_name)
+  const [hqByUserId, setHqByUserId] = useState<Record<string, string>>({})
+
   // 현재 로그인 사용자
   const [currentRole, setCurrentRole] = useState<string>('admin')
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
@@ -99,6 +102,19 @@ export default function MembersPage() {
     const data = await res.json()
     setUsers(data.users ?? [])
     setLoading(false)
+
+    // 본사 매핑도 함께 갱신 (신규 본사 발급 즉시 브랜드명 표시되도록)
+    try {
+      const hqRes = await fetch('/api/admin/franchise-hq')
+      const hqData = (await hqRes.json()) as {
+        franchises?: Array<{ user_id: string | null; brand_name: string }>
+      }
+      const map: Record<string, string> = {}
+      for (const f of hqData.franchises ?? []) {
+        if (f.user_id) map[f.user_id] = f.brand_name
+      }
+      setHqByUserId(map)
+    } catch { /* 매핑 실패는 비치명 */ }
   }
 
   useEffect(() => {
@@ -552,6 +568,11 @@ export default function MembersPage() {
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-semibold text-text-primary text-sm">{user.name}</span>
                     <Badge variant={ROLE_BADGE[user.role]}>{ROLE_LABELS[user.role]}</Badge>
+                    {user.role === 'franchise_hq' && hqByUserId[user.id] && (
+                      <span className="text-xs font-semibold text-brand-600 bg-brand-50 border border-brand-200 px-2 py-0.5 rounded-full">
+                        {hqByUserId[user.id]}
+                      </span>
+                    )}
                     {!user.is_active && <Badge variant="default">비활성</Badge>}
                     <span className={`text-xs ${user.auth_id ? 'text-state-success' : 'text-text-tertiary'}`} title={user.auth_id ? '로그인 계정 있음' : '로그인 계정 없음'}>●</span>
                     {user.account_sent_at && (

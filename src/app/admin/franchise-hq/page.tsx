@@ -1,8 +1,10 @@
 import Link from 'next/link'
+import { unstable_noStore as noStore } from 'next/cache'
 import { createServiceClient } from '@/lib/supabase/server'
 import { CreateFranchiseHqButton } from '@/components/admin/franchise-hq/CreateFranchiseHqButton'
 
 export const dynamic = 'force-dynamic'
+export const revalidate = 0
 
 interface HqRow {
   id: string
@@ -17,6 +19,8 @@ interface HqRow {
 }
 
 export default async function FranchiseHqListPage() {
+  // 클라이언트 라우터 캐시까지 무효화 — 신규 등록 직후 stale 화면 방지
+  noStore()
   const supabase = createServiceClient()
 
   const { data: hqs } = await supabase
