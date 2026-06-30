@@ -337,6 +337,7 @@ const CONTRACT_HTML_TEMPLATE = `<!DOCTYPE html>
     <div class="party-row"><span class="party-label">주소</span><span class="party-value">경기도 용인시 수지구 수지로 342번길 32, 5층 503호 504호</span></div>
     <div class="party-row"><span class="party-label">연락처</span><span class="party-value">031-759-4877 / 010-5434-4877</span></div>
     <div class="party-row"><span class="party-label">이메일</span><span class="party-value">sunrise@bbkorea.co.kr</span></div>
+    <div class="party-row" style="margin-top:12px;align-items:flex-start;"><span class="party-label">직인</span><span class="party-value">{{SUPPLIER_STAMP}}</span></div>
   </div>
 
   <div class="party-block">
@@ -347,6 +348,7 @@ const CONTRACT_HTML_TEMPLATE = `<!DOCTYPE html>
     <div class="party-row"><span class="party-label">주소</span><span class="party-value">{{CUSTOMER_ADDRESS}}</span></div>
     <div class="party-row"><span class="party-label">연락처</span><span class="party-value">{{CUSTOMER_PHONE}}</span></div>
     <div class="party-row"><span class="party-label">이메일</span><span class="party-value">{{CUSTOMER_EMAIL}}</span></div>
+    <div class="party-row" style="margin-top:12px;align-items:flex-start;"><span class="party-label">직인</span><span class="party-value">{{CUSTOMER_STAMP}}</span></div>
   </div>
 </div>
 
@@ -420,6 +422,8 @@ export const AUTO_FILL_FIELDS: Record<string, string> = {
   'signing.customer_signature': '고객 서명 (전자서명)',
   'signing.admin_signature': '관리자 서명 (전자서명)',
   'signing.customer_signer_name': '고객 서명자 성명 (서명 시 입력)',
+  'signing.customer_stamp': '고객사 직인 (고객 서명 시 업로드)',
+  'signing.supplier_stamp': '공급사 직인 (관리자 최종 확인 시 업로드)',
 }
 
 // 계약 진행 과정에서 자동 채워지는 필드 — DB 자동 매핑과 구분
@@ -428,6 +432,8 @@ export const PROCESS_AUTO_FIELDS = new Set([
   'signing.customer_signature',
   'signing.admin_signature',
   'signing.customer_signer_name',
+  'signing.customer_stamp',
+  'signing.supplier_stamp',
 ])
 
 /**
@@ -522,6 +528,8 @@ export const TEMPLATE_KNOWN_VARS: Record<string, { label: string; auto: boolean 
   CUSTOMER_SIGNATURE: { label: '고객 서명', auto: true },
   ADMIN_SIGNATURE: { label: '관리자 서명', auto: true },
   CUSTOMER_SIGNER_NAME: { label: '고객 서명자 성명', auto: true },
+  CUSTOMER_STAMP: { label: '고객사 직인', auto: true },
+  SUPPLIER_STAMP: { label: '공급사 직인', auto: true },
 }
 
 // 미리보기용 샘플값
@@ -544,6 +552,8 @@ export const TEMPLATE_PREVIEW_VALUES: Record<string, string> = {
   CUSTOMER_SIGNATURE: '<div style="display:block;width:180px;height:70px;margin:8px 0;border:1px dashed #bbb;border-radius:6px;text-align:center;line-height:70px;color:#ccc;font-size:11px;font-family:sans-serif;">(고객 서명)</div>',
   ADMIN_SIGNATURE: '<div style="display:block;width:180px;height:70px;margin:8px 0;border:1px dashed #bbb;border-radius:6px;text-align:center;line-height:70px;color:#ccc;font-size:11px;font-family:sans-serif;">(관리자 서명)</div>',
   CUSTOMER_SIGNER_NAME: '<div style="display:inline-block;width:120px;height:40px;margin:4px 0;border:1px dashed #bbb;border-radius:6px;text-align:center;line-height:40px;color:#ccc;font-size:11px;font-family:sans-serif;">(서명자 성명)</div>',
+  CUSTOMER_STAMP: '<div style="display:inline-block;width:80px;height:80px;margin:4px 0;border:1px dashed #bbb;border-radius:6px;text-align:center;line-height:80px;color:#ccc;font-size:10px;font-family:sans-serif;">(고객사 직인)</div>',
+  SUPPLIER_STAMP: '<div style="display:inline-block;width:80px;height:80px;margin:4px 0;border:1px dashed #bbb;border-radius:6px;text-align:center;line-height:80px;color:#ccc;font-size:10px;font-family:sans-serif;">(공급사 직인)</div>',
 }
 
 /**
@@ -568,6 +578,8 @@ const DISPLAY_PLACEHOLDER_HTML: Record<string, string> = {
   CUSTOMER_SIGNATURE: TEMPLATE_PREVIEW_VALUES.CUSTOMER_SIGNATURE,
   ADMIN_SIGNATURE: TEMPLATE_PREVIEW_VALUES.ADMIN_SIGNATURE,
   CUSTOMER_SIGNER_NAME: TEMPLATE_PREVIEW_VALUES.CUSTOMER_SIGNER_NAME,
+  CUSTOMER_STAMP: TEMPLATE_PREVIEW_VALUES.CUSTOMER_STAMP,
+  SUPPLIER_STAMP: TEMPLATE_PREVIEW_VALUES.SUPPLIER_STAMP,
 }
 
 /**
