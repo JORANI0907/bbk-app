@@ -90,7 +90,7 @@ export default function PayrollPage() {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex-1 overflow-y-auto px-4 pb-6">
+      <div className="flex-1 overflow-y-auto px-4 pb-6 max-w-3xl mx-auto w-full">
 
         {/* 헤더: 월 네비 + 탭 + 우상단 액션 */}
         <div className="flex items-center justify-between gap-2 my-3 flex-wrap">
@@ -200,7 +200,7 @@ export default function PayrollPage() {
                     <p className="text-sm text-text-tertiary">{displayMonth} {filterLabel} 급여 데이터가 없습니다.</p>
                   </div>
                 ) : (
-                  <div className="flex flex-col gap-3">
+                  <div className="flex flex-col gap-2">
                     {showManagers && managers.map(entry => (
                       <ManagerCard
                         key={`m-${entry.person.id}`}

@@ -9,18 +9,18 @@ export default function SummaryCards({ entries, label }: {
   const paidCount = entries.filter(e => e.record?.is_paid).length
 
   return (
-    <div className="grid grid-cols-3 gap-3 mb-4">
-      <div className="bg-surface rounded-xl border border-border-subtle p-3 text-center">
-        <p className="text-xs text-text-tertiary mb-1">{label} 자동합계</p>
-        <p className="text-base font-bold text-text-primary">{autoTotal.toLocaleString('ko-KR')}원</p>
+    <div className="grid grid-cols-3 gap-2 mb-3">
+      <div className="bg-surface rounded-lg border border-border-subtle px-2 py-1.5 text-center">
+        <p className="text-[10px] text-text-tertiary leading-tight">{label} 자동</p>
+        <p className="text-sm font-bold text-text-primary leading-tight">{autoTotal.toLocaleString('ko-KR')}</p>
       </div>
-      <div className="bg-surface rounded-xl border border-brand-200 p-3 text-center">
-        <p className="text-xs text-brand-500 mb-1">{label} 최종합계</p>
-        <p className="text-base font-bold text-brand-700">{finalTotal.toLocaleString('ko-KR')}원</p>
+      <div className="bg-surface rounded-lg border border-brand-200 px-2 py-1.5 text-center">
+        <p className="text-[10px] text-brand-500 leading-tight">{label} 최종</p>
+        <p className="text-sm font-bold text-brand-700 leading-tight">{finalTotal.toLocaleString('ko-KR')}</p>
       </div>
-      <div className="bg-surface rounded-xl border border-state-success-bg p-3 text-center">
-        <p className="text-xs text-state-success mb-1">지급완료</p>
-        <p className="text-base font-bold text-state-success">{paidCount}/{entries.length}명</p>
+      <div className="bg-surface rounded-lg border border-state-success-bg px-2 py-1.5 text-center">
+        <p className="text-[10px] text-state-success leading-tight">지급완료</p>
+        <p className="text-sm font-bold text-state-success leading-tight">{paidCount}/{entries.length}명</p>
       </div>
     </div>
   )

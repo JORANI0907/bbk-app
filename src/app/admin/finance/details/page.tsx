@@ -167,6 +167,8 @@ export default function FinancePage() {
   const [data, setData] = useState<FinanceData | null>(null)
   const [selectedTypes, setSelectedTypes] = useState<string[]>([])
   const [purchaseSortDir, setPurchaseSortDir] = useState<'asc' | 'desc'>('asc')
+  // 매출 항목 정렬 (기본은 정렬 안 함)
+  const [revenueSort, setRevenueSort] = useState<'none' | 'desc' | 'asc'>('none')
   const [showImportModal, setShowImportModal] = useState(false)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -304,6 +306,13 @@ export default function FinancePage() {
     ? data.revenue.items
     : data.revenue.items.filter(item => selectedTypes.includes(item.service_type ?? ''))
 
+  // 금액 정렬 적용 (none = 기본순서 유지)
+  const sortedRevenue = revenueSort === 'none'
+    ? filteredRevenue
+    : [...filteredRevenue].sort((a, b) =>
+        revenueSort === 'desc' ? b.total - a.total : a.total - b.total
+      )
+
   const sortRecords = (records: FinanceRecord[]) =>
     [...records].sort((a, b) =>
       purchaseSortDir === 'asc'
@@ -376,13 +385,23 @@ export default function FinancePage() {
 
             {/* 매출 섹션 — 매출 탭에서만 표시 */}
             {section === 'revenue' && (
-            <div className="bg-surface border border-border-subtle rounded-xl overflow-hidden">
-              <div className="px-4 py-3 bg-brand-50 border-b border-brand-100 flex items-center justify-between">
-                <div>
+            <div className="bg-surface border border-border-subtle rounded-xl overflow-hidden max-w-3xl mx-auto w-full">
+              <div className="px-4 py-3 bg-brand-50 border-b border-brand-100 flex items-center justify-between gap-3">
+                <div className="min-w-0">
                   <span className="text-sm font-bold text-brand-700">매출</span>
                   <span className="text-xs text-brand-500 ml-2">서비스통합관리 자동산정</span>
                 </div>
-                <span className="text-sm font-bold text-brand-700 font-mono">{fmt(filteredRevenue.reduce((s, i) => s + i.total, 0))}원</span>
+                <div className="flex items-center gap-2 shrink-0">
+                  {/* 금액 정렬 토글 (클릭하면 desc → asc → none 순환) */}
+                  <button
+                    onClick={() => setRevenueSort(prev => prev === 'none' ? 'desc' : prev === 'desc' ? 'asc' : 'none')}
+                    title="금액 정렬 (클릭하여 변경)"
+                    className="text-xs text-brand-600 hover:text-brand-700 hover:underline font-medium"
+                  >
+                    금액 {revenueSort === 'desc' ? '↓' : revenueSort === 'asc' ? '↑' : '⇅'}
+                  </button>
+                  <span className="text-sm font-bold text-brand-700 font-mono">{fmt(filteredRevenue.reduce((s, i) => s + i.total, 0))}원</span>
+                </div>
               </div>
               {/* 서비스 유형 필터 칩 */}
               <div className="px-4 py-2.5 flex gap-2 flex-wrap border-b border-border-subtle bg-surface-sunken">
@@ -433,7 +452,7 @@ export default function FinancePage() {
                   <p className="text-xs text-text-tertiary text-center py-4">
                     {selectedTypes.length > 0 ? '선택한 유형의 매출 없음' : `${displayMonth} 매출 없음`}
                   </p>
-                ) : filteredRevenue.map(item => (
+                ) : sortedRevenue.map(item => (
                   <div key={item.id} className="px-4 py-2.5 flex items-center gap-2">
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-text-primary truncate">{item.business_name}</p>

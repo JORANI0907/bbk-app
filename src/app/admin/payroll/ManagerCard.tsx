@@ -113,8 +113,8 @@ export default function ManagerCard({
 
   return (
     <div className={`bg-surface rounded-xl border ${isPaid ? 'border-state-success-bg' : 'border-border-subtle'} shadow-soft overflow-hidden`}>
-      <div className="p-4">
-        <div className="flex items-start justify-between mb-3 gap-3">
+      <div className="p-3">
+        <div className="flex items-start justify-between mb-2 gap-3">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
               <span className="font-semibold text-text-primary">{entry.person.name}</span>
@@ -149,48 +149,43 @@ export default function ManagerCard({
           </div>
         </div>
 
-        <div className="flex gap-2 mb-3">
-          <div className="flex-1">
-            <label className="text-xs text-text-tertiary mb-1 block">최종 지급액</label>
-            <input
-              type="number"
-              value={finalInput}
-              onChange={e => setFinalInput(e.target.value)}
-              placeholder={`${entry.auto_amount.toLocaleString('ko-KR')} (자동)`}
-              className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
-          <div className="flex-1">
-            <label className="text-xs text-text-tertiary mb-1 block">메모</label>
-            <input
-              type="text"
-              value={noteInput}
-              onChange={e => setNoteInput(e.target.value)}
-              placeholder="조정 사유 등"
-              className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
+        {/* 입력 + 저장 한 줄 (라벨 제거, placeholder로 대체) */}
+        <div className="flex gap-1.5 mb-2">
+          <input
+            type="number"
+            value={finalInput}
+            onChange={e => setFinalInput(e.target.value)}
+            placeholder={`최종 지급액 (${entry.auto_amount.toLocaleString('ko-KR')})`}
+            className="flex-1 min-w-0 px-2 py-1.5 border border-border rounded-md text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+          <input
+            type="text"
+            value={noteInput}
+            onChange={e => setNoteInput(e.target.value)}
+            placeholder="메모"
+            className="flex-1 min-w-0 px-2 py-1.5 border border-border rounded-md text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
         </div>
 
-        <div className="flex gap-2">
+        <div className="flex gap-1.5">
           <Button
             onClick={handleSave}
             disabled={saving}
             variant="secondary"
-            className="flex-1 py-2 bg-gray-800 text-white hover:bg-gray-700"
+            className="flex-1 py-1.5 text-xs bg-gray-800 text-white hover:bg-gray-700"
           >
             {saving ? '저장 중...' : '저장'}
           </Button>
           <button
             onClick={handleTogglePaid}
             disabled={paying}
-            className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-colors disabled:opacity-60 ${
+            className={`flex-1 py-1.5 text-xs font-semibold rounded-md transition-colors disabled:opacity-60 ${
               isPaid
                 ? 'bg-surface-sunken text-text-secondary hover:bg-surface-sunken'
                 : 'bg-green-600 text-white hover:bg-green-700'
             }`}
           >
-            {paying ? '처리 중...' : isPaid ? '지급 취소' : <><CreditCard size={14} className="inline mr-1" />지급완료</>}
+            {paying ? '처리 중...' : isPaid ? '지급 취소' : <><CreditCard size={12} className="inline mr-0.5" />지급완료</>}
           </button>
         </div>
       </div>
