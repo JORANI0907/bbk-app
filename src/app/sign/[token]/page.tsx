@@ -7,6 +7,7 @@ import { Modal } from '@/components/ui'
 import SignaturePad, { type SignaturePadHandle } from '@/components/contracts/SignaturePad'
 import { Clock, CheckCircle, AlertTriangle, Maximize2, X } from 'lucide-react'
 import { injectProcessFieldPlaceholders } from '@/lib/contractTemplate'
+import { StampUpload } from '@/components/contracts/StampUpload'
 
 interface ContractData {
   id: string
@@ -39,6 +40,7 @@ export default function SignContractPage() {
   const [showModal, setShowModal] = useState(false)
   const [modalStep, setModalStep] = useState<ModalStep>('signature')
   const [signerName, setSignerName] = useState('') // 성명 손글씨 data URL
+  const [customerStamp, setCustomerStamp] = useState<string | null>(null) // 고객사 직인
   const [sigError, setSigError] = useState('')
   const sigPadRef = useRef<SignaturePadHandle | null>(null)
   const signerNamePadRef = useRef<SignaturePadHandle | null>(null)
@@ -109,6 +111,7 @@ export default function SignContractPage() {
     setShowModal(false)
     setModalStep('signature')
     setSignerName('')
+    setCustomerStamp(null)
     setSigError('')
     setSignatureDataUrl('')
     setOtpError('')
@@ -171,6 +174,7 @@ export default function SignContractPage() {
           article14Agree: true,
           customerSignature: signatureDataUrl,
           customerSignerName: signerName.trim(),
+          customerStamp: customerStamp ?? undefined,
         }),
       })
       const json = await res.json()
@@ -415,6 +419,16 @@ export default function SignContractPage() {
                 </button>
               </div>
             </div>
+
+            <div className="border-t border-border-subtle pt-4">
+              <StampUpload
+                label="고객사 직인 (선택)"
+                hint="서명 외에 직인을 추가할 수 있습니다. 이미지는 자동으로 2MB 이하로 압축됩니다."
+                value={customerStamp}
+                onChange={setCustomerStamp}
+              />
+            </div>
+
             {sigError && (
               <p className="text-sm text-state-danger bg-state-danger-bg rounded-lg px-3 py-2">
                 {sigError}
