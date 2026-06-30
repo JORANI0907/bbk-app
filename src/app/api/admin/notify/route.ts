@@ -622,16 +622,21 @@ export async function POST(request: NextRequest) {
 
     // ── Web Push 발송 (notification_rules의 role 토글에 따라 분기) ──
     // dispatcher가 notify_admin/worker/customer/franchise_hq 규칙을 적용함
+    // 관리자 push는 customers.assigned_user_id(담당 관리자)에게만 — 모든 admin이 받지 않음
     try {
       const customerIdRaw = app.customer_id ? String(app.customer_id) : undefined
-      const customerUserId = await (async () => {
-        if (!customerIdRaw) return undefined
+      const { customerUserId, assignedAdminId } = await (async () => {
+        if (!customerIdRaw) return { customerUserId: undefined, assignedAdminId: undefined }
         const { data } = await supabase
           .from('customers')
-          .select('user_id')
+          .select('user_id, assigned_user_id')
           .eq('id', customerIdRaw)
           .maybeSingle()
-        return (data as { user_id: string | null } | null)?.user_id ?? undefined
+        const row = data as { user_id: string | null; assigned_user_id: string | null } | null
+        return {
+          customerUserId: row?.user_id ?? undefined,
+          assignedAdminId: row?.assigned_user_id ?? undefined,
+        }
       })()
       const franchiseHqIds = customerIdRaw ? await lookupFranchiseHqIdsForCustomer(customerIdRaw) : []
 
@@ -644,6 +649,7 @@ export async function POST(request: NextRequest) {
           businessName: String(app.business_name ?? ''),
         },
         workerIds: app.assigned_to ? [String(app.assigned_to)] : [],
+        adminIds: assignedAdminId ? [assignedAdminId] : [],
         franchiseHqIds,
         push: { title: `BBK 공간케어 — ${type}`, body: `${String(app.business_name ?? '')} ${type}`, url: '/admin' },
         method,

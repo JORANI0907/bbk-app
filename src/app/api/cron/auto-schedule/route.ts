@@ -262,6 +262,7 @@ export async function GET(request: NextRequest) {
         }
         const fallback = `[BBK 공간케어] ${ownerName}님, ${customer.business_name} ${dateStr} 예약이 확정되었습니다.`
         // notification_rules의 채널·role 토글에 따라 자동 분기
+        // 관리자 push는 customer.assigned_user_id(담당 관리자)에게만
         const franchiseHqIds = customer.id ? await lookupFranchiseHqIdsForCustomer(customer.id) : []
         const { data: custRow } = await supabase.from('customers').select('user_id').eq('id', customer.id).maybeSingle()
         const customerUserId = (custRow as { user_id: string | null } | null)?.user_id ?? undefined
@@ -269,6 +270,7 @@ export async function GET(request: NextRequest) {
           await dispatch('예약확정알림', {
             customer: { id: customer.id, userId: customerUserId, phone, name: ownerName, businessName: customer.business_name },
             workerIds: customer.assigned_worker_id ? [customer.assigned_worker_id] : [],
+            adminIds: customer.assigned_user_id ? [customer.assigned_user_id] : [],
             franchiseHqIds,
             variables,
             fallbackText: fallback,

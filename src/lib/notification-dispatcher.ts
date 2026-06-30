@@ -177,19 +177,11 @@ export async function dispatch(type: string, ctx: DispatchContext): Promise<Disp
     if (rule.notify_worker && ctx.workerIds) ctx.workerIds.forEach((id) => pushTargets.add(id))
     if (rule.notify_franchise_hq && ctx.franchiseHqIds) ctx.franchiseHqIds.forEach((id) => pushTargets.add(id))
 
-    // notify_admin: 호출자가 ctx.adminIds를 전달하지 않으면 활성 admin user 전체 자동 조회
-    if (rule.notify_admin) {
-      const adminIds = ctx.adminIds?.length
-        ? ctx.adminIds
-        : await (async () => {
-            const { data } = await supabase
-              .from('users')
-              .select('id')
-              .eq('role', 'admin')
-              .eq('is_active', true)
-            return ((data ?? []) as Array<{ id: string }>).map((u) => u.id)
-          })()
-      adminIds.forEach((id) => pushTargets.add(id))
+    // notify_admin: 호출자가 ctx.adminIds(담당 관리자 id)를 전달한 경우에만 push
+    // 미전달 시 push 안 함 — 각 고객의 담당 관리자만 알림 받도록 보장
+    // (customers.assigned_user_id를 호출자가 명시적으로 전달해야 함)
+    if (rule.notify_admin && ctx.adminIds?.length) {
+      ctx.adminIds.forEach((id) => pushTargets.add(id))
     }
 
     if (pushTargets.size > 0) {
