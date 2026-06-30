@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { gaugeStrokeColor } from '@/lib/customer-indices'
 
 interface CircularGaugeProps {
@@ -15,11 +16,6 @@ interface CircularGaugeProps {
   variant?: 'dark' | 'light'
 }
 
-/**
- * 원형 게이지. customer 웰컴 카드 = dark, franchise 지점 카드 = light.
- * 색상 룰은 lib/customer-indices.ts의 gaugeStrokeColor 단일 정의를 사용.
- * description이 있으면 클릭/탭 시 설명 tooltip을 보여줌. 외부 클릭 또는 ESC 키로 닫힘.
- */
 export function CircularGauge({
   pct,
   displayTop,
@@ -43,7 +39,12 @@ export function CircularGauge({
   const captionClass = variant === 'dark' ? 'text-white/45' : 'text-text-tertiary'
 
   const [open, setOpen] = useState(false)
+  const [tooltipPos, setTooltipPos] = useState<{ top: number; left: number } | null>(null)
+  const [mounted, setMounted] = useState(false)
   const wrapperRef = useRef<HTMLDivElement>(null)
+  const btnRef = useRef<HTMLButtonElement>(null)
+
+  useEffect(() => { setMounted(true) }, [])
 
   useEffect(() => {
     if (!open) return
@@ -55,24 +56,56 @@ export function CircularGauge({
     function onEscape(e: KeyboardEvent) {
       if (e.key === 'Escape') setOpen(false)
     }
+    function onScroll() { setOpen(false) }
     document.addEventListener('mousedown', onClickOutside)
     document.addEventListener('keydown', onEscape)
+    window.addEventListener('scroll', onScroll, true)
     return () => {
       document.removeEventListener('mousedown', onClickOutside)
       document.removeEventListener('keydown', onEscape)
+      window.removeEventListener('scroll', onScroll, true)
     }
   }, [open])
 
   const hasTooltip = !!description
-  const wrapperClass = hasTooltip ? 'cursor-pointer focus:outline-none' : 'cursor-default'
+
+  function handleClick() {
+    if (!hasTooltip) return
+    if (!open && btnRef.current) {
+      const rect = btnRef.current.getBoundingClientRect()
+      setTooltipPos({
+        top: rect.bottom + 8,
+        left: rect.left + rect.width / 2,
+      })
+    }
+    setOpen((o) => !o)
+  }
+
+  const tooltip = open && description && tooltipPos && mounted
+    ? createPortal(
+        <div
+          role="tooltip"
+          style={{ position: 'fixed', top: tooltipPos.top, left: tooltipPos.left, transform: 'translateX(-50%)', zIndex: 9999 }}
+          className="w-44 max-w-[80vw] bg-gray-900 text-white text-[10px] font-medium leading-relaxed rounded-xl px-3 py-2 shadow-lg break-keep pointer-events-none"
+        >
+          <span
+            className="absolute -top-1.5 left-1/2 -translate-x-1/2 w-3 h-3 rotate-45 bg-gray-900"
+            aria-hidden="true"
+          />
+          <span className="relative">{description}</span>
+        </div>,
+        document.body
+      )
+    : null
 
   return (
     <div ref={wrapperRef} className="relative flex flex-col items-center gap-1.5">
       <button
+        ref={btnRef}
         type="button"
         disabled={!hasTooltip}
-        onClick={() => hasTooltip && setOpen((o) => !o)}
-        className={`flex flex-col items-center gap-1.5 ${wrapperClass}`}
+        onClick={handleClick}
+        className={`flex flex-col items-center gap-1.5 ${hasTooltip ? 'cursor-pointer focus:outline-none' : 'cursor-default'}`}
         aria-label={`${title} 설명 보기`}
         aria-expanded={open}
       >
@@ -116,17 +149,7 @@ export function CircularGauge({
           {caption}
         </p>
       )}
-
-      {open && description && (
-        <div
-          role="tooltip"
-          className="absolute top-full mt-2 left-1/2 -translate-x-1/2 w-56 max-w-[80vw] z-30 bg-text-primary text-white text-[11px] font-medium leading-relaxed rounded-xl px-3.5 py-2.5 shadow-pop break-keep"
-        >
-          {/* arrow */}
-          <span className="absolute -top-1.5 left-1/2 -translate-x-1/2 w-3 h-3 rotate-45 bg-text-primary" aria-hidden="true" />
-          <span className="relative">{description}</span>
-        </div>
-      )}
+      {tooltip}
     </div>
   )
 }
