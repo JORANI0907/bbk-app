@@ -27,6 +27,9 @@ export default function WorkerCard({
   const [savingJob, setSavingJob] = useState<string | null>(null)
 
   const isPaid = entry.record?.is_paid ?? false
+  const finalAmount = entry.record?.final_amount ?? entry.auto_amount
+  const isAdjusted = entry.record?.final_amount != null && entry.record.final_amount !== entry.auto_amount
+  const hasNote = !!(entry.record?.note && entry.record.note.trim() !== '')
 
   const handleSave = async () => {
     setSaving(true)
@@ -111,12 +114,17 @@ export default function WorkerCard({
   return (
     <div className={`bg-surface rounded-xl border ${isPaid ? 'border-state-success-bg' : 'border-border-subtle'} shadow-soft overflow-hidden`}>
       <div className="p-4">
-        <div className="flex items-start justify-between mb-3">
-          <div>
-            <div className="flex items-center gap-2">
+        <div className="flex items-start justify-between mb-3 gap-3">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
               <span className="font-semibold text-text-primary">{entry.person.name}</span>
               <span className="text-xs px-2 py-0.5 rounded-full bg-amber-50 text-amber-600">{entry.person.employment_type ?? '기타'}</span>
               {isPaid && <span className="text-xs px-2 py-0.5 rounded-full bg-state-success-bg text-state-success flex items-center gap-0.5"><CreditCard size={11} />지급완료</span>}
+              {hasNote && (
+                <span className="text-xs px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200" title={entry.record?.note ?? ''}>
+                  📝 메모
+                </span>
+              )}
             </div>
             <p className="text-xs text-text-tertiary mt-0.5">{entry.jobs.length}건 · 자동 {fmt(entry.auto_amount)}</p>
             {(entry.person.phone || entry.person.account_number) && (
@@ -127,9 +135,18 @@ export default function WorkerCard({
               </p>
             )}
           </div>
-          <button onClick={() => setExpanded(v => !v)} className="text-text-tertiary hover:text-text-secondary text-lg leading-none p-1">
-            {expanded ? '▲' : '▼'}
-          </button>
+          <div className="flex flex-col items-end shrink-0">
+            <span className={`text-lg font-bold leading-tight ${isAdjusted ? 'text-orange-600' : 'text-text-primary'}`}>
+              {finalAmount.toLocaleString('ko-KR')}
+              <span className="text-xs text-text-tertiary ml-0.5">원</span>
+            </span>
+            {isAdjusted && (
+              <span className="text-[10px] text-orange-500 font-medium">조정됨</span>
+            )}
+            <button onClick={() => setExpanded(v => !v)} className="text-text-tertiary hover:text-text-secondary text-sm leading-none p-1 mt-1">
+              {expanded ? '▲' : '▼'}
+            </button>
+          </div>
         </div>
 
         {entry.person.employment_type === '정직원' ? (
