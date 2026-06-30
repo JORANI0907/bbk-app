@@ -182,20 +182,19 @@ export default function WorkerCard({
         </div>
 
         <div className="flex gap-1.5">
-          <Button
+          <button
             onClick={handleSave}
             disabled={saving}
-            variant="secondary"
-            className="flex-1 py-1.5 text-xs bg-gray-800 text-white hover:bg-gray-700"
+            className="flex-1 py-1.5 text-xs font-semibold rounded-md bg-blue-600 text-white hover:bg-blue-700 transition-colors disabled:opacity-60"
           >
             {saving ? '저장 중...' : '저장'}
-          </Button>
+          </button>
           <button
             onClick={handleTogglePaid}
             disabled={paying}
             className={`flex-1 py-1.5 text-xs font-semibold rounded-md transition-colors disabled:opacity-60 ${
               isPaid
-                ? 'bg-surface-sunken text-text-secondary hover:bg-surface-sunken'
+                ? 'bg-gray-200 text-gray-700 hover:bg-gray-300'
                 : 'bg-green-600 text-white hover:bg-green-700'
             }`}
           >
