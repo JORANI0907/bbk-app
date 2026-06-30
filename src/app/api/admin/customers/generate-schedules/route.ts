@@ -3,6 +3,7 @@ import { createServiceClient } from '@/lib/supabase/server'
 import { sendAlimtalk } from '@/lib/solapi'
 import { notifySlack } from '@/lib/slack'
 import { triggerDriveFolderCreation } from '@/lib/drive-server'
+import { dispatch, lookupFranchiseHqIdsForCustomer } from '@/lib/notification-dispatcher'
 
 const ALIMTALK_CONFIRM_TEMPLATE = 'KA01TP260324131935207wzarljIsiyK'
 
@@ -265,8 +266,24 @@ export async function POST(request: NextRequest) {
         '미팅시간':   '-',
       }
       const fallback = `[BBK 공간케어] ${ownerName}님, ${customer.business_name} ${dateStr} 예약이 확정되었습니다.`
+      // notification_rules의 채널·role 토글에 따라 자동 발송 (Slack 포함)
+      const franchiseHqIds = customer.id ? await lookupFranchiseHqIdsForCustomer(customer.id) : []
+      const customerUserId = await (async () => {
+        const { data } = await supabase.from('customers').select('user_id').eq('id', customer.id).maybeSingle()
+        return (data as { user_id: string | null } | null)?.user_id ?? undefined
+      })()
       try {
-        await sendAlimtalk(phone, ALIMTALK_CONFIRM_TEMPLATE, variables, fallback)
+        await dispatch('예약확정알림', {
+          customer: { id: customer.id, userId: customerUserId, phone, name: ownerName, businessName: customer.business_name },
+          workerIds: customer.assigned_worker_id ? [customer.assigned_worker_id] : [],
+          franchiseHqIds,
+          variables,
+          fallbackText: fallback,
+          templateIdOverride: ALIMTALK_CONFIRM_TEMPLATE,
+          slack: { constructionDate: dateStr },
+          method: 'auto',
+          metadata: { source: 'generate-schedules', business_name: customer.business_name },
+        })
         const newEntry = { type: '예약확정알림', sent_at: nowIso, phone, method: 'auto' }
         await Promise.all(
           insertedApps.map((app: { id: string }) =>
@@ -275,14 +292,6 @@ export async function POST(request: NextRequest) {
               .eq('id', app.id)
           )
         )
-        notifySlack({
-          notifyType: '예약확정알림',
-          customerName: ownerName,
-          phone,
-          businessName: customer.business_name,
-          constructionDate: dateStr,
-          method: 'auto',
-        }).catch(() => {})
       } catch { /* 알림 실패는 일정 생성에 영향 없음 */ }
     }
 

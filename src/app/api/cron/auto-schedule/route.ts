@@ -4,6 +4,7 @@ import { generateMonthlySchedule, getNextMonth, weekdayLabel } from '@/lib/sched
 import { sendAlimtalk } from '@/lib/solapi'
 import { notifySlack } from '@/lib/slack'
 import { triggerDriveFolderCreation } from '@/lib/drive-server'
+import { dispatch, lookupFranchiseHqIdsForCustomer } from '@/lib/notification-dispatcher'
 
 const ALIMTALK_CONFIRM_TEMPLATE = 'KA01TP260324131935207wzarljIsiyK'
 
@@ -260,8 +261,22 @@ export async function GET(request: NextRequest) {
           '미팅시간':   '-',
         }
         const fallback = `[BBK 공간케어] ${ownerName}님, ${customer.business_name} ${dateStr} 예약이 확정되었습니다.`
+        // notification_rules의 채널·role 토글에 따라 자동 분기
+        const franchiseHqIds = customer.id ? await lookupFranchiseHqIdsForCustomer(customer.id) : []
+        const { data: custRow } = await supabase.from('customers').select('user_id').eq('id', customer.id).maybeSingle()
+        const customerUserId = (custRow as { user_id: string | null } | null)?.user_id ?? undefined
         try {
-          await sendAlimtalk(phone, ALIMTALK_CONFIRM_TEMPLATE, variables, fallback)
+          await dispatch('예약확정알림', {
+            customer: { id: customer.id, userId: customerUserId, phone, name: ownerName, businessName: customer.business_name },
+            workerIds: customer.assigned_worker_id ? [customer.assigned_worker_id] : [],
+            franchiseHqIds,
+            variables,
+            fallbackText: fallback,
+            templateIdOverride: ALIMTALK_CONFIRM_TEMPLATE,
+            slack: { constructionDate: dateStr },
+            method: 'auto',
+            metadata: { source: 'cron/auto-schedule', business_name: customer.business_name },
+          })
           const newEntry = { type: '예약확정알림', sent_at: nowIso, phone, method: 'auto' }
           await Promise.all(
             insertedApps.map((app: { id: string }) =>
@@ -270,14 +285,6 @@ export async function GET(request: NextRequest) {
                 .eq('id', app.id)
             )
           )
-          notifySlack({
-            notifyType: '예약확정알림',
-            customerName: ownerName,
-            phone,
-            businessName: customer.business_name,
-            constructionDate: dateStr,
-            method: 'auto',
-          }).catch(() => {})
           smsStatus = 'alimtalk_sent'
         } catch (e) {
           smsStatus = `error: ${e instanceof Error ? e.message : String(e)}`
