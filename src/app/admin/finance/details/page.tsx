@@ -487,6 +487,28 @@ export default function FinancePage() {
                 )}
                 <span className="ml-auto text-xs text-text-tertiary self-center">{filteredRevenue.length}건</span>
               </div>
+              {/* 서비스 유형별 소계 (필터 적용 후) */}
+              {filteredRevenue.length > 0 && (
+                <div className="px-4 py-2 flex gap-x-4 gap-y-1 flex-wrap border-b border-border-subtle bg-blue-50">
+                  {Object.entries(
+                    filteredRevenue.reduce<Record<string, { total: number; count: number }>>((acc, item) => {
+                      const key = item.service_type ?? '미분류'
+                      if (!acc[key]) acc[key] = { total: 0, count: 0 }
+                      acc[key].total += item.total
+                      acc[key].count += 1
+                      return acc
+                    }, {})
+                  )
+                    .sort((a, b) => b[1].total - a[1].total)
+                    .map(([type, { total, count }]) => (
+                      <span key={type} className="text-xs whitespace-nowrap">
+                        <span className="text-text-secondary">{type}</span>
+                        <span className="text-text-tertiary mx-1">{count}건</span>
+                        <span className="font-semibold text-brand-700 font-mono">{fmt(total)}원</span>
+                      </span>
+                    ))}
+                </div>
+              )}
               <div className="divide-y divide-border-subtle">
                 {filteredRevenue.length === 0 ? (
                   <p className="text-xs text-text-tertiary text-center py-4">
