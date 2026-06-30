@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { User, UserRole } from '@/types/database'
 import toast from 'react-hot-toast'
-import RegisterForm, { CustomerItem, WorkerItem, RegisterFormData } from './RegisterForm'
+import RegisterForm, { CustomerItem, WorkerItem, FranchiseItem, RegisterFormData } from './RegisterForm'
 import EditForm, { EditFormData } from './EditForm'
 import LoginLogsDrawer from './LoginLogsDrawer'
 
@@ -14,12 +14,14 @@ const ROLE_LABELS: Record<UserRole, string> = {
   admin: '관리자',
   worker: '직원',
   customer: '고객',
+  franchise_hq: '본사',
 }
 
 const ROLE_BADGE: Record<UserRole, 'info' | 'success' | 'warning'> = {
   admin: 'warning',
   worker: 'info',
   customer: 'success',
+  franchise_hq: 'info',
 }
 
 interface ConfirmModal {
@@ -70,6 +72,9 @@ export default function MembersPage() {
   const [workers, setWorkers] = useState<WorkerItem[]>([])
   const [workerSearch, setWorkerSearch] = useState('')
   const [showWorkerDropdown, setShowWorkerDropdown] = useState(false)
+  const [franchises, setFranchises] = useState<FranchiseItem[]>([])
+  const [franchiseSearch, setFranchiseSearch] = useState('')
+  const [showFranchiseDropdown, setShowFranchiseDropdown] = useState(false)
 
   // 현재 로그인 사용자
   const [currentRole, setCurrentRole] = useState<string>('admin')
@@ -119,6 +124,9 @@ export default function MembersPage() {
     if (showForm && (form.role === 'worker' || form.role === 'admin')) {
       fetch('/api/admin/workers').then(r => r.json()).then(d => setWorkers(d.workers ?? [])).catch(() => {})
     }
+    if (showForm && form.role === 'franchise_hq') {
+      fetch('/api/admin/franchise-hq/available').then(r => r.json()).then(d => setFranchises(d.franchises ?? [])).catch(() => {})
+    }
   }, [showForm, form.role])
 
   const closeForm = () => {
@@ -126,8 +134,10 @@ export default function MembersPage() {
     setForm(EMPTY_FORM)
     setCustomerSearch('')
     setWorkerSearch('')
+    setFranchiseSearch('')
     setShowCustomerDropdown(false)
     setShowWorkerDropdown(false)
+    setShowFranchiseDropdown(false)
   }
 
   const closeEditForm = () => {
@@ -172,6 +182,33 @@ export default function MembersPage() {
     if (!form.name.trim() || !form.phone.trim()) { toast.error('이름과 전화번호를 입력해주세요.'); return }
     setSaving(true)
     try {
+      // 본사: 별도 API로 계정 발급 (Auth + users + franchise_hq.user_id 연결)
+      if (form.role === 'franchise_hq') {
+        if (!form.franchise_hq_id) {
+          toast.error('본사를 선택해주세요.')
+          setSaving(false)
+          return
+        }
+        const normalizedPhone = normalizePhone(form.phone)
+        const res = await fetch('/api/admin/franchise-hq/issue-account', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            franchiseHqId: form.franchise_hq_id,
+            name: form.name,
+            phone: normalizedPhone,
+            password: `${normalizedPhone}bbk`,
+          }),
+        })
+        const data = await res.json()
+        if (!res.ok) throw new Error(data.error ?? '본사 계정 발급 실패')
+        toast.success(`본사 계정 등록 완료! (${form.brand_name ?? ''})`)
+        closeForm()
+        fetchUsers()
+        return
+      }
+
+      // 기존 경로 (admin/worker/customer)
       const res = await fetch('/api/admin/users', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form) })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
@@ -471,6 +508,11 @@ export default function MembersPage() {
           setWorkerSearch={setWorkerSearch}
           showWorkerDropdown={showWorkerDropdown}
           setShowWorkerDropdown={setShowWorkerDropdown}
+          franchises={franchises}
+          franchiseSearch={franchiseSearch}
+          setFranchiseSearch={setFranchiseSearch}
+          showFranchiseDropdown={showFranchiseDropdown}
+          setShowFranchiseDropdown={setShowFranchiseDropdown}
           existingCustomerUser={existingCustomerUser}
           normalizedPhone={normalizedFormPhone}
         />

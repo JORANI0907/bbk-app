@@ -9,6 +9,7 @@ const ROLE_LABELS: Record<UserRole, string> = {
   admin: '관리자',
   worker: '직원',
   customer: '고객',
+  franchise_hq: '본사',
 }
 
 export interface EditFormData {

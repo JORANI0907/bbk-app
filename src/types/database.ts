@@ -1,4 +1,4 @@
-export type UserRole = 'admin' | 'worker' | 'customer'
+export type UserRole = 'admin' | 'worker' | 'customer' | 'franchise_hq'
 
 export type PipelineStatus =
   | 'inquiry' | 'quote_sent' | 'consulting' | 'contracted'

@@ -13,8 +13,7 @@ export function CreateFranchiseHqButton() {
     brandName: '',
     logoUrl: '',
     managerName: '',
-    phone: '',
-    password: '',
+    managerPhone: '',
   })
 
   const update = (key: keyof typeof form, value: string) => {
@@ -32,9 +31,9 @@ export function CreateFranchiseHqButton() {
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? '등록 실패')
-      toast.success('본사가 등록되었습니다.')
+      toast.success('본사 정보가 등록되었습니다. 계정은 회원관리에서 발급해주세요.')
       setOpen(false)
-      setForm({ brandName: '', logoUrl: '', managerName: '', phone: '', password: '' })
+      setForm({ brandName: '', logoUrl: '', managerName: '', managerPhone: '' })
       router.refresh()
     } catch (err) {
       toast.error(err instanceof Error ? err.message : '등록 실패')
@@ -58,14 +57,16 @@ export function CreateFranchiseHqButton() {
             className="bg-surface rounded-2xl shadow-modal max-w-md w-full p-6"
             onClick={(e) => e.stopPropagation()}
           >
-            <h2 className="text-lg font-bold text-text-primary mb-4">신규 본사 등록</h2>
+            <h2 className="text-lg font-bold text-text-primary mb-1">신규 본사 등록</h2>
+            <p className="text-xs text-text-tertiary mb-4 break-keep">
+              본사 정보만 등록합니다. 계정 발급은 회원관리에서 진행하세요.
+            </p>
 
             <div className="flex flex-col gap-3">
               <Field label="브랜드명 *" value={form.brandName} onChange={(v) => update('brandName', v)} placeholder="예: 깔끔치킨" />
               <LogoUploader value={form.logoUrl} onChange={(v) => update('logoUrl', v)} disabled={loading} />
-              <Field label="담당자명 *" value={form.managerName} onChange={(v) => update('managerName', v)} placeholder="홍길동" />
-              <Field label="연락처 *" value={form.phone} onChange={(v) => update('phone', v)} placeholder="01012345678" />
-              <Field label="비밀번호 * (6자 이상)" value={form.password} onChange={(v) => update('password', v)} type="password" />
+              <Field label="담당자명 (선택)" value={form.managerName} onChange={(v) => update('managerName', v)} placeholder="홍길동" />
+              <Field label="연락처 (선택)" value={form.managerPhone} onChange={(v) => update('managerPhone', v)} placeholder="01012345678" />
             </div>
 
             <div className="flex items-center justify-end gap-2 mt-6">

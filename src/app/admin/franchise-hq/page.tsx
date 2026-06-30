@@ -9,7 +9,9 @@ interface HqRow {
   brand_name: string
   logo_url: string | null
   created_at: string
-  user_id: string
+  user_id: string | null
+  manager_name: string | null
+  manager_phone: string | null
   users: { name: string; phone: string; is_active: boolean } | null
   branch_count: number
 }
@@ -19,7 +21,7 @@ export default async function FranchiseHqListPage() {
 
   const { data: hqs } = await supabase
     .from('franchise_hq')
-    .select('id, brand_name, logo_url, created_at, user_id, users:users!franchise_hq_user_id_fkey(name, phone, is_active)')
+    .select('id, brand_name, logo_url, created_at, user_id, manager_name, manager_phone, users:users!franchise_hq_user_id_fkey(name, phone, is_active)')
     .order('created_at', { ascending: false })
 
   // 본사별 지점 수 집계
@@ -41,7 +43,9 @@ export default async function FranchiseHqListPage() {
     brand_name: h.brand_name,
     logo_url: h.logo_url,
     created_at: h.created_at,
-    user_id: h.user_id,
+    user_id: (h as { user_id: string | null }).user_id,
+    manager_name: (h as { manager_name: string | null }).manager_name,
+    manager_phone: (h as { manager_phone: string | null }).manager_phone,
     users: (Array.isArray(h.users) ? h.users[0] : h.users) ?? null,
     branch_count: countMap.get(h.id) ?? 0,
   }))
@@ -91,10 +95,10 @@ export default async function FranchiseHqListPage() {
                     </Link>
                   </td>
                   <td className="px-4 py-3 text-text-secondary hidden sm:table-cell">
-                    {hq.users?.name ?? '-'}
+                    {hq.users?.name ?? hq.manager_name ?? '-'}
                   </td>
                   <td className="px-4 py-3 text-text-tertiary hidden md:table-cell">
-                    {hq.users?.phone ?? '-'}
+                    {hq.users?.phone ?? hq.manager_phone ?? '-'}
                   </td>
                   <td className="px-4 py-3 text-right">
                     <span className="inline-flex items-center gap-1 text-xs font-bold text-brand-600">
@@ -102,15 +106,21 @@ export default async function FranchiseHqListPage() {
                     </span>
                   </td>
                   <td className="px-4 py-3 text-right">
-                    <span
-                      className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
-                        hq.users?.is_active
-                          ? 'bg-state-success-bg text-state-success border-emerald-200'
-                          : 'bg-surface-sunken text-text-tertiary border-border'
-                      }`}
-                    >
-                      {hq.users?.is_active ? '활성' : '비활성'}
-                    </span>
+                    {hq.user_id ? (
+                      <span
+                        className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                          hq.users?.is_active
+                            ? 'bg-state-success-bg text-state-success border-emerald-200'
+                            : 'bg-surface-sunken text-text-tertiary border-border'
+                        }`}
+                      >
+                        {hq.users?.is_active ? '활성' : '비활성'}
+                      </span>
+                    ) : (
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full border bg-amber-50 text-amber-700 border-amber-200">
+                        계정 미발급
+                      </span>
+                    )}
                   </td>
                 </tr>
               ))}

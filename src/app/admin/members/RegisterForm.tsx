@@ -9,6 +9,7 @@ const ROLE_LABELS: Record<UserRole, string> = {
   admin: '관리자',
   worker: '직원',
   customer: '고객',
+  franchise_hq: '본사',
 }
 
 export interface CustomerItem {
@@ -29,6 +30,14 @@ export interface WorkerItem {
   user_id?: string | null
 }
 
+export interface FranchiseItem {
+  id: string
+  brand_name: string
+  manager_name: string | null
+  manager_phone: string | null
+  logo_url: string | null
+}
+
 export interface RegisterFormData {
   role: UserRole
   name: string
@@ -37,6 +46,8 @@ export interface RegisterFormData {
   customer_id?: string
   worker_id?: string
   business_number?: string
+  franchise_hq_id?: string
+  brand_name?: string
 }
 
 interface Props {
@@ -58,6 +69,12 @@ interface Props {
   showWorkerDropdown: boolean
   setShowWorkerDropdown: (v: boolean) => void
 
+  franchises: FranchiseItem[]
+  franchiseSearch: string
+  setFranchiseSearch: (v: string) => void
+  showFranchiseDropdown: boolean
+  setShowFranchiseDropdown: (v: boolean) => void
+
   existingCustomerUser: boolean
   normalizedPhone: string
 }
@@ -70,6 +87,7 @@ export default function RegisterForm({
   form, setForm, saving, onSubmit, onClose,
   customers, customerSearch, setCustomerSearch, showCustomerDropdown, setShowCustomerDropdown,
   workers, workerSearch, setWorkerSearch, showWorkerDropdown, setShowWorkerDropdown,
+  franchises, franchiseSearch, setFranchiseSearch, showFranchiseDropdown, setShowFranchiseDropdown,
   existingCustomerUser, normalizedPhone,
 }: Props) {
   const customerInputRef = useRef<HTMLInputElement>(null)
@@ -111,15 +129,17 @@ export default function RegisterForm({
         <div>
           <label className="text-xs font-medium text-text-secondary mb-1.5 block">역할</label>
           <div className="flex gap-2">
-            {(['admin', 'worker', 'customer'] as UserRole[]).map(r => (
+            {(['admin', 'worker', 'customer', 'franchise_hq'] as UserRole[]).map(r => (
               <button
                 key={r}
                 onClick={() => {
                   setForm(() => ({ role: r, name: '', phone: '', email: '' }))
                   setCustomerSearch('')
                   setWorkerSearch('')
+                  setFranchiseSearch('')
                   setShowCustomerDropdown(false)
                   setShowWorkerDropdown(false)
+                  setShowFranchiseDropdown(false)
                 }}
                 className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${
                   form.role === r
@@ -203,6 +223,94 @@ export default function RegisterForm({
               </div>
             )}
           </>
+        ) : form.role === 'franchise_hq' ? (
+          /* 본사: franchise_hq DB 검색 (계정 미발급만) */
+          <>
+            <div className="relative">
+              <label className="text-xs font-medium text-text-secondary mb-1.5 block">
+                본사 검색 *
+                <span className="text-text-tertiary font-normal ml-1">— 브랜드명, 담당자명</span>
+              </label>
+              <input
+                type="text"
+                value={franchiseSearch}
+                onChange={e => { setFranchiseSearch(e.target.value); setShowFranchiseDropdown(true) }}
+                onFocus={() => setShowFranchiseDropdown(true)}
+                onBlur={() => setTimeout(() => setShowFranchiseDropdown(false), 150)}
+                placeholder="예: 깔끔치킨, 홍길동"
+                className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-surface"
+              />
+              {showFranchiseDropdown && (
+                <div className="absolute z-20 mt-1 w-full bg-surface border border-border rounded-lg shadow-pop max-h-56 overflow-y-auto">
+                  {(() => {
+                    const q = franchiseSearch.toLowerCase()
+                    const filtered = franchises.filter(f =>
+                      f.brand_name.toLowerCase().includes(q) ||
+                      (f.manager_name ?? '').toLowerCase().includes(q) ||
+                      (f.manager_phone ?? '').replace(/-/g, '').includes(q)
+                    ).slice(0, 50)
+                    if (filtered.length === 0) {
+                      return (
+                        <p className="px-3 py-3 text-xs text-text-tertiary text-center">
+                          {franchises.length === 0
+                            ? '계정 미발급 본사가 없습니다. 프렌차이즈 본사 탭에서 먼저 등록해주세요.'
+                            : '검색 결과 없음'}
+                        </p>
+                      )
+                    }
+                    return filtered.map(f => (
+                      <button
+                        key={f.id}
+                        type="button"
+                        onMouseDown={() => {
+                          const normalized = normalizePhone(f.manager_phone ?? '')
+                          setForm(prev => ({
+                            ...prev,
+                            franchise_hq_id: f.id,
+                            brand_name: f.brand_name,
+                            name: f.manager_name ?? f.brand_name,
+                            phone: normalized,
+                            email: '',
+                          }))
+                          setFranchiseSearch(f.brand_name)
+                          setShowFranchiseDropdown(false)
+                        }}
+                        className="w-full text-left px-3 py-2.5 hover:bg-brand-50 text-sm border-b border-border-subtle last:border-0"
+                      >
+                        <span className="font-medium text-text-primary">{f.brand_name}</span>
+                        {f.manager_name && <span className="text-text-secondary ml-2 text-xs">{f.manager_name}</span>}
+                        {f.manager_phone && <span className="text-text-tertiary ml-2 text-xs">{f.manager_phone}</span>}
+                      </button>
+                    ))
+                  })()}
+                </div>
+              )}
+            </div>
+
+            {form.franchise_hq_id && (
+              <div className="bg-surface border border-border rounded-lg p-3 space-y-1.5 text-xs">
+                <p className="text-xs font-semibold text-text-secondary mb-1">선택된 본사 정보</p>
+                <div className="flex justify-between"><span className="text-text-secondary">브랜드</span><span className="font-medium text-text-primary">{form.brand_name}</span></div>
+                <div className="flex justify-between"><span className="text-text-secondary">담당자명</span><span className="font-medium text-text-primary">{form.name || '-'}</span></div>
+                <div className="flex justify-between"><span className="text-text-secondary">연락처</span><span className="font-mono font-medium text-text-primary">{form.phone || '-'}</span></div>
+              </div>
+            )}
+
+            {form.franchise_hq_id && normalizedPhone.length < 10 && (
+              <div>
+                <label className="text-xs font-medium text-text-secondary mb-1.5 block">
+                  연락처 입력 * <span className="text-text-tertiary font-normal ml-1">— 본사 등록 시 미입력된 경우</span>
+                </label>
+                <input
+                  type="text"
+                  value={form.phone}
+                  onChange={e => setForm(prev => ({ ...prev, phone: normalizePhone(e.target.value) }))}
+                  placeholder="01012345678"
+                  className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-surface"
+                />
+              </div>
+            )}
+          </>
         ) : (
           /* 관리자/직원: workers DB 검색 */
           <>
@@ -268,7 +376,7 @@ export default function RegisterForm({
         )}
 
         {/* 자동 생성 로그인 정보 미리보기 */}
-        {showCredentials && (
+        {(showCredentials || (form.role === 'franchise_hq' && form.franchise_hq_id && normalizedPhone.length >= 10)) && (
           <div className="bg-state-success-bg border border-green-200 rounded-lg p-3 space-y-1.5">
             <p className="text-xs font-semibold text-state-success mb-1">자동 생성 로그인 정보</p>
             <div className="flex justify-between text-xs"><span className="text-text-secondary">이름</span><span className="font-medium text-text-primary">{form.name || '-'}</span></div>
@@ -280,7 +388,9 @@ export default function RegisterForm({
             <div className="flex justify-between text-xs">
               <span className="text-text-secondary">PW</span>
               <span className="font-mono font-medium text-text-primary">
-                {form.role === 'customer' ? (form.business_number || normalizedPhone) : `${normalizedPhone}bbk`}
+                {form.role === 'customer'
+                  ? (form.business_number || normalizedPhone)
+                  : `${normalizedPhone}bbk`}
               </span>
             </div>
           </div>
@@ -291,7 +401,12 @@ export default function RegisterForm({
             onClick={onSubmit}
             isLoading={saving}
             className="flex-1"
-            disabled={existingCustomerUser || customerHasAccount || workerHasAccount}
+            disabled={
+              existingCustomerUser ||
+              customerHasAccount ||
+              workerHasAccount ||
+              (form.role === 'franchise_hq' && (!form.franchise_hq_id || normalizedPhone.length < 10))
+            }
           >
             등록하기
           </Button>

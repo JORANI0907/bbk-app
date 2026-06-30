@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { getServerSession } from '@/lib/session'
 
-const HQ_ALLOWED = ['brand_name', 'logo_url'] as const
+const HQ_ALLOWED = ['brand_name', 'logo_url', 'manager_name', 'manager_phone'] as const
 const USER_ALLOWED = ['name', 'phone', 'is_active'] as const
 
 export async function PATCH(request: NextRequest, { params }: { params: { id: string } }) {
@@ -33,13 +33,16 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
       if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    const userPatch: Record<string, unknown> = {}
-    for (const key of USER_ALLOWED) {
-      if (body[key] !== undefined) userPatch[key] = body[key]
-    }
-    if (Object.keys(userPatch).length > 0) {
-      const { error } = await supabase.from('users').update(userPatch).eq('id', hq.user_id)
-      if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    // 계정 발급된 본사만 users 업데이트 (계정 미발급 본사는 user_id가 null)
+    if (hq.user_id) {
+      const userPatch: Record<string, unknown> = {}
+      for (const key of USER_ALLOWED) {
+        if (body[key] !== undefined) userPatch[key] = body[key]
+      }
+      if (Object.keys(userPatch).length > 0) {
+        const { error } = await supabase.from('users').update(userPatch).eq('id', hq.user_id)
+        if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+      }
     }
 
     return NextResponse.json({ success: true })
@@ -66,10 +69,18 @@ export async function DELETE(_request: NextRequest, { params }: { params: { id: 
       return NextResponse.json({ error: '본사를 찾을 수 없습니다.' }, { status: 404 })
     }
 
-    // users 삭제 → franchise_hq, franchise_branch_map은 ON DELETE CASCADE로 자동 정리
-    const { error } = await supabase.from('users').delete().eq('id', hq.user_id)
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 })
+    // 계정 발급된 본사: users 삭제 → franchise_hq + branch_map은 CASCADE로 자동 정리
+    // 계정 미발급 본사: franchise_hq 직접 삭제 → branch_map은 CASCADE로 자동 정리
+    if (hq.user_id) {
+      const { error } = await supabase.from('users').delete().eq('id', hq.user_id)
+      if (error) {
+        return NextResponse.json({ error: error.message }, { status: 500 })
+      }
+    } else {
+      const { error } = await supabase.from('franchise_hq').delete().eq('id', params.id)
+      if (error) {
+        return NextResponse.json({ error: error.message }, { status: 500 })
+      }
     }
     return NextResponse.json({ success: true })
   } catch (error) {
