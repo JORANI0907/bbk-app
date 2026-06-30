@@ -479,15 +479,18 @@ export default function MembersPage() {
 
       {/* 역할 필터 */}
       <div className="flex gap-2 mb-4 overflow-x-auto pb-1 -mx-1 px-1">
-        {(['all', 'admin', 'worker', 'customer'] as const).map(r => (
-          <button
-            key={r}
-            onClick={() => setFilterRole(r)}
-            className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors shrink-0 ${filterRole === r ? 'bg-brand-600 text-white' : 'bg-surface-sunken text-text-secondary'}`}
-          >
-            {r === 'all' ? `전체 (${users.length})` : `${ROLE_LABELS[r]} (${users.filter(u => u.role === r).length})`}
-          </button>
-        ))}
+        {(['all', 'admin', 'worker', 'customer', 'franchise_hq'] as const).map(r => {
+          const filterLabel = r === 'franchise_hq' ? '프차본사' : r !== 'all' ? ROLE_LABELS[r] : null
+          return (
+            <button
+              key={r}
+              onClick={() => setFilterRole(r)}
+              className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors shrink-0 ${filterRole === r ? 'bg-brand-600 text-white' : 'bg-surface-sunken text-text-secondary'}`}
+            >
+              {r === 'all' ? `전체 (${users.length})` : `${filterLabel} (${users.filter(u => u.role === r).length})`}
+            </button>
+          )
+        })}
       </div>
 
       {/* 등록 폼 */}
