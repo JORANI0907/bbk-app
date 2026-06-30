@@ -7,6 +7,7 @@ import { Button } from '@/components/ui'
 import { Modal } from '@/components/ui'
 import { SectionHeader } from '@/components/ui'
 import SignaturePad, { type SignaturePadHandle } from '@/components/contracts/SignaturePad'
+import { StampUpload } from '@/components/contracts/StampUpload'
 import { generateContractPdf } from '@/lib/generateContractPdf'
 
 type SigningStatus = 'draft' | 'pending_customer' | 'customer_signed' | 'completed' | 'voided'
@@ -77,6 +78,7 @@ export default function AdminContractDetailPage() {
   const [voidReason, setVoidReason] = useState('')
 
   const sigPadRef = useRef<SignaturePadHandle | null>(null)
+  const [supplierStamp, setSupplierStamp] = useState<string | null>(null)
 
   const fetchContract = useCallback(async () => {
     setIsLoading(true)
@@ -126,11 +128,21 @@ export default function AdminContractDetailPage() {
     const tid = toast.loading('PDF 생성 중...')
     try {
       const adminSig = sigPadRef.current.toDataURL()
-      const snapshotHtml = contract?.contract_snapshot?.html ?? ''
+      const rawHtml = contract?.contract_snapshot?.html ?? ''
       const businessName = contract?.customers?.business_name ?? ''
 
+      // PDF 생성 전 아직 남아있는 직인 플레이스홀더 치환
+      const stampFallback = (label: string) =>
+        `<div style="display:block;width:80px;height:80px;border:1px dashed #bbb;border-radius:6px;text-align:center;line-height:80px;color:#ccc;font-size:11px;font-family:sans-serif;">${label}</div>`
+      const supplierStampHtml = supplierStamp
+        ? `<img src="${supplierStamp}" style="display:block;max-width:100px;max-height:100px;object-fit:contain;" alt="공급사 직인" />`
+        : stampFallback('(직인 없음)')
+      const htmlForPdf = rawHtml
+        .replace(/\{\{SUPPLIER_STAMP\}\}/g, supplierStampHtml)
+        .replace(/\{\{CUSTOMER_STAMP\}\}/g, stampFallback('(직인 없음)'))
+
       const pdfBase64 = await generateContractPdf({
-        contractHtml: snapshotHtml,
+        contractHtml: htmlForPdf,
         customerSignature: contract?.customer_signature ?? '',
         adminSignature: adminSig,
         businessName,
@@ -143,7 +155,7 @@ export default function AdminContractDetailPage() {
       const res = await fetch(`/api/admin/contracts/${contractId}/admin-sign`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ adminSignature: adminSig, pdfBase64 }),
+        body: JSON.stringify({ adminSignature: adminSig, pdfBase64, supplierStamp: supplierStamp ?? undefined }),
       })
       const json = await res.json()
       toast.dismiss(tid)
@@ -151,6 +163,7 @@ export default function AdminContractDetailPage() {
       if (json.success) {
         toast.success('계약서가 최종 확인되었습니다. 이메일이 발송됩니다.')
         setShowAdminSignModal(false)
+        setSupplierStamp(null)
         void fetchContract()
       } else {
         toast.error(json.error ?? '최종 확인에 실패했습니다.')
@@ -231,6 +244,9 @@ export default function AdminContractDetailPage() {
       contract.customer_signer_name
         ? `<img src="${contract.customer_signer_name}" style="display:inline-block;max-width:160px;max-height:40px;object-fit:contain;vertical-align:middle;margin:4px 0;" />`
         : SIG_PLACEHOLDER('(서명자 성명)', 120, 40))
+    // 직인 플레이스홀더 — 스냅샷에 이미 주입됐으면 그대로, 아직 {{}} 남아 있으면 빈 박스
+    .replace(/\{\{CUSTOMER_STAMP\}\}/g, SIG_PLACEHOLDER('(고객사 직인)', 80, 80))
+    .replace(/\{\{SUPPLIER_STAMP\}\}/g, SIG_PLACEHOLDER('(공급사 직인)', 80, 80))
   const isVoided = contract.signing_status === 'voided'
 
   return (
@@ -424,7 +440,7 @@ export default function AdminContractDetailPage() {
       {/* 관리자 최종 확인 모달 */}
       <Modal
         open={showAdminSignModal}
-        onClose={() => { setShowAdminSignModal(false); sigPadRef.current?.clear() }}
+        onClose={() => { setShowAdminSignModal(false); sigPadRef.current?.clear(); setSupplierStamp(null) }}
         title="최종 확인 — 관리자 서명"
       >
         <div className="space-y-4">
@@ -444,11 +460,19 @@ export default function AdminContractDetailPage() {
               </button>
             </div>
           </div>
+          <div className="border-t border-border-subtle pt-4">
+            <StampUpload
+              label="공급사 직인 (선택)"
+              hint="직인이 있으면 첨부해주세요. 계약서 갑 란에 자동으로 반영됩니다."
+              value={supplierStamp}
+              onChange={setSupplierStamp}
+            />
+          </div>
           <p className="text-xs text-text-tertiary leading-relaxed">
             서명 후 PDF가 자동 생성되어 고객 및 관리자 이메일로 발송됩니다.
           </p>
           <div className="flex gap-3 pt-2">
-            <Button variant="secondary" className="flex-1" onClick={() => { setShowAdminSignModal(false); sigPadRef.current?.clear() }}>
+            <Button variant="secondary" className="flex-1" onClick={() => { setShowAdminSignModal(false); sigPadRef.current?.clear(); setSupplierStamp(null) }}>
               취소
             </Button>
             <Button className="flex-1" onClick={handleAdminSign} isLoading={isAdminSigning}>
