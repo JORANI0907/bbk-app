@@ -39,14 +39,22 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     )
   }
 
-  let body: { phone?: string; otp?: string; article8Agree?: boolean; article14Agree?: boolean; customerSignature?: string; customerSignerName?: string }
+  let body: {
+    phone?: string
+    otp?: string
+    article8Agree?: boolean
+    article14Agree?: boolean
+    customerSignature?: string
+    customerSignerName?: string
+    customerStamp?: string
+  }
   try {
     body = await request.json()
   } catch {
     return NextResponse.json({ success: false, error: '잘못된 요청 형식입니다.' }, { status: 400 })
   }
 
-  const { phone, otp, article8Agree, article14Agree, customerSignature, customerSignerName } = body
+  const { phone, otp, article8Agree, article14Agree, customerSignature, customerSignerName, customerStamp } = body
 
   if (!phone || !otp) {
     return NextResponse.json({ success: false, error: '전화번호와 인증번호는 필수입니다.' }, { status: 400 })
@@ -102,18 +110,24 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ success: false, error: updateError.message }, { status: 500 })
   }
 
-  // {{CUSTOMER_SIGNER_NAME}} 변수를 손글씨 성명 이미지로 치환
-  if (customerSignerName) {
-    const snapshot = contract.contract_snapshot as { html?: string } | null
-    const currentHtml = snapshot?.html ?? ''
-    if (currentHtml.includes('{{CUSTOMER_SIGNER_NAME}}')) {
-      const nameImgTag = `<img src="${customerSignerName}" style="max-height:40px;max-width:160px;display:inline-block;vertical-align:middle;" alt="서명자 성명" />`
-      const updatedHtml = renderTemplateWithVars(currentHtml, { CUSTOMER_SIGNER_NAME: nameImgTag })
-      await supabase
-        .from('contracts')
-        .update({ contract_snapshot: { html: updatedHtml } })
-        .eq('id', contract.id as string)
-    }
+  // 스냅샷에 성명·직인 변수 치환 (존재하는 변수만)
+  const snapshot = contract.contract_snapshot as { html?: string } | null
+  const currentHtml = snapshot?.html ?? ''
+  const injectVars: Record<string, string> = {}
+
+  if (customerSignerName && currentHtml.includes('{{CUSTOMER_SIGNER_NAME}}')) {
+    injectVars.CUSTOMER_SIGNER_NAME = `<img src="${customerSignerName}" style="max-height:40px;max-width:160px;display:inline-block;vertical-align:middle;" alt="서명자 성명" />`
+  }
+  if (customerStamp && currentHtml.includes('{{CUSTOMER_STAMP}}')) {
+    injectVars.CUSTOMER_STAMP = `<img src="${customerStamp}" style="display:block;max-width:100px;max-height:100px;object-fit:contain;" alt="고객사 직인" />`
+  }
+
+  if (Object.keys(injectVars).length > 0) {
+    const updatedHtml = renderTemplateWithVars(currentHtml, injectVars)
+    await supabase
+      .from('contracts')
+      .update({ contract_snapshot: { html: updatedHtml } })
+      .eq('id', contract.id as string)
   }
 
   // Slack 알림
