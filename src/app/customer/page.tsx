@@ -15,69 +15,42 @@ import {
   GAUGE_DESCRIPTIONS,
 } from '@/lib/customer-indices'
 
-const GRADE_TIER: Record<CustomerGrade, { abbr: string; year: string; activeNode: string; futureNode: string }> = {
+const GRADE_HERO: Record<CustomerGrade, {
+  label: string
+  year: string
+  bg: string
+  text: string
+  border: string
+  ring: string
+}> = {
   '화이트': {
-    abbr: 'W', year: '1년차',
-    activeNode: 'bg-white text-blue-700 ring-2 ring-white shadow-lg',
-    futureNode: 'bg-white/12 text-white/30',
+    label: 'WHITE', year: '1년차',
+    bg: 'bg-white', text: 'text-blue-700',
+    border: 'border-white/50', ring: 'ring-white/40',
   },
   '블루': {
-    abbr: 'B', year: '2년차',
-    activeNode: 'bg-sky-300 text-sky-900 ring-2 ring-sky-200 shadow-lg',
-    futureNode: 'bg-sky-400/15 text-white/30',
+    label: 'BLUE', year: '2년차',
+    bg: 'bg-sky-300', text: 'text-sky-900',
+    border: 'border-sky-200/60', ring: 'ring-sky-200/40',
   },
   '블랙': {
-    abbr: 'K', year: '3년차',
-    activeNode: 'bg-gray-900 text-white ring-2 ring-gray-400 shadow-lg',
-    futureNode: 'bg-gray-800/25 text-white/30',
+    label: 'BLACK', year: '3년차',
+    bg: 'bg-gray-900', text: 'text-white',
+    border: 'border-gray-700', ring: 'ring-white/20',
   },
 }
 
-function GradeProgressCard({ currentGrade }: { currentGrade: CustomerGrade }) {
-  const grades: CustomerGrade[] = ['화이트', '블루', '블랙']
-  const currentIdx = grades.indexOf(currentGrade)
-
+function GradeBadge({ grade }: { grade: CustomerGrade }) {
+  const meta = GRADE_HERO[grade]
   return (
-    <div className="mt-4 rounded-2xl bg-white/10 px-4 py-3.5">
-      <p className="text-[9px] font-bold text-white/50 uppercase tracking-widest mb-3">고객 등급</p>
-      <div className="grid grid-cols-5 items-center mb-2">
-        {grades.flatMap((grade, i) => {
-          const isActive = grade === currentGrade
-          const isPast = i < currentIdx
-          const tier = GRADE_TIER[grade]
-          const circle = (
-            <div key={grade} className="flex justify-center">
-              <div className={`w-11 h-11 rounded-full flex items-center justify-center font-black text-sm transition-all duration-300 ${
-                isActive ? `${tier.activeNode} scale-110` : isPast ? 'bg-white/30 text-white/60' : tier.futureNode
-              }`}>
-                {tier.abbr}
-              </div>
-            </div>
-          )
-          if (i < grades.length - 1) {
-            return [circle, (
-              <div key={`c${i}`} className={`h-px ${i < currentIdx ? 'bg-white/60' : 'bg-white/20'}`} />
-            )]
-          }
-          return [circle]
-        })}
-      </div>
-      <div className="grid grid-cols-5">
-        {grades.flatMap((grade, i) => {
-          const isActive = grade === currentGrade
-          const tier = GRADE_TIER[grade]
-          const label = (
-            <div key={grade} className="flex flex-col items-center gap-0.5">
-              <p className={`text-[10px] font-bold ${isActive ? 'text-white' : 'text-white/40'}`}>{grade}</p>
-              <p className={`text-[9px] ${isActive ? 'text-white/65' : 'text-white/25'}`}>{tier.year}</p>
-            </div>
-          )
-          if (i < grades.length - 1) {
-            return [label, <div key={`s${i}`} />]
-          }
-          return [label]
-        })}
-      </div>
+    <div className={`absolute top-4 right-4 z-20 rounded-2xl px-3 py-2 border ${meta.bg} ${meta.border} shadow-lg ring-2 ${meta.ring}`}>
+      <p className={`text-[9px] font-bold uppercase tracking-widest opacity-70 ${meta.text} leading-none`}>등급</p>
+      <p className={`text-base font-black leading-tight mt-0.5 ${meta.text}`}>
+        {meta.label}
+      </p>
+      <p className={`text-[10px] mt-0.5 font-semibold opacity-80 ${meta.text} leading-none`}>
+        {meta.year}
+      </p>
     </div>
   )
 }
@@ -248,7 +221,10 @@ export default async function CustomerHomePage() {
         className="rounded-3xl p-5 relative overflow-hidden"
         style={{ background: 'linear-gradient(135deg, #1e40af 0%, #3b82f6 60%, #60a5fa 100%)' }}
       >
-        <div className="relative z-10">
+        {/* 등급 뱃지 — 우상단 고정 */}
+        {customer?.grade && <GradeBadge grade={customer.grade} />}
+
+        <div className="relative z-10 pr-20">
           {customer?.customer_type && (
             <div className="mb-1">
               <span className="text-xs px-2 py-0.5 rounded-full font-semibold bg-white/20 text-white">
@@ -267,7 +243,6 @@ export default async function CustomerHomePage() {
             </p>
           )}
           <p className="text-white/70 text-xs mt-1.5">BBK 공간케어를 이용해 주셔서 감사합니다.</p>
-          {customer?.grade && <GradeProgressCard currentGrade={customer.grade} />}
 
           {/* 3개 원형 게이지 */}
           {hasAnyGauge && (
