@@ -137,6 +137,20 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
+  // ── work_assignments.construction_date 자동 동기화 ──────────────
+  // application의 construction_date가 변경되면 연결된 모든 work_assignments도 함께 이동
+  // (급여정산 카드의 일자별 그룹·자동합계가 application 기준으로 정확하게 반영되도록)
+  if ('construction_date' in updates && updates.construction_date) {
+    try {
+      await supabase
+        .from('work_assignments')
+        .update({ construction_date: updates.construction_date })
+        .eq('application_id', id)
+    } catch (e) {
+      console.error('work_assignments construction_date 동기화 실패:', e instanceof Error ? e.message : e)
+    }
+  }
+
   // ── service_schedules 자동 동기화 ──────────────────────────────
   // assigned_to 또는 construction_date가 변경된 경우에만 실행
   const touchedScheduleFields =

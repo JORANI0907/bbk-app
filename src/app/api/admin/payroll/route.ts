@@ -8,6 +8,13 @@ function getMonthEndDate(yearMonth: string): string {
   return `${yearMonth}-${String(lastDay).padStart(2, '0')}`
 }
 
+/** YYYY-MM 형식의 월을 delta만큼 이동 (음수=과거, 양수=미래) */
+function shiftMonth(yearMonth: string, delta: number): string {
+  const [y, m] = yearMonth.split('-').map(Number)
+  const d = new Date(y, m - 1 + delta, 1)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+}
+
 // GET /api/admin/payroll?month=YYYY-MM
 // Returns all payroll data for month grouped by person
 export async function GET(request: NextRequest) {
@@ -19,7 +26,12 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'month 파라미터가 필요합니다. (YYYY-MM)' }, { status: 400 })
   }
 
-  const [appsRes, assignmentsRes, usersRes, workersRes, recordsRes, monthlyPricesRes, deletedAppIdsRes] = await Promise.all([
+  // 옵션 B: assignment.construction_date가 application.construction_date와 불일치하는 케이스 처리
+  // 일정 이동된 application의 assignment가 옛 날짜에 머물러 있어도 표시될 수 있도록 ±2개월 범위로 fetch
+  const wideStart = shiftMonth(month, -2)
+  const wideEnd = shiftMonth(month, 2)
+
+  const [appsRes, assignmentsRes, usersRes, workersRes, recordsRes, monthlyPricesRes, deletedAppIdsRes, allActiveAppsRes] = await Promise.all([
     // 담당자 배정 서비스 — 삭제되지 않은 것만
     supabase
       .from('service_applications')
@@ -30,12 +42,12 @@ export async function GET(request: NextRequest) {
       .lte('construction_date', getMonthEndDate(month))
       .order('construction_date'),
 
-    // 작업자 배정 (work_assignments에 deleted_at 없음 → application 삭제 여부는 응답에서 필터)
+    // 작업자 배정 — wide range로 fetch (application 기준 재필터링은 응답 처리에서)
     supabase
       .from('work_assignments')
       .select('id, worker_id, business_name, construction_date, salary, application_id')
-      .gte('construction_date', `${month}-01`)
-      .lte('construction_date', getMonthEndDate(month))
+      .gte('construction_date', `${wideStart}-01`)
+      .lte('construction_date', getMonthEndDate(wideEnd))
       .order('construction_date'),
 
     // 담당자 목록 (users 테이블의 worker/admin)
@@ -69,6 +81,12 @@ export async function GET(request: NextRequest) {
       .from('service_applications')
       .select('id')
       .not('deleted_at', 'is', null),
+
+    // 옵션 B: 모든 active application의 id+construction_date 매핑 (assignment date overwrite용)
+    supabase
+      .from('service_applications')
+      .select('id, construction_date')
+      .is('deleted_at', null),
   ])
 
   if (appsRes.error) return NextResponse.json({ error: appsRes.error.message }, { status: 500 })
@@ -78,11 +96,32 @@ export async function GET(request: NextRequest) {
   if (recordsRes.error) return NextResponse.json({ error: recordsRes.error.message }, { status: 500 })
 
   const apps = appsRes.data ?? []
-  // 작업자 배정: 삭제된 application id를 가리키는 것 제외 (application_id 없는 임시 배정은 통과)
   const deletedAppIds = new Set((deletedAppIdsRes.data ?? []).map(a => a.id))
-  const assignments = (assignmentsRes.data ?? []).filter(a =>
-    !a.application_id || !deletedAppIds.has(a.application_id)
+
+  // 옵션 B: 모든 active app의 construction_date 매핑 (assignment 날짜 overwrite용)
+  const appDateMap = new Map<string, string>(
+    (allActiveAppsRes.data ?? []).map(a => [a.id, a.construction_date])
   )
+
+  const monthStart = `${month}-01`
+  const monthEnd = getMonthEndDate(month)
+
+  // 작업자 배정 처리:
+  // 1) 삭제된 application 가리키는 것 제외
+  // 2) application이 있으면 그 construction_date를 truth로 overwrite (옵션 B)
+  // 3) overwrite된 날짜가 해당 월 범위 안인 것만 통과
+  // 4) application_id 없는 임시 배정은 assignment.construction_date 기준 month 체크
+  const assignments = (assignmentsRes.data ?? [])
+    .filter(a => !a.application_id || !deletedAppIds.has(a.application_id))
+    .map(a => {
+      if (a.application_id) {
+        const appDate = appDateMap.get(a.application_id)
+        if (appDate) return { ...a, construction_date: appDate }
+      }
+      return a
+    })
+    .filter(a => a.construction_date >= monthStart && a.construction_date <= monthEnd)
+
   const users = usersRes.data ?? []
   const workers = workersRes.data ?? []
   const records = recordsRes.data ?? []
