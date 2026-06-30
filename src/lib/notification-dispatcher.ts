@@ -175,8 +175,22 @@ export async function dispatch(type: string, ctx: DispatchContext): Promise<Disp
     const pushTargets = new Set<string>()
     if (rule.notify_customer && ctx.customer?.userId) pushTargets.add(ctx.customer.userId)
     if (rule.notify_worker && ctx.workerIds) ctx.workerIds.forEach((id) => pushTargets.add(id))
-    if (rule.notify_admin && ctx.adminIds) ctx.adminIds.forEach((id) => pushTargets.add(id))
     if (rule.notify_franchise_hq && ctx.franchiseHqIds) ctx.franchiseHqIds.forEach((id) => pushTargets.add(id))
+
+    // notify_admin: 호출자가 ctx.adminIds를 전달하지 않으면 활성 admin user 전체 자동 조회
+    if (rule.notify_admin) {
+      const adminIds = ctx.adminIds?.length
+        ? ctx.adminIds
+        : await (async () => {
+            const { data } = await supabase
+              .from('users')
+              .select('id')
+              .eq('role', 'admin')
+              .eq('is_active', true)
+            return ((data ?? []) as Array<{ id: string }>).map((u) => u.id)
+          })()
+      adminIds.forEach((id) => pushTargets.add(id))
+    }
 
     if (pushTargets.size > 0) {
       const targetArr = Array.from(pushTargets)
