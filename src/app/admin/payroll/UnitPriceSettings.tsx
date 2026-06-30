@@ -23,6 +23,7 @@ export default function UnitPriceSettings({ month }: { month: string }) {
   const [edits, setEdits] = useState<Record<string, string>>({})
   const [saving, setSaving] = useState<string | null>(null)
   const [search, setSearch] = useState('')
+  const [typeFilter, setTypeFilter] = useState<'all' | '정기딥케어' | '정기엔드케어'>('all')
 
   const displayMonth = (() => {
     const [y, m] = month.split('-')
@@ -138,9 +139,18 @@ export default function UnitPriceSettings({ month }: { month: string }) {
     }
   }
 
-  const filtered = groups.filter(g =>
-    !search || g.business_name.toLowerCase().includes(search.toLowerCase())
-  )
+  const filtered = groups.filter(g => {
+    if (typeFilter !== 'all' && g.service_type !== typeFilter) return false
+    if (search && !g.business_name.toLowerCase().includes(search.toLowerCase())) return false
+    return true
+  })
+
+  // 필터 칩에 표시할 카운트 (서비스 유형별)
+  const typeCounts = {
+    all: groups.length,
+    '정기딥케어': groups.filter(g => g.service_type === '정기딥케어').length,
+    '정기엔드케어': groups.filter(g => g.service_type === '정기엔드케어').length,
+  }
 
   if (loading || carryingOver) {
     return (
@@ -156,9 +166,34 @@ export default function UnitPriceSettings({ month }: { month: string }) {
         <p className="text-xs text-text-secondary mb-1">
           <span className="font-semibold text-brand-600">{displayMonth}</span> 방문당 단가 설정
         </p>
-        <p className="text-xs text-text-tertiary mb-3">
+        <p className="text-xs text-text-tertiary mb-2">
           이전달 단가가 자동 이관됩니다. 변경이 필요한 항목만 수정하세요.
         </p>
+
+        {/* 서비스 유형 필터 */}
+        <div className="flex gap-1.5 mb-2">
+          {([
+            { key: 'all', label: '전체' },
+            { key: '정기딥케어', label: '정기딥케어' },
+            { key: '정기엔드케어', label: '정기엔드케어' },
+          ] as const).map(({ key, label }) => (
+            <button
+              key={key}
+              onClick={() => setTypeFilter(key)}
+              className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+                typeFilter === key
+                  ? 'bg-brand-600 text-white'
+                  : 'bg-surface border border-border text-text-secondary hover:border-blue-400'
+              }`}
+            >
+              {label}
+              <span className={`ml-1 ${typeFilter === key ? 'text-white/80' : 'text-text-tertiary'}`}>
+                {typeCounts[key]}
+              </span>
+            </button>
+          ))}
+        </div>
+
         <input
           type="text"
           value={search}
