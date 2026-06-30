@@ -43,6 +43,7 @@ interface NotificationRule {
   notify_admin: boolean
   notify_customer: boolean
   notify_worker: boolean
+  notify_franchise_hq: boolean
   is_active: boolean
   sort_order: number
 }
@@ -293,73 +294,80 @@ function RulesTab() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border-subtle bg-surface-sunken">
-                <th className="text-left px-4 py-3 text-xs font-semibold text-text-secondary">알림 유형</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-text-secondary hidden lg:table-cell">설명</th>
-                <th className="text-center px-3 py-3 text-xs font-semibold text-text-secondary whitespace-nowrap">알림톡</th>
-                <th className="text-center px-3 py-3 text-xs font-semibold text-text-secondary">SMS</th>
-                <th className="text-center px-3 py-3 text-xs font-semibold text-text-secondary whitespace-nowrap">앱 알림</th>
-                <th className="text-center px-3 py-3 text-xs font-semibold text-text-secondary whitespace-nowrap hidden md:table-cell">대상</th>
-                <th className="text-center px-3 py-3 text-xs font-semibold text-text-secondary whitespace-nowrap">활성화</th>
+                <th rowSpan={2} className="text-left px-4 py-3 text-xs font-semibold text-text-secondary align-bottom">알림 유형</th>
+                <th colSpan={4} className="text-center px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-text-tertiary border-b border-border-subtle">채널</th>
+                <th colSpan={4} className="text-center px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-text-tertiary border-b border-border-subtle">수신 대상</th>
+                <th rowSpan={2} className="text-center px-3 py-3 text-xs font-semibold text-text-secondary whitespace-nowrap align-bottom">활성화</th>
+              </tr>
+              <tr className="border-b border-border-subtle bg-surface-sunken">
+                <th className="text-center px-2 py-2 text-xs font-semibold text-text-secondary whitespace-nowrap">알림톡</th>
+                <th className="text-center px-2 py-2 text-xs font-semibold text-text-secondary">SMS</th>
+                <th className="text-center px-2 py-2 text-xs font-semibold text-text-secondary">푸시</th>
+                <th className="text-center px-2 py-2 text-xs font-semibold text-text-secondary whitespace-nowrap">앱 알림</th>
+                <th className="text-center px-2 py-2 text-xs font-semibold text-text-secondary">관리자</th>
+                <th className="text-center px-2 py-2 text-xs font-semibold text-text-secondary">직원</th>
+                <th className="text-center px-2 py-2 text-xs font-semibold text-text-secondary">고객</th>
+                <th className="text-center px-2 py-2 text-xs font-semibold text-text-secondary">본사</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border-subtle">
-              {rules.map((rule) => {
-                const targets = [
-                  rule.notify_admin ? '관리자' : null,
-                  rule.notify_customer ? '고객' : null,
-                  rule.notify_worker ? '직원' : null,
-                ].filter(Boolean).join(', ')
-
-                return (
-                  <tr key={rule.id} className="hover:bg-surface-sunken transition-colors">
-                    <td className="px-4 py-3 text-text-primary font-medium whitespace-nowrap">
-                      {rule.label}
-                    </td>
-                    <td className="px-4 py-3 text-text-secondary text-xs hidden lg:table-cell max-w-[200px] truncate">
-                      {rule.description ?? '-'}
-                    </td>
-                    <td className="px-3 py-3 text-center">
-                      <div className="flex justify-center">
-                        <Toggle
-                          checked={rule.channel_alimtalk}
-                          onChange={(v) => handleToggle(rule.id, 'channel_alimtalk', v)}
-                          disabled={updating === `${rule.id}-channel_alimtalk`}
-                        />
-                      </div>
-                    </td>
-                    <td className="px-3 py-3 text-center">
-                      <div className="flex justify-center">
-                        <Toggle
-                          checked={rule.channel_sms}
-                          onChange={(v) => handleToggle(rule.id, 'channel_sms', v)}
-                          disabled={updating === `${rule.id}-channel_sms`}
-                        />
-                      </div>
-                    </td>
-                    <td className="px-3 py-3 text-center">
-                      <div className="flex justify-center">
-                        <Toggle
-                          checked={rule.channel_in_app}
-                          onChange={(v) => handleToggle(rule.id, 'channel_in_app', v)}
-                          disabled={updating === `${rule.id}-channel_in_app`}
-                        />
-                      </div>
-                    </td>
-                    <td className="px-3 py-3 text-center hidden md:table-cell">
-                      <span className="text-xs text-text-secondary">{targets || '-'}</span>
-                    </td>
-                    <td className="px-3 py-3 text-center">
-                      <div className="flex justify-center">
-                        <Toggle
-                          checked={rule.is_active}
-                          onChange={(v) => handleToggle(rule.id, 'is_active', v)}
-                          disabled={updating === `${rule.id}-is_active`}
-                        />
-                      </div>
-                    </td>
-                  </tr>
-                )
-              })}
+              {rules.map((rule) => (
+                <tr key={rule.id} className="hover:bg-surface-sunken transition-colors">
+                  <td className="px-4 py-3 text-text-primary font-medium whitespace-nowrap">
+                    <div>{rule.label}</div>
+                    {rule.description && (
+                      <p className="text-[11px] text-text-tertiary mt-0.5 max-w-[220px] truncate">{rule.description}</p>
+                    )}
+                  </td>
+                  {/* 채널 4종 */}
+                  <td className="px-2 py-3 text-center">
+                    <div className="flex justify-center">
+                      <Toggle checked={rule.channel_alimtalk} onChange={(v) => handleToggle(rule.id, 'channel_alimtalk', v)} disabled={updating === `${rule.id}-channel_alimtalk`} />
+                    </div>
+                  </td>
+                  <td className="px-2 py-3 text-center">
+                    <div className="flex justify-center">
+                      <Toggle checked={rule.channel_sms} onChange={(v) => handleToggle(rule.id, 'channel_sms', v)} disabled={updating === `${rule.id}-channel_sms`} />
+                    </div>
+                  </td>
+                  <td className="px-2 py-3 text-center">
+                    <div className="flex justify-center">
+                      <Toggle checked={rule.channel_push} onChange={(v) => handleToggle(rule.id, 'channel_push', v)} disabled={updating === `${rule.id}-channel_push`} />
+                    </div>
+                  </td>
+                  <td className="px-2 py-3 text-center">
+                    <div className="flex justify-center">
+                      <Toggle checked={rule.channel_in_app} onChange={(v) => handleToggle(rule.id, 'channel_in_app', v)} disabled={updating === `${rule.id}-channel_in_app`} />
+                    </div>
+                  </td>
+                  {/* 수신 대상 4종 */}
+                  <td className="px-2 py-3 text-center">
+                    <div className="flex justify-center">
+                      <Toggle checked={rule.notify_admin} onChange={(v) => handleToggle(rule.id, 'notify_admin', v)} disabled={updating === `${rule.id}-notify_admin`} />
+                    </div>
+                  </td>
+                  <td className="px-2 py-3 text-center">
+                    <div className="flex justify-center">
+                      <Toggle checked={rule.notify_worker} onChange={(v) => handleToggle(rule.id, 'notify_worker', v)} disabled={updating === `${rule.id}-notify_worker`} />
+                    </div>
+                  </td>
+                  <td className="px-2 py-3 text-center">
+                    <div className="flex justify-center">
+                      <Toggle checked={rule.notify_customer} onChange={(v) => handleToggle(rule.id, 'notify_customer', v)} disabled={updating === `${rule.id}-notify_customer`} />
+                    </div>
+                  </td>
+                  <td className="px-2 py-3 text-center">
+                    <div className="flex justify-center">
+                      <Toggle checked={rule.notify_franchise_hq} onChange={(v) => handleToggle(rule.id, 'notify_franchise_hq', v)} disabled={updating === `${rule.id}-notify_franchise_hq`} />
+                    </div>
+                  </td>
+                  <td className="px-2 py-3 text-center">
+                    <div className="flex justify-center">
+                      <Toggle checked={rule.is_active} onChange={(v) => handleToggle(rule.id, 'is_active', v)} disabled={updating === `${rule.id}-is_active`} />
+                    </div>
+                  </td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>

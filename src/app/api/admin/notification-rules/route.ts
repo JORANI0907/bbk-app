@@ -31,6 +31,7 @@ const ALLOWED_FIELDS = [
   'notify_admin',
   'notify_customer',
   'notify_worker',
+  'notify_franchise_hq',
   'is_active',
 ] as const
 
