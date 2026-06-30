@@ -31,6 +31,16 @@ export default function WorkerCard({
   const isAdjusted = entry.record?.final_amount != null && entry.record.final_amount !== entry.auto_amount
   const hasNote = !!(entry.record?.note && entry.record.note.trim() !== '')
 
+  // 출근 일수 + 일자별 그룹핑
+  const workDays = new Set(entry.jobs.map(j => j.construction_date)).size
+  const jobsByDate = entry.jobs.reduce<Record<string, WorkerJob[]>>((acc, job) => {
+    const key = job.construction_date
+    if (!acc[key]) acc[key] = []
+    acc[key].push(job)
+    return acc
+  }, {})
+  const sortedDates = Object.keys(jobsByDate).sort()
+
   const handleSave = async () => {
     setSaving(true)
     try {
@@ -128,7 +138,7 @@ export default function WorkerCard({
                 </span>
               )}
             </div>
-            <p className="text-xs text-text-tertiary mt-0.5">{entry.jobs.length}건 · 자동 {fmt(entry.auto_amount)}</p>
+            <p className="text-xs text-text-tertiary mt-0.5">{workDays}일 출근 · {entry.jobs.length}건 · 자동 {fmt(entry.auto_amount)}</p>
             {(entry.person.phone || entry.person.account_number) && (
               <p className="text-xs text-text-tertiary mt-0.5">
                 {entry.person.phone && <span>{entry.person.phone}</span>}
@@ -210,63 +220,83 @@ export default function WorkerCard({
           {entry.jobs.length === 0 ? (
             <p className="text-xs text-text-tertiary text-center py-4">배정 없음</p>
           ) : (
-            <div className="divide-y divide-border-subtle">
-              {entry.jobs.map(job => {
-                const editVal = jobSalaryEdits[job.id]
-                const isEditing = editVal !== undefined
+            <div>
+              {sortedDates.map(date => {
+                const jobs = jobsByDate[date]
+                const daySum = jobs.reduce((s, j) => s + (j.salary ?? 0), 0)
                 return (
-                  <div key={job.id} className="px-4 py-2.5 flex items-center gap-2">
-                    <div className="flex-1 min-w-0">
-                      <span className="text-xs text-text-tertiary font-mono">{fmtDate(job.construction_date)}</span>
-                      <p className="text-sm font-medium text-text-primary truncate">{job.business_name}</p>
+                  <div key={date} className="border-b border-border-subtle last:border-b-0">
+                    {/* 일자 헤더 */}
+                    <div className="px-3 py-1 bg-surface-sunken flex items-center justify-between">
+                      <span className="text-[11px] font-semibold text-text-secondary">
+                        📅 {fmtDate(date)}
+                        <span className="ml-1.5 text-text-tertiary font-normal">{jobs.length}건</span>
+                      </span>
+                      <span className="text-[11px] font-semibold text-orange-600">
+                        {daySum > 0 ? daySum.toLocaleString('ko-KR') + '원' : '—'}
+                      </span>
                     </div>
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      {isEditing ? (
-                        <>
-                          <input
-                            type="number"
-                            value={editVal}
-                            onChange={e => setJobSalaryEdits(prev => ({ ...prev, [job.id]: e.target.value }))}
-                            className="w-24 px-2 py-1 border border-blue-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
-                            placeholder="금액"
-                            autoFocus
-                          />
-                          <Button
-                            onClick={() => handleJobSalarySave(job)}
-                            disabled={savingJob === job.id}
-                            size="sm"
-                          >
-                            {savingJob === job.id ? '...' : '저장'}
-                          </Button>
-                          <button
-                            onClick={() => setJobSalaryEdits(prev => { const n = { ...prev }; delete n[job.id]; return n })}
-                            className="text-xs text-text-tertiary hover:text-text-secondary"
-                          >
-                            취소
-                          </button>
-                        </>
-                      ) : (
-                        <>
-                          <span className={`text-sm font-semibold ${(job.salary ?? 0) > 0 ? 'text-orange-600' : 'text-text-tertiary'}`}>
-                            {(job.salary ?? 0) > 0 ? (job.salary!).toLocaleString('ko-KR') + '원' : '미설정'}
-                          </span>
-                          <button
-                            onClick={() => setJobSalaryEdits(prev => ({ ...prev, [job.id]: String(job.salary ?? '') }))}
-                            className="text-xs text-text-tertiary hover:text-brand-600 px-1"
-                          >
-                            <Pencil size={12} />
-                          </button>
-                        </>
-                      )}
+                    {/* 그 일자 항목들 */}
+                    <div className="divide-y divide-border-subtle">
+                      {jobs.map(job => {
+                        const editVal = jobSalaryEdits[job.id]
+                        const isEditing = editVal !== undefined
+                        return (
+                          <div key={job.id} className="px-3 py-1.5 flex items-center gap-2">
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-medium text-text-primary truncate leading-tight">{job.business_name}</p>
+                            </div>
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              {isEditing ? (
+                                <>
+                                  <input
+                                    type="number"
+                                    value={editVal}
+                                    onChange={e => setJobSalaryEdits(prev => ({ ...prev, [job.id]: e.target.value }))}
+                                    className="w-20 px-1.5 py-0.5 border border-blue-300 rounded text-[11px] focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                    placeholder="금액"
+                                    autoFocus
+                                  />
+                                  <Button
+                                    onClick={() => handleJobSalarySave(job)}
+                                    disabled={savingJob === job.id}
+                                    size="sm"
+                                  >
+                                    {savingJob === job.id ? '...' : '저장'}
+                                  </Button>
+                                  <button
+                                    onClick={() => setJobSalaryEdits(prev => { const n = { ...prev }; delete n[job.id]; return n })}
+                                    className="text-[10px] text-text-tertiary hover:text-text-secondary"
+                                  >
+                                    취소
+                                  </button>
+                                </>
+                              ) : (
+                                <>
+                                  <span className={`text-xs font-semibold ${(job.salary ?? 0) > 0 ? 'text-orange-600' : 'text-text-tertiary'}`}>
+                                    {(job.salary ?? 0) > 0 ? (job.salary!).toLocaleString('ko-KR') + '원' : '미설정'}
+                                  </span>
+                                  <button
+                                    onClick={() => setJobSalaryEdits(prev => ({ ...prev, [job.id]: String(job.salary ?? '') }))}
+                                    className="text-[10px] text-text-tertiary hover:text-brand-600 px-0.5"
+                                  >
+                                    <Pencil size={11} />
+                                  </button>
+                                </>
+                              )}
+                            </div>
+                          </div>
+                        )
+                      })}
                     </div>
                   </div>
                 )
               })}
             </div>
           )}
-          <div className="px-4 py-2 bg-orange-50 flex justify-between items-center border-t border-orange-100">
-            <span className="text-xs text-orange-700">건별 합계</span>
-            <span className="text-sm font-bold text-orange-700">{entry.auto_amount.toLocaleString('ko-KR')}원</span>
+          <div className="px-3 py-1.5 bg-orange-50 flex justify-between items-center border-t border-orange-100">
+            <span className="text-[11px] text-orange-700">건별 합계 ({workDays}일 출근)</span>
+            <span className="text-xs font-bold text-orange-700">{entry.auto_amount.toLocaleString('ko-KR')}원</span>
           </div>
         </div>
       )}
