@@ -340,6 +340,62 @@ export default function ContractEditor({ value, onChange }: ContractEditorProps)
             </TbBtn>
           </div>
 
+          {/* 표 편집 툴바 — 커서가 표 안에 있을 때만 노출 */}
+          {editor?.isActive('table') && (
+            <div className="flex flex-wrap gap-0.5 px-2 py-1.5 bg-sky-50 border-b border-sky-200 items-center">
+              <span className="text-[11px] font-semibold text-sky-700 mr-1 shrink-0">표 편집:</span>
+              <TbBtn onClick={() => editor.chain().focus().addRowBefore().run()} title="위에 행 추가">
+                + 행↑
+              </TbBtn>
+              <TbBtn onClick={() => editor.chain().focus().addRowAfter().run()} title="아래에 행 추가">
+                + 행↓
+              </TbBtn>
+              <TbBtn onClick={() => editor.chain().focus().deleteRow().run()} title="현재 행 삭제">
+                − 행
+              </TbBtn>
+
+              <div className="w-px h-5 bg-sky-200 mx-1 self-center" />
+
+              <TbBtn onClick={() => editor.chain().focus().addColumnBefore().run()} title="왼쪽에 열 추가">
+                + 열←
+              </TbBtn>
+              <TbBtn onClick={() => editor.chain().focus().addColumnAfter().run()} title="오른쪽에 열 추가">
+                + 열→
+              </TbBtn>
+              <TbBtn onClick={() => editor.chain().focus().deleteColumn().run()} title="현재 열 삭제">
+                − 열
+              </TbBtn>
+
+              <div className="w-px h-5 bg-sky-200 mx-1 self-center" />
+
+              <TbBtn onClick={() => editor.chain().focus().mergeCells().run()} title="선택 셀 병합">
+                셀 병합
+              </TbBtn>
+              <TbBtn onClick={() => editor.chain().focus().splitCell().run()} title="셀 분할">
+                셀 분할
+              </TbBtn>
+              <TbBtn onClick={() => editor.chain().focus().toggleHeaderRow().run()} title="헤더 행 토글">
+                헤더행
+              </TbBtn>
+
+              <div className="w-px h-5 bg-sky-200 mx-1 self-center" />
+
+              <button
+                type="button"
+                onMouseDown={(e) => {
+                  e.preventDefault()
+                  if (confirm('표 전체를 삭제하시겠습니까?')) {
+                    editor.chain().focus().deleteTable().run()
+                  }
+                }}
+                title="표 전체 삭제"
+                className="px-2.5 py-1.5 rounded text-xs font-medium transition-colors select-none text-state-danger hover:bg-state-danger-bg"
+              >
+                × 표 삭제
+              </button>
+            </div>
+          )}
+
           {/* 에디터 본문 */}
           <div className="bg-white overflow-y-auto" style={{ maxHeight: '60vh' }}>
             <EditorContent editor={editor} />
