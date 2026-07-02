@@ -12,23 +12,17 @@ export async function POST(request: NextRequest) {
       paymentId: string
       applicationId: string
       stage: 'deposit' | 'balance'
+      billingKey: string
     }
-    const { paymentId, applicationId, stage } = body
-    if (!paymentId || !applicationId || !stage) {
+    const { paymentId, applicationId, stage, billingKey } = body
+    if (!paymentId || !applicationId || !stage || !billingKey) {
       return NextResponse.json({ error: '필수 항목 누락' }, { status: 400 })
-    }
-
-    const client = getPortOneClient()!
-    const payment = await client.payment.getPayment({ paymentId, storeId: getStoreId() })
-
-    if ((payment as Record<string,unknown>).status !== 'PAID') {
-      return NextResponse.json({ error: '결제가 완료되지 않았습니다.' }, { status: 400 })
     }
 
     const supabase = createServiceClient()
     const { data: app } = await supabase
       .from('service_applications')
-      .select('supply_amount, vat, deposit, deposit_portone_id, balance_portone_id')
+      .select('supply_amount, vat, deposit, deposit_portone_id, balance_portone_id, business_name, owner_name, phone')
       .eq('id', applicationId)
       .single()
 
@@ -36,33 +30,47 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '신청서를 찾을 수 없습니다.' }, { status: 404 })
     }
 
-    // paymentId가 실제 DB에 등록된 것과 일치하는지 검증 (위변조 방지)
+    // paymentId 위변조 방지 검증
     const expectedId = stage === 'deposit' ? app.deposit_portone_id : app.balance_portone_id
     if (expectedId !== paymentId) {
       return NextResponse.json({ error: '결제 ID가 일치하지 않습니다.' }, { status: 400 })
     }
 
-    // 금액 검증
+    // 금액 서버사이드 계산
     const supply  = Number(app.supply_amount ?? 0)
     const vat     = Number(app.vat ?? 0)
     const deposit = Number(app.deposit ?? 0)
     const expectedAmount = stage === 'deposit' ? deposit : calcBalance(supply, vat, deposit)
-    const paidAmount = Number((payment as Record<string,unknown>).totalAmount ?? 0)
 
-    if (paidAmount !== expectedAmount) {
-      return NextResponse.json({ error: `금액 불일치: 예상 ${expectedAmount}원, 실제 ${paidAmount}원` }, { status: 400 })
+    if (expectedAmount <= 0) {
+      return NextResponse.json({ error: '결제 금액이 0원입니다.' }, { status: 400 })
     }
 
-    // 빌링키 추출 (카드 결제의 경우)
-    const billingKey = (payment as Record<string,unknown>).billingKey as string | undefined
+    const client = getPortOneClient()!
+    const orderName    = `BBK 공간케어 ${stage === 'deposit' ? '예약금' : '잔금'} — ${String(app.business_name ?? '')}`
+    const customerName = String(app.owner_name ?? '')
+    const phone        = (app.phone ?? '').replace(/-/g, '')
+
+    // 빌링키로 즉시 청구 (KG이니시스 V2 지원 방식)
+    await client.payment.payWithBillingKey({
+      paymentId,
+      storeId: getStoreId(),
+      billingKey,
+      orderName,
+      amount: { total: expectedAmount },
+      currency: 'KRW',
+      customer: {
+        name: { full: customerName },
+        ...(phone ? { phoneNumber: phone } : {}),
+      },
+    })
+
     const nowIso = new Date().toISOString()
+    const updates: Record<string, unknown> = { payment_confirmed_at: nowIso }
 
-    const updates: Record<string, unknown> = {
-      payment_confirmed_at: nowIso,
-    }
     if (stage === 'deposit') {
       updates.deposit_paid_at = nowIso
-      if (billingKey) updates.billing_key = billingKey
+      updates.billing_key = billingKey
     } else {
       updates.balance_paid_at = nowIso
     }
@@ -75,8 +83,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       stage,
-      paidAmount,
-      billingKeySaved: Boolean(billingKey),
+      paidAmount: expectedAmount,
+      billingKeySaved: stage === 'deposit',
     })
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)

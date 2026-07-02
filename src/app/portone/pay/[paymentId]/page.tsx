@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { useParams, useSearchParams } from 'next/navigation'
-import { requestIssueBillingKeyAndPay } from '@portone/browser-sdk/v2'
+import { requestIssueBillingKey } from '@portone/browser-sdk/v2'
 
 type AppInfo = {
   owner_name: string
@@ -63,27 +63,26 @@ export default function PortOnePayPage() {
       const storeId    = process.env.NEXT_PUBLIC_PORTONE_STORE_ID ?? ''
       const channelKey = process.env.NEXT_PUBLIC_PORTONE_CHANNEL_KEY_CARD ?? ''
 
-      const result = await requestIssueBillingKeyAndPay({
+      // Step 1: 빌링키 발급 (KG이니시스 V2는 requestIssueBillingKey 사용)
+      const result = await requestIssueBillingKey({
         storeId,
         channelKey,
-        paymentId,
-        orderName: `BBK 공간케어 ${stage === 'deposit' ? '예약금' : '잔금'} — ${app.business_name}`,
-        totalAmount: amount,
-        currency: 'KRW',
-        billingKeyAndPayMethod: 'CARD' as 'MOBILE',
+        billingKeyMethod: 'CARD',
+        issueId: paymentId,
+        issueName: `BBK 공간케어 ${stage === 'deposit' ? '예약금' : '잔금'} 카드 등록`,
         customer: {
           fullName: app.owner_name,
           phoneNumber: app.phone.replace(/-/g, ''),
         },
       })
 
-      if ('code' in result) {
+      if (!result || 'code' in result) {
         setStatus('error')
-        setMessage((result as { message?: string }).message ?? '결제에 실패했습니다.')
+        setMessage((result as { message?: string } | undefined)?.message ?? '카드 등록에 실패했습니다.')
         return
       }
 
-      // 서버에 결제 검증 + 빌링키 저장 요청
+      // Step 2: 서버에 빌링키 전달 → 서버가 payWithBillingKey로 실제 청구
       const verifyRes = await fetch('/api/portone/complete', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
