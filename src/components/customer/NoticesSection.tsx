@@ -42,6 +42,13 @@ function isNew(createdAt: string) {
 function formatShortDate(iso: string) {
   return format(new Date(iso), 'M.d', { locale: ko })
 }
+function formatFullDate(iso: string) {
+  return format(new Date(iso), 'yyyy.MM.dd', { locale: ko })
+}
+function truncateContent(text: string, len = 15): string {
+  const clean = text.replace(/\s+/g, ' ').trim()
+  return clean.length > len ? `${clean.slice(0, len)}…` : clean
+}
 
 // ── 공지 카드 (목록용) ─────────────────────────────
 function NoticeCard({ item, onClick }: { item: NoticeItem; onClick: () => void }) {
@@ -50,30 +57,38 @@ function NoticeCard({ item, onClick }: { item: NoticeItem; onClick: () => void }
       onClick={onClick}
       className="w-full text-left bg-surface rounded-2xl border border-border-subtle p-3 flex flex-col gap-1 active:scale-[0.97] transition-transform shadow-flat"
     >
-      <div className="flex items-center gap-1 flex-wrap">
-        {item.pinned && (
-          <span className="text-[10px] font-bold text-brand-600 border border-brand-200 px-1 py-0.5 rounded leading-none">고정</span>
-        )}
-        {isNew(item.created_at) && (
-          <span className="text-[9px] font-bold bg-state-danger text-white px-1 py-0.5 rounded-full leading-none">NEW</span>
-        )}
-        {PRIORITY_LABEL[item.priority] && (
-          <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded-full ${PRIORITY_BADGE[item.priority]}`}>
-            {PRIORITY_LABEL[item.priority]}
+      {/* 상단: 좌측 (공지/이벤트) 뱃지 + 부가 뱃지  |  우측 년월일 */}
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex items-center gap-1 flex-wrap">
+          <span className={`text-[9px] font-medium px-1.5 py-0.5 rounded-full ${
+            item.type === 'notice' ? 'bg-brand-100 text-brand-700' : 'bg-purple-100 text-purple-700'
+          }`}>
+            {item.type === 'notice' ? '공지' : '이벤트'}
           </span>
-        )}
-        <span className={`text-[9px] font-medium px-1.5 py-0.5 rounded-full ml-auto ${
-          item.type === 'notice' ? 'bg-brand-100 text-brand-700' : 'bg-purple-100 text-purple-700'
-        }`}>
-          {item.type === 'notice' ? '공지' : '이벤트'}
+          {item.pinned && (
+            <span className="text-[9px] font-bold text-brand-600 border border-brand-200 px-1 py-0.5 rounded leading-none">고정</span>
+          )}
+          {isNew(item.created_at) && (
+            <span className="text-[9px] font-bold bg-state-danger text-white px-1 py-0.5 rounded-full leading-none">NEW</span>
+          )}
+          {PRIORITY_LABEL[item.priority] && (
+            <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded-full ${PRIORITY_BADGE[item.priority]}`}>
+              {PRIORITY_LABEL[item.priority]}
+            </span>
+          )}
+        </div>
+        <span className="text-[10px] font-medium text-text-tertiary whitespace-nowrap shrink-0">
+          {formatFullDate(item.created_at)}
         </span>
       </div>
+
+      {/* 제목 */}
       <p className="text-xs font-semibold text-text-primary line-clamp-2 leading-snug">{item.title}</p>
-      <p className="text-[10px] text-text-tertiary">
-        {item.type === 'event' && item.event_date
-          ? `이벤트: ${item.event_date}`
-          : formatShortDate(item.created_at)}
-      </p>
+
+      {/* 본문 15글자 미리보기 */}
+      {item.content && (
+        <p className="text-[11px] text-text-secondary leading-snug">{truncateContent(item.content)}</p>
+      )}
     </button>
   )
 }

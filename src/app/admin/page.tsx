@@ -128,31 +128,42 @@ function NoticeCard({ notice }: { notice: Notice }) {
   const pc = PRIORITY_CONFIG[notice.priority]
   const tc = TYPE_CONFIG[notice.type]
 
+  const contentPreview = (notice.content ?? '').replace(/\s+/g, ' ').trim()
+  const shortPreview = contentPreview.length > 15 ? `${contentPreview.slice(0, 15)}…` : contentPreview
+  const fullDate = new Date(notice.created_at).toLocaleDateString('ko-KR', {
+    year: 'numeric', month: '2-digit', day: '2-digit',
+  }).replace(/\.\s?/g, '.').replace(/\.$/, '')
+
   return (
     <div className={`border-l-4 ${pc.border} ${pc.bg} rounded-r-xl overflow-hidden transition-all`}>
       <div className="p-4">
         <div className="flex items-start gap-3">
           <span className="text-xl shrink-0 mt-0.5">{tc.icon}</span>
           <div className="flex-1 min-w-0">
-            {/* 뱃지 행 */}
-            <div className="flex items-center gap-1.5 mb-1 flex-wrap">
-              {notice.pinned && (
-                <span className="inline-flex items-center gap-0.5 text-xs font-semibold text-brand-600 bg-brand-100 px-1.5 py-0.5 rounded-full">
-                  <Pin size={10} className="inline mr-0.5" />고정
+            {/* 뱃지 행 + 우측 년월일 */}
+            <div className="flex items-start justify-between gap-2 mb-1">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span className={`text-xs font-medium ${tc.color}`}>{tc.label}</span>
+                {notice.pinned && (
+                  <span className="inline-flex items-center gap-0.5 text-xs font-semibold text-brand-600 bg-brand-100 px-1.5 py-0.5 rounded-full">
+                    <Pin size={10} className="inline mr-0.5" />고정
+                  </span>
+                )}
+                <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${pc.badge}`}>
+                  {pc.label}
                 </span>
-              )}
-              <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${pc.badge}`}>
-                {pc.label}
+                {notice.event_date && (
+                  <span className="text-xs text-purple-600 bg-purple-50 px-2 py-0.5 rounded-full">
+                    <Calendar size={12} className="inline mr-0.5" />{new Date(notice.event_date).toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'short' })}
+                  </span>
+                )}
+                {notice.image_url && !expanded && (
+                  <span className="text-xs text-text-tertiary bg-surface-sunken px-1.5 py-0.5 rounded-full"><Camera size={16} /></span>
+                )}
+              </div>
+              <span className="text-xs font-medium text-text-tertiary whitespace-nowrap shrink-0">
+                {fullDate}
               </span>
-              <span className={`text-xs font-medium ${tc.color}`}>{tc.label}</span>
-              {notice.event_date && (
-                <span className="text-xs text-purple-600 bg-purple-50 px-2 py-0.5 rounded-full">
-                  <Calendar size={12} className="inline mr-0.5" />{new Date(notice.event_date).toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'short' })}
-                </span>
-              )}
-              {notice.image_url && !expanded && (
-                <span className="text-xs text-text-tertiary bg-surface-sunken px-1.5 py-0.5 rounded-full"><Camera size={16} /></span>
-              )}
             </div>
 
             {/* 제목 */}
@@ -163,7 +174,12 @@ function NoticeCard({ notice }: { notice: Notice }) {
               {notice.title}
             </button>
 
-            {/* 펼쳐질 때: 사진 + 내용 */}
+            {/* 본문 15글자 미리보기 (접혔을 때만) */}
+            {!expanded && shortPreview && (
+              <p className="text-xs text-text-secondary leading-snug mt-0.5">{shortPreview}</p>
+            )}
+
+            {/* 펼쳐질 때: 사진 + 전체 내용 */}
             {expanded && (
               <>
                 {notice.image_url && (
@@ -180,12 +196,10 @@ function NoticeCard({ notice }: { notice: Notice }) {
               </>
             )}
 
-            {/* 메타 */}
-            <div className="flex items-center gap-2 mt-2 text-xs text-text-tertiary">
-              {notice.author_name && <span>{notice.author_name}</span>}
-              <span>·</span>
-              <span>{timeAgo(notice.created_at)}</span>
-            </div>
+            {/* 메타 (작성자만 유지 — 날짜는 위로 이동) */}
+            {notice.author_name && (
+              <div className="text-xs text-text-tertiary mt-2">{notice.author_name}</div>
+            )}
           </div>
         </div>
       </div>
