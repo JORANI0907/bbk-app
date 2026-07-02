@@ -50,7 +50,7 @@ export async function middleware(request: NextRequest) {
       pathname === '/care-manual' ||
       pathname === '/guide'
 
-    const publicPaths = ['/login', '/signup', '/install', '/quote', '/bbk-care', '/sign', '/portal-preview', '/api/auth', '/api/sms', '/api/admin', '/api/webhooks', '/api/form', '/api/cron', '/api/contracts', '/api/push', '/api/juso', '/terms', '/privacy', '/apply', '/api/apply']
+    const publicPaths = ['/login', '/signup', '/install', '/quote', '/bbk-care', '/sign', '/portal-preview', '/api/auth', '/api/sms', '/api/admin', '/api/webhooks', '/api/form', '/api/cron', '/api/contracts', '/api/push', '/api/juso', '/terms', '/privacy', '/apply', '/api/apply', '/portone', '/api/portone/webhook', '/api/portone/pay-info', '/api/portone/complete']
     const isPublic = isDemoPath || publicPaths.some(p => pathname.startsWith(p))
 
     const sessionToken = request.cookies.get('bbk_session')?.value

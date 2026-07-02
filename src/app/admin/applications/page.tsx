@@ -69,6 +69,13 @@ interface Application {
   notification_log?: Array<{ type: string; sent_at: string; method?: 'auto' | 'manual' }> | null
   last_quote_no: string | null
   last_quote_pdf_url: string | null
+  deposit_payment_url: string | null
+  balance_payment_url: string | null
+  deposit_portone_id: string | null
+  balance_portone_id: string | null
+  billing_key: string | null
+  deposit_paid_at: string | null
+  balance_paid_at: string | null
 }
 
 interface NotifyLog { type: string; sentAt: string; method?: 'auto' | 'manual' }
@@ -577,6 +584,8 @@ export default function ServiceManagementPage() {
   const [businessHoursStart, setBusinessHoursStart] = useState('')
   const [businessHoursEnd, setBusinessHoursEnd] = useState('')
   const [preMeetingAt, setPreMeetingAt] = useState('')
+  const [sendingPaymentLink, setSendingPaymentLink] = useState(false)
+  const [chargingBalance, setChargingBalance] = useState(false)
 
   // 신규 일정 생성 모달
   const [showCreateModal, setShowCreateModal] = useState(false)
@@ -745,6 +754,54 @@ export default function ServiceManagementPage() {
       toast.success('고객 DB에 저장되었습니다. 고객 관리 탭에서 확인하세요.')
     } catch (e) {
       toast.error(e instanceof Error ? e.message : '저장 실패')
+    }
+  }
+
+  const handleSendPaymentLink = async (stage: 'deposit' | 'balance') => {
+    if (!selected) return
+    setSendingPaymentLink(true)
+    try {
+      const res = await fetch('/api/portone/issue-payment-link', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ applicationId: selected.id, stage }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error ?? '결제링크 생성 실패')
+      await navigator.clipboard.writeText(data.paymentUrl)
+      toast.success(data.reused ? '기존 결제링크 복사됨' : '결제링크 생성 · 클립보드 복사됨')
+      const urlField = stage === 'deposit' ? 'deposit_payment_url' : 'balance_payment_url'
+      const idField  = stage === 'deposit' ? 'deposit_portone_id'   : 'balance_portone_id'
+      const patch = { [urlField]: data.paymentUrl, [idField]: data.paymentId }
+      setApplications(prev => prev.map(a => a.id === selected.id ? { ...a, ...patch } : a))
+      setSelected(prev => prev ? { ...prev, ...patch } : prev)
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : '결제링크 생성 실패')
+    } finally {
+      setSendingPaymentLink(false)
+    }
+  }
+
+  const handleChargeBalance = async () => {
+    if (!selected) return
+    if (!confirm('잔금을 자동 청구하시겠습니까?\n고객 카드에서 즉시 결제됩니다.')) return
+    setChargingBalance(true)
+    try {
+      const res = await fetch('/api/portone/charge-balance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ applicationId: selected.id }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error ?? '잔금 청구 실패')
+      toast.success(`잔금 ${Number(data.chargedAmount ?? 0).toLocaleString('ko-KR')}원 청구 완료`)
+      const nowIso = new Date().toISOString()
+      setApplications(prev => prev.map(a => a.id === selected.id ? { ...a, balance_paid_at: nowIso } : a))
+      setSelected(prev => prev ? { ...prev, balance_paid_at: nowIso } : prev)
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : '잔금 청구 실패')
+    } finally {
+      setChargingBalance(false)
     }
   }
 
@@ -2032,6 +2089,55 @@ export default function ServiceManagementPage() {
                   </div>
                 </div>
               </Section>
+
+              {/* 포트원 결제 */}
+              {paymentMethod === '카드(온라인 간편결제)' && selected && (
+                <Section title="포트원 결제">
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-text-secondary w-20 shrink-0">예약금</span>
+                      <div className="flex flex-1 gap-1">
+                        {selected.deposit_paid_at ? (
+                          <div className="flex-1 border border-border-subtle rounded-lg px-2 py-1.5 text-xs text-state-success bg-state-success-bg">✅ 예약금 결제완료</div>
+                        ) : selected.deposit_payment_url ? (
+                          <>
+                            <button
+                              onClick={() => { navigator.clipboard.writeText(selected.deposit_payment_url!); toast.success('예약금 결제링크 복사됨') }}
+                              className="flex-1 border border-border rounded-lg px-2 py-1.5 text-xs font-mono text-text-secondary text-left truncate hover:bg-surface-sunken"
+                            >
+                              {selected.deposit_payment_url.split('/').slice(-1)[0]?.slice(0, 24)}…
+                            </button>
+                            <button onClick={() => handleSendPaymentLink('deposit')} disabled={sendingPaymentLink} className="px-2 py-1.5 text-xs bg-surface-sunken rounded-lg hover:bg-border border border-border-subtle" title="링크 재생성"><Link size={14} /></button>
+                          </>
+                        ) : (
+                          <Button onClick={() => handleSendPaymentLink('deposit')} disabled={sendingPaymentLink || !selected.deposit} className="flex-1 bg-brand-600 hover:bg-brand-700 text-white text-xs">
+                            {sendingPaymentLink ? '생성 중...' : '예약금 링크 생성 · 복사'}
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-text-secondary w-20 shrink-0">잔금</span>
+                      <div className="flex flex-1 gap-1">
+                        {selected.balance_paid_at ? (
+                          <div className="flex-1 border border-border-subtle rounded-lg px-2 py-1.5 text-xs text-state-success bg-state-success-bg">✅ 잔금 결제완료</div>
+                        ) : selected.billing_key ? (
+                          <Button onClick={handleChargeBalance} disabled={chargingBalance} className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white text-xs">
+                            {chargingBalance ? '청구 중...' : '잔금 자동 청구'}
+                          </Button>
+                        ) : (
+                          <div className="flex-1 border border-border-subtle rounded-lg px-2 py-1.5 text-xs text-text-tertiary bg-surface-sunken">예약금 결제 후 활성화</div>
+                        )}
+                      </div>
+                    </div>
+                    {selected.billing_key && !selected.balance_paid_at && (
+                      <div className="px-3 py-2 bg-emerald-50 border border-emerald-200 rounded-lg">
+                        <p className="text-xs text-emerald-700">카드 등록됨 · 잔금 즉시 청구 가능</p>
+                      </div>
+                    )}
+                  </div>
+                </Section>
+              )}
 
               {/* 알림 발송 */}
               <Section title="알림 발송">
