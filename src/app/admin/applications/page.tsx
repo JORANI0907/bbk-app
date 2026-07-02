@@ -2110,7 +2110,7 @@ export default function ServiceManagementPage() {
                             <button onClick={() => handleSendPaymentLink('deposit')} disabled={sendingPaymentLink} className="px-2 py-1.5 text-xs bg-surface-sunken rounded-lg hover:bg-border border border-border-subtle" title="링크 재생성"><Link size={14} /></button>
                           </>
                         ) : (
-                          <Button onClick={() => handleSendPaymentLink('deposit')} disabled={sendingPaymentLink || !selected.deposit} className="flex-1 bg-brand-600 hover:bg-brand-700 text-white text-xs">
+                          <Button onClick={() => handleSendPaymentLink('deposit')} disabled={sendingPaymentLink || !deposit} className="flex-1 bg-brand-600 hover:bg-brand-700 text-white text-xs">
                             {sendingPaymentLink ? '생성 중...' : '예약금 링크 생성 · 복사'}
                           </Button>
                         )}
