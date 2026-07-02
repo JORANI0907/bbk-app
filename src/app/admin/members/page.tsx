@@ -51,6 +51,7 @@ export default function MembersPage() {
   const [form, setForm] = useState<RegisterFormData>(EMPTY_FORM)
   const [saving, setSaving] = useState(false)
   const [filterRole, setFilterRole] = useState<UserRole | 'all'>('all')
+  const [searchQuery, setSearchQuery] = useState('')
 
   // 수정 폼
   const [editingUser, setEditingUser] = useState<User | null>(null)
@@ -205,6 +206,12 @@ export default function MembersPage() {
           setSaving(false)
           return
         }
+        // B안 정책: 본사 초기 비밀번호는 사업자번호 (본사 등록 시 입력해둔 값)
+        if (!form.franchise_business_number) {
+          toast.error('선택한 본사에 사업자번호가 등록되어 있지 않습니다.\n본사 목록에서 사업자번호를 먼저 등록하세요.')
+          setSaving(false)
+          return
+        }
         const normalizedPhone = normalizePhone(form.phone)
         const res = await fetch('/api/admin/franchise-hq/issue-account', {
           method: 'POST',
@@ -213,7 +220,7 @@ export default function MembersPage() {
             franchiseHqId: form.franchise_hq_id,
             name: form.name,
             phone: normalizedPhone,
-            password: `${normalizedPhone}bbk`,
+            password: form.franchise_business_number,
           }),
         })
         const data = await res.json()
@@ -367,9 +374,29 @@ export default function MembersPage() {
     : false
 
   const pendingWorkers = users.filter(u => u.role === 'worker' && !u.is_active)
-  const filtered = filterRole === 'all'
-    ? users.filter(u => u.is_active || u.role !== 'worker')
-    : users.filter(u => u.role === filterRole && (u.is_active || u.role !== 'worker'))
+
+  // 검색어 정규화 — 공백 제거·소문자·전화번호 하이픈 제거로 관용도 확보
+  const normalizedQuery = searchQuery.trim().toLowerCase()
+  const digitOnlyQuery = normalizedQuery.replace(/\D/g, '')
+
+  const matchesQuery = (u: User): boolean => {
+    if (!normalizedQuery) return true
+    const name = (u.name ?? '').toLowerCase()
+    const phone = (u.phone ?? '').replace(/-/g, '')
+    const email = (u.email ?? '').toLowerCase()
+    const brand = (hqByUserId[u.id] ?? '').toLowerCase()
+    if (name.includes(normalizedQuery)) return true
+    if (email.includes(normalizedQuery)) return true
+    if (brand && brand.includes(normalizedQuery)) return true
+    if (digitOnlyQuery && phone.includes(digitOnlyQuery)) return true
+    return false
+  }
+
+  const baseVisible = users.filter(u => u.is_active || u.role !== 'worker')
+  const filtered = (filterRole === 'all'
+    ? baseVisible
+    : baseVisible.filter(u => u.role === filterRole)
+  ).filter(matchesQuery)
 
   // ── 직원(worker) 뷰 ──
   if (isWorker) {
@@ -493,6 +520,34 @@ export default function MembersPage() {
         </div>
       )}
 
+      {/* 검색 */}
+      <div className="relative mb-3">
+        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-text-tertiary pointer-events-none">
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35M11 19a8 8 0 100-16 8 8 0 000 16z" />
+          </svg>
+        </span>
+        <input
+          type="text"
+          value={searchQuery}
+          onChange={e => setSearchQuery(e.target.value)}
+          placeholder="이름 · 전화번호 · 브랜드명으로 검색"
+          className="w-full pl-9 pr-9 py-2.5 border border-border rounded-lg text-sm bg-surface focus:outline-none focus:ring-2 focus:ring-brand-600 focus:border-transparent"
+        />
+        {searchQuery && (
+          <button
+            type="button"
+            onClick={() => setSearchQuery('')}
+            className="absolute right-2 top-1/2 -translate-y-1/2 w-6 h-6 flex items-center justify-center rounded-full text-text-tertiary hover:text-text-secondary hover:bg-surface-sunken"
+            aria-label="검색어 지우기"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        )}
+      </div>
+
       {/* 역할 필터 */}
       <div className="flex gap-2 mb-4 overflow-x-auto pb-1 -mx-1 px-1">
         {(['all', 'admin', 'worker', 'customer', 'franchise_hq'] as const).map(r => {
@@ -554,8 +609,17 @@ export default function MembersPage() {
         <div className="text-center py-12 text-text-tertiary">불러오는 중...</div>
       ) : filtered.length === 0 ? (
         <div className="text-center py-12 text-text-tertiary">
-          <p className="text-lg mb-2">등록된 회원이 없습니다</p>
-          <p className="text-sm">+ 등록 버튼으로 추가하세요</p>
+          {searchQuery ? (
+            <>
+              <p className="text-lg mb-2">검색 결과가 없습니다</p>
+              <p className="text-sm">{`"${searchQuery}"과(와) 일치하는 회원을 찾을 수 없습니다`}</p>
+            </>
+          ) : (
+            <>
+              <p className="text-lg mb-2">등록된 회원이 없습니다</p>
+              <p className="text-sm">+ 등록 버튼으로 추가하세요</p>
+            </>
+          )}
         </div>
       ) : (
         <div className="space-y-2">

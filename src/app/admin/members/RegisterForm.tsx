@@ -36,6 +36,7 @@ export interface FranchiseItem {
   manager_name: string | null
   manager_phone: string | null
   logo_url: string | null
+  business_number: string | null
 }
 
 export interface RegisterFormData {
@@ -48,6 +49,7 @@ export interface RegisterFormData {
   business_number?: string
   franchise_hq_id?: string
   brand_name?: string
+  franchise_business_number?: string
 }
 
 interface Props {
@@ -271,6 +273,7 @@ export default function RegisterForm({
                             name: f.manager_name ?? f.brand_name,
                             phone: normalized,
                             email: '',
+                            franchise_business_number: (f.business_number ?? '').replace(/-/g, ''),
                           }))
                           setFranchiseSearch(f.brand_name)
                           setShowFranchiseDropdown(false)
@@ -388,9 +391,9 @@ export default function RegisterForm({
             <div className="flex justify-between text-xs">
               <span className="text-text-secondary">PW</span>
               <span className="font-mono font-medium text-text-primary">
-                {form.role === 'customer'
-                  ? (form.business_number || normalizedPhone)
-                  : `${normalizedPhone}bbk`}
+                {form.role === 'franchise_hq'
+                  ? (form.franchise_business_number || '사업자번호 미등록')
+                  : normalizedPhone}
               </span>
             </div>
           </div>

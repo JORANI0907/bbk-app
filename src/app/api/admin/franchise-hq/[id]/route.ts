@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { getServerSession } from '@/lib/session'
 
-const HQ_ALLOWED = ['brand_name', 'logo_url', 'manager_name', 'manager_phone'] as const
+const HQ_ALLOWED = ['brand_name', 'logo_url', 'manager_name', 'manager_phone', 'business_number'] as const
 const USER_ALLOWED = ['name', 'phone', 'is_active'] as const
 
 export async function PATCH(request: NextRequest, { params }: { params: { id: string } }) {

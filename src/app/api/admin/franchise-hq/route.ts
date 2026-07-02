@@ -37,11 +37,12 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json()
-    const { brandName, logoUrl, managerName, managerPhone } = body as {
+    const { brandName, logoUrl, managerName, managerPhone, businessNumber } = body as {
       brandName: string
       logoUrl?: string | null
       managerName?: string
       managerPhone?: string
+      businessNumber?: string
     }
 
     if (!brandName?.trim()) {
@@ -51,6 +52,7 @@ export async function POST(request: NextRequest) {
     const supabase = createServiceClient()
 
     const normalizedPhone = managerPhone?.replace(/-/g, '').trim() || null
+    const normalizedBizNumber = businessNumber?.replace(/-/g, '').trim() || null
 
     const { data: newHq, error: hqError } = await supabase
       .from('franchise_hq')
@@ -59,9 +61,10 @@ export async function POST(request: NextRequest) {
         logo_url: logoUrl?.trim() || null,
         manager_name: managerName?.trim() || null,
         manager_phone: normalizedPhone,
+        business_number: normalizedBizNumber,
         user_id: null,
       })
-      .select('id, brand_name, logo_url, manager_name, manager_phone')
+      .select('id, brand_name, logo_url, manager_name, manager_phone, business_number')
       .single()
 
     if (hqError || !newHq) {

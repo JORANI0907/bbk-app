@@ -63,17 +63,9 @@ export async function POST(request: NextRequest) {
       ? franchiseEmail(normalized)
       : staffEmail(normalized)
 
-  // 초기 비밀번호 — A안 정책: 모두 {전화번호}bbk 통일 (고객의 사업자번호 우선 유지)
-  let initialPassword = role === 'customer' ? normalized : `${normalized}bbk`
-  if (role === 'customer' && customer_id) {
-    const { data: customerData } = await supabase
-      .from('customers')
-      .select('business_number')
-      .eq('id', customer_id)
-      .single()
-    const bn = (customerData?.business_number ?? '').replace(/-/g, '')
-    if (bn) initialPassword = bn
-  }
+  // 초기 비밀번호 — B안 정책: 관리자·직원·고객 모두 {전화번호}만
+  // (본사는 별도 API /api/admin/franchise-hq/issue-account에서 사업자번호로 처리)
+  const initialPassword = normalized
 
   // Auth 계정 생성
   let authId: string | null = null

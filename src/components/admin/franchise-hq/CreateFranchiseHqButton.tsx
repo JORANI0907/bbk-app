@@ -14,6 +14,7 @@ export function CreateFranchiseHqButton() {
     logoUrl: '',
     managerName: '',
     managerPhone: '',
+    businessNumber: '',
   })
 
   const update = (key: keyof typeof form, value: string) => {
@@ -33,7 +34,7 @@ export function CreateFranchiseHqButton() {
       if (!res.ok) throw new Error(data.error ?? '등록 실패')
       toast.success('본사 정보가 등록되었습니다. 계정은 회원관리에서 발급해주세요.')
       setOpen(false)
-      setForm({ brandName: '', logoUrl: '', managerName: '', managerPhone: '' })
+      setForm({ brandName: '', logoUrl: '', managerName: '', managerPhone: '', businessNumber: '' })
       router.refresh()
       // 클라이언트 라우터 캐시 보장 — 즉시 갱신 후 동기화 안 될 때 새 페이지 도착 보장
       setTimeout(() => router.refresh(), 100)
@@ -69,6 +70,7 @@ export function CreateFranchiseHqButton() {
               <LogoUploader value={form.logoUrl} onChange={(v) => update('logoUrl', v)} disabled={loading} />
               <Field label="담당자명 (선택)" value={form.managerName} onChange={(v) => update('managerName', v)} placeholder="홍길동" />
               <Field label="연락처 (선택)" value={form.managerPhone} onChange={(v) => update('managerPhone', v)} placeholder="01012345678" />
+              <Field label="사업자번호 (계정 발급 시 초기 비밀번호로 사용)" value={form.businessNumber} onChange={(v) => update('businessNumber', v)} placeholder="1234567890" />
             </div>
 
             <div className="flex items-center justify-end gap-2 mt-6">
