@@ -12,26 +12,17 @@ export function GlobalFooter() {
           범빌드코리아 주식회사 (BBK Korea)
         </p>
 
-        {/* 2열 그리드 — 이름/사업자, 전화/이메일 등 */}
-        <div className="mt-1 grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1">
-          <p>대표 조동환</p>
-          <p>사업자등록번호 398-81-04260</p>
-        </div>
-
-        {/* 주소 (1열, 단독) */}
-        <p className="mt-1">경기도 성남시 중원구 둔촌대로268번길 22, 201호</p>
-
-        {/* 2열: 전화 / 이메일 */}
-        <div className="mt-1 grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1">
-          <p>
-            전화 <a href="tel:0317594877" className="hover:text-text-secondary">031-759-4877</a>
-            <span className="mx-1.5">·</span>
-            <a href="tel:01054344877" className="hover:text-text-secondary">010-5434-4877</a>
-          </p>
-          <p>
-            이메일 <a href="mailto:sunrise@bbkorea.co.kr" className="hover:text-text-secondary">sunrise@bbkorea.co.kr</a>
-          </p>
-        </div>
+        {/* 회사 정보 — 가로 나열 */}
+        <p className="mt-1">
+          대표 조동환 · 사업자등록번호 398-81-04260 · 경기도 성남시 중원구 둔촌대로268번길 22, 201호
+        </p>
+        <p className="mt-0.5">
+          전화 <a href="tel:0317594877" className="hover:text-text-secondary">031-759-4877</a>
+          <span className="mx-1.5">·</span>
+          <a href="tel:01054344877" className="hover:text-text-secondary">010-5434-4877</a>
+          <span className="mx-1.5">·</span>
+          이메일 <a href="mailto:sunrise@bbkorea.co.kr" className="hover:text-text-secondary">sunrise@bbkorea.co.kr</a>
+        </p>
 
         {/* 이용약관 등 4개 버튼 */}
         <div className="mt-2 pt-2 border-t border-border-subtle flex flex-wrap gap-x-3 gap-y-1">
