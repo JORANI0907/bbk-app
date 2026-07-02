@@ -8,6 +8,7 @@ type AppInfo = {
   owner_name: string
   business_name: string
   phone: string
+  email: string
   deposit: number
   supply_amount: number
   vat: number
@@ -73,6 +74,7 @@ export default function PortOnePayPage() {
         customer: {
           fullName: app.owner_name,
           phoneNumber: app.phone.replace(/-/g, ''),
+          email: app.email,
         },
       })
 
