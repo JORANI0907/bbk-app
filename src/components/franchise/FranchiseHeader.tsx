@@ -56,10 +56,7 @@ export function FranchiseHeader({ brandName, logoUrl, managerName }: FranchiseHe
             onClick={() => setOpen((v) => !v)}
             className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-surface-sunken active:scale-[0.98] transition-all"
           >
-            <span className="w-7 h-7 rounded-full bg-brand-600 text-white flex items-center justify-center text-xs font-bold">
-              {managerName.slice(0, 1)}
-            </span>
-            <span className="text-sm font-semibold text-text-primary hidden sm:inline">
+            <span className="text-sm font-semibold text-text-primary">
               {managerName}
             </span>
             <svg className="w-4 h-4 text-text-tertiary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
