@@ -1357,8 +1357,8 @@ export default function AdminCustomersPage() {
                     placeholder="내부 메모를 입력하세요..."
                     className="flex-1 border border-border rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-green-500 resize-none text-text-primary" />
                 </div>
-                {/* 케어매뉴얼 편집 버튼 (정기 고객 + 관리자만) */}
-                {!isNew && selected && isRegular && !isWorker && (
+                {/* 케어매뉴얼 (정기 고객) — 관리자: 편집 / 직원: 보기 */}
+                {!isNew && selected && isRegular && (
                   <div className="pt-1">
                     <button
                       type="button"
@@ -1366,7 +1366,7 @@ export default function AdminCustomersPage() {
                       onClick={() => { window.location.href = `/admin/customers/${selected.id}/care-manual` }}
                     >
                       <BookOpen size={15} className="text-green-700 shrink-0" />
-                      케어매뉴얼 편집
+                      {isWorker ? '케어매뉴얼 보기' : '케어매뉴얼 편집'}
                     </button>
                   </div>
                 )}

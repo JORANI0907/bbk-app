@@ -53,6 +53,16 @@ export default function CareManualEditPage() {
   const [uploadingSi, setUploadingSi] = useState<number | null>(null)
   const [uploadingItem, setUploadingItem] = useState<[number, number] | null>(null)
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null)
+  // 직원(worker) role은 보기 전용 — 편집·저장·업로드·삭제 UI를 모두 잠근다
+  const [isReadOnly, setIsReadOnly] = useState(false)
+  useEffect(() => {
+    fetch('/api/auth/me')
+      .then(r => r.json())
+      .then(d => {
+        if (d?.user?.role === 'worker') setIsReadOnly(true)
+      })
+      .catch(() => {})
+  }, [])
 
   // 브라우저 뒤로가기도 세부화면이 열린 채로 돌아가도록
   useEffect(() => {
@@ -301,21 +311,25 @@ export default function CareManualEditPage() {
           <ChevronLeft size={20} className="text-text-secondary" />
         </button>
         <div className="flex-1">
-          <p className="text-xs text-text-tertiary">케어매뉴얼 편집</p>
+          <p className="text-xs text-text-tertiary">{isReadOnly ? '케어매뉴얼 보기' : '케어매뉴얼 편집'}</p>
           <h1 className="text-base font-bold text-text-primary break-keep">
             {customerName || '고객'}
           </h1>
         </div>
-        <Button onClick={handleSave} disabled={saving || uploadingSi !== null || uploadingItem !== null} size="sm">
-          <Save size={14} className="mr-1" />
-          {saving ? '저장 중...' : (uploadingSi !== null || uploadingItem !== null) ? '업로드 중...' : '저장'}
-        </Button>
+        {!isReadOnly && (
+          <Button onClick={handleSave} disabled={saving || uploadingSi !== null || uploadingItem !== null} size="sm">
+            <Save size={14} className="mr-1" />
+            {saving ? '저장 중...' : (uploadingSi !== null || uploadingItem !== null) ? '업로드 중...' : '저장'}
+          </Button>
+        )}
       </div>
 
       {sections.length === 0 && (
         <div className="bg-surface-sunken rounded-2xl p-8 text-center">
           <p className="text-text-tertiary text-sm">케어매뉴얼이 없습니다.</p>
-          <p className="text-text-tertiary text-xs mt-1">아래 버튼으로 섹션을 추가하세요.</p>
+          {!isReadOnly && (
+            <p className="text-text-tertiary text-xs mt-1">아래 버튼으로 섹션을 추가하세요.</p>
+          )}
         </div>
       )}
 
@@ -323,73 +337,80 @@ export default function CareManualEditPage() {
         <div key={si} className="bg-surface rounded-2xl border border-border-subtle shadow-soft overflow-hidden">
           {/* 섹션 헤더 */}
           <div className="flex items-center gap-2 px-4 py-3 bg-surface-sunken border-b border-border-subtle">
-            <GripVertical size={16} className="text-text-tertiary shrink-0" />
+            {!isReadOnly && <GripVertical size={16} className="text-text-tertiary shrink-0" />}
             <input
               value={section.section}
               onChange={e => updateSectionName(si, e.target.value)}
               placeholder="섹션명 (예: 주방 후드)"
+              readOnly={isReadOnly}
               className="flex-1 text-sm font-semibold bg-transparent outline-none text-text-primary placeholder:text-text-tertiary"
             />
-            <button
-              onClick={() => removeSection(si)}
-              className="p-1 rounded-lg hover:bg-state-danger-bg text-text-tertiary hover:text-state-danger transition-colors"
-            >
-              <Trash2 size={15} />
-            </button>
-          </div>
-
-          {/* 섹션 사진 — 16:9 고정 비율 */}
-          <div className="px-4 py-3 border-b border-border-subtle">
-            {section.image_url ? (
-              <div className="relative w-1/2 aspect-video rounded-xl overflow-hidden border border-border-subtle">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={section.image_url}
-                  alt={section.section}
-                  className="w-full h-full object-cover"
-                  loading="lazy"
-                />
-                {/* 확대 버튼 — 튀는 amber 색상 */}
-                <button
-                  type="button"
-                  onClick={() => setLightboxUrl(section.image_url!)}
-                  className="absolute top-2 right-10 p-1.5 rounded-lg bg-amber-400 hover:bg-amber-300 text-black transition-colors shadow-sm"
-                  title="확대 보기"
-                >
-                  <Maximize2 size={13} />
-                </button>
-                {/* 삭제 버튼 */}
-                <button
-                  type="button"
-                  onClick={() => removeImage(si)}
-                  className="absolute top-2 right-2 p-1.5 rounded-lg bg-black/50 text-white hover:bg-black/70 transition-colors"
-                >
-                  <X size={13} />
-                </button>
-              </div>
-            ) : (
-              <label className="flex items-center gap-2 text-xs text-text-tertiary hover:text-brand-600 cursor-pointer transition-colors w-fit">
-                <input
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={e => {
-                    const file = e.target.files?.[0]
-                    if (file) handleImageUpload(si, file)
-                    e.target.value = ''
-                  }}
-                />
-                {uploadingSi === si ? (
-                  <span className="text-xs text-brand-600 animate-pulse">업로드 중...</span>
-                ) : (
-                  <>
-                    <ImagePlus size={14} />
-                    <span>섹션 사진 추가 (선택)</span>
-                  </>
-                )}
-              </label>
+            {!isReadOnly && (
+              <button
+                onClick={() => removeSection(si)}
+                className="p-1 rounded-lg hover:bg-state-danger-bg text-text-tertiary hover:text-state-danger transition-colors"
+              >
+                <Trash2 size={15} />
+              </button>
             )}
           </div>
+
+          {/* 섹션 사진 — 16:9 고정 비율. 워커는 이미지가 있을 때만 표시, 없으면 섹션 사진 블록 자체 숨김 */}
+          {(section.image_url || !isReadOnly) && (
+            <div className="px-4 py-3 border-b border-border-subtle">
+              {section.image_url ? (
+                <div className="relative w-1/2 aspect-video rounded-xl overflow-hidden border border-border-subtle">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={section.image_url}
+                    alt={section.section}
+                    className="w-full h-full object-cover"
+                    loading="lazy"
+                  />
+                  {/* 확대 버튼 — 튀는 amber 색상 */}
+                  <button
+                    type="button"
+                    onClick={() => setLightboxUrl(section.image_url!)}
+                    className={`absolute top-2 ${isReadOnly ? 'right-2' : 'right-10'} p-1.5 rounded-lg bg-amber-400 hover:bg-amber-300 text-black transition-colors shadow-sm`}
+                    title="확대 보기"
+                  >
+                    <Maximize2 size={13} />
+                  </button>
+                  {/* 삭제 버튼 — 편집 권한 있을 때만 */}
+                  {!isReadOnly && (
+                    <button
+                      type="button"
+                      onClick={() => removeImage(si)}
+                      className="absolute top-2 right-2 p-1.5 rounded-lg bg-black/50 text-white hover:bg-black/70 transition-colors"
+                    >
+                      <X size={13} />
+                    </button>
+                  )}
+                </div>
+              ) : (
+                <label className="flex items-center gap-2 text-xs text-text-tertiary hover:text-brand-600 cursor-pointer transition-colors w-fit">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={e => {
+                      const file = e.target.files?.[0]
+                      if (file) handleImageUpload(si, file)
+                      e.target.value = ''
+                    }}
+                  />
+                  {uploadingSi === si ? (
+                    <span className="text-xs text-brand-600 animate-pulse">업로드 중...</span>
+                  ) : (
+                    <>
+                      <ImagePlus size={14} />
+                      <span>섹션 사진 추가 (선택)</span>
+                    </>
+                  )}
+                </label>
+              )}
+            </div>
+          )}
 
           {/* 항목 목록 */}
           <div className="divide-y divide-border-subtle">
@@ -402,23 +423,27 @@ export default function CareManualEditPage() {
                       value={item.label}
                       onChange={e => updateItem(si, ii, 'label', e.target.value)}
                       placeholder="항목명"
+                      readOnly={isReadOnly}
                       className="text-sm bg-surface-sunken rounded-lg px-3 py-2 outline-none focus:ring-1 focus:ring-brand-600 text-text-primary placeholder:text-text-tertiary"
                     />
                     <input
                       value={item.desc}
                       onChange={e => updateItem(si, ii, 'desc', e.target.value)}
                       placeholder="설명"
+                      readOnly={isReadOnly}
                       className="text-sm bg-surface-sunken rounded-lg px-3 py-2 outline-none focus:ring-1 focus:ring-brand-600 text-text-primary placeholder:text-text-tertiary"
                     />
                   </div>
-                  <button
-                    onClick={() => removeItem(si, ii)}
-                    className="p-1.5 mt-1 rounded-lg hover:bg-state-danger-bg text-text-tertiary hover:text-state-danger transition-colors shrink-0"
-                  >
-                    <Trash2 size={14} />
-                  </button>
+                  {!isReadOnly && (
+                    <button
+                      onClick={() => removeItem(si, ii)}
+                      className="p-1.5 mt-1 rounded-lg hover:bg-state-danger-bg text-text-tertiary hover:text-state-danger transition-colors shrink-0"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  )}
                 </div>
-                {/* 항목 사진 — 원본 비율, 소형 */}
+                {/* 항목 사진 — 원본 비율, 소형. 워커는 이미지 있을 때만 표시 */}
                 {item.image_url ? (
                   <div className="relative inline-block self-start">
                     <div className="rounded-lg overflow-hidden border border-border-subtle">
@@ -439,16 +464,18 @@ export default function CareManualEditPage() {
                     >
                       <Maximize2 size={10} />
                     </button>
-                    {/* 삭제 버튼 */}
-                    <button
-                      type="button"
-                      onClick={() => removeItemImage(si, ii)}
-                      className="absolute -top-1.5 -right-1.5 p-0.5 rounded-full bg-black/60 text-white hover:bg-black/80 transition-colors"
-                    >
-                      <X size={11} />
-                    </button>
+                    {/* 삭제 버튼 — 편집 권한 있을 때만 */}
+                    {!isReadOnly && (
+                      <button
+                        type="button"
+                        onClick={() => removeItemImage(si, ii)}
+                        className="absolute -top-1.5 -right-1.5 p-0.5 rounded-full bg-black/60 text-white hover:bg-black/80 transition-colors"
+                      >
+                        <X size={11} />
+                      </button>
+                    )}
                   </div>
-                ) : (
+                ) : !isReadOnly ? (
                   <label className="flex items-center gap-1.5 text-xs text-text-tertiary hover:text-brand-600 cursor-pointer transition-colors w-fit">
                     <input
                       type="file"
@@ -469,30 +496,34 @@ export default function CareManualEditPage() {
                       </>
                     )}
                   </label>
-                )}
+                ) : null}
               </div>
             ))}
           </div>
 
-          {/* 항목 추가 */}
-          <div className="px-4 py-2 border-t border-border-subtle">
-            <button
-              onClick={() => addItem(si)}
-              className="flex items-center gap-1 text-xs text-brand-600 hover:text-brand-700 font-medium py-1"
-            >
-              <Plus size={13} /> 항목 추가
-            </button>
-          </div>
+          {/* 항목 추가 — 편집 권한 있을 때만 */}
+          {!isReadOnly && (
+            <div className="px-4 py-2 border-t border-border-subtle">
+              <button
+                onClick={() => addItem(si)}
+                className="flex items-center gap-1 text-xs text-brand-600 hover:text-brand-700 font-medium py-1"
+              >
+                <Plus size={13} /> 항목 추가
+              </button>
+            </div>
+          )}
         </div>
       ))}
 
-      {/* 섹션 추가 */}
-      <button
-        onClick={addSection}
-        className="flex items-center justify-center gap-2 w-full py-3 rounded-2xl border-2 border-dashed border-border text-text-secondary hover:border-brand-600 hover:text-brand-600 transition-colors text-sm font-medium"
-      >
-        <Plus size={16} /> 섹션 추가
-      </button>
+      {/* 섹션 추가 — 편집 권한 있을 때만 */}
+      {!isReadOnly && (
+        <button
+          onClick={addSection}
+          className="flex items-center justify-center gap-2 w-full py-3 rounded-2xl border-2 border-dashed border-border text-text-secondary hover:border-brand-600 hover:text-brand-600 transition-colors text-sm font-medium"
+        >
+          <Plus size={16} /> 섹션 추가
+        </button>
+      )}
 
       {/* 라이트박스 */}
       {lightboxUrl && (
