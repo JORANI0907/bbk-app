@@ -74,13 +74,25 @@ function getDatesForMonthlyDates(year: number, month: number, monthlyDates: numb
 export async function POST(request: NextRequest) {
   const supabase = createServiceClient()
   const body = await request.json()
-  const { customer_ids }: { customer_ids: string[] } = body
+  const {
+    customer_ids,
+    year: reqYear,
+    month: reqMonth,
+    start_day: reqStartDay,
+  }: { customer_ids: string[]; year?: number; month?: number; start_day?: number } = body
 
   if (!Array.isArray(customer_ids) || customer_ids.length === 0) {
     return NextResponse.json({ error: 'customer_ids가 필요합니다.' }, { status: 400 })
   }
 
-  const { year, month, label } = getNextMonth()
+  // year/month 미전달 시 기존 로직(다음달)으로 폴백. 하위 호환 유지.
+  const { year, month, label } =
+    reqYear && reqMonth
+      ? { year: reqYear, month: reqMonth, label: `${reqYear}년 ${reqMonth}월` }
+      : getNextMonth()
+  // 지정된 시작일 이후만 필터 (미전달 시 1일)
+  const startDay = typeof reqStartDay === 'number' && reqStartDay >= 1 && reqStartDay <= 31 ? reqStartDay : 1
+  const startDateStr = `${year}-${String(month).padStart(2, '0')}-${String(startDay).padStart(2, '0')}`
 
   const { data: customersData, error: fetchError } = await supabase
     .from('customers')
@@ -115,6 +127,9 @@ export async function POST(request: NextRequest) {
     } else if (customer.visit_schedule_type === 'monthly_date' && customer.visit_monthly_dates?.length) {
       scheduledDates = getDatesForMonthlyDates(year, month, customer.visit_monthly_dates)
     }
+
+    // 지정된 시작일 이후 날짜만 필터 (사용자가 원하는 생성 시작점 지원)
+    scheduledDates = scheduledDates.filter((d) => d >= startDateStr)
 
     if (scheduledDates.length === 0) {
       results.push({ customer_id: customer.id, inserted: 0, skipped: 0 })

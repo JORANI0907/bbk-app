@@ -341,6 +341,13 @@ export default function AdminCustomersPage() {
   const [sending, setSending] = useState(false)
   const [checkedIds, setCheckedIds] = useState<string[]>([])
   const [bulkCreating, setBulkCreating] = useState(false)
+  const [scheduleGenModal, setScheduleGenModal] = useState<{
+    open: boolean
+    year: number
+    month: number
+    startDay: number
+    submitting: boolean
+  }>({ open: false, year: 0, month: 0, startDay: 1, submitting: false })
   const [sortKey, setSortKey] = useState<string | null>(null)
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
   const [visitWeekdays, setVisitWeekdays] = useState<number[]>([])
@@ -683,7 +690,11 @@ export default function AdminCustomersPage() {
     }
   }
 
-  const handleGenerateSchedulesBulk = async () => {
+  /**
+   * 서비스 일정 생성 버튼 클릭 — 유효성 검사 후 모달 오픈만 담당.
+   * 실제 생성은 handleGenerateSchedulesBulk(year, month, startDay)에서 처리.
+   */
+  const openScheduleGenModal = () => {
     const regularIds = checkedIds.filter(id => {
       const c = customers.find(c => c.id === id)
       return c?.customer_type === '정기딥케어' || c?.customer_type === '정기엔드케어'
@@ -692,8 +703,6 @@ export default function AdminCustomersPage() {
       toast.error('정기딥케어 또는 정기엔드케어 고객을 선택해주세요.')
       return
     }
-
-    // 담당자 미설정 고객 사전 차단
     const noManagerCustomers = regularIds
       .map(id => customers.find(c => c.id === id))
       .filter((c): c is NonNullable<typeof c> => !!c && !c.assigned_user_id)
@@ -702,13 +711,32 @@ export default function AdminCustomersPage() {
       toast.error(`${names} 담당자 설정이 안되어있습니다.`)
       return
     }
+    // 기본값: 다음달 1일
+    const now = new Date()
+    const next = new Date(now.getFullYear(), now.getMonth() + 1, 1)
+    setScheduleGenModal({
+      open: true,
+      year: next.getFullYear(),
+      month: next.getMonth() + 1,
+      startDay: 1,
+      submitting: false,
+    })
+  }
+
+  const handleGenerateSchedulesBulk = async (year: number, month: number, startDay: number) => {
+    const regularIds = checkedIds.filter(id => {
+      const c = customers.find(c => c.id === id)
+      return c?.customer_type === '정기딥케어' || c?.customer_type === '정기엔드케어'
+    })
+    if (regularIds.length === 0) return
 
     setBulkCreating(true)
+    setScheduleGenModal((s) => ({ ...s, submitting: true }))
     try {
       const res = await fetch('/api/admin/customers/generate-schedules', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ customer_ids: regularIds }),
+        body: JSON.stringify({ customer_ids: regularIds, year, month, start_day: startDay }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || '일정 생성 실패')
@@ -719,23 +747,23 @@ export default function AdminCustomersPage() {
         toast.error(`방문 주기가 설정되지 않아 생성할 일정이 없습니다.`)
       } else {
         const msg = totalSkipped > 0
-          ? `${data.targetMonth} 일정 ${data.totalInserted}건 생성 완료 (${totalSkipped}건 이미 존재)`
-          : `${data.targetMonth} 일정 ${data.totalInserted}건 생성 완료`
+          ? `${data.targetMonth} ${startDay}일부터 ${data.totalInserted}건 생성 완료 (${totalSkipped}건 이미 존재)`
+          : `${data.targetMonth} ${startDay}일부터 ${data.totalInserted}건 생성 완료`
         toast.success(msg)
       }
       setCheckedIds([])
+      setScheduleGenModal((s) => ({ ...s, open: false, submitting: false }))
     } catch (e) {
       toast.error(e instanceof Error ? e.message : '일정 생성 실패')
+      setScheduleGenModal((s) => ({ ...s, submitting: false }))
     } finally { setBulkCreating(false) }
 
-    // 폴더 자동 생성 (fire-and-forget: 실패해도 일정 생성은 완료된 것으로 처리)
-    const now = new Date()
-    const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1)
+    // 폴더 자동 생성 (선택한 year/month 기준)
     for (const id of regularIds) {
       fetch(`/api/admin/customers/${id}/create-schedule-folder`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ year: nextMonth.getFullYear(), month: nextMonth.getMonth() + 1 }),
+        body: JSON.stringify({ year, month }),
       }).catch(() => { /* 폴더 생성 실패는 무시 */ })
     }
   }
@@ -975,8 +1003,8 @@ export default function AdminCustomersPage() {
                 삭제
               </Button>
             )}
-            <Button size="sm" onClick={handleGenerateSchedulesBulk} disabled={bulkCreating} className="bg-green-600 hover:bg-green-700 text-white whitespace-nowrap">
-              {bulkCreating ? '처리 중...' : <><Calendar size={14} className="inline mr-1" />다음달 일정 생성</>}
+            <Button size="sm" onClick={openScheduleGenModal} disabled={bulkCreating} className="bg-green-600 hover:bg-green-700 text-white whitespace-nowrap">
+              {bulkCreating ? '처리 중...' : <><Calendar size={14} className="inline mr-1" />서비스 일정 생성</>}
             </Button>
             <Button size="sm" onClick={handleCreateApplicationBulk} disabled={bulkCreating} className="bg-blue-800 text-white hover:bg-blue-900 whitespace-nowrap">
               {bulkCreating ? '처리 중...' : '서비스 신청서 생성 →'}
@@ -1764,6 +1792,79 @@ export default function AdminCustomersPage() {
       )}
 
     </div>
+
+    {/* 서비스 일정 생성 모달 */}
+    {scheduleGenModal.open && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => !scheduleGenModal.submitting && setScheduleGenModal((s) => ({ ...s, open: false }))}>
+        <div className="bg-surface rounded-2xl shadow-modal max-w-md w-full p-6" onClick={(e) => e.stopPropagation()}>
+          <h2 className="text-lg font-bold text-text-primary mb-1">서비스 일정 생성</h2>
+          <p className="text-xs text-text-tertiary mb-4 break-keep">
+            선택한 {checkedIds.length}개 고객의 방문 일정을 아래 날짜부터 자동 생성합니다.
+          </p>
+
+          <div className="grid grid-cols-3 gap-2 mb-4">
+            <label className="flex flex-col gap-1">
+              <span className="text-xs font-semibold text-text-secondary">연도</span>
+              <select
+                value={scheduleGenModal.year}
+                onChange={(e) => setScheduleGenModal((s) => ({ ...s, year: Number(e.target.value) }))}
+                className="px-3 py-2 border border-border rounded-md text-sm bg-surface focus:outline-none focus:ring-2 focus:ring-brand-600"
+              >
+                {[0, 1, 2].map((offset) => {
+                  const y = new Date().getFullYear() + offset
+                  return <option key={y} value={y}>{y}년</option>
+                })}
+              </select>
+            </label>
+            <label className="flex flex-col gap-1">
+              <span className="text-xs font-semibold text-text-secondary">월</span>
+              <select
+                value={scheduleGenModal.month}
+                onChange={(e) => setScheduleGenModal((s) => ({ ...s, month: Number(e.target.value) }))}
+                className="px-3 py-2 border border-border rounded-md text-sm bg-surface focus:outline-none focus:ring-2 focus:ring-brand-600"
+              >
+                {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
+                  <option key={m} value={m}>{m}월</option>
+                ))}
+              </select>
+            </label>
+            <label className="flex flex-col gap-1">
+              <span className="text-xs font-semibold text-text-secondary">시작일</span>
+              <select
+                value={scheduleGenModal.startDay}
+                onChange={(e) => setScheduleGenModal((s) => ({ ...s, startDay: Number(e.target.value) }))}
+                className="px-3 py-2 border border-border rounded-md text-sm bg-surface focus:outline-none focus:ring-2 focus:ring-brand-600"
+              >
+                {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => (
+                  <option key={d} value={d}>{d}일</option>
+                ))}
+              </select>
+            </label>
+          </div>
+
+          <p className="text-[11px] text-text-tertiary bg-surface-sunken rounded-md px-3 py-2 mb-4 break-keep">
+            💡 <strong>{scheduleGenModal.year}년 {scheduleGenModal.month}월 {scheduleGenModal.startDay}일</strong> 이후 방문 주기(요일/월간 날짜) 패턴대로 일정이 생성됩니다.
+          </p>
+
+          <div className="flex items-center justify-end gap-2">
+            <button
+              onClick={() => setScheduleGenModal((s) => ({ ...s, open: false }))}
+              disabled={scheduleGenModal.submitting}
+              className="px-4 py-2 text-sm font-semibold text-text-secondary hover:bg-surface-sunken rounded-lg disabled:opacity-50"
+            >
+              취소
+            </button>
+            <button
+              onClick={() => handleGenerateSchedulesBulk(scheduleGenModal.year, scheduleGenModal.month, scheduleGenModal.startDay)}
+              disabled={scheduleGenModal.submitting}
+              className="px-4 py-2 bg-brand-600 text-white text-sm font-semibold rounded-lg hover:bg-brand-700 disabled:opacity-50"
+            >
+              {scheduleGenModal.submitting ? '생성 중...' : '진행'}
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
     </>
   )
 }
