@@ -220,7 +220,7 @@ export default function ContractTemplateEditorPage() {
 
       {/* 변수 설정 패널 */}
       {extractTemplateVars(htmlBody).length > 0 && (
-        <div className="bg-surface rounded-2xl shadow-soft border border-border-subtle p-5 space-y-4">
+        <div className="bg-sky-50 rounded-2xl shadow-soft border border-sky-200 p-5 space-y-4">
           <div>
             <p className="text-sm font-semibold text-text-primary">변수 설정</p>
             <p className="text-xs text-text-tertiary mt-0.5">
@@ -233,7 +233,7 @@ export default function ContractTemplateEditorPage() {
               const updateCfg = (patch: Partial<VarConfig>) =>
                 setVarConfig(prev => ({ ...prev, [v]: { ...cfg, ...patch } }))
               return (
-                <div key={v} className="border border-border-subtle rounded-xl p-4 space-y-3">
+                <div key={v} className="bg-surface border border-sky-100 rounded-xl p-4 space-y-3 shadow-flat">
                   {/* 변수명 + 설명 */}
                   <div className="flex items-center gap-2 flex-wrap">
                     <code className="bg-surface-sunken px-2 py-0.5 rounded text-xs font-mono text-brand-600 flex-shrink-0">

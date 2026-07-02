@@ -9,7 +9,13 @@ import { Table } from '@tiptap/extension-table'
 import TableRow from '@tiptap/extension-table-row'
 import TableHeader from '@tiptap/extension-table-header'
 import TableCell from '@tiptap/extension-table-cell'
-import { TEMPLATE_KNOWN_VARS } from '@/lib/contractTemplate'
+
+interface AvailableVariable {
+  id: string
+  name: string
+  label: string
+  mode: 'auto' | 'manual'
+}
 
 // 계약서 저장용 BBK 기본 CSS
 const BBK_WRAP_CSS = `
@@ -71,12 +77,29 @@ function TbBtn({
 export default function ContractEditor({ value, onChange }: ContractEditorProps) {
   const [mode, setMode] = useState<Mode>('visual')
   const [isMounted, setIsMounted] = useState(false)
+  const [availableVars, setAvailableVars] = useState<AvailableVariable[]>([])
   const valueRef = useRef(value)
   const prevModeRef = useRef<Mode>('visual')
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
   useEffect(() => {
     setIsMounted(true)
+  }, [])
+
+  useEffect(() => {
+    let cancelled = false
+    void (async () => {
+      try {
+        const res = await fetch('/api/admin/contract-variables')
+        const json = await res.json()
+        if (!cancelled && json.success) {
+          setAvailableVars(json.data ?? [])
+        }
+      } catch {
+        // 실패해도 편집기는 동작 — 삽입 버튼만 비게 됨
+      }
+    })()
+    return () => { cancelled = true }
   }, [])
 
   useEffect(() => {
@@ -179,21 +202,25 @@ export default function ContractEditor({ value, onChange }: ContractEditorProps)
           변수 삽입 — 클릭하면 커서 위치에 자동으로 삽입됩니다
         </p>
         <div className="flex flex-wrap gap-1.5">
-          {Object.entries(TEMPLATE_KNOWN_VARS).map(([varName, meta]) => (
-            <button
-              key={varName}
-              type="button"
-              onClick={() => insertVariable(varName)}
-              title={`{{${varName}}} 삽입`}
-              className={`text-xs px-2.5 py-1 rounded-full font-medium transition-opacity hover:opacity-75 active:scale-95 ${
-                meta.auto
-                  ? 'bg-state-success-bg text-state-success'
-                  : 'bg-state-warning-bg text-state-warning'
-              }`}
-            >
-              {meta.label}
-            </button>
-          ))}
+          {availableVars.length === 0 ? (
+            <span className="text-xs text-text-tertiary">변수 목록을 불러오는 중...</span>
+          ) : (
+            availableVars.map((v) => (
+              <button
+                key={v.id}
+                type="button"
+                onClick={() => insertVariable(v.name)}
+                title={`{{${v.name}}} 삽입`}
+                className={`text-xs px-2.5 py-1 rounded-full font-medium transition-opacity hover:opacity-75 active:scale-95 ${
+                  v.mode === 'auto'
+                    ? 'bg-state-success-bg text-state-success'
+                    : 'bg-state-warning-bg text-state-warning'
+                }`}
+              >
+                {v.label}
+              </button>
+            ))
+          )}
         </div>
         <p className="text-[11px] text-text-tertiary leading-normal">
           <span className="inline-block w-2 h-2 rounded-full bg-state-success-bg border border-state-success mr-1 align-middle" />

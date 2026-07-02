@@ -7,6 +7,9 @@ import { FileText, Copy } from 'lucide-react'
 import { Button } from '@/components/ui'
 import { SectionHeader } from '@/components/ui'
 import { EmptyState } from '@/components/ui'
+import VariablesTab from './VariablesTab'
+
+type SubTab = 'templates' | 'variables'
 
 const DEFAULT_HTML_BODY = `<!DOCTYPE html>
 <html lang="ko">
@@ -61,6 +64,7 @@ export default function ContractTemplatesPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [isCreating, setIsCreating] = useState(false)
   const [duplicatingId, setDuplicatingId] = useState<string | null>(null)
+  const [activeTab, setActiveTab] = useState<SubTab>('templates')
 
   const fetchTemplates = useCallback(async () => {
     setIsLoading(true)
@@ -145,13 +149,41 @@ export default function ContractTemplatesPage() {
         title="계약서 양식 관리"
         subtitle="DB에 저장된 HTML 템플릿으로 계약서를 자동 생성합니다."
         action={
-          <Button onClick={handleCreateNew} isLoading={isCreating}>
-            새 양식 만들기
-          </Button>
+          activeTab === 'templates' ? (
+            <Button onClick={handleCreateNew} isLoading={isCreating}>
+              새 양식 만들기
+            </Button>
+          ) : undefined
         }
       />
 
-      {isLoading ? (
+      {/* 서브탭 스위처 */}
+      <div className="inline-flex gap-1 bg-surface-sunken rounded-lg p-1">
+        <button
+          onClick={() => setActiveTab('templates')}
+          className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${
+            activeTab === 'templates'
+              ? 'bg-surface shadow-soft text-text-primary'
+              : 'text-text-secondary hover:text-text-primary'
+          }`}
+        >
+          양식 목록
+        </button>
+        <button
+          onClick={() => setActiveTab('variables')}
+          className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${
+            activeTab === 'variables'
+              ? 'bg-surface shadow-soft text-text-primary'
+              : 'text-text-secondary hover:text-text-primary'
+          }`}
+        >
+          변수 관리
+        </button>
+      </div>
+
+      {activeTab === 'variables' ? (
+        <VariablesTab />
+      ) : isLoading ? (
         <div className="flex justify-center py-12">
           <span className="w-6 h-6 border-2 border-brand-600 border-t-transparent rounded-full animate-spin" />
         </div>
