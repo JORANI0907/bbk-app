@@ -1651,12 +1651,6 @@ export default function AdminCustomersPage() {
                     </div>
                   </div>
 
-                  {/* 급여 안내 */}
-                  <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
-                    <p className="text-xs text-amber-700 font-semibold">작업자 급여</p>
-                    <p className="text-xs text-amber-600 mt-1">정기딥케어 작업자 급여는 건별로 별도 책정됩니다. 서비스 관리 &gt; 작업자 배정에서 개별 급여를 입력하세요.</p>
-                  </div>
-
                   {/* 계약기간 */}
                   <div className="flex flex-col gap-2">
                     <p className="text-xs font-semibold text-text-primary">계약기간</p>
