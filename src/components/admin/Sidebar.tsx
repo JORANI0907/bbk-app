@@ -100,6 +100,7 @@ const NAV_ITEMS: NavItem[] = [
     roles: ['admin'],
     children: [
       { href: '/admin/notices', label: '공지·이벤트관리', badgeKey: 'notices' },
+      { href: '/admin/events', label: '이벤트 혜택 관리' },
       { href: '/admin/automation', label: '자동화관리' },
       { href: '/admin/push', label: '푸시알림 관리' },
       { href: '/admin/nav-settings', label: '하단 메뉴 설정' },
