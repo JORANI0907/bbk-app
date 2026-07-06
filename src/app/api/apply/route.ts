@@ -17,6 +17,8 @@ export async function POST(request: NextRequest) {
       .from('service_applications')
       .insert({
         owner_name,
+        // 개인 신청서는 별도 업체명이 없으므로 owner_name으로 채움 (NOT NULL 제약 회피)
+        business_name: owner_name,
         phone,
         address,
         email: email || null,
