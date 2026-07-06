@@ -344,7 +344,7 @@ export default function DeepcaredPage() {
             type="button"
             onClick={handleSubmit}
             disabled={loading}
-            className="w-full py-4 bg-brand-600 hover:bg-brand-700 text-white font-bold rounded-2xl text-base disabled:opacity-60 active:scale-[0.98] transition-all"
+            className="w-full py-4 bg-brand-500 hover:bg-brand-600 text-white font-bold rounded-2xl text-base disabled:opacity-60 active:scale-[0.98] transition-all shadow-soft"
           >
             {loading ? '신청 중...' : '신청하기'}
           </button>
