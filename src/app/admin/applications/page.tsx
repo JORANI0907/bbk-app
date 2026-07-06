@@ -55,6 +55,8 @@ interface Application {
   notion_page_id: string | null
   service_type: ServiceType | null
   assigned_to: string | null
+  assigned_user_id: string | null
+  assigned_worker_id: string | null
   deposit: number | null
   supply_amount: number | null
   vat: number | null
@@ -539,6 +541,8 @@ export default function ServiceManagementPage() {
   // 필터
   const [paymentFilter, setPaymentFilter] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
+  const [staffList, setStaffList] = useState<Array<{ id: string; name: string; user_id: string | null }>>([])
+  const [selectedStaffId, setSelectedStaffId] = useState<string | null>(null)
 
   // 알림
   const [notifyType, setNotifyType] = useState('')
@@ -641,6 +645,14 @@ export default function ServiceManagementPage() {
     setUsers((userData.users ?? []).filter((u: User) => u.role === 'admin' || u.role === 'worker'))
     setWorkers(workerData.workers ?? [])
     setLoading(false)
+    // 직원 필터용 정직원 목록
+    fetch('/api/admin/workers?employment_type=정직원').then(r => r.json()).then(d => {
+      setStaffList((d.workers ?? []).map((w: { id: string; name: string; user_id?: string | null }) => ({
+        id: w.id,
+        name: w.name,
+        user_id: w.user_id ?? null,
+      })))
+    }).catch(() => {})
   }, [])
 
   useEffect(() => { fetchAll() }, [fetchAll])
@@ -1335,6 +1347,17 @@ export default function ServiceManagementPage() {
       }
     }
 
+    // 직원 필터 (담당자 또는 작업자)
+    if (selectedStaffId) {
+      const staff = staffList.find(s => s.id === selectedStaffId)
+      if (staff) {
+        filtered = filtered.filter(a =>
+          (staff.user_id && (a.assigned_to === staff.user_id || a.assigned_user_id === staff.user_id)) ||
+          a.assigned_worker_id === staff.id
+        )
+      }
+    }
+
     // 결제방법 필터
     if (paymentFilter) filtered = filtered.filter(a => a.payment_method === paymentFilter)
 
@@ -1552,6 +1575,16 @@ export default function ServiceManagementPage() {
                 <option key={p} value={p}>{p}</option>
               ))}
             </select>
+            <select
+              value={selectedStaffId ?? ''}
+              onChange={e => setSelectedStaffId(e.target.value || null)}
+              className="text-xs border border-border rounded-lg px-2 py-1.5 bg-surface focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="">담당자 전체</option>
+              {staffList.map(s => (
+                <option key={s.id} value={s.id}>{s.name}</option>
+              ))}
+            </select>
             <select value={`${sortField}:${sortDir}`}
               onChange={e => {
                 const [f, d] = e.target.value.split(':')
@@ -1564,8 +1597,8 @@ export default function ServiceManagementPage() {
                 <option key={`${f}:asc`} value={`${f}:asc`}>{l} ↑</option>,
               ])}
             </select>
-            {paymentFilter && (
-              <button onClick={() => setPaymentFilter('')}
+            {(paymentFilter || selectedStaffId) && (
+              <button onClick={() => { setPaymentFilter(''); setSelectedStaffId(null) }}
                 className="text-xs text-brand-500 hover:text-brand-700 underline whitespace-nowrap">
                 초기화
               </button>
