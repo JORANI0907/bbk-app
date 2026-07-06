@@ -363,6 +363,10 @@ export default function AdminCustomersPage() {
   const [usersList, setUsersList] = useState<Array<{ id: string; name: string; role: string }>>([])
   const [workersList, setWorkersList] = useState<Array<{ id: string; name: string }>>([])
 
+  // 직원 필터 (정직원만)
+  const [staffList, setStaffList] = useState<Array<{ id: string; name: string; user_id: string | null }>>([])
+  const [selectedStaffId, setSelectedStaffId] = useState<string | null>(null)
+
   // 지도 앱 선택 모달
   const [mapAddress, setMapAddress] = useState<string | null>(null)
 
@@ -417,6 +421,13 @@ export default function AdminCustomersPage() {
     }).catch(() => { /* 무시 */ })
     fetch('/api/admin/users').then(r => r.json()).then(d => setUsersList(d.users ?? [])).catch(() => {})
     fetch('/api/admin/workers').then(r => r.json()).then(d => setWorkersList(d.workers ?? [])).catch(() => {})
+    fetch('/api/admin/workers?employment_type=정직원').then(r => r.json()).then(d => {
+      setStaffList((d.workers ?? []).map((w: { id: string; name: string; user_id?: string | null }) => ({
+        id: w.id,
+        name: w.name,
+        user_id: w.user_id ?? null,
+      })))
+    }).catch(() => {})
   }, [fetchAll])
 
   const toForm = (c: Customer): typeof EMPTY_FORM => ({
@@ -875,6 +886,17 @@ export default function AdminCustomersPage() {
       list = list.filter(c => selectedTypes.has((c.customer_type ?? '1회성케어') as CustomerType))
     }
 
+    // 직원 필터 (담당자 또는 작업자)
+    if (selectedStaffId) {
+      const staff = staffList.find(s => s.id === selectedStaffId)
+      if (staff) {
+        list = list.filter(c =>
+          (staff.user_id && c.assigned_user_id === staff.user_id) ||
+          c.assigned_worker_id === staff.id
+        )
+      }
+    }
+
     // 검색: 업체명, 고객명, 연락처, 주소, 케어범위, 계좌번호, 사업자번호
     if (search.trim()) {
       const q = search.trim().toLowerCase()
@@ -921,7 +943,7 @@ export default function AdminCustomersPage() {
     }
 
     return list
-  }, [customers, isAdmin, currentUserId, selectedTypes, search, sortKey, sortDir])
+  }, [customers, isAdmin, currentUserId, selectedTypes, search, sortKey, sortDir, selectedStaffId, staffList])
 
   const toggleType = (t: CustomerType) => {
     setSelectedTypes(prev => {
@@ -1012,15 +1034,27 @@ export default function AdminCustomersPage() {
           </div>
         )}
 
-        {/* 검색 */}
-        <div className="relative mb-3">
-          <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-text-tertiary pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" />
-          </svg>
-          <input type="text" value={search} onChange={e => setSearch(e.target.value)}
-            placeholder="업체명, 담당자, 연락처, 주소 검색..."
-            className="w-full pl-8 pr-8 py-1.5 text-xs text-text-primary border border-border rounded-lg bg-surface focus:outline-none focus:ring-2 focus:ring-blue-500" />
-          {search && <button onClick={() => setSearch('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-text-tertiary hover:text-text-secondary">✕</button>}
+        {/* 검색 + 직원 필터 */}
+        <div className="flex gap-2 mb-3">
+          <div className="relative flex-1">
+            <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-text-tertiary pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" />
+            </svg>
+            <input type="text" value={search} onChange={e => setSearch(e.target.value)}
+              placeholder="업체명, 담당자, 연락처, 주소 검색..."
+              className="w-full pl-8 pr-8 py-1.5 text-xs text-text-primary border border-border rounded-lg bg-surface focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            {search && <button onClick={() => setSearch('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-text-tertiary hover:text-text-secondary">✕</button>}
+          </div>
+          <select
+            value={selectedStaffId ?? ''}
+            onChange={e => setSelectedStaffId(e.target.value || null)}
+            className="py-1.5 px-2 text-xs text-text-primary border border-border rounded-lg bg-surface focus:outline-none focus:ring-2 focus:ring-blue-500 min-w-[90px]"
+          >
+            <option value="">담당자 전체</option>
+            {staffList.map(s => (
+              <option key={s.id} value={s.id}>{s.name}</option>
+            ))}
+          </select>
         </div>
 
         {/* 목록 */}
