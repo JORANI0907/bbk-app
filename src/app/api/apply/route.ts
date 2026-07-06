@@ -6,19 +6,23 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
 
-    const { owner_name, phone, address, service_type, care_scope, request_notes, email } = body
+    const { owner_name, business_name, phone, address, service_type, care_scope, request_notes, email } = body
 
     if (!owner_name || !phone || !address || !service_type) {
       return NextResponse.json({ error: '이름, 연락처, 주소, 서비스 유형은 필수입니다.' }, { status: 400 })
     }
+
+    // 업체명이 폼에서 넘어오면 우선 사용, 없으면 owner_name으로 fallback (NOT NULL 제약)
+    const resolvedBusinessName = typeof business_name === 'string' && business_name.trim()
+      ? business_name.trim()
+      : owner_name
 
     const supabase = createServiceClient()
     const { data, error } = await supabase
       .from('service_applications')
       .insert({
         owner_name,
-        // 개인 신청서는 별도 업체명이 없으므로 owner_name으로 채움 (NOT NULL 제약 회피)
-        business_name: owner_name,
+        business_name: resolvedBusinessName,
         phone,
         address,
         email: email || null,

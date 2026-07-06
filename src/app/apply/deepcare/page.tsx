@@ -19,6 +19,7 @@ type ItemCategory = keyof typeof ITEMS
 
 export default function DeepcaredPage() {
   const [form, setForm] = useState({
+    business_name: '',
     owner_name: '',
     phone: '',
     address: '',
@@ -26,6 +27,7 @@ export default function DeepcaredPage() {
     request_notes: '',
   })
   const [businessTypes, setBusinessTypes] = useState<string[]>([])
+  const [customBizType, setCustomBizType] = useState('')
   const [selectedItems, setSelectedItems] = useState<string[]>([])
   const [customItem, setCustomItem] = useState('')
   const [showCustomItem, setShowCustomItem] = useState(false)
@@ -46,7 +48,12 @@ export default function DeepcaredPage() {
 
   function buildCareScope() {
     const parts: string[] = []
-    if (businessTypes.length) parts.push(`업종: ${businessTypes.join(', ')}`)
+    if (businessTypes.length) {
+      const labels = businessTypes.map(t =>
+        t === '기타' && customBizType.trim() ? `기타(${customBizType.trim()})` : t
+      )
+      parts.push(`업종: ${labels.join(', ')}`)
+    }
     const allItems = [...selectedItems, ...(customItem.trim() ? [`기타: ${customItem.trim()}`] : [])]
     if (allItems.length) {
       const byCategory = (Object.keys(ITEMS) as ItemCategory[]).reduce<Record<string, string[]>>(
@@ -67,8 +74,8 @@ export default function DeepcaredPage() {
   }
 
   async function handleSubmit() {
-    if (!form.owner_name.trim() || !form.phone.trim() || !form.address.trim()) {
-      toast.error('이름, 연락처, 주소는 필수 항목입니다.')
+    if (!form.business_name.trim() || !form.owner_name.trim() || !form.phone.trim() || !form.address.trim()) {
+      toast.error('업체명, 이름, 연락처, 주소는 필수 항목입니다.')
       return
     }
     setLoading(true)
@@ -126,6 +133,18 @@ export default function DeepcaredPage() {
         {/* 기본 정보 */}
         <section className="bg-white rounded-2xl p-5 shadow-sm space-y-4">
           <h2 className="font-bold text-gray-900 text-base">기본 정보</h2>
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+              업체명 <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              value={form.business_name}
+              onChange={e => setField('business_name', e.target.value)}
+              placeholder="예) 홍길동카페"
+              className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400 focus:border-transparent"
+            />
+          </div>
           <div>
             <label className="block text-sm font-semibold text-gray-700 mb-1.5">
               이름 / 담당자명 <span className="text-red-500">*</span>
@@ -193,6 +212,15 @@ export default function DeepcaredPage() {
               </button>
             ))}
           </div>
+          {businessTypes.includes('기타') && (
+            <input
+              type="text"
+              value={customBizType}
+              onChange={e => setCustomBizType(e.target.value)}
+              placeholder="예) 병원, 미용실, 학원 등 업종을 입력하세요"
+              className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400 focus:border-transparent"
+            />
+          )}
         </section>
 
         {/* 청소 품목 */}
