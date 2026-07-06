@@ -34,10 +34,8 @@ export async function POST(
 
   const duplicate: Record<string, unknown> = {
     ...rest,
-    // 외부 리소스·알림 이력 초기화 (원본과 무관하게)
+    // 외부 리소스 링크 초기화 (원본과 무관하게)
     drive_folder_url: null,
-    notification_log: null,
-    notion_page_id: null,
     // 포털 계정은 절대 공유 금지 — 새 고객이므로 신규 발급 필요
     user_id: null,
     // 다음 방문·결제 스케줄도 초기화 (새 고객이 별도 스케줄 잡음)
