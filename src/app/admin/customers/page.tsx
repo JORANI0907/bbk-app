@@ -779,6 +779,31 @@ export default function AdminCustomersPage() {
     }
   }
 
+  const handleDuplicateBulk = async () => {
+    if (checkedIds.length === 0) return
+    if (!confirm(`선택한 ${checkedIds.length}건의 고객을 복제하시겠습니까?\n\n복제본은 원본과 관계없는 별도 고객으로 생성됩니다 (드라이브 폴더·알림 이력·포털 계정 초기화).`)) return
+    setBulkCreating(true)
+    let successCount = 0, failCount = 0
+    const newItems: Customer[] = []
+    for (const id of checkedIds) {
+      try {
+        const res = await fetch(`/api/admin/customers/${id}/duplicate`, { method: 'POST' })
+        const d = await res.json()
+        if (res.ok && d.customer) {
+          newItems.push(d.customer as Customer)
+          successCount++
+        } else failCount++
+      } catch { failCount++ }
+    }
+    if (newItems.length > 0) {
+      setCustomers(prev => [...newItems, ...prev])
+    }
+    setBulkCreating(false)
+    setCheckedIds([])
+    if (failCount === 0) toast.success(`${successCount}건 복제되었습니다.`)
+    else toast.error(`${successCount}건 성공, ${failCount}건 실패`)
+  }
+
   const handleDeleteBulk = async () => {
     if (checkedIds.length === 0) return
     if (!confirm(`선택한 ${checkedIds.length}건의 고객을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.`)) return
@@ -1020,6 +1045,11 @@ export default function AdminCustomersPage() {
               className="text-xs text-blue-200 hover:text-white px-2 py-1 rounded transition-colors">
               선택 해제
             </button>
+            {!isWorker && (
+              <Button size="sm" onClick={handleDuplicateBulk} disabled={bulkCreating} className="bg-yellow-500 hover:bg-yellow-400 text-white whitespace-nowrap">
+                {bulkCreating ? '처리 중...' : '복제'}
+              </Button>
+            )}
             {!isWorker && (
               <Button variant="danger" size="sm" onClick={handleDeleteBulk} disabled={bulkCreating} className="whitespace-nowrap">
                 삭제

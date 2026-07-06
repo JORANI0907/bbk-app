@@ -14,7 +14,7 @@ export async function POST(
 
   // 원본 조회
   const { data: original, error: fetchError } = await supabase
-    .from('service_applications')
+    .from('customers')
     .select('*')
     .eq('id', id)
     .single()
@@ -24,38 +24,32 @@ export async function POST(
   }
 
   // 복제본 생성 — 원본과 완전히 무관한 별도 레코드
-  // 초기화 대상: 시스템 필드(id/created_at), 상태 필드, 알림 이력, 외부 리소스 링크(드라이브 폴더 등)
+  // 초기화: 시스템 필드(id/created_at/updated_at), 외부 리소스 링크, 포털 계정, 상태 이력
   const {
     id: _omitId,
     created_at: _omitCreatedAt,
+    updated_at: _omitUpdatedAt,
     ...rest
   } = original as Record<string, unknown>
 
   const duplicate: Record<string, unknown> = {
     ...rest,
-    status: '신규',
-    work_status: 'pending',
-    gcal_event_id: null,
-    work_started_at: null,
-    work_completed_at: null,
-    notification_send_at: null,
-    notification_sent_at: null,
-    remind_1day_sent_at: null,
-    remind_day_sent_at: null,
-    payment_confirmed_at: null,
-    invoice_issued_at: null,
-    deposit_paid_at: null,
-    quote_sent_at: null,
-    quote_url: null,
-    quote_pdf_url: null,
-    // 알림 이력·외부 리소스 초기화 (사용자 요청: 원본과 관계없는 별도 레코드)
-    notification_log: null,
+    // 외부 리소스·알림 이력 초기화 (원본과 무관하게)
     drive_folder_url: null,
+    notification_log: null,
     notion_page_id: null,
+    // 포털 계정은 절대 공유 금지 — 새 고객이므로 신규 발급 필요
+    user_id: null,
+    // 다음 방문·결제 스케줄도 초기화 (새 고객이 별도 스케줄 잡음)
+    next_visit_date: null,
+    billing_next_date: null,
+    payment_status: null,
+    // 소프트 삭제 흔적 제거
+    deleted_at: null,
   }
 
   const { data: inserted, error: insertError } = await supabase
-    .from('service_applications')
+    .from('customers')
     .insert(duplicate)
     .select()
     .single()
@@ -64,5 +58,5 @@ export async function POST(
     return NextResponse.json({ error: insertError.message }, { status: 500 })
   }
 
-  return NextResponse.json({ application: inserted })
+  return NextResponse.json({ customer: inserted })
 }
