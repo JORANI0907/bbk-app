@@ -255,7 +255,7 @@ export function AdminMobileNav({ role, unreadIncidentCount = 0, navConfig = {}, 
             {/* 드로어 헤더 */}
             <div className="flex items-center justify-between px-5 py-4 border-b border-border-subtle">
               <div className="flex items-center gap-2.5">
-                <img src="/bbk-logo.png" alt="BBK" className="w-8 h-8 rounded-lg object-cover" />
+                <img src="/icons/icon-192x192.png" alt="BBK" className="w-8 h-8 rounded-lg object-cover" />
                 <div>
                   <p className="text-sm font-black text-text-primary leading-none">BBK 공간케어</p>
                   <p className="text-[10px] text-text-tertiary font-medium uppercase tracking-widest mt-0.5">Management</p>

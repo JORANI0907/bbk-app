@@ -26,7 +26,7 @@ export default function InstallPage() {
 
         {/* 로고 */}
         <div className="flex flex-col items-center mb-10">
-          <img src="/bbk-logo.png" alt="BBK"
+          <img src="/icons/icon-192x192.png" alt="BBK"
             className="w-20 h-20 rounded-3xl object-cover mb-4"
             style={{ boxShadow: '0 0 40px rgba(37,99,235,0.35), 0 8px 32px rgba(0,0,0,0.4)' }} />
           <p className="text-2xl font-black text-white tracking-tight">BBK 공간케어</p>

@@ -53,7 +53,7 @@ export function CustomerSidebar({ userName, userId: _userId, customerType }: Pro
       {/* 로고 */}
       <div className="flex items-center gap-3 px-6 py-5 border-b border-border-subtle">
         <img
-          src="/bbk-logo.png"
+          src="/icons/icon-192x192.png"
           alt="BBK 공간케어"
           className="w-10 h-10 rounded-xl object-cover shrink-0 shadow-soft"
         />

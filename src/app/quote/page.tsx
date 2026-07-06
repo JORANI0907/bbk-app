@@ -121,7 +121,7 @@ export default function QuotePage() {
         >
           {/* 로고 팝인 */}
           <img
-            src="/bbk-logo.png"
+            src="/icons/icon-192x192.png"
             alt="BBK"
             className="rounded-2xl shadow-2xl"
             style={{
@@ -191,7 +191,7 @@ export default function QuotePage() {
           }} />
           <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
             <img
-              src="/bbk-logo.png" alt="BBK"
+              src="/icons/icon-192x192.png" alt="BBK"
               style={{
                 width: 72, height: 72, borderRadius: 18, objectFit: 'cover',
                 boxShadow: '0 0 32px rgba(37,99,235,0.4)',

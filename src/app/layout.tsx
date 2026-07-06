@@ -22,11 +22,11 @@ export const metadata: Metadata = {
     capable: true,
     statusBarStyle: 'default',
     title: 'BBK 공간케어',
-    startupImage: '/bbk-logo.png',
+    startupImage: '/icons/icon-192x192.png',
   },
   icons: {
-    icon: '/bbk-logo.png',
-    apple: '/bbk-logo.png',
+    icon: '/icons/icon-192x192.png',
+    apple: '/icons/icon-192x192.png',
   },
   other: {
     'mobile-web-app-capable': 'yes',
@@ -38,7 +38,7 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
-  themeColor: '#2563EB',
+  themeColor: '#2AABE2',
   colorScheme: 'light',
 }
 

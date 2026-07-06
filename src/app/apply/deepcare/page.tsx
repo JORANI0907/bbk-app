@@ -114,10 +114,10 @@ export default function DeepcaredPage() {
       <Toaster position="top-center" />
       <div className="space-y-6">
         {/* 헤더 */}
-        <div className="bg-indigo-700 text-white rounded-2xl p-5">
-          <p className="text-xs font-medium text-indigo-300 mb-1">온라인 신청서</p>
+        <div className="bg-gradient-to-br from-brand-400 to-brand-600 text-white rounded-2xl p-5 shadow-soft">
+          <p className="text-xs font-medium text-white/70 mb-1">온라인 신청서</p>
           <h1 className="text-xl font-black leading-tight">정기 딥케어</h1>
-          <p className="text-indigo-200 text-xs mt-2 leading-relaxed">
+          <p className="text-white/80 text-xs mt-2 leading-relaxed">
             주방 설비 전문 정기 딥클리닝 서비스입니다.<br />
             후드·덕트·냉장설비·위생환경 설비를 정기 관리합니다.
           </p>
@@ -135,7 +135,7 @@ export default function DeepcaredPage() {
               value={form.owner_name}
               onChange={e => setField('owner_name', e.target.value)}
               placeholder="홍길동"
-              className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent"
+              className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400 focus:border-transparent"
             />
           </div>
           <div>
@@ -147,7 +147,7 @@ export default function DeepcaredPage() {
               value={form.phone}
               onChange={e => setField('phone', e.target.value)}
               placeholder="010-0000-0000"
-              className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent"
+              className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400 focus:border-transparent"
             />
           </div>
           <div>
@@ -159,7 +159,7 @@ export default function DeepcaredPage() {
               value={form.address}
               onChange={e => setField('address', e.target.value)}
               placeholder="경기도 성남시..."
-              className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent"
+              className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400 focus:border-transparent"
             />
           </div>
           <div>
@@ -169,7 +169,7 @@ export default function DeepcaredPage() {
               value={form.email}
               onChange={e => setField('email', e.target.value)}
               placeholder="email@example.com"
-              className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent"
+              className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400 focus:border-transparent"
             />
           </div>
         </section>
@@ -185,8 +185,8 @@ export default function DeepcaredPage() {
                 onClick={() => toggleBizType(t)}
                 className={`px-3.5 py-2 rounded-full text-sm font-medium border transition-all ${
                   businessTypes.includes(t)
-                    ? 'bg-indigo-700 text-white border-indigo-700'
-                    : 'bg-white text-gray-600 border-gray-200 hover:border-indigo-400'
+                    ? 'bg-brand-600 text-white border-brand-600'
+                    : 'bg-white text-gray-600 border-gray-200 hover:border-brand-400'
                 }`}
               >
                 {t}
@@ -205,7 +205,7 @@ export default function DeepcaredPage() {
             const labelColor = cat === '주방조리설비'
               ? 'text-rose-400'
               : cat === '냉장냉동설비'
-              ? 'text-sky-400'
+              ? 'text-brand-500'
               : 'text-emerald-400'
             return (
               <div key={cat}>
@@ -220,8 +220,8 @@ export default function DeepcaredPage() {
                       onClick={() => toggleItem(item)}
                       className={`px-3.5 py-2 rounded-full text-sm font-medium border transition-all ${
                         selectedItems.includes(item)
-                          ? 'bg-indigo-700 text-white border-indigo-700'
-                          : 'bg-white text-gray-600 border-gray-200 hover:border-indigo-400'
+                          ? 'bg-brand-600 text-white border-brand-600'
+                          : 'bg-white text-gray-600 border-gray-200 hover:border-brand-400'
                       }`}
                     >
                       {item}
@@ -238,8 +238,8 @@ export default function DeepcaredPage() {
               onClick={() => setShowCustomItem(v => !v)}
               className={`px-3.5 py-2 rounded-full text-sm font-medium border transition-all ${
                 showCustomItem
-                  ? 'bg-indigo-700 text-white border-indigo-700'
-                  : 'bg-white text-gray-600 border-gray-200 hover:border-indigo-400'
+                  ? 'bg-brand-600 text-white border-brand-600'
+                  : 'bg-white text-gray-600 border-gray-200 hover:border-brand-400'
               }`}
             >
               직접입력
@@ -250,7 +250,7 @@ export default function DeepcaredPage() {
                 value={customItem}
                 onChange={e => setCustomItem(e.target.value)}
                 placeholder="목록에 없는 설비를 직접 입력하세요"
-                className="mt-2.5 w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent"
+                className="mt-2.5 w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400 focus:border-transparent"
               />
             )}
           </div>
@@ -267,7 +267,7 @@ export default function DeepcaredPage() {
                   type="button"
                   onClick={() => setFreqUnit(u)}
                   className={`px-4 py-2.5 text-sm font-medium transition-all ${
-                    freqUnit === u ? 'bg-indigo-700 text-white' : 'bg-white text-gray-600'
+                    freqUnit === u ? 'bg-brand-600 text-white' : 'bg-white text-gray-600'
                   }`}
                 >
                   {u}
@@ -282,8 +282,8 @@ export default function DeepcaredPage() {
                   onClick={() => setFreqCount(c)}
                   className={`px-3.5 py-2 rounded-full text-sm font-medium border transition-all ${
                     freqCount === c
-                      ? 'bg-indigo-700 text-white border-indigo-700'
-                      : 'bg-white text-gray-600 border-gray-200 hover:border-indigo-400'
+                      ? 'bg-brand-600 text-white border-brand-600'
+                      : 'bg-white text-gray-600 border-gray-200 hover:border-brand-400'
                   }`}
                 >
                   {c}
@@ -292,7 +292,7 @@ export default function DeepcaredPage() {
             </div>
           </div>
           {freqUnit && freqCount && (
-            <p className="text-xs text-indigo-600 font-medium">
+            <p className="text-xs text-brand-700 font-medium">
               선택: {freqUnit} {freqCount}
             </p>
           )}
@@ -306,7 +306,7 @@ export default function DeepcaredPage() {
             onChange={e => setField('request_notes', e.target.value)}
             placeholder="설비 노후도, 특수 재질, 접근 방법, 기타 요청 등 자유롭게 적어주세요"
             rows={4}
-            className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent resize-none"
+            className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400 focus:border-transparent resize-none"
           />
         </section>
 
@@ -316,7 +316,7 @@ export default function DeepcaredPage() {
             type="button"
             onClick={handleSubmit}
             disabled={loading}
-            className="w-full py-4 bg-indigo-700 text-white font-bold rounded-2xl text-base disabled:opacity-60 active:scale-[0.98] transition-all"
+            className="w-full py-4 bg-brand-600 hover:bg-brand-700 text-white font-bold rounded-2xl text-base disabled:opacity-60 active:scale-[0.98] transition-all"
           >
             {loading ? '신청 중...' : '신청하기'}
           </button>

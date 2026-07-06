@@ -20,7 +20,7 @@ export function LogoLoader({ text = '불러오는 중...', size = 'md' }: LogoLo
         />
         {/* Logo */}
         <img
-          src="/bbk-logo.png"
+          src="/icons/icon-192x192.png"
           alt="BBK"
           style={{ width: imgSize, height: imgSize, objectFit: 'cover' }}
           className="rounded-lg"

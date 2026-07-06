@@ -52,7 +52,7 @@ export function SplashScreen() {
     >
       <div className="flex flex-col items-center" style={logoStyle}>
         <img
-          src="/bbk-logo.png"
+          src="/icons/icon-192x192.png"
           alt="BBK 공간케어"
           className="rounded-2xl shadow-2xl"
           style={{ width: 96, height: 96, objectFit: 'cover' }}

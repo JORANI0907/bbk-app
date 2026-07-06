@@ -94,10 +94,10 @@ export default function EndcarePage() {
       <Toaster position="top-center" />
       <div className="space-y-6">
         {/* 헤더 */}
-        <div className="bg-sky-600 text-white rounded-2xl p-5">
-          <p className="text-xs font-medium text-sky-200 mb-1">온라인 신청서</p>
+        <div className="bg-gradient-to-br from-brand-400 to-brand-600 text-white rounded-2xl p-5 shadow-soft">
+          <p className="text-xs font-medium text-white/70 mb-1">온라인 신청서</p>
           <h1 className="text-xl font-black leading-tight">정기 엔드케어</h1>
-          <p className="text-sky-100 text-xs mt-2 leading-relaxed">
+          <p className="text-white/80 text-xs mt-2 leading-relaxed">
             매장 영업 후 야간 시간 정기 청소 서비스입니다.<br />
             바닥·화장실·주방 표면 청소를 주기적으로 관리합니다.
           </p>
@@ -115,7 +115,7 @@ export default function EndcarePage() {
               value={form.owner_name}
               onChange={e => setField('owner_name', e.target.value)}
               placeholder="홍길동"
-              className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400 focus:border-transparent"
+              className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400 focus:border-transparent"
             />
           </div>
           <div>
@@ -127,7 +127,7 @@ export default function EndcarePage() {
               value={form.phone}
               onChange={e => setField('phone', e.target.value)}
               placeholder="010-0000-0000"
-              className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400 focus:border-transparent"
+              className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400 focus:border-transparent"
             />
           </div>
           <div>
@@ -139,7 +139,7 @@ export default function EndcarePage() {
               value={form.address}
               onChange={e => setField('address', e.target.value)}
               placeholder="경기도 성남시..."
-              className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400 focus:border-transparent"
+              className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400 focus:border-transparent"
             />
           </div>
           <div>
@@ -149,7 +149,7 @@ export default function EndcarePage() {
               value={form.email}
               onChange={e => setField('email', e.target.value)}
               placeholder="email@example.com"
-              className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400 focus:border-transparent"
+              className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400 focus:border-transparent"
             />
           </div>
         </section>
@@ -165,8 +165,8 @@ export default function EndcarePage() {
                 onClick={() => toggleBizType(t)}
                 className={`px-3.5 py-2 rounded-full text-sm font-medium border transition-all ${
                   businessTypes.includes(t)
-                    ? 'bg-sky-600 text-white border-sky-600'
-                    : 'bg-white text-gray-600 border-gray-200 hover:border-sky-400'
+                    ? 'bg-brand-600 text-white border-brand-600'
+                    : 'bg-white text-gray-600 border-gray-200 hover:border-brand-400'
                 }`}
               >
                 {t}
@@ -184,7 +184,7 @@ export default function EndcarePage() {
               value={areaValue}
               onChange={e => setAreaValue(e.target.value)}
               placeholder="숫자 입력"
-              className="flex-1 border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400 focus:border-transparent"
+              className="flex-1 border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400 focus:border-transparent"
             />
             <div className="flex border border-gray-200 rounded-xl overflow-hidden">
               {(['평', 'm²'] as AreaUnit[]).map(u => (
@@ -193,7 +193,7 @@ export default function EndcarePage() {
                   type="button"
                   onClick={() => setAreaUnit(u)}
                   className={`px-4 py-3 text-sm font-medium transition-all ${
-                    areaUnit === u ? 'bg-sky-600 text-white' : 'bg-white text-gray-600'
+                    areaUnit === u ? 'bg-brand-600 text-white' : 'bg-white text-gray-600'
                   }`}
                 >
                   {u}
@@ -214,8 +214,8 @@ export default function EndcarePage() {
                 onClick={() => setVisitFreq(f)}
                 className={`px-3.5 py-2 rounded-full text-sm font-medium border transition-all ${
                   visitFreq === f
-                    ? 'bg-sky-600 text-white border-sky-600'
-                    : 'bg-white text-gray-600 border-gray-200 hover:border-sky-400'
+                    ? 'bg-brand-600 text-white border-brand-600'
+                    : 'bg-white text-gray-600 border-gray-200 hover:border-brand-400'
                 }`}
               >
                 {f}
@@ -228,7 +228,7 @@ export default function EndcarePage() {
               value={visitCustom}
               onChange={e => setVisitCustom(e.target.value)}
               placeholder="예: 격일 1회, 주 1.5회"
-              className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400 focus:border-transparent"
+              className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400 focus:border-transparent"
             />
           )}
         </section>
@@ -247,8 +247,8 @@ export default function EndcarePage() {
                 onClick={() => toggleOption(o)}
                 className={`px-3.5 py-2 rounded-full text-sm font-medium border transition-all ${
                   selectedOptions.includes(o)
-                    ? 'bg-indigo-600 text-white border-indigo-600'
-                    : 'bg-white text-gray-600 border-gray-200 hover:border-indigo-400'
+                    ? 'bg-brand-600 text-white border-brand-600'
+                    : 'bg-white text-gray-600 border-gray-200 hover:border-brand-400'
                 }`}
               >
                 {o}
@@ -265,7 +265,7 @@ export default function EndcarePage() {
             onChange={e => setField('request_notes', e.target.value)}
             placeholder="알레르기, 특수 재질, 접근 방법, 기타 요청 등 자유롭게 적어주세요"
             rows={4}
-            className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400 focus:border-transparent resize-none"
+            className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400 focus:border-transparent resize-none"
           />
         </section>
 
@@ -275,7 +275,7 @@ export default function EndcarePage() {
             type="button"
             onClick={handleSubmit}
             disabled={loading}
-            className="w-full py-4 bg-sky-600 text-white font-bold rounded-2xl text-base disabled:opacity-60 active:scale-[0.98] transition-all"
+            className="w-full py-4 bg-brand-600 hover:bg-brand-700 text-white font-bold rounded-2xl text-base disabled:opacity-60 active:scale-[0.98] transition-all"
           >
             {loading ? '신청 중...' : '신청하기'}
           </button>
