@@ -1443,6 +1443,14 @@ export default function AdminCustomersPage() {
                     <CustomerAccountLink
                       customerId={selected.id}
                       accountUserId={selected.account_user_id}
+                      linkedLabel={(() => {
+                        if (!selected.account_user_id) return null
+                        const target = customers.find(c => c.user_id === selected.account_user_id)
+                        if (!target) return null
+                        return target.customer_type
+                          ? `${target.business_name} (${target.customer_type})`
+                          : target.business_name
+                      })()}
                       onUpdated={(next) => setSelected(prev => prev ? { ...prev, account_user_id: next } : prev)}
                     />
                   </div>

@@ -16,10 +16,11 @@ type Candidate = {
 interface Props {
   customerId: string
   accountUserId: string | null
+  linkedLabel?: string | null
   onUpdated: (nextAccountUserId: string | null) => void
 }
 
-export function CustomerAccountLink({ customerId, accountUserId, onUpdated }: Props) {
+export function CustomerAccountLink({ customerId, accountUserId, linkedLabel, onUpdated }: Props) {
   const [expanded, setExpanded] = useState(false)
   const [candidates, setCandidates] = useState<Candidate[]>([])
   const [loading, setLoading] = useState(false)
@@ -71,9 +72,22 @@ export function CustomerAccountLink({ customerId, accountUserId, onUpdated }: Pr
 
       {isLinked ? (
         <>
-          <p className="text-[11px] text-text-secondary leading-normal">
-            이 계약은 다른 고객 계정 하나에 통합되어 있습니다. 해당 계정으로 로그인하면 이 계약의 일정도 함께 표시됩니다.
-          </p>
+          {linkedLabel ? (
+            <div className="flex flex-col gap-1">
+              <p className="text-[11px] text-text-tertiary">통합된 계정</p>
+              <div className="flex items-center gap-1.5 rounded-md border border-brand-100 bg-brand-50 px-2.5 py-1.5">
+                <Link2 size={12} className="text-brand-600 shrink-0" />
+                <span className="text-xs font-semibold text-brand-700 truncate">{linkedLabel}</span>
+              </div>
+              <p className="text-[11px] text-text-secondary leading-normal">
+                위 계정으로 로그인하면 이 계약의 일정도 함께 표시됩니다.
+              </p>
+            </div>
+          ) : (
+            <p className="text-[11px] text-text-secondary leading-normal">
+              이 계약은 다른 고객 계정 하나에 통합되어 있습니다. (대상 계정 정보를 찾을 수 없음 — 삭제되었거나 목록에 없음)
+            </p>
+          )}
           <button
             type="button"
             onClick={() => apply(null)}
