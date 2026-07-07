@@ -10,11 +10,18 @@ import { SCHEDULE_STATUS_LABELS, SCHEDULE_STATUS_COLORS } from '@/lib/constants'
 export type ScheduleListItem = ServiceSchedule & {
   worker?: { name?: string } | null
   application?: { construction_time?: string | null } | null
+  customer?: { customer_type?: string | null } | null
   closing_checklists?: Array<{
     condition_score: number | null
     recommended_services: unknown
     customer_comment: string | null
   }> | null
+}
+
+const SERVICE_TYPE_BADGE: Record<string, { label: string; chip: string }> = {
+  '정기딥케어':  { label: '딥',   chip: 'bg-indigo-100 text-indigo-700' },
+  '정기엔드케어': { label: '엔드', chip: 'bg-sky-100 text-sky-700' },
+  '1회성케어':   { label: '1회', chip: 'bg-surface-sunken text-text-secondary' },
 }
 
 type RatingMeta = { label: string; tone: string; dot: string }
@@ -84,6 +91,8 @@ export function ScheduleListCard({ schedule, detailHref, driveFolderUrl }: Props
   const dday = isUpcoming ? getDday(schedule.scheduled_date) : null
   const statusLabel = SCHEDULE_STATUS_LABELS[status] ?? status
   const statusColor = SCHEDULE_STATUS_COLORS[status] ?? 'bg-surface-sunken text-text-secondary'
+  const serviceType = schedule.customer?.customer_type ?? null
+  const typeBadge = serviceType ? SERVICE_TYPE_BADGE[serviceType] : null
 
   return (
     <div className="bg-surface rounded-2xl border border-border-subtle shadow-flat overflow-hidden">
@@ -102,6 +111,11 @@ export function ScheduleListCard({ schedule, detailHref, driveFolderUrl }: Props
             {dday !== null && dday >= 0 && (
               <span className={`text-[11px] font-bold ${dday === 0 ? 'text-state-danger' : 'text-brand-600'}`}>
                 {dday === 0 ? '오늘' : `D-${dday}`}
+              </span>
+            )}
+            {typeBadge && (
+              <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-semibold whitespace-nowrap ${typeBadge.chip}`}>
+                {typeBadge.label}
               </span>
             )}
             <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold whitespace-nowrap ${statusColor}`}>

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { getServerSession } from '@/lib/session'
+import { getPortalCustomers } from '@/lib/customer-portal'
 import { format } from 'date-fns'
 
 export const dynamic = 'force-dynamic'
@@ -14,13 +15,9 @@ export async function GET() {
 
   const supabase = createServiceClient()
 
-  const { data: customerRow } = await supabase
-    .from('customers')
-    .select('id')
-    .eq('user_id', session.userId)
-    .maybeSingle()
+  const { ids: customerIds } = await getPortalCustomers(supabase, session.userId)
 
-  if (!customerRow) {
+  if (customerIds.length === 0) {
     return NextResponse.json({ data: [] })
   }
 
@@ -28,7 +25,7 @@ export async function GET() {
   const { data, error } = await supabase
     .from('service_schedules')
     .select('id, scheduled_date, items_this_visit, status')
-    .eq('customer_id', customerRow.id)
+    .in('customer_id', customerIds)
     .gte('scheduled_date', today)
     .is('deleted_at', null)
     .in('status', ['scheduled', 'confirmed'])

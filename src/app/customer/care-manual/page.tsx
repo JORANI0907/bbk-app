@@ -1,5 +1,6 @@
 import { createServiceClient } from '@/lib/supabase/server'
 import { getCustomerSession } from '@/lib/session'
+import { getPortalCustomers } from '@/lib/customer-portal'
 import { redirect } from 'next/navigation'
 import { ChevronLeft, BookOpen } from 'lucide-react'
 import Link from 'next/link'
@@ -12,11 +13,8 @@ export default async function CustomerCareManualPage() {
 
   const supabase = createServiceClient()
 
-  const { data: customer } = await supabase
-    .from('customers')
-    .select('id, business_name, customer_type, care_manual')
-    .eq('user_id', session.userId)
-    .maybeSingle()
+  const { primary } = await getPortalCustomers(supabase, session.userId)
+  const customer = primary
 
   const isEligible =
     customer?.customer_type === '정기딥케어' ||

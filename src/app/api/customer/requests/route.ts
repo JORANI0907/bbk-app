@@ -1,20 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from '@/lib/session'
 import { createServiceClient } from '@/lib/supabase/server'
+import { getPortalCustomers } from '@/lib/customer-portal'
 
 export const dynamic = 'force-dynamic'
 
-
-async function getCustomerId(userId: string) {
-  const supabase = createServiceClient()
-  const { data } = await supabase
-    .from('customers')
-    .select('id')
-    .eq('user_id', userId)
-    .is('deleted_at', null)
-    .single()
-  return data?.id ?? null
-}
 
 export async function GET() {
   const session = getServerSession()
@@ -22,14 +12,14 @@ export async function GET() {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const customerId = await getCustomerId(session.userId)
-  if (!customerId) return NextResponse.json({ requests: [] })
-
   const supabase = createServiceClient()
+  const { ids: customerIds } = await getPortalCustomers(supabase, session.userId)
+  if (customerIds.length === 0) return NextResponse.json({ requests: [] })
+
   const { data, error } = await supabase
     .from('customer_requests')
     .select('*')
-    .eq('customer_id', customerId)
+    .in('customer_id', customerIds)
     .order('created_at', { ascending: false })
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
@@ -47,15 +37,16 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: '내용을 입력해주세요.' }, { status: 400 })
   }
 
-  const customerId = await getCustomerId(session.userId)
-  if (!customerId) {
+  // 새 요청은 메인 계정 customer(primary) 에만 붙임. 서브 계약 요청 분리 UI는 추후 검토.
+  const supabase = createServiceClient()
+  const { primary } = await getPortalCustomers(supabase, session.userId)
+  if (!primary) {
     return NextResponse.json({ error: '고객 정보를 찾을 수 없습니다.' }, { status: 404 })
   }
 
-  const supabase = createServiceClient()
   const { data, error } = await supabase
     .from('customer_requests')
-    .insert({ customer_id: customerId, user_id: session.userId, content: content.trim() })
+    .insert({ customer_id: primary.id, user_id: session.userId, content: content.trim() })
     .select()
     .single()
 

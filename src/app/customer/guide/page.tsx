@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { createServiceClient } from '@/lib/supabase/server'
 import { getCustomerSession } from '@/lib/session'
+import { getPortalCustomers } from '@/lib/customer-portal'
 import { redirect } from 'next/navigation'
 import { ScheduleChangeRequest } from '@/components/customer/ScheduleChangeRequest'
 import { ServiceSchedule } from '@/types/database'
@@ -10,19 +11,15 @@ export default async function CustomerGuidePage() {
   if (!session || session.role !== 'customer') redirect('/login')
 
   const supabase = createServiceClient()
-  const { data: customerRow } = await supabase
-    .from('customers')
-    .select('id')
-    .eq('user_id', session.userId)
-    .maybeSingle()
+  const { ids: customerIds } = await getPortalCustomers(supabase, session.userId)
 
   const today = new Date().toISOString().slice(0, 10)
   let upcomingSchedules: ServiceSchedule[] = []
-  if (customerRow) {
+  if (customerIds.length > 0) {
     const { data } = await supabase
       .from('service_schedules')
       .select('*')
-      .eq('customer_id', customerRow.id)
+      .in('customer_id', customerIds)
       .gte('scheduled_date', today)
       .in('status', ['scheduled', 'confirmed'])
       .is('deleted_at', null)

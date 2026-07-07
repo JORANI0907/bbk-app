@@ -8,6 +8,7 @@ import { MapSelectorModal } from '@/components/MapSelectorModal'
 import { BillingHistoryPanel } from '@/components/admin/BillingHistoryPanel'
 import { Button } from '@/components/ui'
 import { Phone, ClipboardList, Map, Banknote, Save, Megaphone, Calendar, BookOpen } from 'lucide-react'
+import { CustomerAccountLink } from '@/components/admin/CustomerAccountLink'
 
 // ─── 타입 ─────────────────────────────────────────────────────
 type CustomerType = '1회성케어' | '정기딥케어' | '정기엔드케어'
@@ -70,6 +71,8 @@ interface Customer {
   balance: number | null
   // 포털 계정
   user_id: string | null
+  // 이 계약을 함께 볼 수 있는 다른 로그인 계정(정기딥+정기엔드 통합 뷰). NULL이면 서브 계약 아님.
+  account_user_id: string | null
   created_at: string
   updated_at: string
 }
@@ -1432,6 +1435,16 @@ export default function AdminCustomersPage() {
                       <BookOpen size={15} className="text-green-700 shrink-0" />
                       {isWorker ? '케어매뉴얼 보기' : '케어매뉴얼 편집'}
                     </button>
+                  </div>
+                )}
+                {/* 계정 통합 (같은 사업장이 정기딥/정기엔드 동시 이용 시) — 관리자 전용 */}
+                {!isNew && selected && isRegular && !isWorker && (
+                  <div className="pt-1">
+                    <CustomerAccountLink
+                      customerId={selected.id}
+                      accountUserId={selected.account_user_id}
+                      onUpdated={(next) => setSelected(prev => prev ? { ...prev, account_user_id: next } : prev)}
+                    />
                   </div>
                 )}
               </div>

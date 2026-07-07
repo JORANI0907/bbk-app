@@ -6,6 +6,7 @@ import { PushNotificationProvider } from '@/components/shared/PushNotificationPr
 import DevRoleSwitcher from '@/components/DevRoleSwitcher'
 import { getCustomerSession } from '@/lib/session'
 import { createServiceClient } from '@/lib/supabase/server'
+import { getPortalCustomers } from '@/lib/customer-portal'
 import { redirect } from 'next/navigation'
 
 export default async function CustomerLayout({
@@ -17,12 +18,8 @@ export default async function CustomerLayout({
   if (!session) redirect('/login')
 
   const supabase = createServiceClient()
-  const { data: customerRow } = await supabase
-    .from('customers')
-    .select('customer_type')
-    .eq('user_id', session.userId)
-    .maybeSingle()
-  const customerType = (customerRow as { customer_type: string | null } | null)?.customer_type ?? null
+  const { primary } = await getPortalCustomers(supabase, session.userId)
+  const customerType = primary?.customer_type ?? null
 
   const isFranchiseView = session.isPreview && session.originRole === 'franchise_hq'
   // 본사 모드는 floating 버튼(FAB)으로 표시 → 상단 패딩 불필요

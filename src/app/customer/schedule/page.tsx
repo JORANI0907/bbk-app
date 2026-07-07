@@ -1,5 +1,6 @@
 import { createServiceClient } from '@/lib/supabase/server'
 import { getCustomerSession } from '@/lib/session'
+import { getPortalCustomers } from '@/lib/customer-portal'
 import { redirect } from 'next/navigation'
 import { ScheduleTabs, ScheduleWithConstruction } from '@/components/customer/ScheduleTabs'
 import { ScheduleChangeNoticeBar } from '@/components/customer/ScheduleChangeNoticeBar'
@@ -10,21 +11,16 @@ export default async function CustomerSchedulePage() {
 
   const supabase = createServiceClient()
 
-  const { data: customerRow } = await supabase
-    .from('customers')
-    .select('id, drive_folder_url')
-    .eq('user_id', session.userId)
-    .maybeSingle()
+  const { primary, ids: customerIds } = await getPortalCustomers(supabase, session.userId)
 
-  if (!customerRow) redirect('/customer')
+  if (!primary) redirect('/customer')
 
-  const customerId = customerRow.id
-  const customerDriveUrl = (customerRow as { drive_folder_url: string | null }).drive_folder_url
+  const customerDriveUrl = primary.drive_folder_url
 
   const { data: schedules } = await supabase
     .from('service_schedules')
     .select('*, worker:users(id,name), application:service_applications(construction_time), customer:customers(customer_type)')
-    .eq('customer_id', customerId)
+    .in('customer_id', customerIds)
     .is('deleted_at', null)
     .order('scheduled_date', { ascending: false })
 

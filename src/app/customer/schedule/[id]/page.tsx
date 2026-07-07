@@ -1,5 +1,6 @@
 import { createServiceClient } from '@/lib/supabase/server'
 import { getCustomerSession } from '@/lib/session'
+import { getPortalCustomers } from '@/lib/customer-portal'
 import { redirect, notFound } from 'next/navigation'
 import Link from 'next/link'
 import { format, isPast, isToday } from 'date-fns'
@@ -140,13 +141,9 @@ export default async function CustomerScheduleDetailPage({ params }: PageProps) 
 
   const supabase = createServiceClient()
 
-  const { data: customerRow } = await supabase
-    .from('customers')
-    .select('id')
-    .eq('user_id', session.userId)
-    .maybeSingle()
+  const { ids: customerIds } = await getPortalCustomers(supabase, session.userId)
 
-  if (!customerRow) redirect('/customer')
+  if (customerIds.length === 0) redirect('/customer')
 
   const { data: schedule } = await supabase
     .from('service_schedules')
@@ -154,7 +151,7 @@ export default async function CustomerScheduleDetailPage({ params }: PageProps) 
       '*, customer:customers(id, business_name, contact_name, contact_phone, address, address_detail, customer_type, drive_folder_url, business_number, assigned_user_id), worker:users(id, name, phone)'
     )
     .eq('id', scheduleId)
-    .eq('customer_id', customerRow.id)
+    .in('customer_id', customerIds)
     .is('deleted_at', null)
     .single()
 

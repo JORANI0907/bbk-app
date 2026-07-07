@@ -1,5 +1,6 @@
 import { createServiceClient } from '@/lib/supabase/server'
 import { getCustomerSession } from '@/lib/session'
+import { getPortalCustomers } from '@/lib/customer-portal'
 import { redirect } from 'next/navigation'
 import { CustomerRequest } from '@/types/database'
 import { RequestForm } from '@/components/customer/RequestForm'
@@ -10,20 +11,14 @@ export default async function CustomerRequestsPage() {
 
   const supabase = createServiceClient()
 
-  const { data: customerRow } = await supabase
-    .from('customers')
-    .select('id')
-    .eq('user_id', session.userId)
-    .maybeSingle()
-
-  const customerId = customerRow?.id ?? null
+  const { ids: customerIds } = await getPortalCustomers(supabase, session.userId)
 
   const requests: CustomerRequest[] = []
-  if (customerId) {
+  if (customerIds.length > 0) {
     const { data } = await supabase
       .from('customer_requests')
       .select('*')
-      .eq('customer_id', customerId)
+      .in('customer_id', customerIds)
       .order('created_at', { ascending: false })
     requests.push(...(data ?? []))
   }

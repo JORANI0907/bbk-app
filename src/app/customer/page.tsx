@@ -1,5 +1,6 @@
 import { createServiceClient } from '@/lib/supabase/server'
 import { getCustomerSession } from '@/lib/session'
+import { getPortalCustomers } from '@/lib/customer-portal'
 import { redirect } from 'next/navigation'
 import { format, addMonths } from 'date-fns'
 import { NoticesSection } from '@/components/customer/NoticesSection'
@@ -52,36 +53,35 @@ export default async function CustomerHomePage() {
     .eq('id', session.userId)
     .single()
 
-  const { data: rawCustomer } = await supabase
-    .from('customers')
-    .select('id, business_name, customer_type, status, next_visit_date, billing_cycle, billing_amount, visit_count_per_month, grade, drive_folder_url')
-    .eq('user_id', session.userId)
-    .maybeSingle()
+  const { primary, ids: customerIds } = await getPortalCustomers(supabase, session.userId)
 
-  const customer = rawCustomer as {
-    id: string
-    business_name: string
-    customer_type: string | null
-    status: string | null
-    next_visit_date: string | null
-    billing_cycle: string | null
-    billing_amount: number | null
-    visit_count_per_month: number | null
-    grade: CustomerGrade | null
-    drive_folder_url: string | null
-  } | null
+  const customer = primary
+    ? {
+        id: primary.id,
+        business_name: primary.business_name,
+        customer_type: primary.customer_type,
+        status: primary.status,
+        next_visit_date: primary.next_visit_date,
+        billing_cycle: primary.billing_cycle,
+        billing_amount: primary.billing_amount,
+        visit_count_per_month: primary.visit_count_per_month,
+        grade: primary.grade as CustomerGrade | null,
+        drive_folder_url: primary.drive_folder_url,
+      }
+    : null
 
   const today = format(new Date(), 'yyyy-MM-dd')
   const thisMonth = today.slice(0, 7)
   const thisMonthStart = `${thisMonth}-01`
   const nextMonthStart = format(addMonths(new Date(thisMonthStart), 1), 'yyyy-MM-dd')
 
+  const hasCustomer = customerIds.length > 0
   const [upcomingResult, noticesResult, completedSchedulesResult, thisMonthSchedulesResult] = await Promise.all([
-    customer
+    hasCustomer
       ? supabase
           .from('service_schedules')
-          .select('*, worker:users(id,name), application:service_applications(construction_time)')
-          .eq('customer_id', customer.id)
+          .select('*, worker:users(id,name), application:service_applications(construction_time), customer:customers(customer_type)')
+          .in('customer_id', customerIds)
           .gte('scheduled_date', today)
           .in('status', ['scheduled', 'confirmed'])
           .is('deleted_at', null)
@@ -97,22 +97,22 @@ export default async function CustomerHomePage() {
       .order('created_at', { ascending: false })
       .limit(20),
 
-    customer
+    hasCustomer
       ? supabase
           .from('service_schedules')
-          .select('*, worker:users(id,name)')
-          .eq('customer_id', customer.id)
+          .select('*, worker:users(id,name), customer:customers(customer_type)')
+          .in('customer_id', customerIds)
           .eq('status', 'completed')
           .is('deleted_at', null)
           .order('scheduled_date', { ascending: false })
           .limit(5)
       : Promise.resolve({ data: [] }),
 
-    customer
+    hasCustomer
       ? supabase
           .from('service_schedules')
           .select('id, status')
-          .eq('customer_id', customer.id)
+          .in('customer_id', customerIds)
           .gte('scheduled_date', thisMonthStart)
           .lt('scheduled_date', nextMonthStart)
           .is('deleted_at', null)
