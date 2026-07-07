@@ -543,6 +543,9 @@ export default function ServiceManagementPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [staffList, setStaffList] = useState<Array<{ id: string; name: string; user_id: string | null }>>([])
   const [selectedStaffId, setSelectedStaffId] = useState<string | null>(null)
+  // work_assignments 기반 작업자 배정 매핑 (application_id → Set<worker_id>)
+  // 담당자 필터가 assigned_worker_id뿐 아니라 실제 작업자 배정도 포함하도록
+  const [assignmentsByApp, setAssignmentsByApp] = useState<Map<string, Set<string>>>(new Map())
 
   // 알림
   const [notifyType, setNotifyType] = useState('')
@@ -657,6 +660,25 @@ export default function ServiceManagementPage() {
 
   useEffect(() => { fetchAll() }, [fetchAll])
   useEffect(() => { fetch('/api/admin/nav-badges?key=applications', { method: 'DELETE' }).catch(() => {}) }, [])
+
+  // 담당자 필터: 선택된 월의 work_assignments를 함께 fetch → application_id별 worker_id Set
+  useEffect(() => {
+    let cancelled = false
+    fetch(`/api/admin/work-assignments?month=${selectedMonth}`)
+      .then(r => r.json())
+      .then(d => {
+        if (cancelled) return
+        const map = new Map<string, Set<string>>()
+        for (const a of (d.assignments ?? []) as Array<{ application_id: string | null; worker_id: string }>) {
+          if (!a.application_id) continue
+          if (!map.has(a.application_id)) map.set(a.application_id, new Set())
+          map.get(a.application_id)!.add(a.worker_id)
+        }
+        setAssignmentsByApp(map)
+      })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [selectedMonth])
 
   const handleSelect = (app: Application) => {
     setSelected(app)
@@ -1347,13 +1369,17 @@ export default function ServiceManagementPage() {
       }
     }
 
-    // 직원 필터 (담당자 또는 작업자)
+    // 직원 필터 — 담당자 또는 작업자 어느 한 곳에라도 배정되어 있으면 매칭
+    // (1) 담당자: assigned_to, assigned_user_id 필드
+    // (2) 단일 작업자: assigned_worker_id 필드
+    // (3) 다중 작업자: work_assignments 테이블 (선택된 월 기준으로 fetch됨)
     if (selectedStaffId) {
       const staff = staffList.find(s => s.id === selectedStaffId)
       if (staff) {
         filtered = filtered.filter(a =>
           (staff.user_id && (a.assigned_to === staff.user_id || a.assigned_user_id === staff.user_id)) ||
-          a.assigned_worker_id === staff.id
+          a.assigned_worker_id === staff.id ||
+          (assignmentsByApp.get(a.id)?.has(staff.id) === true)
         )
       }
     }
@@ -1580,7 +1606,7 @@ export default function ServiceManagementPage() {
               onChange={e => setSelectedStaffId(e.target.value || null)}
               className="text-xs border border-border rounded-lg px-2 py-1.5 bg-surface focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
-              <option value="">담당자 전체</option>
+              <option value="">담당자·작업자 전체</option>
               {staffList.map(s => (
                 <option key={s.id} value={s.id}>{s.name}</option>
               ))}
