@@ -1361,8 +1361,8 @@ export default function ServiceManagementPage() {
     if (showUnassigned) {
       filtered = filtered.filter(a => !a.assigned_to)
     } else {
-      // 월 필터 (시공일자 기준)
-      filtered = filtered.filter(a => a.construction_date?.startsWith(selectedMonth))
+      // 월 필터 (시공일자 기준). 단, 시공일자 미정은 신규 접수라 놓치지 않도록 어느 월에서도 항상 표시.
+      filtered = filtered.filter(a => !a.construction_date || a.construction_date.startsWith(selectedMonth))
       // 서비스 유형 복수 필터 (아무것도 선택 안 하면 전체)
       if (selectedTypes.size > 0) {
         filtered = filtered.filter(a => selectedTypes.has(a.service_type ?? '1회성케어'))
