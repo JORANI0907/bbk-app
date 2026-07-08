@@ -1310,7 +1310,8 @@ export default function ServiceManagementPage() {
     }
   }
 
-  const unassignedCount = applications.filter(a => !a.assigned_to).length
+  // 미배정 = 담당자 또는 시공일자 중 하나라도 미확정
+  const unassignedCount = applications.filter(a => !a.assigned_to || !a.construction_date).length
 
   // 헤더 auto-hide
   const [filtersVisible, setFiltersVisible] = useState(true)
@@ -1359,10 +1360,12 @@ export default function ServiceManagementPage() {
     let filtered = [...applications]
 
     if (showUnassigned) {
-      filtered = filtered.filter(a => !a.assigned_to)
+      // 미배정 = 담당자 없음 OR 시공일자 없음 (둘 중 하나라도 안 정해지면 미배정으로 관리)
+      filtered = filtered.filter(a => !a.assigned_to || !a.construction_date)
     } else {
-      // 월 필터 (시공일자 기준). 단, 시공일자 미정은 신규 접수라 놓치지 않도록 어느 월에서도 항상 표시.
-      filtered = filtered.filter(a => !a.construction_date || a.construction_date.startsWith(selectedMonth))
+      // 월 필터 (시공일자 기준) — 시공일자·담당자 둘 다 확정된 것만 노출.
+      // 미확정 항목은 상단 '미배정' 필터로 이동.
+      filtered = filtered.filter(a => !!a.assigned_to && !!a.construction_date && a.construction_date.startsWith(selectedMonth))
       // 서비스 유형 복수 필터 (아무것도 선택 안 하면 전체)
       if (selectedTypes.size > 0) {
         filtered = filtered.filter(a => selectedTypes.has(a.service_type ?? '1회성케어'))
