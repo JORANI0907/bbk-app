@@ -11,6 +11,7 @@ import {
   GOOGLE_API_KEY,
 } from '@/lib/googleDrive'
 import type { ParsedRow } from '@/app/api/admin/finance/import-sheet/route'
+import { getExpenseTypes, UNCLASSIFIED } from '@/lib/finance-types'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -154,13 +155,17 @@ export default function ImportSheetModal({ month, onClose, onImported }: Props) 
   const toggleAll = (val: boolean) =>
     setRows(prev => prev.map(r => ({ ...r, include: val })))
 
-  // 카테고리 변경
+  // 카테고리 변경 — 카테고리가 바뀌면 group_name 도 미분류로 초기화(카테고리별 목록이 달라서)
   const changeCategory = (idx: number, category: 'fixed' | 'variable') =>
-    setRows(prev => prev.map((r, i) => i === idx ? { ...r, category } : r))
+    setRows(prev => prev.map((r, i) => i === idx ? { ...r, category, group_name: UNCLASSIFIED } : r))
 
   // 항목명 변경
   const changeName = (idx: number, name: string) =>
     setRows(prev => prev.map((r, i) => i === idx ? { ...r, name } : r))
+
+  // 매입 유형 변경
+  const changeGroup = (idx: number, group_name: string) =>
+    setRows(prev => prev.map((r, i) => i === idx ? { ...r, group_name } : r))
 
   // 저장
   const handleSave = async () => {
@@ -179,6 +184,7 @@ export default function ImportSheetModal({ month, onClose, onImported }: Props) 
             name: r.name,
             amount: Math.round(r.amount),
             note: r.merchant !== r.name ? r.merchant : null,
+            group_name: r.group_name,
           })),
         }),
       })
@@ -315,10 +321,19 @@ export default function ImportSheetModal({ month, onClose, onImported }: Props) 
                           <option value="fixed">고정비</option>
                           <option value="variable">변동비</option>
                         </select>
+                        <select
+                          value={row.group_name}
+                          onChange={e => changeGroup(idx, e.target.value)}
+                          className={`text-xs px-2 py-0.5 rounded-full font-medium border ${row.group_name === UNCLASSIFIED ? 'border-border bg-surface-sunken text-text-secondary' : 'border-brand-200 bg-brand-50 text-brand-700'}`}
+                        >
+                          {getExpenseTypes(row.category).map(t => (
+                            <option key={t} value={t}>{t}</option>
+                          ))}
+                        </select>
                         <input
                           value={row.name}
                           onChange={e => changeName(idx, e.target.value)}
-                          maxLength={20}
+                          maxLength={40}
                           className="flex-1 text-xs border border-border rounded-md px-2 py-0.5 focus:outline-none focus:ring-1 focus:ring-brand-400 min-w-[80px]"
                         />
                       </div>

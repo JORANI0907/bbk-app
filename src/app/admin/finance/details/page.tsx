@@ -4,7 +4,8 @@ import { useState, useEffect, useCallback } from 'react'
 import toast from 'react-hot-toast'
 import { Button } from '@/components/ui'
 import ImportSheetModal from '@/components/admin/ImportSheetModal'
-import { BarChart2, Download } from 'lucide-react'
+import { BarChart2, Download, Save } from 'lucide-react'
+import { getExpenseTypes, UNCLASSIFIED, EXPENSE_TYPE_COLORS } from '@/lib/finance-types'
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface RevenueItem {
@@ -25,6 +26,7 @@ interface FinanceRecord {
   name: string
   amount: number
   note: string | null
+  group_name: string | null
 }
 
 interface FinanceData {
@@ -57,30 +59,41 @@ function Bar({ value, total, color }: { value: number; total: number; color: str
   )
 }
 
-// 항목별 구성: 1줄 stacked bar + legend (퍼센트 한눈에)
-const COMPOSITION_PALETTE = [
+// 항목별 구성: 매입 유형(group_name) 기준으로 합산 → 1줄 stacked bar + legend
+const FALLBACK_PALETTE = [
   '#6366f1', '#8b5cf6', '#ec4899', '#f43f5e', '#f97316',
   '#eab308', '#22c55e', '#10b981', '#14b8a6', '#06b6d4',
-  '#3b82f6', '#a855f7', '#d946ef', '#ef4444', '#84cc16',
 ]
 
-function StackedComposition({ records }: { records: { id: string; name: string; amount: number }[] }) {
+function StackedComposition({ records }: { records: { id: string; group_name: string | null; amount: number }[] }) {
   const total = records.reduce((s, r) => s + Number(r.amount), 0)
   if (total === 0 || records.length === 0) return null
-  const sorted = [...records].sort((a, b) => Number(b.amount) - Number(a.amount))
+
+  // group_name 기준 합산
+  const byGroup = new Map<string, number>()
+  for (const r of records) {
+    const key = r.group_name && r.group_name.trim() ? r.group_name : UNCLASSIFIED
+    byGroup.set(key, (byGroup.get(key) ?? 0) + Number(r.amount))
+  }
+  const grouped = Array.from(byGroup.entries())
+    .map(([group, amount], i) => ({
+      group,
+      amount,
+      color: EXPENSE_TYPE_COLORS[group] ?? FALLBACK_PALETTE[i % FALLBACK_PALETTE.length],
+    }))
+    .sort((a, b) => b.amount - a.amount)
 
   return (
     <div>
-      {/* Stacked bar — 한 줄에 모든 항목 비율 */}
+      {/* Stacked bar — 한 줄에 모든 유형 비율 */}
       <div className="flex h-7 rounded-md overflow-hidden bg-surface-sunken border border-border-subtle">
-        {sorted.map((r, i) => {
-          const pct = (Number(r.amount) / total) * 100
-          const color = COMPOSITION_PALETTE[i % COMPOSITION_PALETTE.length]
+        {grouped.map(g => {
+          const pct = (g.amount / total) * 100
           return (
             <div
-              key={r.id}
-              style={{ width: `${pct}%`, backgroundColor: color }}
-              title={`${r.name} · ${Number(r.amount).toLocaleString('ko-KR')}원 · ${pct.toFixed(1)}%`}
+              key={g.group}
+              style={{ width: `${pct}%`, backgroundColor: g.color }}
+              title={`${g.group} · ${g.amount.toLocaleString('ko-KR')}원 · ${pct.toFixed(1)}%`}
               className="hover:brightness-110 transition-all flex items-center justify-center text-white text-[10px] font-bold overflow-hidden"
             >
               {pct >= 8 && <span className="px-1 truncate">{pct.toFixed(0)}%</span>}
@@ -89,16 +102,15 @@ function StackedComposition({ records }: { records: { id: string; name: string; 
         })}
       </div>
 
-      {/* Legend — 색 · 이름 · 금액 · 퍼센트 */}
+      {/* Legend — 색 · 유형 · 금액 · 퍼센트 */}
       <div className="flex flex-wrap gap-x-3 gap-y-1 mt-2">
-        {sorted.map((r, i) => {
-          const pct = (Number(r.amount) / total) * 100
-          const color = COMPOSITION_PALETTE[i % COMPOSITION_PALETTE.length]
+        {grouped.map(g => {
+          const pct = (g.amount / total) * 100
           return (
-            <div key={r.id} className="flex items-center gap-1 text-[11px]">
-              <span style={{ backgroundColor: color }} className="w-2.5 h-2.5 rounded-sm shrink-0" />
-              <span className="text-text-secondary">{r.name}</span>
-              <span className="text-text-tertiary font-mono">{Number(r.amount).toLocaleString('ko-KR')}원</span>
+            <div key={g.group} className="flex items-center gap-1 text-[11px]">
+              <span style={{ backgroundColor: g.color }} className="w-2.5 h-2.5 rounded-sm shrink-0" />
+              <span className="text-text-secondary">{g.group}</span>
+              <span className="text-text-tertiary font-mono">{g.amount.toLocaleString('ko-KR')}원</span>
               <span className="text-text-tertiary">({pct.toFixed(1)}%)</span>
             </div>
           )
@@ -141,13 +153,16 @@ function AddItemForm({ onAdd }: { onAdd: (name: string, amount: string, note: st
 
 // ─── RecordRow ────────────────────────────────────────────────────────────────
 
-function RecordRow({ record, isSelected, onToggle, isEditing, onSave, onCancelEdit }: {
+function RecordRow({ record, isSelected, onToggle, isEditing, onSave, onCancelEdit, currentGroup, isDirtyGroup, onChangeGroup }: {
   record: FinanceRecord
   isSelected: boolean
   onToggle: (id: string) => void
   isEditing: boolean
   onSave: (id: string, name: string, amount: string, note: string) => Promise<void>
   onCancelEdit: () => void
+  currentGroup: string
+  isDirtyGroup: boolean
+  onChangeGroup: (id: string, group: string) => void
 }) {
   const [name, setName] = useState(record.name)
   const [amount, setAmount] = useState(String(record.amount))
@@ -185,6 +200,10 @@ function RecordRow({ record, isSelected, onToggle, isEditing, onSave, onCancelEd
     )
   }
 
+  const types = getExpenseTypes(record.category)
+  const groupColor = EXPENSE_TYPE_COLORS[currentGroup]
+  const isUnclassified = currentGroup === UNCLASSIFIED
+
   return (
     <div
       className={`flex items-center gap-2 py-2 border-b border-border-subtle last:border-0 cursor-pointer transition-colors ${isSelected ? 'bg-brand-50' : 'hover:bg-surface-sunken'}`}
@@ -197,8 +216,27 @@ function RecordRow({ record, isSelected, onToggle, isEditing, onSave, onCancelEd
         onClick={e => e.stopPropagation()}
         className="rounded flex-shrink-0 accent-brand-600"
       />
-      <span className="flex-1 text-sm text-text-primary">{record.name}</span>
+      <span className="flex-1 text-sm text-text-primary truncate">{record.name}</span>
       {record.note && <span className="text-xs text-text-tertiary truncate max-w-[80px]">{record.note}</span>}
+      <select
+        value={currentGroup}
+        onClick={e => e.stopPropagation()}
+        onChange={e => onChangeGroup(record.id, e.target.value)}
+        className={`text-[11px] px-1.5 py-0.5 rounded-md border font-medium max-w-[110px] shrink-0 ${
+          isDirtyGroup
+            ? 'border-amber-400 bg-amber-50 text-amber-800'
+            : isUnclassified
+              ? 'border-border bg-surface-sunken text-text-secondary'
+              : 'border-transparent'
+        }`}
+        style={!isUnclassified && !isDirtyGroup && groupColor
+          ? { backgroundColor: `${groupColor}15`, color: groupColor }
+          : undefined}
+      >
+        {types.map(t => (
+          <option key={t} value={t}>{t}</option>
+        ))}
+      </select>
       <span className="text-sm font-semibold text-text-primary font-mono whitespace-nowrap">{fmt(record.amount)}원</span>
     </div>
   )
@@ -223,6 +261,9 @@ export default function FinancePage() {
   const [showImportModal, setShowImportModal] = useState(false)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [editingId, setEditingId] = useState<string | null>(null)
+  // 유형 편집 로컬 state (id → group_name). 서버 값과 다른 항목만 저장 대상.
+  const [pendingGroups, setPendingGroups] = useState<Record<string, string>>({})
+  const [savingGroups, setSavingGroups] = useState<'fixed' | 'variable' | null>(null)
 
   const displayMonth = (() => {
     const [y, m] = month.split('-')
@@ -233,6 +274,7 @@ export default function FinancePage() {
     setLoading(true)
     setSelectedIds(new Set())
     setEditingId(null)
+    setPendingGroups({})
     try {
       const res = await fetch(`/api/admin/finance?month=${month}`)
       const json = await res.json()
@@ -314,6 +356,67 @@ export default function FinancePage() {
     } catch (e) {
       toast.error(e instanceof Error ? e.message : '수정 실패')
     }
+  }
+
+  // 유형 드롭다운 변경 (로컬 state 만 업데이트)
+  const handleChangeGroup = (id: string, group: string) => {
+    setPendingGroups(prev => ({ ...prev, [id]: group }))
+  }
+
+  // 특정 카테고리의 변경된 유형만 일괄 저장 → 저장된 매핑은 다음 임포트/추가 시 자동 적용됨
+  const handleSaveGroups = async (category: 'fixed' | 'variable') => {
+    if (!data) return
+    const records = category === 'fixed' ? data.fixed.records : data.variable.records
+    const updates = records
+      .filter(r => {
+        const pending = pendingGroups[r.id]
+        if (pending === undefined) return false
+        const current = r.group_name ?? UNCLASSIFIED
+        return pending !== current
+      })
+      .map(r => ({
+        id: r.id,
+        category,
+        name: r.name,
+        group_name: pendingGroups[r.id],
+      }))
+
+    if (updates.length === 0) {
+      toast('변경된 항목이 없습니다.', { icon: 'ℹ️' })
+      return
+    }
+
+    setSavingGroups(category)
+    try {
+      const res = await fetch('/api/admin/finance/bulk-group', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ updates }),
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error)
+      toast.success(`${updates.length}건 유형 저장되었습니다.`)
+      await fetchData()
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : '유형 저장 실패')
+    } finally {
+      setSavingGroups(null)
+    }
+  }
+
+  // 특정 record 의 표시 group (pending 이 있으면 그것, 없으면 서버 값, 그것도 없으면 미분류)
+  const getDisplayGroup = (r: FinanceRecord): string =>
+    pendingGroups[r.id] ?? r.group_name ?? UNCLASSIFIED
+  const isDirtyGroup = (r: FinanceRecord): boolean => {
+    const pending = pendingGroups[r.id]
+    if (pending === undefined) return false
+    return pending !== (r.group_name ?? UNCLASSIFIED)
+  }
+
+  const dirtyCount = (cat: 'fixed' | 'variable'): number => {
+    if (!data) return 0
+    const records = cat === 'fixed' ? data.fixed.records : data.variable.records
+    return records.filter(r => isDirtyGroup(r)).length
   }
 
   const downloadSheet = () => {
@@ -608,12 +711,29 @@ export default function FinancePage() {
                         onToggle={toggleSelect}
                         isEditing={editingId === r.id}
                         onSave={handleUpdateRecord}
-                        onCancelEdit={() => setEditingId(null)} />
+                        onCancelEdit={() => setEditingId(null)}
+                        currentGroup={getDisplayGroup(r)}
+                        isDirtyGroup={isDirtyGroup(r)}
+                        onChangeGroup={handleChangeGroup} />
                     ))}
                     {data.fixed.records.length === 0 && (
                       <p className="text-xs text-text-tertiary text-center py-3">항목 없음</p>
                     )}
                     <AddItemForm onAdd={(name, amount, note) => handleAddRecord('fixed', name, amount, note)} />
+                    {/* 유형 일괄 저장 — 저장된 매핑은 다음 임포트/추가 시 자동 적용 */}
+                    {data.fixed.records.length > 0 && (
+                      <div className="mt-3 pt-3 border-t border-border-subtle flex justify-end">
+                        <Button
+                          onClick={() => handleSaveGroups('fixed')}
+                          disabled={savingGroups === 'fixed' || dirtyCount('fixed') === 0}
+                          size="sm"
+                          className={dirtyCount('fixed') > 0 ? 'bg-indigo-600 hover:bg-indigo-700 text-white' : ''}
+                        >
+                          <Save size={13} className="inline mr-1" />
+                          {savingGroups === 'fixed' ? '저장 중...' : `유형 일괄 저장${dirtyCount('fixed') > 0 ? ` (${dirtyCount('fixed')}건)` : ''}`}
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 </div>
               )
@@ -685,12 +805,29 @@ export default function FinancePage() {
                         onToggle={toggleSelect}
                         isEditing={editingId === r.id}
                         onSave={handleUpdateRecord}
-                        onCancelEdit={() => setEditingId(null)} />
+                        onCancelEdit={() => setEditingId(null)}
+                        currentGroup={getDisplayGroup(r)}
+                        isDirtyGroup={isDirtyGroup(r)}
+                        onChangeGroup={handleChangeGroup} />
                     ))}
                     {data.variable.records.length === 0 && (
                       <p className="text-xs text-text-tertiary text-center py-3">항목 없음</p>
                     )}
                     <AddItemForm onAdd={(name, amount, note) => handleAddRecord('variable', name, amount, note)} />
+                    {/* 유형 일괄 저장 — 저장된 매핑은 다음 임포트/추가 시 자동 적용 */}
+                    {data.variable.records.length > 0 && (
+                      <div className="mt-3 pt-3 border-t border-border-subtle flex justify-end">
+                        <Button
+                          onClick={() => handleSaveGroups('variable')}
+                          disabled={savingGroups === 'variable' || dirtyCount('variable') === 0}
+                          size="sm"
+                          className={dirtyCount('variable') > 0 ? 'bg-purple-600 hover:bg-purple-700 text-white' : ''}
+                        >
+                          <Save size={13} className="inline mr-1" />
+                          {savingGroups === 'variable' ? '저장 중...' : `유형 일괄 저장${dirtyCount('variable') > 0 ? ` (${dirtyCount('variable')}건)` : ''}`}
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 </div>
               )

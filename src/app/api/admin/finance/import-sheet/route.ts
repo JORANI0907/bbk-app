@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import * as XLSX from 'xlsx'
 import Anthropic from '@anthropic-ai/sdk'
+import { createServiceClient } from '@/lib/supabase/server'
+import { UNCLASSIFIED } from '@/lib/finance-types'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -10,7 +12,8 @@ export interface ParsedRow {
   amount: number
   industry: string
   category: 'fixed' | 'variable'
-  name: string
+  name: string        // 가맹점명 그대로 (사용자가 원본 유지 요구)
+  group_name: string  // 매입 유형. 매핑 테이블 조회 결과 또는 '미분류'
   include: boolean
 }
 
@@ -104,24 +107,22 @@ function parseWorkbook(buffer: ArrayBuffer, fileName: string, usdRate: number): 
 
 // ─── AI Classifier ────────────────────────────────────────────────────────────
 
-const CLASSIFY_PROMPT = `당신은 법인 카드 사용 내역을 분류하는 회계 전문가입니다.
-아래 카드 사용 내역을 고정비 또는 변동비로 분류하고, 적절한 항목명을 제안해주세요.
+// 카드 내역의 category(고정비/변동비)만 AI 로 판정. 항목명은 원본 가맹점명 그대로 유지.
+// 매입 유형(group_name)은 매핑 테이블에서 조회하고, AI 는 여기 관여하지 않음.
+const CLASSIFY_PROMPT = `당신은 법인 카드 사용 내역을 고정비/변동비로 분류하는 회계 전문가입니다.
 
 분류 기준:
-- 고정비(fixed): 매월 일정하게 발생하는 비용 (임대료, 통신비, 보험료, 소프트웨어 구독, 인터넷, 전기가스 등)
+- 고정비(fixed): 매월 일정하게 발생하는 비용 (임대료, 통신비, 보험료, 소프트웨어 구독, 인터넷 등)
 - 변동비(variable): 월별로 변동하는 비용 (자재비, 소모품, 교통비, 식대, 주차, 쇼핑, 기타 등)
 
-항목명 작성 규칙:
-- 간결하고 명확하게 (최대 20자)
-- 가맹점명을 그대로 쓰지 말고 비용 성격을 설명
-- 예: "쿠팡비즈" → "자재비", "KT 통신" → "통신비", "이디야커피" → "업무 식대"
+각 항목을 fixed / variable 로만 분류. 항목명은 별도로 만들지 마세요.
 
 JSON 배열만 반환 (마크다운 코드블록 없이):
-[{"index":0,"category":"fixed","name":"항목명"},...]`
+[{"index":0,"category":"fixed"},...]`
 
-async function classifyWithAI(rawRows: RawRow[]): Promise<Array<{ category: 'fixed' | 'variable'; name: string }>> {
+async function classifyWithAI(rawRows: RawRow[]): Promise<Array<{ category: 'fixed' | 'variable' }>> {
   const apiKey = process.env.ANTHROPIC_API_KEY
-  if (!apiKey) return rawRows.map(r => ({ category: 'variable' as const, name: r.merchant.slice(0, 20) }))
+  if (!apiKey) return rawRows.map(() => ({ category: 'variable' as const }))
 
   const client = new Anthropic({ apiKey })
   const items = rawRows.map((r, i) => `${i}. 가맹점: ${r.merchant}${r.industry ? ` / 업종: ${r.industry}` : ''} / 금액: ${r.amount.toLocaleString()}원`)
@@ -134,17 +135,17 @@ async function classifyWithAI(rawRows: RawRow[]): Promise<Array<{ category: 'fix
     })
 
     const text = msg.content[0].type === 'text' ? msg.content[0].text.trim() : ''
-    const results = JSON.parse(text) as Array<{ index: number; category: 'fixed' | 'variable'; name: string }>
+    const results = JSON.parse(text) as Array<{ index: number; category: 'fixed' | 'variable' }>
 
-    const classified: Array<{ category: 'fixed' | 'variable'; name: string }> = rawRows.map(r => ({ category: 'variable' as const, name: r.merchant.slice(0, 20) }))
+    const classified: Array<{ category: 'fixed' | 'variable' }> = rawRows.map(() => ({ category: 'variable' as const }))
     for (const r of results) {
       if (r.index >= 0 && r.index < classified.length) {
-        classified[r.index] = { category: r.category, name: r.name.slice(0, 20) }
+        classified[r.index] = { category: r.category }
       }
     }
     return classified
   } catch {
-    return rawRows.map(r => ({ category: 'variable' as const, name: r.merchant.slice(0, 20) }))
+    return rawRows.map(() => ({ category: 'variable' as const }))
   }
 }
 
@@ -167,16 +168,33 @@ export async function POST(request: NextRequest) {
 
     if (rawRows.length === 0) return NextResponse.json({ error: '분석할 데이터가 없습니다.' }, { status: 400 })
 
-    // AI 분류 (최대 100건)
+    // AI 분류 (최대 100건) — category(고정비/변동비)만 결정
     const limited = rawRows.slice(0, 100)
     const classified = await classifyWithAI(limited)
 
-    const parsedRows: ParsedRow[] = limited.map((r, i) => ({
-      ...r,
-      category: classified[i].category,
-      name: classified[i].name,
-      include: true,
-    }))
+    // 매핑 테이블 조회 후 (category, name) 별 group_name 자동 세팅 — 매칭 없으면 미분류
+    const supabase = createServiceClient()
+    const { data: mappings } = await supabase
+      .from('finance_type_mappings')
+      .select('category, name, group_name')
+    const mappingKey = (cat: string, name: string) => `${cat}::${name}`
+    const mappingMap = new Map<string, string>()
+    for (const m of mappings ?? []) {
+      mappingMap.set(mappingKey(m.category, m.name), m.group_name)
+    }
+
+    const parsedRows: ParsedRow[] = limited.map((r, i) => {
+      const category = classified[i].category
+      const name = r.merchant // 원본 그대로
+      const group_name = mappingMap.get(mappingKey(category, name)) ?? UNCLASSIFIED
+      return {
+        ...r,
+        category,
+        name,
+        group_name,
+        include: true,
+      }
+    })
 
     return NextResponse.json({ rows: parsedRows, total: rawRows.length, usdRate })
   } catch (e) {

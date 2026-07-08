@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
+import { UNCLASSIFIED } from '@/lib/finance-types'
 
 // GET /api/admin/finance?month=YYYY-MM
 export async function GET(request: NextRequest) {
@@ -155,10 +156,11 @@ export async function GET(request: NextRequest) {
 }
 
 // POST /api/admin/finance — 고정비/변동비 항목 추가
+// group_name 이 body 에 있으면 그대로 사용, 없으면 매핑 테이블에서 조회, 매칭 없으면 '미분류'
 export async function POST(request: NextRequest) {
   const supabase = createServiceClient()
   const body = await request.json()
-  const { year_month, category, name, amount, note } = body
+  const { year_month, category, name, amount, note, group_name } = body
 
   if (!year_month || !category || !name) {
     return NextResponse.json({ error: 'year_month, category, name이 필요합니다.' }, { status: 400 })
@@ -167,9 +169,30 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'category는 fixed 또는 variable이어야 합니다.' }, { status: 400 })
   }
 
+  // group_name 결정: body 우선 → 매핑 테이블 조회 → 미분류
+  let resolvedGroup: string = UNCLASSIFIED
+  if (typeof group_name === 'string' && group_name.trim()) {
+    resolvedGroup = group_name
+  } else {
+    const { data: mapping } = await supabase
+      .from('finance_type_mappings')
+      .select('group_name')
+      .eq('category', category)
+      .eq('name', name)
+      .maybeSingle()
+    if (mapping?.group_name) resolvedGroup = mapping.group_name
+  }
+
   const { data, error } = await supabase
     .from('finance_records')
-    .insert({ year_month, category, name, amount: amount ?? 0, note: note ?? null })
+    .insert({
+      year_month,
+      category,
+      name,
+      amount: amount ?? 0,
+      note: note ?? null,
+      group_name: resolvedGroup,
+    })
     .select()
     .single()
 
@@ -177,11 +200,11 @@ export async function POST(request: NextRequest) {
   return NextResponse.json({ record: data }, { status: 201 })
 }
 
-// PATCH /api/admin/finance — 항목 수정
+// PATCH /api/admin/finance — 항목 수정 (name / amount / note / group_name)
 export async function PATCH(request: NextRequest) {
   const supabase = createServiceClient()
   const body = await request.json()
-  const { id, name, amount, note } = body
+  const { id, name, amount, note, group_name } = body
 
   if (!id) return NextResponse.json({ error: 'id가 필요합니다.' }, { status: 400 })
 
@@ -189,6 +212,7 @@ export async function PATCH(request: NextRequest) {
   if (name !== undefined) updates.name = name
   if (amount !== undefined) updates.amount = amount
   if (note !== undefined) updates.note = note
+  if (group_name !== undefined) updates.group_name = group_name
 
   const { data, error } = await supabase
     .from('finance_records')
