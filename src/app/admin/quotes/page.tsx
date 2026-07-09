@@ -44,6 +44,7 @@ interface CustomerInfo {
 }
 
 type PricingMode = 'itemized' | 'total' | 'supply'
+type DiscountMode = 'none' | 'rate' | 'amount'
 
 // ─── 상수 ────────────────────────────────────────────────────────
 
@@ -91,6 +92,11 @@ export default function QuotesPage() {
   const [pricingMode, setPricingMode]   = useState<PricingMode>('itemized')
   const [directAmount, setDirectAmount] = useState(0)
 
+  // 할인 (itemized·supply → 공급가액 기준 / total → 총액 기준)
+  const [discountMode, setDiscountMode]     = useState<DiscountMode>('none')
+  const [discountRate, setDiscountRate]     = useState<number>(0)
+  const [discountInput, setDiscountInput]   = useState<number>(0)
+
   // 견적 조건
   const [validDays, setValidDays]   = useState(5)
   const [notes, setNotes]           = useState('')
@@ -102,21 +108,58 @@ export default function QuotesPage() {
   const totalPages  = Math.max(1, Math.ceil(total / PAGE_SIZE))
 
   // ── 금액 계산 (모드별) ────────────────────────────────────────
-  const { supplyAmount, vatAmount, totalAmount } = (() => {
+  // 1) 할인 전 원가 (모드별)
+  const { origSupply, origVat, origTotal } = (() => {
     if (pricingMode === 'itemized') {
-      const supply = quoteItems.reduce((s, i) => s + i.subtotal, 0)
-      const vat    = Math.round(supply * 0.1)
-      return { supplyAmount: supply, vatAmount: vat, totalAmount: supply + vat }
+      const s = quoteItems.reduce((sum, i) => sum + i.subtotal, 0)
+      const v = Math.round(s * 0.1)
+      return { origSupply: s, origVat: v, origTotal: s + v }
     }
     if (pricingMode === 'total') {
-      const supply = Math.round(directAmount / 1.1)
-      const vat    = directAmount - supply
-      return { supplyAmount: supply, vatAmount: vat, totalAmount: directAmount }
+      const s = Math.round(directAmount / 1.1)
+      return { origSupply: s, origVat: directAmount - s, origTotal: directAmount }
     }
-    // supply mode
-    const vat = Math.round(directAmount * 0.1)
-    return { supplyAmount: directAmount, vatAmount: vat, totalAmount: directAmount + vat }
+    const v = Math.round(directAmount * 0.1)
+    return { origSupply: directAmount, origVat: v, origTotal: directAmount + v }
   })()
+
+  // 2) 할인 기준 금액 (itemized·supply 는 공급가액 / total 은 총액)
+  const discountBase = pricingMode === 'total' ? origTotal : origSupply
+
+  // 3) 사용자 입력 → 할인금액(원) 확정
+  const computedDiscountAmount = (() => {
+    if (discountMode === 'rate') {
+      const rate = Math.max(0, Math.min(100, discountRate))
+      return Math.min(Math.round((rate / 100) * discountBase), discountBase)
+    }
+    if (discountMode === 'amount') {
+      return Math.min(Math.max(0, Math.floor(discountInput)), discountBase)
+    }
+    return 0
+  })()
+
+  // 4) 최종 금액 (할인 반영)
+  const { supplyAmount, vatAmount, totalAmount } = (() => {
+    if (discountMode === 'none' || computedDiscountAmount === 0) {
+      return { supplyAmount: origSupply, vatAmount: origVat, totalAmount: origTotal }
+    }
+    if (pricingMode === 'total') {
+      // 총액에서 차감 → 공급/부가세 역산
+      const finalTotal = Math.max(0, origTotal - computedDiscountAmount)
+      const finalSupply = Math.round(finalTotal / 1.1)
+      const finalVat = finalTotal - finalSupply
+      return { supplyAmount: finalSupply, vatAmount: finalVat, totalAmount: finalTotal }
+    }
+    // 공급가액에서 차감 → 부가세 재계산
+    const finalSupply = Math.max(0, origSupply - computedDiscountAmount)
+    const finalVat = Math.round(finalSupply * 0.1)
+    return { supplyAmount: finalSupply, vatAmount: finalVat, totalAmount: finalSupply + finalVat }
+  })()
+
+  // 5) 표시용 할인률 (사용자가 amount 로 입력해도 % 표시가 가능하도록)
+  const effectiveDiscountRate = discountBase > 0
+    ? Math.round((computedDiscountAmount / discountBase) * 1000) / 10
+    : 0
 
   // ── DB에서 공급자 정보 불러오기 ───────────────────────────────
   useEffect(() => {
@@ -344,6 +387,12 @@ export default function QuotesPage() {
           supply_amount:     supplyAmount,
           vat:               vatAmount,
           total_amount:      totalAmount,
+          // 할인 정보 (할인 미적용이면 0/null)
+          discount_amount:     computedDiscountAmount,
+          discount_rate:       computedDiscountAmount > 0 ? effectiveDiscountRate : 0,
+          discount_base_label: pricingMode === 'total' ? '총액' : '공급가액',
+          orig_supply_amount:  origSupply,
+          orig_total_amount:   origTotal,
           valid_days:        validDays,
           notes:             notes || undefined,
           hide_item_prices:  pricingMode !== 'itemized',
@@ -713,7 +762,82 @@ export default function QuotesPage() {
             {/* ── 5. 금액 요약 + 발송 ──────────────────────── */}
             <Section className="border-brand-200">
               <SectionHeader title="최종 금액" />
+
+              {/* 할인 컨트롤 — itemized·supply 는 공급가액 기준, total 은 총액 기준 */}
+              <div className="mb-4 rounded-lg border border-border-subtle bg-surface-sunken/50 p-3">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-xs font-semibold text-text-primary">할인</span>
+                  <span className="text-[11px] text-text-tertiary">
+                    기준: {pricingMode === 'total' ? '총액' : '공급가액'} {fmtKr(discountBase)}원
+                  </span>
+                </div>
+                <div className="flex gap-1 bg-surface rounded-md p-0.5 border border-border-subtle mb-2">
+                  {(['none', 'rate', 'amount'] as DiscountMode[]).map(m => (
+                    <button
+                      key={m}
+                      type="button"
+                      onClick={() => setDiscountMode(m)}
+                      className={`flex-1 py-1 rounded text-[11px] font-semibold transition-colors ${
+                        discountMode === m ? 'bg-brand-600 text-white' : 'text-text-secondary hover:text-text-primary'
+                      }`}
+                    >
+                      {m === 'none' ? '없음' : m === 'rate' ? '할인률(%)' : '할인금액(원)'}
+                    </button>
+                  ))}
+                </div>
+                {discountMode === 'rate' && (
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="number"
+                      value={discountRate || ''}
+                      min={0}
+                      max={100}
+                      onChange={e => setDiscountRate(Math.max(0, Math.min(100, Number(e.target.value) || 0)))}
+                      className="w-24 text-right"
+                    />
+                    <span className="text-xs text-text-secondary">%</span>
+                    <span className="ml-auto text-xs text-text-tertiary tabular-nums">
+                      = -{fmtKr(computedDiscountAmount)}원
+                    </span>
+                  </div>
+                )}
+                {discountMode === 'amount' && (
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="number"
+                      value={discountInput || ''}
+                      min={0}
+                      max={discountBase}
+                      onChange={e => setDiscountInput(Math.max(0, Math.min(discountBase, Number(e.target.value) || 0)))}
+                      className="w-32 text-right"
+                    />
+                    <span className="text-xs text-text-secondary">원</span>
+                    <span className="ml-auto text-xs text-text-tertiary tabular-nums">
+                      ≈ {effectiveDiscountRate}%
+                    </span>
+                  </div>
+                )}
+              </div>
+
               <div className="space-y-2 mb-5">
+                {/* 할인 있을 때: 원가 → 할인 라인을 별도 표시 */}
+                {discountMode !== 'none' && computedDiscountAmount > 0 && (
+                  <>
+                    <div className="flex justify-between items-center text-sm">
+                      <span className="text-text-tertiary">
+                        {pricingMode === 'total' ? '합계 (할인 전)' : '공급가액 (할인 전)'}
+                      </span>
+                      <span className="tabular-nums text-text-tertiary line-through">
+                        {fmtKr(pricingMode === 'total' ? origTotal : origSupply)}원
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center text-sm">
+                      <span className="text-state-danger">할인 ({effectiveDiscountRate}%)</span>
+                      <span className="tabular-nums text-state-danger">-{fmtKr(computedDiscountAmount)}원</span>
+                    </div>
+                    <div className="h-px bg-border-subtle my-1" />
+                  </>
+                )}
                 <div className="flex justify-between items-center text-sm">
                   <span className="text-text-secondary">공급가액</span>
                   <span className="tabular-nums font-medium text-text-primary">{fmtKr(supplyAmount)}원</span>
