@@ -543,13 +543,40 @@ export async function POST(request: NextRequest) {
       if (userRow?.name) assignedUserName = userRow.name
     }
 
+    // 발송 대상 번호 결정 — 견적서와 동일 규칙:
+    // phone_notify_1 !== false 이면 메인 phone, phone_notify_2 !== false 이면 추가번호 phone_2
+    // 둘 다 활성인 경우 두 번호 모두에게 발송. 둘 다 비활성 or 번호 없음이면 발송 스킵.
     const phone = (app.phone ?? '').replace(/-/g, '')
-    if (!phone) return NextResponse.json({ error: '전화번호가 없습니다.' }, { status: 400 })
+    const phone2 = (String(app.phone_2 ?? '') || '').replace(/-/g, '')
+    const notify1 = app.phone_notify_1 !== false
+    const notify2 = app.phone_notify_2 !== false
+
+    const targets: string[] = []
+    if (notify1 && phone) targets.push(phone)
+    if (notify2 && phone2) targets.push(phone2)
+
+    if (targets.length === 0) {
+      return NextResponse.json({ error: '발송 가능한 전화번호가 없습니다.' }, { status: 400 })
+    }
 
     const variables = buildVariables(type, app as Record<string, unknown>, assignedUserName)
     const fallbackText = buildFallback(type, app as Record<string, unknown>)
 
-    await sendAlimtalk(phone, templateId, variables, fallbackText)
+    // 각 번호로 순차 발송. 하나 실패해도 나머지는 계속.
+    const sendErrors: string[] = []
+    for (const target of targets) {
+      try {
+        await sendAlimtalk(target, templateId, variables, fallbackText)
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e)
+        sendErrors.push(`${target}: ${msg}`)
+        console.error(`[notify] 알림톡 발송 실패 (${target}):`, msg)
+      }
+    }
+    if (sendErrors.length === targets.length) {
+      // 전체 실패 시에만 명시적 에러 반환
+      return NextResponse.json({ error: sendErrors.join(' / ') }, { status: 500 })
+    }
 
     // ── 발송 내용 Slack 보고 (notification_rules.notify_admin 토글 OFF면 건너뜀) ──
     const { data: ruleAdmin } = await supabase
@@ -563,10 +590,14 @@ export async function POST(request: NextRequest) {
       const varLines = Object.entries(variables)
         .map(([k, v]) => `  ${k}: ${v || '(빈값)'}`)
         .join('\n')
+      const targetSummary = targets.length > 1
+        ? `${targets.join(', ')} (${targets.length}건)`
+        : targets[0]
+      const sendErrorLine = sendErrors.length > 0 ? `\n⚠️ 일부 실패: ${sendErrors.join(' / ')}` : ''
       sendSlack([
         `📤 *알림 발송* | ${type}`,
-        `업체: ${String(app.business_name ?? '-')} / 고객: ${String(app.owner_name ?? '-')} (${phone})`,
-        `발송: ${method === 'manual' ? '수동' : '자동'} | 템플릿: ${templateId}`,
+        `업체: ${String(app.business_name ?? '-')} / 고객: ${String(app.owner_name ?? '-')} (${targetSummary})`,
+        `발송: ${method === 'manual' ? '수동' : '자동'} | 템플릿: ${templateId}${sendErrorLine}`,
         ``,
         `[적용 변수]`,
         varLines,
@@ -585,7 +616,9 @@ export async function POST(request: NextRequest) {
       ? (app.notification_log as NotificationLogEntry[])
       : []
 
-    const newEntry: NotificationLogEntry = { type, sent_at: nowIso, phone, method, template_id: templateId }
+    // 실제 발송된 번호(들)를 기록. 두 번호 발송 시 콤마 구분.
+    const sentPhoneRecord = targets.join(',')
+    const newEntry: NotificationLogEntry = { type, sent_at: nowIso, phone: sentPhoneRecord, method, template_id: templateId }
     const updatedLog = [newEntry, ...existingLog]
 
     const dbUpdates: Record<string, unknown> = { notification_log: updatedLog }
@@ -610,12 +643,12 @@ export async function POST(request: NextRequest) {
     await saveNotificationHistory({
       category: 'alimtalk',
       type,
-      body: `${type} 발송 완료 — ${app.owner_name ?? ''} (${phone})`,
+      body: `${type} 발송 완료 — ${app.owner_name ?? ''} (${sentPhoneRecord})`,
       title: type,
       method,
       recipientType: 'customer',
       recipientName: String(app.owner_name ?? ''),
-      recipientPhone: phone,
+      recipientPhone: sentPhoneRecord,
       metadata: { application_id, business_name: app.business_name ?? '' },
       status: 'sent',
     })
