@@ -47,6 +47,13 @@ function getLastPage(role: Role): string {
   return localStorage.getItem(`dev_last_page_${role}`) ?? ROLE_PORTAL[role]
 }
 
+interface DevUserOption {
+  id: string
+  name: string
+  phone: string
+  subtitle: string | null
+}
+
 // 내부 구현 — hooks를 여기에 모음
 function DevRoleSwitcherInner() {
   const [currentRole, setCurrentRole] = useState<Role | null>(null)
@@ -56,6 +63,11 @@ function DevRoleSwitcherInner() {
   const [loginPw, setLoginPw] = useState('')
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
+
+  // 계정 리스트 (targetRole 별)
+  const [userOptions, setUserOptions] = useState<DevUserOption[]>([])
+  const [userSearch, setUserSearch] = useState('')
+  const [loadingUsers, setLoadingUsers] = useState(false)
 
   const [isOwner, setIsOwner] = useState(false)
   const pathname = usePathname()
@@ -73,6 +85,21 @@ function DevRoleSwitcherInner() {
       })
       .catch(() => {})
   }, [])
+
+  // targetRole 이 세팅되면 그 role 의 계정 리스트 로드
+  useEffect(() => {
+    if (!targetRole) {
+      setUserOptions([])
+      setUserSearch('')
+      return
+    }
+    setLoadingUsers(true)
+    fetch(`/api/dev/users?role=${targetRole}`)
+      .then(r => r.json())
+      .then((d: { users?: DevUserOption[] }) => setUserOptions(d.users ?? []))
+      .catch(() => setUserOptions([]))
+      .finally(() => setLoadingUsers(false))
+  }, [targetRole])
 
   async function swap(userId: string, role: Role, name: string) {
     if (currentRole) saveLastPage(currentRole)
@@ -156,11 +183,58 @@ function DevRoleSwitcherInner() {
     // 모바일에서는 하단 네비바를 가리지 않도록 위로 띄우고, 데스크톱은 기존 위치 유지
     <div className="fixed bottom-24 right-4 md:bottom-4 z-[9999] flex flex-col items-end gap-2">
       {/* 미니 로그인 폼 */}
-      {targetRole && (
-        <div className="bg-gray-950 text-white rounded-xl p-4 w-56 shadow-2xl border border-gray-700">
-          <p className="text-[11px] font-bold text-yellow-400 mb-3">
+      {targetRole && (() => {
+        const q = userSearch.trim().toLowerCase()
+        const filteredUsers = q
+          ? userOptions.filter(u =>
+              u.name.toLowerCase().includes(q) ||
+              u.phone.toLowerCase().includes(q) ||
+              (u.subtitle ?? '').toLowerCase().includes(q),
+            )
+          : userOptions
+        return (
+        <div className="bg-gray-950 text-white rounded-xl p-4 w-64 shadow-2xl border border-gray-700">
+          <p className="text-[11px] font-bold text-yellow-400 mb-2">
             {ROLE_LABELS[targetRole]} 계정 로그인
           </p>
+
+          {/* 계정 검색 + 리스트 */}
+          <input
+            type="text"
+            value={userSearch}
+            onChange={e => setUserSearch(e.target.value)}
+            placeholder="이름·연락처·사업장 검색"
+            className="w-full bg-gray-800 text-white text-[11px] px-2.5 py-1.5 rounded-lg mb-1 focus:outline-none focus:ring-1 focus:ring-yellow-400 placeholder-gray-600"
+          />
+          <div className="max-h-32 overflow-y-auto rounded-lg border border-gray-800 bg-gray-900/60 mb-2">
+            {loadingUsers ? (
+              <p className="text-[10px] text-gray-500 px-2 py-2">불러오는 중...</p>
+            ) : filteredUsers.length === 0 ? (
+              <p className="text-[10px] text-gray-500 px-2 py-2">
+                {userOptions.length === 0 ? '계정이 없습니다.' : '검색 결과 없음'}
+              </p>
+            ) : (
+              filteredUsers.slice(0, 30).map(u => (
+                <button
+                  key={u.id}
+                  type="button"
+                  onClick={() => { setLoginPhone(u.phone); setUserSearch('') }}
+                  className={`w-full text-left px-2 py-1 hover:bg-gray-800 transition-colors border-b border-gray-800 last:border-0 ${
+                    loginPhone === u.phone ? 'bg-yellow-400/10' : ''
+                  }`}
+                >
+                  <div className="flex items-baseline gap-1.5">
+                    <span className="text-[11px] font-semibold text-white truncate">{u.name || '(이름없음)'}</span>
+                    <span className="text-[10px] text-gray-500 font-mono truncate">{u.phone}</span>
+                  </div>
+                  {u.subtitle && (
+                    <p className="text-[10px] text-gray-500 truncate">{u.subtitle}</p>
+                  )}
+                </button>
+              ))
+            )}
+          </div>
+
           <input
             type="text"
             value={loginPhone}
@@ -193,7 +267,8 @@ function DevRoleSwitcherInner() {
             </button>
           </div>
         </div>
-      )}
+        )
+      })()}
 
       {/* 메인 패널 */}
       {open && (
