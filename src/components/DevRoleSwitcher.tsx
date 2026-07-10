@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { usePathname } from 'next/navigation'
 
-type Role = 'admin' | 'worker' | 'customer'
+type Role = 'admin' | 'worker' | 'customer' | 'franchise_hq'
 
 interface StoredSession {
   userId: string
@@ -14,13 +14,17 @@ const ROLE_LABELS: Record<Role, string> = {
   admin: '관리자',
   worker: '직원',
   customer: '고객',
+  franchise_hq: '본사',
 }
 
 const ROLE_PORTAL: Record<Role, string> = {
   admin: '/admin',
   worker: '/admin',
   customer: '/customer',
+  franchise_hq: '/franchise',
 }
+
+const ALL_ROLES: Role[] = ['admin', 'worker', 'customer', 'franchise_hq']
 
 function getStored(role: Role): StoredSession | null {
   try {
@@ -55,7 +59,7 @@ function DevRoleSwitcherInner() {
 
   const [isOwner, setIsOwner] = useState(false)
   const pathname = usePathname()
-  const HOME_PATHS = ['/admin', '/worker', '/customer']
+  const HOME_PATHS = ['/admin', '/worker', '/customer', '/franchise']
   const isHomePage = HOME_PATHS.includes(pathname)
 
   useEffect(() => {
@@ -126,8 +130,18 @@ function DevRoleSwitcherInner() {
   }
 
   async function handleLogout() {
+    // 서버 세션 삭제 + 저장된 dev 세션도 함께 정리 (다음 로그인 시 새 자격증명 요구)
     await fetch('/api/auth/session', { method: 'DELETE' })
-    window.location.href = '/login'
+    const previousRole = currentRole
+    ALL_ROLES.forEach(r => localStorage.removeItem(`dev_session_${r}`))
+    setCurrentRole(null)
+    // 페이지 이동 없이 DEV 패널 안에서 로그인 폼을 바로 노출.
+    // 직전 role 이 있으면 그 채널로, 없으면 관리자를 기본 선택.
+    setTargetRole(previousRole ?? 'admin')
+    setLoginPhone('')
+    setLoginPw('')
+    setErr('')
+    setOpen(true)
   }
 
   function closePanel() {
@@ -139,7 +153,8 @@ function DevRoleSwitcherInner() {
   if (!isOwner || !isHomePage) return null
 
   return (
-    <div className="fixed bottom-4 right-4 z-[9999] flex flex-col items-end gap-2">
+    // 모바일에서는 하단 네비바를 가리지 않도록 위로 띄우고, 데스크톱은 기존 위치 유지
+    <div className="fixed bottom-24 right-4 md:bottom-4 z-[9999] flex flex-col items-end gap-2">
       {/* 미니 로그인 폼 */}
       {targetRole && (
         <div className="bg-gray-950 text-white rounded-xl p-4 w-56 shadow-2xl border border-gray-700">
@@ -182,15 +197,16 @@ function DevRoleSwitcherInner() {
 
       {/* 메인 패널 */}
       {open && (
-        <div className="bg-gray-950 text-white rounded-xl px-3 py-3 shadow-2xl border border-gray-700 flex flex-col gap-2 w-48">
-          <div className="flex gap-1">
-            {(['admin', 'worker', 'customer'] as Role[]).map(role => (
+        <div className="bg-gray-950 text-white rounded-xl px-3 py-3 shadow-2xl border border-gray-700 flex flex-col gap-2 w-56">
+          {/* 채널 4개 (관리자·직원·고객·본사) — 2x2 그리드로 배치 */}
+          <div className="grid grid-cols-2 gap-1">
+            {ALL_ROLES.map(role => (
               <button
                 key={role}
                 onClick={() => handleRoleClick(role)}
                 disabled={busy}
                 title={getStored(role) ? `저장됨: ${getStored(role)?.name}` : '로그인 필요'}
-                className={`flex-1 text-[11px] py-1.5 rounded-lg font-semibold transition-all disabled:opacity-50 ${
+                className={`text-[11px] py-1.5 rounded-lg font-semibold transition-all disabled:opacity-50 ${
                   currentRole === role
                     ? 'bg-yellow-400 text-black'
                     : getStored(role)

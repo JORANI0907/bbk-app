@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { getFranchiseSession } from '@/lib/session'
 import { createServiceClient } from '@/lib/supabase/server'
 import { FranchiseHeader } from '@/components/franchise/FranchiseHeader'
+import DevRoleSwitcher from '@/components/DevRoleSwitcher'
 
 export default async function FranchiseLayout({ children }: { children: React.ReactNode }) {
   const session = getFranchiseSession()
@@ -28,6 +29,7 @@ export default async function FranchiseLayout({ children }: { children: React.Re
           {children}
         </div>
       </main>
+      <DevRoleSwitcher />
     </div>
   )
 }
