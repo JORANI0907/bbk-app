@@ -122,13 +122,34 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     injectVars.CUSTOMER_STAMP = `<img src="${customerStamp}" style="display:block;max-width:100px;max-height:100px;object-fit:contain;" alt="고객사 직인" />`
   }
 
-  if (Object.keys(injectVars).length > 0) {
-    const updatedHtml = renderTemplateWithVars(currentHtml, injectVars)
-    await supabase
-      .from('contracts')
-      .update({ contract_snapshot: { html: updatedHtml } })
-      .eq('id', contract.id as string)
-  }
+  // 확약 사항 박스: 고객이 체크한 3개 항목(제8조, 제14조, 대표자 본인 확약) 을 계약서 본문 하단에 박제.
+  // 변조 방지를 위해 문구는 서버 상수로 고정. 서명일시·IP 도 함께 기록.
+  const agreementStatements = [
+    '제8조 (서비스 제공 장소 및 환경) 조항에 동의합니다.',
+    '제14조 (개인정보 보호) 조항에 동의합니다.',
+    '계약 대표자 본인이 직접 서명, 직인 하였습니다. (대표자가 아닌 경우 계약은 무효처리되며 모든 책임은 계약자 본인에게 있습니다)',
+  ]
+  const agreementBoxHtml = `
+<div style="margin-top:32px;padding:16px 18px;border:2px solid #e11d48;border-radius:8px;background:#fef2f2;page-break-inside:avoid;">
+  <p style="font-weight:bold;color:#e11d48;margin:0 0 6px;font-size:13px;">■ 고객 확약 사항</p>
+  <p style="font-size:11px;color:#6b7280;margin:0 0 10px;">아래 사항은 고객이 서명 시 모두 확인·동의한 내용이며, 계약의 일부로 편입됩니다.</p>
+  <ol style="margin:0 0 10px;padding-left:20px;font-size:12px;color:#111827;line-height:1.7;">
+    ${agreementStatements.map(s => `<li>${s.replace(/</g, '&lt;')}</li>`).join('')}
+  </ol>
+  <p style="font-size:10px;color:#6b7280;margin:0;border-top:1px dashed #fecaca;padding-top:8px;">
+    서명일시: ${now} · IP: ${clientIp}
+  </p>
+</div>`.trim()
+
+  const htmlAfterVars = Object.keys(injectVars).length > 0
+    ? renderTemplateWithVars(currentHtml, injectVars)
+    : currentHtml
+  const finalHtml = `${htmlAfterVars}\n${agreementBoxHtml}`
+
+  await supabase
+    .from('contracts')
+    .update({ contract_snapshot: { html: finalHtml } })
+    .eq('id', contract.id as string)
 
   // Slack 알림
   const customer = contract.customers as { business_name?: string; contact_name?: string } | null

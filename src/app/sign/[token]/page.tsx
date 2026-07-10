@@ -448,9 +448,9 @@ export default function SignContractPage() {
               />
             </div>
 
-            {/* 대리인 서약 안내 + 필수 체크박스 */}
+            {/* 계약 대표자 본인 확약 안내 + 필수 체크박스 */}
             <div className="border-t border-border-subtle pt-4">
-              <label className="flex items-start gap-3 cursor-pointer bg-surface-sunken/50 border border-border-subtle rounded-lg p-3">
+              <label className="flex items-start gap-3 cursor-pointer bg-state-danger-bg/40 border border-state-danger/30 rounded-lg p-3">
                 <input
                   type="checkbox"
                   checked={agentConsent}
@@ -458,7 +458,10 @@ export default function SignContractPage() {
                   className="mt-0.5 w-4 h-4 accent-brand-600 flex-shrink-0"
                 />
                 <span className="text-xs text-text-secondary leading-relaxed">
-                  <span className="font-medium text-text-primary">[필수]</span> 대리인에 의한 서명, 직인 사용을 위해 대리인 증명 서류를 서비스제공사에 제공하였습니다.
+                  <span className="font-medium text-text-primary">[필수]</span> 계약 대표자 본인이 직접 서명, 직인 하였습니다.
+                  <span className="block text-[11px] text-state-danger mt-0.5">
+                    (대표자가 아닌 경우 계약은 무효처리되며 모든 책임은 계약자 본인에게 있습니다)
+                  </span>
                 </span>
               </label>
             </div>
