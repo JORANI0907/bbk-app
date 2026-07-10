@@ -39,6 +39,7 @@ export default function QuotePage() {
   const [addressDetail, setAddressDetail]     = useState('')
   const [email, setEmail]                     = useState('')
   const [phone, setPhone]                     = useState('')
+  const [phone2, setPhone2]                   = useState('')
   const [constructionDate, setConstructionDate] = useState('')
   const [careScope, setCareScope]             = useState('')
   const [requestNotes, setRequestNotes]       = useState('')
@@ -86,6 +87,7 @@ export default function QuotePage() {
           ownerName,
           businessName,
           phone,
+          phone_2: phone2 || null,
           email,
           address: [address, addressDetail].filter(Boolean).join(' '),
           constructionDate: constructionDate || null,
@@ -284,6 +286,18 @@ export default function QuotePage() {
                   onChange={e => setPhone(e.target.value)}
                   autoComplete="tel"
                 />
+              </Field>
+              <Field label="알림수신 추가번호">
+                <input
+                  type="tel"
+                  className={inputCls()}
+                  placeholder="예) 010-1234-5678 (선택)"
+                  value={phone2}
+                  onChange={e => setPhone2(e.target.value)}
+                />
+                <p className="text-[11px] text-slate-500 mt-1">
+                  연락처로 서비스 관련 알림과 결과물이 전송됩니다.
+                </p>
               </Field>
               <Field label="이메일" error={errors.email}>
                 <input

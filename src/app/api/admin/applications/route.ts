@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
 
   const ALLOWED_POST = [
     // 일반정보
-    'owner_name', 'business_name', 'phone', 'email',
+    'owner_name', 'business_name', 'phone', 'phone_2', 'phone_notify_1', 'phone_notify_2', 'email',
     'platform_nickname', 'business_number', 'account_number',
     // 작업장정보
     'address',
@@ -107,7 +107,7 @@ export async function PATCH(request: NextRequest) {
 
   const ALLOWED = [
     // 일반정보
-    'owner_name', 'business_name', 'phone', 'email',
+    'owner_name', 'business_name', 'phone', 'phone_2', 'phone_notify_1', 'phone_notify_2', 'email',
     'platform_nickname', 'business_number', 'account_number',
     // 작업장정보
     'address',

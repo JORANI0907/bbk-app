@@ -64,7 +64,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
 
     const {
-      timestamp, ownerName, platformNickname, phone, address,
+      timestamp, ownerName, platformNickname, phone, phone_2, address,
       businessName, businessNumber, email, emailId, emailDomain,
       businessHoursStart, businessHoursEnd,
       elevator, buildingAccess, accessMethod, parking,
@@ -73,6 +73,8 @@ export async function POST(request: NextRequest) {
       constructionDate, careScope,
       source,
     } = body
+
+    const normalizedPhone2 = (typeof phone_2 === 'string' && phone_2.trim()) ? phone_2.trim() : null
 
     if (!ownerName || !businessName || !address) {
       return NextResponse.json(
@@ -114,6 +116,7 @@ export async function POST(request: NextRequest) {
           owner_name: ownerName,
           platform_nickname: platformNickname,
           phone,
+          phone_2: normalizedPhone2,
           email,
           business_name: businessName,
           business_number: businessNumber,

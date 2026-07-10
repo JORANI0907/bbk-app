@@ -18,6 +18,9 @@ interface ApplicationRow {
   owner_name: string
   business_name: string
   phone: string
+  phone_2: string | null
+  phone_notify_1: boolean | null
+  phone_notify_2: boolean | null
   email: string | null
   address: string
   construction_date: string | null
@@ -40,6 +43,9 @@ interface CompanyInfo {
 
 interface CustomerInfo {
   owner_name: string; business_name: string; phone: string
+  phone_2: string
+  phone_notify_1: boolean
+  phone_notify_2: boolean
   email: string; address: string; construction_date: string
 }
 
@@ -84,7 +90,9 @@ export default function QuotesPage() {
 
   // 고객
   const [customerInfo, setCustomerInfo] = useState<CustomerInfo>({
-    owner_name: '', business_name: '', phone: '', email: '', address: '', construction_date: '',
+    owner_name: '', business_name: '', phone: '', phone_2: '',
+    phone_notify_1: true, phone_notify_2: true,
+    email: '', address: '', construction_date: '',
   })
 
   // 견적 항목 & 금액 모드
@@ -280,6 +288,9 @@ export default function QuotesPage() {
       owner_name:        app.owner_name        || '',
       business_name:     app.business_name     || '',
       phone:             app.phone             || '',
+      phone_2:           app.phone_2           || '',
+      phone_notify_1:    app.phone_notify_1 !== false,   // 기본 true
+      phone_notify_2:    app.phone_notify_2 !== false,   // 기본 true
       email:             app.email             || '',
       address:           app.address           || '',
       construction_date: app.construction_date || '',
@@ -380,6 +391,9 @@ export default function QuotesPage() {
           owner_name:        customerInfo.owner_name,
           business_name:     customerInfo.business_name,
           phone:             customerInfo.phone,
+          phone_2:           customerInfo.phone_2 || null,
+          phone_notify_1:    customerInfo.phone_notify_1,
+          phone_notify_2:    customerInfo.phone_notify_2,
           email:             customerInfo.email,
           address:           customerInfo.address,
           construction_date: customerInfo.construction_date,
@@ -585,7 +599,37 @@ export default function QuotesPage() {
                   <Input value={customerInfo.business_name} onChange={e => setCustomerInfo(p => ({ ...p, business_name: e.target.value }))} />
                 </FieldGroup>
                 <FieldGroup label="연락처">
-                  <Input value={customerInfo.phone} onChange={e => setCustomerInfo(p => ({ ...p, phone: e.target.value }))} />
+                  <div className="flex items-center gap-2">
+                    <label className="flex items-center gap-1 text-[11px] text-text-tertiary shrink-0 cursor-pointer" title="발송 대상 포함 여부">
+                      <input
+                        type="checkbox"
+                        checked={customerInfo.phone_notify_1}
+                        onChange={e => setCustomerInfo(p => ({ ...p, phone_notify_1: e.target.checked }))}
+                        className="accent-brand-600"
+                      />
+                      발송
+                    </label>
+                    <Input value={customerInfo.phone} onChange={e => setCustomerInfo(p => ({ ...p, phone: e.target.value }))} />
+                  </div>
+                </FieldGroup>
+                <FieldGroup label="알림수신 추가번호">
+                  <div className="flex items-center gap-2">
+                    <label className="flex items-center gap-1 text-[11px] text-text-tertiary shrink-0 cursor-pointer" title="발송 대상 포함 여부">
+                      <input
+                        type="checkbox"
+                        checked={customerInfo.phone_notify_2}
+                        onChange={e => setCustomerInfo(p => ({ ...p, phone_notify_2: e.target.checked }))}
+                        disabled={!customerInfo.phone_2?.trim()}
+                        className="accent-brand-600 disabled:opacity-40"
+                      />
+                      발송
+                    </label>
+                    <Input
+                      value={customerInfo.phone_2}
+                      onChange={e => setCustomerInfo(p => ({ ...p, phone_2: e.target.value }))}
+                      placeholder="선택"
+                    />
+                  </div>
                 </FieldGroup>
                 <FieldGroup label="이메일">
                   <Input value={customerInfo.email} onChange={e => setCustomerInfo(p => ({ ...p, email: e.target.value }))} />

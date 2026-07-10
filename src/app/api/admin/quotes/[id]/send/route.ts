@@ -38,6 +38,9 @@ interface QuoteSendBody {
   owner_name: string
   business_name: string
   phone: string
+  phone_2?: string | null      // 알림수신 추가번호
+  phone_notify_1?: boolean     // 메인 연락처 발송 여부 (기본 true)
+  phone_notify_2?: boolean     // 추가번호 발송 여부 (기본 true)
   email: string
   address: string
   construction_date: string
@@ -80,12 +83,17 @@ export async function POST(
   const body: QuoteSendBody = await req.json()
   const {
     company_name, company_ceo, company_biz_no, company_phone, company_address,
-    owner_name, business_name, phone, email, address,
+    owner_name, business_name, phone, phone_2, phone_notify_1, phone_notify_2,
+    email, address,
     construction_date, quote_items, supply_amount, vat, total_amount,
     discount_amount, discount_rate, discount_base_label,
     orig_supply_amount, orig_total_amount,
     valid_days, notes, hide_item_prices, seal_image_url,
   } = body
+
+  const notify1 = phone_notify_1 !== false     // 기본 true
+  const notify2 = phone_notify_2 !== false     // 기본 true
+  const p2 = (typeof phone_2 === 'string' && phone_2.trim()) ? phone_2.trim() : null
 
   const todayStr      = new Date().toISOString().slice(0, 10)
   const validUntilStr = addDays(todayStr, valid_days ?? 5)
@@ -233,24 +241,31 @@ export async function POST(
   }
 
   // ── 4. 카카오 알림톡 ────────────────────────────────────────
-  try {
-    await sendAlimtalk(
-      phone,
-      QUOTE_KAKAO_TEMPLATE_ID,
-      {
-        '고객명':     owner_name        || '',
-        '업체명':     business_name     || '',
-        '견적서번호': quoteNo,
-        '시공일자':   construction_date || '',
-        '총액':       `${fmtKr(total_amount || 0)}원`,
-        '유효기간':   validUntilStr,
-        '견적서링크': pdfUrl || '',
-      },
-      `[BBK 공간케어] 견적서가 발송되었습니다. 견적서 번호: ${quoteNo}`,
-    )
-  } catch (e) {
-    softErrors.kakao = e instanceof Error ? e.message : String(e)
-    console.error('카카오 알림톡 발송 실패 (non-critical):', softErrors.kakao)
+  // 메인 연락처(phone) + 알림수신 추가번호(phone_2) 두 곳으로 조건부 발송.
+  // PDF 문서 자체에는 메인 연락처만 표시(변경 없음). 알림 발송 대상만 확장.
+  const targets: string[] = []
+  if (notify1 && phone) targets.push(phone)
+  if (notify2 && p2) targets.push(p2)
+
+  const kakaoVars = {
+    '고객명':     owner_name        || '',
+    '업체명':     business_name     || '',
+    '견적서번호': quoteNo,
+    '시공일자':   construction_date || '',
+    '총액':       `${fmtKr(total_amount || 0)}원`,
+    '유효기간':   validUntilStr,
+    '견적서링크': pdfUrl || '',
+  }
+  const fallbackText = `[BBK 공간케어] 견적서가 발송되었습니다. 견적서 번호: ${quoteNo}`
+
+  for (const target of targets) {
+    try {
+      await sendAlimtalk(target, QUOTE_KAKAO_TEMPLATE_ID, kakaoVars, fallbackText)
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e)
+      softErrors.kakao = softErrors.kakao ? `${softErrors.kakao} / ${target}: ${msg}` : `${target}: ${msg}`
+      console.error(`카카오 알림톡 발송 실패 (${target}, non-critical):`, msg)
+    }
   }
 
   // ── 5. DB 저장 (quote_log 누적) ──────────────────────────────
@@ -278,6 +293,10 @@ export async function POST(
         last_quote_pdf_url: pdfUrl || null,
         quote_items,
         quote_log: [...existingLog, newEntry],
+        // 관리자가 견적서 발송 화면에서 조작한 알림 설정을 함께 저장
+        phone_2: p2,
+        phone_notify_1: notify1,
+        phone_notify_2: notify2,
       })
       .eq('id', id)
   } catch (e) {

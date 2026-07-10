@@ -6,7 +6,7 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
 
-    const { owner_name, business_name, phone, address, service_type, care_scope, request_notes, email } = body
+    const { owner_name, business_name, phone, phone_2, address, service_type, care_scope, request_notes, email } = body
 
     if (!owner_name || !phone || !address || !service_type) {
       return NextResponse.json({ error: '이름, 연락처, 주소, 서비스 유형은 필수입니다.' }, { status: 400 })
@@ -24,6 +24,7 @@ export async function POST(request: NextRequest) {
         owner_name,
         business_name: resolvedBusinessName,
         phone,
+        phone_2: (typeof phone_2 === 'string' && phone_2.trim()) ? phone_2.trim() : null,
         address,
         email: email || null,
         service_type,

@@ -894,6 +894,13 @@
           <div id="phoneVerified" style="display:none; margin-top:8px; font-size:13px; color:var(--success); font-weight:600;">✅ 연락처 인증 완료</div>
         </div>
 
+        <!-- 알림수신 추가번호 (선택) -->
+        <div class="form-group">
+          <label class="form-label">알림수신 추가번호</label>
+          <div class="form-hint">연락처로 서비스 관련 알림과 결과물이 전송됩니다.</div>
+          <input type="tel" class="form-input" id="phone2" placeholder="010-0000-0000 (선택)">
+        </div>
+
         <!-- 이메일 (기본정보 섹션으로 이동) -->
         <div class="form-group">
           <label class="form-label">이메일 (계산서 발행용)<span class="required">*</span></label>
@@ -1441,6 +1448,7 @@
         timestamp: timestamp,
         ownerName: document.getElementById('ownerName').value.trim(),
         phone: document.getElementById('phone').value.trim(),
+        phone_2: (document.getElementById('phone2') && document.getElementById('phone2').value.trim()) || null,
         address: [document.getElementById('address').value.trim(), document.getElementById('addressDetail').value.trim()].filter(Boolean).join(' '),
         businessName: document.getElementById('businessName').value.trim(),
         businessNumber: document.getElementById('noBizNumber').value === 'true' ? '사업자등록 전' : document.getElementById('businessNumber').value.trim().replace(/-/g,''),

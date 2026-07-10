@@ -22,6 +22,7 @@ export default function DeepcaredPage() {
     business_name: '',
     owner_name: '',
     phone: '',
+    phone_2: '',
     address: '',
     email: '',
     request_notes: '',
@@ -168,6 +169,21 @@ export default function DeepcaredPage() {
               placeholder="010-0000-0000"
               className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400 focus:border-transparent"
             />
+          </div>
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+              알림수신 추가번호 <span className="text-gray-400 text-xs">(선택)</span>
+            </label>
+            <input
+              type="tel"
+              value={form.phone_2}
+              onChange={e => setField('phone_2', e.target.value)}
+              placeholder="010-0000-0000"
+              className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400 focus:border-transparent"
+            />
+            <p className="text-[11px] text-gray-500 mt-1">
+              연락처로 서비스 관련 알림과 결과물이 전송됩니다.
+            </p>
           </div>
           <div>
             <label className="block text-sm font-semibold text-gray-700 mb-1.5">
