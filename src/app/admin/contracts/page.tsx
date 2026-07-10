@@ -210,19 +210,19 @@ export default function AdminContractsPage() {
   })
 
   const handleCustomerSelect = (customer: CustomerOption) => {
+    // 계약 주기(billing_cycle)에 해당하는 필드만 자동 채움.
+    // billing_amount 는 VAT 포함 총액이므로 /1.1 로 공급가액만 산출.
     const isAnnual = customer.billing_cycle === '연간'
-    const monthly = customer.billing_amount
-      ? isAnnual ? Math.round(customer.billing_amount / 12) : customer.billing_amount
-      : null
-    const annual = customer.billing_amount
-      ? isAnnual ? customer.billing_amount : customer.billing_amount * 12
-      : null
+    const isMonthly = customer.billing_cycle === '월간'
+    const toSupply = (n: number | null): number | null =>
+      (n != null && n > 0) ? Math.round(n / 1.1) : null
+    const supply = toSupply(customer.billing_amount)
 
     setFormData((prev) => ({
       ...prev,
       customer_id: customer.id,
-      monthly_price: monthly ? String(monthly) : '',
-      annual_price: annual ? String(annual) : '',
+      monthly_price: isMonthly && supply ? String(supply) : '',
+      annual_price: isAnnual && supply ? String(supply) : '',
       contract_start_date: customer.contract_start_date ?? '',
       contract_end_date: customer.contract_end_date ?? '',
       customer_phone: customer.contact_phone ?? '',
