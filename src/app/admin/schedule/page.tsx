@@ -19,6 +19,9 @@ interface Application {
   business_name: string
   owner_name: string
   phone: string
+  phone_2: string | null
+  phone_notify_1: boolean | null
+  phone_notify_2: boolean | null
   email: string | null
   address: string | null
   status: string
@@ -428,11 +431,19 @@ function DetailPanel({
               <Row label="연락처" value={
                 app.phone ? (
                   <div className="flex items-center gap-1 justify-end">
-                    <span>{app.phone}</span>
+                    <span className={app.phone_notify_1 === false ? 'text-text-tertiary line-through' : ''}>{app.phone}</span>
                     <a href={`tel:${app.phone}`} className="px-1.5 py-0.5 bg-brand-100 text-brand-600 rounded text-xs hover:bg-brand-200"><Phone size={14} /></a>
                   </div>
                 ) : null
               } />
+              {app.phone_2 && (
+                <Row label="추가번호" value={
+                  <div className="flex items-center gap-1 justify-end">
+                    <span className={app.phone_notify_2 === false ? 'text-text-tertiary line-through' : ''}>{app.phone_2}</span>
+                    <a href={`tel:${app.phone_2}`} className="px-1.5 py-0.5 bg-brand-100 text-brand-600 rounded text-xs hover:bg-brand-200"><Phone size={14} /></a>
+                  </div>
+                } />
+              )}
               {app.email && <Row label="이메일" value={app.email} />}
               <Row label="주소" value={
                 app.address ? (

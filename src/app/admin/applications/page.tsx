@@ -36,6 +36,9 @@ interface Application {
   owner_name: string
   platform_nickname: string | null
   phone: string
+  phone_2: string | null
+  phone_notify_1: boolean | null
+  phone_notify_2: boolean | null
   email: string | null
   business_name: string
   business_number: string | null
@@ -577,6 +580,9 @@ export default function ServiceManagementPage() {
   const [vat, setVat] = useState('')
   const [paymentMethod, setPaymentMethod] = useState('')
   const [phone, setPhone] = useState('')
+  const [phone2, setPhone2] = useState('')
+  const [phoneNotify1, setPhoneNotify1] = useState(true)
+  const [phoneNotify2, setPhoneNotify2] = useState(true)
   const [email, setEmail] = useState('')
   const [address, setAddress] = useState('')
   const [businessNumber, setBusinessNumber] = useState('')
@@ -695,6 +701,9 @@ export default function ServiceManagementPage() {
     setVat(String(app.vat ?? ''))
     setPaymentMethod(app.payment_method ?? '')
     setPhone(app.phone ?? '')
+    setPhone2(app.phone_2 ?? '')
+    setPhoneNotify1(app.phone_notify_1 !== false)
+    setPhoneNotify2(app.phone_notify_2 !== false)
     setEmail(app.email ?? '')
     setAddress(app.address ?? '')
     setBusinessNumber(app.business_number ?? '')
@@ -1056,6 +1065,9 @@ export default function ServiceManagementPage() {
           balance: computedBalance,
           payment_method: paymentMethod || null,
           phone: phone || null,
+          phone_2: phone2 || null,
+          phone_notify_1: phoneNotify1,
+          phone_notify_2: phoneNotify2,
           email: email || null,
           address: address || null,
           business_number: businessNumber || null,
@@ -2013,11 +2025,41 @@ export default function ServiceManagementPage() {
                   <EditRow label="업체명" value={businessNameEdit} onChange={setBusinessNameEdit} />
                   <div className="flex items-center gap-2">
                     <span className="text-xs text-text-secondary w-20 shrink-0">연락처</span>
-                    <div className="flex flex-1 gap-1">
+                    <div className="flex flex-1 gap-1 items-center">
+                      <label className="flex items-center gap-1 text-[11px] text-text-tertiary shrink-0 cursor-pointer" title="견적서 발송 대상 포함 여부">
+                        <input
+                          type="checkbox"
+                          checked={phoneNotify1}
+                          onChange={e => setPhoneNotify1(e.target.checked)}
+                          className="accent-brand-600"
+                        />
+                        발송
+                      </label>
                       <input value={phone} onChange={e => setPhone(e.target.value)}
                         className="flex-1 border border-border rounded-lg px-2 py-1.5 text-xs text-text-primary focus:outline-none focus:ring-2 focus:ring-blue-500" />
                       <a href={`tel:${phone}`} className="px-2 py-1.5 text-xs bg-brand-50 text-brand-600 rounded-lg hover:bg-brand-100"><Phone size={14} /></a>
                       <button onClick={() => copyText(phone, '연락처')} className="px-2 py-1.5 text-xs bg-surface-sunken rounded-lg hover:bg-surface-sunken"><ClipboardList size={14} /></button>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-text-secondary w-20 shrink-0">추가번호</span>
+                    <div className="flex flex-1 gap-1 items-center">
+                      <label className="flex items-center gap-1 text-[11px] text-text-tertiary shrink-0 cursor-pointer" title="견적서 발송 대상 포함 여부">
+                        <input
+                          type="checkbox"
+                          checked={phoneNotify2}
+                          onChange={e => setPhoneNotify2(e.target.checked)}
+                          disabled={!phone2.trim()}
+                          className="accent-brand-600 disabled:opacity-40"
+                        />
+                        발송
+                      </label>
+                      <input value={phone2} onChange={e => setPhone2(e.target.value)}
+                        placeholder="알림수신 추가번호 (선택)"
+                        className="flex-1 border border-border rounded-lg px-2 py-1.5 text-xs text-text-primary focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                      {phone2 && (
+                        <a href={`tel:${phone2}`} className="px-2 py-1.5 text-xs bg-brand-50 text-brand-600 rounded-lg hover:bg-brand-100"><Phone size={14} /></a>
+                      )}
                     </div>
                   </div>
                   <EditRow label="이메일" value={email} onChange={setEmail} />

@@ -22,6 +22,7 @@ interface Customer {
   business_name: string
   contact_name: string
   contact_phone: string
+  contact_phone_2: string | null
   email: string | null
   address: string
   address_detail: string | null
@@ -121,7 +122,7 @@ const DISPOSITION_STYLE: Record<string, { badge: string; label: string }> = {
 }
 
 const EMPTY_FORM = {
-  business_name: '', contact_name: '', contact_phone: '', email: '',
+  business_name: '', contact_name: '', contact_phone: '', contact_phone_2: '', email: '',
   address: '', address_detail: '', business_number: '', account_number: '',
   platform_nickname: '', payment_method: '',
   elevator: '', building_access: '', access_method: '',
@@ -437,6 +438,7 @@ export default function AdminCustomersPage() {
     business_name: c.business_name ?? '',
     contact_name: c.contact_name ?? '',
     contact_phone: c.contact_phone ?? '',
+    contact_phone_2: c.contact_phone_2 ?? '',
     email: c.email ?? '',
     address: c.address ?? '',
     address_detail: c.address_detail ?? '',
@@ -532,6 +534,7 @@ export default function AdminCustomersPage() {
     business_name: form.business_name.trim(),
     contact_name: form.contact_name || null,
     contact_phone: form.contact_phone || null,
+    contact_phone_2: form.contact_phone_2 || null,
     email: form.email || null,
     address: form.address || null,
     address_detail: form.address_detail || null,
@@ -1333,6 +1336,17 @@ export default function AdminCustomersPage() {
                       className="flex-1 border border-border rounded-lg px-2 py-1.5 text-xs text-text-primary focus:outline-none focus:ring-2 focus:ring-blue-500" />
                     <a href={`tel:${form.contact_phone}`} className="px-2 py-1.5 text-xs bg-brand-50 text-brand-600 rounded-lg hover:bg-brand-100"><Phone size={14} /></a>
                     <button onClick={() => navigator.clipboard.writeText(form.contact_phone).then(() => toast.success('연락처 복사됨'))} className="px-2 py-1.5 text-xs bg-surface-sunken rounded-lg hover:bg-surface-sunken"><ClipboardList size={14} /></button>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-text-secondary w-20 shrink-0">추가번호</span>
+                  <div className="flex flex-1 gap-1">
+                    <input value={form.contact_phone_2} onChange={e => set('contact_phone_2')(e.target.value)}
+                      placeholder="알림수신 추가번호 (선택)"
+                      className="flex-1 border border-border rounded-lg px-2 py-1.5 text-xs text-text-primary focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                    {form.contact_phone_2 && (
+                      <a href={`tel:${form.contact_phone_2}`} className="px-2 py-1.5 text-xs bg-brand-50 text-brand-600 rounded-lg hover:bg-brand-100"><Phone size={14} /></a>
+                    )}
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
