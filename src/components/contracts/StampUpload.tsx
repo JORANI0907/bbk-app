@@ -4,7 +4,7 @@ import { useRef, useState } from 'react'
 import { compressImageToDataUrl } from '@/lib/compressImage'
 
 interface StampUploadProps {
-  label: string
+  label: React.ReactNode
   hint?: string
   value: string | null
   onChange: (dataUrl: string | null) => void

@@ -40,7 +40,8 @@ export default function SignContractPage() {
   const [showModal, setShowModal] = useState(false)
   const [modalStep, setModalStep] = useState<ModalStep>('signature')
   const [signerName, setSignerName] = useState('') // 성명 손글씨 data URL
-  const [customerStamp, setCustomerStamp] = useState<string | null>(null) // 고객사 직인
+  const [customerStamp, setCustomerStamp] = useState<string | null>(null) // 고객사 직인 (필수)
+  const [agentConsent, setAgentConsent] = useState(false) // 대리인 서약 체크
   const [sigError, setSigError] = useState('')
   const sigPadRef = useRef<SignaturePadHandle | null>(null)
   const signerNamePadRef = useRef<SignaturePadHandle | null>(null)
@@ -112,6 +113,7 @@ export default function SignContractPage() {
     setModalStep('signature')
     setSignerName('')
     setCustomerStamp(null)
+    setAgentConsent(false)
     setSigError('')
     setSignatureDataUrl('')
     setOtpError('')
@@ -129,6 +131,14 @@ export default function SignContractPage() {
     }
     if (hasCustomerSignature && (!sigPadRef.current || sigPadRef.current.isEmpty())) {
       setSigError('서명란에 서명을 그려주세요.')
+      return
+    }
+    if (!customerStamp) {
+      setSigError('고객사 직인 이미지를 첨부해주세요.')
+      return
+    }
+    if (!agentConsent) {
+      setSigError('대리인 서약 안내를 확인하고 체크박스에 동의해주세요.')
       return
     }
     setSigError('')
@@ -431,11 +441,26 @@ export default function SignContractPage() {
 
             <div className={hasSignerName || hasCustomerSignature ? 'border-t border-border-subtle pt-4' : ''}>
               <StampUpload
-                label="고객사 직인 (선택)"
-                hint="직인 이미지를 첨부할 수 있습니다. 이미지는 자동으로 2MB 이하로 압축됩니다."
+                label={<>고객사 직인 <span className="text-state-danger">*</span></>}
+                hint="직인 이미지를 첨부해주세요. 이미지는 자동으로 2MB 이하로 압축됩니다."
                 value={customerStamp}
                 onChange={setCustomerStamp}
               />
+            </div>
+
+            {/* 대리인 서약 안내 + 필수 체크박스 */}
+            <div className="border-t border-border-subtle pt-4">
+              <label className="flex items-start gap-3 cursor-pointer bg-surface-sunken/50 border border-border-subtle rounded-lg p-3">
+                <input
+                  type="checkbox"
+                  checked={agentConsent}
+                  onChange={(e) => setAgentConsent(e.target.checked)}
+                  className="mt-0.5 w-4 h-4 accent-brand-600 flex-shrink-0"
+                />
+                <span className="text-xs text-text-secondary leading-relaxed">
+                  <span className="font-medium text-text-primary">[필수]</span> 대리인에 의한 서명, 직인 사용을 위해 대리인 증명 서류를 서비스제공사에 제공하였습니다.
+                </span>
+              </label>
             </div>
 
             {sigError && (
@@ -443,9 +468,19 @@ export default function SignContractPage() {
                 {sigError}
               </p>
             )}
-            <Button className="w-full" size="lg" onClick={handleNextToOtp}>
+            <Button
+              className="w-full"
+              size="lg"
+              onClick={handleNextToOtp}
+              disabled={!customerStamp || !agentConsent}
+            >
               다음 — 본인 인증
             </Button>
+            {(!customerStamp || !agentConsent) && (
+              <p className="text-[11px] text-text-tertiary text-center mt-1">
+                {!customerStamp ? '직인 이미지를 첨부' : '대리인 서약 안내에 동의'}해야 다음 단계로 넘어갈 수 있습니다.
+              </p>
+            )}
           </div>
         ) : (
           <div className="space-y-4 pt-1">
