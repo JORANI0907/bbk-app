@@ -36,6 +36,9 @@ export default function WorkerCard({
   const [paying, setPaying] = useState(false)
   const [jobSalaryEdits, setJobSalaryEdits] = useState<Record<string, string>>({})
   const [savingJob, setSavingJob] = useState<string | null>(null)
+  // salary_basis 낙관적 상태 — 뱃지 클릭 시 즉시 반영
+  const [salaryBasis, setSalaryBasis] = useState<'세전' | '세후'>(entry.person.salary_basis ?? '세전')
+  const [savingBasis, setSavingBasis] = useState(false)
 
   const isPaid = entry.record?.is_paid ?? false
   const finalAmount = entry.record?.final_amount ?? entry.auto_amount
@@ -103,6 +106,29 @@ export default function WorkerCard({
       toast.error(err instanceof Error ? err.message : '처리 실패')
     } finally {
       setPaying(false)
+    }
+  }
+
+  // 세전 ↔ 세후 토글 (workers 테이블에 저장)
+  const handleToggleSalaryBasis = async () => {
+    if (savingBasis) return
+    const next: '세전' | '세후' = salaryBasis === '세전' ? '세후' : '세전'
+    const prev = salaryBasis
+    setSalaryBasis(next)  // 낙관적 업데이트
+    setSavingBasis(true)
+    try {
+      const res = await fetch('/api/admin/workers', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: entry.person.id, salary_basis: next }),
+      })
+      if (!res.ok) throw new Error('저장 실패')
+      toast.success(`급여 기준: ${next}`)
+    } catch (err) {
+      setSalaryBasis(prev)  // 롤백
+      toast.error(err instanceof Error ? err.message : '저장 실패')
+    } finally {
+      setSavingBasis(false)
     }
   }
 
@@ -177,6 +203,19 @@ export default function WorkerCard({
                   {payslips.length}
                 </span>
               )}
+              {/* 세전/세후 토글 뱃지 — 클릭 시 workers 테이블에 즉시 저장 */}
+              <button
+                onClick={e => { e.stopPropagation(); handleToggleSalaryBasis() }}
+                disabled={savingBasis}
+                title="클릭하여 세전 ↔ 세후 변경 (급여명세서 발행 시 반영)"
+                className={`text-xs px-2 py-0.5 rounded-full border font-semibold transition-colors disabled:opacity-50 ${
+                  salaryBasis === '세후'
+                    ? 'bg-violet-50 text-violet-700 border-violet-200 hover:bg-violet-100'
+                    : 'bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200'
+                }`}
+              >
+                {savingBasis ? '...' : salaryBasis}
+              </button>
             </div>
             <p className="text-xs text-text-tertiary mt-0.5">{workDays}일 출근 · {entry.jobs.length}건 · 자동 {fmt(entry.auto_amount)}</p>
             {(entry.person.phone || entry.person.account_number) && (

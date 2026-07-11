@@ -61,7 +61,7 @@ export async function GET(request: NextRequest) {
     // 작업자 목록 (workers 테이블)
     supabase
       .from('workers')
-      .select('id, name, employment_type, day_wage, night_wage, avg_salary, phone, account_number')
+      .select('id, name, employment_type, day_wage, night_wage, avg_salary, phone, account_number, tax_type, salary_basis, user_id')
       .order('name'),
 
     // 기존 급여 정산 기록
@@ -126,6 +126,12 @@ export async function GET(request: NextRequest) {
   const workers = workersRes.data ?? []
   const records = recordsRes.data ?? []
 
+  // user_id → workers 매핑 (담당자로 노출되는 직원의 세금/급여기준 조회용)
+  const workerByUserId = new Map<string, typeof workers[number]>()
+  for (const w of workers) {
+    if (w.user_id) workerByUserId.set(w.user_id, w)
+  }
+
   // 월별 단가 맵: application_id → unit_price
   const monthlyPriceMap = new Map<string, number>(
     (monthlyPricesRes.data ?? []).map(p => [p.application_id, p.unit_price])
@@ -149,8 +155,16 @@ export async function GET(request: NextRequest) {
     if (!user) continue
 
     if (!managerMap.has(app.assigned_to)) {
+      const linkedWorker = workerByUserId.get(app.assigned_to)
+      // 담당자의 세금/급여 기준은 workers 매핑에서 가져옴 (linkedWorker.id도 함께 넘겨 카드에서 편집 가능)
+      const personWithTax = {
+        ...user,
+        tax_type: linkedWorker?.tax_type ?? null,
+        salary_basis: linkedWorker?.salary_basis ?? null,
+        worker_id: linkedWorker?.id ?? null,
+      }
       managerMap.set(app.assigned_to, {
-        person: user,
+        person: personWithTax,
         jobs: [],
         auto_amount: 0,
         record: recordMap.get(`user:${app.assigned_to}`),

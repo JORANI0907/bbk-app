@@ -37,6 +37,7 @@ export interface PayslipData {
     joinDate: string | null
     employmentType: string | null
     taxType: '4대보험' | '프리랜서3.3%' | '없음'
+    salaryBasis: '세전' | '세후'
     accountNumber: string | null
     phone: string | null
     email: string | null
@@ -51,8 +52,10 @@ export interface PayslipData {
   jobs: PayslipJob[]
   gross: {
     autoAmount: number
+    bookedAmount: number
     finalAmount: number
     isAdjusted: boolean
+    isNetBasis: boolean
     note: string | null
     isPaid: boolean
   }
@@ -200,7 +203,7 @@ export function PayslipPDFDocument({ data }: { data: PayslipData }) {
           <View style={s.headerRight}>
             <Text style={s.headerText}>발행일: {issueDate}</Text>
             {data.payDate && <Text style={s.headerText}>지급일: {data.payDate}</Text>}
-            <Text style={s.headerText}>급여유형: {p.taxType}</Text>
+            <Text style={s.headerText}>급여유형: {p.taxType} · {p.salaryBasis}</Text>
           </View>
         </View>
 
@@ -228,7 +231,17 @@ export function PayslipPDFDocument({ data }: { data: PayslipData }) {
             <Text style={[s.amountHeaderCell, { flex: 1, textAlign: 'right', borderRight: undefined }]}>금액</Text>
           </View>
           <AmountLine label="기 본 급" value={data.gross.finalAmount} />
-          {data.gross.isAdjusted && (
+          {data.gross.isNetBasis && (
+            <View style={s.amountRow}>
+              <View style={s.amountLabelCell}>
+                <Text style={{ color: '#888', fontSize: 7.5 }}>
+                  (책정된 실지급 {won(data.gross.bookedAmount)} 기준 총 지급액 역산)
+                </Text>
+              </View>
+              <View style={s.amountValueCell}><Text> </Text></View>
+            </View>
+          )}
+          {data.gross.isAdjusted && !data.gross.isNetBasis && (
             <View style={s.amountRow}>
               <View style={s.amountLabelCell}>
                 <Text style={{ color: '#888', fontSize: 7.5 }}>

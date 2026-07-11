@@ -204,6 +204,7 @@ export default function WorkerDetail({ worker, onWorkerUpdated, onWorkerDeleted 
     contract_signed: worker.contract_signed ?? '',
     bank_copy_submitted: worker.bank_copy_submitted ?? '',
     tax_type: worker.tax_type ?? '',
+    salary_basis: worker.salary_basis ?? '세전',
   })
 
   useEffect(() => {
@@ -239,6 +240,7 @@ export default function WorkerDetail({ worker, onWorkerUpdated, onWorkerDeleted 
       contract_signed: worker.contract_signed ?? '',
       bank_copy_submitted: worker.bank_copy_submitted ?? '',
       tax_type: worker.tax_type ?? '',
+      salary_basis: worker.salary_basis ?? '세전',
     })
     setPrivacyExpanded(false)
     setWorkHistory(parseHistory(worker.work_history))
@@ -284,6 +286,7 @@ export default function WorkerDetail({ worker, onWorkerUpdated, onWorkerDeleted 
         contract_signed: form.contract_signed || null,
         bank_copy_submitted: form.bank_copy_submitted || null,
         tax_type: form.tax_type || null,
+        salary_basis: form.salary_basis || '세전',
       }
 
       const isPartTime = form.employment_type !== '정직원'
@@ -376,6 +379,7 @@ export default function WorkerDetail({ worker, onWorkerUpdated, onWorkerDeleted 
         contract_signed: form.contract_signed || null,
         bank_copy_submitted: form.bank_copy_submitted || null,
         tax_type: (form.tax_type || null) as Worker['tax_type'],
+        salary_basis: (form.salary_basis || '세전') as Worker['salary_basis'],
       }
 
       const elem = createElement(WorkerPDFDocument, { worker: workerForPDF, sections }) as ReactElement<DocumentProps>
@@ -516,6 +520,12 @@ export default function WorkerDetail({ worker, onWorkerUpdated, onWorkerDeleted 
               value={form.tax_type}
               options={['4대보험', '프리랜서3.3%', '없음']}
               onChange={setField('tax_type')}
+            />
+            <SelectField
+              label="급여 기준"
+              value={form.salary_basis}
+              options={['세전', '세후']}
+              onChange={setField('salary_basis')}
             />
             <Field label="계좌번호" value={form.account_number} onChange={setField('account_number')} mono placeholder="은행명 + 계좌번호" />
             {isPartTime ? (

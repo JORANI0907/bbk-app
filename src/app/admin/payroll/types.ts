@@ -33,7 +33,17 @@ export interface PayrollRecord {
 }
 
 export interface ManagerEntry {
-  person: { id: string; name: string; role: string; phone: string | null; account_number: string | null }
+  person: {
+    id: string
+    name: string
+    role: string
+    phone: string | null
+    account_number: string | null
+    // workers 매핑을 통한 세금/급여기준 (매핑 없으면 null)
+    tax_type: '4대보험' | '프리랜서3.3%' | '없음' | null
+    salary_basis: '세전' | '세후' | null
+    worker_id: string | null  // 편집 대상 workers row (담당자가 workers에 매핑된 경우)
+  }
   jobs: ManagerJob[]
   auto_amount: number
   record: PayrollRecord | undefined
@@ -49,6 +59,8 @@ export interface WorkerEntry {
     avg_salary: number | null
     phone: string | null
     account_number: string | null
+    tax_type: '4대보험' | '프리랜서3.3%' | '없음' | null
+    salary_basis: '세전' | '세후' | null
   }
   jobs: WorkerJob[]
   auto_amount: number

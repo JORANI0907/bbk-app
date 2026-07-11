@@ -36,6 +36,9 @@ export default function ManagerCard({
   const [paying, setPaying] = useState(false)
   const [jobPayEdits, setJobPayEdits] = useState<Record<string, string>>({})
   const [savingJob, setSavingJob] = useState<string | null>(null)
+  // salary_basis: 담당자는 workers 매핑이 있어야 편집 가능 (worker_id로 PATCH)
+  const [salaryBasis, setSalaryBasis] = useState<'세전' | '세후'>(entry.person.salary_basis ?? '세전')
+  const [savingBasis, setSavingBasis] = useState(false)
 
   const isPaid = entry.record?.is_paid ?? false
   const finalAmount = entry.record?.final_amount ?? entry.auto_amount
@@ -108,6 +111,29 @@ export default function ManagerCard({
     }
   }
 
+  // 세전 ↔ 세후 토글 (workers 매핑이 있을 때만 편집 가능)
+  const handleToggleSalaryBasis = async () => {
+    if (savingBasis || !entry.person.worker_id) return
+    const next: '세전' | '세후' = salaryBasis === '세전' ? '세후' : '세전'
+    const prev = salaryBasis
+    setSalaryBasis(next)
+    setSavingBasis(true)
+    try {
+      const res = await fetch('/api/admin/workers', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: entry.person.worker_id, salary_basis: next }),
+      })
+      if (!res.ok) throw new Error('저장 실패')
+      toast.success(`급여 기준: ${next}`)
+    } catch (err) {
+      setSalaryBasis(prev)
+      toast.error(err instanceof Error ? err.message : '저장 실패')
+    } finally {
+      setSavingBasis(false)
+    }
+  }
+
   const handleJobPaySave = async (job: ManagerJob) => {
     const val = jobPayEdits[job.id]
     if (val === undefined) return
@@ -176,6 +202,25 @@ export default function ManagerCard({
                   {payslips.length}
                 </span>
               )}
+              {/* 세전/세후 뱃지 — workers 매핑이 있을 때만 편집 가능, 없으면 안내 툴팁 */}
+              <button
+                onClick={e => { e.stopPropagation(); handleToggleSalaryBasis() }}
+                disabled={savingBasis || !entry.person.worker_id}
+                title={
+                  !entry.person.worker_id
+                    ? '이 담당자는 직원(workers)에 매핑되지 않아 편집할 수 없습니다.'
+                    : '클릭하여 세전 ↔ 세후 변경'
+                }
+                className={`text-xs px-2 py-0.5 rounded-full border font-semibold transition-colors disabled:cursor-not-allowed ${
+                  !entry.person.worker_id
+                    ? 'bg-gray-50 text-gray-400 border-gray-200'
+                    : salaryBasis === '세후'
+                      ? 'bg-violet-50 text-violet-700 border-violet-200 hover:bg-violet-100'
+                      : 'bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200'
+                } ${savingBasis ? 'opacity-50' : ''}`}
+              >
+                {savingBasis ? '...' : salaryBasis}
+              </button>
             </div>
             <p className="text-xs text-text-tertiary mt-0.5">{workDays}일 출근 · {entry.jobs.length}건 · 자동 {fmt(entry.auto_amount)}</p>
             {(entry.person.phone || entry.person.account_number) && (

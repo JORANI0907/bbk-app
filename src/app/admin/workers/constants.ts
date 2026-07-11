@@ -67,6 +67,7 @@ export interface Worker {
   contract_signed: string | null
   bank_copy_submitted: string | null
   tax_type: '4대보험' | '프리랜서3.3%' | '없음' | null
+  salary_basis: '세전' | '세후' | null
   created_at: string
   user_id: string | null
 }

@@ -10,6 +10,7 @@ import { createServiceClient } from '@/lib/supabase/server'
  */
 
 type TaxType = '4대보험' | '프리랜서3.3%' | '없음'
+type SalaryBasis = '세전' | '세후'
 
 // 2026년 기준 4대보험 근로자 부담 요율 (표준)
 const RATE_NATIONAL_PENSION = 0.045      // 국민연금 4.5%
@@ -36,6 +37,28 @@ function maskResidentNumber(rrn: string | null | undefined): string {
   const cleaned = rrn.replace(/-/g, '')
   if (cleaned.length < 7) return '-'
   return `${cleaned.slice(0, 6)}-${cleaned[6]}******`
+}
+
+/**
+ * 세후 방식일 때, 책정된 net 금액으로부터 총 지급액(gross)을 역산.
+ * - 프리랜서3.3%: gross = net / (1 - 0.033)
+ * - 4대보험: gross = (net + incomeTax * (1 + 0.1)) / (1 - 0.09404)
+ *   0.09404 = 국민연금(4.5%) + 건강보험(3.545%) + 장기요양(건강*12.95%) + 고용보험(0.9%)
+ * - 없음: gross = net
+ */
+function reverseGrossFromNet(net: number, taxType: TaxType, incomeTax: number): number {
+  if (taxType === '프리랜서3.3%') {
+    return Math.round(net / (1 - RATE_FREELANCE_TAX - RATE_FREELANCE_RESIDENT))
+  }
+  if (taxType === '4대보험') {
+    const totalGrossRate =
+      RATE_NATIONAL_PENSION +
+      RATE_HEALTH_INSURANCE +
+      RATE_HEALTH_INSURANCE * RATE_LONGTERM_CARE +
+      RATE_EMPLOYMENT
+    return Math.round((net + incomeTax * (1 + RATE_RESIDENT_TAX)) / (1 - totalGrossRate))
+  }
+  return net
 }
 
 function calculateDeductions(gross: number, taxType: TaxType, incomeTax: number) {
@@ -120,6 +143,7 @@ export async function POST(req: NextRequest) {
       id: string
       name: string
       taxType: TaxType
+      salaryBasis: SalaryBasis
       accountNumber: string | null
       residentNumberMasked: string
       department: string | null
@@ -144,10 +168,9 @@ export async function POST(req: NextRequest) {
       }
 
       // users → workers 매핑이 있으면 workers의 상세 정보를 우선 사용
-      // (김백준처럼 담당자로도 활동하는 직원의 tax_type 등 인사정보를 workers에서 관리)
       const { data: linkedWorker } = await supabase
         .from('workers')
-        .select('tax_type, employment_type, department, position, job_title, join_date, birth_date, home_address, personal_id, resident_number')
+        .select('tax_type, salary_basis, employment_type, department, position, job_title, join_date, birth_date, home_address, personal_id, resident_number')
         .eq('user_id', personId)
         .maybeSingle()
 
@@ -156,8 +179,8 @@ export async function POST(req: NextRequest) {
       person = {
         id: data.id,
         name: data.name,
-        // workers.tax_type 우선 → 없으면 기본 '4대보험'
         taxType: (linkedWorker?.tax_type as TaxType) ?? '4대보험',
+        salaryBasis: (linkedWorker?.salary_basis as SalaryBasis) ?? '세전',
         accountNumber: data.account_number,
         residentNumberMasked: maskResidentNumber(rrn),
         department: linkedWorker?.department ?? null,
@@ -172,18 +195,18 @@ export async function POST(req: NextRequest) {
     } else {
       const { data, error } = await supabase
         .from('workers')
-        .select('id, name, tax_type, employment_type, phone, email, account_number, resident_number, personal_id, birth_date, department, position, job_title, join_date, home_address')
+        .select('id, name, tax_type, salary_basis, employment_type, phone, email, account_number, resident_number, personal_id, birth_date, department, position, job_title, join_date, home_address')
         .eq('id', personId)
         .single()
       if (error || !data) {
         return NextResponse.json({ error: '작업자를 찾을 수 없습니다.' }, { status: 404 })
       }
-      // resident_number 또는 personal_id 중 존재하는 값 사용
       const rrn = data.resident_number ?? data.personal_id
       person = {
         id: data.id,
         name: data.name,
         taxType: (data.tax_type as TaxType) ?? '없음',
+        salaryBasis: (data.salary_basis as SalaryBasis) ?? '세전',
         accountNumber: data.account_number,
         residentNumberMasked: maskResidentNumber(rrn),
         department: data.department,
@@ -257,12 +280,19 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // 최종 지급액이 조정된 경우 우선 사용
-    const finalGross = recordRow?.final_amount ?? gross
+    // 책정된 금액 (자동 계산 or 관리자가 조정한 최종 금액)
+    const bookedAmount = recordRow?.final_amount ?? gross
     const workDays = new Set(jobs.map(j => j.date)).size
 
-    const deductions = calculateDeductions(finalGross, person.taxType, incomeTax)
-    const netPay = finalGross - deductions.total
+    // 세후 방식이면 책정 금액을 net으로 간주 → gross 역산
+    // 세전 방식이면 책정 금액을 gross로 그대로 사용
+    const isNetBasis = person.salaryBasis === '세후'
+    const computedGross = isNetBasis
+      ? reverseGrossFromNet(bookedAmount, person.taxType, incomeTax)
+      : bookedAmount
+
+    const deductions = calculateDeductions(computedGross, person.taxType, incomeTax)
+    const netPay = computedGross - deductions.total
 
     return NextResponse.json({
       success: true,
@@ -281,6 +311,7 @@ export async function POST(req: NextRequest) {
           joinDate: person.joinDate,
           employmentType: person.employmentType,
           taxType: person.taxType,
+          salaryBasis: person.salaryBasis,
           accountNumber: person.accountNumber,
           phone: person.phone,
           email: person.email,
@@ -295,8 +326,12 @@ export async function POST(req: NextRequest) {
         jobs,
         gross: {
           autoAmount: gross,
-          finalAmount: finalGross,
+          // 관리자가 급여정산 카드에서 책정한 금액 (세전이면 gross, 세후면 net)
+          bookedAmount,
+          // 실제 계산된 총 지급액 (세후일 때 역산됨)
+          finalAmount: computedGross,
           isAdjusted: recordRow?.final_amount != null && recordRow.final_amount !== gross,
+          isNetBasis,
           note: recordRow?.note ?? null,
           isPaid: recordRow?.is_paid ?? false,
         },

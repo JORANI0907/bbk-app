@@ -10,7 +10,7 @@ const ALLOWED_COLUMNS = [
   'photo_url', 'birth_date', 'gender', 'blood_type', 'work_history',
   'safety_edu_status', 'safety_edu_date', 'health_cert_status', 'health_cert_date',
   'nationality', 'certifications', 'contract_signed', 'bank_copy_submitted',
-  'tax_type',
+  'tax_type', 'salary_basis',
 ]
 
 export async function GET(request: NextRequest) {
