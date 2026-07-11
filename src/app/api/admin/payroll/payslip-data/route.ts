@@ -284,15 +284,26 @@ export async function POST(req: NextRequest) {
     const bookedAmount = recordRow?.final_amount ?? gross
     const workDays = new Set(jobs.map(j => j.date)).size
 
-    // 세후 방식이면 책정 금액을 net으로 간주 → gross 역산
+    // 세후 방식이면 책정 금액을 실지급액으로 정확히 고정, 총 지급액은 (실지급 + 공제)로 역산
     // 세전 방식이면 책정 금액을 gross로 그대로 사용
     const isNetBasis = person.salaryBasis === '세후'
-    const computedGross = isNetBasis
-      ? reverseGrossFromNet(bookedAmount, person.taxType, incomeTax)
-      : bookedAmount
+    let computedGross: number
+    let deductions: ReturnType<typeof calculateDeductions>
+    let netPay: number
 
-    const deductions = calculateDeductions(computedGross, person.taxType, incomeTax)
-    const netPay = computedGross - deductions.total
+    if (isNetBasis) {
+      // 1) 근사 gross → 근사 공제 (표준 요율 십원 절사)
+      const approxGross = reverseGrossFromNet(bookedAmount, person.taxType, incomeTax)
+      const approxDeductions = calculateDeductions(approxGross, person.taxType, incomeTax)
+      // 2) 실지급을 bookedAmount로 정확히 맞추기 위해 gross를 (실지급 + 공제)로 고정
+      computedGross = bookedAmount + approxDeductions.total
+      deductions = approxDeductions
+      netPay = bookedAmount  // 사용자가 책정한 금액과 정확히 일치
+    } else {
+      computedGross = bookedAmount
+      deductions = calculateDeductions(computedGross, person.taxType, incomeTax)
+      netPay = computedGross - deductions.total
+    }
 
     return NextResponse.json({
       success: true,
