@@ -345,6 +345,8 @@ export default function AdminCustomersPage() {
     tax_invoice_issued: boolean | null
     tax_invoice_issued_date: string | null
   }>>({})
+  // BillingSummary/리스트 뱃지 재조회 트리거 — 편집 폼에서 청구 변경 시 증가
+  const [billingRefreshKey, setBillingRefreshKey] = useState(0)
   const [loading, setLoading] = useState(true)
   const [selectedTypes, setSelectedTypes] = useState<Set<CustomerType>>(new Set(['정기엔드케어']))
   const [search, setSearch] = useState('')
@@ -426,13 +428,18 @@ export default function AdminCustomersPage() {
     }
   }, [customers, searchParams, selected, router])
 
-  useEffect(() => {
-    fetchAll()
-    // 리스트 미리보기용 최신 청구 배치 조회
+  // 리스트 미리보기 청구 뱃지 갱신 — 편집 폼에서 청구 변경 시 부모가 호출
+  const refetchLatestBillings = useCallback(() => {
     fetch('/api/admin/billings/latest')
       .then(r => r.json())
       .then(d => setLatestBillings(d.latest ?? {}))
       .catch(() => setLatestBillings({}))
+    setBillingRefreshKey(k => k + 1)
+  }, [])
+
+  useEffect(() => {
+    fetchAll()
+    refetchLatestBillings()
     fetch('/api/auth/me').then(r => r.json()).then(d => {
       if (d.user) {
         setCurrentRole(d.user.role ?? 'admin')
@@ -1891,6 +1898,7 @@ export default function AdminCustomersPage() {
                 customerType={form.customer_type}
                 billingCycle={form.billing_cycle}
                 paymentMethod={form.payment_method || null}
+                refreshKey={billingRefreshKey}
               />
             )}
 
@@ -1911,6 +1919,7 @@ export default function AdminCustomersPage() {
                 paymentDay={form.payment_date ? Number(form.payment_date) : null}
                 contractStartDate={form.contract_start_date || null}
                 contractEndDate={form.contract_end_date || null}
+                onChange={refetchLatestBillings}
               />
             )}
 

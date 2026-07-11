@@ -23,6 +23,7 @@ interface Props {
   customerType: string        // '정기딥케어' | '정기엔드케어'
   billingCycle: string        // '월간' | '연간'
   paymentMethod: string | null
+  refreshKey?: number         // 부모가 증가시키면 재조회
 }
 
 const fmtDate = (d: string | null | undefined) => d ? d.slice(0, 10).replace(/-/g, '.') : '-'
@@ -48,7 +49,7 @@ function pickTargetRecord(records: BillingRecord[], isAnnual: boolean): BillingR
   )
 }
 
-export function BillingSummary({ customerId, customerType, billingCycle, paymentMethod }: Props) {
+export function BillingSummary({ customerId, customerType, billingCycle, paymentMethod, refreshKey }: Props) {
   const [records, setRecords] = useState<BillingRecord[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -68,7 +69,8 @@ export function BillingSummary({ customerId, customerType, billingCycle, payment
     }
   }, [customerId])
 
-  useEffect(() => { fetch_() }, [fetch_])
+  // customerId 변경 시 + refreshKey 변경 시 재조회
+  useEffect(() => { fetch_() }, [fetch_, refreshKey])
 
   if (!isAnnual && !isEndCare) return null
 

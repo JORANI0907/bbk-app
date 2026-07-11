@@ -27,6 +27,7 @@ interface Props {
   paymentDay: number | null   // 매월 결제일 (정기엔드케어)
   contractStartDate: string | null
   contractEndDate: string | null
+  onChange?: () => void       // 결제/계산서/삭제/생성 등 상태 변경 후 호출 — 부모가 리스트 뱃지 갱신
 }
 
 const STATUS_STYLE: Record<BillingRecord['status'], { badge: string; label: string }> = {
@@ -85,7 +86,7 @@ function calcAllPeriods(
 }
 
 export function BillingHistoryPanel({
-  customerId, customerType, billingCycle, billingAmount, paymentDay, contractStartDate, contractEndDate,
+  customerId, customerType, billingCycle, billingAmount, paymentDay, contractStartDate, contractEndDate, onChange,
 }: Props) {
   const [billings, setBillings] = useState<BillingRecord[]>([])
   const [loading, setLoading] = useState(true)
@@ -160,6 +161,7 @@ export function BillingHistoryPanel({
       }
       toast.success(`${created}건의 청구가 자동 생성되었습니다.`)
       await fetchBillings()
+      onChange?.()
     } catch {
       toast.error('자동 생성 중 오류가 발생했습니다.')
     } finally {
@@ -211,6 +213,7 @@ export function BillingHistoryPanel({
       toast.success('청구가 등록되었습니다.')
       setShowForm(false)
       await fetchBillings()
+      onChange?.()
     } catch (e) {
       toast.error(e instanceof Error ? e.message : '등록 실패')
     } finally {
@@ -229,6 +232,7 @@ export function BillingHistoryPanel({
       toast.success('결제 완료로 처리되었습니다.')
       setMarkingId(null)
       await fetchBillings()
+      onChange?.()
     } catch {
       toast.error('처리 중 오류가 발생했습니다.')
     }
@@ -250,6 +254,7 @@ export function BillingHistoryPanel({
       if (!res.ok) throw new Error('처리 실패')
       toast.success(nextIssued ? '세금계산서 발행 완료로 표시했습니다.' : '세금계산서 발행 해제했습니다.')
       await fetchBillings()
+      onChange?.()
     } catch {
       toast.error('처리 중 오류가 발생했습니다.')
     }
@@ -265,6 +270,7 @@ export function BillingHistoryPanel({
       if (!res.ok) throw new Error('처리 실패')
       toast.success('연체로 표시되었습니다.')
       await fetchBillings()
+      onChange?.()
     } catch {
       toast.error('처리 중 오류가 발생했습니다.')
     }
@@ -277,6 +283,7 @@ export function BillingHistoryPanel({
       if (!res.ok) throw new Error('삭제 실패')
       toast.success('삭제되었습니다.')
       await fetchBillings()
+      onChange?.()
     } catch {
       toast.error('삭제 중 오류가 발생했습니다.')
     }
