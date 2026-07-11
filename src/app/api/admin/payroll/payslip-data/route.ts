@@ -133,7 +133,7 @@ export async function POST(req: NextRequest) {
     }
 
     if (personType === 'user') {
-      // 담당자(users) — 현재 tax_type 컬럼 없음 → 기본 '4대보험'
+      // 담당자(users) 조회
       const { data, error } = await supabase
         .from('users')
         .select('id, name, role, phone, email, account_number, resident_number')
@@ -142,20 +142,32 @@ export async function POST(req: NextRequest) {
       if (error || !data) {
         return NextResponse.json({ error: '담당자를 찾을 수 없습니다.' }, { status: 404 })
       }
+
+      // users → workers 매핑이 있으면 workers의 상세 정보를 우선 사용
+      // (김백준처럼 담당자로도 활동하는 직원의 tax_type 등 인사정보를 workers에서 관리)
+      const { data: linkedWorker } = await supabase
+        .from('workers')
+        .select('tax_type, employment_type, department, position, job_title, join_date, birth_date, home_address, personal_id, resident_number')
+        .eq('user_id', personId)
+        .maybeSingle()
+
+      const rrn = linkedWorker?.resident_number ?? linkedWorker?.personal_id ?? data.resident_number
+
       person = {
         id: data.id,
         name: data.name,
-        taxType: '4대보험',
+        // workers.tax_type 우선 → 없으면 기본 '4대보험'
+        taxType: (linkedWorker?.tax_type as TaxType) ?? '4대보험',
         accountNumber: data.account_number,
-        residentNumberMasked: maskResidentNumber(data.resident_number),
-        department: null,
-        position: data.role === 'admin' ? '관리자' : '직원',
-        joinDate: null,
-        employmentType: data.role === 'admin' ? '관리자' : '직원',
-        birthDate: null,
+        residentNumberMasked: maskResidentNumber(rrn),
+        department: linkedWorker?.department ?? null,
+        position: linkedWorker?.position ?? linkedWorker?.job_title ?? (data.role === 'admin' ? '관리자' : '직원'),
+        joinDate: linkedWorker?.join_date ?? null,
+        employmentType: linkedWorker?.employment_type ?? (data.role === 'admin' ? '관리자' : '직원'),
+        birthDate: linkedWorker?.birth_date ?? null,
         phone: data.phone,
         email: data.email,
-        homeAddress: null,
+        homeAddress: linkedWorker?.home_address ?? null,
       }
     } else {
       const { data, error } = await supabase

@@ -13,6 +13,7 @@ import SummaryCards from './SummaryCards'
 import UnitPriceSettings from './UnitPriceSettings'
 import { currentYM } from './utils'
 import type { ManagerEntry, WorkerEntry, PayrollRecord } from './types'
+import type { PayslipEntry } from './PayslipList'
 
 function parseMonthParam(raw: string | null): string | null {
   if (!raw) return null
@@ -34,6 +35,8 @@ export default function PayrollPage() {
   const [showPayslip, setShowPayslip] = useState(false)
   // 선택된 인원 (key 형식: "user:<id>" 또는 "worker:<id>")
   const [selectedPersons, setSelectedPersons] = useState<Set<string>>(new Set())
+  // 월별 발행된 명세서 이력
+  const [payslips, setPayslips] = useState<PayslipEntry[]>([])
 
   const fetchData = useCallback(async () => {
     setLoading(true)
@@ -50,7 +53,27 @@ export default function PayrollPage() {
     }
   }, [month])
 
+  const fetchPayslips = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/admin/payroll/payslips?year_month=${month}`)
+      const data = await res.json()
+      if (!res.ok) return
+      setPayslips(data.payslips ?? [])
+    } catch {
+      // 조용히 실패 — 카드 리스트가 비어있을 뿐 급여정산 자체는 사용 가능
+    }
+  }, [month])
+
   useEffect(() => { fetchData() }, [fetchData])
+  useEffect(() => { fetchPayslips() }, [fetchPayslips])
+
+  // 카드가 자체적으로 갱신되도록 콜백 제공
+  const handlePayslipUpdated = useCallback((updated: PayslipEntry) => {
+    setPayslips(prev => prev.map(p => p.id === updated.id ? updated : p))
+  }, [])
+  const handlePayslipDeleted = useCallback((id: string) => {
+    setPayslips(prev => prev.filter(p => p.id !== id))
+  }, [])
 
   // 월/필터 변경 시 선택 초기화 (표시되지 않는 인원까지 선택 유지되면 혼란)
   useEffect(() => {
@@ -249,6 +272,11 @@ export default function PayrollPage() {
             displayMonth={displayMonth}
             selectedPersons={Array.from(selectedPersons)}
             onClose={() => setShowPayslip(false)}
+            onPublished={() => {
+              // 발행 완료 → 명세서 리스트 새로고침 + 선택 초기화
+              fetchPayslips()
+              setSelectedPersons(new Set())
+            }}
           />
         )}
 
@@ -315,6 +343,9 @@ export default function PayrollPage() {
                         month={month}
                         isSelected={selectedPersons.has(`user:${entry.person.id}`)}
                         onToggleSelect={() => togglePersonSelection('user', entry.person.id)}
+                        payslips={payslips.filter(p => p.person_type === 'user' && p.person_id === entry.person.id)}
+                        onPayslipUpdated={handlePayslipUpdated}
+                        onPayslipDeleted={handlePayslipDeleted}
                         onUpdated={handleManagerRecordUpdated}
                         onJobUpdated={(jobId, newPay) => handleManagerJobUpdated(entry.person.id, jobId, newPay)}
                       />
@@ -326,6 +357,9 @@ export default function PayrollPage() {
                         month={month}
                         isSelected={selectedPersons.has(`worker:${entry.person.id}`)}
                         onToggleSelect={() => togglePersonSelection('worker', entry.person.id)}
+                        payslips={payslips.filter(p => p.person_type === 'worker' && p.person_id === entry.person.id)}
+                        onPayslipUpdated={handlePayslipUpdated}
+                        onPayslipDeleted={handlePayslipDeleted}
                         onUpdated={handleWorkerRecordUpdated}
                         onJobUpdated={(jobId, newSalary) => handleWorkerJobUpdated(entry.person.id, jobId, newSalary)}
                       />

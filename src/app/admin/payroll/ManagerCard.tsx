@@ -2,9 +2,10 @@
 
 import { useState } from 'react'
 import toast from 'react-hot-toast'
-import { CreditCard, Pencil } from 'lucide-react'
+import { CreditCard, Pencil, FileText } from 'lucide-react'
 import { Button } from '@/components/ui'
 import { fmt, fmtDate } from './utils'
+import PayslipList, { type PayslipEntry } from './PayslipList'
 import type { ManagerEntry, ManagerJob, PayrollRecord } from './types'
 
 export default function ManagerCard({
@@ -12,6 +13,9 @@ export default function ManagerCard({
   month,
   isSelected,
   onToggleSelect,
+  payslips,
+  onPayslipUpdated,
+  onPayslipDeleted,
   onUpdated,
   onJobUpdated,
 }: {
@@ -19,6 +23,9 @@ export default function ManagerCard({
   month: string
   isSelected: boolean
   onToggleSelect: () => void
+  payslips: PayslipEntry[]
+  onPayslipUpdated: (p: PayslipEntry) => void
+  onPayslipDeleted: (id: string) => void
   onUpdated: (record: PayrollRecord) => void
   onJobUpdated: (jobId: string, newPay: number | null) => void
 }) {
@@ -158,6 +165,15 @@ export default function ManagerCard({
               {hasNote && (
                 <span className="text-xs px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200" title={entry.record?.note ?? ''}>
                   📝 메모
+                </span>
+              )}
+              {payslips.length > 0 && (
+                <span
+                  className="text-xs px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200 flex items-center gap-0.5"
+                  title="발행된 급여명세서"
+                >
+                  <FileText size={11} />
+                  {payslips.length}
                 </span>
               )}
             </div>
@@ -314,6 +330,12 @@ export default function ManagerCard({
             <span className="text-[11px] text-orange-700">건별 합계 ({workDays}일 출근)</span>
             <span className="text-xs font-bold text-orange-700">{entry.auto_amount.toLocaleString('ko-KR')}원</span>
           </div>
+          {/* 발행된 급여명세서 리스트 (있을 때만) */}
+          <PayslipList
+            payslips={payslips}
+            onUpdated={onPayslipUpdated}
+            onDeleted={onPayslipDeleted}
+          />
         </div>
       )}
     </div>
