@@ -54,7 +54,7 @@ export async function PATCH(request: NextRequest) {
 
   if (!id) return NextResponse.json({ error: 'id가 필요합니다.' }, { status: 400 })
 
-  const ALLOWED = ['status', 'paid_date', 'notes', 'amount', 'due_date']
+  const ALLOWED = ['status', 'paid_date', 'notes', 'amount', 'due_date', 'tax_invoice_issued', 'tax_invoice_issued_date']
   const updates: Record<string, unknown> = {}
   for (const key of ALLOWED) {
     if (key in rest) updates[key] = rest[key]

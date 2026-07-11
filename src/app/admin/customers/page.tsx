@@ -6,6 +6,7 @@ import toast from 'react-hot-toast'
 import { useModalBackButton } from '@/hooks/useModalBackButton'
 import { MapSelectorModal } from '@/components/MapSelectorModal'
 import { BillingHistoryPanel } from '@/components/admin/BillingHistoryPanel'
+import { BillingSummary } from '@/components/admin/BillingSummary'
 import { Button } from '@/components/ui'
 import { Phone, ClipboardList, Map, Banknote, Save, Megaphone, Calendar, BookOpen } from 'lucide-react'
 import { CustomerAccountLink } from '@/components/admin/CustomerAccountLink'
@@ -1822,6 +1823,19 @@ export default function AdminCustomersPage() {
               </div>
             )}
 
+
+            {/* 청구 요약 (관리자 전용) — 최근 결제·계산서 상태 미리보기 */}
+            {!isWorker && !isNew && selected && (
+              (form.customer_type === '정기딥케어' && form.billing_cycle === '연간') ||
+              form.customer_type === '정기엔드케어'
+            ) && (
+              <BillingSummary
+                customerId={selected.id}
+                customerType={form.customer_type}
+                billingCycle={form.billing_cycle}
+                paymentMethod={form.payment_method || null}
+              />
+            )}
 
             {/* 청구 이력 (정기딥케어 연간 / 정기엔드케어) — worker 숨김 */}
             {!isWorker && !isNew && selected && (

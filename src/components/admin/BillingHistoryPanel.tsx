@@ -14,6 +14,8 @@ interface BillingRecord {
   paid_date: string | null
   status: 'pending' | 'paid' | 'overdue'
   notes: string | null
+  tax_invoice_issued: boolean | null
+  tax_invoice_issued_date: string | null
   created_at: string
 }
 
@@ -232,6 +234,27 @@ export function BillingHistoryPanel({
     }
   }
 
+  // 세금계산서 발행 처리 (토글)
+  const handleToggleTaxInvoice = async (billing: BillingRecord) => {
+    const nextIssued = !billing.tax_invoice_issued
+    try {
+      const res = await fetch('/api/admin/billings', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: billing.id,
+          tax_invoice_issued: nextIssued,
+          tax_invoice_issued_date: nextIssued ? new Date().toISOString().slice(0, 10) : null,
+        }),
+      })
+      if (!res.ok) throw new Error('처리 실패')
+      toast.success(nextIssued ? '세금계산서 발행 완료로 표시했습니다.' : '세금계산서 발행 해제했습니다.')
+      await fetchBillings()
+    } catch {
+      toast.error('처리 중 오류가 발생했습니다.')
+    }
+  }
+
   const handleMarkOverdue = async (id: string) => {
     try {
       const res = await fetch('/api/admin/billings', {
@@ -370,18 +393,26 @@ export function BillingHistoryPanel({
           billings.map(b => (
             <div key={b.id} className="p-3 space-y-1.5">
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <span className="text-xs font-semibold text-gray-800">{b.billing_period}</span>
                   <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium ${STATUS_STYLE[b.status].badge}`}>
                     {STATUS_STYLE[b.status].label}
                   </span>
+                  {b.tax_invoice_issued && (
+                    <span className="text-xs px-1.5 py-0.5 rounded-full font-medium bg-blue-100 text-blue-700">
+                      계산서완료
+                    </span>
+                  )}
                 </div>
                 <span className="text-xs font-semibold text-gray-700">{fmt(b.amount)}원</span>
               </div>
 
-              <div className="flex items-center gap-3 text-xs text-gray-500">
+              <div className="flex items-center gap-3 text-xs text-gray-500 flex-wrap">
                 <span>예정: {fmtDate(b.due_date)}</span>
                 {b.paid_date && <span className="text-emerald-600">완료: {fmtDate(b.paid_date)}</span>}
+                {b.tax_invoice_issued_date && (
+                  <span className="text-blue-600">계산서: {fmtDate(b.tax_invoice_issued_date)}</span>
+                )}
               </div>
 
               {b.notes && (
@@ -411,12 +442,22 @@ export function BillingHistoryPanel({
                       </button>
                     </div>
                   ) : (
-                    <div className="flex gap-1.5">
+                    <div className="flex gap-1.5 flex-wrap">
                       <button
                         onClick={() => { setMarkingId(b.id); setPaidDate(new Date().toISOString().slice(0, 10)) }}
                         className="flex-1 py-1 text-xs bg-emerald-50 text-emerald-700 font-medium rounded-lg border border-emerald-200 hover:bg-emerald-100 transition-colors"
                       >
                         결제 완료 처리
+                      </button>
+                      <button
+                        onClick={() => handleToggleTaxInvoice(b)}
+                        className={`flex-1 py-1 text-xs font-medium rounded-lg border transition-colors ${
+                          b.tax_invoice_issued
+                            ? 'bg-blue-100 text-blue-700 border-blue-300 hover:bg-blue-200'
+                            : 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100'
+                        }`}
+                      >
+                        {b.tax_invoice_issued ? '계산서 발행 취소' : '세금계산서 발행 처리'}
                       </button>
                       {b.status !== 'overdue' && (
                         <button
@@ -439,10 +480,20 @@ export function BillingHistoryPanel({
               )}
 
               {b.status === 'paid' && (
-                <div className="flex justify-end">
+                <div className="flex items-center gap-1.5 justify-between">
+                  <button
+                    onClick={() => handleToggleTaxInvoice(b)}
+                    className={`flex-1 py-1 text-xs font-medium rounded-lg border transition-colors ${
+                      b.tax_invoice_issued
+                        ? 'bg-blue-100 text-blue-700 border-blue-300 hover:bg-blue-200'
+                        : 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100'
+                    }`}
+                  >
+                    {b.tax_invoice_issued ? '계산서 발행 취소' : '세금계산서 발행 처리'}
+                  </button>
                   <button
                     onClick={() => handleDelete(b.id)}
-                    className="text-xs text-gray-300 hover:text-red-400 transition-colors"
+                    className="text-xs text-gray-300 hover:text-red-400 transition-colors px-2 py-1"
                   >
                     삭제
                   </button>
