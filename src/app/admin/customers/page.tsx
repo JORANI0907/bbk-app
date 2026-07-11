@@ -1048,7 +1048,7 @@ export default function AdminCustomersPage() {
   const isEndCare = form.customer_type === '정기엔드케어'
   const isDipCare = form.customer_type === '정기딥케어'
   const isOnceCare = form.customer_type === '1회성케어'
-  const notifyOptions = form.customer_type ? NOTIFY_TYPES[form.customer_type] : []
+  const notifyOptions = form.customer_type ? (NOTIFY_TYPES[form.customer_type] ?? []) : []
 
   return (
     <>
@@ -1196,8 +1196,9 @@ export default function AdminCustomersPage() {
               </thead>
               <tbody className="divide-y divide-border-subtle">
                 {filtered.map(c => {
-                  const type = (c.customer_type ?? '1회성케어') as CustomerType
-                  const tStyle = TYPE_STYLE[type]
+                  const rawType = c.customer_type ?? '1회성케어'
+                  const type: CustomerType = (rawType in TYPE_STYLE ? rawType : '1회성케어') as CustomerType
+                  const tStyle = TYPE_STYLE[type] ?? TYPE_STYLE['1회성케어']
                   const sStyle = STATUS_STYLE[c.status ?? 'active']
                   const isSelected = selected?.id === c.id
                   const isChecked = checkedIds.includes(c.id)
