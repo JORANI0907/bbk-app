@@ -4,8 +4,9 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import toast from 'react-hot-toast'
-import { ChevronLeft, ChevronRight, ClipboardList, LayoutDashboard, BarChart2 } from 'lucide-react'
+import { ChevronLeft, ChevronRight, ClipboardList, LayoutDashboard, BarChart2, FileText } from 'lucide-react'
 import ExportModal from './ExportModal'
+import PayslipModal from './PayslipModal'
 import ManagerCard from './ManagerCard'
 import WorkerCard from './WorkerCard'
 import SummaryCards from './SummaryCards'
@@ -30,6 +31,9 @@ export default function PayrollPage() {
   const [managers, setManagers] = useState<ManagerEntry[]>([])
   const [workersPayroll, setWorkersPayroll] = useState<WorkerEntry[]>([])
   const [showExport, setShowExport] = useState(false)
+  const [showPayslip, setShowPayslip] = useState(false)
+  // 선택된 인원 (key 형식: "user:<id>" 또는 "worker:<id>")
+  const [selectedPersons, setSelectedPersons] = useState<Set<string>>(new Set())
 
   const fetchData = useCallback(async () => {
     setLoading(true)
@@ -47,6 +51,21 @@ export default function PayrollPage() {
   }, [month])
 
   useEffect(() => { fetchData() }, [fetchData])
+
+  // 월/필터 변경 시 선택 초기화 (표시되지 않는 인원까지 선택 유지되면 혼란)
+  useEffect(() => {
+    setSelectedPersons(new Set())
+  }, [month, personFilter])
+
+  const togglePersonSelection = useCallback((type: 'user' | 'worker', id: string) => {
+    setSelectedPersons(prev => {
+      const next = new Set(prev)
+      const key = `${type}:${id}`
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
+      return next
+    })
+  }, [])
 
   const prevMonth = () => {
     const [y, m] = month.split('-').map(Number)
@@ -113,6 +132,34 @@ export default function PayrollPage() {
   const showManagers = personFilter === 'all' || personFilter === 'manager'
   const showWorkers = personFilter === 'all' || personFilter === 'worker'
   const totalCount = (showManagers ? managers.length : 0) + (showWorkers ? workersPayroll.length : 0)
+  const selectedCount = selectedPersons.size
+
+  // 현재 표시된 전체 인원의 key 목록 (전체 선택/해제용)
+  const visiblePersonKeys = useMemo(() => {
+    const keys: string[] = []
+    if (showManagers) managers.forEach(m => keys.push(`user:${m.person.id}`))
+    if (showWorkers) workersPayroll.forEach(w => keys.push(`worker:${w.person.id}`))
+    return keys
+  }, [showManagers, showWorkers, managers, workersPayroll])
+
+  const allVisibleSelected = visiblePersonKeys.length > 0 && visiblePersonKeys.every(k => selectedPersons.has(k))
+
+  const toggleAllSelection = () => {
+    if (allVisibleSelected) {
+      setSelectedPersons(new Set())
+    } else {
+      setSelectedPersons(new Set(visiblePersonKeys))
+    }
+  }
+
+  // 급여명세서 발행: 선택된 인원이 없으면 안내
+  const handleOpenPayslip = () => {
+    if (selectedCount === 0) {
+      toast.error('급여명세서를 발행할 인원을 카드에서 선택하세요.')
+      return
+    }
+    setShowPayslip(true)
+  }
 
   return (
     <div className="flex flex-col h-full">
@@ -164,14 +211,25 @@ export default function PayrollPage() {
               <span className="hidden sm:inline">대시보드</span>
             </Link>
             {tab === 'payroll' && (
-              <button
-                onClick={() => setShowExport(true)}
-                title="급여 지급 현황 저장"
-                className="flex items-center gap-1 px-2 py-1.5 text-xs font-medium bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition"
-              >
-                <BarChart2 size={13} />
-                <span className="hidden sm:inline">현황 저장</span>
-              </button>
+              <>
+                <button
+                  onClick={() => setShowExport(true)}
+                  title="급여 지급 현황 저장"
+                  className="flex items-center gap-1 px-2 py-1.5 text-xs font-medium bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition"
+                >
+                  <BarChart2 size={13} />
+                  <span className="hidden sm:inline">현황 저장</span>
+                </button>
+                <button
+                  onClick={handleOpenPayslip}
+                  title="선택 인원 급여명세서 발행"
+                  className="flex items-center gap-1 px-2 py-1.5 text-xs font-medium bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition disabled:opacity-50"
+                  disabled={selectedCount === 0}
+                >
+                  <FileText size={13} />
+                  <span className="hidden sm:inline">급여명세서</span>
+                </button>
+              </>
             )}
           </div>
         </div>
@@ -180,7 +238,17 @@ export default function PayrollPage() {
           <ExportModal
             month={month}
             displayMonth={displayMonth}
+            selectedPersons={selectedCount > 0 ? Array.from(selectedPersons) : null}
             onClose={() => setShowExport(false)}
+          />
+        )}
+
+        {showPayslip && (
+          <PayslipModal
+            month={month}
+            displayMonth={displayMonth}
+            selectedPersons={Array.from(selectedPersons)}
+            onClose={() => setShowPayslip(false)}
           />
         )}
 
@@ -206,6 +274,19 @@ export default function PayrollPage() {
               <span className="ml-3 text-xs text-text-tertiary">
                 {totalCount}명
               </span>
+              {totalCount > 0 && (
+                <button
+                  onClick={toggleAllSelection}
+                  className="ml-2 text-xs text-brand-600 hover:text-brand-700 font-medium underline underline-offset-2"
+                >
+                  {allVisibleSelected ? '전체 해제' : '전체 선택'}
+                </button>
+              )}
+              {selectedCount > 0 && (
+                <span className="ml-2 text-xs font-semibold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full">
+                  {selectedCount}명 선택
+                </span>
+              )}
             </div>
 
             {loading ? (
@@ -232,6 +313,8 @@ export default function PayrollPage() {
                         key={`m-${entry.person.id}`}
                         entry={entry}
                         month={month}
+                        isSelected={selectedPersons.has(`user:${entry.person.id}`)}
+                        onToggleSelect={() => togglePersonSelection('user', entry.person.id)}
                         onUpdated={handleManagerRecordUpdated}
                         onJobUpdated={(jobId, newPay) => handleManagerJobUpdated(entry.person.id, jobId, newPay)}
                       />
@@ -241,6 +324,8 @@ export default function PayrollPage() {
                         key={`w-${entry.person.id}`}
                         entry={entry}
                         month={month}
+                        isSelected={selectedPersons.has(`worker:${entry.person.id}`)}
+                        onToggleSelect={() => togglePersonSelection('worker', entry.person.id)}
                         onUpdated={handleWorkerRecordUpdated}
                         onJobUpdated={(jobId, newSalary) => handleWorkerJobUpdated(entry.person.id, jobId, newSalary)}
                       />

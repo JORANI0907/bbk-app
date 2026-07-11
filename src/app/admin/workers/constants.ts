@@ -66,6 +66,7 @@ export interface Worker {
   certifications: string | null
   contract_signed: string | null
   bank_copy_submitted: string | null
+  tax_type: '4대보험' | '프리랜서3.3%' | '없음' | null
   created_at: string
   user_id: string | null
 }

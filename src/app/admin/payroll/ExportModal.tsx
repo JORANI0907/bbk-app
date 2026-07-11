@@ -16,10 +16,13 @@ import {
 export default function ExportModal({
   month,
   displayMonth,
+  selectedPersons,
   onClose,
 }: {
   month: string
   displayMonth: string
+  // "user:<id>" 또는 "worker:<id>" 형식. null이면 전체
+  selectedPersons: string[] | null
   onClose: () => void
 }) {
   const [folder, setFolder] = useState<DriveFolder | null>(null)
@@ -63,17 +66,26 @@ export default function ExportModal({
   const handleExport = async () => {
     setExporting(true)
     try {
+      // 선택된 인원이 있으면 person_type별로 id 배열을 분리해 API에 전달
+      const filter = selectedPersons && selectedPersons.length > 0
+        ? {
+            user_ids: selectedPersons.filter(k => k.startsWith('user:')).map(k => k.slice(5)),
+            worker_ids: selectedPersons.filter(k => k.startsWith('worker:')).map(k => k.slice(7)),
+          }
+        : null
+
       const res = await fetch('/api/admin/payroll/export', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ month }),
+        body: JSON.stringify({ month, filter }),
       })
       if (!res.ok) {
         const d = await res.json()
         throw new Error(d.error ?? '엑셀 생성 실패')
       }
       const blob = await res.blob()
-      const fileName = `BBK_급여정산_${month}.xlsx`
+      const suffix = filter ? `_선택${selectedPersons!.length}명` : ''
+      const fileName = `BBK_급여정산_${month}${suffix}.xlsx`
 
       if (folder) {
         let token = accessToken
@@ -113,6 +125,11 @@ export default function ExportModal({
         <h3 className="font-bold text-text-primary mb-1">급여정산 현황 저장</h3>
         <p className="text-xs text-text-tertiary mb-4">
           <span className="font-semibold text-brand-600">{displayMonth}</span> 급여 지급 현황을 엑셀로 내보냅니다.
+          {selectedPersons && selectedPersons.length > 0 && (
+            <span className="ml-1 font-semibold text-indigo-600">
+              (선택 {selectedPersons.length}명만)
+            </span>
+          )}
         </p>
 
         <div className="mb-5">

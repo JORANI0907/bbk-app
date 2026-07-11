@@ -112,11 +112,22 @@ function addPersonSheet(
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
-    const { month } = body as { month?: string }
+    const { month, filter } = body as {
+      month?: string
+      filter?: { user_ids?: string[]; worker_ids?: string[] } | null
+    }
 
     if (!month || !/^\d{4}-\d{2}$/.test(month)) {
       return NextResponse.json({ error: 'month 파라미터가 필요합니다. (YYYY-MM)' }, { status: 400 })
     }
+
+    // 선택 인원 필터 유효성: 최소 1명 이상 있어야 필터로 인정
+    const hasFilter = !!(filter && (
+      (filter.user_ids && filter.user_ids.length > 0) ||
+      (filter.worker_ids && filter.worker_ids.length > 0)
+    ))
+    const userIdSet = new Set(filter?.user_ids ?? [])
+    const workerIdSet = new Set(filter?.worker_ids ?? [])
 
     const supabase = createServiceClient()
 
@@ -188,8 +199,14 @@ export async function POST(req: NextRequest) {
       entry.autoAmount += assign.salary ?? 0
     }
 
-    const managerEntries = Array.from(managerMap.values())
-    const workerEntries = Array.from(workerMap.values())
+    let managerEntries = Array.from(managerMap.values())
+    let workerEntries = Array.from(workerMap.values())
+
+    // 선택 인원 필터 적용 — 표시할 시트만 남김
+    if (hasFilter) {
+      managerEntries = managerEntries.filter(e => userIdSet.has(e.person.id))
+      workerEntries = workerEntries.filter(e => workerIdSet.has(e.person.id))
+    }
 
     const [y, m] = month.split('-')
     const monthLabel = `${y}년 ${Number(m)}월`

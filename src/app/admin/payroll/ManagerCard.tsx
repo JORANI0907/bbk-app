@@ -10,11 +10,15 @@ import type { ManagerEntry, ManagerJob, PayrollRecord } from './types'
 export default function ManagerCard({
   entry,
   month,
+  isSelected,
+  onToggleSelect,
   onUpdated,
   onJobUpdated,
 }: {
   entry: ManagerEntry
   month: string
+  isSelected: boolean
+  onToggleSelect: () => void
   onUpdated: (record: PayrollRecord) => void
   onJobUpdated: (jobId: string, newPay: number | null) => void
 }) {
@@ -126,10 +130,27 @@ export default function ManagerCard({
   }
 
   return (
-    <div className={`bg-surface rounded-xl border ${isPaid ? 'border-state-success-bg' : 'border-border-subtle'} shadow-soft overflow-hidden`}>
-      <div className="p-3">
+    <div
+      className={`bg-surface rounded-xl border shadow-soft overflow-hidden transition-colors ${
+        isSelected
+          ? 'border-brand-500 ring-2 ring-brand-200'
+          : isPaid
+            ? 'border-state-success-bg'
+            : 'border-border-subtle'
+      }`}
+    >
+      <div className="p-3 cursor-pointer select-none" onClick={onToggleSelect}>
         <div className="flex items-start justify-between mb-2 gap-3">
-          <div className="flex-1 min-w-0">
+          <div className="flex items-start gap-2 flex-1 min-w-0">
+            <input
+              type="checkbox"
+              checked={isSelected}
+              onChange={onToggleSelect}
+              onClick={e => e.stopPropagation()}
+              className="w-4 h-4 accent-brand-600 mt-0.5 shrink-0"
+              aria-label={`${entry.person.name} 선택`}
+            />
+            <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
               <span className="font-semibold text-text-primary">{entry.person.name}</span>
               <span className="text-xs px-2 py-0.5 rounded-full bg-brand-50 text-brand-600">{entry.person.role === 'admin' ? '관리자' : '직원'}</span>
@@ -148,6 +169,7 @@ export default function ManagerCard({
                 {entry.person.account_number && <span className="font-mono">{entry.person.account_number}</span>}
               </p>
             )}
+            </div>
           </div>
           <div className="flex flex-col items-end shrink-0">
             <span className={`text-lg font-bold leading-tight ${isAdjusted ? 'text-orange-600' : 'text-text-primary'}`}>
@@ -157,49 +179,54 @@ export default function ManagerCard({
             {isAdjusted && (
               <span className="text-[10px] text-orange-500 font-medium">조정됨</span>
             )}
-            <button onClick={() => setExpanded(v => !v)} className="text-text-tertiary hover:text-text-secondary text-sm leading-none p-1 mt-1">
+            <button
+              onClick={e => { e.stopPropagation(); setExpanded(v => !v) }}
+              className="text-text-tertiary hover:text-text-secondary text-sm leading-none p-1 mt-1"
+            >
               {expanded ? '▲' : '▼'}
             </button>
           </div>
         </div>
 
-        {/* 입력 + 저장 한 줄 (라벨 제거, placeholder로 대체) */}
-        <div className="flex gap-1.5 mb-2">
-          <input
-            type="number"
-            value={finalInput}
-            onChange={e => setFinalInput(e.target.value)}
-            placeholder={`최종 지급액 (${entry.auto_amount.toLocaleString('ko-KR')})`}
-            className="flex-1 min-w-0 px-2 py-1.5 border border-border rounded-md text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-          <input
-            type="text"
-            value={noteInput}
-            onChange={e => setNoteInput(e.target.value)}
-            placeholder="메모"
-            className="flex-1 min-w-0 px-2 py-1.5 border border-border rounded-md text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-        </div>
+        {/* 입력 + 저장 한 줄 — 클릭 시 카드 선택 방지 */}
+        <div onClick={e => e.stopPropagation()} className="cursor-default">
+          <div className="flex gap-1.5 mb-2">
+            <input
+              type="number"
+              value={finalInput}
+              onChange={e => setFinalInput(e.target.value)}
+              placeholder={`최종 지급액 (${entry.auto_amount.toLocaleString('ko-KR')})`}
+              className="flex-1 min-w-0 px-2 py-1.5 border border-border rounded-md text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <input
+              type="text"
+              value={noteInput}
+              onChange={e => setNoteInput(e.target.value)}
+              placeholder="메모"
+              className="flex-1 min-w-0 px-2 py-1.5 border border-border rounded-md text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
 
-        <div className="flex gap-1.5">
-          <button
-            onClick={handleSave}
-            disabled={saving}
-            className="flex-1 py-1.5 text-xs font-semibold rounded-md bg-blue-600 text-white hover:bg-blue-700 transition-colors disabled:opacity-60"
-          >
-            {saving ? '저장 중...' : '저장'}
-          </button>
-          <button
-            onClick={handleTogglePaid}
-            disabled={paying}
-            className={`flex-1 py-1.5 text-xs font-semibold rounded-md transition-colors disabled:opacity-60 ${
-              isPaid
-                ? 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                : 'bg-green-600 text-white hover:bg-green-700'
-            }`}
-          >
-            {paying ? '처리 중...' : isPaid ? '지급 취소' : <><CreditCard size={12} className="inline mr-0.5" />지급완료</>}
-          </button>
+          <div className="flex gap-1.5">
+            <button
+              onClick={handleSave}
+              disabled={saving}
+              className="flex-1 py-1.5 text-xs font-semibold rounded-md bg-blue-600 text-white hover:bg-blue-700 transition-colors disabled:opacity-60"
+            >
+              {saving ? '저장 중...' : '저장'}
+            </button>
+            <button
+              onClick={handleTogglePaid}
+              disabled={paying}
+              className={`flex-1 py-1.5 text-xs font-semibold rounded-md transition-colors disabled:opacity-60 ${
+                isPaid
+                  ? 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                  : 'bg-green-600 text-white hover:bg-green-700'
+              }`}
+            >
+              {paying ? '처리 중...' : isPaid ? '지급 취소' : <><CreditCard size={12} className="inline mr-0.5" />지급완료</>}
+            </button>
+          </div>
         </div>
       </div>
 
