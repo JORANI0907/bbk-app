@@ -246,6 +246,13 @@ export default function ManagerCard({
         </div>
       </div>
 
+      {/* 발행된 급여명세서 리스트 — 확장 여부와 무관하게 항상 표시 (있을 때만) */}
+      <PayslipList
+        payslips={payslips}
+        onUpdated={onPayslipUpdated}
+        onDeleted={onPayslipDeleted}
+      />
+
       {expanded && (
         <div className="border-t border-border-subtle">
           {entry.jobs.length === 0 ? (
@@ -330,12 +337,6 @@ export default function ManagerCard({
             <span className="text-[11px] text-orange-700">건별 합계 ({workDays}일 출근)</span>
             <span className="text-xs font-bold text-orange-700">{entry.auto_amount.toLocaleString('ko-KR')}원</span>
           </div>
-          {/* 발행된 급여명세서 리스트 (있을 때만) */}
-          <PayslipList
-            payslips={payslips}
-            onUpdated={onPayslipUpdated}
-            onDeleted={onPayslipDeleted}
-          />
         </div>
       )}
     </div>
