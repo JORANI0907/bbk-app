@@ -335,6 +335,16 @@ export default function AdminCustomersPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [customers, setCustomers] = useState<Customer[]>([])
+  // 리스트 미리보기용 최신 청구 요약 (customer_id → 대표 청구 record)
+  const [latestBillings, setLatestBillings] = useState<Record<string, {
+    id: string
+    billing_type: 'monthly' | 'annual'
+    billing_period: string
+    status: 'pending' | 'paid' | 'overdue'
+    paid_date: string | null
+    tax_invoice_issued: boolean | null
+    tax_invoice_issued_date: string | null
+  }>>({})
   const [loading, setLoading] = useState(true)
   const [selectedTypes, setSelectedTypes] = useState<Set<CustomerType>>(new Set(['정기엔드케어']))
   const [search, setSearch] = useState('')
@@ -418,6 +428,11 @@ export default function AdminCustomersPage() {
 
   useEffect(() => {
     fetchAll()
+    // 리스트 미리보기용 최신 청구 배치 조회
+    fetch('/api/admin/billings/latest')
+      .then(r => r.json())
+      .then(d => setLatestBillings(d.latest ?? {}))
+      .catch(() => setLatestBillings({}))
     fetch('/api/auth/me').then(r => r.json()).then(d => {
       if (d.user) {
         setCurrentRole(d.user.role ?? 'admin')
@@ -1177,7 +1192,47 @@ export default function AdminCustomersPage() {
                             {c.next_visit_date && `방문 ${fmtDate(c.next_visit_date)}`}
                           </p>
                         )}
+                        {/* 결제방법 (관리자에게만) */}
+                        {!isWorker && c.payment_method && (
+                          <p className="text-xs text-text-tertiary mt-0.5">결제방법 · {c.payment_method}</p>
+                        )}
                         <StatusBadges customer={c} hideContract={isWorker} />
+                        {/* 청구 요약 뱃지 (관리자·정기 고객만) — 연간=현재 연도, 월간=현재 월 */}
+                        {!isWorker && (c.customer_type === '정기딥케어' || c.customer_type === '정기엔드케어') && (() => {
+                          const b = latestBillings[c.id]
+                          if (!b) {
+                            return (
+                              <div className="flex gap-1 mt-1 flex-wrap">
+                                <span className="text-xs px-1.5 py-0.5 bg-surface-sunken text-text-tertiary rounded-full font-medium border border-border">
+                                  {c.billing_cycle === '연간' ? `${new Date().getFullYear()} 청구 없음` : '이번달 청구 없음'}
+                                </span>
+                              </div>
+                            )
+                          }
+                          return (
+                            <div className="flex gap-1 mt-1 flex-wrap items-center">
+                              <span className="text-[10px] text-text-tertiary">
+                                {b.billing_type === 'annual' ? `${b.billing_period}년` : b.billing_period}
+                              </span>
+                              <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium ${
+                                b.status === 'paid'
+                                  ? 'bg-emerald-100 text-emerald-700'
+                                  : b.status === 'overdue'
+                                    ? 'bg-red-100 text-red-700'
+                                    : 'bg-yellow-100 text-yellow-700'
+                              }`}>
+                                {b.status === 'paid' ? '결제완료' : b.status === 'overdue' ? '연체' : '미결제'}
+                              </span>
+                              <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium ${
+                                b.tax_invoice_issued
+                                  ? 'bg-blue-100 text-blue-700'
+                                  : 'bg-surface-sunken text-text-tertiary border border-border'
+                              }`}>
+                                {b.tax_invoice_issued ? '계산서완료' : '계산서 미발행'}
+                              </span>
+                            </div>
+                          )
+                        })()}
                         <div className="flex gap-1 mt-1">
                           {c.user_id != null
                             ? <span className="text-xs px-1.5 py-0.5 bg-green-100 text-green-700 rounded-full font-medium">계정생성완료</span>
