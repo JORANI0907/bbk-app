@@ -12,7 +12,7 @@ import { Phone, ClipboardList, Map, Banknote, Save, Megaphone, Calendar, BookOpe
 import { CustomerAccountLink } from '@/components/admin/CustomerAccountLink'
 
 // ─── 타입 ─────────────────────────────────────────────────────
-type CustomerType = '1회성케어' | '정기딥케어' | '정기엔드케어'
+type CustomerType = '1회성케어' | '정기딥케어' | '정기엔드케어' | '정기딥케어샘플' | '정기엔드케어샘플'
 type CustomerStatus = 'active' | 'paused' | 'terminated'
 type CustomerDisposition = '호의' | '보통' | '주의'
 type CustomerGrade = '화이트' | '블루' | '블랙'
@@ -80,7 +80,14 @@ interface Customer {
 }
 
 // ─── 상수 ─────────────────────────────────────────────────────
-const CUSTOMER_TYPES: CustomerType[] = ['정기엔드케어', '정기딥케어', '1회성케어']
+const CUSTOMER_TYPES: CustomerType[] = ['정기엔드케어', '정기딥케어', '1회성케어', '정기엔드케어샘플', '정기딥케어샘플']
+
+// 영업용 샘플 계정 유형 (필터 '샘플계정' 통합 대상)
+const SAMPLE_TYPES: CustomerType[] = ['정기엔드케어샘플', '정기딥케어샘플']
+
+// 리스트 상단 필터 옵션 (편집 폼 유형과 별도 — 두 샘플은 '샘플계정' 하나로 그룹핑)
+type FilterOption = '정기엔드케어' | '정기딥케어' | '1회성케어' | '샘플계정'
+const FILTER_OPTIONS: FilterOption[] = ['정기엔드케어', '정기딥케어', '1회성케어', '샘플계정']
 const PAYMENT_METHODS = ['현금', '카드', '계좌이체', '현금(부가세 X)']
 const PAYMENT_STATUS_OPTIONS = ['미수령', '수령완료', '세금계산서발행', '결제완료']
 const ELEVATOR_OPTIONS = ['있음', '없음', '해당없음']
@@ -91,6 +98,9 @@ const NOTIFY_TYPES: Record<CustomerType, string[]> = {
   '1회성케어':    ['방문견적알림'],
   '정기딥케어':   ['정기결제알림', '정기방문알림', '계약갱신알림', '계정안내알림'],
   '정기엔드케어': ['정기결제알림', '정기방문알림', '계약갱신알림', '계정안내알림'],
+  // 샘플 유형 — 영업용이라 실 알림 발송 없음
+  '정기엔드케어샘플': [],
+  '정기딥케어샘플':   [],
 }
 
 // 비과세 결제방법 여부 (부가세 0)
@@ -101,6 +111,9 @@ const TYPE_STYLE: Record<CustomerType, { badge: string; accent: string }> = {
   '1회성케어':    { badge: 'bg-surface-sunken text-text-primary',     accent: 'border-border bg-surface-sunken' },
   '정기딥케어':   { badge: 'bg-brand-100 text-brand-700',     accent: 'border-brand-200 bg-brand-50' },
   '정기엔드케어': { badge: 'bg-purple-100 text-purple-700', accent: 'border-purple-200 bg-purple-50' },
+  // 샘플 유형 — 앰버 톤으로 구분 (실 고객과 시각적 대비)
+  '정기엔드케어샘플': { badge: 'bg-amber-100 text-amber-700', accent: 'border-amber-200 bg-amber-50' },
+  '정기딥케어샘플':   { badge: 'bg-amber-100 text-amber-700', accent: 'border-amber-200 bg-amber-50' },
 }
 
 const STATUS_STYLE: Record<CustomerStatus, { badge: string; label: string }> = {
@@ -348,7 +361,7 @@ export default function AdminCustomersPage() {
   // BillingSummary/리스트 뱃지 재조회 트리거 — 편집 폼에서 청구 변경 시 증가
   const [billingRefreshKey, setBillingRefreshKey] = useState(0)
   const [loading, setLoading] = useState(true)
-  const [selectedTypes, setSelectedTypes] = useState<Set<CustomerType>>(new Set(['정기엔드케어']))
+  const [selectedTypes, setSelectedTypes] = useState<Set<FilterOption>>(new Set(['정기엔드케어']))
   const [search, setSearch] = useState('')
   const [selected, setSelected] = useState<Customer | null>(null)
   const [isNew, setIsNew] = useState(false)
@@ -937,7 +950,13 @@ export default function AdminCustomersPage() {
 
     // 서비스 유형 복수 필터 (비어있으면 전체)
     if (selectedTypes.size > 0) {
-      list = list.filter(c => selectedTypes.has((c.customer_type ?? '1회성케어') as CustomerType))
+      list = list.filter(c => {
+        const ct = (c.customer_type ?? '1회성케어') as CustomerType
+        for (const opt of selectedTypes) {
+          if (matchesFilter(ct, opt)) return true
+        }
+        return false
+      })
     }
 
     // 직원 필터 (담당자 또는 작업자)
@@ -999,7 +1018,7 @@ export default function AdminCustomersPage() {
     return list
   }, [customers, isAdmin, currentUserId, selectedTypes, search, sortKey, sortDir, selectedStaffId, staffList])
 
-  const toggleType = (t: CustomerType) => {
+  const toggleType = (t: FilterOption) => {
     setSelectedTypes(prev => {
       const next = new Set(prev)
       if (next.has(t)) next.delete(t)
@@ -1008,12 +1027,20 @@ export default function AdminCustomersPage() {
     })
   }
 
+  // 필터 옵션(FilterOption) 이 실제 customer_type 과 매칭되는지 판별
+  const matchesFilter = (customerType: CustomerType, filter: FilterOption): boolean => {
+    if (filter === '샘플계정') return SAMPLE_TYPES.includes(customerType)
+    return customerType === filter
+  }
+
   const typeCounts = useMemo(() => {
     const base = (!isAdmin && currentUserId)
       ? customers.filter(c => c.assigned_user_id === currentUserId)
       : customers
     const counts: Record<string, number> = { '전체': base.length }
-    for (const t of CUSTOMER_TYPES) counts[t] = base.filter(c => (c.customer_type ?? '1회성케어') === t).length
+    for (const opt of FILTER_OPTIONS) {
+      counts[opt] = base.filter(c => matchesFilter((c.customer_type ?? '1회성케어') as CustomerType, opt)).length
+    }
     return counts
   }, [customers, isAdmin, currentUserId])
 
@@ -1039,18 +1066,25 @@ export default function AdminCustomersPage() {
         </div>
 
 
-        {/* 서비스 유형 체크박스 복수선택 */}
+        {/* 서비스 유형 체크박스 복수선택 — 샘플계정은 정기딥/엔드케어샘플 통합 필터 */}
         <div className="flex flex-wrap gap-1.5 mb-3">
           <span className="text-xs text-text-secondary self-center mr-0.5">유형</span>
-          {CUSTOMER_TYPES.map(t => {
+          {FILTER_OPTIONS.map(t => {
             const checked = selectedTypes.has(t)
+            const isSample = t === '샘플계정'
             return (
               <button key={t} onClick={() => toggleType(t)}
                 className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium border transition-colors ${
-                  checked ? 'bg-brand-600 text-white border-brand-600' : 'bg-surface text-text-secondary border-border hover:border-blue-400'
+                  checked
+                    ? (isSample ? 'bg-amber-600 text-white border-amber-600' : 'bg-brand-600 text-white border-brand-600')
+                    : (isSample ? 'bg-amber-50 text-amber-700 border-amber-200 hover:border-amber-400' : 'bg-surface text-text-secondary border-border hover:border-blue-400')
                 }`}>
                 <span>{t}</span>
-                <span className={`text-xs px-1 py-0.5 rounded-full ${checked ? 'bg-brand-500 text-white' : 'bg-surface-sunken text-text-secondary'}`}>
+                <span className={`text-xs px-1 py-0.5 rounded-full ${
+                  checked
+                    ? (isSample ? 'bg-amber-500 text-white' : 'bg-brand-500 text-white')
+                    : 'bg-surface-sunken text-text-secondary'
+                }`}>
                   {typeCounts[t] ?? 0}
                 </span>
               </button>
