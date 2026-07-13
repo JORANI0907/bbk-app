@@ -55,3 +55,6 @@ scripts/marketing/characters/cache/
 /public/workbox-*.js.map
 /supabase/.temp/
 /outputs/
+
+# 스크립트 실행 결과 캐시 (_ 접두어)
+scripts/_*.json
