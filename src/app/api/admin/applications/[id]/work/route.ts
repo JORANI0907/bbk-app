@@ -8,7 +8,12 @@ export async function PATCH(request: NextRequest, { params }: Params) {
   const supabase = createServiceClient()
   const { id } = await params
   const body = await request.json()
-  const { action, customer_memo, internal_memo, drive_folder_url, condition_score, recommended_services } = body
+  const {
+    action,
+    customer_memo, internal_memo, drive_folder_url,
+    condition_score, recommended_services,
+    worker_planned_departure, worker_plan_note,
+  } = body
 
   if (action === 'start') {
     const { error } = await supabase
@@ -82,6 +87,8 @@ export async function PATCH(request: NextRequest, { params }: Params) {
     if (customer_memo !== undefined) updates.customer_memo = customer_memo
     if (internal_memo !== undefined) updates.internal_memo = internal_memo
     if (drive_folder_url !== undefined) updates.drive_folder_url = drive_folder_url
+    if (worker_planned_departure !== undefined) updates.worker_planned_departure = worker_planned_departure
+    if (worker_plan_note !== undefined) updates.worker_plan_note = worker_plan_note
 
     if (Object.keys(updates).length === 0) {
       return NextResponse.json({ error: '업데이트할 항목이 없습니다.' }, { status: 400 })

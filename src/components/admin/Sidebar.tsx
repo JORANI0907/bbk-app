@@ -62,6 +62,7 @@ const NAV_ITEMS: NavItem[] = [
     icon: <Users size={16} />,
     roles: ['admin'],
     children: [
+      { href: '/admin/live', label: '오늘의 현장 (라이브)' },
       { href: '/admin/attendance', label: '출퇴근관리' },
       { href: '/admin/workers', label: '직원관리' },
       { href: '/admin/incidents', label: '경위서', badgeKey: 'incidents' },

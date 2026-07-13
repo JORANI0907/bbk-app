@@ -13,7 +13,7 @@ import { EmptyState } from '@/components/ui/EmptyState'
 
 type UserTarget = 'all' | 'admin' | 'worker' | 'customer'
 type LogStatus = 'sent' | 'failed' | 'expired'
-type PageTab = 'send' | 'rules' | 'notifications'
+type PageTab = 'send' | 'rules' | 'notifications' | 'attendance'
 
 type NotificationCategory = 'alimtalk' | 'sms' | 'missed_call' | 'payment' | 'system' | 'push'
 type NotificationStatus = 'sent' | 'failed'
@@ -115,6 +115,7 @@ const TABS: { value: PageTab; label: string }[] = [
   { value: 'send', label: '푸시 발송' },
   { value: 'rules', label: '자동 알림 규칙' },
   { value: 'notifications', label: '알림 이력' },
+  { value: 'attendance', label: '출퇴근 알림' },
 ]
 
 const NOTIFICATION_CATEGORY_OPTIONS: { value: string; label: string }[] = [
@@ -581,6 +582,15 @@ function NotificationsTab() {
 
 export default function PushPage() {
   const [activeTab, setActiveTab] = useState<PageTab>('send')
+
+  // URL 파라미터 ?tab=xxx 로 초기 탭 선택 (예: /admin/live의 "이동" 링크)
+  useEffect(() => {
+    const p = new URLSearchParams(window.location.search)
+    const t = p.get('tab')
+    if (t === 'send' || t === 'rules' || t === 'notifications' || t === 'attendance') {
+      setActiveTab(t)
+    }
+  }, [])
   const [stats, setStats] = useState<SubscriptionStats>({ admin: 0, worker: 0, customer: 0 })
   const [statsLoading, setStatsLoading] = useState(true)
   const [form, setForm] = useState<SendFormState>(EMPTY_FORM)
@@ -755,6 +765,262 @@ export default function PushPage() {
 
       {/* 탭 3: 알림 이력 */}
       {activeTab === 'notifications' && <NotificationsTab />}
+
+      {activeTab === 'attendance' && <AttendanceTab />}
+    </div>
+  )
+}
+
+// ─── 출퇴근 알림 탭 ──────────────────────────────────────────────
+
+interface AttendanceSettings {
+  lateArrivalMin: number
+  lateDepartureMin: number
+  overrunRatio: number    // 0.5 = 50%
+  enabled: boolean
+}
+
+const DEFAULT_ATTENDANCE_SETTINGS: AttendanceSettings = {
+  lateArrivalMin: 10,
+  lateDepartureMin: 30,
+  overrunRatio: 0.5,
+  enabled: true,
+}
+
+interface AttendanceAlertItem {
+  id: string
+  alert_type: 'late_arrival' | 'late_departure' | 'overrun'
+  detected_at: string
+  worker_notified_at: string | null
+  admin_notified_at: string | null
+  application: {
+    id: string
+    business_name: string | null
+    owner_name: string | null
+    construction_date: string | null
+    construction_time: string | null
+  } | { id: string; business_name: string | null; owner_name: string | null; construction_date: string | null; construction_time: string | null }[] | null
+}
+
+const ALERT_LABEL: Record<AttendanceAlertItem['alert_type'], { label: string; color: string; bg: string }> = {
+  late_arrival:   { label: '출근 지연', color: 'text-red-700',    bg: 'bg-red-50 border-red-200' },
+  late_departure: { label: '퇴근 지연', color: 'text-amber-700',  bg: 'bg-amber-50 border-amber-200' },
+  overrun:        { label: '소요 초과', color: 'text-orange-700', bg: 'bg-orange-50 border-orange-200' },
+}
+
+function AttendanceTab() {
+  const [settings, setSettings] = useState<AttendanceSettings>(DEFAULT_ATTENDANCE_SETTINGS)
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [alerts, setAlerts] = useState<AttendanceAlertItem[]>([])
+  const [alertsLoading, setAlertsLoading] = useState(true)
+
+  const loadSettings = useCallback(async () => {
+    try {
+      const res = await fetch('/api/admin/app-settings?key=attendance_alert_settings')
+      const json = await res.json()
+      if (json.setting?.value) {
+        const parsed = JSON.parse(json.setting.value) as Partial<AttendanceSettings>
+        setSettings({ ...DEFAULT_ATTENDANCE_SETTINGS, ...parsed })
+      }
+    } catch { /* 조용히 실패 */ }
+    finally { setLoading(false) }
+  }, [])
+
+  const loadAlerts = useCallback(async () => {
+    setAlertsLoading(true)
+    try {
+      const res = await fetch('/api/admin/attendance-alerts?limit=30')
+      const json = await res.json()
+      setAlerts(json.alerts ?? [])
+    } catch { /* 조용히 실패 */ }
+    finally { setAlertsLoading(false) }
+  }, [])
+
+  useEffect(() => {
+    loadSettings()
+    loadAlerts()
+  }, [loadSettings, loadAlerts])
+
+  const save = async () => {
+    setSaving(true)
+    try {
+      const res = await fetch('/api/admin/app-settings', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          key: 'attendance_alert_settings',
+          value: JSON.stringify(settings),
+        }),
+      })
+      if (!res.ok) throw new Error('저장 실패')
+      toast.success('출퇴근 알림 설정이 저장되었습니다.')
+    } catch {
+      toast.error('저장에 실패했습니다.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  if (loading) {
+    return <div className="text-center py-12 text-sm text-text-tertiary">불러오는 중...</div>
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* 안내 */}
+      <section className="bg-brand-50/60 border border-brand-100 rounded-2xl p-4">
+        <h3 className="text-sm font-bold text-brand-800 mb-1">🕐 출퇴근 이상 감지 알림</h3>
+        <p className="text-xs text-text-secondary leading-normal">
+          직원이 계획한 시각에 <b>작업 시작 · 종료 버튼을 누르지 않으면</b> 자동으로 감지하여
+          직원 앱과 관리자 Slack에 알림을 발송합니다. Make.com 시나리오가 5분마다 감지 함수를 호출합니다.
+        </p>
+      </section>
+
+      {/* 임계값 설정 */}
+      <section className="bg-surface rounded-2xl border border-border-subtle p-5 shadow-soft">
+        <SectionHeader title="임계값 설정" subtitle="어느 정도 지연 시 알림을 발송할지 조정합니다" />
+
+        <div className="mt-4 space-y-4">
+          <label className="flex items-center justify-between gap-4 p-3 rounded-xl bg-surface-sunken/50 border border-border-subtle">
+            <div>
+              <p className="text-sm font-semibold text-text-primary">알림 시스템 활성화</p>
+              <p className="text-xs text-text-tertiary mt-0.5">비활성화하면 감지·알림 모두 중단됩니다</p>
+            </div>
+            <input
+              type="checkbox"
+              checked={settings.enabled}
+              onChange={e => setSettings(s => ({ ...s, enabled: e.target.checked }))}
+              className="w-5 h-5 rounded border-border-strong text-brand-600 focus:ring-2 focus:ring-brand-500/30"
+            />
+          </label>
+
+          <ThresholdRow
+            label="출근 지연 유예 시간"
+            help="예정 시각이 지난 후 이 시간이 넘어도 시작 안 하면 감지"
+            unit="분"
+            value={settings.lateArrivalMin}
+            onChange={v => setSettings(s => ({ ...s, lateArrivalMin: v }))}
+            min={1} max={60} step={1}
+          />
+
+          <ThresholdRow
+            label="퇴근 지연 유예 시간"
+            help="예정 종료 시각 이후 이 시간이 넘어도 완료 안 하면 감지"
+            unit="분"
+            value={settings.lateDepartureMin}
+            onChange={v => setSettings(s => ({ ...s, lateDepartureMin: v }))}
+            min={5} max={120} step={5}
+          />
+
+          <ThresholdRow
+            label="소요 초과 임계"
+            help="실제 소요가 예정보다 이 비율 이상 넘어가면 감지"
+            unit="%"
+            value={Math.round(settings.overrunRatio * 100)}
+            onChange={v => setSettings(s => ({ ...s, overrunRatio: v / 100 }))}
+            min={10} max={200} step={10}
+          />
+        </div>
+
+        <div className="mt-5 flex justify-end">
+          <Button onClick={save} isLoading={saving} disabled={saving} size="md">
+            설정 저장
+          </Button>
+        </div>
+      </section>
+
+      {/* 최근 발송 이력 */}
+      <section className="bg-surface rounded-2xl border border-border-subtle p-5 shadow-soft">
+        <div className="flex items-center justify-between mb-4">
+          <SectionHeader title="최근 알림 발송 이력" subtitle="최근 30건" />
+          <button
+            onClick={loadAlerts}
+            className="text-xs text-brand-600 hover:text-brand-700 font-medium"
+          >
+            새로고침
+          </button>
+        </div>
+
+        {alertsLoading ? (
+          <p className="text-center py-8 text-sm text-text-tertiary">불러오는 중...</p>
+        ) : alerts.length === 0 ? (
+          <EmptyState
+            title="발송된 알림이 없습니다"
+            description="Make.com 시나리오가 활성화되면 여기에 이력이 쌓입니다."
+          />
+        ) : (
+          <ul className="divide-y divide-border-subtle">
+            {alerts.map(a => {
+              const cfg = ALERT_LABEL[a.alert_type]
+              const app = Array.isArray(a.application) ? a.application[0] : a.application
+              return (
+                <li key={a.id} className="py-3 flex items-center gap-3 flex-wrap">
+                  <span className={`text-[11px] font-bold px-2 py-1 rounded-md border ${cfg.bg} ${cfg.color} shrink-0`}>
+                    {cfg.label}
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-text-primary truncate">
+                      {app?.business_name ?? '(현장명 없음)'}
+                    </p>
+                    <p className="text-[11px] text-text-tertiary leading-tight mt-0.5">
+                      {app?.construction_date?.slice(0, 10)} {app?.construction_time?.slice(0, 5)}
+                    </p>
+                  </div>
+                  <div className="text-[11px] text-text-tertiary text-right shrink-0">
+                    <p>{new Date(a.detected_at).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
+                    <p className="mt-0.5 text-[10px]">
+                      {a.worker_notified_at ? '직원✓ ' : ''}{a.admin_notified_at ? '관리자✓' : ''}
+                    </p>
+                  </div>
+                </li>
+              )
+            })}
+          </ul>
+        )}
+      </section>
+    </div>
+  )
+}
+
+function ThresholdRow({ label, help, unit, value, onChange, min, max, step }: {
+  label: string
+  help: string
+  unit: string
+  value: number
+  onChange: (v: number) => void
+  min: number
+  max: number
+  step: number
+}) {
+  return (
+    <div className="p-3 rounded-xl border border-border-subtle bg-surface">
+      <div className="flex items-center justify-between gap-3 mb-1.5">
+        <p className="text-sm font-semibold text-text-primary">{label}</p>
+        <div className="flex items-center gap-2">
+          <input
+            type="number"
+            value={value}
+            min={min}
+            max={max}
+            step={step}
+            onChange={e => onChange(Number(e.target.value) || min)}
+            className="w-20 rounded-md border border-border px-2 py-1 text-right text-sm font-semibold text-text-primary focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500"
+            style={{ fontVariantNumeric: 'tabular-nums' }}
+          />
+          <span className="text-xs text-text-tertiary font-medium">{unit}</span>
+        </div>
+      </div>
+      <p className="text-[11px] text-text-tertiary leading-normal">{help}</p>
+      <input
+        type="range"
+        value={value}
+        min={min}
+        max={max}
+        step={step}
+        onChange={e => onChange(Number(e.target.value))}
+        className="w-full mt-2 accent-brand-600"
+      />
     </div>
   )
 }

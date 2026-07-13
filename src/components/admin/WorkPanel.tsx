@@ -7,6 +7,7 @@ import {
   RecommendServicePicker,
   RecommendationState,
 } from '@/components/worker/RecommendServicePicker'
+import { WorkerPlanEditor } from '@/components/worker/WorkerPlanEditor'
 
 const CONDITION_OPTIONS = [
   { value: 1 as const, label: '양호', activeTone: 'border-green-500 bg-green-50 text-green-700' },
@@ -45,6 +46,9 @@ interface WorkApp {
   service_type?: string | null
   condition_score?: number | null
   recommended_services?: unknown[] | null
+  construction_time?: string | null           // 예정 시각 (계획 힌트용)
+  worker_planned_departure?: string | null    // 직원 계획 출발 시각
+  worker_plan_note?: string | null            // 특이사항
 }
 
 interface Props {
@@ -242,7 +246,22 @@ export function WorkPanel({ app, onUpdate, isAdmin = false }: Props) {
 
       {/* ── 1단계: 대기 중 ── */}
       {status === 'pending' && (
-        <div className="space-y-2">
+        <div className="space-y-3">
+          {/* 내 계획 편집기 (출발 시각 + 특이사항) */}
+          <WorkerPlanEditor
+            initialDeparture={app.worker_planned_departure ?? null}
+            initialNote={app.worker_plan_note ?? null}
+            onSave={async (payload) => {
+              const res = await fetch(`/api/admin/applications/${app.id}/work`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'update', ...payload }),
+              })
+              if (!res.ok) throw new Error('저장 실패')
+              onUpdate(payload)
+            }}
+          />
+
           <p className="text-xs text-gray-500">작업 준비가 되면 시작 버튼을 눌러주세요.</p>
           <button
             onClick={handleStart}

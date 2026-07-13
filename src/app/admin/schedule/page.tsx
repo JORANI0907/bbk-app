@@ -55,6 +55,8 @@ interface Application {
   notification_sent_at: string | null
   pre_meeting_at: string | null
   condition_score: number | null
+  worker_planned_departure: string | null
+  worker_plan_note: string | null
 }
 
 interface User { id: string; name: string; role: string }
@@ -728,6 +730,7 @@ export default function SchedulePage() {
   // 스크롤 복원 (모바일 뒤로가기 후 선택 행으로 돌아오기)
   const rowRefs = useRef<Record<string, HTMLTableRowElement | null>>({})
   const prevSelectedIdRef = useRef<string | null>(null)
+  const initialScrolledRef = useRef(false)
 
   const handleClose = useCallback(() => {
     prevSelectedIdRef.current = selected?.id ?? null
@@ -914,6 +917,32 @@ export default function SchedulePage() {
     }
     return items
   }, [filteredApps])
+
+  // 리스트 로드 후 오늘(없으면 오늘 이후 가장 가까운 일정) 행으로 자동 스크롤 — 진입 시 1회만
+  useEffect(() => {
+    if (viewMode !== 'list') return
+    if (initialScrolledRef.current) return
+    if (loading) return
+    if (listItems.length === 0) return
+
+    const todayStr = getScheduleToday()
+    const todayOrFuture = listItems.find((it): it is Extract<ListItem, { kind: 'app' }> =>
+      it.kind === 'app' &&
+      !!it.app.construction_date &&
+      it.app.construction_date.slice(0, 10) >= todayStr,
+    )
+    if (!todayOrFuture) return
+
+    // 다음 프레임에서 실행 (DOM ref 채워지길 대기)
+    const raf = requestAnimationFrame(() => {
+      const el = rowRefs.current[todayOrFuture.app.id]
+      if (el) {
+        el.scrollIntoView({ block: 'center', behavior: 'auto' })
+        initialScrolledRef.current = true
+      }
+    })
+    return () => cancelAnimationFrame(raf)
+  }, [listItems, viewMode, loading])
 
   return (
     <div className="flex flex-col h-full gap-3 overflow-hidden relative">
@@ -1116,12 +1145,21 @@ export default function SchedulePage() {
                   const isSelected = selected?.id === app.id
                   const todayStr = getScheduleToday()
                   const isToday = app.construction_date?.slice(0, 10) === todayStr
+                  const isCompleted = app.work_status === 'completed'
                   const svcColor = app.service_type ? (SERVICE_TYPE_CONFIG[app.service_type] ?? 'bg-surface-sunken text-text-primary') : ''
+                  // 우선순위: 선택 > 완료 > 오늘 > 기본
+                  const rowClass = isSelected
+                    ? 'bg-brand-50 hover:bg-brand-100'
+                    : isCompleted
+                      ? 'bg-surface-sunken/60 text-text-tertiary opacity-70 hover:bg-surface-sunken hover:opacity-100'
+                      : isToday
+                        ? 'bg-lime-50 hover:bg-lime-100 ring-2 ring-inset ring-lime-400'
+                        : 'hover:bg-brand-50/40'
                   return (
                     <tr key={app.id}
                       ref={el => { rowRefs.current[app.id] = el }}
                       onClick={() => isSelected ? handleClose() : setSelected(app)}
-                      className={`cursor-pointer hover:bg-brand-50/40 transition-colors ${isSelected ? 'bg-brand-50' : isToday ? 'bg-yellow-50' : ''}`}>
+                      className={`cursor-pointer transition-colors ${rowClass}`}>
                       {isAdmin && (
                         <td className="px-3 py-3 w-8" onClick={e => e.stopPropagation()}>
                           <input
