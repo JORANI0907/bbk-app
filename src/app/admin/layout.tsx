@@ -2,6 +2,7 @@ import { SidebarWithBadges } from '@/components/admin/SidebarWithBadges'
 import { AdminMobileNav } from '@/components/admin/AdminMobileNav'
 import { PopupNoticeController } from '@/components/admin/PopupNoticeController'
 import { PushNotificationProvider } from '@/components/shared/PushNotificationProvider'
+import { AttendanceAlertToaster } from '@/components/admin/AttendanceAlertToaster'
 import DevRoleSwitcher from '@/components/DevRoleSwitcher'
 import { getServerSession } from '@/lib/session'
 import { redirect } from 'next/navigation'
@@ -34,6 +35,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
       {/* Web Push 구독 등록 */}
       <PushNotificationProvider userId={session.userId} userType="admin" />
+
+      {/* 출퇴근 이상 감지 인앱 실시간 배너 */}
+      <AttendanceAlertToaster />
 
       <DevRoleSwitcher />
     </div>
