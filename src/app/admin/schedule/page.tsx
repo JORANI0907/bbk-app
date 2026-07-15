@@ -825,12 +825,20 @@ export default function SchedulePage() {
 
     // 비관리자: 자신이 담당자이거나 작업자로 배정된 일정만
     if (!isAdmin && currentUser) {
-      // assigned_to는 users.id 기준, appWorkerMap은 workers.id 기준
-      const myWorkerId = userIdToWorkerId[currentUser.userId] ?? null
-      apps = apps.filter(a =>
-        a.assigned_to === currentUser.userId ||
-        (myWorkerId !== null && (appWorkerMap[a.id] ?? []).includes(myWorkerId))
-      )
+      // ⚠️ workers 참조 데이터 로드 완료 전에는 필터 적용 X (그렇지 않으면
+      //     assigned_to=0건이면서 work_assignments에만 있는 워커는 전부 사라짐)
+      const refReady = refLoaded && workers.length > 0
+      if (refReady) {
+        const myWorkerId = userIdToWorkerId[currentUser.userId] ?? null
+        apps = apps.filter(a => {
+          if (a.assigned_to === currentUser.userId) return true
+          const ids = appWorkerMap[a.id] ?? []
+          if (myWorkerId !== null && ids.includes(myWorkerId)) return true
+          // fallback: user_id 매핑 실패 시 이름 매칭
+          return ids.some(wid => workers.find(w => w.id === wid)?.name === currentUser.name)
+        })
+      }
+      // refReady=false 시: 로드 완료 전까지 필터 미적용 → 로드되면 자동 재필터
     } else if (isAdmin) {
       // 담당자 필터: assigned_to는 users.id, work_assignments는 workers.id
       if (personFilter) {
@@ -874,7 +882,7 @@ export default function SchedulePage() {
         : ''
       return bKey.localeCompare(aKey)
     })
-  }, [applications, personFilter, workerFilter, serviceTypeFilter, isAdmin, currentUser, appWorkerMap, userIdToWorkerId, search])
+  }, [applications, personFilter, workerFilter, serviceTypeFilter, isAdmin, currentUser, appWorkerMap, userIdToWorkerId, workers, refLoaded, search])
 
   const allDates = useMemo(() => {
     const dateSet = new Set<string>()
