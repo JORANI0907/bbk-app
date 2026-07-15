@@ -301,13 +301,13 @@ export default function LivePage() {
   })
 
   return (
-    <div className="flex flex-col h-full gap-5">
+    <div className="flex flex-col md:h-full gap-4 md:gap-5">
       {/* 헤더 */}
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-bold text-text-primary">오늘의 현장</h1>
-            <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full bg-red-50 border border-red-100">
+      <div className="flex items-start justify-between gap-3 flex-wrap">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <h1 className="text-xl md:text-2xl font-bold text-text-primary leading-tight">오늘의 현장</h1>
+            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-red-50 border border-red-100 shrink-0">
               <span className="relative flex h-2 w-2">
                 <span className={`absolute inline-flex h-full w-full rounded-full bg-red-400 ${autoRefresh ? 'animate-ping' : ''} opacity-75`}></span>
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
@@ -315,10 +315,10 @@ export default function LivePage() {
               <span className="text-[10px] font-bold tracking-wide text-red-600">LIVE</span>
             </span>
           </div>
-          <p className="text-sm text-text-secondary mt-1">{todayLabel}</p>
+          <p className="text-xs md:text-sm text-text-secondary mt-1 leading-normal">{todayLabel}</p>
         </div>
 
-        <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex items-center gap-1.5 flex-wrap">
           <button
             onClick={() => setHelpOpen(true)}
             className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-brand-200 bg-brand-50 text-xs font-semibold text-brand-700 hover:bg-brand-100 transition-colors"
@@ -382,16 +382,16 @@ export default function LivePage() {
 
       {helpOpen && <HelpModal onClose={() => setHelpOpen(false)} />}
 
-      {/* Kanban 3열 */}
+      {/* Kanban 3열 (데스크톱) / 3섹션 세로 스택 (모바일) */}
       {initialLoading ? (
-        <div className="flex-1 flex items-center justify-center text-text-tertiary text-sm">불러오는 중...</div>
+        <div className="md:flex-1 flex items-center justify-center text-text-tertiary text-sm py-16">불러오는 중...</div>
       ) : apps.length === 0 ? (
-        <div className="flex-1 flex flex-col items-center justify-center gap-3 text-center py-20">
+        <div className="md:flex-1 flex flex-col items-center justify-center gap-3 text-center py-16">
           <Activity size={40} className="text-text-tertiary" />
           <p className="text-text-tertiary text-sm">오늘 예정된 현장이 없습니다.</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 flex-1 min-h-0">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4 md:flex-1 md:min-h-0">
           {COLUMNS.map(col => (
             <ColumnPanel
               key={col.key}
@@ -450,19 +450,19 @@ function ColumnPanel({ column, apps, workerMap }: {
   workerMap: Record<string, PersonEntry[]>
 }) {
   return (
-    <section className={`rounded-2xl border ${column.border} ${column.bg} p-3 flex flex-col min-h-0`}>
+    <section className={`rounded-2xl border ${column.border} ${column.bg} p-3 flex flex-col md:min-h-0`}>
       <header className="flex items-center justify-between px-1 pb-2 mb-2 border-b border-border-subtle/60">
-        <div>
-          <p className={`text-sm font-bold ${column.color}`}>{column.label}</p>
-          <p className="text-[11px] text-text-tertiary">{column.desc}</p>
+        <div className="min-w-0">
+          <p className={`text-sm font-bold ${column.color} leading-tight`}>{column.label}</p>
+          <p className="text-[11px] text-text-tertiary leading-tight mt-0.5">{column.desc}</p>
         </div>
-        <span className={`text-xs font-bold ${column.color} bg-surface border border-border-subtle rounded-full px-2.5 py-0.5`}>
+        <span className={`text-xs font-bold ${column.color} bg-surface border border-border-subtle rounded-full px-2.5 py-0.5 shrink-0`}>
           {apps.length}
         </span>
       </header>
-      <div className="flex flex-col gap-2 overflow-y-auto flex-1 min-h-[200px]">
+      <div className="flex flex-col gap-2 md:overflow-y-auto md:flex-1 md:min-h-[200px]">
         {apps.length === 0 ? (
-          <div className="text-center py-8 text-[11px] text-text-tertiary">
+          <div className="text-center py-6 md:py-8 text-[11px] text-text-tertiary">
             현장 없음
           </div>
         ) : (
