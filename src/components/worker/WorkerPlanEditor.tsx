@@ -31,7 +31,7 @@ function toDbTimeValue(hh: string, mm: string): string | null {
 }
 
 const HOUR_OPTIONS = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0'))
-const MINUTE_OPTIONS = ['00', '05', '10', '15', '20', '25', '30', '35', '40', '45', '50', '55']
+const MINUTE_OPTIONS = ['00', '10', '20', '30', '40', '50']
 
 export function WorkerPlanEditor({
   initialDeparture,
@@ -154,7 +154,7 @@ export function WorkerPlanEditor({
           )}
         </div>
         <p className="text-[11px] text-text-tertiary mt-1.5 leading-normal">
-          24시간 형식 (00시 ~ 23시) · 분은 5분 단위
+          24시간 형식 (00시 ~ 23시) · 분은 10분 단위
         </p>
       </div>
 
