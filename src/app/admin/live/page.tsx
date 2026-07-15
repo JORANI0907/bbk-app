@@ -26,6 +26,7 @@ interface LiveApplication {
   worker_planned_departure: string | null
   worker_plan_note: string | null
   drive_folder_url: string | null
+  assigned_to: string | null           // 담당자 user_id
 }
 
 interface WorkAssignment {
@@ -38,6 +39,12 @@ interface Worker {
   id: string
   name: string
   employment_type: string | null
+}
+
+interface AdminUser {
+  id: string
+  name: string
+  role: string
 }
 
 type ColumnKey = 'pre' | 'active' | 'post'
@@ -164,6 +171,7 @@ export default function LivePage() {
   const [apps, setApps] = useState<LiveApplication[]>([])
   const [assignments, setAssignments] = useState<WorkAssignment[]>([])
   const [workers, setWorkers] = useState<Worker[]>([])
+  const [adminUsers, setAdminUsers] = useState<AdminUser[]>([])
   const [initialLoading, setInitialLoading] = useState(true)
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
   const [autoRefresh, setAutoRefresh] = useState(true)
@@ -179,13 +187,14 @@ export default function LivePage() {
   const load = useCallback(async (silent: boolean) => {
     if (!silent) setInitialLoading(true)
     try {
-      const [appRes, assRes, workerRes] = await Promise.all([
+      const [appRes, assRes, workerRes, userRes] = await Promise.all([
         fetch(`/api/admin/applications?month=${month}`),
         fetch(`/api/admin/work-assignments?month=${month}`),
         fetch('/api/admin/workers'),
+        fetch('/api/admin/users'),
       ])
-      const [appJson, assJson, workerJson] = await Promise.all([
-        appRes.json(), assRes.json(), workerRes.json(),
+      const [appJson, assJson, workerJson, userJson] = await Promise.all([
+        appRes.json(), assRes.json(), workerRes.json(), userRes.json(),
       ])
 
       const todayApps: LiveApplication[] = (appJson.applications ?? [])
@@ -194,6 +203,7 @@ export default function LivePage() {
       setApps(todayApps)
       setAssignments(assJson.assignments ?? [])
       setWorkers(workerJson.workers ?? [])
+      setAdminUsers((userJson.users ?? []).filter((u: AdminUser) => u.role === 'admin' || u.role === 'worker'))
       setLastUpdated(new Date())
     } catch {
       // 조용히 실패
@@ -225,18 +235,37 @@ export default function LivePage() {
     }
   }, [])
 
-  // 배정 매핑
+  // 배정 매핑 (담당자 + 작업자 통합)
+  const userNameMap = useMemo(() => {
+    const m: Record<string, string> = {}
+    for (const u of adminUsers) m[u.id] = u.name
+    return m
+  }, [adminUsers])
+
   const workerMap = useMemo(() => {
-    const map: Record<string, string[]> = {}
+    // key: application_id, value: [{ name, role: 'manager' | 'worker' }]
+    const map: Record<string, { name: string; role: 'manager' | 'worker' }[]> = {}
+    // 1. 담당자(assigned_to) — 우선
+    for (const app of apps) {
+      if (!app.assigned_to) continue
+      const name = userNameMap[app.assigned_to]
+      if (!name) continue
+      if (!map[app.id]) map[app.id] = []
+      map[app.id].push({ name, role: 'manager' })
+    }
+    // 2. 작업자(work_assignments) — 보조
     for (const a of assignments) {
       if (!a.application_id) continue
       const name = workers.find(w => w.id === a.worker_id)?.name
       if (!name) continue
       if (!map[a.application_id]) map[a.application_id] = []
-      map[a.application_id].push(name)
+      // 담당자와 중복 이름 방지
+      if (!map[a.application_id].some(p => p.name === name)) {
+        map[a.application_id].push({ name, role: 'worker' })
+      }
     }
     return map
-  }, [assignments, workers])
+  }, [assignments, workers, apps, userNameMap])
 
   // 컬럼별 분류
   const grouped = useMemo(() => {
@@ -252,15 +281,15 @@ export default function LivePage() {
   // KPI
   const kpi = useMemo(() => {
     let alertCount = 0
-    let totalWorkers = new Set<string>()
+    const totalPeople = new Set<string>()
     for (const a of apps) {
       const alerts = computeAlerts(a)
       if (alerts.lateArrival || alerts.lateDeparture || alerts.overrun) alertCount++
-      for (const n of workerMap[a.id] ?? []) totalWorkers.add(n)
+      for (const p of workerMap[a.id] ?? []) totalPeople.add(p.name)
     }
     return {
       total: apps.length,
-      workers: totalWorkers.size,
+      workers: totalPeople.size,
       done: grouped.post.length,
       alerts: alertCount,
     }
@@ -410,10 +439,15 @@ function KpiCard({ icon, label, value, tone, suffix }: {
 
 // ─── 컬럼 ─────────────────────────────────────────────────────
 
+interface PersonEntry {
+  name: string
+  role: 'manager' | 'worker'
+}
+
 function ColumnPanel({ column, apps, workerMap }: {
   column: Column
   apps: LiveApplication[]
-  workerMap: Record<string, string[]>
+  workerMap: Record<string, PersonEntry[]>
 }) {
   return (
     <section className={`rounded-2xl border ${column.border} ${column.bg} p-3 flex flex-col min-h-0`}>
@@ -445,7 +479,7 @@ function ColumnPanel({ column, apps, workerMap }: {
 
 function LiveCard({ app, workers, column }: {
   app: LiveApplication
-  workers: string[]
+  workers: PersonEntry[]
   column: ColumnKey
 }) {
   const alerts = computeAlerts(app)
@@ -518,12 +552,20 @@ function LiveCard({ app, workers, column }: {
         </p>
       )}
 
-      {/* 작업자 */}
+      {/* 인력 (담당자 우선, 작업자 보조) */}
       {workers.length > 0 && (
         <div className="mt-2 flex flex-wrap gap-1">
-          {workers.map(name => (
-            <span key={name} className="text-[10px] font-medium bg-indigo-50 text-indigo-700 border border-indigo-100 px-1.5 py-0.5 rounded-md">
-              {name}
+          {workers.map(p => (
+            <span
+              key={`${p.role}-${p.name}`}
+              className={`text-[10px] font-medium px-1.5 py-0.5 rounded-md border ${
+                p.role === 'manager'
+                  ? 'bg-brand-50 text-brand-700 border-brand-200'
+                  : 'bg-indigo-50 text-indigo-700 border-indigo-100'
+              }`}
+              title={p.role === 'manager' ? '담당자' : '작업자'}
+            >
+              {p.role === 'manager' ? '👤 ' : ''}{p.name}
             </span>
           ))}
         </div>

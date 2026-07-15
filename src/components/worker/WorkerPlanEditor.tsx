@@ -17,17 +17,21 @@ interface Props {
 
 type SaveState = 'idle' | 'saving' | 'saved' | 'error'
 
-// 'HH:MM:SS' → 'HH:MM' (input[type=time] value 포맷)
-function toTimeInputValue(v: string | null): string {
-  if (!v) return ''
-  return v.slice(0, 5)
+// 'HH:MM:SS' → { hh: '08', mm: '30' }
+function parseTime(v: string | null): { hh: string; mm: string } {
+  if (!v) return { hh: '', mm: '' }
+  const parts = v.slice(0, 5).split(':')
+  return { hh: parts[0] ?? '', mm: parts[1] ?? '' }
 }
 
-// 'HH:MM' → 'HH:MM:00' (Postgres TIME 저장 포맷)
-function toDbTimeValue(v: string): string | null {
-  if (!v) return null
-  return v.length === 5 ? `${v}:00` : v
+// 'HH', 'MM' → 'HH:MM:00' (Postgres TIME 저장 포맷)
+function toDbTimeValue(hh: string, mm: string): string | null {
+  if (!hh || !mm) return null
+  return `${hh}:${mm}:00`
 }
+
+const HOUR_OPTIONS = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0'))
+const MINUTE_OPTIONS = ['00', '05', '10', '15', '20', '25', '30', '35', '40', '45', '50', '55']
 
 export function WorkerPlanEditor({
   initialDeparture,
@@ -35,23 +39,27 @@ export function WorkerPlanEditor({
   onSave,
   disabled = false,
 }: Props) {
-  const [departure, setDeparture] = useState(toTimeInputValue(initialDeparture))
+  const initial = parseTime(initialDeparture)
+  const [hour, setHour] = useState(initial.hh)
+  const [minute, setMinute] = useState(initial.mm)
   const [note, setNote] = useState(initialNote ?? '')
   const [noteOpen, setNoteOpen] = useState(!!initialNote)
   const [saveState, setSaveState] = useState<SaveState>('idle')
 
-  const savedDeparture = useRef(toTimeInputValue(initialDeparture))
+  const savedHour = useRef(initial.hh)
+  const savedMinute = useRef(initial.mm)
   const savedNote = useRef(initialNote ?? '')
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  const persist = async (nextDeparture: string, nextNote: string) => {
+  const persist = async (nextHour: string, nextMinute: string, nextNote: string) => {
     setSaveState('saving')
     try {
       await onSave({
-        worker_planned_departure: toDbTimeValue(nextDeparture),
+        worker_planned_departure: toDbTimeValue(nextHour, nextMinute),
         worker_plan_note: nextNote.trim() || null,
       })
-      savedDeparture.current = nextDeparture
+      savedHour.current = nextHour
+      savedMinute.current = nextMinute
       savedNote.current = nextNote
       setSaveState('saved')
       setTimeout(() => setSaveState('idle'), 1600)
@@ -64,17 +72,23 @@ export function WorkerPlanEditor({
   // 자동 저장 (600ms debounce)
   useEffect(() => {
     if (disabled) return
-    const changed = departure !== savedDeparture.current || note !== savedNote.current
+    const changed =
+      hour !== savedHour.current ||
+      minute !== savedMinute.current ||
+      note !== savedNote.current
     if (!changed) return
+    // 시/분 중 하나만 선택된 부분 상태에서는 저장 안 함 (둘 다 선택 or 둘 다 해제)
+    const bothOrNone = (!hour && !minute) || (hour && minute)
+    if (!bothOrNone) return
     if (debounceRef.current) clearTimeout(debounceRef.current)
     debounceRef.current = setTimeout(() => {
-      void persist(departure, note)
+      void persist(hour, minute, note)
     }, 600)
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [departure, note, disabled])
+  }, [hour, minute, note, disabled])
 
   return (
     <div
@@ -100,29 +114,49 @@ export function WorkerPlanEditor({
         <SaveIndicator state={saveState} />
       </div>
 
-      {/* 출발 시각 */}
-      <label className="block">
+      {/* 출발 시각 — 24시간 시/분 select */}
+      <div>
         <div className="flex items-center gap-2">
-          <input
-            type="time"
-            value={departure}
+          <select
+            value={hour}
             disabled={disabled}
-            onChange={(e) => setDeparture(e.target.value)}
+            onChange={(e) => setHour(e.target.value)}
             className="flex-1 rounded-md border border-border bg-surface px-3 py-2 text-base font-semibold text-text-primary leading-normal focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 disabled:bg-surface-sunken"
             style={{ fontVariantNumeric: 'tabular-nums' }}
-          />
-          {departure && (
+          >
+            <option value="">시</option>
+            {HOUR_OPTIONS.map((h) => (
+              <option key={h} value={h}>{h}시</option>
+            ))}
+          </select>
+          <span className="text-text-tertiary font-bold">:</span>
+          <select
+            value={minute}
+            disabled={disabled}
+            onChange={(e) => setMinute(e.target.value)}
+            className="flex-1 rounded-md border border-border bg-surface px-3 py-2 text-base font-semibold text-text-primary leading-normal focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 disabled:bg-surface-sunken"
+            style={{ fontVariantNumeric: 'tabular-nums' }}
+          >
+            <option value="">분</option>
+            {MINUTE_OPTIONS.map((m) => (
+              <option key={m} value={m}>{m}분</option>
+            ))}
+          </select>
+          {(hour || minute) && (
             <button
               type="button"
-              onClick={() => setDeparture('')}
+              onClick={() => { setHour(''); setMinute('') }}
               disabled={disabled}
-              className="text-xs text-text-tertiary hover:text-text-secondary px-2 py-1 rounded-md hover:bg-surface-sunken transition-colors disabled:opacity-40"
+              className="text-xs text-text-tertiary hover:text-text-secondary px-2 py-1 rounded-md hover:bg-surface-sunken transition-colors disabled:opacity-40 shrink-0"
             >
               지우기
             </button>
           )}
         </div>
-      </label>
+        <p className="text-[11px] text-text-tertiary mt-1.5 leading-normal">
+          24시간 형식 (00시 ~ 23시) · 분은 5분 단위
+        </p>
+      </div>
 
       {/* 특이사항 */}
       <div className="mt-3 pt-3 border-t border-brand-100/70">
