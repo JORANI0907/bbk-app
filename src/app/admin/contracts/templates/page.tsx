@@ -3,11 +3,12 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import toast from 'react-hot-toast'
-import { FileText, Copy } from 'lucide-react'
+import { FileText, Copy, Download } from 'lucide-react'
 import { Button } from '@/components/ui'
 import { SectionHeader } from '@/components/ui'
 import { EmptyState } from '@/components/ui'
 import VariablesTab from './VariablesTab'
+import { generateTemplatePdf } from '@/lib/generateTemplatePdf'
 
 type SubTab = 'templates' | 'variables'
 
@@ -64,6 +65,7 @@ export default function ContractTemplatesPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [isCreating, setIsCreating] = useState(false)
   const [duplicatingId, setDuplicatingId] = useState<string | null>(null)
+  const [downloadingId, setDownloadingId] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<SubTab>('templates')
 
   const fetchTemplates = useCallback(async () => {
@@ -108,6 +110,25 @@ export default function ContractTemplatesPage() {
       toast.error('오류가 발생했습니다.')
     } finally {
       setIsCreating(false)
+    }
+  }
+
+  const handleDownloadPdf = async (id: string, name: string) => {
+    setDownloadingId(id)
+    const loadingToast = toast.loading(`'${name}' PDF 생성 중...`)
+    try {
+      const res = await fetch(`/api/admin/contract-templates/${id}`)
+      const json = await res.json()
+      if (!json.success || !json.data?.html_body) {
+        toast.error(json.error ?? '양식을 불러오지 못했습니다.', { id: loadingToast })
+        return
+      }
+      await generateTemplatePdf({ html: json.data.html_body, filename: name })
+      toast.success('PDF가 저장됐습니다.', { id: loadingToast })
+    } catch {
+      toast.error('PDF 생성 중 오류가 발생했습니다.', { id: loadingToast })
+    } finally {
+      setDownloadingId(null)
     }
   }
 
@@ -232,7 +253,16 @@ export default function ContractTemplatesPage() {
                     수정일: {formatDate(tmpl.updated_at)}
                   </p>
                 </div>
-                <div className="flex items-center gap-2 shrink-0">
+                <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    isLoading={downloadingId === tmpl.id}
+                    onClick={() => handleDownloadPdf(tmpl.id, tmpl.name)}
+                  >
+                    <Download size={13} className="mr-1" />
+                    PDF
+                  </Button>
                   <Button
                     size="sm"
                     variant="secondary"
