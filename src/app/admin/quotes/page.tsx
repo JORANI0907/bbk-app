@@ -5,13 +5,34 @@ import toast from 'react-hot-toast'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Textarea } from '@/components/ui/Textarea'
-import { Plus, X, FileText, ExternalLink, RefreshCw, ChevronLeft, ChevronRight, Save, RotateCcw, Upload, Trash2 } from 'lucide-react'
+import { Plus, X, FileText, ExternalLink, RefreshCw, ChevronLeft, ChevronRight, Save, RotateCcw, Upload, Trash2, Send, Pencil, CheckCircle2 } from 'lucide-react'
 
 // ─── 타입 ────────────────────────────────────────────────────────
 
 interface QuoteItem { name: string; qty: number; unit_price: number; subtotal: number }
 
 interface QuoteLogEntry { quote_no: string; pdf_url: string | null; sent_at: string; total_amount: number }
+
+interface SavedQuote {
+  id: string
+  label: string
+  quote_items: QuoteItem[]
+  pricing_mode: 'itemized' | 'total' | 'supply'
+  direct_amount: number
+  discount_mode: 'none' | 'rate' | 'amount'
+  discount_rate: number
+  discount_input: number
+  supply_amount: number
+  vat_amount: number
+  total_amount: number
+  valid_days: number
+  notes: string
+  quote_no: string | null
+  pdf_url: string | null
+  sent_at: string | null
+  created_at: string
+  updated_at: string
+}
 
 interface ApplicationRow {
   id: string
@@ -30,6 +51,7 @@ interface ApplicationRow {
   quote_items: QuoteItem[] | null
   quote_log: QuoteLogEntry[] | null
   quote_notes: string | null
+  saved_quotes: SavedQuote[] | null
   created_at: string
   status: string
   notification_log: Array<{ type: string; sent_at: string; method?: string }> | null
@@ -108,8 +130,13 @@ export default function QuotesPage() {
   // 견적 조건
   const [validDays, setValidDays]   = useState(5)
   const [notes, setNotes]           = useState('')
-  const [sending, setSending]       = useState(false)
   const [savingDraft, setSavingDraft] = useState(false)
+
+  // 견적서 저장/발송 관리
+  const [editingQuoteId, setEditingQuoteId] = useState<string | null>(null)
+  const [completing, setCompleting] = useState(false)
+  const [sendingQuoteId, setSendingQuoteId] = useState<string | null>(null)
+  const historyRef = useRef<HTMLDivElement>(null)
 
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const selected    = applications.find(a => a.id === selectedId) ?? null
@@ -304,7 +331,11 @@ export default function QuotesPage() {
     setQuoteItems(items)
     setPricingMode('itemized')
     setDirectAmount(0)
+    setDiscountMode('none')
+    setDiscountRate(0)
+    setDiscountInput(0)
     setNotes(app.quote_notes ?? '')
+    setEditingQuoteId(null)
   }, [])
 
   // 서비스관리에서 이동 시 sessionStorage에서 appId 읽어 자동 선택
@@ -375,13 +406,171 @@ export default function QuotesPage() {
     return null
   }
 
-  // ── 견적서 발송 ───────────────────────────────────────────────
-  const handleSend = async () => {
+  // ── 폼 리셋 (신규 견적서 작성 시작) ─────────────────────────
+  const resetForm = () => {
+    setQuoteItems(selected?.care_scope ? parseCareScope(selected.care_scope) : [])
+    setPricingMode('itemized')
+    setDirectAmount(0)
+    setDiscountMode('none')
+    setDiscountRate(0)
+    setDiscountInput(0)
+    setNotes(selected?.quote_notes ?? '')
+    setEditingQuoteId(null)
+  }
+
+  // ── 견적서 완성 (신규 저장 or 기존 수정 저장) ──────────────
+  const handleComplete = async () => {
     const err = validate()
     if (err) { toast.error(err); return }
     if (!selected) return
 
-    setSending(true)
+    setCompleting(true)
+    try {
+      const existing: SavedQuote[] = selected.saved_quotes ?? []
+      const now = new Date().toISOString()
+      let updated: SavedQuote[]
+      let label: string
+
+      if (editingQuoteId) {
+        // 수정 모드: 기존 항목 업데이트 (발송 정보는 유지)
+        updated = existing.map((q) => {
+          if (q.id !== editingQuoteId) return q
+          return {
+            ...q,
+            quote_items:   quoteItems,
+            pricing_mode:  pricingMode,
+            direct_amount: directAmount,
+            discount_mode: discountMode,
+            discount_rate: discountRate,
+            discount_input: discountInput,
+            supply_amount: supplyAmount,
+            vat_amount:    vatAmount,
+            total_amount:  totalAmount,
+            valid_days:    validDays,
+            notes,
+            updated_at:    now,
+          }
+        })
+        label = existing.find((q) => q.id === editingQuoteId)?.label ?? '견적서'
+      } else {
+        // 신규: saved_quotes 배열에 push
+        const nextIndex = existing.length + 1
+        label = `견적서 #${nextIndex}`
+        const newQuote: SavedQuote = {
+          id: crypto.randomUUID(),
+          label,
+          quote_items:   quoteItems,
+          pricing_mode:  pricingMode,
+          direct_amount: directAmount,
+          discount_mode: discountMode,
+          discount_rate: discountRate,
+          discount_input: discountInput,
+          supply_amount: supplyAmount,
+          vat_amount:    vatAmount,
+          total_amount:  totalAmount,
+          valid_days:    validDays,
+          notes,
+          quote_no:  null,
+          pdf_url:   null,
+          sent_at:   null,
+          created_at: now,
+          updated_at: now,
+        }
+        updated = [...existing, newQuote]
+      }
+
+      const res = await fetch(`/api/admin/quotes/${selected.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ saved_quotes: updated }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error ?? '저장 실패')
+
+      setApplications(prev => prev.map(a =>
+        a.id === selected.id ? { ...a, saved_quotes: updated } : a
+      ))
+      toast.success(editingQuoteId ? `'${label}' 수정 완료` : `'${label}' 저장 완료`)
+      resetForm()
+
+      // 발송이력 섹션으로 스크롤
+      setTimeout(() => historyRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100)
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : '저장 실패')
+    } finally {
+      setCompleting(false)
+    }
+  }
+
+  // ── 저장된 견적서 편집 시작 (폼에 로드) ─────────────────────
+  const handleEditSavedQuote = (q: SavedQuote) => {
+    setQuoteItems(q.quote_items.map(i => ({ ...i })))
+    setPricingMode(q.pricing_mode)
+    setDirectAmount(q.direct_amount)
+    setDiscountMode(q.discount_mode)
+    setDiscountRate(q.discount_rate)
+    setDiscountInput(q.discount_input)
+    setValidDays(q.valid_days)
+    setNotes(q.notes)
+    setEditingQuoteId(q.id)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  // ── 저장된 견적서 삭제 ─────────────────────────────────────
+  const handleDeleteSavedQuote = async (q: SavedQuote) => {
+    if (!selected) return
+    if (!confirm(`'${q.label}' 을(를) 삭제하시겠습니까?`)) return
+    try {
+      const updated = (selected.saved_quotes ?? []).filter(x => x.id !== q.id)
+      const res = await fetch(`/api/admin/quotes/${selected.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ saved_quotes: updated }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error ?? '삭제 실패')
+      setApplications(prev => prev.map(a =>
+        a.id === selected.id ? { ...a, saved_quotes: updated } : a
+      ))
+      if (editingQuoteId === q.id) resetForm()
+      toast.success('삭제되었습니다.')
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : '삭제 실패')
+    }
+  }
+
+  // ── 저장된 견적서 발송 ─────────────────────────────────────
+  const handleSendSavedQuote = async (q: SavedQuote) => {
+    if (!selected) return
+
+    // 저장된 견적서 데이터로 금액 재계산 (원가/할인)
+    const { origSupply: qOrigSupply, origTotal: qOrigTotal } = (() => {
+      if (q.pricing_mode === 'itemized') {
+        const s = q.quote_items.reduce((sum, i) => sum + i.subtotal, 0)
+        return { origSupply: s, origTotal: s + Math.round(s * 0.1) }
+      }
+      if (q.pricing_mode === 'total') {
+        const s = Math.round(q.direct_amount / 1.1)
+        return { origSupply: s, origTotal: q.direct_amount }
+      }
+      return { origSupply: q.direct_amount, origTotal: q.direct_amount + Math.round(q.direct_amount * 0.1) }
+    })()
+    const qDiscountBase = q.pricing_mode === 'total' ? qOrigTotal : qOrigSupply
+    const qDiscountAmount = (() => {
+      if (q.discount_mode === 'rate') {
+        const rate = Math.max(0, Math.min(100, q.discount_rate))
+        return Math.min(Math.round((rate / 100) * qDiscountBase), qDiscountBase)
+      }
+      if (q.discount_mode === 'amount') {
+        return Math.min(Math.max(0, Math.floor(q.discount_input)), qDiscountBase)
+      }
+      return 0
+    })()
+    const qEffectiveRate = qDiscountBase > 0
+      ? Math.round((qDiscountAmount / qDiscountBase) * 1000) / 10
+      : 0
+
+    setSendingQuoteId(q.id)
     try {
       const res = await fetch(`/api/admin/quotes/${selected.id}/send`, {
         method:  'POST',
@@ -397,25 +586,25 @@ export default function QuotesPage() {
           email:             customerInfo.email,
           address:           customerInfo.address,
           construction_date: customerInfo.construction_date,
-          quote_items:       quoteItems,
-          supply_amount:     supplyAmount,
-          vat:               vatAmount,
-          total_amount:      totalAmount,
-          // 할인 정보 (할인 미적용이면 0/null)
-          discount_amount:     computedDiscountAmount,
-          discount_rate:       computedDiscountAmount > 0 ? effectiveDiscountRate : 0,
-          discount_base_label: pricingMode === 'total' ? '총액' : '공급가액',
-          orig_supply_amount:  origSupply,
-          orig_total_amount:   origTotal,
-          valid_days:        validDays,
-          notes:             notes || undefined,
-          hide_item_prices:  pricingMode !== 'itemized',
+          quote_items:       q.quote_items,
+          supply_amount:     q.supply_amount,
+          vat:               q.vat_amount,
+          total_amount:      q.total_amount,
+          discount_amount:     qDiscountAmount,
+          discount_rate:       qDiscountAmount > 0 ? qEffectiveRate : 0,
+          discount_base_label: q.pricing_mode === 'total' ? '총액' : '공급가액',
+          orig_supply_amount:  qOrigSupply,
+          orig_total_amount:   qOrigTotal,
+          valid_days:        q.valid_days,
+          notes:             q.notes || undefined,
+          hide_item_prices:  q.pricing_mode !== 'itemized',
           seal_image_url:    sealImageUrl ?? undefined,
+          saved_quote_id:    q.id,
         }),
       })
       const result = await res.json()
       if (result.success) {
-        toast.success(`견적서 발송 완료 (${result.quote_no})${result.warnings?.kakao ? '\n카카오 알림톡은 발송되지 않았습니다.' : ''}`)
+        toast.success(`'${q.label}' 발송 완료 (${result.quote_no})${result.warnings?.kakao ? '\n카카오 알림톡은 발송되지 않았습니다.' : ''}`)
         await loadApplications(page, search)
       } else {
         const msg = result.errors
@@ -427,7 +616,7 @@ export default function QuotesPage() {
     } catch (e) {
       toast.error(e instanceof Error ? e.message : '오류가 발생했습니다.')
     } finally {
-      setSending(false)
+      setSendingQuoteId(null)
     }
   }
 
@@ -896,46 +1085,109 @@ export default function QuotesPage() {
                   <span className="text-2xl font-bold text-brand-600 tabular-nums">{fmtKr(totalAmount)}원</span>
                 </div>
               </div>
-              <Button onClick={handleSend} disabled={sending || totalAmount === 0} className="w-full" size="lg">
-                {sending ? '발송 중…' : '견적서 발송'}
+              {editingQuoteId && (
+                <div className="mb-2 flex items-center justify-between rounded-lg bg-amber-50 border border-amber-200 px-3 py-2">
+                  <span className="text-xs text-amber-700 font-medium">
+                    수정 모드: {selected.saved_quotes?.find(q => q.id === editingQuoteId)?.label ?? '견적서'}
+                  </span>
+                  <button type="button" onClick={resetForm}
+                    className="text-[11px] text-amber-700 hover:text-amber-800 font-medium underline">
+                    취소
+                  </button>
+                </div>
+              )}
+              <Button onClick={handleComplete} disabled={completing || totalAmount === 0} className="w-full" size="lg">
+                {completing ? '저장 중…' : editingQuoteId ? '수정 저장' : '견적서 완성'}
               </Button>
               <p className="text-[11px] text-text-tertiary mt-2 text-center">
-                PDF 생성 → 이메일 · 카카오 알림톡 발송
+                {editingQuoteId
+                  ? '수정 사항을 저장하고 발송이력으로 이동합니다.'
+                  : '견적서를 이력에 저장합니다. 발송은 아래 이력에서 개별 실행합니다.'}
               </p>
             </Section>
 
-            {/* ── 6. 발송 이력 ───────────────────────────────── */}
-            {selected.quote_log && selected.quote_log.length > 0 && (
-              <Section>
-                <SectionHeader title={`발송 이력`}>
-                  <span className="text-xs text-text-tertiary">{selected.quote_log.length}건</span>
-                </SectionHeader>
+            {/* ── 6. 견적서 이력 (saved_quotes) ───────────── */}
+            <div ref={historyRef}>
+            <Section>
+              <SectionHeader title="견적서 이력">
+                <span className="text-xs text-text-tertiary">
+                  {selected.saved_quotes?.length ?? 0}건
+                </span>
+              </SectionHeader>
+              {!selected.saved_quotes || selected.saved_quotes.length === 0 ? (
+                <div className="py-8 text-center text-sm text-text-tertiary border border-dashed border-border-subtle rounded-xl">
+                  아직 저장된 견적서가 없습니다.<br />
+                  <span className="text-[11px]">위에서 '견적서 완성' 버튼을 눌러 추가하세요.</span>
+                </div>
+              ) : (
                 <ul className="divide-y divide-border-subtle -mx-6 px-6">
-                  {[...selected.quote_log].reverse().map((log, idx) => (
-                    <li key={log.quote_no} className="py-3 flex items-center justify-between gap-3">
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2">
-                          {idx === 0 && (
-                            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-brand-50 text-brand-600 font-medium flex-shrink-0">최신</span>
-                          )}
-                          <span className="text-sm font-medium text-text-primary tabular-nums truncate">{log.quote_no}</span>
+                  {[...selected.saved_quotes].reverse().map((q) => {
+                    const isSent = !!q.sent_at
+                    const isEditingNow = editingQuoteId === q.id
+                    const isSendingNow = sendingQuoteId === q.id
+                    return (
+                      <li key={q.id} className={`py-3 ${isEditingNow ? 'bg-amber-50/30 -mx-6 px-6' : ''}`}>
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="text-sm font-semibold text-text-primary truncate">{q.label}</span>
+                              {isSent ? (
+                                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-green-50 text-green-700 font-medium flex items-center gap-0.5">
+                                  <CheckCircle2 size={10} />발송완료
+                                </span>
+                              ) : (
+                                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-700 font-medium">
+                                  미발송
+                                </span>
+                              )}
+                              {isEditingNow && (
+                                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-brand-50 text-brand-600 font-medium">
+                                  수정 중
+                                </span>
+                              )}
+                            </div>
+                            <div className="mt-1 text-[11px] text-text-tertiary flex items-center gap-2 flex-wrap">
+                              <span className="tabular-nums font-medium text-text-secondary">{fmtKr(q.total_amount)}원</span>
+                              {q.quote_no && <><span>·</span><span className="tabular-nums">{q.quote_no}</span></>}
+                              {q.sent_at && (
+                                <><span>·</span><span>발송 {new Date(q.sent_at).toLocaleString('ko-KR', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}</span></>
+                              )}
+                              <span>·</span>
+                              <span>작성 {new Date(q.created_at).toLocaleDateString('ko-KR')}</span>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1 flex-shrink-0 flex-wrap justify-end">
+                            {q.pdf_url && (
+                              <a href={q.pdf_url} target="_blank" rel="noopener noreferrer"
+                                className="flex items-center gap-1 text-[11px] px-2 py-1 rounded-md border border-border-subtle text-text-secondary hover:bg-surface-sunken transition-colors">
+                                <ExternalLink size={11} />PDF
+                              </a>
+                            )}
+                            <button type="button" onClick={() => handleEditSavedQuote(q)}
+                              className="flex items-center gap-1 text-[11px] px-2 py-1 rounded-md border border-border-subtle text-text-secondary hover:bg-surface-sunken transition-colors">
+                              <Pencil size={11} />수정
+                            </button>
+                            <button type="button"
+                              onClick={() => handleSendSavedQuote(q)}
+                              disabled={isSendingNow}
+                              className="flex items-center gap-1 text-[11px] px-2 py-1 rounded-md bg-brand-600 text-white hover:bg-brand-700 transition-colors disabled:opacity-50">
+                              <Send size={11} />
+                              {isSendingNow ? '발송 중…' : isSent ? '재발송' : '발송'}
+                            </button>
+                            <button type="button" onClick={() => handleDeleteSavedQuote(q)}
+                              className="flex items-center justify-center w-6 h-6 rounded-md text-text-tertiary hover:text-state-danger hover:bg-state-danger-bg transition-colors"
+                              title="삭제">
+                              <Trash2 size={11} />
+                            </button>
+                          </div>
                         </div>
-                        <div className="flex items-center gap-2 mt-0.5 text-[11px] text-text-tertiary">
-                          <span>{new Date(log.sent_at).toLocaleString('ko-KR', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}</span>
-                          {log.total_amount > 0 && <><span>·</span><span className="tabular-nums">{fmtKr(log.total_amount)}원</span></>}
-                        </div>
-                      </div>
-                      {log.pdf_url && (
-                        <a href={log.pdf_url} target="_blank" rel="noopener noreferrer"
-                          className="flex-shrink-0 flex items-center gap-1 text-xs text-brand-600 hover:text-brand-700 font-medium">
-                          <ExternalLink size={12} />PDF
-                        </a>
-                      )}
-                    </li>
-                  ))}
+                      </li>
+                    )
+                  })}
                 </ul>
-              </Section>
-            )}
+              )}
+            </Section>
+            </div>
 
           </div>
         )}

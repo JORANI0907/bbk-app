@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
   let query = supabase
     .from('service_applications')
     .select(
-      'id, owner_name, business_name, phone, phone_2, phone_notify_1, phone_notify_2, email, address, construction_date, care_scope, last_quote_no, last_quote_pdf_url, quote_items, quote_log, quote_notes, created_at, status, notification_log, source',
+      'id, owner_name, business_name, phone, phone_2, phone_notify_1, phone_notify_2, email, address, construction_date, care_scope, last_quote_no, last_quote_pdf_url, quote_items, quote_log, quote_notes, saved_quotes, created_at, status, notification_log, source',
       { count: 'exact' }
     )
     .is('deleted_at', null)

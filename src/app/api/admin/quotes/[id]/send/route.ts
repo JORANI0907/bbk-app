@@ -60,6 +60,8 @@ interface QuoteSendBody {
   notes?: string
   hide_item_prices?: boolean
   seal_image_url?: string
+  // saved_quotes 배열 특정 항목에 발송 결과 반영 (선택)
+  saved_quote_id?: string
 }
 
 function generateQuoteNo(): string {
@@ -89,6 +91,7 @@ export async function POST(
     discount_amount, discount_rate, discount_base_label,
     orig_supply_amount, orig_total_amount,
     valid_days, notes, hide_item_prices, seal_image_url,
+    saved_quote_id,
   } = body
 
   const notify1 = phone_notify_1 !== false     // 기본 true
@@ -268,36 +271,51 @@ export async function POST(
     }
   }
 
-  // ── 5. DB 저장 (quote_log 누적) ──────────────────────────────
+  // ── 5. DB 저장 (quote_log 누적 + saved_quotes 반영) ─────────
   try {
     const supabase = createServiceClient()
 
     const { data: current } = await supabase
       .from('service_applications')
-      .select('quote_log')
+      .select('quote_log, saved_quotes')
       .eq('id', id)
       .single()
 
     const existingLog: QuoteLogEntry[] = Array.isArray(current?.quote_log) ? current.quote_log : []
+    const sentAtIso = new Date().toISOString()
     const newEntry: QuoteLogEntry = {
       quote_no:     quoteNo,
       pdf_url:      pdfUrl || null,
-      sent_at:      new Date().toISOString(),
+      sent_at:      sentAtIso,
       total_amount: total_amount || 0,
     }
 
+    // saved_quote_id 지정 시 해당 항목에 발송 결과 반영
+    let updatedSavedQuotes: unknown[] | undefined
+    if (saved_quote_id) {
+      const existingSaved = Array.isArray(current?.saved_quotes) ? current.saved_quotes : []
+      updatedSavedQuotes = existingSaved.map((q: Record<string, unknown>) =>
+        q.id === saved_quote_id
+          ? { ...q, quote_no: quoteNo, pdf_url: pdfUrl || null, sent_at: sentAtIso, updated_at: sentAtIso }
+          : q
+      )
+    }
+
+    const updatePatch: Record<string, unknown> = {
+      last_quote_no:     quoteNo,
+      last_quote_pdf_url: pdfUrl || null,
+      quote_items,
+      quote_log: [...existingLog, newEntry],
+      // 관리자가 견적서 발송 화면에서 조작한 알림 설정을 함께 저장
+      phone_2: p2,
+      phone_notify_1: notify1,
+      phone_notify_2: notify2,
+    }
+    if (updatedSavedQuotes !== undefined) updatePatch.saved_quotes = updatedSavedQuotes
+
     await supabase
       .from('service_applications')
-      .update({
-        last_quote_no:     quoteNo,
-        last_quote_pdf_url: pdfUrl || null,
-        quote_items,
-        quote_log: [...existingLog, newEntry],
-        // 관리자가 견적서 발송 화면에서 조작한 알림 설정을 함께 저장
-        phone_2: p2,
-        phone_notify_1: notify1,
-        phone_notify_2: notify2,
-      })
+      .update(updatePatch)
       .eq('id', id)
   } catch (e) {
     errors.db = e instanceof Error ? e.message : String(e)
