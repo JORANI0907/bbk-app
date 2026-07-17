@@ -38,6 +38,10 @@ export interface QuotePdfData {
   companyBizNo: string
   companyPhone: string
   companyAddress: string
+  // 계좌 (선택)
+  bankName?: string
+  bankAccountNumber?: string
+  bankAccountHolder?: string
   // 항목 & 금액
   quoteItems: QuoteItem[]
   supplyAmount: number
@@ -60,17 +64,23 @@ const fmtKr = (n: number) => n.toLocaleString('ko-KR')
 // ─── 색상 토큰 ────────────────────────────────────────────────
 const C = {
   brand:       '#1a73e8',
-  brandDark:   '#1557b0',
+  brandDark:   '#0b4dab',
+  brandLight:  '#eff6ff',
+  headerNavy:  '#0f172a',
   textPrimary: '#0f172a',
   textSecond:  '#475569',
   textTertiary:'#94a3b8',
   surface:     '#f8fafc',
+  surface2:    '#f1f5f9',
   border:      '#e2e8f0',
   borderStrong:'#cbd5e1',
   white:       '#ffffff',
   rowAlt:      '#f8fafc',
   totalBg:     '#eff6ff',
   totalBorder: '#bfdbfe',
+  bankBg:      '#fefce8',   // 옅은 크림
+  bankBorder:  '#fde68a',   // 옅은 앰버
+  bankAccent:  '#a16207',
 }
 
 // ─── Styles ───────────────────────────────────────────────────
@@ -97,10 +107,16 @@ const s = StyleSheet.create({
     marginBottom: 14,
   },
   title: {
-    fontSize: 26,
+    fontSize: 28,
     fontWeight: 'bold',
-    color: C.textPrimary,
-    letterSpacing: 8,
+    color: C.headerNavy,
+    letterSpacing: 12,
+  },
+  titleSub: {
+    fontSize: 8,
+    color: C.textTertiary,
+    letterSpacing: 3,
+    marginTop: 2,
   },
   headerMeta: {
     textAlign: 'right',
@@ -287,6 +303,43 @@ const s = StyleSheet.create({
     textAlign: 'right',
   },
 
+  // ── Bank ──
+  bankWrap: {
+    borderWidth: 0.75,
+    borderColor: C.bankBorder,
+    borderStyle: 'solid',
+    borderRadius: 5,
+    backgroundColor: C.bankBg,
+    paddingTop: 8,
+    paddingBottom: 8,
+    paddingLeft: 12,
+    paddingRight: 12,
+    marginBottom: 12,
+  },
+  bankRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  bankLabel: {
+    fontSize: 8.5,
+    fontWeight: 'bold',
+    color: C.bankAccent,
+    letterSpacing: 2,
+    marginRight: 10,
+  },
+  bankValue: {
+    fontSize: 10,
+    color: C.textPrimary,
+    fontWeight: 'bold',
+    letterSpacing: 0.5,
+    flex: 1,
+  },
+  bankHolder: {
+    fontSize: 9,
+    color: C.textSecond,
+    marginLeft: 6,
+  },
+
   // ── Notes ──
   notesWrap: { marginBottom: 14 },
   notesLabel: {
@@ -381,7 +434,10 @@ function QuotePdfDocument({ d }: { d: QuotePdfData }) {
 
         {/* ── Header ── */}
         <View style={s.header}>
-          <Text style={s.title}>견  적  서</Text>
+          <View>
+            <Text style={s.title}>견  적  서</Text>
+            <Text style={s.titleSub}>QUOTATION</Text>
+          </View>
           <View style={s.headerMeta}>
             <Text style={s.headerMetaNo}>{d.quoteNo}</Text>
             <Text style={s.headerMetaDate}>작성일 {d.createdAt}</Text>
@@ -477,6 +533,22 @@ function QuotePdfDocument({ d }: { d: QuotePdfData }) {
             </View>
           </View>
         </View>
+
+        {/* ── Bank / 입금 계좌 ── */}
+        {(d.bankName || d.bankAccountNumber) && (
+          <View style={s.bankWrap}>
+            <View style={s.bankRow}>
+              <Text style={s.bankLabel}>입금 계좌</Text>
+              <Text style={s.bankValue}>
+                {d.bankName ? `${d.bankName}  ` : ''}
+                {d.bankAccountNumber ?? ''}
+              </Text>
+              {d.bankAccountHolder && (
+                <Text style={s.bankHolder}>예금주  {d.bankAccountHolder}</Text>
+              )}
+            </View>
+          </View>
+        )}
 
         {/* ── Notes ── */}
         {d.notes && (

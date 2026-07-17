@@ -34,6 +34,10 @@ interface QuoteSendBody {
   company_biz_no: string
   company_phone: string
   company_address: string
+  // 계좌 (선택)
+  bank_name?: string
+  bank_account_number?: string
+  bank_account_holder?: string
   // 고객
   owner_name: string
   business_name: string
@@ -85,6 +89,7 @@ export async function POST(
   const body: QuoteSendBody = await req.json()
   const {
     company_name, company_ceo, company_biz_no, company_phone, company_address,
+    bank_name, bank_account_number, bank_account_holder,
     owner_name, business_name, phone, phone_2, phone_notify_1, phone_notify_2,
     email, address,
     construction_date, quote_items, supply_amount, vat, total_amount,
@@ -138,6 +143,10 @@ export async function POST(
       companyBizNo:   company_biz_no  || '298-78-00455',
       companyPhone:   company_phone   || '031-759-4877',
       companyAddress: company_address || '경기도 성남시',
+      // 계좌
+      bankName:          bank_name           || undefined,
+      bankAccountNumber: bank_account_number || undefined,
+      bankAccountHolder: bank_account_holder || undefined,
       // 고객
       ownerName:        owner_name        || '',
       businessName:     business_name     || '',

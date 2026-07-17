@@ -61,6 +61,7 @@ interface ApplicationRow {
 interface CompanyInfo {
   company_name: string; company_ceo: string; company_biz_no: string
   company_phone: string; company_address: string
+  bank_name: string; bank_account_number: string; bank_account_holder: string
 }
 
 interface CustomerInfo {
@@ -80,6 +81,7 @@ const BBK_DEFAULTS: CompanyInfo = {
   company_name: 'BBK 공간케어', company_ceo: '박범건',
   company_biz_no: '298-78-00455', company_phone: '031-759-4877',
   company_address: '경기도 성남시',
+  bank_name: '', bank_account_number: '', bank_account_holder: '',
 }
 const ITEM_NAME_MAX = 40
 const PAGE_SIZE     = 20
@@ -202,11 +204,14 @@ export default function QuotesPage() {
       .then(r => r.json())
       .then(d => {
         setCompanyInfo({
-          company_name:    d.company_name    ?? BBK_DEFAULTS.company_name,
-          company_ceo:     d.company_ceo     ?? BBK_DEFAULTS.company_ceo,
-          company_biz_no:  d.company_biz_no  ?? BBK_DEFAULTS.company_biz_no,
-          company_phone:   d.company_phone   ?? BBK_DEFAULTS.company_phone,
-          company_address: d.company_address ?? BBK_DEFAULTS.company_address,
+          company_name:        d.company_name        ?? BBK_DEFAULTS.company_name,
+          company_ceo:         d.company_ceo         ?? BBK_DEFAULTS.company_ceo,
+          company_biz_no:      d.company_biz_no      ?? BBK_DEFAULTS.company_biz_no,
+          company_phone:       d.company_phone       ?? BBK_DEFAULTS.company_phone,
+          company_address:     d.company_address     ?? BBK_DEFAULTS.company_address,
+          bank_name:           d.bank_name           ?? '',
+          bank_account_number: d.bank_account_number ?? '',
+          bank_account_holder: d.bank_account_holder ?? '',
         })
         setValidDays(d.valid_days ?? 5)
         setSealImageUrl(d.seal_image_url ?? null)
@@ -622,7 +627,7 @@ export default function QuotesPage() {
 
   // ─── 렌더링 ──────────────────────────────────────────────────
   return (
-    <div className="flex h-full gap-6 p-6">
+    <div className="flex flex-col md:flex-row md:h-full gap-4 md:gap-6 p-3 md:p-6">
 
       {/* ── 좌측: 신청 목록 ──────────────────────────────────── */}
       <aside className={`flex-shrink-0 flex flex-col gap-3 w-full md:w-72 ${selectedId !== null ? 'hidden md:flex' : 'flex'}`}>
@@ -642,7 +647,7 @@ export default function QuotesPage() {
 
         <Input placeholder="고객명·업체명·연락처" value={search} onChange={e => handleSearchChange(e.target.value)} />
 
-        <div className="flex-1 overflow-y-auto rounded-xl border border-border-subtle bg-surface min-h-0">
+        <div className="md:flex-1 md:overflow-y-auto rounded-xl border border-border-subtle bg-surface md:min-h-0 max-h-[50vh] md:max-h-none overflow-y-auto">
           {loading ? (
             <div className="flex items-center justify-center h-32 text-sm text-text-tertiary">로딩 중…</div>
           ) : applications.length === 0 ? (
@@ -684,7 +689,7 @@ export default function QuotesPage() {
       </aside>
 
       {/* ── 우측: 세부 패널 ───────────────────────────────────── */}
-      <div className={`flex-1 overflow-y-auto min-w-0 ${selectedId !== null ? 'block' : 'hidden md:block'}`}>
+      <div className={`flex-1 md:overflow-y-auto min-w-0 ${selectedId !== null ? 'block' : 'hidden md:block'}`}>
         {!selected ? (
           <div className="flex flex-col items-center justify-center h-64 gap-3 text-text-tertiary">
             <FileText size={36} className="opacity-20" />
@@ -717,7 +722,7 @@ export default function QuotesPage() {
                   </Button>
                 </div>
               </SectionHeader>
-              <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3">
                 <FieldGroup label="상호">
                   <Input value={companyInfo.company_name} onChange={e => setCompanyInfo(p => ({ ...p, company_name: e.target.value }))} />
                 </FieldGroup>
@@ -730,10 +735,39 @@ export default function QuotesPage() {
                 <FieldGroup label="대표 연락처">
                   <Input value={companyInfo.company_phone} onChange={e => setCompanyInfo(p => ({ ...p, company_phone: e.target.value }))} />
                 </FieldGroup>
-                <div className="col-span-2">
+                <div className="col-span-1 sm:col-span-2">
                   <FieldGroup label="주소">
                     <Input value={companyInfo.company_address} onChange={e => setCompanyInfo(p => ({ ...p, company_address: e.target.value }))} />
                   </FieldGroup>
+                </div>
+              </div>
+
+              {/* 입금 계좌 */}
+              <div className="mt-4 pt-4 border-t border-border-subtle">
+                <div className="mb-2 flex items-center gap-2">
+                  <span className="text-[11px] font-semibold text-text-secondary uppercase tracking-wide">입금 계좌</span>
+                  <span className="text-[10px] text-text-tertiary">견적서 PDF에 자동 포함</span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-x-4 gap-y-3">
+                  <FieldGroup label="은행명">
+                    <Input value={companyInfo.bank_name}
+                      onChange={e => setCompanyInfo(p => ({ ...p, bank_name: e.target.value }))}
+                      placeholder="예: 국민은행" />
+                  </FieldGroup>
+                  <div className="sm:col-span-2">
+                    <FieldGroup label="계좌번호">
+                      <Input value={companyInfo.bank_account_number}
+                        onChange={e => setCompanyInfo(p => ({ ...p, bank_account_number: e.target.value }))}
+                        placeholder="000-000-000000" />
+                    </FieldGroup>
+                  </div>
+                  <div className="sm:col-span-3">
+                    <FieldGroup label="예금주">
+                      <Input value={companyInfo.bank_account_holder}
+                        onChange={e => setCompanyInfo(p => ({ ...p, bank_account_holder: e.target.value }))}
+                        placeholder="예: 범빌드코리아" />
+                    </FieldGroup>
+                  </div>
                 </div>
               </div>
 
@@ -780,7 +814,7 @@ export default function QuotesPage() {
             {/* ── 2. 고객 정보 ───────────────────────────────── */}
             <Section>
               <SectionHeader title="고객 정보" />
-              <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3">
                 <FieldGroup label="대표자">
                   <Input value={customerInfo.owner_name} onChange={e => setCustomerInfo(p => ({ ...p, owner_name: e.target.value }))} />
                 </FieldGroup>
@@ -826,7 +860,7 @@ export default function QuotesPage() {
                 <FieldGroup label="시공일자">
                   <Input type="date" value={customerInfo.construction_date} onChange={e => setCustomerInfo(p => ({ ...p, construction_date: e.target.value }))} />
                 </FieldGroup>
-                <div className="col-span-2">
+                <div className="col-span-1 sm:col-span-2">
                   <FieldGroup label="주소">
                     <Input value={customerInfo.address} onChange={e => setCustomerInfo(p => ({ ...p, address: e.target.value }))} />
                   </FieldGroup>
@@ -974,7 +1008,7 @@ export default function QuotesPage() {
                   {savingDraft ? '저장 중…' : '저장'}
                 </Button>
               </SectionHeader>
-              <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3">
                 <FieldGroup label="견적 유효기간">
                   <div className="flex items-center gap-2">
                     <Input type="number" value={validDays} min={1} max={365}
@@ -1200,7 +1234,7 @@ export default function QuotesPage() {
 
 function Section({ children, className = '' }: { children: React.ReactNode; className?: string }) {
   return (
-    <section className={`bg-surface rounded-2xl border border-border-subtle p-6 ${className}`}>
+    <section className={`bg-surface rounded-2xl border border-border-subtle p-4 md:p-6 ${className}`}>
       {children}
     </section>
   )
@@ -1208,12 +1242,12 @@ function Section({ children, className = '' }: { children: React.ReactNode; clas
 
 function SectionHeader({ title, children }: { title: string; children?: React.ReactNode }) {
   return (
-    <div className="flex items-center justify-between mb-5">
-      <div className="flex items-center gap-2.5">
+    <div className="flex items-center justify-between mb-5 gap-2 flex-wrap">
+      <div className="flex items-center gap-2.5 min-w-0">
         <span className="block w-[3px] h-[14px] rounded-full bg-brand-600 flex-shrink-0" />
-        <h2 className="text-sm font-semibold text-text-primary tracking-tight">{title}</h2>
+        <h2 className="text-sm font-semibold text-text-primary tracking-tight truncate">{title}</h2>
       </div>
-      {children && <div className="flex items-center gap-2">{children}</div>}
+      {children && <div className="flex items-center gap-2 flex-wrap">{children}</div>}
     </div>
   )
 }
