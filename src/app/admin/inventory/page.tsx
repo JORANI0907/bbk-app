@@ -16,10 +16,11 @@ import { openGoogleDrive } from '@/lib/mapUtils'
 import { compressImage } from '@/lib/compress-image'
 import { useModalBackButton } from '@/hooks/useModalBackButton'
 import { Button } from '@/components/ui'
+import { ShoppingList } from '@/components/admin/inventory/shopping/ShoppingList'
 
 type InventoryCategory = 'chemical' | 'equipment' | 'consumable' | 'other'
 type TxType = 'receive' | 'return' | 'use' | 'adjust'
-type MainTab = 'status' | 'logs'
+type MainTab = 'status' | 'logs' | 'purchase'
 
 interface InventoryItem {
   id: string
@@ -470,10 +471,22 @@ export default function AdminInventoryPage() {
             변동내역
           </button>
         )}
+        {role === 'admin' && (
+          <button
+            onClick={() => setMainTab('purchase')}
+            className={`px-4 py-2 text-sm font-semibold rounded-t-lg transition-colors border-b-2 ${mainTab === 'purchase' ? 'border-brand-600 text-brand-700' : 'border-transparent text-text-secondary hover:text-text-primary'}`}
+          >
+            구입관리
+          </button>
+        )}
       </div>
 
-      {/* 변동내역 탭 */}
-      {mainTab === 'logs' && role === 'admin' ? (
+      {/* 구입관리 탭 */}
+      {mainTab === 'purchase' && role === 'admin' ? (
+        <div className="flex-1 overflow-y-auto">
+          <ShoppingList />
+        </div>
+      ) : mainTab === 'logs' && role === 'admin' ? (
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
           {/* 필터 */}
           <div className="flex items-center gap-3 flex-wrap">
