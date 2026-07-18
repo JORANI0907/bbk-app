@@ -214,10 +214,10 @@ export async function GET(request: NextRequest) {
           id,
           business_name,
           business_number,
-          owner_name,
+          contact_name,
           address,
           email,
-          phone,
+          contact_phone,
           customer_type,
           payment_method
         )
@@ -244,9 +244,10 @@ export async function GET(request: NextRequest) {
       const draft = draftMap.get(`billing:${b.id}`)
       const business_number = draft?.receiver_business_number ?? c.business_number ?? null
       const business_name = draft?.receiver_business_name ?? c.business_name
-      const owner_name = draft?.receiver_owner_name ?? c.owner_name
+      const owner_name = draft?.receiver_owner_name ?? c.contact_name ?? ''
       const address = draft?.receiver_address ?? c.address ?? null
       const email = draft?.receiver_email ?? c.email ?? null
+      const phone = c.contact_phone ?? null
 
       const amount = Number(b.amount ?? 0)
       let supply = Math.round(amount / 1.1)
@@ -268,7 +269,7 @@ export async function GET(request: NextRequest) {
         owner_name,
         address,
         email,
-        phone: c.phone ?? null,
+        phone,
         payment_method: c.payment_method ?? null,
         supply_amount: supply,
         vat,
