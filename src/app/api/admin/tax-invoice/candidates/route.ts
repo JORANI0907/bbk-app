@@ -128,6 +128,8 @@ export async function GET(request: NextRequest) {
         vat,
         construction_date,
         status,
+        tax_invoice_issued,
+        tax_invoice_issued_at,
         created_at
       `)
       .is('deleted_at', null)
@@ -136,7 +138,8 @@ export async function GET(request: NextRequest) {
     if (includeIssued) {
       appQ = appQ.in('status', [...APPLICATION_TARGET_STATUSES, APPLICATION_ISSUED_STATUS])
     } else {
-      appQ = appQ.in('status', APPLICATION_TARGET_STATUSES)
+      // 새 컬럼 tax_invoice_issued=false 우선, 하위 호환으로 status 조건도 병행
+      appQ = appQ.in('status', APPLICATION_TARGET_STATUSES).eq('tax_invoice_issued', false)
     }
 
     if (serviceTypes && serviceTypes.length > 0) appQ = appQ.in('service_type', serviceTypes)
@@ -183,8 +186,8 @@ export async function GET(request: NextRequest) {
         billing_period: null,
         construction_date: a.construction_date ?? null,
         created_at: a.created_at,
-        tax_invoice_issued: a.status === APPLICATION_ISSUED_STATUS,
-        tax_invoice_issued_at: null,
+        tax_invoice_issued: a.tax_invoice_issued === true || a.status === APPLICATION_ISSUED_STATUS,
+        tax_invoice_issued_at: a.tax_invoice_issued_at ?? null,
         ...validity,
         has_draft: !!draft,
         draft_supplier_id: draft?.supplier_id ?? null,

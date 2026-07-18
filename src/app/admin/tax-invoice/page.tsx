@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import toast from 'react-hot-toast'
-import { RefreshCw, Download, Filter, Search, AlertCircle, CheckCircle2, FileSpreadsheet, Settings, Pencil } from 'lucide-react'
+import { RefreshCw, Download, Filter, Search, AlertCircle, CheckCircle2, FileSpreadsheet, Settings, Pencil, Check, Undo2 } from 'lucide-react'
 import Link from 'next/link'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
@@ -107,6 +107,9 @@ export default function TaxInvoiceDashboardPage() {
   // 편집 Drawer
   const [editingCandidate, setEditingCandidate] = useState<Candidate | null>(null)
 
+  // 발행 완료 처리 로딩
+  const [markingIssued, setMarkingIssued] = useState(false)
+
   // 공급자 프리셋
   const [suppliers, setSuppliers] = useState<Supplier[]>([])
   const [selectedSupplierId, setSelectedSupplierId] = useState<string>('')
@@ -171,7 +174,7 @@ export default function TaxInvoiceDashboardPage() {
     })
   }
 
-  const allSelectable = filteredCandidates.filter(c => c.is_valid && !c.tax_invoice_issued)
+  const allSelectable = filteredCandidates.filter(c => c.is_valid)
   const allSelected = allSelectable.length > 0 && allSelectable.every(c => selectedIds.has(rowKey(c)))
   const someSelected = allSelectable.some(c => selectedIds.has(rowKey(c)))
 
@@ -193,6 +196,61 @@ export default function TaxInvoiceDashboardPage() {
       .reduce((s, c) => s + c.total_amount, 0)
     return { total, valid, missing, alreadyIssued, sumAmount, selected: selectedIds.size }
   }, [filteredCandidates, selectedIds])
+
+  // ── 발행 완료 처리 (선택된 항목 전체) ─────────────────
+  const handleMarkIssued = async () => {
+    const selected = filteredCandidates.filter(c => selectedIds.has(rowKey(c)))
+    if (selected.length === 0) { toast.error('먼저 항목을 선택하세요.'); return }
+    if (!confirm(`선택한 ${selected.length}건을 발행 완료 처리할까요?\n두 소스 모두 반영되며, 감사 로그가 남습니다.`)) return
+
+    setMarkingIssued(true)
+    try {
+      const res = await fetch('/api/admin/tax-invoice/mark-issued', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          items: selected.map(c => ({ source: c.source, source_id: c.source_id })),
+          supplier_id: supplier.id || null,
+        }),
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error ?? '처리 실패')
+      toast.success(`발행 완료 처리: 서비스 ${json.updated_applications}건 · 고객 ${json.updated_billings}건`)
+      void load()
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : '처리 실패')
+    } finally {
+      setMarkingIssued(false)
+    }
+  }
+
+  // ── 발행 취소 (재발행 필요 시) ─────────────────────────
+  const handleRevertIssued = async () => {
+    const selected = filteredCandidates.filter(c => selectedIds.has(rowKey(c)) && c.tax_invoice_issued)
+    if (selected.length === 0) { toast.error('발행 완료 상태인 항목만 취소할 수 있습니다.'); return }
+    const reason = prompt(`선택한 ${selected.length}건을 발행 취소할까요?\n사유(선택):`, '재발행')
+    if (reason === null) return
+
+    setMarkingIssued(true)
+    try {
+      const res = await fetch('/api/admin/tax-invoice/mark-issued', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          items: selected.map(c => ({ source: c.source, source_id: c.source_id })),
+          void_reason: reason || '재발행',
+        }),
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error ?? '취소 실패')
+      toast.success(`발행 취소: 서비스 ${json.reverted_applications}건 · 고객 ${json.reverted_billings}건`)
+      void load()
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : '취소 실패')
+    } finally {
+      setMarkingIssued(false)
+    }
+  }
 
   // ── CSV 다운로드 ────────────────────────────────────────
   const handleDownloadCsv = () => {
@@ -287,7 +345,18 @@ export default function TaxInvoiceDashboardPage() {
           <Button size="sm" onClick={handleDownloadCsv}
             disabled={selectedIds.size === 0}
             className="flex items-center gap-1.5">
-            <Download size={13} />CSV 다운로드 ({selectedIds.size})
+            <Download size={13} />CSV ({selectedIds.size})
+          </Button>
+          <Button size="sm" variant="secondary" onClick={handleMarkIssued}
+            disabled={selectedIds.size === 0 || markingIssued}
+            className="flex items-center gap-1.5 text-state-success">
+            <Check size={13} />발행 완료
+          </Button>
+          <Button size="sm" variant="secondary" onClick={handleRevertIssued}
+            disabled={selectedIds.size === 0 || markingIssued}
+            className="flex items-center gap-1.5 text-state-danger"
+            title="발행 완료 상태를 취소 (재발행 필요 시)">
+            <Undo2 size={13} />취소
           </Button>
         </div>
       </div>
@@ -379,7 +448,7 @@ export default function TaxInvoiceDashboardPage() {
               ) : filteredCandidates.map(c => {
                 const key = rowKey(c)
                 const isSelected = selectedIds.has(key)
-                const canSelect = c.is_valid && !c.tax_invoice_issued
+                const canSelect = c.is_valid
                 return (
                   <tr key={key} className={`transition-colors ${isSelected ? 'bg-brand-50/50' : 'hover:bg-surface-sunken'}`}>
                     <td className="py-2 pl-4">
