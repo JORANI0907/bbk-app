@@ -8,12 +8,17 @@ import { getShoppingItems, getKnownCategories } from '@/lib/shopping-api'
 import { AddItemForm } from './AddItemForm'
 import { ShoppingItemCard } from './ShoppingItemCard'
 import { SitesList } from './SitesList'
+import { LowStockSection, type LowStockItemLite } from './LowStockSection'
 
 const PRIORITY_ORDER: Record<ShoppingPriority, number> = { urgent: 0, normal: 1, later: 2 }
 
 type Tab = 'pending' | 'purchased' | 'sites'
 
-export function ShoppingList() {
+interface Props {
+  lowStockItems?: LowStockItemLite[]
+}
+
+export function ShoppingList({ lowStockItems = [] }: Props = {}) {
   const [tab, setTab] = useState<Tab>('pending')
   const [items, setItems] = useState<ShoppingItem[]>([])
   const [knownCategories, setKnownCategories] = useState<string[]>([])
@@ -191,6 +196,9 @@ export function ShoppingList() {
           ))}
         </div>
       )}
+
+      {/* 재고 부족 품목 섹션 (구입예정 탭 전용, 리스트 하단) */}
+      {tab === 'pending' && <LowStockSection items={lowStockItems} />}
 
       </>
       )}

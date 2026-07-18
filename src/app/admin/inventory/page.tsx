@@ -484,7 +484,18 @@ export default function AdminInventoryPage() {
       {/* 구입관리 탭 */}
       {mainTab === 'purchase' && role === 'admin' ? (
         <div className="flex-1 overflow-y-auto">
-          <ShoppingList />
+          <ShoppingList
+            lowStockItems={items
+              .filter(i => i.min_qty > 0 && i.current_qty <= i.min_qty)
+              .map(i => ({
+                id: i.id,
+                item_name: i.item_name,
+                category: i.category,
+                current_qty: i.current_qty,
+                unit: i.unit,
+                min_qty: i.min_qty,
+              }))}
+          />
         </div>
       ) : mainTab === 'logs' && role === 'admin' ? (
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
