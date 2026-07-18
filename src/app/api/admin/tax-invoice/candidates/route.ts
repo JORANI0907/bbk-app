@@ -5,17 +5,17 @@ import { getServerSession } from '@/lib/session'
 export const dynamic = 'force-dynamic'
 
 // 세금계산서 발행 대상 통합 조회
-// - source 'application': service_applications 중 결제완료 + 현금(계산서) + 미발행 (1회성/정기딥케어 대상)
+// - source 'application': service_applications 중 결제완료 + 미발행 (1회성/정기딥케어 대상)
 // - source 'billing'    : service_billings 중 status='paid' + tax_invoice_issued=false (정기엔드케어 등)
 //
 // query params:
-//   include_issued=true  → 이미 발행된 건도 포함 (이력 확인용)
-//   source=application|billing → 특정 소스만
-//   service_type=정기엔드케어,1회성케어,... → 필터
-//   from=YYYY-MM-DD, to=YYYY-MM-DD → 기준일자 필터 (applications는 construction_date, billings는 created_at 기준)
+//   include_issued=true              → 이미 발행된 건도 포함 (이력 확인용)
+//   source=application|billing       → 특정 소스만
+//   service_type=A,B,...             → 다중 필터 (콤마 구분)
+//   payment_method=A,B,...           → 다중 필터 (콤마 구분)
+//   from=YYYY-MM-DD, to=YYYY-MM-DD   → 기준일자 필터
 
 const APPLICATION_TARGET_STATUSES = ['결제완료', '결제완료(잔금)']
-const APPLICATION_TARGET_PAYMENT_METHODS = ['현금(계산서 희망)', '현금(계산서)']
 const APPLICATION_ISSUED_STATUS = '계산서발행완료'
 
 type Source = 'application' | 'billing'
@@ -79,6 +79,8 @@ export async function GET(request: NextRequest) {
   const sourceFilter = searchParams.get('source') as Source | null
   const serviceTypeParam = searchParams.get('service_type')
   const serviceTypes = serviceTypeParam ? serviceTypeParam.split(',').map(s => s.trim()).filter(Boolean) : null
+  const paymentMethodParam = searchParams.get('payment_method')
+  const paymentMethods = paymentMethodParam ? paymentMethodParam.split(',').map(s => s.trim()).filter(Boolean) : null
   const fromDate = searchParams.get('from')
   const toDate = searchParams.get('to')
 
@@ -133,16 +135,15 @@ export async function GET(request: NextRequest) {
         created_at
       `)
       .is('deleted_at', null)
-      .in('payment_method', APPLICATION_TARGET_PAYMENT_METHODS)
 
     if (includeIssued) {
       appQ = appQ.in('status', [...APPLICATION_TARGET_STATUSES, APPLICATION_ISSUED_STATUS])
     } else {
-      // 새 컬럼 tax_invoice_issued=false 우선, 하위 호환으로 status 조건도 병행
       appQ = appQ.in('status', APPLICATION_TARGET_STATUSES).eq('tax_invoice_issued', false)
     }
 
     if (serviceTypes && serviceTypes.length > 0) appQ = appQ.in('service_type', serviceTypes)
+    if (paymentMethods && paymentMethods.length > 0) appQ = appQ.in('payment_method', paymentMethods)
     if (fromDate) appQ = appQ.gte('construction_date', fromDate)
     if (toDate) appQ = appQ.lte('construction_date', toDate)
 
@@ -240,6 +241,8 @@ export async function GET(request: NextRequest) {
 
       // customer_type 필터 (service_type 파라미터와 매칭)
       if (serviceTypes && serviceTypes.length > 0 && !serviceTypes.includes(c.customer_type ?? '')) continue
+      // payment_method 필터
+      if (paymentMethods && paymentMethods.length > 0 && !paymentMethods.includes(c.payment_method ?? '')) continue
 
       const draft = draftMap.get(`billing:${b.id}`)
       const business_number = draft?.receiver_business_number ?? c.business_number ?? null
@@ -287,8 +290,26 @@ export async function GET(request: NextRequest) {
     }
   }
 
+  // ── 필터 옵션 (필터 무시한 전체 unique 값) ─────────
+  const [appPmRes, custPmRes, appStRes, custStRes] = await Promise.all([
+    supabase.from('service_applications').select('payment_method').is('deleted_at', null).not('payment_method', 'is', null),
+    supabase.from('customers').select('payment_method').is('deleted_at', null).not('payment_method', 'is', null),
+    supabase.from('service_applications').select('service_type').is('deleted_at', null).not('service_type', 'is', null),
+    supabase.from('customers').select('customer_type').is('deleted_at', null).not('customer_type', 'is', null),
+  ])
+
+  const pmSet = new Set<string>()
+  for (const r of appPmRes.data ?? []) if (r.payment_method) pmSet.add(r.payment_method)
+  for (const r of custPmRes.data ?? []) if (r.payment_method) pmSet.add(r.payment_method)
+
+  const stSet = new Set<string>()
+  for (const r of appStRes.data ?? []) if (r.service_type) stSet.add(r.service_type)
+  for (const r of custStRes.data ?? []) if (r.customer_type) stSet.add(r.customer_type)
+
   return NextResponse.json({
     candidates: results,
     count: results.length,
+    available_payment_methods: [...pmSet].sort(),
+    available_service_types: [...stSet].sort(),
   })
 }

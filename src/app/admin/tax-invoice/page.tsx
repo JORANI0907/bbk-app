@@ -36,8 +36,7 @@ interface Candidate {
   draft_items: Array<{ name: string; qty?: number; unit_price?: number; supply_amount?: number; vat?: number; spec?: string; remark?: string }> | null
 }
 
-const SERVICE_TYPES = ['1회성케어', '정기딥케어', '정기엔드케어'] as const
-type ServiceType = typeof SERVICE_TYPES[number] | ''
+const SERVICE_TYPES_FALLBACK = ['1회성케어', '정기딥케어', '정기엔드케어']
 
 interface Supplier {
   id: string
@@ -96,10 +95,15 @@ export default function TaxInvoiceDashboardPage() {
   const [loading, setLoading] = useState(true)
   const [loadedAt, setLoadedAt] = useState<Date | null>(null)
 
-  // 필터
+  // 필터 (다중 선택)
   const [includeIssued, setIncludeIssued] = useState(false)
-  const [serviceType, setServiceType] = useState<ServiceType>('')
+  const [serviceTypes, setServiceTypes] = useState<string[]>([])
+  const [paymentMethods, setPaymentMethods] = useState<string[]>([])
   const [search, setSearch] = useState('')
+
+  // 필터 옵션 (서버에서 로드)
+  const [availableServiceTypes, setAvailableServiceTypes] = useState<string[]>(SERVICE_TYPES_FALLBACK)
+  const [availablePaymentMethods, setAvailablePaymentMethods] = useState<string[]>([])
 
   // 선택
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
@@ -137,11 +141,18 @@ export default function TaxInvoiceDashboardPage() {
     try {
       const params = new URLSearchParams()
       if (includeIssued) params.set('include_issued', 'true')
-      if (serviceType) params.set('service_type', serviceType)
+      if (serviceTypes.length > 0) params.set('service_type', serviceTypes.join(','))
+      if (paymentMethods.length > 0) params.set('payment_method', paymentMethods.join(','))
       const res = await fetch(`/api/admin/tax-invoice/candidates?${params}`)
       const json = await res.json()
       if (!res.ok) throw new Error(json.error ?? '조회 실패')
       setCandidates(json.candidates ?? [])
+      if (Array.isArray(json.available_service_types) && json.available_service_types.length > 0) {
+        setAvailableServiceTypes(json.available_service_types)
+      }
+      if (Array.isArray(json.available_payment_methods)) {
+        setAvailablePaymentMethods(json.available_payment_methods)
+      }
       setLoadedAt(new Date())
       setSelectedIds(new Set())
     } catch (e) {
@@ -149,7 +160,7 @@ export default function TaxInvoiceDashboardPage() {
     } finally {
       setLoading(false)
     }
-  }, [includeIssued, serviceType])
+  }, [includeIssued, serviceTypes, paymentMethods])
 
   useEffect(() => { void load() }, [load])
 
@@ -362,44 +373,65 @@ export default function TaxInvoiceDashboardPage() {
       </div>
 
       {/* Filters */}
-      <div className="bg-surface border border-border-subtle rounded-2xl p-4 flex flex-wrap items-center gap-3">
-        <div className="flex items-center gap-1.5 text-xs text-text-tertiary shrink-0">
-          <Filter size={12} />필터
+      <div className="bg-surface border border-border-subtle rounded-2xl p-4 space-y-3">
+        <div className="flex items-center gap-1.5 text-xs text-text-tertiary">
+          <Filter size={12} />
+          <span>필터 (중복 선택 가능)</span>
+          {(serviceTypes.length > 0 || paymentMethods.length > 0) && (
+            <button type="button"
+              onClick={() => { setServiceTypes([]); setPaymentMethods([]) }}
+              className="ml-auto text-[11px] text-brand-600 hover:text-brand-700 underline">
+              전체 해제
+            </button>
+          )}
         </div>
-        <select
-          value={serviceType}
-          onChange={e => setServiceType(e.target.value as ServiceType)}
-          className="text-sm rounded-md border border-border bg-surface px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500"
-        >
-          <option value="">전체 유형</option>
-          {SERVICE_TYPES.map(t => (
-            <option key={t} value={t}>{t}</option>
-          ))}
-        </select>
-        <label className="flex items-center gap-1.5 text-xs text-text-secondary cursor-pointer">
-          <input
-            type="checkbox"
-            checked={includeIssued}
-            onChange={e => setIncludeIssued(e.target.checked)}
-            className="accent-brand-600"
-          />
-          발행 완료 포함
-        </label>
-        <div className="flex-1 min-w-[180px]">
-          <div className="relative">
-            <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-tertiary pointer-events-none" />
-            <Input
-              placeholder="업체명·대표자·사업자번호"
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              className="pl-8"
+
+        {/* 서비스 유형 뱃지 */}
+        <FilterBadgeGroup
+          label="유형"
+          options={availableServiceTypes}
+          selected={serviceTypes}
+          onToggle={(v) => setServiceTypes(prev =>
+            prev.includes(v) ? prev.filter(x => x !== v) : [...prev, v]
+          )}
+        />
+
+        {/* 결제방법 뱃지 */}
+        <FilterBadgeGroup
+          label="결제"
+          options={availablePaymentMethods}
+          selected={paymentMethods}
+          onToggle={(v) => setPaymentMethods(prev =>
+            prev.includes(v) ? prev.filter(x => x !== v) : [...prev, v]
+          )}
+        />
+
+        <div className="flex flex-wrap items-center gap-3 pt-2 border-t border-border-subtle">
+          <label className="flex items-center gap-1.5 text-xs text-text-secondary cursor-pointer shrink-0">
+            <input
+              type="checkbox"
+              checked={includeIssued}
+              onChange={e => setIncludeIssued(e.target.checked)}
+              className="accent-brand-600"
             />
+            발행 완료 포함
+          </label>
+          <div className="flex-1 min-w-[180px]">
+            <div className="relative">
+              <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-tertiary pointer-events-none" />
+              <Input
+                placeholder="업체명·대표자·사업자번호"
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                className="pl-8"
+              />
+            </div>
           </div>
+          <Button variant="secondary" size="sm" onClick={load} disabled={loading}
+            className="flex items-center gap-1.5">
+            <RefreshCw size={12} className={loading ? 'animate-spin' : ''} />새로고침
+          </Button>
         </div>
-        <Button variant="secondary" size="sm" onClick={load} disabled={loading}
-          className="flex items-center gap-1.5">
-          <RefreshCw size={12} className={loading ? 'animate-spin' : ''} />새로고침
-        </Button>
       </div>
 
       {/* Stats */}
@@ -413,7 +445,7 @@ export default function TaxInvoiceDashboardPage() {
       {/* Table */}
       <div className="bg-surface rounded-2xl border border-border-subtle overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[900px] text-sm">
+          <table className="w-full min-w-[1100px] text-sm">
             <thead className="bg-surface-sunken border-b border-border-subtle">
               <tr>
                 <th className="w-10 py-2.5 pl-4">
@@ -429,6 +461,7 @@ export default function TaxInvoiceDashboardPage() {
                 <th className="text-left px-3 py-2.5 text-xs font-medium text-text-secondary">업체명</th>
                 <th className="text-left px-3 py-2.5 text-xs font-medium text-text-secondary">대표자</th>
                 <th className="text-left px-3 py-2.5 text-xs font-medium text-text-secondary">사업자번호</th>
+                <th className="text-left px-3 py-2.5 text-xs font-medium text-text-secondary">결제방법</th>
                 <th className="text-right px-3 py-2.5 text-xs font-medium text-text-secondary">공급가액</th>
                 <th className="text-right px-3 py-2.5 text-xs font-medium text-text-secondary">세액</th>
                 <th className="text-right px-3 py-2.5 text-xs font-medium text-text-secondary">합계</th>
@@ -439,9 +472,9 @@ export default function TaxInvoiceDashboardPage() {
             </thead>
             <tbody className="divide-y divide-border-subtle">
               {loading ? (
-                <tr><td colSpan={11} className="py-16 text-center text-sm text-text-tertiary">로딩 중…</td></tr>
+                <tr><td colSpan={12} className="py-16 text-center text-sm text-text-tertiary">로딩 중…</td></tr>
               ) : filteredCandidates.length === 0 ? (
-                <tr><td colSpan={11} className="py-16 text-center text-sm text-text-tertiary">
+                <tr><td colSpan={12} className="py-16 text-center text-sm text-text-tertiary">
                   <FileSpreadsheet size={28} className="mx-auto opacity-30 mb-2" />
                   발행 대상이 없습니다.
                 </td></tr>
@@ -467,6 +500,9 @@ export default function TaxInvoiceDashboardPage() {
                     <td className="px-3 py-2 text-text-secondary whitespace-nowrap">{c.owner_name}</td>
                     <td className="px-3 py-2 text-text-secondary tabular-nums whitespace-nowrap">
                       {c.business_number || <span className="text-state-danger text-xs">누락</span>}
+                    </td>
+                    <td className="px-3 py-2 text-xs text-text-secondary whitespace-nowrap max-w-[160px] truncate" title={c.payment_method ?? undefined}>
+                      {c.payment_method || <span className="text-text-tertiary">—</span>}
                     </td>
                     <td className="px-3 py-2 text-right tabular-nums text-text-primary">{fmtKr(c.supply_amount)}</td>
                     <td className="px-3 py-2 text-right tabular-nums text-text-tertiary">{fmtKr(c.vat)}</td>
@@ -534,6 +570,39 @@ export default function TaxInvoiceDashboardPage() {
         </div>
       </details>
 
+    </div>
+  )
+}
+
+function FilterBadgeGroup({ label, options, selected, onToggle }: {
+  label: string
+  options: string[]
+  selected: string[]
+  onToggle: (v: string) => void
+}) {
+  if (options.length === 0) return null
+  return (
+    <div className="flex flex-wrap items-start gap-2">
+      <span className="text-[11px] font-medium text-text-tertiary uppercase tracking-wide w-10 shrink-0 pt-1">{label}</span>
+      <div className="flex flex-wrap gap-1.5 flex-1">
+        {options.map(opt => {
+          const isSelected = selected.includes(opt)
+          return (
+            <button
+              key={opt}
+              type="button"
+              onClick={() => onToggle(opt)}
+              className={`text-[11px] px-2.5 py-1 rounded-full border transition-colors whitespace-nowrap ${
+                isSelected
+                  ? 'bg-brand-600 border-brand-600 text-white'
+                  : 'bg-surface border-border text-text-secondary hover:border-brand-400 hover:text-brand-600'
+              }`}
+            >
+              {opt}
+            </button>
+          )
+        })}
+      </div>
     </div>
   )
 }
