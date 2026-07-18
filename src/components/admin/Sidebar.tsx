@@ -92,6 +92,7 @@ const NAV_ITEMS: NavItem[] = [
       { href: '/admin/finance', label: '재무 대시보드' },
       { href: '/admin/finance/details', label: '매출매입 상세' },
       { href: '/admin/payroll', label: '급여정산' },
+      { href: '/admin/tax-invoice', label: '세금계산서 발행' },
     ],
   },
   {
