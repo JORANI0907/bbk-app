@@ -2,10 +2,11 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import toast from 'react-hot-toast'
-import { RefreshCw, Download, Filter, Search, AlertCircle, CheckCircle2, FileSpreadsheet, Settings } from 'lucide-react'
+import { RefreshCw, Download, Filter, Search, AlertCircle, CheckCircle2, FileSpreadsheet, Settings, Pencil } from 'lucide-react'
 import Link from 'next/link'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
+import { DraftEditor } from './DraftEditor'
 
 type Source = 'application' | 'billing'
 
@@ -30,6 +31,9 @@ interface Candidate {
   tax_invoice_issued_at: string | null
   is_valid: boolean
   missing_fields: string[]
+  has_draft: boolean
+  draft_supplier_id: string | null
+  draft_items: Array<{ name: string; qty?: number; unit_price?: number; supply_amount?: number; vat?: number; spec?: string; remark?: string }> | null
 }
 
 const SERVICE_TYPES = ['1회성케어', '정기딥케어', '정기엔드케어'] as const
@@ -99,6 +103,9 @@ export default function TaxInvoiceDashboardPage() {
 
   // 선택
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+
+  // 편집 Drawer
+  const [editingCandidate, setEditingCandidate] = useState<Candidate | null>(null)
 
   // 공급자 프리셋
   const [suppliers, setSuppliers] = useState<Supplier[]>([])
@@ -201,14 +208,19 @@ export default function TaxInvoiceDashboardPage() {
     }
 
     const { yyyymmdd, ddQuoted } = todayYmd()
-    const rows = selected.map(c => ({
-      공급자등록번호:   supplier.registration_number,
-      공급자상호:       supplier.company_name,
-      공급자대표자:     supplier.representative,
-      공급자주소:       supplier.address,
-      공급자업태:       supplier.business_type,
-      공급자종목:       supplier.business_item,
-      공급자이메일:     supplier.email,
+    const rows = selected.map(c => {
+      // 이 건에 draft.supplier_id 가 지정되어 있으면 그 공급자로 override
+      const rowSupplier = c.draft_supplier_id
+        ? (suppliers.find(s => s.id === c.draft_supplier_id) ?? supplier)
+        : supplier
+      return {
+      공급자등록번호:   rowSupplier.registration_number,
+      공급자상호:       rowSupplier.company_name,
+      공급자대표자:     rowSupplier.representative,
+      공급자주소:       rowSupplier.address,
+      공급자업태:       rowSupplier.business_type,
+      공급자종목:       rowSupplier.business_item,
+      공급자이메일:     rowSupplier.email,
       공급받는자등록번호: c.business_number ?? '',
       공급받는자상호:     c.business_name ?? '',
       공급받는자대표자:   c.owner_name ?? '',
@@ -222,7 +234,8 @@ export default function TaxInvoiceDashboardPage() {
       작성일자:     yyyymmdd,
       일자1:        ddQuoted,
       영수청구구분: "'01",
-    }))
+      }
+    })
 
     const csv = [
       CSV_HEADERS.join(','),
@@ -352,13 +365,14 @@ export default function TaxInvoiceDashboardPage() {
                 <th className="text-right px-3 py-2.5 text-xs font-medium text-text-secondary">합계</th>
                 <th className="text-left px-3 py-2.5 text-xs font-medium text-text-secondary">기준일</th>
                 <th className="text-left px-3 py-2.5 text-xs font-medium text-text-secondary">상태</th>
+                <th className="w-16 py-2.5" />
               </tr>
             </thead>
             <tbody className="divide-y divide-border-subtle">
               {loading ? (
-                <tr><td colSpan={10} className="py-16 text-center text-sm text-text-tertiary">로딩 중…</td></tr>
+                <tr><td colSpan={11} className="py-16 text-center text-sm text-text-tertiary">로딩 중…</td></tr>
               ) : filteredCandidates.length === 0 ? (
-                <tr><td colSpan={10} className="py-16 text-center text-sm text-text-tertiary">
+                <tr><td colSpan={11} className="py-16 text-center text-sm text-text-tertiary">
                   <FileSpreadsheet size={28} className="mx-auto opacity-30 mb-2" />
                   발행 대상이 없습니다.
                 </td></tr>
@@ -395,6 +409,19 @@ export default function TaxInvoiceDashboardPage() {
                     <td className="px-3 py-2">
                       <RowStatus c={c} />
                     </td>
+                    <td className="pr-3 py-2 text-right">
+                      <button type="button"
+                        onClick={() => setEditingCandidate(c)}
+                        className={`flex items-center gap-1 text-[11px] px-2 py-1 rounded-md border transition-colors ${
+                          c.has_draft
+                            ? 'border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100'
+                            : 'border-border-subtle text-text-secondary hover:bg-surface-sunken'
+                        }`}
+                        title={c.has_draft ? '편집된 초안이 있습니다' : '발행 전 편집'}>
+                        <Pencil size={11} />
+                        {c.has_draft ? '편집됨' : '편집'}
+                      </button>
+                    </td>
                   </tr>
                 )
               })}
@@ -406,6 +433,16 @@ export default function TaxInvoiceDashboardPage() {
       <div className="text-xs text-text-tertiary text-center">
         {loadedAt && `${loadedAt.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })} 기준`}
       </div>
+
+      {/* 편집 Drawer */}
+      {editingCandidate && (
+        <DraftEditor
+          candidate={editingCandidate}
+          suppliers={suppliers}
+          onClose={() => setEditingCandidate(null)}
+          onSaved={() => { setEditingCandidate(null); void load() }}
+        />
+      )}
 
       {/* 현재 선택된 공급자 상세 미리보기 (접기 가능) */}
       <details className="bg-surface border border-border-subtle rounded-2xl">

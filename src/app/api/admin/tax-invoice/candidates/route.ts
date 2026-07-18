@@ -20,6 +20,16 @@ const APPLICATION_ISSUED_STATUS = '계산서발행완료'
 
 type Source = 'application' | 'billing'
 
+interface DraftItem {
+  name: string
+  spec?: string
+  qty?: number
+  unit_price?: number
+  supply_amount?: number
+  vat?: number
+  remark?: string
+}
+
 interface Candidate {
   source: Source
   source_id: string
@@ -42,6 +52,10 @@ interface Candidate {
   // 필수 정보 유효성 (사업자번호·상호·대표자 세 필드 기준)
   is_valid: boolean
   missing_fields: string[]
+  // Phase 3: 발행 전 편집 draft
+  has_draft: boolean
+  draft_supplier_id: string | null
+  draft_items: DraftItem[] | null
 }
 
 function checkValidity(row: Pick<Candidate, 'business_number' | 'business_name' | 'owner_name'>): {
@@ -70,6 +84,31 @@ export async function GET(request: NextRequest) {
 
   const supabase = createServiceClient()
   const results: Candidate[] = []
+
+  // ── drafts 한번에 로드 (source+source_id 매칭용 맵) ────
+  const { data: draftRows } = await supabase
+    .from('tax_invoice_drafts')
+    .select('source, source_id, supplier_id, receiver_business_number, receiver_business_name, receiver_owner_name, receiver_address, receiver_email, items')
+  const draftMap = new Map<string, {
+    supplier_id: string | null
+    receiver_business_number: string | null
+    receiver_business_name: string | null
+    receiver_owner_name: string | null
+    receiver_address: string | null
+    receiver_email: string | null
+    items: DraftItem[] | null
+  }>()
+  for (const d of draftRows ?? []) {
+    draftMap.set(`${d.source}:${d.source_id}`, {
+      supplier_id: d.supplier_id ?? null,
+      receiver_business_number: d.receiver_business_number ?? null,
+      receiver_business_name: d.receiver_business_name ?? null,
+      receiver_owner_name: d.receiver_owner_name ?? null,
+      receiver_address: d.receiver_address ?? null,
+      receiver_email: d.receiver_email ?? null,
+      items: Array.isArray(d.items) ? d.items as DraftItem[] : null,
+    })
+  }
 
   // ── 소스 1: service_applications ─────────────────────
   if (!sourceFilter || sourceFilter === 'application') {
@@ -110,22 +149,32 @@ export async function GET(request: NextRequest) {
     }
 
     for (const a of apps ?? []) {
-      const supply = Number(a.supply_amount ?? 0)
-      const vat = Number(a.vat ?? 0)
-      const validity = checkValidity({
-        business_number: a.business_number,
-        business_name: a.business_name,
-        owner_name: a.owner_name,
-      })
+      const draft = draftMap.get(`application:${a.id}`)
+      const business_number = draft?.receiver_business_number ?? a.business_number ?? null
+      const business_name = draft?.receiver_business_name ?? a.business_name
+      const owner_name = draft?.receiver_owner_name ?? a.owner_name
+      const address = draft?.receiver_address ?? a.address ?? null
+      const email = draft?.receiver_email ?? a.email ?? null
+
+      // items 가 있으면 합계 재계산, 없으면 원본 사용
+      let supply = Number(a.supply_amount ?? 0)
+      let vat = Number(a.vat ?? 0)
+      if (draft?.items && draft.items.length > 0) {
+        supply = draft.items.reduce((s, i) => s + Number(i.supply_amount ?? (Number(i.qty ?? 1) * Number(i.unit_price ?? 0))), 0)
+        vat = draft.items.reduce((s, i) => s + Number(i.vat ?? 0), 0)
+        if (vat === 0) vat = Math.round(supply * 0.1)
+      }
+
+      const validity = checkValidity({ business_number, business_name, owner_name })
       results.push({
         source: 'application',
         source_id: a.id,
         service_type: a.service_type ?? null,
-        business_name: a.business_name,
-        business_number: a.business_number ?? null,
-        owner_name: a.owner_name,
-        address: a.address ?? null,
-        email: a.email ?? null,
+        business_name,
+        business_number,
+        owner_name,
+        address,
+        email,
         phone: a.phone ?? null,
         payment_method: a.payment_method ?? null,
         supply_amount: supply,
@@ -137,6 +186,9 @@ export async function GET(request: NextRequest) {
         tax_invoice_issued: a.status === APPLICATION_ISSUED_STATUS,
         tax_invoice_issued_at: null,
         ...validity,
+        has_draft: !!draft,
+        draft_supplier_id: draft?.supplier_id ?? null,
+        draft_items: draft?.items ?? null,
       })
     }
   }
@@ -186,37 +238,47 @@ export async function GET(request: NextRequest) {
       // customer_type 필터 (service_type 파라미터와 매칭)
       if (serviceTypes && serviceTypes.length > 0 && !serviceTypes.includes(c.customer_type ?? '')) continue
 
-      const amount = Number(b.amount ?? 0)
-      // billings 는 amount 만 있음 → VAT 10% 가정으로 분리
-      const supply = Math.round(amount / 1.1)
-      const vat = amount - supply
+      const draft = draftMap.get(`billing:${b.id}`)
+      const business_number = draft?.receiver_business_number ?? c.business_number ?? null
+      const business_name = draft?.receiver_business_name ?? c.business_name
+      const owner_name = draft?.receiver_owner_name ?? c.owner_name
+      const address = draft?.receiver_address ?? c.address ?? null
+      const email = draft?.receiver_email ?? c.email ?? null
 
-      const validity = checkValidity({
-        business_number: c.business_number,
-        business_name: c.business_name,
-        owner_name: c.owner_name,
-      })
+      const amount = Number(b.amount ?? 0)
+      let supply = Math.round(amount / 1.1)
+      let vat = amount - supply
+      if (draft?.items && draft.items.length > 0) {
+        supply = draft.items.reduce((s, i) => s + Number(i.supply_amount ?? (Number(i.qty ?? 1) * Number(i.unit_price ?? 0))), 0)
+        vat = draft.items.reduce((s, i) => s + Number(i.vat ?? 0), 0)
+        if (vat === 0) vat = Math.round(supply * 0.1)
+      }
+
+      const validity = checkValidity({ business_number, business_name, owner_name })
 
       results.push({
         source: 'billing',
         source_id: b.id,
         service_type: c.customer_type ?? null,
-        business_name: c.business_name,
-        business_number: c.business_number ?? null,
-        owner_name: c.owner_name,
-        address: c.address ?? null,
-        email: c.email ?? null,
+        business_name,
+        business_number,
+        owner_name,
+        address,
+        email,
         phone: c.phone ?? null,
         payment_method: c.payment_method ?? null,
         supply_amount: supply,
         vat,
-        total_amount: amount,
+        total_amount: supply + vat,
         billing_period: b.billing_period ?? null,
         construction_date: null,
         created_at: b.created_at ?? new Date().toISOString(),
         tax_invoice_issued: !!b.tax_invoice_issued,
         tax_invoice_issued_at: b.tax_invoice_issued_date ?? null,
         ...validity,
+        has_draft: !!draft,
+        draft_supplier_id: draft?.supplier_id ?? null,
+        draft_items: draft?.items ?? null,
       })
     }
   }
