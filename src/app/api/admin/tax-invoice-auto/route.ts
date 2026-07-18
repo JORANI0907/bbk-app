@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { getServerSession } from '@/lib/session'
 
-// ── 공급자 고정 정보 ─────────────────────────────────────────────
-const SUPPLIER = {
+// ── 공급자 fallback (tax_invoice_suppliers 조회 실패 시) ──────
+const SUPPLIER_FALLBACK = {
   registration_number: '2987800455',
   company_name: '범빌드코리아',
   representative: '조동환',
@@ -53,6 +53,27 @@ async function handler(request: NextRequest) {
 
   const supabase = createServiceClient()
 
+  // 공급자 프리셋 조회 (?supplier_id=<uuid> 지정 or 기본값)
+  const supplierIdParam = new URL(request.url).searchParams.get('supplier_id')
+  let supplier: typeof SUPPLIER_FALLBACK = SUPPLIER_FALLBACK
+  {
+    const q = supabase.from('tax_invoice_suppliers').select('*').limit(1)
+    const { data: supRow } = supplierIdParam
+      ? await q.eq('id', supplierIdParam).maybeSingle()
+      : await q.eq('is_default', true).maybeSingle()
+    if (supRow) {
+      supplier = {
+        registration_number: supRow.registration_number,
+        company_name:        supRow.company_name,
+        representative:      supRow.representative,
+        address:             supRow.address ?? '',
+        business_type:       supRow.business_type ?? '',
+        business_item:       supRow.business_item ?? '',
+        email:               supRow.email ?? '',
+      }
+    }
+  }
+
   // ids=<uuid,uuid,...>  수동 발행용 — 지정 항목만 조회 (상태/결제방법/0원 필터 건너뜀)
   const idsParam = new URL(request.url).searchParams.get('ids')
   const idsOverride = idsParam
@@ -99,13 +120,13 @@ async function handler(request: NextRequest) {
     return {
       application_id: row.id,
       // 공급자 (고정)
-      공급자등록번호: SUPPLIER.registration_number,
-      공급자상호: SUPPLIER.company_name,
-      공급자대표자: SUPPLIER.representative,
-      공급자주소: SUPPLIER.address,
-      공급자업태: SUPPLIER.business_type,
-      공급자종목: SUPPLIER.business_item,
-      공급자이메일: SUPPLIER.email,
+      공급자등록번호: supplier.registration_number,
+      공급자상호: supplier.company_name,
+      공급자대표자: supplier.representative,
+      공급자주소: supplier.address,
+      공급자업태: supplier.business_type,
+      공급자종목: supplier.business_item,
+      공급자이메일: supplier.email,
       // 공급받는자 (DB 매핑)
       공급받는자등록번호: row.business_number ?? '',
       공급받는자상호: row.business_name ?? '',

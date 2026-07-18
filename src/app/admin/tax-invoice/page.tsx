@@ -35,8 +35,23 @@ interface Candidate {
 const SERVICE_TYPES = ['1회성케어', '정기딥케어', '정기엔드케어'] as const
 type ServiceType = typeof SERVICE_TYPES[number] | ''
 
-// 임시 공급자 (Phase 2에서 프리셋 관리로 교체)
-const DEFAULT_SUPPLIER = {
+interface Supplier {
+  id: string
+  label: string
+  registration_number: string
+  company_name: string
+  representative: string
+  address: string
+  business_type: string
+  business_item: string
+  email: string
+  is_default: boolean
+}
+
+// 프리셋 로드 실패 시 fallback
+const FALLBACK_SUPPLIER: Supplier = {
+  id: '',
+  label: '기본',
   registration_number: '2987800455',
   company_name: '범빌드코리아',
   representative: '조동환',
@@ -44,6 +59,7 @@ const DEFAULT_SUPPLIER = {
   business_type: '사업시설 관리, 사업지원 및 임대 서비스업',
   business_item: '건축물 일반 청소업',
   email: 'sunrise@bbkorea.co.kr',
+  is_default: true,
 }
 
 const fmtKr = (n: number) => n.toLocaleString('ko-KR')
@@ -84,9 +100,27 @@ export default function TaxInvoiceDashboardPage() {
   // 선택
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
 
-  // 공급자 편집 모달
-  const [supplier, setSupplier] = useState(DEFAULT_SUPPLIER)
-  const [showSupplierEditor, setShowSupplierEditor] = useState(false)
+  // 공급자 프리셋
+  const [suppliers, setSuppliers] = useState<Supplier[]>([])
+  const [selectedSupplierId, setSelectedSupplierId] = useState<string>('')
+
+  const supplier: Supplier = suppliers.find(s => s.id === selectedSupplierId)
+    ?? suppliers.find(s => s.is_default)
+    ?? suppliers[0]
+    ?? FALLBACK_SUPPLIER
+
+  // 프리셋 로드
+  useEffect(() => {
+    fetch('/api/admin/tax-invoice/suppliers')
+      .then(r => r.json())
+      .then(d => {
+        const list: Supplier[] = d.suppliers ?? []
+        setSuppliers(list)
+        const def = list.find(s => s.is_default) ?? list[0]
+        if (def) setSelectedSupplierId(def.id)
+      })
+      .catch(() => {})
+  }, [])
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -218,12 +252,24 @@ export default function TaxInvoiceDashboardPage() {
           </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          <Button variant="secondary" size="sm" onClick={() => setShowSupplierEditor(true)}
-            className="flex items-center gap-1.5">
-            <Settings size={13} />공급자 편집
-          </Button>
-          <Link href="/admin/tax-invoice/suppliers" className="text-xs text-brand-600 hover:text-brand-700 font-medium underline px-2">
-            공급자 프리셋 →
+          <div className="flex items-center gap-1.5">
+            <label className="text-[11px] text-text-tertiary uppercase tracking-wide">공급자</label>
+            <select
+              value={selectedSupplierId}
+              onChange={e => setSelectedSupplierId(e.target.value)}
+              className="text-sm rounded-md border border-border bg-surface px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 max-w-[200px] truncate"
+            >
+              {suppliers.length === 0 && <option value="">기본 (fallback)</option>}
+              {suppliers.map(s => (
+                <option key={s.id} value={s.id}>
+                  {s.label}{s.is_default ? ' ★' : ''}
+                </option>
+              ))}
+            </select>
+          </div>
+          <Link href="/admin/tax-invoice/suppliers"
+            className="flex items-center gap-1 text-xs text-brand-600 hover:text-brand-700 font-medium underline px-1">
+            <Settings size={11} />관리
           </Link>
           <Button size="sm" onClick={handleDownloadCsv}
             disabled={selectedIds.size === 0}
@@ -361,14 +407,36 @@ export default function TaxInvoiceDashboardPage() {
         {loadedAt && `${loadedAt.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })} 기준`}
       </div>
 
-      {/* Supplier Editor Modal */}
-      {showSupplierEditor && (
-        <SupplierEditorModal
-          initial={supplier}
-          onClose={() => setShowSupplierEditor(false)}
-          onSave={(next) => { setSupplier(next); setShowSupplierEditor(false); toast.success('공급자 정보가 이번 세션에 적용됐습니다.') }}
-        />
-      )}
+      {/* 현재 선택된 공급자 상세 미리보기 (접기 가능) */}
+      <details className="bg-surface border border-border-subtle rounded-2xl">
+        <summary className="cursor-pointer px-4 py-3 text-xs font-medium text-text-secondary flex items-center justify-between">
+          <span>선택된 공급자 정보 · <b className="text-text-primary">{supplier.label}</b></span>
+          <Link href="/admin/tax-invoice/suppliers"
+            onClick={e => e.stopPropagation()}
+            className="text-[11px] text-brand-600 hover:text-brand-700 underline">
+            편집
+          </Link>
+        </summary>
+        <div className="px-4 pb-4 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1 text-xs">
+          <SupplierRow label="상호" value={supplier.company_name} />
+          <SupplierRow label="대표자" value={supplier.representative} />
+          <SupplierRow label="사업자번호" value={supplier.registration_number} />
+          <SupplierRow label="이메일" value={supplier.email} />
+          <SupplierRow label="업태" value={supplier.business_type} />
+          <SupplierRow label="종목" value={supplier.business_item} />
+          <SupplierRow label="주소" value={supplier.address} full />
+        </div>
+      </details>
+
+    </div>
+  )
+}
+
+function SupplierRow({ label, value, full }: { label: string; value: string; full?: boolean }) {
+  return (
+    <div className={`${full ? 'sm:col-span-2' : ''} flex gap-2 py-0.5`}>
+      <span className="text-text-tertiary w-20 shrink-0">{label}</span>
+      <span className="text-text-primary truncate">{value || <span className="text-text-tertiary">—</span>}</span>
     </div>
   )
 }
@@ -428,56 +496,3 @@ function RowStatus({ c }: { c: Candidate }) {
   return <span className="text-[11px] text-text-tertiary">미발행</span>
 }
 
-// ─── 공급자 편집 모달 ─────────────────────────────────────
-function SupplierEditorModal({
-  initial, onClose, onSave,
-}: {
-  initial: typeof DEFAULT_SUPPLIER
-  onClose: () => void
-  onSave: (v: typeof DEFAULT_SUPPLIER) => void
-}) {
-  const [form, setForm] = useState(initial)
-  const update = <K extends keyof typeof DEFAULT_SUPPLIER>(k: K, v: string) =>
-    setForm(p => ({ ...p, [k]: v }))
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
-      <div className="bg-surface rounded-2xl shadow-modal w-full max-w-lg max-h-[90vh] overflow-y-auto p-6"
-        onClick={e => e.stopPropagation()}>
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-bold text-text-primary">공급자 정보 편집</h2>
-          <button onClick={onClose} className="text-text-tertiary hover:text-text-primary text-2xl leading-none">×</button>
-        </div>
-        <p className="text-[11px] text-text-tertiary mb-4">
-          이번 세션(다운로드) 에만 적용됩니다. 여러 사업자를 관리하려면 우측 상단의 <b>공급자 프리셋</b>을 사용하세요.
-        </p>
-        <div className="space-y-3">
-          {[
-            ['registration_number', '사업자등록번호', '000-00-00000'],
-            ['company_name', '상호'],
-            ['representative', '대표자'],
-            ['address', '주소'],
-            ['business_type', '업태'],
-            ['business_item', '종목'],
-            ['email', '이메일'],
-          ].map(([key, label, placeholder]) => (
-            <div key={key}>
-              <label className="block text-[11px] font-medium text-text-tertiary uppercase tracking-wide mb-1">
-                {label}
-              </label>
-              <Input
-                value={form[key as keyof typeof DEFAULT_SUPPLIER]}
-                onChange={e => update(key as keyof typeof DEFAULT_SUPPLIER, e.target.value)}
-                placeholder={placeholder}
-              />
-            </div>
-          ))}
-        </div>
-        <div className="flex items-center justify-end gap-2 mt-6">
-          <Button variant="secondary" size="sm" onClick={onClose}>취소</Button>
-          <Button size="sm" onClick={() => onSave(form)}>적용</Button>
-        </div>
-      </div>
-    </div>
-  )
-}
