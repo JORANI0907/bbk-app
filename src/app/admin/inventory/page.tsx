@@ -474,9 +474,12 @@ export default function AdminInventoryPage() {
         {role === 'admin' && (
           <button
             onClick={() => setMainTab('purchase')}
-            className={`px-4 py-2 text-sm font-semibold rounded-t-lg transition-colors border-b-2 ${mainTab === 'purchase' ? 'border-brand-600 text-brand-700' : 'border-transparent text-text-secondary hover:text-text-primary'}`}
+            className={`px-4 py-2 text-sm font-semibold rounded-t-lg transition-colors border-b-2 inline-flex items-center gap-1.5 ${mainTab === 'purchase' ? 'border-brand-600 text-brand-700' : 'border-transparent text-text-secondary hover:text-text-primary'}`}
           >
             구입관리
+            <span className="text-[10px] font-semibold bg-state-warning-bg text-state-warning px-1.5 py-0.5 rounded-full leading-none">
+              관리자
+            </span>
           </button>
         )}
       </div>
