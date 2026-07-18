@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import toast from 'react-hot-toast'
-import { Folder, Package, Trash2, Save, Camera, Settings, AlertTriangle, Image } from 'lucide-react'
+import { Folder, Package, Trash2, Save, Camera, Settings, AlertTriangle, Image, ChevronDown, ChevronRight, Info } from 'lucide-react'
 import {
   loadGoogleAPIs,
   requestGoogleToken,
@@ -136,6 +136,7 @@ export default function AdminInventoryPage() {
   const [adminLogsLoading, setAdminLogsLoading] = useState(false)
   const [logMonth, setLogMonth] = useState(() => new Date().toISOString().slice(0, 7))
   const [logType, setLogType] = useState<'all' | 'use' | 'return'>('all')
+  const [expandedWorkers, setExpandedWorkers] = useState<Set<string>>(new Set())
 
   // ── 초기화 ──────────────────────────────────────────────────
   useEffect(() => {
@@ -416,18 +417,42 @@ export default function AdminInventoryPage() {
     URL.revokeObjectURL(url)
   }
 
-  // 변동내역 집계
-  const workerLogMap: Record<string, Record<string, { use: number; return: number; lastDate: string }>> = {}
+  // 변동내역 집계 — 직원별로 총합 + 원본 로그 목록을 함께 보관
+  const workerStats: Record<string, {
+    use: number
+    return: number
+    logCount: number
+    lastDate: string
+    logs: AdminInventoryLog[]
+  }> = {}
   for (const log of adminLogs) {
     const workerKey = log.worker_name ?? log.worker_id ?? '미상'
-    if (!workerLogMap[workerKey]) workerLogMap[workerKey] = {}
-    if (!workerLogMap[workerKey][log.item_name]) {
-      workerLogMap[workerKey][log.item_name] = { use: 0, return: 0, lastDate: '' }
+    if (!workerStats[workerKey]) {
+      workerStats[workerKey] = { use: 0, return: 0, logCount: 0, lastDate: '', logs: [] }
     }
-    const entry = workerLogMap[workerKey][log.item_name]
-    if (log.change_type === 'use') entry.use += log.quantity
-    if (log.change_type === 'return') entry.return += log.quantity
-    if (!entry.lastDate || log.created_at > entry.lastDate) entry.lastDate = log.created_at
+    const s = workerStats[workerKey]
+    if (log.change_type === 'use') s.use += log.quantity
+    if (log.change_type === 'return') s.return += log.quantity
+    s.logCount += 1
+    if (!s.lastDate || log.created_at > s.lastDate) s.lastDate = log.created_at
+    s.logs.push(log)
+  }
+  // 각 직원의 로그를 최신순 정렬
+  for (const key of Object.keys(workerStats)) {
+    workerStats[key].logs.sort((a, b) => b.created_at.localeCompare(a.created_at))
+  }
+  // 직원 순서: 최근 활동 순
+  const sortedWorkerEntries = Object.entries(workerStats).sort(
+    ([, a], [, b]) => b.lastDate.localeCompare(a.lastDate)
+  )
+
+  function toggleWorker(key: string) {
+    setExpandedWorkers(prev => {
+      const next = new Set(prev)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
+      return next
+    })
   }
 
   const itemUsageMap: Record<string, number> = {}
@@ -502,6 +527,16 @@ export default function AdminInventoryPage() {
         </div>
       ) : mainTab === 'logs' && role === 'admin' ? (
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
+          {/* 설명 헤더 */}
+          <div className="bg-brand-50 border border-brand-100 rounded-xl px-4 py-3 flex items-start gap-2">
+            <Info size={16} className="text-brand-600 shrink-0 mt-0.5" />
+            <div className="text-xs text-brand-800 leading-normal">
+              <span className="font-semibold">변동내역이란?</span> 직원이 재고를 수령하거나 반납할 때 남기는 기록입니다.
+              월별로 필터해 조회할 수 있으며, 아래 <span className="font-semibold">직원별 카드</span>를 눌러 각 트랜잭션의
+              날짜·품목·수량·메모·사진 등 세부 내용을 확인할 수 있습니다.
+            </div>
+          </div>
+
           {/* 필터 */}
           <div className="flex items-center gap-3 flex-wrap">
             <input
@@ -577,42 +612,111 @@ export default function AdminInventoryPage() {
                 </div>
               )}
 
-              {/* 직원별 사용량 테이블 */}
+              {/* 직원별 변동내역 (accordion) */}
               <div className="bg-surface rounded-xl shadow-soft overflow-hidden">
-                <h3 className="font-semibold text-text-primary px-5 py-4 border-b border-border-subtle">직원별 사용량</h3>
-                {Object.keys(workerLogMap).length === 0 ? (
+                <div className="flex items-start gap-2 px-5 py-4 border-b border-border-subtle">
+                  <div className="flex-1">
+                    <h3 className="font-semibold text-text-primary">직원별 변동내역</h3>
+                    <p className="text-xs text-text-tertiary mt-0.5 flex items-center gap-1">
+                      <Info size={12} />
+                      각 직원 카드를 눌러 해당 기간의 모든 수령·반납 내역을 확인할 수 있습니다
+                    </p>
+                  </div>
+                  {sortedWorkerEntries.length > 0 && (
+                    <button
+                      onClick={() => setExpandedWorkers(
+                        expandedWorkers.size === sortedWorkerEntries.length
+                          ? new Set()
+                          : new Set(sortedWorkerEntries.map(([k]) => k))
+                      )}
+                      className="text-xs text-brand-600 hover:text-brand-700 font-medium shrink-0 pt-1"
+                    >
+                      {expandedWorkers.size === sortedWorkerEntries.length ? '모두 접기' : '모두 펼치기'}
+                    </button>
+                  )}
+                </div>
+
+                {sortedWorkerEntries.length === 0 ? (
                   <div className="text-center text-text-tertiary text-sm py-8">내역이 없습니다.</div>
                 ) : (
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="bg-surface-sunken text-xs font-semibold text-text-secondary">
-                          <th className="text-left px-4 py-3">직원명</th>
-                          <th className="text-left px-4 py-3">품목</th>
-                          <th className="text-right px-4 py-3">수령</th>
-                          <th className="text-right px-4 py-3">반납</th>
-                          <th className="text-right px-4 py-3">순사용</th>
-                          <th className="text-right px-4 py-3">마지막 날짜</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {Object.entries(workerLogMap).flatMap(([worker, items]) =>
-                          Object.entries(items).map(([item, stat], idx) => (
-                            <tr key={`${worker}-${item}`} className="border-t border-border-subtle hover:bg-surface-sunken">
-                              <td className="px-4 py-2.5 text-text-primary font-medium">{idx === 0 ? worker : ''}</td>
-                              <td className="px-4 py-2.5 text-text-secondary">{item}</td>
-                              <td className="px-4 py-2.5 text-right text-orange-600">{stat.use}</td>
-                              <td className="px-4 py-2.5 text-right text-brand-600">{stat.return}</td>
-                              <td className="px-4 py-2.5 text-right font-semibold text-purple-700">{(stat.use - stat.return).toFixed(1)}</td>
-                              <td className="px-4 py-2.5 text-right text-text-tertiary text-xs">
-                                {stat.lastDate ? new Date(stat.lastDate).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' }) : '-'}
-                              </td>
-                            </tr>
-                          ))
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
+                  <ul className="divide-y divide-border-subtle">
+                    {sortedWorkerEntries.map(([worker, stat]) => {
+                      const isOpen = expandedWorkers.has(worker)
+                      const net = stat.use - stat.return
+                      return (
+                        <li key={worker}>
+                          <button
+                            onClick={() => toggleWorker(worker)}
+                            className="w-full flex items-center gap-3 px-5 py-3.5 hover:bg-surface-sunken transition-colors text-left"
+                          >
+                            {isOpen
+                              ? <ChevronDown size={16} className="text-text-tertiary shrink-0" />
+                              : <ChevronRight size={16} className="text-text-tertiary shrink-0" />}
+                            <span className="font-medium text-text-primary flex-1 truncate">{worker}</span>
+                            <span className="text-xs text-text-tertiary shrink-0">{stat.logCount}건</span>
+                            <span className="text-xs text-orange-600 font-semibold shrink-0">수령 {stat.use}</span>
+                            <span className="text-xs text-brand-600 font-semibold shrink-0">반납 {stat.return}</span>
+                            <span className="text-xs text-purple-700 font-bold shrink-0">순 {net.toFixed(1)}</span>
+                          </button>
+
+                          {isOpen && (
+                            <div className="bg-surface-sunken px-5 py-3 space-y-2">
+                              {stat.logs.map(log => {
+                                const parsed = parseNote(log.note)
+                                const dt = new Date(log.created_at)
+                                const isUse = log.change_type === 'use'
+                                const isReturn = log.change_type === 'return'
+                                return (
+                                  <div key={log.id} className="bg-surface rounded-lg p-3 shadow-flat">
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                      <span className="text-xs text-text-tertiary tabular-nums">
+                                        {dt.toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' })} {dt.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false })}
+                                      </span>
+                                      <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
+                                        isUse ? 'bg-orange-100 text-orange-700' :
+                                        isReturn ? 'bg-brand-50 text-brand-700' :
+                                        log.change_type === 'receive' ? 'bg-green-100 text-green-700' :
+                                        'bg-gray-100 text-gray-600'
+                                      }`}>
+                                        {TX_LABELS[log.change_type]}
+                                      </span>
+                                      <span className="text-sm font-semibold text-text-primary flex-1 min-w-0 truncate">
+                                        {log.item_name}
+                                      </span>
+                                      <span className={`text-sm font-bold tabular-nums shrink-0 ${
+                                        isUse ? 'text-orange-600' :
+                                        isReturn ? 'text-brand-600' :
+                                        'text-text-primary'
+                                      }`}>
+                                        {isUse ? '−' : isReturn ? '+' : ''}{log.quantity}
+                                      </span>
+                                    </div>
+                                    {(parsed.text || parsed.photo) && (
+                                      <div className="mt-1.5 flex items-center gap-2 flex-wrap">
+                                        {parsed.text && (
+                                          <span className="text-xs text-text-secondary">📝 {parsed.text}</span>
+                                        )}
+                                        {parsed.photo && (
+                                          <a
+                                            href={parsed.photo}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="text-xs text-brand-600 hover:underline inline-flex items-center gap-1"
+                                          >
+                                            <Camera size={11} /> 사진 보기
+                                          </a>
+                                        )}
+                                      </div>
+                                    )}
+                                  </div>
+                                )
+                              })}
+                            </div>
+                          )}
+                        </li>
+                      )
+                    })}
+                  </ul>
                 )}
               </div>
             </>
