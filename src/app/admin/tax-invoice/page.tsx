@@ -38,6 +38,15 @@ interface Candidate {
 
 const SERVICE_TYPES_FALLBACK = ['1회성케어', '정기딥케어', '정기엔드케어']
 
+// 결제방법 필터 화이트리스트 — 실제 DB에는 편차·오타 포함 다양한 값이 있지만
+// 사용자가 실제로 필터링하고 싶은 4가지만 노출
+const ALLOWED_PAYMENT_METHODS = [
+  '현금(계산서 희망)',
+  '현금(비과세)',
+  '플랫폼',
+  '카드(온라인 간편결제)',
+]
+
 interface Supplier {
   id: string
   label: string
@@ -103,7 +112,7 @@ export default function TaxInvoiceDashboardPage() {
 
   // 필터 옵션 (서버에서 로드)
   const [availableServiceTypes, setAvailableServiceTypes] = useState<string[]>(SERVICE_TYPES_FALLBACK)
-  const [availablePaymentMethods, setAvailablePaymentMethods] = useState<string[]>([])
+  const [availablePaymentMethods, setAvailablePaymentMethods] = useState<string[]>(ALLOWED_PAYMENT_METHODS)
 
   // 선택
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
@@ -151,7 +160,10 @@ export default function TaxInvoiceDashboardPage() {
         setAvailableServiceTypes(json.available_service_types)
       }
       if (Array.isArray(json.available_payment_methods)) {
-        setAvailablePaymentMethods(json.available_payment_methods)
+        // 화이트리스트 교집합만 노출 (DB에 존재하는 값 중 ALLOWED_PAYMENT_METHODS 만)
+        const filtered = ALLOWED_PAYMENT_METHODS.filter(m => json.available_payment_methods.includes(m))
+        // DB에 없어도 화이트리스트는 그대로 노출 (선택은 가능)
+        setAvailablePaymentMethods(filtered.length > 0 ? filtered : ALLOWED_PAYMENT_METHODS)
       }
       setLoadedAt(new Date())
       setSelectedIds(new Set())
