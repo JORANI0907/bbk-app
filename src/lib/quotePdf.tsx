@@ -48,11 +48,13 @@ export interface QuotePdfData {
   vat: number
   totalAmount: number
   // 할인 (선택)
-  discountAmount?: number      // 할인금액(원). 0 또는 미지정이면 표시 안 함.
+  discountAmount?: number      // 1차 할인금액(원). 0 또는 미지정이면 표시 안 함.
   discountRate?: number        // 표시용 할인률(%). 예: 10 또는 12.5
   discountBaseLabel?: string   // '총액' | '공급가액'
   origSupplyAmount?: number    // 할인 전 공급가액
   origTotalAmount?: number     // 할인 전 총액
+  // 할인2 — 잔돈 라운딩 (선택). 1차 할인 이후 공급가액에서 추가로 뺄 금액.
+  discount2Amount?: number     // 0 또는 미지정이면 표시 안 함.
   // 선택
   notes?: string
   hideItemPrices?: boolean
@@ -500,24 +502,33 @@ function QuotePdfDocument({ d }: { d: QuotePdfData }) {
         {/* ── Totals ── */}
         <View style={s.totalsWrap}>
           <View style={s.totalsBox}>
-            {/* 할인 적용 시 원가·할인 라인 표시 */}
+            {/* 원가 라인: 할인1 또는 할인2 중 하나라도 있으면 표시 */}
+            {((d.discountAmount != null && d.discountAmount > 0) ||
+              (d.discount2Amount != null && d.discount2Amount > 0)) && (
+              <View style={s.totalRow}>
+                <Text style={s.totalLabel}>
+                  {d.discountBaseLabel === '총액' ? '합계 (할인 전)' : '공급가액 (할인 전)'}
+                </Text>
+                <Text style={s.totalValue}>
+                  {fmtKr(d.discountBaseLabel === '총액' ? (d.origTotalAmount ?? 0) : (d.origSupplyAmount ?? 0))}원
+                </Text>
+              </View>
+            )}
+            {/* 1차 할인 라인 */}
             {d.discountAmount != null && d.discountAmount > 0 && (
-              <>
-                <View style={s.totalRow}>
-                  <Text style={s.totalLabel}>
-                    {d.discountBaseLabel === '총액' ? '합계 (할인 전)' : '공급가액 (할인 전)'}
-                  </Text>
-                  <Text style={s.totalValue}>
-                    {fmtKr(d.discountBaseLabel === '총액' ? (d.origTotalAmount ?? 0) : (d.origSupplyAmount ?? 0))}원
-                  </Text>
-                </View>
-                <View style={s.totalRow}>
-                  <Text style={s.totalLabel}>
-                    할인{d.discountRate ? ` (${d.discountRate}%)` : ''}
-                  </Text>
-                  <Text style={s.totalValue}>-{fmtKr(d.discountAmount)}원</Text>
-                </View>
-              </>
+              <View style={s.totalRow}>
+                <Text style={s.totalLabel}>
+                  할인{d.discountRate ? ` (${d.discountRate}%)` : ''}
+                </Text>
+                <Text style={s.totalValue}>-{fmtKr(d.discountAmount)}원</Text>
+              </View>
+            )}
+            {/* 할인2 (잔돈) 라인 */}
+            {d.discount2Amount != null && d.discount2Amount > 0 && (
+              <View style={s.totalRow}>
+                <Text style={s.totalLabel}>할인2 (잔돈)</Text>
+                <Text style={s.totalValue}>-{fmtKr(d.discount2Amount)}원</Text>
+              </View>
             )}
             <View style={s.totalRow}>
               <Text style={s.totalLabel}>공급가액</Text>

@@ -54,11 +54,13 @@ interface QuoteSendBody {
   vat: number
   total_amount: number
   // 할인 (선택)
-  discount_amount?: number
+  discount_amount?: number       // 1차 할인 (%/금액)
   discount_rate?: number
   discount_base_label?: string      // '총액' | '공급가액'
   orig_supply_amount?: number
   orig_total_amount?: number
+  // 할인2 (잔돈 라운딩) — PDF·이메일에서 별도 라인으로 표시
+  discount2_amount?: number
   // 옵션
   valid_days?: number
   notes?: string
@@ -98,6 +100,7 @@ export async function POST(
     construction_date, quote_items, supply_amount, vat, total_amount,
     discount_amount, discount_rate, discount_base_label,
     orig_supply_amount, orig_total_amount,
+    discount2_amount,
     valid_days, notes, hide_item_prices, seal_image_url,
     saved_quote_id,
   } = body
@@ -168,6 +171,7 @@ export async function POST(
       discountBaseLabel: discount_base_label,
       origSupplyAmount:  orig_supply_amount,
       origTotalAmount:   orig_total_amount,
+      discount2Amount:   discount2_amount,
       // 옵션
       notes:           notes            || undefined,
       hideItemPrices:  hide_item_prices ?? false,
@@ -228,9 +232,14 @@ export async function POST(
     <tr style="border-bottom:1px solid #eee;"><td style="padding:6px 16px 6px 0;color:#888;white-space:nowrap;">견적서 번호</td><td>${quoteNo}</td></tr>
     <tr style="border-bottom:1px solid #eee;"><td style="padding:6px 16px 6px 0;color:#888;white-space:nowrap;">업체명</td><td>${business_name || '-'}</td></tr>
     <tr style="border-bottom:1px solid #eee;"><td style="padding:6px 16px 6px 0;color:#888;white-space:nowrap;">시공일자</td><td>${construction_date || '-'}</td></tr>
+    ${((discount_amount && discount_amount > 0) || (discount2_amount && discount2_amount > 0))
+      ? `<tr style="border-bottom:1px solid #eee;"><td style="padding:6px 16px 6px 0;color:#888;white-space:nowrap;">${discount_base_label === '총액' ? '합계 (할인 전)' : '공급가액 (할인 전)'}</td><td style="text-decoration:line-through;color:#888;">${fmtKr((discount_base_label === '총액' ? orig_total_amount : orig_supply_amount) ?? 0)}원</td></tr>`
+      : ''}
     ${discount_amount && discount_amount > 0
-      ? `<tr style="border-bottom:1px solid #eee;"><td style="padding:6px 16px 6px 0;color:#888;white-space:nowrap;">${discount_base_label === '총액' ? '합계 (할인 전)' : '공급가액 (할인 전)'}</td><td style="text-decoration:line-through;color:#888;">${fmtKr((discount_base_label === '총액' ? orig_total_amount : orig_supply_amount) ?? 0)}원</td></tr>
-       <tr style="border-bottom:1px solid #eee;"><td style="padding:6px 16px 6px 0;color:#d9534f;white-space:nowrap;">할인${discount_rate ? ` (${discount_rate}%)` : ''}</td><td style="color:#d9534f;">-${fmtKr(discount_amount)}원</td></tr>`
+      ? `<tr style="border-bottom:1px solid #eee;"><td style="padding:6px 16px 6px 0;color:#d9534f;white-space:nowrap;">할인${discount_rate ? ` (${discount_rate}%)` : ''}</td><td style="color:#d9534f;">-${fmtKr(discount_amount)}원</td></tr>`
+      : ''}
+    ${discount2_amount && discount2_amount > 0
+      ? `<tr style="border-bottom:1px solid #eee;"><td style="padding:6px 16px 6px 0;color:#d9534f;white-space:nowrap;">할인2 (잔돈)</td><td style="color:#d9534f;">-${fmtKr(discount2_amount)}원</td></tr>`
       : ''}
     <tr style="border-bottom:1px solid #eee;"><td style="padding:6px 16px 6px 0;color:#888;white-space:nowrap;">공급가액</td><td>${fmtKr(supply_amount || 0)}원</td></tr>
     <tr style="border-bottom:1px solid #eee;"><td style="padding:6px 16px 6px 0;color:#888;white-space:nowrap;">부가세</td><td>${fmtKr(safeVat)}원</td></tr>

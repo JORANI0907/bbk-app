@@ -602,11 +602,11 @@ export default function QuotesPage() {
       }
       return 0
     })()
-    // 할인2 (잔돈) — 저장된 값이 있으면 그대로 반영. PDF/서버 API 변경 최소화를 위해 discount1과 합쳐서 전달.
+    // 할인2 (잔돈) — PDF/이메일에 별도 라인으로 표시되도록 discount1과 분리해서 서버에 전달
     const qDiscount2Amount = Math.max(0, Math.floor(q.discount2_amount ?? 0))
-    const qDiscountAmount = qDiscount1Amount + qDiscount2Amount
+    // effectiveRate은 1차 할인 % 표시에만 사용
     const qEffectiveRate = qDiscountBase > 0
-      ? Math.round((qDiscountAmount / qDiscountBase) * 1000) / 10
+      ? Math.round((qDiscount1Amount / qDiscountBase) * 1000) / 10
       : 0
 
     setSendingQuoteId(q.id)
@@ -629,11 +629,12 @@ export default function QuotesPage() {
           supply_amount:     q.supply_amount,
           vat:               q.vat_amount,
           total_amount:      q.total_amount,
-          discount_amount:     qDiscountAmount,
-          discount_rate:       qDiscountAmount > 0 ? qEffectiveRate : 0,
+          discount_amount:     qDiscount1Amount,
+          discount_rate:       qDiscount1Amount > 0 ? qEffectiveRate : 0,
           discount_base_label: q.pricing_mode === 'total' ? '총액' : '공급가액',
           orig_supply_amount:  qOrigSupply,
           orig_total_amount:   qOrigTotal,
+          discount2_amount:    qDiscount2Amount,
           valid_days:        q.valid_days,
           notes:             q.notes || undefined,
           hide_item_prices:  q.pricing_mode !== 'itemized',

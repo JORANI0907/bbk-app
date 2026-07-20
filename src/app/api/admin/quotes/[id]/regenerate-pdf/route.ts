@@ -142,11 +142,11 @@ export async function POST(
     }
     return 0
   })()
-  // 할인2 (잔돈) — 저장 시 반영된 값을 합산해 PDF 렌더러에 통합 discount_amount로 전달
+  // 할인2 (잔돈) — PDF에 별도 라인으로 표시되도록 discount1과 분리 유지
   const discount2Amount = Math.max(0, Math.floor(target.discount2_amount ?? 0))
-  const discountAmount = discount1Amount + discount2Amount
+  // effectiveRate은 1차 할인 % 표시에만 사용 (할인2는 자체 라인)
   const effectiveRate = discountBase > 0
-    ? Math.round((discountAmount / discountBase) * 1000) / 10
+    ? Math.round((discount1Amount / discountBase) * 1000) / 10
     : 0
 
   const pdfData: QuotePdfData = {
@@ -175,8 +175,9 @@ export async function POST(
     vat:          target.vat_amount ?? 0,
     totalAmount:  target.total_amount ?? 0,
     // 할인
-    discountAmount:    discountAmount > 0 ? discountAmount : undefined,
-    discountRate:      discountAmount > 0 ? effectiveRate : undefined,
+    discountAmount:    discount1Amount > 0 ? discount1Amount : undefined,
+    discountRate:      discount1Amount > 0 ? effectiveRate : undefined,
+    discount2Amount:   discount2Amount > 0 ? discount2Amount : undefined,
     discountBaseLabel: target.pricing_mode === 'total' ? '총액' : '공급가액',
     origSupplyAmount:  origSupply,
     origTotalAmount:   origTotal,
