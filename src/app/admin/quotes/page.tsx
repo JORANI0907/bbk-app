@@ -138,6 +138,7 @@ export default function QuotesPage() {
   const [editingQuoteId, setEditingQuoteId] = useState<string | null>(null)
   const [completing, setCompleting] = useState(false)
   const [sendingQuoteId, setSendingQuoteId] = useState<string | null>(null)
+  const [regeneratingQuoteId, setRegeneratingQuoteId] = useState<string | null>(null)
   const historyRef = useRef<HTMLDivElement>(null)
 
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -622,6 +623,30 @@ export default function QuotesPage() {
       toast.error(e instanceof Error ? e.message : '오류가 발생했습니다.')
     } finally {
       setSendingQuoteId(null)
+    }
+  }
+
+  // ── 저장된 견적서 PDF 재생성 (알림 없음) ────────────────────
+  // 견적서를 여러 개 만든 후 같은 분 내에 발송하면 quote_no가 중복되어
+  // PDF 파일이 덮어씌워지는 이슈를 개별 재생성으로 복구.
+  const handleRegeneratePdf = async (q: SavedQuote) => {
+    if (!selected) return
+    if (!confirm(`'${q.label}' PDF를 새로 생성합니다.\n\n· 카카오 알림톡·이메일은 발송되지 않습니다.\n· 새 PDF 파일이 만들어지고 이력에 반영됩니다.`)) return
+    setRegeneratingQuoteId(q.id)
+    try {
+      const res = await fetch(`/api/admin/quotes/${selected.id}/regenerate-pdf`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ saved_quote_id: q.id }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error ?? '재생성 실패')
+      toast.success(`'${q.label}' PDF 재생성 완료 (${data.quote_no})`)
+      await loadApplications(page, search)
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'PDF 재생성 실패')
+    } finally {
+      setRegeneratingQuoteId(null)
     }
   }
 
@@ -1159,6 +1184,7 @@ export default function QuotesPage() {
                     const isSent = !!q.sent_at
                     const isEditingNow = editingQuoteId === q.id
                     const isSendingNow = sendingQuoteId === q.id
+                    const isRegeneratingNow = regeneratingQuoteId === q.id
                     return (
                       <li key={q.id} className={`py-3 ${isEditingNow ? 'bg-amber-50/30 -mx-6 px-6' : ''}`}>
                         <div className="flex items-start justify-between gap-3">
@@ -1200,6 +1226,14 @@ export default function QuotesPage() {
                             <button type="button" onClick={() => handleEditSavedQuote(q)}
                               className="flex items-center gap-1 text-[11px] px-2 py-1 rounded-md border border-border-subtle text-text-secondary hover:bg-surface-sunken transition-colors">
                               <Pencil size={11} />수정
+                            </button>
+                            <button type="button"
+                              onClick={() => handleRegeneratePdf(q)}
+                              disabled={isRegeneratingNow}
+                              className="flex items-center gap-1 text-[11px] px-2 py-1 rounded-md border border-border-subtle text-text-secondary hover:bg-surface-sunken transition-colors disabled:opacity-50"
+                              title="카카오·이메일 발송 없이 PDF만 새로 생성">
+                              <RefreshCw size={11} className={isRegeneratingNow ? 'animate-spin' : ''} />
+                              {isRegeneratingNow ? '재생성 중…' : 'PDF 재생성'}
                             </button>
                             <button type="button"
                               onClick={() => handleSendSavedQuote(q)}

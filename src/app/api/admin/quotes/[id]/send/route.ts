@@ -69,10 +69,13 @@ interface QuoteSendBody {
 }
 
 function generateQuoteNo(): string {
+  // 분 단위(같은 분에 여러 발송 시 파일 덮어씀 문제) → 초 + 3자리 랜덤 suffix로 유니크 보장.
+  // fileName = `${quoteNo}.pdf` 라서 quoteNo가 유니크해야 각 견적서 PDF가 각각 유지됨.
   const now = new Date()
   const pad = (n: number, len = 2) => String(n).padStart(len, '0')
-  const d = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}${pad(now.getHours())}${pad(now.getMinutes())}`
-  return `BBK-D-${d}`
+  const d = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`
+  const suffix = String(Math.floor(Math.random() * 1000)).padStart(3, '0')
+  return `BBK-D-${d}-${suffix}`
 }
 
 function addDays(dateStr: string, days: number): string {
