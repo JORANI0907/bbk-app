@@ -22,6 +22,8 @@ interface SavedQuote {
   discount_mode: 'none' | 'rate' | 'amount'
   discount_rate: number
   discount_input: number
+  // 할인2 (잔돈 할인): 1차 할인 후 공급가액에서 추가로 뺄 금액. 자동값은 mod 1000, 사용자 수정 가능.
+  discount2_amount?: number
   supply_amount: number
   vat_amount: number
   total_amount: number
@@ -129,6 +131,11 @@ export default function QuotesPage() {
   const [discountRate, setDiscountRate]     = useState<number>(0)
   const [discountInput, setDiscountInput]   = useState<number>(0)
 
+  // 할인2 (잔돈 라운딩): 1차 할인 후 공급가액에서 추가로 뺄 잔돈.
+  // discount2Touched=false 이면 자동값(mod 1000) 유지, true이면 사용자 입력 유지.
+  const [discount2Amount, setDiscount2Amount] = useState<number>(0)
+  const [discount2Touched, setDiscount2Touched] = useState<boolean>(false)
+
   // 견적 조건
   const [validDays, setValidDays]   = useState(5)
   const [notes, setNotes]           = useState('')
@@ -176,25 +183,36 @@ export default function QuotesPage() {
     return 0
   })()
 
-  // 4) 최종 금액 (할인 반영)
-  const { supplyAmount, vatAmount, totalAmount } = (() => {
-    if (discountMode === 'none' || computedDiscountAmount === 0) {
-      return { supplyAmount: origSupply, vatAmount: origVat, totalAmount: origTotal }
-    }
+  // 4) 1차 할인 후 공급가액 (할인2 자동계산·최종 계산의 공통 base)
+  const supplyAfterDiscount1 = (() => {
+    if (discountMode === 'none' || computedDiscountAmount === 0) return origSupply
     if (pricingMode === 'total') {
-      // 총액에서 차감 → 공급/부가세 역산
-      const finalTotal = Math.max(0, origTotal - computedDiscountAmount)
-      const finalSupply = Math.round(finalTotal / 1.1)
-      const finalVat = finalTotal - finalSupply
-      return { supplyAmount: finalSupply, vatAmount: finalVat, totalAmount: finalTotal }
+      const finalTotal1 = Math.max(0, origTotal - computedDiscountAmount)
+      return Math.round(finalTotal1 / 1.1)
     }
-    // 공급가액에서 차감 → 부가세 재계산
-    const finalSupply = Math.max(0, origSupply - computedDiscountAmount)
+    return Math.max(0, origSupply - computedDiscountAmount)
+  })()
+
+  // 5) 할인2 자동 잔돈 계산: touched=false 일 때만 자동으로 mod 1000 세팅.
+  //    사용자가 값을 만지면 그 값 유지 (다른 상위 입력이 바뀌어도 덮어쓰지 않음).
+  useEffect(() => {
+    if (discount2Touched) return
+    const remainder = Math.max(0, supplyAfterDiscount1 % 1000)
+    // 안전 클램프: 잔돈이 supplyAfterDiscount1보다 크지 않도록
+    setDiscount2Amount(Math.min(remainder, supplyAfterDiscount1))
+  }, [supplyAfterDiscount1, discount2Touched])
+
+  // 6) 최종 discount2 (0~공급가액 사이로 클램프)
+  const effectiveDiscount2 = Math.max(0, Math.min(supplyAfterDiscount1, Math.floor(discount2Amount)))
+
+  // 7) 최종 금액 (할인1 + 할인2 반영)
+  const { supplyAmount, vatAmount, totalAmount } = (() => {
+    const finalSupply = Math.max(0, supplyAfterDiscount1 - effectiveDiscount2)
     const finalVat = Math.round(finalSupply * 0.1)
     return { supplyAmount: finalSupply, vatAmount: finalVat, totalAmount: finalSupply + finalVat }
   })()
 
-  // 5) 표시용 할인률 (사용자가 amount 로 입력해도 % 표시가 가능하도록)
+  // 8) 표시용 할인률 (사용자가 amount 로 입력해도 % 표시가 가능하도록)
   const effectiveDiscountRate = discountBase > 0
     ? Math.round((computedDiscountAmount / discountBase) * 1000) / 10
     : 0
@@ -420,6 +438,8 @@ export default function QuotesPage() {
     setDiscountMode('none')
     setDiscountRate(0)
     setDiscountInput(0)
+    setDiscount2Amount(0)
+    setDiscount2Touched(false)
     setNotes(selected?.quote_notes ?? '')
     setEditingQuoteId(null)
   }
@@ -449,6 +469,7 @@ export default function QuotesPage() {
             discount_mode: discountMode,
             discount_rate: discountRate,
             discount_input: discountInput,
+            discount2_amount: effectiveDiscount2,
             supply_amount: supplyAmount,
             vat_amount:    vatAmount,
             total_amount:  totalAmount,
@@ -471,6 +492,7 @@ export default function QuotesPage() {
           discount_mode: discountMode,
           discount_rate: discountRate,
           discount_input: discountInput,
+          discount2_amount: effectiveDiscount2,
           supply_amount: supplyAmount,
           vat_amount:    vatAmount,
           total_amount:  totalAmount,
@@ -516,6 +538,14 @@ export default function QuotesPage() {
     setDiscountMode(q.discount_mode)
     setDiscountRate(q.discount_rate)
     setDiscountInput(q.discount_input)
+    // discount2: 저장된 값이 있으면 그대로 로드하고 touched=true (자동 재계산으로 덮어씌우지 않도록)
+    if (typeof q.discount2_amount === 'number') {
+      setDiscount2Amount(q.discount2_amount)
+      setDiscount2Touched(true)
+    } else {
+      setDiscount2Amount(0)
+      setDiscount2Touched(false)
+    }
     setValidDays(q.valid_days)
     setNotes(q.notes)
     setEditingQuoteId(q.id)
@@ -562,7 +592,7 @@ export default function QuotesPage() {
       return { origSupply: q.direct_amount, origTotal: q.direct_amount + Math.round(q.direct_amount * 0.1) }
     })()
     const qDiscountBase = q.pricing_mode === 'total' ? qOrigTotal : qOrigSupply
-    const qDiscountAmount = (() => {
+    const qDiscount1Amount = (() => {
       if (q.discount_mode === 'rate') {
         const rate = Math.max(0, Math.min(100, q.discount_rate))
         return Math.min(Math.round((rate / 100) * qDiscountBase), qDiscountBase)
@@ -572,6 +602,9 @@ export default function QuotesPage() {
       }
       return 0
     })()
+    // 할인2 (잔돈) — 저장된 값이 있으면 그대로 반영. PDF/서버 API 변경 최소화를 위해 discount1과 합쳐서 전달.
+    const qDiscount2Amount = Math.max(0, Math.floor(q.discount2_amount ?? 0))
+    const qDiscountAmount = qDiscount1Amount + qDiscount2Amount
     const qEffectiveRate = qDiscountBase > 0
       ? Math.round((qDiscountAmount / qDiscountBase) * 1000) / 10
       : 0
@@ -1111,6 +1144,47 @@ export default function QuotesPage() {
                 )}
               </div>
 
+              {/* 할인2 — 잔돈 라운딩 (1차 할인 후 공급가액에서 추가 차감) */}
+              <div className="mb-4 rounded-lg border border-border-subtle bg-surface-sunken/50 p-3">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-xs font-semibold text-text-primary">할인2 (잔돈)</span>
+                  <span className="text-[11px] text-text-tertiary">
+                    기준 공급가액 {fmtKr(supplyAfterDiscount1)}원 · 자동 잔돈 {fmtKr(supplyAfterDiscount1 % 1000)}원
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="number"
+                    value={discount2Amount || ''}
+                    min={0}
+                    max={supplyAfterDiscount1}
+                    onChange={e => {
+                      setDiscount2Touched(true)
+                      setDiscount2Amount(Math.max(0, Math.min(supplyAfterDiscount1, Number(e.target.value) || 0)))
+                    }}
+                    placeholder="0"
+                    className="w-32 text-right"
+                  />
+                  <span className="text-xs text-text-secondary">원</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDiscount2Touched(false)
+                      setDiscount2Amount(Math.max(0, supplyAfterDiscount1 % 1000))
+                    }}
+                    className="ml-auto text-[11px] px-2 py-1 rounded-md border border-border-subtle text-text-secondary hover:bg-surface transition-colors"
+                    title="1차 할인 후 공급가액의 잔돈(mod 1000)으로 자동 세팅"
+                  >
+                    자동 잔돈으로 재계산
+                  </button>
+                </div>
+                {discount2Touched && discount2Amount !== Math.max(0, supplyAfterDiscount1 % 1000) && (
+                  <p className="mt-1.5 text-[11px] text-amber-600">
+                    수동 값 사용 중 · 자동 잔돈은 {fmtKr(supplyAfterDiscount1 % 1000)}원
+                  </p>
+                )}
+              </div>
+
               <div className="space-y-2 mb-5">
                 {/* 할인 있을 때: 원가 → 할인 라인을 별도 표시 */}
                 {discountMode !== 'none' && computedDiscountAmount > 0 && (
@@ -1129,6 +1203,13 @@ export default function QuotesPage() {
                     </div>
                     <div className="h-px bg-border-subtle my-1" />
                   </>
+                )}
+                {/* 할인2 있을 때: 잔돈 할인 라인 표시 */}
+                {effectiveDiscount2 > 0 && (
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="text-state-danger">할인2 (잔돈)</span>
+                    <span className="tabular-nums text-state-danger">-{fmtKr(effectiveDiscount2)}원</span>
+                  </div>
                 )}
                 <div className="flex justify-between items-center text-sm">
                   <span className="text-text-secondary">공급가액</span>

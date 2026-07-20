@@ -17,6 +17,7 @@ interface SavedQuote {
   discount_mode: 'none' | 'rate' | 'amount'
   discount_rate: number
   discount_input: number
+  discount2_amount?: number
   supply_amount: number
   vat_amount: number
   total_amount: number
@@ -131,7 +132,7 @@ export async function POST(
     return { origSupply: target.direct_amount, origTotal: target.direct_amount + Math.round(target.direct_amount * 0.1) }
   })()
   const discountBase = target.pricing_mode === 'total' ? origTotal : origSupply
-  const discountAmount = (() => {
+  const discount1Amount = (() => {
     if (target.discount_mode === 'rate') {
       const rate = Math.max(0, Math.min(100, target.discount_rate))
       return Math.min(Math.round((rate / 100) * discountBase), discountBase)
@@ -141,6 +142,9 @@ export async function POST(
     }
     return 0
   })()
+  // 할인2 (잔돈) — 저장 시 반영된 값을 합산해 PDF 렌더러에 통합 discount_amount로 전달
+  const discount2Amount = Math.max(0, Math.floor(target.discount2_amount ?? 0))
+  const discountAmount = discount1Amount + discount2Amount
   const effectiveRate = discountBase > 0
     ? Math.round((discountAmount / discountBase) * 1000) / 10
     : 0
