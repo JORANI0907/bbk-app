@@ -106,6 +106,9 @@ export default function QuotesPage() {
 
   // 선택
   const [selectedId, setSelectedId] = useState<string | null>(null)
+  // 신규 신청서 작성 모드 — 좌측 "새 신청서" 버튼 클릭 시 활성. 저장 시 실제 신청서 생성.
+  const [creatingNewApp, setCreatingNewApp] = useState(false)
+  const [savingCustomer, setSavingCustomer] = useState(false)
 
   // 공급자 (DB 연동)
   const [companyInfo, setCompanyInfo]       = useState<CompanyInfo>(BBK_DEFAULTS)
@@ -335,6 +338,7 @@ export default function QuotesPage() {
   // ── 항목 선택 ─────────────────────────────────────────────────
   const handleSelect = useCallback((app: ApplicationRow) => {
     setSelectedId(app.id)
+    setCreatingNewApp(false)
     setCustomerInfo({
       owner_name:        app.owner_name        || '',
       business_name:     app.business_name     || '',
@@ -361,6 +365,110 @@ export default function QuotesPage() {
     setNotes(app.quote_notes ?? '')
     setEditingQuoteId(null)
   }, [])
+
+  // ── 새 신청서 작성 시작 (빈 폼) ──────────────────────────────
+  const handleNewApplication = () => {
+    setSelectedId(null)
+    setCreatingNewApp(true)
+    setCustomerInfo({
+      owner_name: '', business_name: '', phone: '', phone_2: '',
+      phone_notify_1: true, phone_notify_2: true,
+      email: '', address: '', construction_date: '',
+    })
+    setQuoteItems([])
+    setPricingMode('itemized')
+    setDirectAmount(0)
+    setDiscountMode('none')
+    setDiscountRate(0)
+    setDiscountInput(0)
+    setDiscount2Amount(0)
+    setDiscount2Touched(false)
+    setNotes('')
+    setEditingQuoteId(null)
+  }
+
+  // ── 신규 신청서 저장 (POST /api/admin/applications) ─────────
+  const handleCreateApplication = async () => {
+    if (!customerInfo.owner_name.trim()) { toast.error('고객명을 입력하세요.'); return }
+    if (!customerInfo.business_name.trim()) { toast.error('업체명을 입력하세요.'); return }
+    if (!customerInfo.phone.trim()) { toast.error('연락처를 입력하세요.'); return }
+    if (!customerInfo.address.trim()) { toast.error('주소를 입력하세요.'); return }
+    setSavingCustomer(true)
+    try {
+      const res = await fetch('/api/admin/quotes/create-application', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          owner_name:        customerInfo.owner_name.trim(),
+          business_name:     customerInfo.business_name.trim(),
+          phone:             customerInfo.phone.trim(),
+          phone_2:           customerInfo.phone_2 || null,
+          phone_notify_1:    customerInfo.phone_notify_1,
+          phone_notify_2:    customerInfo.phone_notify_2,
+          email:             customerInfo.email || null,
+          address:           customerInfo.address.trim(),
+          construction_date: customerInfo.construction_date || null,
+          source:            'quote',
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error ?? '저장 실패')
+      // 저장된 신청서를 목록에 삽입 + 선택
+      const newApp = data.application as ApplicationRow
+      setApplications(prev => [newApp, ...prev])
+      setCreatingNewApp(false)
+      handleSelect(newApp)
+      toast.success('신청서가 생성되었습니다. 이제 견적서를 작성하세요.')
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : '저장 실패')
+    } finally {
+      setSavingCustomer(false)
+    }
+  }
+
+  // ── 고객 정보 저장 (PATCH /api/admin/applications) ──────────
+  const handleSaveCustomer = async () => {
+    if (!selectedId) return
+    if (!customerInfo.owner_name.trim()) { toast.error('고객명이 비어있습니다.'); return }
+    if (!customerInfo.phone.trim()) { toast.error('연락처가 비어있습니다.'); return }
+    setSavingCustomer(true)
+    try {
+      const res = await fetch('/api/admin/quotes/create-application', {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: selectedId,
+          owner_name:        customerInfo.owner_name.trim(),
+          business_name:     customerInfo.business_name.trim(),
+          phone:             customerInfo.phone.trim(),
+          phone_2:           customerInfo.phone_2 || null,
+          phone_notify_1:    customerInfo.phone_notify_1,
+          phone_notify_2:    customerInfo.phone_notify_2,
+          email:             customerInfo.email || null,
+          address:           customerInfo.address.trim(),
+          construction_date: customerInfo.construction_date || null,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error ?? '저장 실패')
+      // 목록에도 반영
+      setApplications(prev => prev.map(a => a.id === selectedId ? {
+        ...a,
+        owner_name:        customerInfo.owner_name,
+        business_name:     customerInfo.business_name,
+        phone:             customerInfo.phone,
+        phone_2:           customerInfo.phone_2 || null,
+        phone_notify_1:    customerInfo.phone_notify_1,
+        phone_notify_2:    customerInfo.phone_notify_2,
+        email:             customerInfo.email || null,
+        address:           customerInfo.address,
+        construction_date: customerInfo.construction_date || null,
+      } : a))
+      toast.success('고객 정보가 저장되었습니다.')
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : '저장 실패')
+    } finally {
+      setSavingCustomer(false)
+    }
+  }
 
   // 서비스관리에서 이동 시 sessionStorage에서 appId 읽어 자동 선택
   useEffect(() => {
@@ -611,6 +719,24 @@ export default function QuotesPage() {
 
     setSendingQuoteId(q.id)
     try {
+      // 발송 전 원본 신청서에 고객 정보 자동 동기화 (사용자가 편집 폼에서 수정했을 수 있음)
+      // 실패해도 발송은 계속 진행 (non-blocking)
+      fetch('/api/admin/quotes/create-application', {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: selected.id,
+          owner_name:        customerInfo.owner_name.trim(),
+          business_name:     customerInfo.business_name.trim(),
+          phone:             customerInfo.phone.trim(),
+          phone_2:           customerInfo.phone_2 || null,
+          phone_notify_1:    customerInfo.phone_notify_1,
+          phone_notify_2:    customerInfo.phone_notify_2,
+          email:             customerInfo.email || null,
+          address:           customerInfo.address.trim(),
+          construction_date: customerInfo.construction_date || null,
+        }),
+      }).catch(() => {/* non-blocking */})
+
       const res = await fetch(`/api/admin/quotes/${selected.id}/send`, {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -689,7 +815,7 @@ export default function QuotesPage() {
     <div className="flex flex-col md:flex-row md:h-full gap-4 md:gap-6 p-3 md:p-6">
 
       {/* ── 좌측: 신청 목록 ──────────────────────────────────── */}
-      <aside className={`flex-shrink-0 flex flex-col gap-3 w-full md:w-72 ${selectedId !== null ? 'hidden md:flex' : 'flex'}`}>
+      <aside className={`flex-shrink-0 flex flex-col gap-3 w-full md:w-72 ${(selectedId !== null || creatingNewApp) ? 'hidden md:flex' : 'flex'}`}>
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-xl font-bold text-text-primary tracking-tight">견적관리</h1>
@@ -698,11 +824,21 @@ export default function QuotesPage() {
               {total > 0 && ` · ${total}건`}
             </p>
           </div>
-          <button type="button" onClick={handleRefresh} disabled={loading} title="새로고침"
-            className="p-1.5 rounded-lg text-text-tertiary hover:text-text-primary hover:bg-surface-sunken transition-colors disabled:opacity-40">
-            <RefreshCw size={15} className={loading ? 'animate-spin' : ''} />
-          </button>
+          <div className="flex items-center gap-1">
+            <button type="button" onClick={handleNewApplication} title="새 신청서 생성"
+              className="p-1.5 rounded-lg text-brand-600 hover:bg-brand-50 transition-colors">
+              <Plus size={16} />
+            </button>
+            <button type="button" onClick={handleRefresh} disabled={loading} title="새로고침"
+              className="p-1.5 rounded-lg text-text-tertiary hover:text-text-primary hover:bg-surface-sunken transition-colors disabled:opacity-40">
+              <RefreshCw size={15} className={loading ? 'animate-spin' : ''} />
+            </button>
+          </div>
         </div>
+
+        <Button size="sm" onClick={handleNewApplication} className="bg-brand-600 hover:bg-brand-700 text-white">
+          <Plus size={14} /> 새 신청서 만들기
+        </Button>
 
         <Input placeholder="고객명·업체명·연락처" value={search} onChange={e => handleSearchChange(e.target.value)} />
 
@@ -748,22 +884,36 @@ export default function QuotesPage() {
       </aside>
 
       {/* ── 우측: 세부 패널 ───────────────────────────────────── */}
-      <div className={`flex-1 md:overflow-y-auto min-w-0 ${selectedId !== null ? 'block' : 'hidden md:block'}`}>
-        {!selected ? (
+      <div className={`flex-1 md:overflow-y-auto min-w-0 ${(selectedId !== null || creatingNewApp) ? 'block' : 'hidden md:block'}`}>
+        {!selected && !creatingNewApp ? (
           <div className="flex flex-col items-center justify-center h-64 gap-3 text-text-tertiary">
             <FileText size={36} className="opacity-20" />
-            <p className="text-sm">좌측 목록에서 신청서를 선택하세요.</p>
+            <p className="text-sm">좌측 목록에서 신청서를 선택하거나 새 신청서를 만드세요.</p>
           </div>
         ) : (
           <div className="space-y-4 max-w-3xl">
 
             {/* 모바일 뒤로가기 */}
             <div className="flex items-center md:hidden">
-              <button type="button" onClick={() => setSelectedId(null)}
+              <button type="button" onClick={() => { setSelectedId(null); setCreatingNewApp(false) }}
                 className="flex items-center gap-1.5 text-sm font-medium text-brand-600">
                 <ChevronLeft size={16} />목록으로
               </button>
             </div>
+
+            {/* 신규 작성 모드 안내 */}
+            {creatingNewApp && (
+              <div className="rounded-xl border border-brand-200 bg-brand-50 px-4 py-3 flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-brand-700">새 신청서 작성 중</p>
+                  <p className="text-[11px] text-brand-600 mt-0.5">고객 정보를 입력하고 저장하면 신청서가 생성됩니다. 그 후 견적서를 작성하세요.</p>
+                </div>
+                <button type="button" onClick={() => setCreatingNewApp(false)}
+                  className="text-xs text-brand-700 hover:text-brand-800 font-medium underline whitespace-nowrap">
+                  취소
+                </button>
+              </div>
+            )}
 
             {/* ── 1. 공급자 정보 ─────────────────────────────── */}
             <Section>
@@ -872,7 +1022,21 @@ export default function QuotesPage() {
 
             {/* ── 2. 고객 정보 ───────────────────────────────── */}
             <Section>
-              <SectionHeader title="고객 정보" />
+              <SectionHeader title="고객 정보">
+                {creatingNewApp ? (
+                  <Button size="sm" onClick={handleCreateApplication} disabled={savingCustomer}
+                    className="flex items-center gap-1.5 text-xs bg-brand-600 hover:bg-brand-700 text-white">
+                    <Save size={12} />
+                    {savingCustomer ? '생성 중…' : '신청서 생성'}
+                  </Button>
+                ) : (
+                  <Button size="sm" variant="secondary" onClick={handleSaveCustomer} disabled={savingCustomer || !selectedId}
+                    className="flex items-center gap-1.5 text-xs">
+                    <Save size={12} />
+                    {savingCustomer ? '저장 중…' : '고객 정보 저장'}
+                  </Button>
+                )}
+              </SectionHeader>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3">
                 <FieldGroup label="대표자">
                   <Input value={customerInfo.owner_name} onChange={e => setCustomerInfo(p => ({ ...p, owner_name: e.target.value }))} />
@@ -927,6 +1091,8 @@ export default function QuotesPage() {
               </div>
             </Section>
 
+            {/* 견적서 작성 섹션 (3~6) — 신규 신청서 작성 중에는 저장 후 표시 */}
+            {!creatingNewApp && selected && (<>
             {/* ── 3. 견적 항목 & 금액 모드 ───────────────────── */}
             <Section>
               <SectionHeader title="견적 항목">
@@ -1338,6 +1504,7 @@ export default function QuotesPage() {
               )}
             </Section>
             </div>
+            </>)}
 
           </div>
         )}
