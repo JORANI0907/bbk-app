@@ -81,20 +81,15 @@ export default function UnitPriceSettings({ month }: { month: string }) {
 
   useEffect(() => { loadData() }, [loadData])
 
+  // 그룹핑: 같은 업체의 여러 신청서를 하나로 묶음.
+  // 기본단가는 DB에 저장된 그대로 사용 — 자동 매핑/최댓값 채택 없음.
+  // 사용자가 저장하면 그룹의 모든 신청서에 동일 값 반영되므로 이후 값이 흩어지지 않음.
   const groups: CustomerGroup[] = (() => {
     const map = new Map<string, CustomerGroup>()
     for (const app of apps) {
       const existing = map.get(app.business_name)
       if (existing) {
         existing.applicationIds.push(app.id)
-        // 같은 업체 여러 신청서가 서로 다른 단가를 가진 경우:
-        // null 이 아닌 값 우선, 여러 값 중에서는 최댓값 채택
-        // (기본 단가는 업체 단위로 하나여야 정상이며, 저장 시 그룹 전체에 동일 값 반영됨)
-        const cur = existing.base_unit_price
-        const incoming = app.unit_price_per_visit
-        if (incoming != null && (cur == null || incoming > cur)) {
-          existing.base_unit_price = incoming
-        }
       } else {
         map.set(app.business_name, {
           business_name: app.business_name,
@@ -134,18 +129,17 @@ export default function UnitPriceSettings({ month }: { month: string }) {
     toast.success('기본 단가가 이번 달 칸에 채워졌습니다. [전체 저장]을 눌러 반영하세요.')
   }
 
-  // 전체 저장 — 기본 + 월별 변경사항을 DB에 일괄 반영
-  const handleSaveAll = async () => {
+  // ─── 기본단가 저장 (왼쪽 필드만) ───────────────────────────
+  // 년월 무관 고정값. 어디서도 자동 매핑 안 함. 저장한 그대로 유지.
+  const handleSaveBase = async () => {
     const baseChangedGroups = groups.filter(g => baseEdits[g.business_name] !== undefined)
-    const monthChangedGroups = groups.filter(g => monthEdits[g.business_name] !== undefined)
 
-    if (baseChangedGroups.length === 0 && monthChangedGroups.length === 0) {
-      toast('변경사항이 없습니다.', { icon: 'ℹ️' })
+    if (baseChangedGroups.length === 0) {
+      toast('기본단가 변경사항이 없습니다.', { icon: 'ℹ️' })
       return
     }
 
-    // ─── 안전 장치 1: 기본 단가를 null(빈 값)로 삭제하는 경우 명시적 확인 ───
-    // 실수로 값이 있던 것을 지우면 소중한 단가가 DB에서 사라짐 → 방지
+    // 안전 장치: 값 있던 것을 빈 값/0으로 지우면 명시적 확인
     const baseClearingGroups = baseChangedGroups.filter(g => {
       const editVal = baseEdits[g.business_name]
       const hadValue = g.base_unit_price !== null
@@ -155,67 +149,76 @@ export default function UnitPriceSettings({ month }: { month: string }) {
       const names = baseClearingGroups.slice(0, 5).map(g => `• ${g.business_name}`).join('\n')
       const more = baseClearingGroups.length > 5 ? `\n...외 ${baseClearingGroups.length - 5}건` : ''
       const ok = confirm(
-        `⚠️ 기본 단가를 삭제(빈 값)하려는 항목이 ${baseClearingGroups.length}건 있습니다.\n\n${names}${more}\n\n` +
-        `기본 단가는 영구 저장값이며 삭제하면 향후 자동 이관이 불가능합니다.\n정말 삭제할까요?\n\n(취소하면 저장을 중단합니다)`
+        `⚠️ 기본단가를 삭제(빈 값)하려는 항목이 ${baseClearingGroups.length}건 있습니다.\n\n${names}${more}\n\n` +
+        `기본단가는 영구 저장값입니다.\n정말 삭제할까요?\n\n(취소하면 저장을 중단합니다)`
       )
       if (!ok) return
     }
 
     setSavingAll(true)
     try {
-      // 1) 기본 단가 변경 → service_applications PATCH (그룹의 모든 app)
-      const baseTasks: Promise<unknown>[] = []
+      const tasks: Promise<unknown>[] = []
       for (const g of baseChangedGroups) {
         const editVal = baseEdits[g.business_name]
         const newBase = editVal === '' ? null : Number(editVal)
-        // ─── 안전 장치 2: NaN 방지 (Number('') === 0, Number('abc') === NaN)
-        // 잘못된 입력이 NaN → DB에 저장되면 이후 조회 시 문제 발생
         if (newBase !== null && !Number.isFinite(newBase)) {
-          throw new Error(`${g.business_name}의 기본 단가가 유효하지 않은 값입니다: "${editVal}"`)
+          throw new Error(`${g.business_name}의 기본단가가 유효하지 않은 값입니다: "${editVal}"`)
         }
         for (const appId of g.applicationIds) {
-          baseTasks.push(
+          tasks.push(
             fetch('/api/admin/applications', {
               method: 'PATCH',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ id: appId, unit_price_per_visit: newBase }),
             }).then(r => r.json()).then(d => {
-              if (d.error) throw new Error(`기본 단가 저장 실패: ${d.error}`)
+              if (d.error) throw new Error(`기본단가 저장 실패: ${d.error}`)
             })
           )
         }
       }
+      await Promise.all(tasks)
+      toast.success(`기본단가 저장 완료 (${baseChangedGroups.length}건, 년월 무관 고정)`)
+      await loadData()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : '저장 중 오류')
+    } finally {
+      setSavingAll(false)
+    }
+  }
 
-      // 2) 월별 단가 변경 → unit_price_monthly PATCH
-      const monthTasks: Promise<unknown>[] = []
+  // ─── 이번달 단가 적용 (오른쪽 필드만) ─────────────────────
+  // 해당 월(unit_price_monthly)만 저장. 기본단가는 안 건드림.
+  const handleSaveMonth = async () => {
+    const monthChangedGroups = groups.filter(g => monthEdits[g.business_name] !== undefined)
+
+    if (monthChangedGroups.length === 0) {
+      toast('이번달 단가 변경사항이 없습니다.', { icon: 'ℹ️' })
+      return
+    }
+
+    setSavingAll(true)
+    try {
+      const tasks: Promise<unknown>[] = []
       for (const g of monthChangedGroups) {
         const val = monthEdits[g.business_name]
         const unitPrice = val === '' ? 0 : Number(val)
-        // ─── 안전 장치 3: 월별 단가 NaN 방지
         if (!Number.isFinite(unitPrice)) {
-          throw new Error(`${g.business_name}의 월별 단가가 유효하지 않은 값입니다: "${val}"`)
+          throw new Error(`${g.business_name}의 이번달 단가가 유효하지 않은 값입니다: "${val}"`)
         }
         for (const appId of g.applicationIds) {
-          monthTasks.push(
+          tasks.push(
             fetch('/api/admin/unit-price-monthly', {
               method: 'PATCH',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ application_id: appId, year_month: month, unit_price: unitPrice }),
             }).then(r => r.json()).then(d => {
-              if (d.error) throw new Error(`월별 단가 저장 실패: ${d.error}`)
+              if (d.error) throw new Error(`이번달 단가 저장 실패: ${d.error}`)
             })
           )
         }
       }
-
-      await Promise.all([...baseTasks, ...monthTasks])
-
-      const msgs: string[] = []
-      if (baseChangedGroups.length > 0) msgs.push(`기본 ${baseChangedGroups.length}건`)
-      if (monthChangedGroups.length > 0) msgs.push(`월별 ${monthChangedGroups.length}건`)
-      toast.success(`저장 완료: ${msgs.join(' · ')} (급여정산 자동 반영)`)
-
-      // 데이터 재로드
+      await Promise.all(tasks)
+      toast.success(`${displayMonth} 단가 적용 완료 (${monthChangedGroups.length}건)`)
       await loadData()
     } catch (err) {
       toast.error(err instanceof Error ? err.message : '저장 중 오류')
@@ -236,7 +239,8 @@ export default function UnitPriceSettings({ month }: { month: string }) {
     '정기엔드케어': groups.filter(g => g.service_type === '정기엔드케어').length,
   }
 
-  const hasChanges = Object.keys(baseEdits).length > 0 || Object.keys(monthEdits).length > 0
+  const hasBaseChanges = Object.keys(baseEdits).length > 0
+  const hasMonthChanges = Object.keys(monthEdits).length > 0
 
   if (loading || carryingOver) {
     return (
@@ -253,7 +257,7 @@ export default function UnitPriceSettings({ month }: { month: string }) {
           <span className="font-semibold text-brand-600">{displayMonth}</span> 방문당 단가 설정
         </p>
         <p className="text-xs text-text-tertiary mb-2">
-          기본 단가는 영구 저장값, 월별 단가는 이번 달 급여정산에 적용됩니다.
+          <b>기본단가</b>는 년월 무관 고정값 · <b>이번달 단가</b>는 해당 월 급여정산에 적용
         </p>
 
         {/* 서비스 유형 필터 */}
@@ -289,23 +293,34 @@ export default function UnitPriceSettings({ month }: { month: string }) {
         />
       </div>
 
-      {/* 액션 버튼: 저장(왼쪽) + 이관(오른쪽) — 사용자 요청으로 위치 교체 */}
+      {/* 액션 버튼 3개: 기본단가 저장 · 이관 · 이번달 단가 적용 */}
       <div className="flex gap-2 mb-3 sticky top-0 bg-surface-sunken py-2 px-1 z-10 rounded-lg">
         <button
-          onClick={handleSaveAll}
-          disabled={!hasChanges || savingAll}
-          className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-md text-xs font-semibold bg-blue-600 text-white hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          onClick={handleSaveBase}
+          disabled={!hasBaseChanges || savingAll}
+          className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-md text-xs font-semibold bg-slate-700 text-white hover:bg-slate-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          title="왼쪽 기본단가만 저장 (년월 무관 고정)"
         >
           <Save size={14} />
-          {savingAll ? '저장 중...' : hasChanges ? `전체 저장 (변경 ${Object.keys(baseEdits).length + Object.keys(monthEdits).length})` : '전체 저장'}
+          {savingAll ? '저장 중...' : hasBaseChanges ? `기본단가 저장 (${Object.keys(baseEdits).length})` : '기본단가 저장'}
         </button>
         <button
           onClick={handleCarryBaseToMonth}
           disabled={groups.length === 0 || savingAll}
           className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-md text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200 hover:bg-indigo-100 transition-colors disabled:opacity-50"
+          title="기본단가 값을 이번달 단가 칸에 복사 (DB 저장 아님, 로컬 복사만)"
         >
           <ArrowDownToLine size={14} />
-          기본 단가 → 이번 달 이관
+          이관
+        </button>
+        <button
+          onClick={handleSaveMonth}
+          disabled={!hasMonthChanges || savingAll}
+          className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-md text-xs font-semibold bg-blue-600 text-white hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          title="오른쪽 이번달 단가만 저장 (해당 월 급여정산에 적용)"
+        >
+          <Save size={14} />
+          {savingAll ? '저장 중...' : hasMonthChanges ? `이번달 단가 적용 (${Object.keys(monthEdits).length})` : '이번달 단가 적용'}
         </button>
       </div>
 
