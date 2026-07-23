@@ -136,12 +136,35 @@ export default function UnitPriceSettings({ month }: { month: string }) {
       return
     }
 
+    // ─── 안전 장치 1: 기본 단가를 null(빈 값)로 삭제하는 경우 명시적 확인 ───
+    // 실수로 값이 있던 것을 지우면 소중한 단가가 DB에서 사라짐 → 방지
+    const baseClearingGroups = baseChangedGroups.filter(g => {
+      const editVal = baseEdits[g.business_name]
+      const hadValue = g.base_unit_price !== null
+      return hadValue && (editVal === '' || editVal === '0')
+    })
+    if (baseClearingGroups.length > 0) {
+      const names = baseClearingGroups.slice(0, 5).map(g => `• ${g.business_name}`).join('\n')
+      const more = baseClearingGroups.length > 5 ? `\n...외 ${baseClearingGroups.length - 5}건` : ''
+      const ok = confirm(
+        `⚠️ 기본 단가를 삭제(빈 값)하려는 항목이 ${baseClearingGroups.length}건 있습니다.\n\n${names}${more}\n\n` +
+        `기본 단가는 영구 저장값이며 삭제하면 향후 자동 이관이 불가능합니다.\n정말 삭제할까요?\n\n(취소하면 저장을 중단합니다)`
+      )
+      if (!ok) return
+    }
+
     setSavingAll(true)
     try {
       // 1) 기본 단가 변경 → service_applications PATCH (그룹의 모든 app)
       const baseTasks: Promise<unknown>[] = []
       for (const g of baseChangedGroups) {
-        const newBase = baseEdits[g.business_name] === '' ? null : Number(baseEdits[g.business_name])
+        const editVal = baseEdits[g.business_name]
+        const newBase = editVal === '' ? null : Number(editVal)
+        // ─── 안전 장치 2: NaN 방지 (Number('') === 0, Number('abc') === NaN)
+        // 잘못된 입력이 NaN → DB에 저장되면 이후 조회 시 문제 발생
+        if (newBase !== null && !Number.isFinite(newBase)) {
+          throw new Error(`${g.business_name}의 기본 단가가 유효하지 않은 값입니다: "${editVal}"`)
+        }
         for (const appId of g.applicationIds) {
           baseTasks.push(
             fetch('/api/admin/applications', {
@@ -160,6 +183,10 @@ export default function UnitPriceSettings({ month }: { month: string }) {
       for (const g of monthChangedGroups) {
         const val = monthEdits[g.business_name]
         const unitPrice = val === '' ? 0 : Number(val)
+        // ─── 안전 장치 3: 월별 단가 NaN 방지
+        if (!Number.isFinite(unitPrice)) {
+          throw new Error(`${g.business_name}의 월별 단가가 유효하지 않은 값입니다: "${val}"`)
+        }
         for (const appId of g.applicationIds) {
           monthTasks.push(
             fetch('/api/admin/unit-price-monthly', {
@@ -254,16 +281,8 @@ export default function UnitPriceSettings({ month }: { month: string }) {
         />
       </div>
 
-      {/* 액션 버튼: 이관 + 저장 (리스트 위 고정 영역) */}
+      {/* 액션 버튼: 저장(왼쪽) + 이관(오른쪽) — 사용자 요청으로 위치 교체 */}
       <div className="flex gap-2 mb-3 sticky top-0 bg-surface-sunken py-2 px-1 z-10 rounded-lg">
-        <button
-          onClick={handleCarryBaseToMonth}
-          disabled={groups.length === 0 || savingAll}
-          className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-md text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200 hover:bg-indigo-100 transition-colors disabled:opacity-50"
-        >
-          <ArrowDownToLine size={14} />
-          기본 단가 → 이번 달 이관
-        </button>
         <button
           onClick={handleSaveAll}
           disabled={!hasChanges || savingAll}
@@ -271,6 +290,14 @@ export default function UnitPriceSettings({ month }: { month: string }) {
         >
           <Save size={14} />
           {savingAll ? '저장 중...' : hasChanges ? `전체 저장 (변경 ${Object.keys(baseEdits).length + Object.keys(monthEdits).length})` : '전체 저장'}
+        </button>
+        <button
+          onClick={handleCarryBaseToMonth}
+          disabled={groups.length === 0 || savingAll}
+          className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-md text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200 hover:bg-indigo-100 transition-colors disabled:opacity-50"
+        >
+          <ArrowDownToLine size={14} />
+          기본 단가 → 이번 달 이관
         </button>
       </div>
 

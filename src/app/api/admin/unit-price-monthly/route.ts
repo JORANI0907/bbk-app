@@ -69,10 +69,22 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ error: 'application_id, year_month, unit_price가 필요합니다.' }, { status: 400 })
   }
 
+  // ─── 안전 장치: NaN·음수·비정상 값 차단 (DB 오염 방지)
+  const parsed = unit_price === '' ? 0 : Number(unit_price)
+  if (!Number.isFinite(parsed)) {
+    return NextResponse.json({ error: `unit_price가 유효한 숫자가 아닙니다: ${String(unit_price)}` }, { status: 400 })
+  }
+  if (parsed < 0) {
+    return NextResponse.json({ error: `unit_price는 음수일 수 없습니다: ${parsed}` }, { status: 400 })
+  }
+  if (parsed > 100_000_000) {
+    return NextResponse.json({ error: `unit_price가 비정상적으로 큽니다: ${parsed}. 1억 미만이어야 합니다.` }, { status: 400 })
+  }
+
   const { data, error } = await supabase
     .from('unit_price_monthly')
     .upsert(
-      { application_id, year_month, unit_price: unit_price === '' ? 0 : Number(unit_price), updated_at: new Date().toISOString() },
+      { application_id, year_month, unit_price: parsed, updated_at: new Date().toISOString() },
       { onConflict: 'application_id,year_month' }
     )
     .select()
