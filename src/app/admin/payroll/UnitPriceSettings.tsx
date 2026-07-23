@@ -87,6 +87,14 @@ export default function UnitPriceSettings({ month }: { month: string }) {
       const existing = map.get(app.business_name)
       if (existing) {
         existing.applicationIds.push(app.id)
+        // 같은 업체 여러 신청서가 서로 다른 단가를 가진 경우:
+        // null 이 아닌 값 우선, 여러 값 중에서는 최댓값 채택
+        // (기본 단가는 업체 단위로 하나여야 정상이며, 저장 시 그룹 전체에 동일 값 반영됨)
+        const cur = existing.base_unit_price
+        const incoming = app.unit_price_per_visit
+        if (incoming != null && (cur == null || incoming > cur)) {
+          existing.base_unit_price = incoming
+        }
       } else {
         map.set(app.business_name, {
           business_name: app.business_name,
