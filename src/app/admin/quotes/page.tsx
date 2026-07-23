@@ -770,7 +770,13 @@ export default function QuotesPage() {
       })
       const result = await res.json()
       if (result.success) {
-        toast.success(`'${q.label}' 발송 완료 (${result.quote_no})${result.warnings?.kakao ? '\n카카오 알림톡은 발송되지 않았습니다.' : ''}`)
+        {
+          const parts: string[] = [`'${q.label}' 발송 완료 (${result.quote_no})`]
+          if (result.warnings?.kakao) parts.push('카카오 알림톡은 발송되지 않았습니다.')
+          if (result.warnings?.seal) parts.push(`⚠️ ${result.warnings.seal}`)
+          if (result.warnings?.seal) toast(parts.join('\n'), { duration: 6000, icon: '⚠️' })
+          else toast.success(parts.join('\n'))
+        }
         await loadApplications(page, search)
       } else {
         const msg = result.errors

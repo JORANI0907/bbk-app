@@ -126,60 +126,87 @@ export async function POST(
   if (seal_image_url) {
     try {
       const imgRes = await fetch(seal_image_url)
-      if (imgRes.ok) {
+      if (!imgRes.ok) {
+        const msg = `HTTP ${imgRes.status} ${imgRes.statusText}`
+        console.error(`[send] 인감 다운로드 실패: ${msg} (${seal_image_url})`)
+        softErrors.seal = `인감 이미지 다운로드 실패 (${msg})`
+      } else {
         const imgBuf = Buffer.from(await imgRes.arrayBuffer())
-        sealTmpPath  = join(tmpdir(), `bbk-seal-${Date.now()}.png`)
+        const sizeKB = Math.round(imgBuf.length / 1024)
+        // @react-pdf/renderer가 큰 이미지 처리 시 조용히 실패하는 이슈가 있음. 진단 로그 남김.
+        console.log(`[send] 인감 다운로드 성공: ${sizeKB}KB`)
+        if (imgBuf.length > 500 * 1024) {
+          softErrors.seal = `인감 이미지 크기가 큼 (${sizeKB}KB) — 200KB 이하 권장`
+        }
+        sealTmpPath = join(tmpdir(), `bbk-seal-${Date.now()}.png`)
         await writeFile(sealTmpPath, imgBuf)
       }
-    } catch {
-      // 인감 이미지 로드 실패 시 인감 없이 PDF 생성 계속
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e)
+      console.error(`[send] 인감 처리 실패:`, msg)
+      softErrors.seal = `인감 처리 실패 (${msg})`
     }
   }
 
   // ── 1. PDF 생성 ─────────────────────────────────────────────
   let pdfBuffer: Buffer | undefined
+  const pdfData: QuotePdfData = {
+    quoteNo,
+    createdAt:        todayStr,
+    validUntil:       validUntilStr,
+    // 공급자
+    companyName:    company_name    || 'BBK 공간케어',
+    companyCeo:     company_ceo     || '박범건',
+    companyBizNo:   company_biz_no  || '298-78-00455',
+    companyPhone:   company_phone   || '031-759-4877',
+    companyAddress: company_address || '경기도 성남시',
+    // 계좌
+    bankName:          bank_name           || undefined,
+    bankAccountNumber: bank_account_number || undefined,
+    bankAccountHolder: bank_account_holder || undefined,
+    // 고객
+    ownerName:        owner_name        || '',
+    businessName:     business_name     || '',
+    phone:            phone             || '',
+    email:            email             || '',
+    address:          address           || '',
+    constructionDate: construction_date || '',
+    // 항목 & 금액
+    quoteItems:   quote_items,
+    supplyAmount: supply_amount || 0,
+    vat:          safeVat,
+    totalAmount:  total_amount  || 0,
+    // 할인
+    discountAmount:    discount_amount,
+    discountRate:      discount_rate,
+    discountBaseLabel: discount_base_label,
+    origSupplyAmount:  orig_supply_amount,
+    origTotalAmount:   orig_total_amount,
+    discount2Amount:   discount2_amount,
+    // 옵션
+    notes:           notes            || undefined,
+    hideItemPrices:  hide_item_prices ?? false,
+    sealImageUrl:    sealTmpPath,
+  }
   try {
-    const pdfData: QuotePdfData = {
-      quoteNo,
-      createdAt:        todayStr,
-      validUntil:       validUntilStr,
-      // 공급자
-      companyName:    company_name    || 'BBK 공간케어',
-      companyCeo:     company_ceo     || '박범건',
-      companyBizNo:   company_biz_no  || '298-78-00455',
-      companyPhone:   company_phone   || '031-759-4877',
-      companyAddress: company_address || '경기도 성남시',
-      // 계좌
-      bankName:          bank_name           || undefined,
-      bankAccountNumber: bank_account_number || undefined,
-      bankAccountHolder: bank_account_holder || undefined,
-      // 고객
-      ownerName:        owner_name        || '',
-      businessName:     business_name     || '',
-      phone:            phone             || '',
-      email:            email             || '',
-      address:          address           || '',
-      constructionDate: construction_date || '',
-      // 항목 & 금액
-      quoteItems:   quote_items,
-      supplyAmount: supply_amount || 0,
-      vat:          safeVat,
-      totalAmount:  total_amount  || 0,
-      // 할인
-      discountAmount:    discount_amount,
-      discountRate:      discount_rate,
-      discountBaseLabel: discount_base_label,
-      origSupplyAmount:  orig_supply_amount,
-      origTotalAmount:   orig_total_amount,
-      discount2Amount:   discount2_amount,
-      // 옵션
-      notes:           notes            || undefined,
-      hideItemPrices:  hide_item_prices ?? false,
-      sealImageUrl:    sealTmpPath,
-    }
     pdfBuffer = await renderQuotePdf(pdfData)
   } catch (e) {
-    errors.pdf = e instanceof Error ? e.message : String(e)
+    const msg = e instanceof Error ? e.message : String(e)
+    console.error(`[send] PDF 렌더 실패 (seal=${sealTmpPath ? 'yes' : 'no'}):`, msg)
+    errors.pdf = msg
+    // 인감이 있는 상태에서 렌더 실패했다면 인감 없이 한번 더 시도 (인감이 원인일 가능성)
+    if (sealTmpPath) {
+      try {
+        console.log('[send] 인감 없이 PDF 재시도')
+        pdfBuffer = await renderQuotePdf({ ...pdfData, sealImageUrl: undefined })
+        delete errors.pdf
+        softErrors.seal = `인감으로 인해 PDF 생성 실패 — 인감 없이 발송됨 (원본 오류: ${msg})`
+      } catch (e2) {
+        const msg2 = e2 instanceof Error ? e2.message : String(e2)
+        console.error(`[send] 인감 없이도 PDF 실패:`, msg2)
+        errors.pdf = `${msg} / 재시도: ${msg2}`
+      }
+    }
   } finally {
     if (sealTmpPath) unlink(sealTmpPath).catch(() => {})
   }
