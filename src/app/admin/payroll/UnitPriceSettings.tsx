@@ -36,23 +36,19 @@ export default function UnitPriceSettings({ month }: { month: string }) {
     setBaseEdits({})
     setMonthEdits({})
     try {
-      const [appsRes, pricesRes] = await Promise.all([
-        fetch('/api/admin/applications?limit=200').then(r => r.json()),
-        fetch(`/api/admin/unit-price-monthly?month=${month}`).then(r => r.json()),
-      ])
+      // 전용 API로 정기 계약 전체 로딩 (기존 /applications?limit=200 은 200건 잘려 누락 발생)
+      const res = await fetch(`/api/admin/unit-price-monthly/apps?month=${month}`).then(r => r.json())
 
-      const list: UnitPriceApp[] = (appsRes.applications ?? []).filter(
-        (a: UnitPriceApp) => a.service_type === '정기딥케어' || a.service_type === '정기엔드케어'
-      )
+      const list: UnitPriceApp[] = res.applications ?? []
       setApps(list)
 
       const priceMap = new Map<string, number>()
-      for (const p of (pricesRes.prices ?? [])) {
+      for (const p of (res.prices ?? [])) {
         priceMap.set(p.application_id, p.unit_price)
       }
 
       // 이번 달 데이터가 없으면 전달에서 자동 이관 (기존 동작 유지)
-      if ((pricesRes.prices ?? []).length === 0 && list.length > 0) {
+      if ((res.prices ?? []).length === 0 && list.length > 0) {
         const prevMonth = getPrevMonth(month)
         const prevRes = await fetch(`/api/admin/unit-price-monthly?month=${prevMonth}`).then(r => r.json())
         if ((prevRes.prices ?? []).length > 0) {
@@ -64,7 +60,7 @@ export default function UnitPriceSettings({ month }: { month: string }) {
           }).then(r => r.json())
 
           if ((carryRes.inserted ?? 0) > 0) {
-            const newPricesRes = await fetch(`/api/admin/unit-price-monthly?month=${month}`).then(r => r.json())
+            const newPricesRes = await fetch(`/api/admin/unit-price-monthly/apps?month=${month}`).then(r => r.json())
             for (const p of (newPricesRes.prices ?? [])) {
               priceMap.set(p.application_id, p.unit_price)
             }
