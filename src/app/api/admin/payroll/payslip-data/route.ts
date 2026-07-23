@@ -237,7 +237,7 @@ export async function POST(req: NextRequest) {
       // 담당자로 배정된 service_applications
       const { data: apps } = await supabase
         .from('service_applications')
-        .select('id, business_name, service_type, construction_date, manager_pay')
+        .select('id, business_name, service_type, construction_date, manager_pay, unit_price_per_visit')
         .eq('assigned_to', personId)
         .gte('construction_date', periodStart)
         .lte('construction_date', periodEnd)
@@ -251,7 +251,7 @@ export async function POST(req: NextRequest) {
 
       for (const app of apps ?? []) {
         const monthlyPrice = monthlyPriceMap.get(app.id) ?? null
-        const pay = (app.manager_pay ?? monthlyPrice) ?? 0
+        const pay = (app.manager_pay ?? monthlyPrice ?? app.unit_price_per_visit) ?? 0
         jobs.push({
           date: app.construction_date,
           businessName: app.business_name,

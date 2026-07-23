@@ -35,7 +35,7 @@ export async function GET(request: NextRequest) {
     // 담당자 배정 서비스 — 삭제되지 않은 것만
     supabase
       .from('service_applications')
-      .select('id, assigned_to, business_name, service_type, construction_date, manager_pay')
+      .select('id, assigned_to, business_name, service_type, construction_date, manager_pay, unit_price_per_visit')
       .not('assigned_to', 'is', null)
       .is('deleted_at', null)
       .gte('construction_date', `${month}-01`)
@@ -172,9 +172,9 @@ export async function GET(request: NextRequest) {
     }
     const entry = managerMap.get(app.assigned_to)!
 
-    // 건당 급여: manager_pay 수동 > 월별 단가설정 순으로 적용
+    // 건당 급여: manager_pay 수동 > 월별 단가설정 > 계약 기본단가 순으로 적용
     const monthlyPrice = monthlyPriceMap.get(app.id) ?? null
-    const payPerJob = (app.manager_pay ?? monthlyPrice) ?? 0
+    const payPerJob = (app.manager_pay ?? monthlyPrice ?? app.unit_price_per_visit) ?? 0
 
     // resolved_pay를 job에 포함시켜 프론트에서 표시
     entry.jobs.push({ ...app, resolved_pay: payPerJob })

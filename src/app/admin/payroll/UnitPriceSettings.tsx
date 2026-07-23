@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import toast from 'react-hot-toast'
-import { Banknote, Save } from 'lucide-react'
+import { Banknote, Save, ArrowDownToLine } from 'lucide-react'
 import { getPrevMonth } from './utils'
 import type { UnitPriceApp } from './types'
 
@@ -10,6 +10,7 @@ interface CustomerGroup {
   business_name: string
   service_type: string
   applicationIds: string[]
+  base_unit_price: number | null
   first_app_id: string
 }
 
@@ -18,6 +19,8 @@ export default function UnitPriceSettings({ month }: { month: string }) {
   const [monthlyPrices, setMonthlyPrices] = useState<Map<string, number>>(new Map())
   const [loading, setLoading] = useState(true)
   const [carryingOver, setCarryingOver] = useState(false)
+  // 두 종류의 로컬 편집 — 기본 단가 / 월별 단가
+  const [baseEdits, setBaseEdits] = useState<Record<string, string>>({})
   const [monthEdits, setMonthEdits] = useState<Record<string, string>>({})
   const [savingAll, setSavingAll] = useState(false)
   const [search, setSearch] = useState('')
@@ -30,8 +33,10 @@ export default function UnitPriceSettings({ month }: { month: string }) {
 
   const loadData = useCallback(async () => {
     setLoading(true)
+    setBaseEdits({})
     setMonthEdits({})
     try {
+      // 전용 API로 정기 계약 전체 로딩 (기존 /applications?limit=200 은 200건 잘려 누락 발생)
       const res = await fetch(`/api/admin/unit-price-monthly/apps?month=${month}`).then(r => r.json())
 
       const list: UnitPriceApp[] = res.applications ?? []
@@ -42,7 +47,7 @@ export default function UnitPriceSettings({ month }: { month: string }) {
         priceMap.set(p.application_id, p.unit_price)
       }
 
-      // 이번 달 데이터가 없으면 전달에서 자동 이관
+      // 이번 달 데이터가 없으면 전달에서 자동 이관 (기존 동작 유지)
       if ((res.prices ?? []).length === 0 && list.length > 0) {
         const prevMonth = getPrevMonth(month)
         const prevRes = await fetch(`/api/admin/unit-price-monthly?month=${prevMonth}`).then(r => r.json())
@@ -82,11 +87,20 @@ export default function UnitPriceSettings({ month }: { month: string }) {
       const existing = map.get(app.business_name)
       if (existing) {
         existing.applicationIds.push(app.id)
+        // 같은 업체 여러 신청서가 서로 다른 단가를 가진 경우:
+        // null 이 아닌 값 우선, 여러 값 중에서는 최댓값 채택
+        // (기본 단가는 업체 단위로 하나여야 정상이며, 저장 시 그룹 전체에 동일 값 반영됨)
+        const cur = existing.base_unit_price
+        const incoming = app.unit_price_per_visit
+        if (incoming != null && (cur == null || incoming > cur)) {
+          existing.base_unit_price = incoming
+        }
       } else {
         map.set(app.business_name, {
           business_name: app.business_name,
           service_type: app.service_type,
           applicationIds: [app.id],
+          base_unit_price: app.unit_price_per_visit,
           first_app_id: app.id,
         })
       }
@@ -102,22 +116,84 @@ export default function UnitPriceSettings({ month }: { month: string }) {
     return monthly !== undefined ? String(monthly) : ''
   }
 
+  // 현재 기본 가격 (편집 중인 값 우선 → 원본)
+  const getBasePrice = (group: CustomerGroup): string => {
+    const editVal = baseEdits[group.business_name]
+    if (editVal !== undefined) return editVal
+    return group.base_unit_price !== null ? String(group.base_unit_price) : ''
+  }
+
+  // 기본 단가 → 이번 달 일괄 이관 (로컬만, 저장은 별도)
+  const handleCarryBaseToMonth = () => {
+    const newMonthEdits: Record<string, string> = { ...monthEdits }
+    groups.forEach(g => {
+      const baseStr = getBasePrice(g)
+      newMonthEdits[g.business_name] = baseStr
+    })
+    setMonthEdits(newMonthEdits)
+    toast.success('기본 단가가 이번 달 칸에 채워졌습니다. [전체 저장]을 눌러 반영하세요.')
+  }
+
+  // 전체 저장 — 기본 + 월별 변경사항을 DB에 일괄 반영
   const handleSaveAll = async () => {
+    const baseChangedGroups = groups.filter(g => baseEdits[g.business_name] !== undefined)
     const monthChangedGroups = groups.filter(g => monthEdits[g.business_name] !== undefined)
 
-    if (monthChangedGroups.length === 0) {
+    if (baseChangedGroups.length === 0 && monthChangedGroups.length === 0) {
       toast('변경사항이 없습니다.', { icon: 'ℹ️' })
       return
     }
 
+    // ─── 안전 장치 1: 기본 단가를 null(빈 값)로 삭제하는 경우 명시적 확인 ───
+    // 실수로 값이 있던 것을 지우면 소중한 단가가 DB에서 사라짐 → 방지
+    const baseClearingGroups = baseChangedGroups.filter(g => {
+      const editVal = baseEdits[g.business_name]
+      const hadValue = g.base_unit_price !== null
+      return hadValue && (editVal === '' || editVal === '0')
+    })
+    if (baseClearingGroups.length > 0) {
+      const names = baseClearingGroups.slice(0, 5).map(g => `• ${g.business_name}`).join('\n')
+      const more = baseClearingGroups.length > 5 ? `\n...외 ${baseClearingGroups.length - 5}건` : ''
+      const ok = confirm(
+        `⚠️ 기본 단가를 삭제(빈 값)하려는 항목이 ${baseClearingGroups.length}건 있습니다.\n\n${names}${more}\n\n` +
+        `기본 단가는 영구 저장값이며 삭제하면 향후 자동 이관이 불가능합니다.\n정말 삭제할까요?\n\n(취소하면 저장을 중단합니다)`
+      )
+      if (!ok) return
+    }
+
     setSavingAll(true)
     try {
+      // 1) 기본 단가 변경 → service_applications PATCH (그룹의 모든 app)
+      const baseTasks: Promise<unknown>[] = []
+      for (const g of baseChangedGroups) {
+        const editVal = baseEdits[g.business_name]
+        const newBase = editVal === '' ? null : Number(editVal)
+        // ─── 안전 장치 2: NaN 방지 (Number('') === 0, Number('abc') === NaN)
+        // 잘못된 입력이 NaN → DB에 저장되면 이후 조회 시 문제 발생
+        if (newBase !== null && !Number.isFinite(newBase)) {
+          throw new Error(`${g.business_name}의 기본 단가가 유효하지 않은 값입니다: "${editVal}"`)
+        }
+        for (const appId of g.applicationIds) {
+          baseTasks.push(
+            fetch('/api/admin/applications', {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ id: appId, unit_price_per_visit: newBase }),
+            }).then(r => r.json()).then(d => {
+              if (d.error) throw new Error(`기본 단가 저장 실패: ${d.error}`)
+            })
+          )
+        }
+      }
+
+      // 2) 월별 단가 변경 → unit_price_monthly PATCH
       const monthTasks: Promise<unknown>[] = []
       for (const g of monthChangedGroups) {
         const val = monthEdits[g.business_name]
         const unitPrice = val === '' ? 0 : Number(val)
+        // ─── 안전 장치 3: 월별 단가 NaN 방지
         if (!Number.isFinite(unitPrice)) {
-          throw new Error(`${g.business_name}의 단가가 유효하지 않은 값입니다: "${val}"`)
+          throw new Error(`${g.business_name}의 월별 단가가 유효하지 않은 값입니다: "${val}"`)
         }
         for (const appId of g.applicationIds) {
           monthTasks.push(
@@ -126,14 +202,20 @@ export default function UnitPriceSettings({ month }: { month: string }) {
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ application_id: appId, year_month: month, unit_price: unitPrice }),
             }).then(r => r.json()).then(d => {
-              if (d.error) throw new Error(`단가 저장 실패: ${d.error}`)
+              if (d.error) throw new Error(`월별 단가 저장 실패: ${d.error}`)
             })
           )
         }
       }
 
-      await Promise.all(monthTasks)
-      toast.success(`저장 완료: ${monthChangedGroups.length}건 (급여정산 자동 반영)`)
+      await Promise.all([...baseTasks, ...monthTasks])
+
+      const msgs: string[] = []
+      if (baseChangedGroups.length > 0) msgs.push(`기본 ${baseChangedGroups.length}건`)
+      if (monthChangedGroups.length > 0) msgs.push(`월별 ${monthChangedGroups.length}건`)
+      toast.success(`저장 완료: ${msgs.join(' · ')} (급여정산 자동 반영)`)
+
+      // 데이터 재로드
       await loadData()
     } catch (err) {
       toast.error(err instanceof Error ? err.message : '저장 중 오류')
@@ -154,7 +236,7 @@ export default function UnitPriceSettings({ month }: { month: string }) {
     '정기엔드케어': groups.filter(g => g.service_type === '정기엔드케어').length,
   }
 
-  const hasChanges = Object.keys(monthEdits).length > 0
+  const hasChanges = Object.keys(baseEdits).length > 0 || Object.keys(monthEdits).length > 0
 
   if (loading || carryingOver) {
     return (
@@ -168,10 +250,10 @@ export default function UnitPriceSettings({ month }: { month: string }) {
     <div>
       <div className="mb-3 px-1">
         <p className="text-xs text-text-secondary mb-1">
-          <span className="font-semibold text-brand-600">{displayMonth}</span> 방문당 단가
+          <span className="font-semibold text-brand-600">{displayMonth}</span> 방문당 단가 설정
         </p>
         <p className="text-xs text-text-tertiary mb-2">
-          이번 달 급여정산에 적용됩니다. 전월 단가는 자동 이관됩니다.
+          기본 단가는 영구 저장값, 월별 단가는 이번 달 급여정산에 적용됩니다.
         </p>
 
         {/* 서비스 유형 필터 */}
@@ -207,7 +289,7 @@ export default function UnitPriceSettings({ month }: { month: string }) {
         />
       </div>
 
-      {/* 저장 버튼 */}
+      {/* 액션 버튼: 저장(왼쪽) + 이관(오른쪽) — 사용자 요청으로 위치 교체 */}
       <div className="flex gap-2 mb-3 sticky top-0 bg-surface-sunken py-2 px-1 z-10 rounded-lg">
         <button
           onClick={handleSaveAll}
@@ -215,7 +297,15 @@ export default function UnitPriceSettings({ month }: { month: string }) {
           className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-md text-xs font-semibold bg-blue-600 text-white hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <Save size={14} />
-          {savingAll ? '저장 중...' : hasChanges ? `전체 저장 (변경 ${Object.keys(monthEdits).length})` : '전체 저장'}
+          {savingAll ? '저장 중...' : hasChanges ? `전체 저장 (변경 ${Object.keys(baseEdits).length + Object.keys(monthEdits).length})` : '전체 저장'}
+        </button>
+        <button
+          onClick={handleCarryBaseToMonth}
+          disabled={groups.length === 0 || savingAll}
+          className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-md text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200 hover:bg-indigo-100 transition-colors disabled:opacity-50"
+        >
+          <ArrowDownToLine size={14} />
+          기본 단가 → 이번 달 이관
         </button>
       </div>
 
@@ -228,9 +318,11 @@ export default function UnitPriceSettings({ month }: { month: string }) {
         <div className="flex flex-col gap-2">
           {filtered.map(group => {
             const isMonthly = monthlyPrices.has(group.first_app_id)
+            const baseChanged = baseEdits[group.business_name] !== undefined
             const monthChanged = monthEdits[group.business_name] !== undefined
             return (
               <div key={group.business_name} className="bg-surface rounded-xl border border-border-subtle shadow-soft p-3">
+                {/* 헤더: 업체명 + 배지 */}
                 <div className="flex items-center gap-2 mb-2 flex-wrap">
                   <p className="text-sm font-semibold text-text-primary truncate flex-1 min-w-0">{group.business_name}</p>
                   <span className="text-xs bg-brand-50 text-brand-600 px-2 py-0.5 rounded-full whitespace-nowrap">{group.service_type}</span>
@@ -238,22 +330,37 @@ export default function UnitPriceSettings({ month }: { month: string }) {
                   {isMonthly && !monthChanged && (
                     <span className="text-xs bg-orange-50 text-orange-500 px-2 py-0.5 rounded-full">이달 설정</span>
                   )}
-                  {monthChanged && (
+                  {(baseChanged || monthChanged) && (
                     <span className="text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full">변경됨</span>
                   )}
                 </div>
 
-                <div>
-                  <label className="text-[10px] text-orange-600 mb-0.5 block">방문당 단가</label>
-                  <input
-                    type="number"
-                    value={getMonthPrice(group)}
-                    onChange={e => setMonthEdits(prev => ({ ...prev, [group.business_name]: e.target.value }))}
-                    placeholder="0"
-                    className={`w-full px-2 py-1.5 border rounded-md text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                      monthChanged ? 'border-blue-400 bg-blue-50' : 'border-border'
-                    }`}
-                  />
+                {/* 두 input: 기본 단가 / 이번 달 단가 */}
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="text-[10px] text-text-tertiary mb-0.5 block">기본 단가 (영구)</label>
+                    <input
+                      type="number"
+                      value={getBasePrice(group)}
+                      onChange={e => setBaseEdits(prev => ({ ...prev, [group.business_name]: e.target.value }))}
+                      placeholder="0"
+                      className={`w-full px-2 py-1.5 border rounded-md text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                        baseChanged ? 'border-blue-400 bg-blue-50' : 'border-border'
+                      }`}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] text-orange-600 mb-0.5 block">이번 달 단가</label>
+                    <input
+                      type="number"
+                      value={getMonthPrice(group)}
+                      onChange={e => setMonthEdits(prev => ({ ...prev, [group.business_name]: e.target.value }))}
+                      placeholder="기본 단가 사용"
+                      className={`w-full px-2 py-1.5 border rounded-md text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                        monthChanged ? 'border-blue-400 bg-blue-50' : 'border-border'
+                      }`}
+                    />
+                  </div>
                 </div>
               </div>
             )

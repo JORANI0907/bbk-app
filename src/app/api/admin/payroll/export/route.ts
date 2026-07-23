@@ -20,6 +20,7 @@ type AppRow = {
   service_type: string
   construction_date: string
   manager_pay: number | null
+  unit_price_per_visit: number | null
   resolved_pay: number
 }
 
@@ -133,7 +134,7 @@ export async function POST(req: NextRequest) {
     const [appsRes, assignRes, usersRes, workersRes, recordsRes, pricesRes] = await Promise.all([
       supabase
         .from('service_applications')
-        .select('id, assigned_to, business_name, service_type, construction_date, manager_pay')
+        .select('id, assigned_to, business_name, service_type, construction_date, manager_pay, unit_price_per_visit')
         .not('assigned_to', 'is', null)
         .gte('construction_date', `${month}-01`)
         .lte('construction_date', getMonthEndDate(month))
@@ -177,7 +178,7 @@ export async function POST(req: NextRequest) {
       }
       const entry = managerMap.get(app.assigned_to)!
       const monthlyPrice = monthlyPriceMap.get(app.id) ?? null
-      const pay = (app.manager_pay ?? monthlyPrice) ?? 0
+      const pay = (app.manager_pay ?? monthlyPrice ?? app.unit_price_per_visit) ?? 0
       entry.jobs.push({ ...app, resolved_pay: pay })
       entry.autoAmount += pay
     }
