@@ -57,18 +57,44 @@ export async function POST(req: NextRequest) {
     }
 
     // 국세청 공공데이터포털 API 호출
+    // 공공데이터포털이 간헐적으로 5xx를 반환하므로 최대 3회 자동 재시도 (지수 백오프)
     const apiUrl = `https://api.odcloud.kr/api/nts-businessman/v1/status?serviceKey=${encodeURIComponent(NTS_SERVICE_KEY)}`
+    const MAX_RETRIES = 3
+    let response: Response | null = null
+    let lastStatus = 0
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        response = await fetch(apiUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ b_no: [cleanNumber] }),
+        })
+        if (response.ok) {
+          if (attempt > 1) console.log(`check-biz: 재시도 성공 (${attempt}회차)`)
+          break
+        }
+        lastStatus = response.status
+        console.warn(`check-biz: 국세청 API HTTP ${response.status} (시도 ${attempt}/${MAX_RETRIES})`)
+        // 4xx는 재시도해도 의미 없음 → 즉시 중단
+        if (response.status >= 400 && response.status < 500) break
+      } catch (fetchErr) {
+        const msg = fetchErr instanceof Error ? fetchErr.message : String(fetchErr)
+        console.warn(`check-biz: 네트워크 오류 (시도 ${attempt}/${MAX_RETRIES}): ${msg}`)
+      }
+      // 지수 백오프: 400ms, 800ms
+      if (attempt < MAX_RETRIES) {
+        await new Promise(r => setTimeout(r, 400 * attempt))
+      }
+    }
 
-    const response = await fetch(apiUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ b_no: [cleanNumber] }),
-    })
-
-    if (!response.ok) {
-      console.error(`check-biz: 국세청 API HTTP 오류 ${response.status}`)
+    if (!response || !response.ok) {
+      console.error(`check-biz: 국세청 API 최종 실패 (${MAX_RETRIES}회 시도, 마지막 HTTP ${lastStatus})`)
       return NextResponse.json(
-        { success: false, message: '국세청 서버 오류입니다. 잠시 후 다시 시도해주세요.' },
+        {
+          success: false,
+          retryable: true,
+          message: '국세청 시스템이 일시적으로 응답하지 않습니다.\n10~20초 후 다시 시도하거나, "사업자등록 전" 옵션을 이용해주세요.',
+        },
         { status: 200, headers: cors }
       )
     }
