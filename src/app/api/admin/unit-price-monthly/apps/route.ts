@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
   const [appsRes, pricesRes] = await Promise.all([
     supabase
       .from('service_applications')
-      .select('id, business_name, service_type, unit_price_per_visit')
+      .select('id, business_name, service_type')
       .is('deleted_at', null)
       .is('archived_at', null)
       .in('service_type', ['정기딥케어', '정기엔드케어'])

@@ -7,7 +7,6 @@ export interface ManagerJob {
   service_type: string
   construction_date: string
   manager_pay: number | null
-  unit_price_per_visit: number | null
   resolved_pay: number
 }
 
@@ -72,6 +71,5 @@ export interface UnitPriceApp {
   business_name: string
   service_type: string
   construction_date: string | null
-  unit_price_per_visit: number | null
   assigned_to: string | null
 }

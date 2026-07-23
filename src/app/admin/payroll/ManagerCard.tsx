@@ -361,7 +361,7 @@ export default function ManagerCard({
                                     {job.resolved_pay > 0 ? job.resolved_pay.toLocaleString('ko-KR') + '원' : '미설정'}
                                   </span>
                                   <button
-                                    onClick={() => setJobPayEdits(prev => ({ ...prev, [job.id]: String(job.manager_pay ?? job.unit_price_per_visit ?? '') }))}
+                                    onClick={() => setJobPayEdits(prev => ({ ...prev, [job.id]: String(job.manager_pay ?? job.resolved_pay ?? '') }))}
                                     className="text-[10px] text-text-tertiary hover:text-brand-600 px-0.5"
                                   >
                                     <Pencil size={11} />

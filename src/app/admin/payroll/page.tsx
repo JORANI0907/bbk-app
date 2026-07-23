@@ -119,7 +119,7 @@ export default function PayrollPage() {
       if (e.person.id !== personId) return e
       const newJobs = e.jobs.map(j =>
         j.id === jobId
-          ? { ...j, manager_pay: newPay, resolved_pay: newPay ?? j.unit_price_per_visit ?? 0 }
+          ? { ...j, manager_pay: newPay, resolved_pay: newPay ?? j.resolved_pay ?? 0 }
           : j
       )
       const newAuto = newJobs.reduce((s, j) => s + j.resolved_pay, 0)
