@@ -9,7 +9,8 @@ export async function POST(req: NextRequest) {
     const file = formData.get('file') as File | null
 
     if (!file) return NextResponse.json({ error: '파일이 없습니다.' }, { status: 400 })
-    if (file.size > 2 * 1024 * 1024) return NextResponse.json({ error: '2MB 이하 파일만 허용됩니다.' }, { status: 400 })
+    // 클라이언트에서 자동 축소해서 업로드하지만, 원본이 매우 큰 경우 대비 10MB 안전판
+    if (file.size > 10 * 1024 * 1024) return NextResponse.json({ error: '10MB 이하 파일만 허용됩니다.' }, { status: 400 })
 
     const validTypes = ['image/png', 'image/jpeg', 'image/webp']
     if (!validTypes.includes(file.type)) {

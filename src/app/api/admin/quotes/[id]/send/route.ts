@@ -155,11 +155,9 @@ export async function POST(
       } else {
         const imgBuf = Buffer.from(await imgRes.arrayBuffer())
         const sizeKB = Math.round(imgBuf.length / 1024)
-        // @react-pdf/renderer가 큰 이미지 처리 시 조용히 실패하는 이슈가 있음. 진단 로그 남김.
+        // 진단 로그만 남기고 사용자에게 경고 팝업은 띄우지 않음
+        // 클라이언트에서 자동 축소 후 업로드하므로 크기 문제는 사전 차단됨
         console.log(`[send] 인감 다운로드 성공: ${sizeKB}KB`)
-        if (imgBuf.length > 500 * 1024) {
-          softErrors.seal = `인감 이미지 크기가 큼 (${sizeKB}KB) — 200KB 이하 권장`
-        }
         sealTmpPath = join(tmpdir(), `bbk-seal-${Date.now()}.png`)
         await writeFile(sealTmpPath, imgBuf)
       }

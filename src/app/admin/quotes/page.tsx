@@ -93,6 +93,54 @@ const PAGE_SIZE     = 20
 const fmtKr   = (n: number) => n.toLocaleString('ko-KR')
 const fmtDate = (s: string) => s.slice(0, 10)
 
+// 이미지 자동 축소 — 최대 변 maxDim(px) + 목표 용량 maxBytes(bytes)
+// PNG(투명 유지) 우선, 목표 용량 초과 시 JPEG(품질 조정) fallback
+async function shrinkImage(file: File, maxDim = 800, maxBytes = 200 * 1024): Promise<File> {
+  const bitmap = await createImageBitmap(file)
+  let w = bitmap.width
+  let h = bitmap.height
+  const longest = Math.max(w, h)
+  if (longest > maxDim) {
+    const scale = maxDim / longest
+    w = Math.round(w * scale)
+    h = Math.round(h * scale)
+  }
+
+  const canvas = document.createElement('canvas')
+  canvas.width = w
+  canvas.height = h
+  const ctx = canvas.getContext('2d')
+  if (!ctx) throw new Error('canvas context 생성 실패')
+  ctx.drawImage(bitmap, 0, 0, w, h)
+
+  // 1차: PNG (투명 유지)
+  const pngBlob = await new Promise<Blob | null>(res => canvas.toBlob(res, 'image/png'))
+  if (pngBlob && pngBlob.size <= maxBytes) {
+    return new File([pngBlob], 'seal.png', { type: 'image/png' })
+  }
+
+  // 2차: JPEG 품질 조정 (흰 배경으로 재-draw)
+  const jpegCanvas = document.createElement('canvas')
+  jpegCanvas.width = w
+  jpegCanvas.height = h
+  const jctx = jpegCanvas.getContext('2d')
+  if (!jctx) throw new Error('canvas context 생성 실패')
+  jctx.fillStyle = '#ffffff'
+  jctx.fillRect(0, 0, w, h)
+  jctx.drawImage(bitmap, 0, 0, w, h)
+
+  for (const q of [0.9, 0.8, 0.7, 0.6, 0.5]) {
+    const jb = await new Promise<Blob | null>(res => jpegCanvas.toBlob(res, 'image/jpeg', q))
+    if (jb && jb.size <= maxBytes) {
+      return new File([jb], 'seal.jpg', { type: 'image/jpeg' })
+    }
+  }
+  // 최저 품질 강제
+  const finalBlob = await new Promise<Blob | null>(res => jpegCanvas.toBlob(res, 'image/jpeg', 0.5))
+  if (!finalBlob) throw new Error('이미지 인코딩 실패')
+  return new File([finalBlob], 'seal.jpg', { type: 'image/jpeg' })
+}
+
 // ─── 컴포넌트 ────────────────────────────────────────────────────
 
 export default function QuotesPage() {
@@ -267,13 +315,27 @@ export default function QuotesPage() {
     if (!file) return
     setSealUploading(true)
     try {
+      // 원본이 크더라도 자동 축소 (최대 변 800px, 목표 200KB 이하)
+      // 실패 시 원본 그대로 시도 (서버 10MB 안전판 있음)
+      let uploadFile: File = file
+      try {
+        uploadFile = await shrinkImage(file, 800, 200 * 1024)
+      } catch {
+        // 리사이즈 실패 → 원본 그대로
+      }
       const form = new FormData()
-      form.append('file', file)
+      form.append('file', uploadFile)
       const res  = await fetch('/api/admin/quote-settings/seal', { method: 'POST', body: form })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? '업로드 실패')
       setSealImageUrl(data.seal_url)
-      toast.success('인감 이미지가 저장되었습니다.')
+      const origKB = Math.round(file.size / 1024)
+      const finalKB = Math.round(uploadFile.size / 1024)
+      toast.success(
+        file.size === uploadFile.size
+          ? '인감 이미지가 저장되었습니다.'
+          : `인감 이미지가 저장되었습니다. (${origKB}KB → ${finalKB}KB 자동 축소)`,
+      )
     } catch (err) {
       toast.error(err instanceof Error ? err.message : '업로드 실패')
     } finally {
@@ -1029,7 +1091,7 @@ export default function QuotesPage() {
                     <input ref={sealInputRef} type="file" accept="image/png,image/jpeg,image/webp"
                       onChange={handleSealUpload} className="hidden" />
                   </div>
-                  <p className="text-[10px] text-text-tertiary mt-1.5">투명 배경 PNG 권장 · 최대 2MB</p>
+                  <p className="text-[10px] text-text-tertiary mt-1.5">투명 배경 PNG 권장 · 업로드 시 자동 축소 (최대 800px · 200KB 이하)</p>
                 </FieldGroup>
               </div>
             </Section>
