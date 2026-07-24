@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import toast from 'react-hot-toast'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
@@ -199,7 +200,7 @@ export default function QuotesPage() {
   const [completing, setCompleting] = useState(false)
   const [sendingQuoteId, setSendingQuoteId] = useState<string | null>(null)
   const [regeneratingQuoteId, setRegeneratingQuoteId] = useState<string | null>(null)
-  const [openMenuId, setOpenMenuId] = useState<string | null>(null)      // 이력 드롭다운 열려있는 항목 id
+  const [openMenu, setOpenMenu] = useState<{ id: string; top: number; right: number } | null>(null)
   const [showBrowseModal, setShowBrowseModal] = useState(false)          // 다른 신청서 견적서 참고 모달
   const historyRef = useRef<HTMLDivElement>(null)
 
@@ -729,7 +730,7 @@ export default function QuotesPage() {
     setNotes(q.notes)
     setQuoteLabel((q.label || '견적서') + suffix)
     setEditingQuoteId(null)   // 신규로 저장됨
-    setOpenMenuId(null)
+    setOpenMenu(null)
     window.scrollTo({ top: 0, behavior: 'smooth' })
     toast.success(`'${q.label}' 을(를) 복사했습니다. 편집 후 '견적서 완성'을 눌러 저장하세요.`)
   }
@@ -1020,8 +1021,8 @@ export default function QuotesPage() {
             )}
 
             {/* ── 1. 공급자 정보 ─────────────────────────────── */}
-            <Section>
-              <SectionHeader title="공급자 정보">
+            <Section tone="sky">
+              <SectionHeader title="공급자 정보" tone="sky">
                 <div className="flex items-center gap-2">
                   <button type="button" onClick={() => setCompanyInfo(BBK_DEFAULTS)}
                     title="기본값으로 초기화"
@@ -1125,8 +1126,8 @@ export default function QuotesPage() {
             </Section>
 
             {/* ── 2. 고객 정보 ───────────────────────────────── */}
-            <Section>
-              <SectionHeader title="고객 정보">
+            <Section tone="violet">
+              <SectionHeader title="고객 정보" tone="violet">
                 {creatingNewApp ? (
                   <Button size="sm" onClick={handleCreateApplication} disabled={savingCustomer}
                     className="flex items-center gap-1.5 text-xs bg-brand-600 hover:bg-brand-700 text-white">
@@ -1198,8 +1199,8 @@ export default function QuotesPage() {
             {/* 견적서 작성 섹션 (3~6) — 신규 신청서 작성 중에는 저장 후 표시 */}
             {!creatingNewApp && selected && (<>
             {/* ── 3. 견적 항목 & 금액 모드 ───────────────────── */}
-            <Section>
-              <SectionHeader title="견적 항목">
+            <Section tone="brand">
+              <SectionHeader title="견적 항목" tone="brand">
                 <div className="flex items-center gap-2">
                   <Button size="sm" variant="secondary" onClick={handleSaveDraft} disabled={savingDraft || !selectedId}
                     className="flex items-center gap-1.5 text-xs">
@@ -1329,8 +1330,8 @@ export default function QuotesPage() {
             </Section>
 
             {/* ── 4. 견적 조건 ───────────────────────────────── */}
-            <Section>
-              <SectionHeader title="견적 조건">
+            <Section tone="amber">
+              <SectionHeader title="견적 조건" tone="amber">
                 <Button size="sm" variant="secondary" onClick={handleSaveDraft} disabled={savingDraft || !selectedId}
                   className="flex items-center gap-1.5 text-xs">
                   <Save size={12} />
@@ -1363,8 +1364,8 @@ export default function QuotesPage() {
             </Section>
 
             {/* ── 5. 금액 요약 + 발송 ──────────────────────── */}
-            <Section className="border-brand-200">
-              <SectionHeader title="최종 금액" />
+            <Section tone="emerald">
+              <SectionHeader title="최종 금액" tone="emerald" />
 
               {/* 할인 컨트롤 — itemized·supply 는 공급가액 기준, total 은 총액 기준 */}
               <div className="mb-4 rounded-lg border border-border-subtle bg-surface-sunken/50 p-3">
@@ -1526,8 +1527,8 @@ export default function QuotesPage() {
 
             {/* ── 6. 견적서 이력 (saved_quotes) ───────────── */}
             <div ref={historyRef}>
-            <Section>
-              <SectionHeader title="견적서 이력">
+            <Section tone="rose">
+              <SectionHeader title="견적서 이력" tone="rose">
                 <span className="text-xs text-text-tertiary">
                   {selected.saved_quotes?.length ?? 0}건
                 </span>
@@ -1590,51 +1591,21 @@ export default function QuotesPage() {
                               <Send size={11} />
                               {isSendingNow ? '발송 중…' : isSent ? '재발송' : '발송'}
                             </button>
-                            {/* 케밥 메뉴 */}
+                            {/* 케밥 메뉴 (portal로 렌더링되어 다른 섹션에 가려지지 않음) */}
                             <button type="button"
-                              onClick={() => setOpenMenuId(openMenuId === q.id ? null : q.id)}
+                              onClick={(e) => {
+                                if (openMenu?.id === q.id) { setOpenMenu(null); return }
+                                const rect = e.currentTarget.getBoundingClientRect()
+                                setOpenMenu({
+                                  id: q.id,
+                                  top: rect.bottom + 4,
+                                  right: window.innerWidth - rect.right,
+                                })
+                              }}
                               className="flex items-center justify-center w-7 h-7 rounded-md text-text-tertiary hover:text-text-primary hover:bg-surface-sunken transition-colors"
                               title="더보기">
                               <MoreVertical size={13} />
                             </button>
-                            {openMenuId === q.id && (
-                              <>
-                                {/* 외부 클릭 감지용 백드롭 */}
-                                <div className="fixed inset-0 z-10" onClick={() => setOpenMenuId(null)} />
-                                <div className="absolute right-0 top-full mt-1 z-20 min-w-[180px] bg-surface border border-border rounded-lg shadow-pop py-1">
-                                  {q.pdf_url && (
-                                    <a href={q.pdf_url} target="_blank" rel="noopener noreferrer"
-                                      onClick={() => setOpenMenuId(null)}
-                                      className="flex items-center gap-2 px-3 py-2 text-xs text-text-secondary hover:bg-surface-sunken">
-                                      <ExternalLink size={12} />PDF 보기
-                                    </a>
-                                  )}
-                                  <button type="button"
-                                    onClick={() => { setOpenMenuId(null); handleEditSavedQuote(q) }}
-                                    className="w-full flex items-center gap-2 px-3 py-2 text-xs text-text-secondary hover:bg-surface-sunken text-left">
-                                    <Pencil size={12} />편집
-                                  </button>
-                                  <button type="button"
-                                    onClick={() => handleCopyFromQuote(q)}
-                                    className="w-full flex items-center gap-2 px-3 py-2 text-xs text-text-secondary hover:bg-surface-sunken text-left">
-                                    <Copy size={12} />복사해서 편집
-                                  </button>
-                                  <button type="button"
-                                    onClick={() => { setOpenMenuId(null); handleRegeneratePdf(q) }}
-                                    disabled={isRegeneratingNow}
-                                    className="w-full flex items-center gap-2 px-3 py-2 text-xs text-text-secondary hover:bg-surface-sunken text-left disabled:opacity-50">
-                                    <RefreshCw size={12} className={isRegeneratingNow ? 'animate-spin' : ''} />
-                                    {isRegeneratingNow ? '재생성 중…' : 'PDF 재생성'}
-                                  </button>
-                                  <div className="h-px bg-border-subtle my-1" />
-                                  <button type="button"
-                                    onClick={() => { setOpenMenuId(null); handleDeleteSavedQuote(q) }}
-                                    className="w-full flex items-center gap-2 px-3 py-2 text-xs text-state-danger hover:bg-state-danger-bg text-left">
-                                    <Trash2 size={12} />삭제
-                                  </button>
-                                </div>
-                              </>
-                            )}
                           </div>
                         </div>
                       </li>
@@ -1661,26 +1632,93 @@ export default function QuotesPage() {
           }}
         />
       )}
+
+      {/* 이력 케밥 드롭다운 (portal → 최상위 z-index) */}
+      {openMenu && selected && typeof window !== 'undefined' && (() => {
+        const q = selected.saved_quotes?.find(x => x.id === openMenu.id)
+        if (!q) return null
+        const isRegeneratingNow = regeneratingQuoteId === q.id
+        return createPortal(
+          <>
+            <div className="fixed inset-0 z-[100]" onClick={() => setOpenMenu(null)} />
+            <div
+              className="fixed z-[101] min-w-[180px] bg-surface border border-border rounded-lg shadow-pop py-1"
+              style={{ top: openMenu.top, right: openMenu.right }}
+            >
+              {q.pdf_url && (
+                <a href={q.pdf_url} target="_blank" rel="noopener noreferrer"
+                  onClick={() => setOpenMenu(null)}
+                  className="flex items-center gap-2 px-3 py-2 text-xs text-text-secondary hover:bg-surface-sunken">
+                  <ExternalLink size={12} />PDF 보기
+                </a>
+              )}
+              <button type="button"
+                onClick={() => { setOpenMenu(null); handleEditSavedQuote(q) }}
+                className="w-full flex items-center gap-2 px-3 py-2 text-xs text-text-secondary hover:bg-surface-sunken text-left">
+                <Pencil size={12} />편집
+              </button>
+              <button type="button"
+                onClick={() => handleCopyFromQuote(q)}
+                className="w-full flex items-center gap-2 px-3 py-2 text-xs text-text-secondary hover:bg-surface-sunken text-left">
+                <Copy size={12} />복사해서 편집
+              </button>
+              <button type="button"
+                onClick={() => { setOpenMenu(null); handleRegeneratePdf(q) }}
+                disabled={isRegeneratingNow}
+                className="w-full flex items-center gap-2 px-3 py-2 text-xs text-text-secondary hover:bg-surface-sunken text-left disabled:opacity-50">
+                <RefreshCw size={12} className={isRegeneratingNow ? 'animate-spin' : ''} />
+                {isRegeneratingNow ? '재생성 중…' : 'PDF 재생성'}
+              </button>
+              <div className="h-px bg-border-subtle my-1" />
+              <button type="button"
+                onClick={() => { setOpenMenu(null); handleDeleteSavedQuote(q) }}
+                className="w-full flex items-center gap-2 px-3 py-2 text-xs text-state-danger hover:bg-state-danger-bg text-left">
+                <Trash2 size={12} />삭제
+              </button>
+            </div>
+          </>,
+          document.body,
+        )
+      })()}
     </div>
   )
 }
 
 // ─── 헬퍼 컴포넌트 ───────────────────────────────────────────────
 
-function Section({ children, className = '' }: { children: React.ReactNode; className?: string }) {
+type SectionTone = 'default' | 'brand' | 'sky' | 'amber' | 'emerald' | 'violet' | 'rose'
+
+// 톤별 좌측 accent bar + 미묘한 배경 tint + 테두리
+const TONE_STYLES: Record<SectionTone, { border: string; ring: string; bg: string; barBg: string; barText: string }> = {
+  default: { border: 'border-border',       ring: '',                          bg: 'bg-surface',                     barBg: 'bg-slate-500',   barText: 'text-slate-700' },
+  brand:   { border: 'border-brand-200',    ring: 'ring-1 ring-brand-100/50',  bg: 'bg-brand-50/40',                 barBg: 'bg-brand-600',   barText: 'text-brand-700' },
+  sky:     { border: 'border-sky-200',      ring: 'ring-1 ring-sky-100/50',    bg: 'bg-sky-50/40',                   barBg: 'bg-sky-600',     barText: 'text-sky-700' },
+  amber:   { border: 'border-amber-200',    ring: 'ring-1 ring-amber-100/50',  bg: 'bg-amber-50/40',                 barBg: 'bg-amber-600',   barText: 'text-amber-700' },
+  emerald: { border: 'border-emerald-200',  ring: 'ring-1 ring-emerald-100/50',bg: 'bg-emerald-50/40',               barBg: 'bg-emerald-600', barText: 'text-emerald-700' },
+  violet:  { border: 'border-violet-200',   ring: 'ring-1 ring-violet-100/50', bg: 'bg-violet-50/40',                barBg: 'bg-violet-600',  barText: 'text-violet-700' },
+  rose:    { border: 'border-rose-200',     ring: 'ring-1 ring-rose-100/50',   bg: 'bg-rose-50/40',                  barBg: 'bg-rose-600',    barText: 'text-rose-700' },
+}
+
+function Section({ children, className = '', tone = 'default' }: {
+  children: React.ReactNode; className?: string; tone?: SectionTone
+}) {
+  const t = TONE_STYLES[tone]
   return (
-    <section className={`bg-surface rounded-2xl border border-border-subtle p-4 md:p-6 ${className}`}>
+    <section className={`${t.bg} border ${t.border} ${t.ring} rounded-2xl p-4 md:p-6 shadow-soft ${className}`}>
       {children}
     </section>
   )
 }
 
-function SectionHeader({ title, children }: { title: string; children?: React.ReactNode }) {
+function SectionHeader({ title, tone = 'default', children }: {
+  title: string; tone?: SectionTone; children?: React.ReactNode
+}) {
+  const t = TONE_STYLES[tone]
   return (
     <div className="flex items-center justify-between mb-5 gap-2 flex-wrap">
       <div className="flex items-center gap-2.5 min-w-0">
-        <span className="block w-[3px] h-[14px] rounded-full bg-brand-600 flex-shrink-0" />
-        <h2 className="text-sm font-semibold text-text-primary tracking-tight truncate">{title}</h2>
+        <span className={`block w-1 h-4 rounded-full ${t.barBg} flex-shrink-0`} />
+        <h2 className={`text-sm font-bold tracking-tight truncate ${t.barText}`}>{title}</h2>
       </div>
       {children && <div className="flex items-center gap-2 flex-wrap">{children}</div>}
     </div>
