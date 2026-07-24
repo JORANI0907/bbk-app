@@ -5,7 +5,8 @@ import toast from 'react-hot-toast'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Textarea } from '@/components/ui/Textarea'
-import { Plus, X, FileText, ExternalLink, RefreshCw, ChevronLeft, ChevronRight, Save, RotateCcw, Upload, Trash2, Send, Pencil, CheckCircle2 } from 'lucide-react'
+import { Plus, X, FileText, ExternalLink, RefreshCw, ChevronLeft, ChevronRight, Save, RotateCcw, Upload, Trash2, Send, Pencil, CheckCircle2, MoreVertical, Copy, Search } from 'lucide-react'
+import { BrowseQuotesModal } from './BrowseQuotesModal'
 
 // ─── 타입 ────────────────────────────────────────────────────────
 
@@ -198,6 +199,8 @@ export default function QuotesPage() {
   const [completing, setCompleting] = useState(false)
   const [sendingQuoteId, setSendingQuoteId] = useState<string | null>(null)
   const [regeneratingQuoteId, setRegeneratingQuoteId] = useState<string | null>(null)
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null)      // 이력 드롭다운 열려있는 항목 id
+  const [showBrowseModal, setShowBrowseModal] = useState(false)          // 다른 신청서 견적서 참고 모달
   const historyRef = useRef<HTMLDivElement>(null)
 
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -704,6 +707,31 @@ export default function QuotesPage() {
     } finally {
       setCompleting(false)
     }
+  }
+
+  // ── 저장된 견적서 → 폼에 복사 (신규로 저장할 새 견적서 초안) ─
+  // 데이터는 그대로 옮기지만 editingQuoteId=null 로 두어 완성 시 신규 항목 생성
+  const handleCopyFromQuote = (q: SavedQuote, suffix = ' 사본') => {
+    setQuoteItems(q.quote_items.map(i => ({ ...i })))
+    setPricingMode(q.pricing_mode)
+    setDirectAmount(q.direct_amount)
+    setDiscountMode(q.discount_mode)
+    setDiscountRate(q.discount_rate)
+    setDiscountInput(q.discount_input)
+    if (typeof q.discount2_amount === 'number') {
+      setDiscount2Amount(q.discount2_amount)
+      setDiscount2Touched(true)
+    } else {
+      setDiscount2Amount(0)
+      setDiscount2Touched(false)
+    }
+    setValidDays(q.valid_days)
+    setNotes(q.notes)
+    setQuoteLabel((q.label || '견적서') + suffix)
+    setEditingQuoteId(null)   // 신규로 저장됨
+    setOpenMenuId(null)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+    toast.success(`'${q.label}' 을(를) 복사했습니다. 편집 후 '견적서 완성'을 눌러 저장하세요.`)
   }
 
   // ── 저장된 견적서 편집 시작 (폼에 로드) ─────────────────────
@@ -1503,6 +1531,12 @@ export default function QuotesPage() {
                 <span className="text-xs text-text-tertiary">
                   {selected.saved_quotes?.length ?? 0}건
                 </span>
+                <button type="button"
+                  onClick={() => setShowBrowseModal(true)}
+                  className="flex items-center gap-1 text-[11px] px-2 py-1 rounded-md border border-border-subtle text-text-secondary hover:bg-surface-sunken transition-colors"
+                  title="다른 신청서에 저장된 견적서를 참고해서 복사">
+                  <Search size={11} />다른 견적서 참고
+                </button>
               </SectionHeader>
               {!selected.saved_quotes || selected.saved_quotes.length === 0 ? (
                 <div className="py-8 text-center text-sm text-text-tertiary border border-dashed border-border-subtle rounded-xl">
@@ -1547,37 +1581,60 @@ export default function QuotesPage() {
                               <span>작성 {new Date(q.created_at).toLocaleDateString('ko-KR')}</span>
                             </div>
                           </div>
-                          <div className="flex items-center gap-1 flex-shrink-0 flex-wrap justify-end">
-                            {q.pdf_url && (
-                              <a href={q.pdf_url} target="_blank" rel="noopener noreferrer"
-                                className="flex items-center gap-1 text-[11px] px-2 py-1 rounded-md border border-border-subtle text-text-secondary hover:bg-surface-sunken transition-colors">
-                                <ExternalLink size={11} />PDF
-                              </a>
-                            )}
-                            <button type="button" onClick={() => handleEditSavedQuote(q)}
-                              className="flex items-center gap-1 text-[11px] px-2 py-1 rounded-md border border-border-subtle text-text-secondary hover:bg-surface-sunken transition-colors">
-                              <Pencil size={11} />수정
-                            </button>
-                            <button type="button"
-                              onClick={() => handleRegeneratePdf(q)}
-                              disabled={isRegeneratingNow}
-                              className="flex items-center gap-1 text-[11px] px-2 py-1 rounded-md border border-border-subtle text-text-secondary hover:bg-surface-sunken transition-colors disabled:opacity-50"
-                              title="카카오·이메일 발송 없이 PDF만 새로 생성">
-                              <RefreshCw size={11} className={isRegeneratingNow ? 'animate-spin' : ''} />
-                              {isRegeneratingNow ? '재생성 중…' : 'PDF 재생성'}
-                            </button>
+                          <div className="flex items-center gap-1 flex-shrink-0 justify-end relative">
+                            {/* 발송 (자주 사용 → 밖에) */}
                             <button type="button"
                               onClick={() => handleSendSavedQuote(q)}
                               disabled={isSendingNow}
-                              className="flex items-center gap-1 text-[11px] px-2 py-1 rounded-md bg-brand-600 text-white hover:bg-brand-700 transition-colors disabled:opacity-50">
+                              className="flex items-center gap-1 text-[11px] px-2.5 py-1 rounded-md bg-brand-600 text-white hover:bg-brand-700 transition-colors disabled:opacity-50">
                               <Send size={11} />
                               {isSendingNow ? '발송 중…' : isSent ? '재발송' : '발송'}
                             </button>
-                            <button type="button" onClick={() => handleDeleteSavedQuote(q)}
-                              className="flex items-center justify-center w-6 h-6 rounded-md text-text-tertiary hover:text-state-danger hover:bg-state-danger-bg transition-colors"
-                              title="삭제">
-                              <Trash2 size={11} />
+                            {/* 케밥 메뉴 */}
+                            <button type="button"
+                              onClick={() => setOpenMenuId(openMenuId === q.id ? null : q.id)}
+                              className="flex items-center justify-center w-7 h-7 rounded-md text-text-tertiary hover:text-text-primary hover:bg-surface-sunken transition-colors"
+                              title="더보기">
+                              <MoreVertical size={13} />
                             </button>
+                            {openMenuId === q.id && (
+                              <>
+                                {/* 외부 클릭 감지용 백드롭 */}
+                                <div className="fixed inset-0 z-10" onClick={() => setOpenMenuId(null)} />
+                                <div className="absolute right-0 top-full mt-1 z-20 min-w-[180px] bg-surface border border-border rounded-lg shadow-pop py-1">
+                                  {q.pdf_url && (
+                                    <a href={q.pdf_url} target="_blank" rel="noopener noreferrer"
+                                      onClick={() => setOpenMenuId(null)}
+                                      className="flex items-center gap-2 px-3 py-2 text-xs text-text-secondary hover:bg-surface-sunken">
+                                      <ExternalLink size={12} />PDF 보기
+                                    </a>
+                                  )}
+                                  <button type="button"
+                                    onClick={() => { setOpenMenuId(null); handleEditSavedQuote(q) }}
+                                    className="w-full flex items-center gap-2 px-3 py-2 text-xs text-text-secondary hover:bg-surface-sunken text-left">
+                                    <Pencil size={12} />편집
+                                  </button>
+                                  <button type="button"
+                                    onClick={() => handleCopyFromQuote(q)}
+                                    className="w-full flex items-center gap-2 px-3 py-2 text-xs text-text-secondary hover:bg-surface-sunken text-left">
+                                    <Copy size={12} />복사해서 편집
+                                  </button>
+                                  <button type="button"
+                                    onClick={() => { setOpenMenuId(null); handleRegeneratePdf(q) }}
+                                    disabled={isRegeneratingNow}
+                                    className="w-full flex items-center gap-2 px-3 py-2 text-xs text-text-secondary hover:bg-surface-sunken text-left disabled:opacity-50">
+                                    <RefreshCw size={12} className={isRegeneratingNow ? 'animate-spin' : ''} />
+                                    {isRegeneratingNow ? '재생성 중…' : 'PDF 재생성'}
+                                  </button>
+                                  <div className="h-px bg-border-subtle my-1" />
+                                  <button type="button"
+                                    onClick={() => { setOpenMenuId(null); handleDeleteSavedQuote(q) }}
+                                    className="w-full flex items-center gap-2 px-3 py-2 text-xs text-state-danger hover:bg-state-danger-bg text-left">
+                                    <Trash2 size={12} />삭제
+                                  </button>
+                                </div>
+                              </>
+                            )}
                           </div>
                         </div>
                       </li>
@@ -1592,6 +1649,18 @@ export default function QuotesPage() {
           </div>
         )}
       </div>
+
+      {/* 다른 견적서 참고 모달 */}
+      {showBrowseModal && (
+        <BrowseQuotesModal
+          currentApplicationId={selectedId}
+          onClose={() => setShowBrowseModal(false)}
+          onPick={(quote) => {
+            handleCopyFromQuote(quote as SavedQuote, ' 참고')
+            setShowBrowseModal(false)
+          }}
+        />
+      )}
     </div>
   )
 }
