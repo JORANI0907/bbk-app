@@ -45,8 +45,21 @@ function addDays(dateStr: string, days: number): string {
   return d.toISOString().slice(0, 10)
 }
 
-function sanitizeFileName(s: string): string {
-  return s.replace(/[\\/:*?"<>|]/g, '_').trim()
+// 파일명 규칙: 업체명 + 견적서이름 + 견적서번호 (send route와 동일)
+function sanitizePart(s: string | null | undefined, maxLen = 60): string {
+  return (s ?? '')
+    .replace(/[<>:"/\\|?*\x00-\x1F]/g, '_')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, maxLen)
+}
+function buildQuoteFileName(businessName: string | null | undefined, label: string | null | undefined, quoteNo: string): string {
+  const parts = [
+    sanitizePart(businessName) || '고객',
+    sanitizePart(label) || '견적서',
+    quoteNo,
+  ]
+  return parts.join('_') + '.pdf'
 }
 
 /**
@@ -200,12 +213,13 @@ export async function POST(
   // Supabase Storage 업로드 (유니크 quoteNo이므로 upsert 충돌 없음)
   let pdfUrl: string | null = null
   try {
-    const fileName = `${quoteNo}.pdf`
+    const fileName = buildQuoteFileName(app.business_name, target.label, quoteNo)
     const { error: uploadError } = await supabase.storage
       .from('quote-pdfs')
       .upload(fileName, pdfBuffer, { contentType: 'application/pdf', upsert: true })
     if (uploadError) throw new Error(uploadError.message)
 
+    // Storage 파일명에 한글이 포함될 수 있으므로 encode된 URL 필요
     const { data: urlData } = supabase.storage
       .from('quote-pdfs')
       .getPublicUrl(fileName)
@@ -214,11 +228,9 @@ export async function POST(
     return NextResponse.json({ error: `Storage 업로드 실패: ${e instanceof Error ? e.message : String(e)}` }, { status: 500 })
   }
 
-  // Google Drive 백업 (non-blocking)
+  // Google Drive 백업 (non-blocking) — Storage와 동일한 파일명 규칙
   try {
-    const fileName = sanitizeFileName(
-      `${quoteNo}_${app.business_name ?? '-'}_${target.label ?? '견적서'}.pdf`,
-    )
+    const fileName = buildQuoteFileName(app.business_name, target.label, quoteNo)
     await uploadQuoteToDrive(pdfBuffer, fileName)
   } catch (e) {
     console.error('[regenerate-pdf] Drive 업로드 실패 (non-critical):', e)

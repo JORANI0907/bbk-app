@@ -142,6 +142,7 @@ export default function QuotesPage() {
   // 견적 조건
   const [validDays, setValidDays]   = useState(5)
   const [notes, setNotes]           = useState('')
+  const [quoteLabel, setQuoteLabel] = useState('')   // 견적서 이름 (파일명·이력 표시용)
   const [savingDraft, setSavingDraft] = useState(false)
 
   // 견적서 저장/발송 관리
@@ -363,6 +364,7 @@ export default function QuotesPage() {
     setDiscountRate(0)
     setDiscountInput(0)
     setNotes(app.quote_notes ?? '')
+    setQuoteLabel('')
     setEditingQuoteId(null)
   }, [])
 
@@ -384,6 +386,7 @@ export default function QuotesPage() {
     setDiscount2Amount(0)
     setDiscount2Touched(false)
     setNotes('')
+    setQuoteLabel('')
     setEditingQuoteId(null)
   }
 
@@ -549,6 +552,7 @@ export default function QuotesPage() {
     setDiscount2Amount(0)
     setDiscount2Touched(false)
     setNotes(selected?.quote_notes ?? '')
+    setQuoteLabel('')
     setEditingQuoteId(null)
   }
 
@@ -567,10 +571,13 @@ export default function QuotesPage() {
 
       if (editingQuoteId) {
         // 수정 모드: 기존 항목 업데이트 (발송 정보는 유지)
+        const editingQuote = existing.find((q) => q.id === editingQuoteId)
+        label = quoteLabel.trim() || editingQuote?.label || '견적서'
         updated = existing.map((q) => {
           if (q.id !== editingQuoteId) return q
           return {
             ...q,
+            label,
             quote_items:   quoteItems,
             pricing_mode:  pricingMode,
             direct_amount: directAmount,
@@ -586,11 +593,10 @@ export default function QuotesPage() {
             updated_at:    now,
           }
         })
-        label = existing.find((q) => q.id === editingQuoteId)?.label ?? '견적서'
       } else {
         // 신규: saved_quotes 배열에 push
         const nextIndex = existing.length + 1
-        label = `견적서 #${nextIndex}`
+        label = quoteLabel.trim() || `견적서 #${nextIndex}`
         const newQuote: SavedQuote = {
           id: crypto.randomUUID(),
           label,
@@ -627,10 +633,10 @@ export default function QuotesPage() {
         a.id === selected.id ? { ...a, saved_quotes: updated } : a
       ))
       toast.success(editingQuoteId ? `'${label}' 수정 완료` : `'${label}' 저장 완료`)
-      resetForm()
-
-      // 발송이력 섹션으로 스크롤
-      setTimeout(() => historyRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100)
+      // 폼 유지 (사용자가 바로 수정해서 다음 견적서를 이어서 만들 수 있도록)
+      // editingQuoteId만 해제 → 다음 완성은 신규로 저장됨
+      // quoteLabel은 그대로 두어 새 이름을 원하면 사용자가 직접 수정
+      setEditingQuoteId(null)
     } catch (e) {
       toast.error(e instanceof Error ? e.message : '저장 실패')
     } finally {
@@ -656,6 +662,7 @@ export default function QuotesPage() {
     }
     setValidDays(q.valid_days)
     setNotes(q.notes)
+    setQuoteLabel(q.label || '')
     setEditingQuoteId(q.id)
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
@@ -766,6 +773,7 @@ export default function QuotesPage() {
           hide_item_prices:  q.pricing_mode !== 'itemized',
           seal_image_url:    sealImageUrl ?? undefined,
           saved_quote_id:    q.id,
+          quote_label:       q.label,
         }),
       })
       const result = await res.json()
@@ -1240,6 +1248,10 @@ export default function QuotesPage() {
                 </Button>
               </SectionHeader>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3">
+                <FieldGroup label="견적서 이름 (선택)">
+                  <Input value={quoteLabel} onChange={e => setQuoteLabel(e.target.value)}
+                    placeholder="예: 후드 정비, 초기 견적, 협의안 A 등" />
+                </FieldGroup>
                 <FieldGroup label="견적 유효기간">
                   <div className="flex items-center gap-2">
                     <Input type="number" value={validDays} min={1} max={365}
@@ -1249,6 +1261,9 @@ export default function QuotesPage() {
                   </div>
                 </FieldGroup>
               </div>
+              <p className="text-[11px] text-text-tertiary mt-1.5 leading-normal">
+                이름은 이력 표시와 PDF 파일명(<span className="tabular-nums">업체명_이름_견적번호.pdf</span>)에 사용됩니다. 비워두면 자동으로 &apos;견적서 #N&apos;.
+              </p>
               <div className="mt-3">
                 <FieldGroup label="특이사항 (선택 — PDF에 포함)">
                   <Textarea value={notes} onChange={e => setNotes(e.target.value)}
@@ -1414,8 +1429,8 @@ export default function QuotesPage() {
               </Button>
               <p className="text-[11px] text-text-tertiary mt-2 text-center">
                 {editingQuoteId
-                  ? '수정 사항을 저장하고 발송이력으로 이동합니다.'
-                  : '견적서를 이력에 저장합니다. 발송은 아래 이력에서 개별 실행합니다.'}
+                  ? '수정 사항을 저장합니다. 폼은 그대로 유지되어 이어서 편집할 수 있습니다.'
+                  : '견적서를 이력에 저장합니다. 폼은 그대로 유지되어 바로 다음 견적서로 활용 가능.'}
               </p>
             </Section>
 

@@ -68,6 +68,27 @@ interface QuoteSendBody {
   seal_image_url?: string
   // saved_quotes 배열 특정 항목에 발송 결과 반영 (선택)
   saved_quote_id?: string
+  // 견적서 이름 (사용자 지정) — 파일명에 포함
+  quote_label?: string
+}
+
+// 파일명용 sanitize — 파일시스템 예약문자 제거 + 공백 정규화 + 길이 제한
+function sanitizeForFilename(s: string | null | undefined, maxLen = 60): string {
+  return (s ?? '')
+    .replace(/[<>:"/\\|?*\x00-\x1F]/g, '_')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, maxLen)
+}
+
+// 파일명 규칙: 업체명 + 견적서이름 + 견적서번호
+function buildQuoteFileName(businessName: string | null | undefined, label: string | null | undefined, quoteNo: string): string {
+  const parts = [
+    sanitizeForFilename(businessName) || '고객',
+    sanitizeForFilename(label) || '견적서',
+    quoteNo,
+  ]
+  return parts.join('_') + '.pdf'
 }
 
 function generateQuoteNo(): string {
@@ -103,6 +124,7 @@ export async function POST(
     discount2_amount,
     valid_days, notes, hide_item_prices, seal_image_url,
     saved_quote_id,
+    quote_label,
   } = body
 
   const notify1 = phone_notify_1 !== false     // 기본 true
@@ -215,7 +237,7 @@ export async function POST(
   if (pdfBuffer) {
     try {
       const supabase = createServiceClient()
-      const fileName = `${quoteNo}.pdf`
+      const fileName = buildQuoteFileName(business_name, quote_label, quoteNo)
 
       const { error: uploadError } = await supabase.storage
         .from('quote-pdfs')
@@ -237,7 +259,7 @@ export async function POST(
     try {
       const driveUrl = await uploadQuoteToDrive(
         pdfBuffer,
-        `${quoteNo}_${business_name}.pdf`,
+        buildQuoteFileName(business_name, quote_label, quoteNo),
       )
       if (driveUrl) console.log('[send] Drive 업로드 완료:', driveUrl)
     } catch (e) {
