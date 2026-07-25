@@ -232,27 +232,31 @@ export async function POST(
   }
 
   // ── 2. Supabase Storage 업로드 ──────────────────────────────
+  // Storage 키는 반드시 ASCII-safe (한글 파일명 업로드 실패 이슈 회피)
+  // 사용자 친화적 파일명은 다운로드 옵션(download=...)으로 부여
   if (pdfBuffer) {
     try {
       const supabase = createServiceClient()
-      const fileName = buildQuoteFileName(business_name, quote_label, quoteNo)
+      const storageKey = `${quoteNo}.pdf`   // 유니크·ASCII 안전
+      const displayFileName = buildQuoteFileName(business_name, quote_label, quoteNo)
 
       const { error: uploadError } = await supabase.storage
         .from('quote-pdfs')
-        .upload(fileName, pdfBuffer, { contentType: 'application/pdf', upsert: true })
+        .upload(storageKey, pdfBuffer, { contentType: 'application/pdf', upsert: true })
 
       if (uploadError) throw new Error(uploadError.message)
 
       const { data: urlData } = supabase.storage
         .from('quote-pdfs')
-        .getPublicUrl(fileName)
+        .getPublicUrl(storageKey, { download: displayFileName })
       pdfUrl = urlData.publicUrl
     } catch (e) {
       errors.upload = e instanceof Error ? e.message : String(e)
+      console.error('[send] Storage 업로드 실패:', errors.upload)
     }
   }
 
-  // ── 2-b. Google Drive 업로드 (non-blocking) ─────────────────
+  // ── 2-b. Google Drive 업로드 (non-blocking) — 사용자 친화적 파일명 유지 ──
   if (pdfBuffer) {
     try {
       const driveUrl = await uploadQuoteToDrive(
