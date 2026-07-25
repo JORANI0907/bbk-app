@@ -58,6 +58,7 @@ export interface QuotePdfData {
   // 선택
   notes?: string
   hideItemPrices?: boolean
+  taxExempt?: boolean          // 면세 (부가세 라인 '면세'로 표기, 이메일도 동일)
   sealImageUrl?: string
 }
 
@@ -531,12 +532,12 @@ function QuotePdfDocument({ d }: { d: QuotePdfData }) {
               </View>
             )}
             <View style={s.totalRow}>
-              <Text style={s.totalLabel}>공급가액</Text>
+              <Text style={s.totalLabel}>{d.taxExempt ? '금액 (면세)' : '공급가액'}</Text>
               <Text style={s.totalValue}>{fmtKr(d.supplyAmount)}원</Text>
             </View>
             <View style={s.totalRow}>
-              <Text style={s.totalLabel}>부가세 (10%)</Text>
-              <Text style={s.totalValue}>{fmtKr(d.vat)}원</Text>
+              <Text style={s.totalLabel}>부가세{d.taxExempt ? '' : ' (10%)'}</Text>
+              <Text style={s.totalValue}>{d.taxExempt ? '면세' : `${fmtKr(d.vat)}원`}</Text>
             </View>
             <View style={[s.totalRow, s.totalRowFinal]}>
               <Text style={[s.totalLabel, s.totalLabelFinal]}>합  계</Text>

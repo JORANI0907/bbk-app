@@ -12,7 +12,7 @@ interface SavedQuote {
   id: string
   label: string
   quote_items: QuoteItem[]
-  pricing_mode: 'itemized' | 'total' | 'supply'
+  pricing_mode: 'itemized' | 'total' | 'supply' | 'tax_exempt'
   direct_amount: number
   discount_mode: 'none' | 'rate' | 'amount'
   discount_rate: number
@@ -142,9 +142,12 @@ export async function POST(
       const s = Math.round(target.direct_amount / 1.1)
       return { origSupply: s, origTotal: target.direct_amount }
     }
+    if (target.pricing_mode === 'tax_exempt') {
+      return { origSupply: target.direct_amount, origTotal: target.direct_amount }
+    }
     return { origSupply: target.direct_amount, origTotal: target.direct_amount + Math.round(target.direct_amount * 0.1) }
   })()
-  const discountBase = target.pricing_mode === 'total' ? origTotal : origSupply
+  const discountBase = (target.pricing_mode === 'total' || target.pricing_mode === 'tax_exempt') ? origTotal : origSupply
   const discount1Amount = (() => {
     if (target.discount_mode === 'rate') {
       const rate = Math.max(0, Math.min(100, target.discount_rate))
@@ -191,12 +194,13 @@ export async function POST(
     discountAmount:    discount1Amount > 0 ? discount1Amount : undefined,
     discountRate:      discount1Amount > 0 ? effectiveRate : undefined,
     discount2Amount:   discount2Amount > 0 ? discount2Amount : undefined,
-    discountBaseLabel: target.pricing_mode === 'total' ? '총액' : '공급가액',
+    discountBaseLabel: (target.pricing_mode === 'total' || target.pricing_mode === 'tax_exempt') ? '총액' : '공급가액',
     origSupplyAmount:  origSupply,
     origTotalAmount:   origTotal,
     // 옵션
     notes:          target.notes || undefined,
     hideItemPrices: target.pricing_mode !== 'itemized',
+    taxExempt:      target.pricing_mode === 'tax_exempt',
     sealImageUrl:   sealTmpPath,
   }
 

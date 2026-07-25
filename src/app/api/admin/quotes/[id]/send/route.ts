@@ -65,6 +65,7 @@ interface QuoteSendBody {
   valid_days?: number
   notes?: string
   hide_item_prices?: boolean
+  tax_exempt?: boolean          // 면세 (부가세 라인 숨김)
   seal_image_url?: string
   // saved_quotes 배열 특정 항목에 발송 결과 반영 (선택)
   saved_quote_id?: string
@@ -122,7 +123,7 @@ export async function POST(
     discount_amount, discount_rate, discount_base_label,
     orig_supply_amount, orig_total_amount,
     discount2_amount,
-    valid_days, notes, hide_item_prices, seal_image_url,
+    valid_days, notes, hide_item_prices, tax_exempt, seal_image_url,
     saved_quote_id,
     quote_label,
   } = body
@@ -206,6 +207,7 @@ export async function POST(
     // 옵션
     notes:           notes            || undefined,
     hideItemPrices:  hide_item_prices ?? false,
+    taxExempt:       tax_exempt ?? false,
     sealImageUrl:    sealTmpPath,
   }
   try {
@@ -292,8 +294,8 @@ export async function POST(
     ${discount2_amount && discount2_amount > 0
       ? `<tr style="border-bottom:1px solid #eee;"><td style="padding:6px 16px 6px 0;color:#d9534f;white-space:nowrap;">할인2 (잔돈)</td><td style="color:#d9534f;">-${fmtKr(discount2_amount)}원</td></tr>`
       : ''}
-    <tr style="border-bottom:1px solid #eee;"><td style="padding:6px 16px 6px 0;color:#888;white-space:nowrap;">공급가액</td><td>${fmtKr(supply_amount || 0)}원</td></tr>
-    <tr style="border-bottom:1px solid #eee;"><td style="padding:6px 16px 6px 0;color:#888;white-space:nowrap;">부가세</td><td>${fmtKr(safeVat)}원</td></tr>
+    <tr style="border-bottom:1px solid #eee;"><td style="padding:6px 16px 6px 0;color:#888;white-space:nowrap;">${tax_exempt ? '금액 (면세)' : '공급가액'}</td><td>${fmtKr(supply_amount || 0)}원</td></tr>
+    <tr style="border-bottom:1px solid #eee;"><td style="padding:6px 16px 6px 0;color:#888;white-space:nowrap;">부가세</td><td>${tax_exempt ? '면세' : `${fmtKr(safeVat)}원`}</td></tr>
     <tr style="border-bottom:1px solid #eee;"><td style="padding:6px 16px 6px 0;color:#888;white-space:nowrap;">합계</td><td><strong>${fmtKr(total_amount || 0)}원</strong></td></tr>
     <tr><td style="padding:6px 16px 6px 0;color:#888;white-space:nowrap;">유효기간</td><td>${validUntilStr}까지</td></tr>
   </table>

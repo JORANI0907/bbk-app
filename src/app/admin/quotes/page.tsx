@@ -19,7 +19,7 @@ interface SavedQuote {
   id: string
   label: string
   quote_items: QuoteItem[]
-  pricing_mode: 'itemized' | 'total' | 'supply'
+  pricing_mode: 'itemized' | 'total' | 'supply' | 'tax_exempt'
   direct_amount: number
   discount_mode: 'none' | 'rate' | 'amount'
   discount_rate: number
@@ -76,7 +76,16 @@ interface CustomerInfo {
   email: string; address: string; construction_date: string
 }
 
-type PricingMode = 'itemized' | 'total' | 'supply'
+type PricingMode = 'itemized' | 'total' | 'supply' | 'tax_exempt'
+
+const PRICING_MODE_LABELS: Record<PricingMode, string> = {
+  itemized:   '항목별',
+  supply:     '공급가기준',
+  total:      '합계기준',
+  tax_exempt: '면세합계',
+}
+// 표시 순서 (사용자 요청)
+const PRICING_MODE_ORDER: PricingMode[] = ['itemized', 'supply', 'total', 'tax_exempt']
 type DiscountMode = 'none' | 'rate' | 'amount'
 
 // ─── 상수 ────────────────────────────────────────────────────────
@@ -220,12 +229,17 @@ export default function QuotesPage() {
       const s = Math.round(directAmount / 1.1)
       return { origSupply: s, origVat: directAmount - s, origTotal: directAmount }
     }
+    if (pricingMode === 'tax_exempt') {
+      // 면세: 입력한 금액이 곧 합계, 부가세 없음
+      return { origSupply: directAmount, origVat: 0, origTotal: directAmount }
+    }
+    // supply
     const v = Math.round(directAmount * 0.1)
     return { origSupply: directAmount, origVat: v, origTotal: directAmount + v }
   })()
 
-  // 2) 할인 기준 금액 (itemized·supply 는 공급가액 / total 은 총액)
-  const discountBase = pricingMode === 'total' ? origTotal : origSupply
+  // 2) 할인 기준 금액 (itemized·supply 는 공급가액 / total·tax_exempt 는 총액)
+  const discountBase = (pricingMode === 'total' || pricingMode === 'tax_exempt') ? origTotal : origSupply
 
   // 3) 사용자 입력 → 할인금액(원) 확정
   const computedDiscountAmount = (() => {
@@ -264,6 +278,9 @@ export default function QuotesPage() {
   // 7) 최종 금액 (할인1 + 할인2 반영)
   const { supplyAmount, vatAmount, totalAmount } = (() => {
     const finalSupply = Math.max(0, supplyAfterDiscount1 - effectiveDiscount2)
+    if (pricingMode === 'tax_exempt') {
+      return { supplyAmount: finalSupply, vatAmount: 0, totalAmount: finalSupply }
+    }
     const finalVat = Math.round(finalSupply * 0.1)
     return { supplyAmount: finalSupply, vatAmount: finalVat, totalAmount: finalSupply + finalVat }
   })()
@@ -795,9 +812,13 @@ export default function QuotesPage() {
         const s = Math.round(q.direct_amount / 1.1)
         return { origSupply: s, origTotal: q.direct_amount }
       }
+      if (q.pricing_mode === 'tax_exempt') {
+        // 면세: 입력한 금액이 곧 합계, 부가세 없음
+        return { origSupply: q.direct_amount, origTotal: q.direct_amount }
+      }
       return { origSupply: q.direct_amount, origTotal: q.direct_amount + Math.round(q.direct_amount * 0.1) }
     })()
-    const qDiscountBase = q.pricing_mode === 'total' ? qOrigTotal : qOrigSupply
+    const qDiscountBase = (q.pricing_mode === 'total' || q.pricing_mode === 'tax_exempt') ? qOrigTotal : qOrigSupply
     const qDiscount1Amount = (() => {
       if (q.discount_mode === 'rate') {
         const rate = Math.max(0, Math.min(100, q.discount_rate))
@@ -855,13 +876,14 @@ export default function QuotesPage() {
           total_amount:      q.total_amount,
           discount_amount:     qDiscount1Amount,
           discount_rate:       qDiscount1Amount > 0 ? qEffectiveRate : 0,
-          discount_base_label: q.pricing_mode === 'total' ? '총액' : '공급가액',
+          discount_base_label: (q.pricing_mode === 'total' || q.pricing_mode === 'tax_exempt') ? '총액' : '공급가액',
           orig_supply_amount:  qOrigSupply,
           orig_total_amount:   qOrigTotal,
           discount2_amount:    qDiscount2Amount,
           valid_days:        q.valid_days,
           notes:             q.notes || undefined,
           hide_item_prices:  q.pricing_mode !== 'itemized',
+          tax_exempt:        q.pricing_mode === 'tax_exempt',
           seal_image_url:    sealImageUrl ?? undefined,
           saved_quote_id:    q.id,
           quote_label:       q.label,
@@ -1207,9 +1229,9 @@ export default function QuotesPage() {
                     <Save size={12} />
                     {savingDraft ? '저장 중…' : '저장'}
                   </Button>
-                {/* 금액 입력 방식 탭 */}
-                <div className="flex rounded-lg bg-surface-sunken border border-border-subtle p-0.5 gap-0.5">
-                  {(['itemized', 'total', 'supply'] as PricingMode[]).map(m => (
+                {/* 금액 입력 방식 탭 (순서: 항목별 · 공급가기준 · 합계기준 · 면세합계) */}
+                <div className="flex flex-wrap rounded-lg bg-surface-sunken border border-border-subtle p-0.5 gap-0.5">
+                  {PRICING_MODE_ORDER.map(m => (
                     <button key={m} type="button"
                       onClick={() => { setPricingMode(m); setDirectAmount(0) }}
                       className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${
@@ -1217,7 +1239,7 @@ export default function QuotesPage() {
                           ? 'bg-surface text-text-primary shadow-flat'
                           : 'text-text-tertiary hover:text-text-secondary'
                       }`}>
-                      {m === 'itemized' ? '항목별' : m === 'total' ? '합계기준' : '공급가기준'}
+                      {PRICING_MODE_LABELS[m]}
                     </button>
                   ))}
                 </div>
@@ -1227,7 +1249,11 @@ export default function QuotesPage() {
               {/* 합계/공급가액 직접 입력 */}
               {pricingMode !== 'itemized' && (
                 <div className="mb-4 p-4 rounded-xl bg-surface-sunken border border-border-subtle">
-                  <FieldGroup label={pricingMode === 'total' ? '합계금액 (VAT 포함)' : '공급가액 (VAT 제외)'}>
+                  <FieldGroup label={
+                    pricingMode === 'total'      ? '합계금액 (VAT 포함)'
+                    : pricingMode === 'tax_exempt' ? '합계금액 (면세 · VAT 없음)'
+                    : '공급가액 (VAT 제외)'
+                  }>
                     <div className="flex items-center gap-2">
                       <Input type="number" value={directAmount || ''} min={0}
                         onChange={e => setDirectAmount(Number(e.target.value))}
@@ -1372,7 +1398,7 @@ export default function QuotesPage() {
                 <div className="flex items-center gap-2 mb-2">
                   <span className="text-xs font-semibold text-text-primary">할인</span>
                   <span className="text-[11px] text-text-tertiary">
-                    기준: {pricingMode === 'total' ? '총액' : '공급가액'} {fmtKr(discountBase)}원
+                    기준: {(pricingMode === 'total' || pricingMode === 'tax_exempt') ? '총액' : '공급가액'} {fmtKr(discountBase)}원
                   </span>
                 </div>
                 <div className="flex gap-1 bg-surface rounded-md p-0.5 border border-border-subtle mb-2">
@@ -1470,10 +1496,10 @@ export default function QuotesPage() {
                   <>
                     <div className="flex justify-between items-center text-sm">
                       <span className="text-text-tertiary">
-                        {pricingMode === 'total' ? '합계 (할인 전)' : '공급가액 (할인 전)'}
+                        {(pricingMode === 'total' || pricingMode === 'tax_exempt') ? '합계 (할인 전)' : '공급가액 (할인 전)'}
                       </span>
                       <span className="tabular-nums text-text-tertiary line-through">
-                        {fmtKr(pricingMode === 'total' ? origTotal : origSupply)}원
+                        {fmtKr((pricingMode === 'total' || pricingMode === 'tax_exempt') ? origTotal : origSupply)}원
                       </span>
                     </div>
                     <div className="flex justify-between items-center text-sm">
@@ -1491,13 +1517,20 @@ export default function QuotesPage() {
                   </div>
                 )}
                 <div className="flex justify-between items-center text-sm">
-                  <span className="text-text-secondary">공급가액</span>
+                  <span className="text-text-secondary">{pricingMode === 'tax_exempt' ? '금액 (면세)' : '공급가액'}</span>
                   <span className="tabular-nums font-medium text-text-primary">{fmtKr(supplyAmount)}원</span>
                 </div>
-                <div className="flex justify-between items-center text-sm">
-                  <span className="text-text-secondary">부가세 (10%)</span>
-                  <span className="tabular-nums text-text-secondary">{fmtKr(vatAmount)}원</span>
-                </div>
+                {pricingMode === 'tax_exempt' ? (
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="text-text-secondary">부가세</span>
+                    <span className="text-text-tertiary">면세</span>
+                  </div>
+                ) : (
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="text-text-secondary">부가세 (10%)</span>
+                    <span className="tabular-nums text-text-secondary">{fmtKr(vatAmount)}원</span>
+                  </div>
+                )}
                 <div className="h-px bg-border-subtle my-1" />
                 <div className="flex justify-between items-center">
                   <span className="text-base font-semibold text-text-primary">합  계</span>
