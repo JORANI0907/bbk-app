@@ -581,8 +581,9 @@ export function CustomersManagementView({
   // Phase 27: 뷰 모드 (리스트/캘린더) + 캘린더에서 선택된 회차 focus
   const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list')
   const [calendarFocus, setCalendarFocus] = useState<{ appId: string; month: string } | null>(null)
-  // Phase 27-E: 이번주·이번달 매출 요약 (리스트/캘린더 무관하게 상단 배지)
-  const [revenueSummary, setRevenueSummary] = useState<{ week: number; month: number }>({ week: 0, month: 0 })
+  // Phase 27-E: 이번주·이번달 매출 요약 + 주별 breakdown (리스트/캘린더 무관하게 상단 배지)
+  interface WeekBreakdown { label: string; amount: number; isCurrent: boolean }
+  const [revenueSummary, setRevenueSummary] = useState<{ week: number; month: number; weeks: WeekBreakdown[] }>({ week: 0, month: 0, weeks: [] })
   const [form, setForm] = useState<typeof EMPTY_FORM>(EMPTY_FORM)
   const [saving, setSaving] = useState(false)
   const [notifyType, setNotifyType] = useState('')
@@ -672,23 +673,38 @@ export function CustomersManagementView({
     setLoading(false)
   }, [archivedView])
 
-  // Phase 27-E: 이번달 매출 fetch + 이번주 슬라이스 계산 (뷰 모드 무관)
+  // Phase 27-E: 이번달 매출 fetch + 이번주 슬라이스 + 이번달 주별 breakdown (뷰 모드 무관)
   useEffect(() => {
     if (archivedView || forceCustomerType) return
     const now = new Date()
     const y = now.getFullYear()
     const m = now.getMonth() + 1
     const monthStr = `${y}-${String(m).padStart(2, '0')}`
-    // 이번주 범위: 월요일 0시 ~ 다음 월요일 (Mon-Sun 기준)
+    const pad = (n: number) => String(n).padStart(2, '0')
+    const toIso = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+
+    // 이번주 범위 (월요일 기준)
     const today = new Date(y, now.getMonth(), now.getDate())
-    const dow = today.getDay() // 0=일, 1=월 ...
+    const dow = today.getDay()
     const daysFromMon = dow === 0 ? 6 : dow - 1
-    const weekStart = new Date(today)
-    weekStart.setDate(today.getDate() - daysFromMon)
-    const weekEnd = new Date(weekStart)
-    weekEnd.setDate(weekStart.getDate() + 7)
-    const wsIso = `${weekStart.getFullYear()}-${String(weekStart.getMonth() + 1).padStart(2, '0')}-${String(weekStart.getDate()).padStart(2, '0')}`
-    const weIso = `${weekEnd.getFullYear()}-${String(weekEnd.getMonth() + 1).padStart(2, '0')}-${String(weekEnd.getDate()).padStart(2, '0')}`
+    const thisWeekStart = new Date(today); thisWeekStart.setDate(today.getDate() - daysFromMon)
+    const thisWeekEnd = new Date(thisWeekStart); thisWeekEnd.setDate(thisWeekStart.getDate() + 7)
+    const wsIso = toIso(thisWeekStart)
+    const weIso = toIso(thisWeekEnd)
+
+    // 이번달의 모든 주 범위 산출 (달력 주 기준: 월요일~일요일, 이번달 날짜 포함하는 주 모두)
+    const monthStartDate = new Date(y, now.getMonth(), 1)
+    const monthEndDate = new Date(y, now.getMonth() + 1, 0)
+    const firstDow = monthStartDate.getDay()
+    const firstMonOffset = firstDow === 0 ? -6 : 1 - firstDow // 1일 기준 이번 주 월요일 오프셋
+    const weekRanges: Array<{ start: Date; end: Date }> = []
+    const cursor = new Date(monthStartDate); cursor.setDate(monthStartDate.getDate() + firstMonOffset)
+    while (cursor <= monthEndDate) {
+      const start = new Date(cursor)
+      const end = new Date(cursor); end.setDate(cursor.getDate() + 6)
+      weekRanges.push({ start, end })
+      cursor.setDate(cursor.getDate() + 7)
+    }
 
     fetch(`/api/admin/applications?month=${monthStr}`)
       .then(r => r.json())
@@ -702,17 +718,33 @@ export function CustomersManagementView({
         }>
         let monthSum = 0
         let weekSum = 0
+        const perWeek = weekRanges.map(() => 0)
         for (const a of apps) {
           const amt = computeAppAmount(a)
-          if (amt <= 0) continue
+          if (amt <= 0 || !a.construction_date) continue
+          const d = a.construction_date.slice(0, 10)
           monthSum += amt
-          if (a.construction_date && a.construction_date >= wsIso && a.construction_date < weIso) {
-            weekSum += amt
+          if (d >= wsIso && d < weIso) weekSum += amt
+          for (let i = 0; i < weekRanges.length; i++) {
+            const r = weekRanges[i]
+            if (d >= toIso(r.start) && d <= toIso(r.end)) {
+              perWeek[i] += amt
+              break
+            }
           }
         }
-        setRevenueSummary({ week: weekSum, month: monthSum })
+        // WeekBreakdown 배열 (이번달 범위 안의 날짜만 라벨에 표시)
+        const weeks: WeekBreakdown[] = weekRanges.map((r, i) => {
+          // 라벨: 이번달 안의 시작일~종료일 (달 벗어나면 clamp)
+          const s = r.start < monthStartDate ? monthStartDate : r.start
+          const e = r.end > monthEndDate ? monthEndDate : r.end
+          const label = `${s.getMonth() + 1}.${s.getDate()} ~ ${e.getMonth() + 1}.${e.getDate()}`
+          const isCurrent = wsIso >= toIso(r.start) && wsIso <= toIso(r.end)
+          return { label, amount: perWeek[i], isCurrent }
+        })
+        setRevenueSummary({ week: weekSum, month: monthSum, weeks })
       })
-      .catch(() => setRevenueSummary({ week: 0, month: 0 }))
+      .catch(() => setRevenueSummary({ week: 0, month: 0, weeks: [] }))
   }, [archivedView, forceCustomerType])
 
   // 케어매뉴얼 편집에서 돌아올 때 ?detail=ID 파라미터로 세부화면 복원
@@ -1821,6 +1853,30 @@ export function CustomersManagementView({
                 </span>
               </div>
             )}
+          </div>
+        )}
+
+        {/* Phase 27-E: 리스트뷰에서 이번달 주별 매출 breakdown (한 줄에 주 카드 나열) */}
+        {viewMode === 'list' && !isWorker && !archivedView && !forceCustomerType && revenueSummary.weeks.length > 0 && (
+          <div className="mb-3 grid gap-1.5" style={{ gridTemplateColumns: `repeat(${revenueSummary.weeks.length}, minmax(0, 1fr))` }}>
+            {revenueSummary.weeks.map((w, i) => (
+              <div key={i}
+                className={`px-2 py-1.5 rounded-md border text-center transition-colors ${
+                  w.isCurrent
+                    ? 'bg-emerald-100 border-emerald-400 shadow-soft'
+                    : w.amount > 0
+                      ? 'bg-emerald-50 border-emerald-200'
+                      : 'bg-surface border-border-subtle'
+                }`}
+              >
+                <p className={`text-[10px] font-medium ${w.isCurrent ? 'text-emerald-900' : 'text-text-tertiary'}`}>
+                  {w.label}
+                </p>
+                <p className={`text-xs font-bold tabular-nums ${w.amount > 0 ? 'text-emerald-800' : 'text-text-tertiary'}`}>
+                  {w.amount > 0 ? fmtAmount(w.amount) : '-'}
+                </p>
+              </div>
+            ))}
           </div>
         )}
 
