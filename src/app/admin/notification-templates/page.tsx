@@ -345,47 +345,22 @@ export default function NotificationTemplatesPage() {
                         <p className="text-sm font-semibold text-text-primary">{t.title}</p>
                         <p className="text-[11px] text-text-tertiary truncate mt-0.5">{t.code}</p>
                       </div>
-                      {/* Phase 27-S 5-b: 자동 template 만 토글, 반자동/미배선은 뱃지 */}
-                      {(() => {
-                        const kind = classifyTrigger(t.code)
-                        if (kind === 'auto') {
-                          return (
-                            <label
-                              onClick={e => e.stopPropagation()}
-                              className="shrink-0 cursor-pointer mt-1"
-                              title={t.auto_used ? '자동 발송 끄기' : '자동 발송 켜기'}
-                            >
-                              <input
-                                type="checkbox"
-                                checked={t.auto_used}
-                                onChange={e => handleToggleAutoUsed(t.id, e.target.checked)}
-                                className="sr-only peer"
-                              />
-                              <div className="relative w-8 h-4 bg-gray-300 rounded-full peer-checked:bg-amber-500 transition-colors">
-                                <div className="absolute top-0.5 left-0.5 w-3 h-3 bg-white rounded-full shadow-sm transition-transform peer-checked:translate-x-4" />
-                              </div>
-                            </label>
-                          )
-                        }
-                        if (kind === 'semi_auto') {
-                          return (
-                            <span
-                              className="shrink-0 text-[10px] px-1.5 py-0.5 rounded font-semibold bg-blue-100 text-blue-700 leading-tight mt-0.5"
-                              title="관리자가 상세 화면에서 [알림발송] 버튼 클릭 시 발송"
-                            >
-                              👆 클릭
-                            </span>
-                          )
-                        }
-                        return (
-                          <span
-                            className="shrink-0 text-[10px] px-1.5 py-0.5 rounded font-semibold bg-gray-100 text-gray-500 leading-tight mt-0.5"
-                            title="아직 자동 발송 트리거가 구현되지 않음"
-                          >
-                            ⚠️ 미배선
-                          </span>
-                        )
-                      })()}
+                      {/* Phase 27-S 5-d: 모든 template 통일 — 자동 토글 항상 노출 */}
+                      <label
+                        onClick={e => e.stopPropagation()}
+                        className="shrink-0 cursor-pointer mt-1"
+                        title={t.auto_used ? '자동 발송 끄기' : '자동 발송 켜기'}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={t.auto_used}
+                          onChange={e => handleToggleAutoUsed(t.id, e.target.checked)}
+                          className="sr-only peer"
+                        />
+                        <div className="relative w-8 h-4 bg-gray-300 rounded-full peer-checked:bg-amber-500 transition-colors">
+                          <div className="absolute top-0.5 left-0.5 w-3 h-3 bg-white rounded-full shadow-sm transition-transform peer-checked:translate-x-4" />
+                        </div>
+                      </label>
                     </div>
                   </button>
                 )
@@ -417,17 +392,38 @@ export default function NotificationTemplatesPage() {
                     className="text-lg font-bold text-text-primary bg-transparent border-none focus:outline-none focus:ring-2 focus:ring-brand-500 rounded px-1 w-full"
                   />
                 </div>
-                <div className="flex items-center gap-3">
-                  {/* Phase 27-S 5-b: 자동/반자동/미배선 조건부 렌더링 */}
+                <div className="flex items-center gap-2">
+                  {/* Phase 27-S 5-d: 모든 template 통일 — 자물쇠 + 자동 토글 + 활성 3종 세트.
+                      발송 방식(자동/반자동/미배선) 은 아래 안내 카드 trigger_desc 에서 안내. */}
                   {(() => {
-                    const kind = classifyTrigger(selected.code)
-                    // Phase 27-S 5-c: auto_used=true 시 자물쇠로 자동 토글도 잠금 (실수 방지)
+                    // 자물쇠 잠금: auto_used=true 이면 활성·자동 토글 둘 다 잠금 (실수 방지)
                     const locked = selected.auto_used && !unlockedIds.has(selected.id)
-                    if (kind === 'auto') {
-                      return (
+                    return (
+                      <>
+                        {/* 자물쇠 (auto_used=true 인 경우에만 노출) */}
+                        {selected.auto_used && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setUnlockedIds(prev => {
+                                const next = new Set(prev)
+                                if (next.has(selected.id)) next.delete(selected.id)
+                                else next.add(selected.id)
+                                return next
+                              })
+                            }}
+                            title={locked ? '잠금 해제하고 활성·자동 스위치 편집' : '다시 잠금'}
+                            className={`text-sm w-6 h-6 flex items-center justify-center rounded transition-colors ${
+                              locked ? 'text-amber-600 hover:bg-amber-100' : 'text-brand-600 hover:bg-brand-50'
+                            }`}
+                          >
+                            {locked ? '🔒' : '🔓'}
+                          </button>
+                        )}
+                        {/* 자동 토글 */}
                         <label
                           className={`flex items-center gap-1.5 text-xs ${locked ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
-                          title={locked ? '🔒 잠금 상태 — 자물쇠 해제 후 편집' : (selected.auto_used ? '자동 발송 끄기' : '자동 발송 켜기')}
+                          title={locked ? '🔒 잠금 상태' : (selected.auto_used ? '자동 발송 끄기' : '자동 발송 켜기')}
                         >
                           <input
                             type="checkbox"
@@ -443,62 +439,23 @@ export default function NotificationTemplatesPage() {
                             {selected.auto_used ? '⚡자동' : '자동'}
                           </span>
                         </label>
-                      )
-                    }
-                    if (kind === 'semi_auto') {
-                      return (
-                        <span
-                          className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-md font-semibold bg-blue-100 text-blue-700"
-                          title="관리자가 상세 화면에서 [알림발송] 버튼 클릭 시 발송"
-                        >
-                          👆 반자동 (관리자 클릭)
-                        </span>
-                      )
-                    }
-                    return (
-                      <span
-                        className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-md font-semibold bg-gray-100 text-gray-500"
-                        title="아직 자동 발송 트리거가 구현되지 않음"
-                      >
-                        ⚠️ 미배선
-                      </span>
+                      </>
                     )
                   })()}
                   {(() => {
-                    // Phase 27-S 5-c: 자동 template 은 자물쇠 클릭 후 활성 편집 가능
+                    // Phase 27-S 5-d: 활성 체크박스 (자물쇠는 위쪽 자동 토글 옆에 이미 있음, 잠금 상태 공유)
                     const locked = selected.auto_used && !unlockedIds.has(selected.id)
                     return (
-                      <div className="flex items-center gap-1">
-                        {selected.auto_used && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setUnlockedIds(prev => {
-                                const next = new Set(prev)
-                                if (next.has(selected.id)) next.delete(selected.id)
-                                else next.add(selected.id)
-                                return next
-                              })
-                            }}
-                            title={locked ? '잠금 해제 (자동 template 은 활성 편집 잠김)' : '다시 잠금'}
-                            className={`text-sm w-6 h-6 flex items-center justify-center rounded transition-colors ${
-                              locked ? 'text-amber-600 hover:bg-amber-100' : 'text-brand-600 hover:bg-brand-50'
-                            }`}
-                          >
-                            {locked ? '🔒' : '🔓'}
-                          </button>
-                        )}
-                        <label className={`flex items-center gap-1.5 text-xs ${locked ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}>
-                          <input
-                            type="checkbox"
-                            checked={merged.is_active ?? true}
-                            disabled={locked}
-                            onChange={e => setBuffer(prev => ({ ...prev, is_active: e.target.checked }))}
-                            className="accent-brand-600"
-                          />
-                          활성
-                        </label>
-                      </div>
+                      <label className={`flex items-center gap-1.5 text-xs ${locked ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}>
+                        <input
+                          type="checkbox"
+                          checked={merged.is_active ?? true}
+                          disabled={locked}
+                          onChange={e => setBuffer(prev => ({ ...prev, is_active: e.target.checked }))}
+                          className="accent-brand-600"
+                        />
+                        활성
+                      </label>
                     )
                   })()}
                   {!selected.is_system && !selected.auto_used && (
