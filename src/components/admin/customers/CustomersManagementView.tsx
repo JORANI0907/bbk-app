@@ -14,6 +14,7 @@ import { MonthlyScheduleSection } from '@/components/admin/customers/MonthlySche
 import { PaymentIssuesSummary } from '@/components/admin/customers/PaymentIssuesSummary'
 import { ServiceManagementPage } from '@/components/admin/applications/ServiceManagementView'
 import { CustomersCalendarGrid, type CalendarApp } from '@/components/admin/customers/CustomersCalendarGrid'
+import { computeAppAmount, fmtAmount } from '@/components/admin/customers/calendar-amount'
 
 // ─── 타입 ─────────────────────────────────────────────────────
 type CustomerType = '1회성케어' | '정기딥케어' | '정기엔드케어' | '정기딥케어샘플' | '정기엔드케어샘플' | '일반일정'
@@ -580,6 +581,8 @@ export function CustomersManagementView({
   // Phase 27: 뷰 모드 (리스트/캘린더) + 캘린더에서 선택된 회차 focus
   const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list')
   const [calendarFocus, setCalendarFocus] = useState<{ appId: string; month: string } | null>(null)
+  // Phase 27-E: 이번주·이번달 매출 요약 (리스트/캘린더 무관하게 상단 배지)
+  const [revenueSummary, setRevenueSummary] = useState<{ week: number; month: number }>({ week: 0, month: 0 })
   const [form, setForm] = useState<typeof EMPTY_FORM>(EMPTY_FORM)
   const [saving, setSaving] = useState(false)
   const [notifyType, setNotifyType] = useState('')
@@ -668,6 +671,49 @@ export function CustomersManagementView({
     }
     setLoading(false)
   }, [archivedView])
+
+  // Phase 27-E: 이번달 매출 fetch + 이번주 슬라이스 계산 (뷰 모드 무관)
+  useEffect(() => {
+    if (archivedView || forceCustomerType) return
+    const now = new Date()
+    const y = now.getFullYear()
+    const m = now.getMonth() + 1
+    const monthStr = `${y}-${String(m).padStart(2, '0')}`
+    // 이번주 범위: 월요일 0시 ~ 다음 월요일 (Mon-Sun 기준)
+    const today = new Date(y, now.getMonth(), now.getDate())
+    const dow = today.getDay() // 0=일, 1=월 ...
+    const daysFromMon = dow === 0 ? 6 : dow - 1
+    const weekStart = new Date(today)
+    weekStart.setDate(today.getDate() - daysFromMon)
+    const weekEnd = new Date(weekStart)
+    weekEnd.setDate(weekStart.getDate() + 7)
+    const wsIso = `${weekStart.getFullYear()}-${String(weekStart.getMonth() + 1).padStart(2, '0')}-${String(weekStart.getDate()).padStart(2, '0')}`
+    const weIso = `${weekEnd.getFullYear()}-${String(weekEnd.getMonth() + 1).padStart(2, '0')}-${String(weekEnd.getDate()).padStart(2, '0')}`
+
+    fetch(`/api/admin/applications?month=${monthStr}`)
+      .then(r => r.json())
+      .then(j => {
+        const apps = (j.applications ?? []) as Array<{
+          construction_date: string | null
+          service_type: string | null
+          supply_amount: number | null
+          vat: number | null
+          payment_method: string | null
+        }>
+        let monthSum = 0
+        let weekSum = 0
+        for (const a of apps) {
+          const amt = computeAppAmount(a)
+          if (amt <= 0) continue
+          monthSum += amt
+          if (a.construction_date && a.construction_date >= wsIso && a.construction_date < weIso) {
+            weekSum += amt
+          }
+        }
+        setRevenueSummary({ week: weekSum, month: monthSum })
+      })
+      .catch(() => setRevenueSummary({ week: 0, month: 0 }))
+  }, [archivedView, forceCustomerType])
 
   // 케어매뉴얼 편집에서 돌아올 때 ?detail=ID 파라미터로 세부화면 복원
   useEffect(() => {
@@ -1741,9 +1787,9 @@ export function CustomersManagementView({
           </div>
         )}
 
-        {/* Phase 27: 리스트/캘린더 뷰 토글 (관리자 전용, embed·이력 뷰가 아닐 때만) */}
+        {/* Phase 27: 리스트/캘린더 뷰 토글 + 매출 요약 (관리자 전용, embed·이력 뷰가 아닐 때만) */}
         {!isWorker && !archivedView && !forceCustomerType && (
-          <div className="flex items-center gap-1 mb-3 -mt-1">
+          <div className="flex items-center gap-2 mb-3 -mt-1 flex-wrap">
             <button
               onClick={() => setViewMode('list')}
               className={`text-xs px-3 py-1.5 rounded-md border transition-colors ${
@@ -1764,6 +1810,17 @@ export function CustomersManagementView({
             >
               📅 캘린더
             </button>
+            {/* Phase 27-E: 이번주·이번달 매출 요약 배지 */}
+            {(revenueSummary.week > 0 || revenueSummary.month > 0) && (
+              <div className="ml-auto flex items-center gap-1.5">
+                <span className="text-[11px] px-2 py-1 rounded-md bg-emerald-50 border border-emerald-200 text-emerald-800 font-semibold whitespace-nowrap">
+                  이번주 {fmtAmount(revenueSummary.week)}
+                </span>
+                <span className="text-[11px] px-2 py-1 rounded-md bg-emerald-100 border border-emerald-300 text-emerald-900 font-bold whitespace-nowrap">
+                  이번달 {fmtAmount(revenueSummary.month)}
+                </span>
+              </div>
+            )}
           </div>
         )}
 

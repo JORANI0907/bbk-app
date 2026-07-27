@@ -17,6 +17,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import { ChevronLeft, ChevronRight, Loader2 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { getScheduleToday } from '@/lib/schedule-today'
+import { computeAppAmount, fmtAmount } from './calendar-amount'
 
 // ─── 타입 ─────────────────────────────────────────────────────
 
@@ -29,6 +30,10 @@ export interface CalendarApp {
   status: string | null
   address: string | null
   assigned_to: string | null
+  // Phase 27-E: 금액 계산용 필드
+  supply_amount?: number | null
+  vat?: number | null
+  payment_method?: string | null
 }
 
 interface Props {
@@ -184,6 +189,29 @@ export function CustomersCalendarGrid({ onSelectApp, filterTypes }: Props) {
   for (let i = 0; i < firstDow; i++) cells.push(null)
   for (let d = 1; d <= daysInMonth; d++) cells.push(d)
 
+  // Phase 27-E: 7개씩 주 단위로 배열 분할 (각 주 하단에 합계 라인 삽입 위함)
+  const weeks: (number | null)[][] = []
+  for (let i = 0; i < cells.length; i += 7) {
+    const wk = cells.slice(i, i + 7)
+    while (wk.length < 7) wk.push(null)
+    weeks.push(wk)
+  }
+
+  // Phase 27-E: 금액 매핑 (일자 기준)
+  const dayAmountMap = useMemo(() => {
+    const map: Record<string, number> = {}
+    for (const a of visibleApps) {
+      if (!a.construction_date) continue
+      const d = a.construction_date.slice(0, 10)
+      map[d] = (map[d] ?? 0) + computeAppAmount(a)
+    }
+    return map
+  }, [visibleApps])
+
+  const monthAmount = useMemo(() =>
+    visibleApps.reduce((s, a) => s + computeAppAmount(a), 0)
+  , [visibleApps])
+
   const prevMonth = () => {
     setYm(prev => {
       const d = new Date(prev.year, prev.month - 1, 1)
@@ -251,50 +279,91 @@ export function CustomersCalendarGrid({ onSelectApp, filterTypes }: Props) {
             </div>
           ))}
         </div>
-        <div className="grid grid-cols-7 auto-rows-[5rem] sm:auto-rows-[7rem]">
-          {cells.map((day, i) => {
-            if (!day) {
-              return <div key={`e-${i}`} className="border-r border-b border-border-subtle bg-surface-sunken/40" />
-            }
-            const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
-            const dayApps = dayMap[dateStr] ?? []
-            const isToday = dateStr === todayStr
-            const dow = (firstDow + day - 1) % 7
-            const hasApps = dayApps.length > 0
+        {/* Phase 27-E: 주별 렌더링 — 각 주 하단에 얇은 합계 라인 삽입 */}
+        {weeks.map((week, wIdx) => {
+          // 주 범위 계산 (첫날~마지막날) + 주간 합계
+          const validDays = week.filter((d): d is number => d !== null)
+          const first = validDays[0]
+          const last = validDays[validDays.length - 1]
+          const weekAmount = validDays.reduce((sum, d) => {
+            const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`
+            return sum + (dayAmountMap[dateStr] ?? 0)
+          }, 0)
+          const rangeLabel = first && last
+            ? `${month + 1}.${first} ~ ${month + 1}.${last}`
+            : ''
 
-            return (
-              <div
-                key={day}
-                onClick={() => hasApps && setModalDate(dateStr)}
-                className={`border-r border-b border-border-subtle p-1.5 flex flex-col gap-0.5
-                  ${isToday ? 'bg-brand-50' : (dow === 0 || dow === 6) ? 'bg-surface-sunken/50' : ''}
-                  ${hasApps ? 'cursor-pointer hover:bg-brand-50/40 transition-colors' : ''}`}
-              >
-                <div className={`text-xs font-bold w-6 h-6 flex items-center justify-center rounded-full shrink-0
-                  ${isToday ? 'bg-brand-600 text-white' : dow === 0 ? 'text-red-500' : dow === 6 ? 'text-brand-500' : 'text-text-primary'}`}>
-                  {day}
-                </div>
-                <div className="flex flex-col gap-0.5 overflow-hidden">
-                  {dayApps.slice(0, 3).map(app => {
-                    const bg = TYPE_ROW_BG[app.service_type ?? ''] ?? 'bg-surface-sunken border-border-subtle'
-                    const txt = TYPE_TEXT[app.service_type ?? ''] ?? 'text-text-primary'
-                    return (
-                      <div key={app.id}
-                        className={`px-1.5 py-0.5 rounded-md border ${bg}`}>
-                        <p className={`text-[10px] font-semibold truncate leading-tight ${txt}`}>
-                          {app.business_name}
-                        </p>
+          return (
+            <div key={wIdx}>
+              <div className="grid grid-cols-7 auto-rows-[5rem] sm:auto-rows-[7rem]">
+                {week.map((day, i) => {
+                  if (!day) {
+                    return <div key={`e-${wIdx}-${i}`} className="border-r border-b border-border-subtle bg-surface-sunken/40" />
+                  }
+                  const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+                  const dayApps = dayMap[dateStr] ?? []
+                  const dayAmount = dayAmountMap[dateStr] ?? 0
+                  const isToday = dateStr === todayStr
+                  const dow = i
+                  const hasApps = dayApps.length > 0
+
+                  return (
+                    <div
+                      key={day}
+                      onClick={() => hasApps && setModalDate(dateStr)}
+                      className={`border-r border-b border-border-subtle p-1.5 flex flex-col gap-0.5
+                        ${isToday ? 'bg-brand-50' : (dow === 0 || dow === 6) ? 'bg-surface-sunken/50' : ''}
+                        ${hasApps ? 'cursor-pointer hover:bg-brand-50/40 transition-colors' : ''}`}
+                    >
+                      <div className="flex items-center justify-between gap-1">
+                        <div className={`text-xs font-bold w-6 h-6 flex items-center justify-center rounded-full shrink-0
+                          ${isToday ? 'bg-brand-600 text-white' : dow === 0 ? 'text-red-500' : dow === 6 ? 'text-brand-500' : 'text-text-primary'}`}>
+                          {day}
+                        </div>
+                        {dayAmount > 0 && (
+                          <span className="text-[9px] font-semibold text-emerald-700 leading-tight whitespace-nowrap truncate">
+                            {dayAmount.toLocaleString('ko-KR')}
+                          </span>
+                        )}
                       </div>
-                    )
-                  })}
-                  {dayApps.length > 3 && (
-                    <div className="text-[10px] text-text-tertiary px-1 font-medium">+{dayApps.length - 3}건</div>
-                  )}
-                </div>
+                      <div className="flex flex-col gap-0.5 overflow-hidden">
+                        {dayApps.slice(0, 3).map(app => {
+                          const bg = TYPE_ROW_BG[app.service_type ?? ''] ?? 'bg-surface-sunken border-border-subtle'
+                          const txt = TYPE_TEXT[app.service_type ?? ''] ?? 'text-text-primary'
+                          return (
+                            <div key={app.id}
+                              className={`px-1.5 py-0.5 rounded-md border ${bg}`}>
+                              <p className={`text-[10px] font-semibold truncate leading-tight ${txt}`}>
+                                {app.business_name}
+                              </p>
+                            </div>
+                          )
+                        })}
+                        {dayApps.length > 3 && (
+                          <div className="text-[10px] text-text-tertiary px-1 font-medium">+{dayApps.length - 3}건</div>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })}
               </div>
-            )
-          })}
-        </div>
+              {weekAmount > 0 && (
+                <div className="flex items-center justify-end px-3 py-1 border-b border-border-subtle bg-emerald-50/60">
+                  <span className="text-[11px] font-semibold text-emerald-700">
+                    {rangeLabel} · 총액 {fmtAmount(weekAmount)}
+                  </span>
+                </div>
+              )}
+            </div>
+          )
+        })}
+        {/* 월간 총액 (푸터) */}
+        {monthAmount > 0 && (
+          <div className="flex justify-between items-center px-4 py-3 border-t border-border bg-emerald-50">
+            <span className="text-sm font-bold text-emerald-800">{year}년 {month + 1}월 총액</span>
+            <span className="text-sm font-bold text-emerald-700">{fmtAmount(monthAmount)}</span>
+          </div>
+        )}
       </div>
 
       {/* 일자별 모달 — 여러 건일 때 개별 선택 */}
