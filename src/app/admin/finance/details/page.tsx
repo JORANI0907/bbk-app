@@ -456,9 +456,15 @@ export default function FinancePage() {
     )
   }
 
+  // Phase 23-b: '정기딥케어(연간)' 필터 선택 시 진행중 라벨('정기딥케어(연간·진행중)')도 포함
   const filteredRevenue = !data ? [] : selectedTypes.length === 0
     ? data.revenue.items
-    : data.revenue.items.filter(item => selectedTypes.includes(item.service_type ?? ''))
+    : data.revenue.items.filter(item => {
+        const t = item.service_type ?? ''
+        if (selectedTypes.includes(t)) return true
+        if (selectedTypes.includes('정기딥케어(연간)') && t === '정기딥케어(연간·진행중)') return true
+        return false
+      })
 
   // 금액 정렬 적용 (none = 기본순서 유지)
   const sortedRevenue = revenueSort === 'none'

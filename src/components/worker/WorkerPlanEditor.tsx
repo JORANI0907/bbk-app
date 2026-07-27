@@ -13,6 +13,9 @@ interface Props {
   initialNote: string | null
   onSave: (payload: PlanEditorPayload) => Promise<void>
   disabled?: boolean
+  /** Phase 24: 헤더 타이틀 커스텀 (관리자 뷰=담당자 계획, 워커 뷰=내 계획) */
+  title?: string
+  subtitle?: string
 }
 
 type SaveState = 'idle' | 'saving' | 'saved' | 'error'
@@ -38,6 +41,8 @@ export function WorkerPlanEditor({
   initialNote,
   onSave,
   disabled = false,
+  title = '내 계획',
+  subtitle = '출발 시각',
 }: Props) {
   const initial = parseTime(initialDeparture)
   const [hour, setHour] = useState(initial.hh)
@@ -92,22 +97,22 @@ export function WorkerPlanEditor({
 
   return (
     <div
-      className={`rounded-2xl border p-4 transition-colors ${
+      className={`rounded-2xl border-2 p-5 transition-colors ${
         disabled
           ? 'bg-surface-sunken border-border-subtle opacity-70'
-          : 'bg-brand-50/50 border-brand-100'
+          : 'bg-gradient-to-br from-brand-50 to-sky-50 border-brand-200'
       }`}
     >
-      {/* 헤더 */}
-      <div className="flex items-center justify-between mb-3">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-brand-100 flex items-center justify-center">
-            <Clock size={16} className="text-brand-700" />
+      {/* Phase 24: 헤더 리디자인 — 아이콘 크기 확대, 타이틀 톤 강조 */}
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-brand-600 flex items-center justify-center shadow-sm">
+            <Clock size={18} className="text-white" />
           </div>
           <div>
-            <p className="text-sm font-semibold text-text-primary leading-tight">내 계획</p>
-            <p className="text-xs text-text-tertiary leading-tight mt-0.5">
-              출발 시각
+            <p className="text-base font-bold text-text-primary leading-tight">{title}</p>
+            <p className="text-xs text-text-secondary leading-tight mt-1">
+              {subtitle}
             </p>
           </div>
         </div>
@@ -121,7 +126,7 @@ export function WorkerPlanEditor({
             value={hour}
             disabled={disabled}
             onChange={(e) => setHour(e.target.value)}
-            className="flex-1 rounded-md border border-border bg-surface px-3 py-2 text-base font-semibold text-text-primary leading-normal focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 disabled:bg-surface-sunken"
+            className="flex-1 rounded-lg border border-brand-200 bg-white px-3 py-2.5 text-base font-bold text-text-primary leading-normal focus:outline-none focus:ring-2 focus:ring-brand-500/40 focus:border-brand-500 disabled:bg-surface-sunken transition-shadow shadow-sm hover:shadow"
             style={{ fontVariantNumeric: 'tabular-nums' }}
           >
             <option value="">시</option>
@@ -129,12 +134,12 @@ export function WorkerPlanEditor({
               <option key={h} value={h}>{h}시</option>
             ))}
           </select>
-          <span className="text-text-tertiary font-bold">:</span>
+          <span className="text-brand-500 font-bold text-lg">:</span>
           <select
             value={minute}
             disabled={disabled}
             onChange={(e) => setMinute(e.target.value)}
-            className="flex-1 rounded-md border border-border bg-surface px-3 py-2 text-base font-semibold text-text-primary leading-normal focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 disabled:bg-surface-sunken"
+            className="flex-1 rounded-lg border border-brand-200 bg-white px-3 py-2.5 text-base font-bold text-text-primary leading-normal focus:outline-none focus:ring-2 focus:ring-brand-500/40 focus:border-brand-500 disabled:bg-surface-sunken transition-shadow shadow-sm hover:shadow"
             style={{ fontVariantNumeric: 'tabular-nums' }}
           >
             <option value="">분</option>
@@ -147,14 +152,14 @@ export function WorkerPlanEditor({
               type="button"
               onClick={() => { setHour(''); setMinute('') }}
               disabled={disabled}
-              className="text-xs text-text-tertiary hover:text-text-secondary px-2 py-1 rounded-md hover:bg-surface-sunken transition-colors disabled:opacity-40 shrink-0"
+              className="text-xs text-text-tertiary hover:text-text-primary px-2.5 py-1.5 rounded-lg hover:bg-white/60 transition-colors disabled:opacity-40 shrink-0"
             >
               지우기
             </button>
           )}
         </div>
-        <p className="text-[11px] text-text-tertiary mt-1.5 leading-normal">
-          24시간 형식 (00시 ~ 23시) · 분은 10분 단위
+        <p className="text-[11px] text-text-tertiary mt-2 leading-normal px-1">
+          24시간 형식 · 분은 10분 단위
         </p>
       </div>
 

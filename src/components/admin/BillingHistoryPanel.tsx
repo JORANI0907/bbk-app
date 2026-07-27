@@ -55,19 +55,21 @@ function calcAllPeriods(
   const day = paymentDay ?? 25
   const results: Array<{ billing_type: 'monthly' | 'annual'; billing_period: string; due_date: string; amount: number }> = []
 
-  if (customerType === '정기딥케어' && billingCycle === '연간') {
+  // Phase 22 v9: 정기딥/정기엔드 모두 billing_cycle 기준으로 월간/연간 판별
+  const isAnnual = billingCycle === '연간'
+
+  if (isAnnual) {
     const startYear = start.getFullYear()
     const endYear = end.getFullYear()
     for (let y = startYear; y <= endYear; y++) {
-      // 마지막 연도는 contract_end_date, 나머지는 해당 연도 12월 31일
       const isLastYear = y === endYear
       const dueDate = isLastYear && contractEndDate
         ? contractEndDate.slice(0, 10)
         : `${y}-12-31`
       results.push({ billing_type: 'annual', billing_period: String(y), due_date: dueDate, amount: billingAmount })
     }
-  } else if (customerType === '정기엔드케어') {
-    // 시작월부터 종료월까지 월별 생성
+  } else {
+    // 월간: 시작월부터 종료월까지 월별 생성
     const cursor = new Date(start.getFullYear(), start.getMonth(), 1)
     const endCursor = new Date(end.getFullYear(), end.getMonth(), 1)
     while (cursor <= endCursor) {
@@ -94,6 +96,8 @@ export function BillingHistoryPanel({
   const [markingId, setMarkingId] = useState<string | null>(null)
   const [paidDate, setPaidDate] = useState(new Date().toISOString().slice(0, 10))
   const [autoGenerating, setAutoGenerating] = useState(false)
+  // Phase 22: 기본은 이번달(월간)/올해(연간)만 노출, 토글로 전체 보기
+  const [expanded, setExpanded] = useState(false)
 
   // 신규 청구 폼
   const [newPeriod, setNewPeriod] = useState('')
@@ -102,8 +106,9 @@ export function BillingHistoryPanel({
   const [newNotes, setNewNotes] = useState('')
   const [saving, setSaving] = useState(false)
 
-  const isAnnual = customerType === '정기딥케어' && billingCycle === '연간'
-  const isEndCare = customerType === '정기엔드케어'
+  // Phase 22 v9: 유형 관계없이 billing_cycle 기준으로 월간/연간 판별
+  const isAnnual = billingCycle === '연간'
+  const isRegular = customerType === '정기딥케어' || customerType === '정기엔드케어'
 
   const fetchBillings = useCallback(async () => {
     setLoading(true)
@@ -289,7 +294,7 @@ export function BillingHistoryPanel({
     }
   }
 
-  if (!isAnnual && !isEndCare) return null
+  if (!isRegular || !billingCycle) return null
 
   // 계약 기간 기준 미생성 건수 계산
   const allPeriods = calcAllPeriods(
@@ -304,11 +309,29 @@ export function BillingHistoryPanel({
   const periodPlaceholder = isAnnual ? '예: 2026' : '예: 2026-04'
   const periodHint = isAnnual ? '연도 (예: 2026)' : '연-월 (예: 2026-04)'
 
+  // Phase 22: 기본 표시 기간 (연간=올해, 월간=이번달)
+  const now = new Date()
+  const currentYear = String(now.getFullYear())
+  const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+  const currentKey = isAnnual ? currentYear : currentMonth
+  const currentLabel = isAnnual ? '올해' : '이번달'
+  const visibleBillings = expanded ? billings : billings.filter(b => b.billing_period === currentKey)
+  const hiddenCount = billings.length - visibleBillings.length
+
   return (
     <div className="border border-gray-100 rounded-xl overflow-hidden">
       <div className={`flex items-center justify-between px-4 py-2.5 border-b ${headerBg}`}>
         <p className="text-xs font-semibold text-gray-600">{typeLabel}</p>
         <div className="flex items-center gap-1.5">
+          {/* Phase 22: 전체보기 토글 (숨겨진 건이 있거나 이미 확장된 경우만) */}
+          {billings.length > 0 && (hiddenCount > 0 || expanded) && (
+            <button
+              onClick={() => setExpanded(v => !v)}
+              className="px-2.5 py-1 text-xs font-medium rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 transition-colors whitespace-nowrap"
+            >
+              {expanded ? '접기 ▲' : `전체 보기 (${billings.length}건) ▼`}
+            </button>
+          )}
           {/* 계약기간 자동 생성 버튼 */}
           {missingCount > 0 && contractStartDate && billingAmount && (
             <button
@@ -396,8 +419,12 @@ export function BillingHistoryPanel({
           <p className="text-xs text-gray-400 p-4 text-center">불러오는 중...</p>
         ) : billings.length === 0 ? (
           <p className="text-xs text-gray-400 p-4 text-center">청구 내역이 없습니다.</p>
+        ) : visibleBillings.length === 0 ? (
+          <p className="text-xs text-gray-400 p-4 text-center">
+            {currentLabel} 내역이 없습니다. 상단 &quot;전체 보기&quot;로 이전 내역을 확인하세요.
+          </p>
         ) : (
-          billings.map(b => (
+          visibleBillings.map(b => (
             <div key={b.id} className="p-3 space-y-1.5">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2 flex-wrap">

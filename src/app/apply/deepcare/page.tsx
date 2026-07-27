@@ -48,6 +48,7 @@ export default function DeepcaredPage() {
   }
 
   function buildCareScope() {
+    // Phase 16: 줄바꿈 + 하이픈으로 구분 (기존 '/'·'|' → '\n- ')
     const parts: string[] = []
     if (businessTypes.length) {
       const labels = businessTypes.map(t =>
@@ -64,14 +65,15 @@ export default function DeepcaredPage() {
           return acc
         }, {}
       )
-      const categoryStr = Object.entries(byCategory)
-        .map(([cat, items]) => `[${cat}] ${items.join(', ')}`)
-        .join(' / ')
-      const customStr = customItem.trim() ? `[직접입력] ${customItem.trim()}` : ''
-      parts.push(`품목: ${[categoryStr, customStr].filter(Boolean).join(' / ')}`)
+      const categoryLines = Object.entries(byCategory)
+        .map(([cat, items]) => `- [${cat}] ${items.join(', ')}`)
+      if (customItem.trim()) categoryLines.push(`- [직접입력] ${customItem.trim()}`)
+      if (categoryLines.length) {
+        parts.push(`품목:\n${categoryLines.join('\n')}`)
+      }
     }
     if (freqCount) parts.push(`방문주기: ${freqUnit} ${freqCount}`)
-    return parts.join(' | ')
+    return parts.join('\n')
   }
 
   async function handleSubmit() {

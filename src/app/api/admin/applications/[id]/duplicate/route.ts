@@ -34,6 +34,8 @@ export async function POST(
   const duplicate: Record<string, unknown> = {
     ...rest,
     status: '신규',
+    progress_status: '신청서작성', // Phase 8-C
+    payment_status_detail: null,   // Phase 8-C: 복제 시 결제 이력 리셋
     work_status: 'pending',
     gcal_event_id: null,
     work_started_at: null,

@@ -31,6 +31,7 @@ export async function POST(request: NextRequest) {
         care_scope: care_scope || null,
         request_notes: request_notes || null,
         status: '신규',
+        progress_status: '신청서작성', // Phase 8-C
       })
       .select()
       .single()

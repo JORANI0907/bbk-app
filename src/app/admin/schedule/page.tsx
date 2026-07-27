@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
+import { useRouter } from 'next/navigation'
 import toast from 'react-hot-toast'
 
 import { WorkPanel } from '@/components/admin/WorkPanel'
@@ -49,6 +50,9 @@ interface Application {
   work_status: string | null
   work_started_at: string | null
   work_completed_at: string | null
+  // Phase 1: 상태 분리
+  payment_status: string | null
+  completed_at: string | null
   customer_memo: string | null
   internal_memo: string | null
   notification_send_at: string | null
@@ -57,6 +61,9 @@ interface Application {
   condition_score: number | null
   worker_planned_departure: string | null
   worker_plan_note: string | null
+  // Phase 11: 진행/결제 상태 이원화
+  progress_status: string | null
+  payment_status_detail: string | null
 }
 
 interface User { id: string; name: string; role: string }
@@ -116,14 +123,89 @@ const STATUS_CONFIG: Record<string, { badge: string; dot: string }> = {
   '거절':     { badge: 'bg-state-danger-bg text-state-danger', dot: 'bg-red-500' },
 }
 
+// Phase 1: 작업상태 뱃지 (파란 계열)
+const WORK_STATUS_CONFIG: Record<string, { label: string; badge: string; dot: string }> = {
+  'not_started': { label: '예정',   badge: 'bg-blue-50 text-blue-600 border border-blue-100', dot: 'bg-blue-400' },
+  'in_progress': { label: '진행중', badge: 'bg-blue-100 text-blue-700 border border-blue-200', dot: 'bg-blue-500 animate-pulse' },
+  'completed':   { label: '완료',   badge: 'bg-sky-100 text-sky-700 border border-sky-200', dot: 'bg-sky-600' },
+}
+
+// Phase 1: 결제상태 뱃지 (초록/주황 계열)
+const PAYMENT_STATUS_CONFIG: Record<string, { label: string; badge: string; dot: string }> = {
+  'pending':  { label: '미청구',   badge: 'bg-gray-50 text-gray-600 border border-gray-200', dot: 'bg-gray-400' },
+  'invoiced': { label: '청구완료', badge: 'bg-orange-50 text-orange-700 border border-orange-200', dot: 'bg-orange-500' },
+  'paid':     { label: '입금완료', badge: 'bg-emerald-50 text-emerald-700 border border-emerald-200', dot: 'bg-emerald-500' },
+  'overdue':  { label: '연체',     badge: 'bg-red-50 text-red-700 border border-red-200', dot: 'bg-red-500' },
+}
+
+function workStatusCfg(v: string | null) {
+  return WORK_STATUS_CONFIG[v ?? 'not_started'] ?? WORK_STATUS_CONFIG['not_started']
+}
+
+function paymentStatusCfg(v: string | null) {
+  return PAYMENT_STATUS_CONFIG[v ?? 'pending'] ?? PAYMENT_STATUS_CONFIG['pending']
+}
+
+/** 작업상태 + 결제상태 이중 뱃지 (신청상태와 별개) */
+function StatusBadges({ app, size = 'sm' }: { app: Application; size?: 'xs' | 'sm' }) {
+  const work = workStatusCfg(app.work_status)
+  const pay = paymentStatusCfg(app.payment_status)
+  const pad = size === 'xs' ? 'px-1.5 py-0.5 text-[10px]' : 'px-2 py-0.5 text-xs'
+  return (
+    <div className="flex items-center gap-1 flex-wrap">
+      <span className={`inline-flex items-center gap-1 rounded-full font-medium ${pad} ${work.badge}`}>
+        <span className={`w-1.5 h-1.5 rounded-full ${work.dot}`} />
+        {work.label}
+      </span>
+      <span className={`inline-flex items-center gap-1 rounded-full font-medium ${pad} ${pay.badge}`}>
+        <span className={`w-1.5 h-1.5 rounded-full ${pay.dot}`} />
+        {pay.label}
+      </span>
+    </div>
+  )
+}
+
 /** 서비스 유형 뱃지 색상 */
 const SERVICE_TYPE_CONFIG: Record<string, string> = {
   '1회성케어':  'bg-surface-sunken text-text-primary',
   '정기딥케어': 'bg-brand-100 text-brand-700',
   '정기엔드케어': 'bg-purple-100 text-purple-700',
+  '일반일정':   'bg-stone-100 text-stone-700', // Phase 17
 }
 
-const SERVICE_TYPE_OPTIONS = ['전체보기', '1회성케어', '정기딥케어', '정기엔드케어']
+// Phase 11 (v2): 유형 = 행 전체 배경 (구조축 · 가장 강한 신호)
+const SERVICE_TYPE_ROW_BG: Record<string, string> = {
+  '1회성케어':  'bg-slate-50',
+  '정기딥케어': 'bg-brand-50',
+  '정기엔드케어': 'bg-purple-50',
+  '일반일정':   'bg-stone-50', // Phase 17
+}
+
+// Phase 11 (v2): 진행상태 = 좌측 border-l-4 색 (상태축 · 중간 신호)
+const PROGRESS_ROW_BORDER: Record<string, string> = {
+  '신청서작성': 'border-l-gray-400',
+  '예약확정':   'border-l-blue-500',
+  '예약1일전':  'border-l-amber-500',
+  '예약당일':   'border-l-orange-500',
+  '작업완료':   'border-l-emerald-500',
+  '예약취소':   'border-l-red-500',
+  'A/S방문':    'border-l-violet-500',
+  '방문견적':   'border-l-cyan-500',
+}
+
+// Phase 11: 결제상태 = 뱃지 dot (금전축)
+const PAYMENT_STATUS_DOT: Record<string, string> = {
+  '예약금 입금':      'bg-amber-400',
+  '결제':             'bg-orange-500',
+  '결제완료':         'bg-emerald-500',
+  '결제완료(잔금)':   'bg-emerald-600',
+  '계산서발행완료':   'bg-blue-500',
+  '예약금환급완료':   'bg-gray-400',
+  '비과세':           'bg-teal-500',
+  '카드결제 완료':    'bg-indigo-500',
+}
+
+const SERVICE_TYPE_OPTIONS = ['전체보기', '1회성케어', '정기딥케어', '정기엔드케어', '일반일정']
 
 async function fetchSession(): Promise<SessionUser | null> {
   try {
@@ -218,15 +300,24 @@ function DayListPanel({
                 .filter((n): n is string => !!n)
                 .join(' · ')
               const cfg = STATUS_CONFIG[app.status] ?? STATUS_CONFIG['신규']
+              // Phase 24: 유형별 배경색 + 유형 뱃지로 리스트/캘린더와 시각 언어 통일
+              const bg = SERVICE_TYPE_ROW_BG[app.service_type ?? ''] ?? 'bg-surface-sunken'
+              const typeBadge = SERVICE_TYPE_CONFIG[app.service_type ?? ''] ?? 'bg-surface-sunken text-text-primary'
               return (
                 <button key={app.id}
                   onClick={() => { onSelectApp(app); onClose() }}
-                  className="text-left bg-surface-sunken hover:bg-brand-50 border border-border-subtle hover:border-brand-200 rounded-xl p-3 transition-colors"
+                  className={`text-left border border-black/5 hover:brightness-95 rounded-xl p-3 transition-all ${bg}`}
                 >
-                  <div className="flex items-center gap-2 mb-1">
+                  <div className="flex items-center gap-2 mb-1 flex-wrap">
                     <span className={`w-2 h-2 rounded-full shrink-0 ${cfg.dot}`} />
                     <span className="font-semibold text-text-primary text-sm">{app.business_name}</span>
+                    {app.service_type && (
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded-full shrink-0 font-medium ${typeBadge}`}>{app.service_type}</span>
+                    )}
                     <span className={`ml-auto text-[10px] px-2 py-0.5 rounded-full shrink-0 ${cfg.badge}`}>{app.status}</span>
+                  </div>
+                  <div className="ml-4 mb-1">
+                    <StatusBadges app={app} size="xs" />
                   </div>
                   <p className="text-xs text-text-secondary ml-4">{app.owner_name}</p>
                   {app.address && (
@@ -313,12 +404,15 @@ function CalendarGrid({
               <div className="flex flex-col gap-0.5 overflow-hidden">
                 {apps.slice(0, 3).map(app => {
                   const cfg = STATUS_CONFIG[app.status] ?? STATUS_CONFIG['신규']
+                  // Phase 24: 캘린더 뱃지에도 유형별 배경색 반영 (리스트와 동일 SERVICE_TYPE_ROW_BG)
+                  const bg = SERVICE_TYPE_ROW_BG[app.service_type ?? ''] ?? 'bg-indigo-50'
+                  const typeText = SERVICE_TYPE_CONFIG[app.service_type ?? ''] ?? 'text-indigo-800'
                   return (
                     <div key={app.id}
-                      className="px-1 py-0.5 rounded-md bg-indigo-50 border border-indigo-100/80">
+                      className={`px-1 py-0.5 rounded-md border border-black/5 ${bg}`}>
                       <div className="flex items-center gap-1 min-w-0">
                         <span className={`w-1 h-1 rounded-full shrink-0 ${cfg.dot}`} />
-                        <span className="text-[9px] text-indigo-800 font-semibold truncate leading-tight">{app.business_name}</span>
+                        <span className={`text-[9px] font-semibold truncate leading-tight ${typeText.split(' ').find(c => c.startsWith('text-')) ?? 'text-text-primary'}`}>{app.business_name}</span>
                       </div>
                     </div>
                   )
@@ -415,6 +509,9 @@ function DetailPanel({
                 </span>
               )}
             </div>
+            <div className="mt-1.5">
+              <StatusBadges app={app} />
+            </div>
           </div>
           <div className="flex items-center gap-2 shrink-0 mt-0.5">
             <button onClick={onClose} className="text-text-tertiary hover:text-text-secondary text-xl leading-none">✕</button>
@@ -449,11 +546,11 @@ function DetailPanel({
               {app.email && <Row label="이메일" value={app.email} />}
               <Row label="주소" value={
                 app.address ? (
-                  <div className="flex items-center gap-1 justify-end min-w-0">
-                    <span className="truncate">{app.address}</span>
+                  <div className="flex items-start gap-1 justify-end min-w-0">
+                    <span className="break-keep whitespace-normal text-right leading-snug">{app.address}</span>
                     <button
                       onClick={() => onOpenMap(app.address!)}
-                      className="px-1.5 py-0.5 bg-state-success-bg text-state-success rounded text-xs shrink-0 hover:bg-green-200">
+                      className="px-1.5 py-0.5 bg-state-success-bg text-state-success rounded text-xs shrink-0 hover:bg-green-200 mt-0.5">
                       <Map size={14} />
                     </button>
                   </div>
@@ -633,12 +730,25 @@ export default function SchedulePage() {
 
   // 필터 상태
   const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list')
+  const router = useRouter()
   const [selectedMonth, setSelectedMonth] = useState(currentMonth())
   const [personFilter, setPersonFilter] = useState('')
   const [workerFilter, setWorkerFilter] = useState('')
-  const [serviceTypeFilter, setServiceTypeFilter] = useState('전체보기')
+  // Phase 24: 유형 필터 다중 선택 (빈 배열 = 전체). 작업상태·결제상태 필터 제거
+  const [serviceTypeFilters, setServiceTypeFilters] = useState<string[]>([])
   const [search, setSearch] = useState('')
-  const [selected, setSelected] = useState<Application | null>(null)
+  const [selected, setSelectedRaw] = useState<Application | null>(null)
+  // Phase 9-E: customer 접두사 아이템은 배정관리에서 편집 불가 → 고객관리로 라우팅
+  const setSelected = useCallback((app: Application | null | ((prev: Application | null) => Application | null)) => {
+    if (typeof app === 'function') { setSelectedRaw(app); return }
+    if (app && app.id.startsWith('customer:')) {
+      const customerId = app.id.slice('customer:'.length)
+      toast('신규 등록 1회성 고객은 고객관리에서 편집하세요.', { icon: 'ℹ️' })
+      router.push(`/admin/customers?detail=${customerId}`)
+      return
+    }
+    setSelectedRaw(app)
+  }, [router])
 
   // 날짜 클릭 (캘린더 → 날짜 목록 패널)
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
@@ -694,6 +804,56 @@ export default function SchedulePage() {
     setCheckedIds([])
     if (failCount === 0) toast.success(`${successCount}건 삭제되었습니다.`)
     else toast.error(`${successCount}건 성공, ${failCount}건 실패`)
+  }
+
+  // Phase 5-A: 배정관리에도 벌크 이관 통합 (Phase 5-H: archived_by 감사로그 포함)
+  const handleArchiveBulk = async () => {
+    if (checkedIds.length === 0) return
+    if (!confirm(`선택한 ${checkedIds.length}건을 고객DB이력으로 이관하시겠습니까?\n\n이관 후 고객DB이력 탭에서 편집·되돌리기 가능합니다.`)) return
+    setBulkSaving(true)
+    try {
+      const res = await fetch('/api/admin/applications/archive', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: checkedIds, archived_by: currentUser?.userId ?? null }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error ?? '이관 실패')
+      setApplications(prev => prev.filter(a => !checkedIds.includes(a.id)))
+      if (selected && checkedIds.includes(selected.id)) setSelected(null)
+      setCheckedIds([])
+      toast.success(`${data.count}건 이력으로 이관되었습니다.`)
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : '이관 실패')
+    } finally {
+      setBulkSaving(false)
+    }
+  }
+
+  // Phase 1: 완료 체크박스 (낙관적 업데이트)
+  // 체크 → work_status='completed', completed_at=now(), work_completed_at=now()
+  // 해제 → work_status=null, completed_at=null (롤백)
+  const handleToggleComplete = async (app: Application, checked: boolean) => {
+    const now = new Date().toISOString()
+    const patch: Partial<Application> = checked
+      ? { work_status: 'completed', completed_at: now, work_completed_at: now }
+      : { work_status: null, completed_at: null, work_completed_at: null }
+
+    // 낙관적 업데이트: 즉시 UI 반영
+    setApplications(prev => prev.map(a => a.id === app.id ? { ...a, ...patch } : a))
+
+    try {
+      const res = await fetch('/api/admin/applications', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: app.id, ...patch }),
+      })
+      if (!res.ok) throw new Error((await res.json()).error ?? '저장 실패')
+      toast.success(checked ? '완료 처리되었습니다.' : '완료 해제되었습니다.', { duration: 1500 })
+    } catch (e) {
+      // 실패 시 원복
+      setApplications(prev => prev.map(a => a.id === app.id ? app : a))
+      toast.error(`저장 실패: ${e instanceof Error ? e.message : String(e)}`)
+    }
   }
 
   // 지도 앱 선택 모달
@@ -770,17 +930,129 @@ export default function SchedulePage() {
     }).catch(() => toast.error('데이터 로드 실패'))
   }, [])
 
-  // 월이 바뀔 때마다 applications + work-assignments 재조회
+  // Phase 9-E: 월이 바뀔 때마다 applications + work-assignments + customers 1회성 병합
+  // - customers 테이블에만 있는 신규 1회성(신규 등록 후 service_applications 없는 건)도 캘린더에 표시
+  // - business_name + next_visit_date 조합으로 중복 제거
   const fetchMonthData = useCallback(async (month: string) => {
     setLoading(true)
     try {
-      const [appRes, assRes] = await Promise.all([
+      const [appRes, assRes, custRes] = await Promise.all([
         fetch(`/api/admin/applications?month=${month}`),
         fetch(`/api/admin/work-assignments?month=${month}`),
+        fetch('/api/admin/customers'),
       ])
       const appData = await appRes.json()
       const assData = await assRes.json()
-      setApplications(appData.applications ?? [])
+      const custData = await custRes.json()
+
+      const appsFromServer = (appData.applications ?? []) as Application[]
+      // 해당 월 범위 (start ≤ next_visit_date < nextMonth)
+      const [y, m] = month.split('-').map(Number)
+      const monthStart = `${month}-01`
+      const nextMonth = m === 12
+        ? `${y + 1}-01-01`
+        : `${y}-${String(m + 1).padStart(2, '0')}-01`
+
+      // service_applications 이미 존재하는 (name + date) 조합 세트
+      const existingKeys = new Set(
+        appsFromServer
+          .filter(a => a.construction_date)
+          .map(a => `${a.business_name}::${a.construction_date!.slice(0, 10)}`)
+      )
+
+      // customers 중 1회성 + 해당 월 시공일자 + service_applications에 없는 것만 병합
+      type CustomerLite = {
+        id: string
+        business_name: string
+        contact_name: string | null
+        contact_phone: string | null
+        contact_phone_2: string | null
+        phone_notify_1: boolean | null
+        phone_notify_2: boolean | null
+        email: string | null
+        address: string | null
+        customer_type: string | null
+        assigned_user_id: string | null
+        next_visit_date: string | null
+        construction_time: string | null
+        supply_amount: number | null
+        vat: number | null
+        payment_method: string | null
+        business_hours_start: string | null
+        business_hours_end: string | null
+        elevator: string | null
+        building_access: string | null
+        parking_info: string | null
+        access_method: string | null
+        special_notes: string | null
+        admin_notes: string | null
+        care_scope: string | null
+        business_number: string | null
+        account_number: string | null
+        payment_status: string | null
+        drive_folder_url?: string | null
+        progress_status: string | null
+        payment_status_detail: string | null
+      }
+      const oneTimeFromCustomers: Application[] = ((custData.customers ?? []) as CustomerLite[])
+        .filter(c =>
+          c.customer_type === '1회성케어' &&
+          c.next_visit_date &&
+          c.next_visit_date >= monthStart &&
+          c.next_visit_date < nextMonth &&
+          !existingKeys.has(`${c.business_name}::${c.next_visit_date.slice(0, 10)}`)
+        )
+        .map(c => ({
+          // Phase 9-E: 'customer:' 접두사로 마킹 — 편집·삭제·PATCH는 고객관리로 라우팅되어야 함
+          id: `customer:${c.id}`,
+          business_name: c.business_name,
+          owner_name: c.contact_name ?? '',
+          phone: c.contact_phone ?? '',
+          phone_2: c.contact_phone_2,
+          phone_notify_1: c.phone_notify_1,
+          phone_notify_2: c.phone_notify_2,
+          email: c.email,
+          address: c.address,
+          status: '신규',
+          service_type: '1회성케어',
+          assigned_to: c.assigned_user_id,
+          construction_date: c.next_visit_date,
+          construction_time: c.construction_time,
+          supply_amount: c.supply_amount,
+          vat: c.vat,
+          payment_method: c.payment_method,
+          business_hours_start: c.business_hours_start,
+          business_hours_end: c.business_hours_end,
+          elevator: c.elevator,
+          building_access: c.building_access,
+          parking: c.parking_info,
+          access_method: c.access_method,
+          request_notes: c.special_notes,
+          admin_request_notes: c.admin_notes,
+          care_scope: c.care_scope,
+          business_number: c.business_number,
+          account_number: c.account_number,
+          drive_folder_url: c.drive_folder_url ?? null,
+          customer: null,
+          work_status: null,
+          work_started_at: null,
+          work_completed_at: null,
+          payment_status: c.payment_status,
+          completed_at: null,
+          customer_memo: null,
+          internal_memo: null,
+          notification_send_at: null,
+          notification_sent_at: null,
+          pre_meeting_at: null,
+          condition_score: null,
+          worker_planned_departure: null,
+          worker_plan_note: null,
+          // Phase 11: customers.progress_status / payment_status_detail 전달
+          progress_status: c.progress_status,
+          payment_status_detail: c.payment_status_detail,
+        }))
+
+      setApplications([...appsFromServer, ...oneTimeFromCustomers])
       setAllAssignments(assData.assignments ?? [])
     } catch {
       toast.error('일정 로드 실패')
@@ -855,8 +1127,9 @@ export default function SchedulePage() {
     }
 
     // 서비스 유형 필터
-    if (serviceTypeFilter && serviceTypeFilter !== '전체보기') {
-      apps = apps.filter(a => a.service_type === serviceTypeFilter)
+    // Phase 24: 유형 다중 선택 필터 (빈 배열이면 전체 통과)
+    if (serviceTypeFilters.length > 0) {
+      apps = apps.filter(a => serviceTypeFilters.includes(a.service_type ?? ''))
     }
 
     // 검색
@@ -882,7 +1155,7 @@ export default function SchedulePage() {
         : ''
       return bKey.localeCompare(aKey)
     })
-  }, [applications, personFilter, workerFilter, serviceTypeFilter, isAdmin, currentUser, appWorkerMap, userIdToWorkerId, workers, refLoaded, search])
+  }, [applications, personFilter, workerFilter, serviceTypeFilters, isAdmin, currentUser, appWorkerMap, userIdToWorkerId, workers, refLoaded, search])
 
   const allDates = useMemo(() => {
     const dateSet = new Set<string>()
@@ -999,27 +1272,53 @@ export default function SchedulePage() {
               className="bg-red-500 hover:bg-red-400 whitespace-nowrap">
               삭제
             </Button>
+            <Button onClick={handleArchiveBulk} disabled={bulkSaving} size="sm"
+              className="bg-purple-600 hover:bg-purple-700 text-white whitespace-nowrap">
+              {bulkSaving ? '처리 중...' : '📦 이력으로 이관'}
+            </Button>
           </div>
         </div>
       )}
 
       {/* ── 상단 필터 바 ── */}
       <div className={`transition-all duration-300 overflow-hidden shrink-0 ${filtersVisible ? 'max-h-48 opacity-100' : 'max-h-0 opacity-0 md:max-h-48 md:opacity-100'}`}>
-      <div className="flex items-center gap-2 flex-wrap bg-surface border border-border rounded-xl px-4 py-3">
+      <div className="flex items-center gap-2 flex-wrap bg-surface border border-border rounded-2xl px-4 py-3 shadow-soft">
 
         {/* 월 이동 */}
         <MonthNavigator value={selectedMonth} onChange={setSelectedMonth} />
 
-        {/* 서비스 유형 필터 */}
-        <select
-          value={serviceTypeFilter}
-          onChange={e => setServiceTypeFilter(e.target.value)}
-          className="border border-border rounded-lg px-3 py-1.5 text-xs text-text-primary bg-surface focus:outline-none focus:ring-2 focus:ring-blue-500 min-w-[110px]"
-        >
-          {SERVICE_TYPE_OPTIONS.map(opt => (
-            <option key={opt} value={opt}>{opt}</option>
-          ))}
-        </select>
+        {/* Phase 24: 서비스 유형 필터 — 다중 선택 pills (빈 선택 = 전체) */}
+        <div className="inline-flex items-center gap-1 flex-wrap">
+          {SERVICE_TYPE_OPTIONS.filter(t => t !== '전체보기').map(type => {
+            const active = serviceTypeFilters.includes(type)
+            return (
+              <button
+                key={type}
+                type="button"
+                onClick={() => setServiceTypeFilters(prev =>
+                  active ? prev.filter(t => t !== type) : [...prev, type]
+                )}
+                className={`text-[11px] px-2.5 py-1 rounded-full font-medium border transition-colors ${
+                  active
+                    ? `${SERVICE_TYPE_CONFIG[type] ?? 'bg-brand-100 text-brand-700'} border-current ring-2 ring-offset-1 ring-current`
+                    : 'bg-surface text-text-secondary border-border hover:bg-surface-sunken'
+                }`}
+              >
+                {type}
+              </button>
+            )
+          })}
+          {serviceTypeFilters.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setServiceTypeFilters([])}
+              className="text-[11px] text-text-tertiary hover:text-text-primary px-1.5"
+              title="유형 필터 해제"
+            >
+              ✕
+            </button>
+          )}
+        </div>
 
         {/* 담당자 필터 */}
         {isAdmin ? (
@@ -1048,6 +1347,8 @@ export default function SchedulePage() {
             {workers.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
           </select>
         )}
+
+        {/* Phase 24: 작업상태·결제상태 필터 제거 — 유형/업체명 검색으로 대체 */}
 
         {/* 검색 */}
         <div className="relative">
@@ -1132,15 +1433,22 @@ export default function SchedulePage() {
                   {['시공일자', '업체명', '케어범위', '대표자', '담당자', '작업자', '사진'].map(h => (
                     <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-text-secondary whitespace-nowrap">{h}</th>
                   ))}
+                  {isAdmin && (
+                    <th className="text-center px-3 py-3 text-xs font-semibold text-text-secondary whitespace-nowrap w-14">완료</th>
+                  )}
                 </tr>
               </thead>
               <tbody className="divide-y divide-border-subtle">
                 {listItems.map(item => {
                   if (item.kind === 'week') {
+                    // Phase 7: 주차 구분자 시각 강조 (bar + 좌측 두꺼운 인디케이터)
                     return (
-                      <tr key={item.key} className="bg-gradient-to-r from-brand-50 to-indigo-50 border-t-2 border-brand-200">
-                        <td colSpan={isAdmin ? 8 : 7} className="px-4 py-1.5">
-                          <span className="text-xs font-bold text-brand-700 tracking-wide">{item.label}</span>
+                      <tr key={item.key} className="bg-gradient-to-r from-brand-100 via-brand-50 to-transparent border-y-2 border-brand-300">
+                        <td colSpan={isAdmin ? 9 : 7} className="px-4 py-2.5">
+                          <div className="flex items-center gap-2">
+                            <span className="w-1 h-4 bg-brand-500 rounded-full shrink-0" />
+                            <span className="text-sm font-bold text-brand-800 tracking-wide">{item.label}</span>
+                          </div>
                         </td>
                       </tr>
                     )
@@ -1155,19 +1463,22 @@ export default function SchedulePage() {
                   const isToday = app.construction_date?.slice(0, 10) === todayStr
                   const isCompleted = app.work_status === 'completed'
                   const svcColor = app.service_type ? (SERVICE_TYPE_CONFIG[app.service_type] ?? 'bg-surface-sunken text-text-primary') : ''
-                  // 우선순위: 선택 > 완료 > 오늘 > 기본
+                  // Phase 11 (v2): 유형 = 행 전체 배경, 진행상태 = 좌측 border-l-4
+                  const typeBg = SERVICE_TYPE_ROW_BG[app.service_type ?? ''] ?? ''
+                  const progressBorder = app.progress_status ? (PROGRESS_ROW_BORDER[app.progress_status] ?? 'border-l-transparent') : 'border-l-transparent'
+                  // 우선순위: 선택 > 완료 > 오늘 > 유형 배경 (기본)
                   const rowClass = isSelected
-                    ? 'bg-brand-50 hover:bg-brand-100'
+                    ? 'bg-brand-100 hover:bg-brand-200 ring-2 ring-brand-500 ring-inset'
                     : isCompleted
                       ? 'bg-surface-sunken/60 text-text-tertiary opacity-70 hover:bg-surface-sunken hover:opacity-100'
                       : isToday
-                        ? 'bg-lime-50 hover:bg-lime-100 ring-2 ring-inset ring-lime-400'
-                        : 'hover:bg-brand-50/40'
+                        ? 'bg-sky-50 hover:bg-sky-100 ring-2 ring-inset ring-sky-400'
+                        : `${typeBg} hover:brightness-95`
                   return (
                     <tr key={app.id}
                       ref={el => { rowRefs.current[app.id] = el }}
                       onClick={() => isSelected ? handleClose() : setSelected(app)}
-                      className={`cursor-pointer transition-colors ${rowClass}`}>
+                      className={`cursor-pointer transition-all border-l-4 ${progressBorder} ${rowClass}`}>
                       {isAdmin && (
                         <td className="px-3 py-3 w-8" onClick={e => e.stopPropagation()}>
                           <input
@@ -1191,16 +1502,26 @@ export default function SchedulePage() {
                           </div>
                         )}
                       </td>
-                      <td className="px-4 py-3 max-w-[160px]">
-                        <div className="flex items-center gap-1.5">
+                      <td className="px-4 py-3 max-w-[220px]">
+                        <div className="flex items-center gap-1.5 flex-wrap">
                           <span className="font-medium text-text-primary truncate text-sm">{app.business_name}</span>
                           {app.drive_folder_url && <span className="text-brand-400 text-xs shrink-0"><Camera size={14} /></span>}
-                          {app.work_status === 'in_progress' && (
-                            <span className="w-1.5 h-1.5 rounded-full bg-orange-500 animate-pulse shrink-0" />
+                          {/* Phase 11: 진행상태 뱃지 (연한 indigo) */}
+                          {app.progress_status && (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium bg-indigo-50 text-indigo-700 border border-indigo-200 whitespace-nowrap shrink-0">
+                              {app.progress_status}
+                            </span>
                           )}
-                          {app.work_status === 'completed' && (
-                            <span className="text-xs text-state-success shrink-0">✓</span>
+                          {/* Phase 11: 결제상태 dot 뱃지 (금전축) */}
+                          {app.payment_status_detail && (
+                            <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full font-medium bg-teal-50 text-teal-700 border border-teal-200 whitespace-nowrap shrink-0">
+                              <span className={`w-1.5 h-1.5 rounded-full ${PAYMENT_STATUS_DOT[app.payment_status_detail] ?? 'bg-gray-400'}`} />
+                              {app.payment_status_detail === '비과세' ? '비과세 결제' : app.payment_status_detail}
+                            </span>
                           )}
+                        </div>
+                        <div className="mt-1">
+                          <StatusBadges app={app} size="xs" />
                         </div>
                         {app.address && (
                           <div className="text-xs text-text-tertiary truncate mt-0.5">{app.address}</div>
@@ -1236,6 +1557,18 @@ export default function SchedulePage() {
                           <Camera size={14} />
                         </button>
                       </td>
+                      {isAdmin && (
+                        <td className="px-3 py-3 text-center" onClick={e => e.stopPropagation()}>
+                          <label className="inline-flex items-center cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={app.work_status === 'completed'}
+                              onChange={e => handleToggleComplete(app, e.target.checked)}
+                              className="w-5 h-5 rounded border-gray-300 text-sky-600 cursor-pointer focus:ring-sky-500"
+                            />
+                          </label>
+                        </td>
+                      )}
                     </tr>
                   )
                 })}

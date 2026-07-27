@@ -129,6 +129,17 @@ function alreadySentEver(
   return log.some((entry) => entry.type === type)
 }
 
+// Phase 8-B: 진행/결제 상태 매핑 (dual-write용)
+const NOTIFY_TO_PROGRESS_STATUS: Record<string, string> = {
+  '예약1일전알림': '예약1일전',
+  '예약당일알림':  '예약당일',
+}
+const NOTIFY_TO_PAYMENT_STATUS_DETAIL: Record<string, string> = {
+  '결제알림':               '결제',
+  '결제알림(현금)':         '결제',
+  '결제알림(카드,플렛폼)':  '결제',
+}
+
 // ─── 단일 알림 발송 + log 업데이트 ───────────────────────────────
 async function sendAndLog(
   supabase: ReturnType<typeof createServiceClient>,
@@ -142,6 +153,7 @@ async function sendAndLog(
   const variables  = buildVariables(type, app, assignedName)
   const fallback   = buildFallback(type, app)
 
+  // Phase 25c 롤백: template SMS 마이그레이션 대기 중 → 카톡 알림톡 유지
   await sendAlimtalk(phone, templateId, variables, fallback)
 
   const nowIso    = new Date().toISOString()
@@ -154,6 +166,11 @@ async function sendAndLog(
   const updates: Record<string, unknown> = { notification_log: updatedLog }
   const newStatus = notifyToStatus[type]
   if (newStatus) updates.status = newStatus
+  // Phase 8-B: dual-write — 신규 두 컬럼도 함께 업데이트
+  const newProgress = NOTIFY_TO_PROGRESS_STATUS[type]
+  if (newProgress) updates.progress_status = newProgress
+  const newPayment = NOTIFY_TO_PAYMENT_STATUS_DETAIL[type]
+  if (newPayment) updates.payment_status_detail = newPayment
 
   const { error } = await supabase
     .from('service_applications')

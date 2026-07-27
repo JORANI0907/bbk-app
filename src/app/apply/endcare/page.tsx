@@ -40,6 +40,7 @@ export default function EndcarePage() {
   }
 
   function buildCareScope() {
+    // Phase 16: 줄바꿈 + 하이픈으로 구분 (기존 '/' → '\n')
     const parts: string[] = []
     if (businessTypes.length) {
       const labels = businessTypes.map(t =>
@@ -50,8 +51,11 @@ export default function EndcarePage() {
     if (areaValue) parts.push(`면적: ${areaValue}${areaUnit}`)
     const freq = visitFreq === '직접입력' ? visitCustom : visitFreq
     if (freq) parts.push(`방문주기: ${freq}`)
-    if (selectedOptions.length) parts.push(`선택사항: ${selectedOptions.join(', ')}`)
-    return parts.join(' / ')
+    if (selectedOptions.length) {
+      const optionLines = selectedOptions.map(o => `- ${o}`).join('\n')
+      parts.push(`선택사항:\n${optionLines}`)
+    }
+    return parts.join('\n')
   }
 
   async function handleSubmit() {

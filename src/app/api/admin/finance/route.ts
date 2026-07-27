@@ -19,9 +19,11 @@ export async function GET(request: NextRequest) {
 
   const [appsRes, payrollRes, fixedRes, variableRes, endCareRes, deepCareAnnualRes] = await Promise.all([
     // 매출: 해당 월 service_applications (정기엔드케어 및 미진행 상태 제외)
+    // Phase 22 v13-c: 정기딥 연간 계약의 개별 방문 제외 위해 customers.billing_cycle JOIN → 후처리에서 필터
+    // Phase 23: customer.status='paused' 필터 (일시정지 고객 매출 제외)
     supabase
       .from('service_applications')
-      .select('id, business_name, supply_amount, vat, payment_method, service_type, construction_date')
+      .select('id, business_name, supply_amount, vat, payment_method, service_type, construction_date, customer_id, customers(billing_cycle, customer_type, status)')
       .gte('construction_date', `${month}-01`)
       .lt('construction_date', nextMonth)
       .not('supply_amount', 'is', null)
@@ -53,23 +55,28 @@ export async function GET(request: NextRequest) {
       .order('created_at'),
 
     // 정기엔드케어 매출: service_billings 테이블에서 해당 월 결제완료 이력 조회
+    // Phase 22 v13: paid_date·due_date 필드도 select → 매출 상세 리스트 결제일자 노출
+    // Phase 23: status='paused' 고객 제외 (JOIN 조건 + customer.status 필터)
     supabase
       .from('service_billings')
-      .select('id, amount, customer_id, customers!inner(id, business_name, payment_method, customer_type, deleted_at)')
+      .select('id, amount, customer_id, paid_date, due_date, customers!inner(id, business_name, payment_method, customer_type, status, deleted_at)')
       .eq('billing_period', month)
       .eq('status', 'paid')
       .eq('billing_type', 'monthly')
       .eq('customers.customer_type', '정기엔드케어')
+      .neq('customers.status', 'paused')
       .is('customers.deleted_at', null),
 
-    // 정기딥케어 연간 매출: 계약 시작일이 해당 월에 포함된 고객
+    // 정기딥케어 연간: 계약 기간이 해당 월과 겹치는 모든 고객
+    // Phase 23-b: 계약 시작 월 = 총액 계상 / 그 외 월 = 리스트 노출만 (total=0)
     supabase
       .from('customers')
-      .select('id, business_name, billing_amount, payment_method, contract_start_date')
+      .select('id, business_name, billing_amount, payment_method, contract_start_date, contract_end_date')
       .eq('customer_type', '정기딥케어')
       .eq('billing_cycle', '연간')
-      .gte('contract_start_date', `${month}-01`)
-      .lt('contract_start_date', nextMonth)
+      .neq('status', 'paused')
+      .lte('contract_start_date', `${month}-31`)
+      .gte('contract_end_date', `${month}-01`)
       .not('billing_amount', 'is', null)
       .is('deleted_at', null),
   ])
@@ -91,23 +98,44 @@ export async function GET(request: NextRequest) {
     !!method && (method.includes('비과세') || method.includes('미희망') || method === '현금(부가세 X)')
 
   // 서비스관리 매출 계산
-  const revenueItems = apps.map(a => {
-    const total = (a.supply_amount ?? 0) + (isNoVat(a.payment_method) ? 0 : (a.vat ?? 0))
-    return { ...a, total }
-  })
+  // Phase 22 v13-c: 정기딥 연간 방문은 별도 deepCareAnnualItems로 계상하므로 apps에서 제외 (중복 방지)
+  // Phase 23: 일시정지(status='paused') 고객 방문도 매출에서 제외
+  type AppRow = typeof apps[number] & { customers?: { billing_cycle: string | null; customer_type: string | null; status: string | null } | Array<{ billing_cycle: string | null; customer_type: string | null; status: string | null }> }
+  const revenueItems = (apps as AppRow[])
+    .filter(a => {
+      const c = Array.isArray(a.customers) ? a.customers[0] : a.customers
+      if (c?.status === 'paused') return false
+      if (a.service_type === '정기딥케어' && c?.billing_cycle === '연간') return false
+      return true
+    })
+    .map(a => {
+      const total = (a.supply_amount ?? 0) + (isNoVat(a.payment_method) ? 0 : (a.vat ?? 0))
+      return {
+        id: a.id,
+        business_name: a.business_name,
+        supply_amount: a.supply_amount,
+        vat: a.vat,
+        payment_method: a.payment_method,
+        service_type: a.service_type,
+        construction_date: a.construction_date,
+        total,
+      }
+    })
 
   // 정기엔드케어 매출 (service_billings 결제완료 이력 기반)
+  // Phase 22 v13: 결제일자는 paid_date 우선, 없으면 due_date로 대체 → 매출 상세 리스트 표시
+  // Phase 22 v13-b: supabase !inner join은 단일 객체로 오지만 타입은 배열로 잡음 → Array.isArray 방어
   type EndCareCustomer = { id: string; business_name: string; payment_method: string | null; customer_type: string; deleted_at: string | null }
-  type EndCareRaw = { id: string; amount: number; customer_id: string; customers: EndCareCustomer[] }
+  type EndCareRaw = { id: string; amount: number; customer_id: string; paid_date: string | null; due_date: string | null; customers: EndCareCustomer | EndCareCustomer[] }
   const endCareItems = ((endCareRes.data ?? []) as unknown as EndCareRaw[]).map(b => {
-    const customer = b.customers?.[0]
+    const customer = Array.isArray(b.customers) ? b.customers[0] : b.customers
     const supply = b.amount ?? 0
     const vatAmt = isNoVat(customer?.payment_method ?? null) ? 0 : Math.round(supply * 0.1)
     return {
       id: b.id,
       business_name: customer?.business_name ?? '알 수 없음',
       service_type: '정기엔드케어',
-      construction_date: null as string | null,
+      construction_date: b.paid_date ?? b.due_date ?? null,
       supply_amount: supply,
       vat: vatAmt,
       payment_method: customer?.payment_method ?? null,
@@ -115,19 +143,22 @@ export async function GET(request: NextRequest) {
     }
   })
 
-  // 정기딥케어 연간 매출 (계약 시작일이 있는 월에 billing_amount + 결제방법별 부가세 처리)
+  // 정기딥케어 연간 매출 (Phase 23-b 하이브리드):
+  // - 계약 시작 월인 고객: 총액 계상 (billing_amount + 부가세)
+  // - 계약 진행중이지만 시작월 아님: 리스트에만 노출 (total=0 → 총액 자동 제외)
   const deepCareAnnualItems = deepCareAnnualCustomers.map(c => {
     const supply = c.billing_amount ?? 0
     const vatAmt = isNoVat(c.payment_method) ? 0 : Math.round(supply * 0.1)
+    const isStartMonth = c.contract_start_date?.slice(0, 7) === month
     return {
       id: c.id,
       business_name: c.business_name,
-      service_type: '정기딥케어(연간)',
+      service_type: isStartMonth ? '정기딥케어(연간)' : '정기딥케어(연간·진행중)',
       construction_date: c.contract_start_date,
-      supply_amount: supply,
-      vat: vatAmt,
+      supply_amount: isStartMonth ? supply : 0,
+      vat: isStartMonth ? vatAmt : 0,
       payment_method: c.payment_method as string | null,
-      total: supply + vatAmt,
+      total: isStartMonth ? supply + vatAmt : 0,
     }
   })
 

@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
     'construction_date', 'construction_time', 'care_scope',
     'service_type', 'payment_method',
   ]
-  const insert: Record<string, unknown> = { status: '신규', source: 'quote' }
+  const insert: Record<string, unknown> = { status: '신규', progress_status: '신청서작성', source: 'quote' }
   for (const key of ALLOWED) {
     if (key in body) insert[key] = body[key]
   }

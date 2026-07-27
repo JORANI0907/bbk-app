@@ -18,25 +18,41 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json() as {
-      applicationId: string
+      applicationId?: string
+      customerId?: string
       stage: 'deposit' | 'balance'
     }
-    const { applicationId, stage } = body
-    if (!applicationId || !stage) {
-      return NextResponse.json({ error: '필수 항목 누락' }, { status: 400 })
+    const { applicationId, customerId, stage } = body
+    if ((!applicationId && !customerId) || !stage) {
+      return NextResponse.json({ error: '필수 항목 누락 (applicationId 또는 customerId 필요)' }, { status: 400 })
     }
 
     const supabase = createServiceClient()
-    const { data: app } = await supabase
-      .from('service_applications')
+
+    // Phase A-4: customer 모드 지원. 필드 매핑 후 동일 로직 재사용.
+    const isCustomerMode = !!customerId
+    const table = isCustomerMode ? 'customers' : 'service_applications'
+    const recordId = (customerId ?? applicationId)!
+
+    const { data: rawRecord } = await supabase
+      .from(table)
       .select('*')
-      .eq('id', applicationId)
+      .eq('id', recordId)
       .is('deleted_at', null)
       .single()
 
-    if (!app) {
-      return NextResponse.json({ error: '신청서를 찾을 수 없습니다.' }, { status: 404 })
+    if (!rawRecord) {
+      return NextResponse.json({ error: isCustomerMode ? '고객을 찾을 수 없습니다.' : '신청서를 찾을 수 없습니다.' }, { status: 404 })
     }
+
+    // customer 필드를 application 형태로 정규화 (기존 코드 재사용)
+    const app: Record<string, unknown> = isCustomerMode
+      ? {
+          ...rawRecord,
+          owner_name: rawRecord.contact_name,
+          phone: rawRecord.contact_phone,
+        }
+      : rawRecord
 
     const pm = String(app.payment_method ?? '')
     const isCard  = pm === '카드(온라인 간편결제)'
@@ -71,10 +87,10 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    const paymentId   = generatePaymentId(applicationId, stage)
+    const paymentId   = generatePaymentId(recordId, stage)
     const orderName   = `BBK 공간케어 ${stage === 'deposit' ? '예약금' : '잔금'} — ${String(app.business_name ?? '')}`
     const customerName = String(app.owner_name ?? '')
-    const phone = (app.phone ?? '').replace(/-/g, '')
+    const phone = String(app.phone ?? '').replace(/-/g, '')
 
     // ─── 카드: 브라우저 SDK 결제 페이지 URL 생성 (서버사이드는 사전등록만) ──
     if (isCard) {
@@ -86,15 +102,16 @@ export async function POST(request: NextRequest) {
         currency: 'KRW',
       })
 
-      const paymentUrl = `${APP_BASE_URL}/portone/pay/${paymentId}?stage=${stage}&appId=${applicationId}`
+      const idParam = isCustomerMode ? `custId=${recordId}` : `appId=${recordId}`
+      const paymentUrl = `${APP_BASE_URL}/portone/pay/${paymentId}?stage=${stage}&${idParam}`
 
       await supabase
-        .from('service_applications')
+        .from(table)
         .update({
           [existingIdField]: paymentId,
           [existingUrlField]: paymentUrl,
         })
-        .eq('id', applicationId)
+        .eq('id', recordId)
 
       return NextResponse.json({ success: true, paymentUrl, paymentId })
     }
@@ -132,18 +149,24 @@ export async function POST(request: NextRequest) {
     const expiredAtRaw   = (vbankInfo.virtualAccount as Record<string,unknown>)?.accountExpiry
     const expiredAt      = expiredAtRaw ? new Date(String(expiredAtRaw)).toISOString() : null
 
-    const paymentUrl = `${APP_BASE_URL}/portone/pay/${paymentId}?stage=${stage}&appId=${applicationId}`
+    const idParamVbank = isCustomerMode ? `custId=${recordId}` : `appId=${recordId}`
+    const paymentUrl = `${APP_BASE_URL}/portone/pay/${paymentId}?stage=${stage}&${idParamVbank}`
+
+    // 가상계좌 정보는 신청서(service_applications)에만 필드가 존재 — customer 모드는 스킵
+    const vbankUpdates = isCustomerMode
+      ? { [existingIdField]: paymentId, [existingUrlField]: paymentUrl }
+      : {
+          [existingIdField]: paymentId,
+          [existingUrlField]: paymentUrl,
+          virtual_account_number: accountNumber,
+          virtual_account_bank: bankName,
+          ...(expiredAt ? { virtual_account_expired_at: expiredAt } : {}),
+        }
 
     await supabase
-      .from('service_applications')
-      .update({
-        [existingIdField]: paymentId,
-        [existingUrlField]: paymentUrl,
-        virtual_account_number: accountNumber,
-        virtual_account_bank: bankName,
-        ...(expiredAt ? { virtual_account_expired_at: expiredAt } : {}),
-      })
-      .eq('id', applicationId)
+      .from(table)
+      .update(vbankUpdates)
+      .eq('id', recordId)
 
     return NextResponse.json({
       success: true,

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { createAuthUser, updateAuthUserEmailAndPassword, updateAuthUserEmail, customerEmail } from '@/lib/auth-helpers'
+import { generateBillingSchedule, computeBillingAmountFromCustomer, shouldAutoGenerateBillings } from '@/lib/billing-generator'
 
 const ALLOWED = [
   // 일반정보
@@ -26,6 +27,10 @@ const ALLOWED = [
   'rotation_type', 'visit_count_per_month',
   'payment_status', 'payment_date', 'schedule_generation_day',
   'notes', 'drive_folder_url',
+  // Phase 9-B: 1회성 진행/결제 상태 이원화 (customers 기반 통합)
+  'progress_status', 'payment_status_detail',
+  // Phase 20-C: 투입주기 (몇 개월에 1회)
+  'injection_cycle_months',
   // 담당 직원/작업자
   'assigned_user_id', 'assigned_worker_id',
   // 성향
@@ -33,6 +38,72 @@ const ALLOWED = [
   // 고객 등급
   'grade',
 ]
+
+/**
+ * Phase 22 v11: 계약 저장 시 billings(청구 예정) 자동 생성.
+ * - 정기딥 연간·정기엔드 월간·정기엔드 연간이 대상
+ * - 이미 존재하는 billing_period는 skip (idempotent)
+ * - 실패해도 고객 저장은 성공 처리 (log만 남김)
+ */
+async function autoGenerateBillings(
+  supabase: ReturnType<typeof createServiceClient>,
+  customer: {
+    id: string
+    customer_type: string | null
+    billing_cycle: string | null
+    contract_start_date: string | null
+    contract_end_date: string | null
+    payment_date: number | null
+    supply_amount: number | null
+    vat: number | null
+    billing_amount: number | null
+    payment_method: string | null
+    status?: string | null
+  },
+): Promise<{ inserted: number; skipped: number }> {
+  // Phase 23: 일시정지 고객은 청구 생성 skip
+  if (customer.status === 'paused') return { inserted: 0, skipped: 0 }
+  const amount = computeBillingAmountFromCustomer(customer)
+  const input = {
+    customerType: customer.customer_type,
+    billingCycle: customer.billing_cycle,
+    contractStartDate: customer.contract_start_date,
+    contractEndDate: customer.contract_end_date,
+    paymentDay: customer.payment_date,
+    billingAmount: amount,
+  }
+  if (!shouldAutoGenerateBillings(input)) return { inserted: 0, skipped: 0 }
+
+  const schedule = generateBillingSchedule(input)
+  if (schedule.length === 0) return { inserted: 0, skipped: 0 }
+
+  // 기존 청구 기간 조회
+  const { data: existing } = await supabase
+    .from('service_billings')
+    .select('billing_period')
+    .eq('customer_id', customer.id)
+
+  const existingSet = new Set((existing ?? []).map((r: { billing_period: string }) => r.billing_period))
+  const toInsert = schedule.filter(s => !existingSet.has(s.billing_period))
+
+  if (toInsert.length === 0) return { inserted: 0, skipped: schedule.length }
+
+  const rows = toInsert.map(s => ({
+    customer_id: customer.id,
+    billing_type: s.billing_type,
+    billing_period: s.billing_period,
+    amount: s.amount,
+    due_date: s.due_date,
+    status: 'pending' as const,
+  }))
+
+  const { error } = await supabase.from('service_billings').insert(rows)
+  if (error) {
+    console.error('[autoGenerateBillings] insert 실패:', error.message)
+    return { inserted: 0, skipped: schedule.length }
+  }
+  return { inserted: toInsert.length, skipped: schedule.length - toInsert.length }
+}
 
 async function createPortalAccount(
   supabase: ReturnType<typeof createServiceClient>,
@@ -83,15 +154,23 @@ export async function GET(request: NextRequest) {
   const supabase = createServiceClient()
   const { searchParams } = new URL(request.url)
   const subscriptionOnly = searchParams.get('subscription_only') === 'true'
+  // Phase 4: 이관 필터 — 기본은 활성(archived_at IS NULL), 'true'면 이관됨만, 'all'이면 전체
+  const archived = searchParams.get('archived')
 
   let query = supabase
     .from('customers')
-    .select('id, business_name, contact_name, contact_phone, contact_phone_2, email, address, address_detail, business_number, account_number, platform_nickname, payment_method, elevator, building_access, access_method, business_hours_start, business_hours_end, door_password, parking_info, special_notes, care_scope, pipeline_status, customer_type, status, disposition, billing_cycle, billing_amount, supply_amount, vat, deposit, balance, billing_start_date, billing_next_date, contract_start_date, contract_end_date, unit_price, visit_interval_days, next_visit_date, visit_schedule_type, visit_weekdays, visit_monthly_dates, notes, rotation_type, visit_count_per_month, payment_status, payment_date, schedule_generation_day, assigned_user_id, assigned_worker_id, user_id, account_user_id, created_at, updated_at')
+    .select('id, business_name, contact_name, contact_phone, contact_phone_2, email, address, address_detail, business_number, account_number, platform_nickname, payment_method, elevator, building_access, access_method, business_hours_start, business_hours_end, door_password, parking_info, special_notes, care_scope, pipeline_status, customer_type, status, disposition, billing_cycle, billing_amount, supply_amount, vat, deposit, balance, billing_start_date, billing_next_date, contract_start_date, contract_end_date, unit_price, visit_interval_days, next_visit_date, visit_schedule_type, visit_weekdays, visit_monthly_dates, notes, rotation_type, visit_count_per_month, payment_status, payment_date, schedule_generation_day, assigned_user_id, assigned_worker_id, user_id, account_user_id, progress_status, payment_status_detail, injection_cycle_months, archived_at, archived_by, created_at, updated_at')
     .is('deleted_at', null)
     .order('business_name', { ascending: true })
 
   if (subscriptionOnly) {
     query = query.in('customer_type', ['정기딥케어', '정기엔드케어'])
+  }
+
+  if (archived === 'true') {
+    query = query.not('archived_at', 'is', null)
+  } else if (archived !== 'all') {
+    query = query.is('archived_at', null)
   }
 
   const { data, error } = await query
@@ -142,6 +221,13 @@ export async function POST(request: NextRequest) {
       // 포털 계정 생성 실패해도 고객 등록은 성공 처리
       console.error('포털 계정 자동 생성 실패:', e instanceof Error ? e.message : e)
     }
+  }
+
+  // Phase 22 v11: 계약 정보가 충분하면 billings 자동 생성 (정기딥 연간·정기엔드 월/연간 대상)
+  try {
+    await autoGenerateBillings(supabase, data)
+  } catch (e) {
+    console.error('billings 자동 생성 실패(POST):', e instanceof Error ? e.message : e)
   }
 
   return NextResponse.json({ customer: data, generatedPassword }, { status: 201 })
@@ -200,6 +286,18 @@ export async function PATCH(request: NextRequest) {
       }
     } catch (e) {
       console.error('고객 전화번호 동기화 실패:', e instanceof Error ? e.message : e)
+    }
+  }
+
+  // Phase 22 v11: 계약 관련 필드가 변경됐거나 계약 조건이 충족되면 billings 자동 생성/추가 (idempotent)
+  const billingRelevantChanged = ['billing_cycle', 'contract_start_date', 'contract_end_date',
+    'payment_date', 'supply_amount', 'vat', 'billing_amount', 'payment_method', 'customer_type']
+    .some(k => k in rest)
+  if (billingRelevantChanged) {
+    try {
+      await autoGenerateBillings(supabase, updatedCustomer)
+    } catch (e) {
+      console.error('billings 자동 생성 실패(PATCH):', e instanceof Error ? e.message : e)
     }
   }
 

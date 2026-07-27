@@ -222,7 +222,7 @@ export async function POST(request: NextRequest) {
         await pushToAdmins(supabase, {
           title: '예약금 수동 처리 필요',
           body: `입금자 ${depositor} — 복수 매칭`,
-          url: '/admin/applications',
+          url: '/admin/customers',
         })
         return NextResponse.json({ matched: 'deposit', action: 'manual', reason: 'multi_match' })
       }
@@ -242,7 +242,7 @@ export async function POST(request: NextRequest) {
       await pushToAdmins(supabase, {
         title: '💰 예약금 입금 확인',
         body: `${app.business_name} — ${amount.toLocaleString('ko-KR')}원`,
-        url: '/admin/applications',
+        url: '/admin/customers',
       })
 
       return NextResponse.json({ matched: 'deposit', application_id: app.id, amount, notify_ok: ok })
@@ -260,7 +260,7 @@ export async function POST(request: NextRequest) {
         await pushToAdmins(supabase, {
           title: '잔금 수동 처리 필요',
           body: `입금자 ${depositor} — 복수 매칭`,
-          url: '/admin/applications',
+          url: '/admin/customers',
         })
         return NextResponse.json({ matched: 'balance', action: 'manual', reason: 'multi_match' })
       }
@@ -276,7 +276,7 @@ export async function POST(request: NextRequest) {
         await pushToAdmins(supabase, {
           title: '⚠️ 잔금 금액 불일치',
           body: `${app.business_name} — 입금 ${amount.toLocaleString('ko-KR')}원 / DB ${dbBalance.toLocaleString('ko-KR')}원`,
-          url: '/admin/applications',
+          url: '/admin/customers',
         })
         return NextResponse.json({
           matched: 'balance', action: 'manual', reason: 'amount_mismatch',
@@ -292,7 +292,7 @@ export async function POST(request: NextRequest) {
       await pushToAdmins(supabase, {
         title: '💰 잔금 입금 확인',
         body: `${app.business_name} — ${amount.toLocaleString('ko-KR')}원`,
-        url: '/admin/applications',
+        url: '/admin/customers',
       })
 
       return NextResponse.json({ matched: 'balance', application_id: app.id, amount, notify_ok: ok })
@@ -305,7 +305,7 @@ export async function POST(request: NextRequest) {
     await pushToAdmins(supabase, {
       title: '⚠️ 입금 매칭 실패',
       body: `입금자 ${depositor} — ${amount.toLocaleString('ko-KR')}원 (수동 처리 필요)`,
-      url: '/admin/applications',
+      url: '/admin/customers',
     })
 
     return NextResponse.json({ matched: 'none', depositor, amount })

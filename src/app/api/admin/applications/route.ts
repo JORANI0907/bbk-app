@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { sendSlack } from '@/lib/slack'
+import { computeBillingAmountFromCustomer, toMonthlyPeriod, calcMonthlyDueDate } from '@/lib/billing-generator'
 
 export async function GET(request: NextRequest) {
   const supabase = createServiceClient()
@@ -8,12 +9,25 @@ export async function GET(request: NextRequest) {
   const status = searchParams.get('status')
   const hasAssigned = searchParams.get('has_assigned')
   const month = searchParams.get('month')
+  // Phase 2: 고객 상세페이지에서 특정 고객의 일정만 조회
+  // Phase 22 v8: customer_id 우선 매칭 (phone/business_name은 같은 사업장 다른 유형 계약을 구분 못함)
+  const customerId = searchParams.get('customer_id')
+  const phone = searchParams.get('phone')
+  const businessName = searchParams.get('business_name')
+  // Phase 4: 이관 필터 (활성/이관됨/전체)
+  const archived = searchParams.get('archived')
 
   let query = supabase
     .from('service_applications')
     .select('*, customer:customers(drive_folder_url)')
     .is('deleted_at', null)
-    .order('created_at', { ascending: false })
+    .order('construction_date', { ascending: true })
+
+  if (archived === 'true') {
+    query = query.not('archived_at', 'is', null)
+  } else if (archived !== 'all') {
+    query = query.is('archived_at', null)
+  }
 
   if (status) {
     query = query.eq('status', status)
@@ -30,6 +44,17 @@ export async function GET(request: NextRequest) {
       .gte('construction_date', `${month}-01`)
       .lt('construction_date', nextMonth)
   }
+  // 고객 매칭 (customer_id 최우선 → phone → business_name)
+  // Phase 22 v8: customer_id로 매칭하면 같은 phone/business_name을 공유하는 다른 유형 계약과 안전하게 분리됨
+  if (customerId) {
+    query = query.eq('customer_id', customerId)
+  } else if (phone) {
+    // OR 조건으로 phone에 대시 유무 두 형식 모두 매칭
+    const normalized = phone.replace(/-/g, '')
+    query = query.or(`phone.eq.${normalized},phone.eq.${phone}`)
+  } else if (businessName) {
+    query = query.eq('business_name', businessName)
+  }
 
   const { data, error } = await query
 
@@ -37,7 +62,27 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
-  return NextResponse.json({ applications: data })
+  // Phase 2: 각 application에 배정된 첫 번째 작업자 정보 병합
+  const apps = data ?? []
+  if (apps.length > 0) {
+    const appIds = apps.map(a => a.id)
+    const { data: assignments } = await supabase
+      .from('work_assignments')
+      .select('application_id, worker_id')
+      .in('application_id', appIds)
+
+    const workerMap: Record<string, string> = {}
+    for (const a of assignments ?? []) {
+      if (a.application_id && !workerMap[a.application_id]) {
+        workerMap[a.application_id] = a.worker_id
+      }
+    }
+    for (const app of apps) {
+      (app as Record<string, unknown>).assigned_worker_id = workerMap[app.id] ?? null
+    }
+  }
+
+  return NextResponse.json({ applications: apps })
 }
 
 export async function POST(request: NextRequest) {
@@ -64,7 +109,9 @@ export async function POST(request: NextRequest) {
     // 기타
     'service_type', 'admin_notes', 'disposition',
   ]
-  const insert: Record<string, unknown> = { status: '신규' }
+  // Phase 8-C: 신규 신청 유입 시 progress_status='신청서작성' 초기값 세팅
+  // (기존 status='신규'는 자동화 backward-compat 위해 유지)
+  const insert: Record<string, unknown> = { status: '신규', progress_status: '신청서작성' }
   for (const key of ALLOWED_POST) {
     if (key in body) insert[key] = body[key]
   }
@@ -122,6 +169,12 @@ export async function PATCH(request: NextRequest) {
     'status', 'admin_notes', 'service_type', 'assigned_to',
     'drive_folder_url', 'construction_date', 'construction_time',
     'pre_meeting_at', 'disposition',
+    // 작업/결제 상태 (Phase 1: 상태 분리)
+    'work_status', 'work_started_at', 'work_completed_at',
+    'payment_status', 'completed_at',
+    'customer_memo', 'internal_memo',
+    // Phase 8-C: 진행/결제 상태 이원화 (UI 수동 편집 허용)
+    'progress_status', 'payment_status_detail',
   ]
   const updates: Record<string, unknown> = {}
   for (const key of ALLOWED) {
@@ -247,6 +300,56 @@ export async function PATCH(request: NextRequest) {
     } catch (syncErr) {
       // 동기화 실패는 로그만 남기고 메인 응답은 성공 처리
       console.error('service_schedules 동기화 실패:', syncErr)
+    }
+  }
+
+  // Phase 22 v11: 정기딥 월간 방문 완료 시 그 달 billings 자동 생성 (idempotent)
+  // 진행상태가 '작업완료'로 변경됐고 고객이 정기딥+월간이면 실행
+  if (updates.progress_status === '작업완료') {
+    try {
+      const { data: app } = await supabase
+        .from('service_applications')
+        .select('customer_id, business_name, phone, construction_date')
+        .eq('id', id)
+        .single()
+
+      if (app?.customer_id && app.construction_date) {
+        const { data: customer } = await supabase
+          .from('customers')
+          .select('id, customer_type, billing_cycle, payment_date, supply_amount, vat, billing_amount, payment_method, status')
+          .eq('id', app.customer_id)
+          .is('deleted_at', null)
+          .single()
+
+        // Phase 23: 일시정지 고객은 방문 완료 트리거로도 청구 생성 skip
+        if (customer?.customer_type === '정기딥케어' && customer.billing_cycle === '월간' && customer.status !== 'paused') {
+          const period = toMonthlyPeriod(app.construction_date)
+          // 이미 있으면 skip
+          const { data: existing } = await supabase
+            .from('service_billings')
+            .select('id')
+            .eq('customer_id', customer.id)
+            .eq('billing_period', period)
+            .maybeSingle()
+          if (!existing) {
+            const amount = computeBillingAmountFromCustomer(customer)
+            if (amount && amount > 0) {
+              const dueDate = calcMonthlyDueDate(app.construction_date, customer.payment_date ?? null)
+              await supabase.from('service_billings').insert({
+                customer_id: customer.id,
+                billing_type: 'monthly',
+                billing_period: period,
+                amount,
+                due_date: dueDate,
+                status: 'pending',
+                notes: '방문 완료 자동 생성',
+              })
+            }
+          }
+        }
+      }
+    } catch (e) {
+      console.error('정기딥 월간 billings 자동 생성 실패:', e instanceof Error ? e.message : e)
     }
   }
 

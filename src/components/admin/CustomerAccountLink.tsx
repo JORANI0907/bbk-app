@@ -17,10 +17,16 @@ interface Props {
   customerId: string
   accountUserId: string | null
   linkedLabel?: string | null
+  /** 이 고객이 소유한 포털 계정 표시용 라벨 (예: "홍길동 · 010-1234-5678"). 미생성 시 null */
+  ownerAccountLabel?: string | null
+  /** 계정 통합(다른 고객 계정 병합) UI 노출 여부. 기본 true (정기케어에서만 의미 있음) */
+  showMerger?: boolean
   onUpdated: (nextAccountUserId: string | null) => void
 }
 
-export function CustomerAccountLink({ customerId, accountUserId, linkedLabel, onUpdated }: Props) {
+export function CustomerAccountLink({
+  customerId, accountUserId, linkedLabel, ownerAccountLabel = null, showMerger = true, onUpdated,
+}: Props) {
   const [expanded, setExpanded] = useState(false)
   const [candidates, setCandidates] = useState<Candidate[]>([])
   const [loading, setLoading] = useState(false)
@@ -59,40 +65,52 @@ export function CustomerAccountLink({ customerId, accountUserId, linkedLabel, on
   const isLinked = !!accountUserId
 
   return (
-    <div className="rounded-lg border border-border-subtle bg-surface-sunken/40 p-3 flex flex-col gap-2">
+    <div className="rounded-lg border border-indigo-200 bg-gradient-to-br from-indigo-50 to-violet-50 p-3 flex flex-col gap-2">
       <div className="flex items-center gap-2">
-        <Users size={14} className="text-text-secondary shrink-0" />
-        <span className="text-xs font-semibold text-text-primary">고객 계정 통합</span>
-        {isLinked && (
-          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-brand-100 text-brand-700 font-semibold">
+        <Users size={14} className="text-indigo-600 shrink-0" />
+        <span className="text-xs font-semibold text-indigo-900">고객 계정</span>
+        {/* 통합 UI 노출 시에만 도움말 물음표 표시 */}
+        {showMerger && (
+          <span
+            className="inline-flex items-center justify-center w-4 h-4 rounded-full border border-indigo-300 text-[10px] text-indigo-500 cursor-help bg-white/60"
+            title="같은 사업장이 다른 유형의 정기 계약도 이용 중이라면, 이 계약을 그 계정에 통합해 한 로그인으로 함께 보이게 할 수 있습니다."
+          >?</span>
+        )}
+        {isLinked && showMerger && (
+          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-indigo-600 text-white font-semibold">
             통합됨
           </span>
         )}
       </div>
 
-      {isLinked ? (
+      {/* Phase 22 v3: 포털 계정 표시 — 생성완료 시 실제 계정 정보(이름·전화) 노출 (계정관리에서 수정 시 자동 반영) */}
+      <div className="flex items-center gap-1.5 rounded-md border border-indigo-200 bg-white/70 px-2.5 py-1">
+        <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${ownerAccountLabel ? 'bg-green-500' : 'bg-gray-400'}`} />
+        {ownerAccountLabel ? (
+          <span className="text-xs font-medium text-text-primary truncate">{ownerAccountLabel}</span>
+        ) : (
+          <span className="text-xs text-text-tertiary">포털 계정 미생성</span>
+        )}
+      </div>
+
+      {/* 계정 통합 UI (정기케어만) */}
+      {showMerger && (isLinked ? (
         <>
           {linkedLabel ? (
-            <div className="flex flex-col gap-1">
-              <p className="text-[11px] text-text-tertiary">통합된 계정</p>
-              <div className="flex items-center gap-1.5 rounded-md border border-brand-100 bg-brand-50 px-2.5 py-1.5">
-                <Link2 size={12} className="text-brand-600 shrink-0" />
-                <span className="text-xs font-semibold text-brand-700 truncate">{linkedLabel}</span>
-              </div>
-              <p className="text-[11px] text-text-secondary leading-normal">
-                위 계정으로 로그인하면 이 계약의 일정도 함께 표시됩니다.
-              </p>
+            <div className="flex items-center gap-1.5 rounded-md border border-indigo-200 bg-white px-2.5 py-1.5">
+              <Link2 size={12} className="text-indigo-600 shrink-0" />
+              <span className="text-xs font-semibold text-indigo-700 truncate">{linkedLabel}</span>
             </div>
           ) : (
             <p className="text-[11px] text-text-secondary leading-normal">
-              이 계약은 다른 고객 계정 하나에 통합되어 있습니다. (대상 계정 정보를 찾을 수 없음 — 삭제되었거나 목록에 없음)
+              대상 계정 정보를 찾을 수 없음 (삭제됨)
             </p>
           )}
           <button
             type="button"
             onClick={() => apply(null)}
             disabled={submitting}
-            className="inline-flex items-center justify-center gap-1 text-[11px] font-semibold px-2.5 py-1.5 rounded-md border border-border bg-surface text-text-primary hover:bg-surface-sunken disabled:opacity-50"
+            className="inline-flex items-center justify-center gap-1 text-[11px] font-semibold px-2.5 py-1.5 rounded-md border border-indigo-300 bg-white text-indigo-700 hover:bg-indigo-100 disabled:opacity-50"
           >
             <Link2Off size={12} />
             통합 해제
@@ -100,9 +118,6 @@ export function CustomerAccountLink({ customerId, accountUserId, linkedLabel, on
         </>
       ) : (
         <>
-          <p className="text-[11px] text-text-secondary leading-normal">
-            같은 사업장이 다른 유형의 정기 계약도 이용 중이라면, 이 계약을 그 계정에 통합해 한 로그인으로 함께 보이게 할 수 있습니다.
-          </p>
           {!expanded ? (
             <button
               type="button"
@@ -149,7 +164,7 @@ export function CustomerAccountLink({ customerId, accountUserId, linkedLabel, on
             </div>
           )}
         </>
-      )}
+      ))}
     </div>
   )
 }

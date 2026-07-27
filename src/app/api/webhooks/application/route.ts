@@ -76,6 +76,15 @@ export async function POST(request: NextRequest) {
 
     const normalizedPhone2 = (typeof phone_2 === 'string' && phone_2.trim()) ? phone_2.trim() : null
 
+    // Phase 15: 영업시간 HH:MM 형식 검증 (브라우저 자동완성 오염 방어 — 회사명·긴 문자열 차단)
+    const validTime = (v: unknown): string | null => {
+      if (typeof v !== 'string') return null
+      const trimmed = v.trim()
+      return /^\d{1,2}:\d{2}$/.test(trimmed) ? trimmed : null
+    }
+    const cleanBusinessHoursStart = validTime(businessHoursStart)
+    const cleanBusinessHoursEnd   = validTime(businessHoursEnd)
+
     if (!ownerName || !businessName || !address) {
       return NextResponse.json(
         { error: '필수 항목이 누락되었습니다.' },
@@ -121,8 +130,8 @@ export async function POST(request: NextRequest) {
           business_name: businessName,
           business_number: businessNumber,
           address,
-          business_hours_start: businessHoursStart,
-          business_hours_end: businessHoursEnd,
+          business_hours_start: cleanBusinessHoursStart,
+          business_hours_end: cleanBusinessHoursEnd,
           elevator,
           building_access: buildingAccess,
           access_method: accessMethod,
@@ -136,6 +145,7 @@ export async function POST(request: NextRequest) {
           care_scope: careScope ?? null,
           source: source ?? 'application',
           status: '신규',
+          progress_status: '신청서작성', // Phase 8-C
         })
         .select()
         .single(),

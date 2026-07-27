@@ -247,8 +247,10 @@ export function WorkPanel({ app, onUpdate, isAdmin = false }: Props) {
       {/* ── 1단계: 대기 중 ── */}
       {status === 'pending' && (
         <div className="space-y-3">
-          {/* 내 계획 편집기 (출발 시각 + 특이사항) */}
+          {/* Phase 24: 담당자 계획 편집기 (관리자 뷰 — 워커 뷰에서는 "내 계획"으로 표시됨) */}
           <WorkerPlanEditor
+            title="담당자 계획"
+            subtitle="출발 시각·특이사항"
             initialDeparture={app.worker_planned_departure ?? null}
             initialNote={app.worker_plan_note ?? null}
             onSave={async (payload) => {

@@ -18,7 +18,6 @@ interface MenuPermission {
 const MENU_LIST: Omit<MenuPermission, 'admin' | 'worker'>[] = [
   // 영업관리
   { href: '/admin/schedule', label: '배정관리', group: '영업관리' },
-  { href: '/admin/applications', label: '서비스관리', group: '영업관리' },
   { href: '/admin/customers', label: '고객관리', group: '영업관리' },
   { href: '/admin/reports', label: '월간보고서', group: '영업관리' },
   // 인사·현장관리

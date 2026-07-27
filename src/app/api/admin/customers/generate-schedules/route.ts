@@ -79,7 +79,21 @@ export async function POST(request: NextRequest) {
     year: reqYear,
     month: reqMonth,
     start_day: reqStartDay,
-  }: { customer_ids: string[]; year?: number; month?: number; start_day?: number } = body
+    end_day: reqEndDay,
+    regenerate,
+    cleanup_only,
+  }: {
+    customer_ids: string[]
+    year?: number
+    month?: number
+    start_day?: number
+    /** Phase 5-E: 대상 월의 end_day까지만 처리 (기간 기반) */
+    end_day?: number
+    /** Phase 5-C: true면 대상 월의 미완료 일정 먼저 soft-delete 후 재생성 */
+    regenerate?: boolean
+    /** Phase 5-D: true면 대상 월의 미완료 일정 중 새 방문일정에 없는 것만 삭제 (신규 INSERT 스킵) */
+    cleanup_only?: boolean
+  } = body
 
   if (!Array.isArray(customer_ids) || customer_ids.length === 0) {
     return NextResponse.json({ error: 'customer_ids가 필요합니다.' }, { status: 400 })
@@ -93,6 +107,9 @@ export async function POST(request: NextRequest) {
   // 지정된 시작일 이후만 필터 (미전달 시 1일)
   const startDay = typeof reqStartDay === 'number' && reqStartDay >= 1 && reqStartDay <= 31 ? reqStartDay : 1
   const startDateStr = `${year}-${String(month).padStart(2, '0')}-${String(startDay).padStart(2, '0')}`
+  // Phase 5-E: 종료일 (미전달 시 31일 → 해당 월 말일까지 처리)
+  const endDay = typeof reqEndDay === 'number' && reqEndDay >= 1 && reqEndDay <= 31 ? reqEndDay : 31
+  const endDateStr = `${year}-${String(month).padStart(2, '0')}-${String(endDay).padStart(2, '0')}`
 
   const { data: customersData, error: fetchError } = await supabase
     .from('customers')
@@ -128,11 +145,54 @@ export async function POST(request: NextRequest) {
       scheduledDates = getDatesForMonthlyDates(year, month, customer.visit_monthly_dates)
     }
 
-    // 지정된 시작일 이후 날짜만 필터 (사용자가 원하는 생성 시작점 지원)
-    scheduledDates = scheduledDates.filter((d) => d >= startDateStr)
+    // Phase 5-E: 시작일~종료일 범위로 필터
+    scheduledDates = scheduledDates.filter((d) => d >= startDateStr && d <= endDateStr)
 
     if (scheduledDates.length === 0) {
       results.push({ customer_id: customer.id, inserted: 0, skipped: 0 })
+      continue
+    }
+
+    // Phase 5-C: regenerate 모드 — startDate~endDate 미완료 일정 먼저 soft-delete
+    // (work_status='completed'인 것은 이력 보존 목적으로 유지)
+    if (regenerate) {
+      await supabase
+        .from('service_applications')
+        .update({ deleted_at: new Date().toISOString() })
+        .eq('business_name', customer.business_name)
+        .gte('construction_date', startDateStr)
+        .lte('construction_date', endDateStr)
+        .or('work_status.is.null,work_status.neq.completed')
+        .is('deleted_at', null)
+    }
+
+    // Phase 5-D: cleanup_only 모드 — 새 방문일정에 없는 미완료 일정만 삭제, INSERT 스킵
+    // (계약일정 수정 시 사용: 기존 일정 정리만, 신규 생성은 별도 "생성" 버튼)
+    if (cleanup_only) {
+      // startDate~endDate 미완료 일정 조회
+      const { data: existingMisc } = await supabase
+        .from('service_applications')
+        .select('id, construction_date, work_status')
+        .eq('business_name', customer.business_name)
+        .gte('construction_date', startDateStr)
+        .lte('construction_date', endDateStr)
+        .is('deleted_at', null)
+      // 새 방문일정에 없는 미완료 것만 삭제 대상 필터
+      const scheduledSet = new Set(scheduledDates)
+      const toDelete = (existingMisc ?? [])
+        .filter((r: { id: string; construction_date: string | null; work_status: string | null }) =>
+          r.construction_date && !scheduledSet.has(r.construction_date) &&
+          (r.work_status == null || r.work_status !== 'completed'))
+        .map(r => r.id)
+      let deletedCount = 0
+      if (toDelete.length > 0) {
+        const { error: delErr } = await supabase
+          .from('service_applications')
+          .update({ deleted_at: new Date().toISOString() })
+          .in('id', toDelete)
+        if (!delErr) deletedCount = toDelete.length
+      }
+      results.push({ customer_id: customer.id, inserted: 0, skipped: deletedCount })
       continue
     }
 
@@ -159,6 +219,12 @@ export async function POST(request: NextRequest) {
         ? (customer.billing_amount || null)
         : null
 
+    // Phase 22 v7: 정기딥 연간은 계약 시 선결제·세금계산서 일괄 발행 → 각 방문 결제상태 자동 세팅
+    const preSettledPayment =
+      customer.customer_type === '정기딥케어' && customer.billing_cycle === '연간'
+        ? '계산서발행완료'
+        : null
+
     const toInsert = newDates.map(date => ({
       customer_id: customer.id,
       business_name: customer.business_name,
@@ -182,6 +248,7 @@ export async function POST(request: NextRequest) {
       assigned_to: customer.assigned_user_id || null,
       unit_price_per_visit: isAnnual ? null : (customer.unit_price || null),
       supply_amount: supplyAmount,
+      payment_status_detail: preSettledPayment,
       construction_date: date,
       status: '예약확정',
       admin_notes: `고객 DB 자동 일정 생성 (${label})`,

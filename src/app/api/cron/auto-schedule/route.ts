@@ -139,6 +139,12 @@ export async function GET(request: NextRequest) {
             ? (customer.billing_amount || null)
             : null
 
+        // Phase 22 v7: 정기딥 연간은 계약 시 선결제·세금계산서 일괄 발행 → 각 방문 결제상태 자동 세팅
+        const preSettledPayment =
+          customer.customer_type === '정기딥케어' && customer.billing_cycle === '연간'
+            ? '계산서발행완료'
+            : null
+
         const toInsert = newDates.map((date) => ({
           // 일반정보
           customer_id: customer.id,
@@ -164,6 +170,7 @@ export async function GET(request: NextRequest) {
           payment_method: customer.payment_method || null,
           unit_price_per_visit: customer.unit_price || null,
           supply_amount: supplyAmount,
+          payment_status_detail: preSettledPayment,
           // 메타
           service_type: customer.customer_type,
           assigned_to: customer.assigned_user_id || null,
