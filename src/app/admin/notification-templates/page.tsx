@@ -421,15 +421,18 @@ export default function NotificationTemplatesPage() {
                   {/* Phase 27-S 5-b: 자동/반자동/미배선 조건부 렌더링 */}
                   {(() => {
                     const kind = classifyTrigger(selected.code)
+                    // Phase 27-S 5-c: auto_used=true 시 자물쇠로 자동 토글도 잠금 (실수 방지)
+                    const locked = selected.auto_used && !unlockedIds.has(selected.id)
                     if (kind === 'auto') {
                       return (
                         <label
-                          className="flex items-center gap-1.5 text-xs cursor-pointer"
-                          title={selected.auto_used ? '자동 발송 끄기' : '자동 발송 켜기'}
+                          className={`flex items-center gap-1.5 text-xs ${locked ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                          title={locked ? '🔒 잠금 상태 — 자물쇠 해제 후 편집' : (selected.auto_used ? '자동 발송 끄기' : '자동 발송 켜기')}
                         >
                           <input
                             type="checkbox"
                             checked={selected.auto_used ?? false}
+                            disabled={locked}
                             onChange={e => handleToggleAutoUsed(selected.id, e.target.checked)}
                             className="sr-only peer"
                           />
