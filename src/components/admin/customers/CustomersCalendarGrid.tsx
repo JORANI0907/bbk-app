@@ -18,6 +18,7 @@ import { ChevronLeft, ChevronRight, Loader2 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { getScheduleToday } from '@/lib/schedule-today'
 import { computeAppAmount, fmtAmount } from './calendar-amount'
+import { TODAY_CELL_BG, TODAY_CELL_SHADOW, TODAY_CIRCLE } from '@/lib/ui/today-styles'
 
 // ─── 타입 ─────────────────────────────────────────────────────
 
@@ -334,12 +335,12 @@ export function CustomersCalendarGrid({ onSelectApp, filterTypes }: Props) {
                       key={day}
                       onClick={() => hasApps && setModalDate(dateStr)}
                       className={`border-r border-b border-border-subtle p-1.5 flex flex-col gap-0.5
-                        ${isToday ? 'bg-brand-50' : (dow === 0 || dow === 6) ? 'bg-surface-sunken/50' : ''}
+                        ${isToday ? `${TODAY_CELL_BG} ${TODAY_CELL_SHADOW}` : (dow === 0 || dow === 6) ? 'bg-surface-sunken/50' : ''}
                         ${hasApps ? 'cursor-pointer hover:bg-brand-50/40 transition-colors' : ''}`}
                     >
                       <div className="flex items-center justify-between gap-1">
                         <div className={`text-xs font-bold w-6 h-6 flex items-center justify-center rounded-full shrink-0
-                          ${isToday ? 'bg-brand-600 text-white' : dow === 0 ? 'text-red-500' : dow === 6 ? 'text-brand-500' : 'text-text-primary'}`}>
+                          ${isToday ? TODAY_CIRCLE : dow === 0 ? 'text-red-500' : dow === 6 ? 'text-brand-500' : 'text-text-primary'}`}>
                           {day}
                         </div>
                         {dayAmount > 0 && (

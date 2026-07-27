@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, Fragment } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import toast from 'react-hot-toast'
 import { useModalBackButton } from '@/hooks/useModalBackButton'
@@ -15,6 +15,7 @@ import { PaymentIssuesSummary } from '@/components/admin/customers/PaymentIssues
 import { ServiceManagementPage } from '@/components/admin/applications/ServiceManagementView'
 import { CustomersCalendarGrid, type CalendarApp } from '@/components/admin/customers/CustomersCalendarGrid'
 import { computeAppAmount, fmtAmount } from '@/components/admin/customers/calendar-amount'
+import { TODAY_ROW_BORDER, TODAY_ROW_BG, TODAY_ROW_SHADOW } from '@/lib/ui/today-styles'
 
 // ─── 타입 ─────────────────────────────────────────────────────
 type CustomerType = '1회성케어' | '정기딥케어' | '정기엔드케어' | '정기딥케어샘플' | '정기엔드케어샘플' | '일반일정'
@@ -114,6 +115,13 @@ const CUSTOMER_TYPES: CustomerType[] = ['정기엔드케어', '정기딥케어',
 // 리스트 상단 필터 옵션 (편집 폼 유형과 별도)
 type FilterOption = '정기엔드케어' | '정기딥케어' | '1회성케어' | '일반일정'
 const FILTER_OPTIONS: FilterOption[] = ['1회성케어', '정기딥케어', '정기엔드케어', '일반일정']
+// Phase 27-J: 필터 버튼 축약 라벨 (상단 UI 간소화)
+const FILTER_SHORT_LABEL: Record<FilterOption, string> = {
+  '1회성케어': '1회성',
+  '정기딥케어': '정기딥',
+  '정기엔드케어': '정기엔드',
+  '일반일정': '일반',
+}
 
 // 필터 옵션 → 실제 customer_type 매칭 판별
 function matchesCustomerFilter(customerType: CustomerType, filter: FilterOption): boolean {
@@ -545,6 +553,8 @@ export function CustomersManagementView({
     balance: number | null
     unit_price_per_visit: number | null
     assigned_to: string | null
+    customer_id: string | null
+    status: string | null
     created_at: string
   }>>([])
   // 리스트 미리보기용 최신 청구 요약 (customer_id → 대표 청구 record)
@@ -582,7 +592,7 @@ export function CustomersManagementView({
   const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list')
   const [calendarFocus, setCalendarFocus] = useState<{ appId: string; month: string } | null>(null)
   // Phase 27-E: 이번주·이번달 매출 요약 + 주별 breakdown (리스트/캘린더 무관하게 상단 배지)
-  interface WeekBreakdown { label: string; amount: number; isCurrent: boolean }
+  interface WeekBreakdown { label: string; amount: number; isCurrent: boolean; startIso: string; endIso: string }
   const [revenueSummary, setRevenueSummary] = useState<{ week: number; month: number; weeks: WeekBreakdown[] }>({ week: 0, month: 0, weeks: [] })
   const [form, setForm] = useState<typeof EMPTY_FORM>(EMPTY_FORM)
   const [saving, setSaving] = useState(false)
@@ -650,20 +660,30 @@ export function CustomersManagementView({
     const url = archivedView
       ? '/api/admin/customers?archived=true'
       : '/api/admin/customers'
-    // Phase 7-D: 이력뷰가 아닐 때만 신규 신청서도 병렬 fetch → 미배정만 클라이언트 필터
-    const [customersRes, appsRes] = await Promise.all([
+    // Phase 27-L: 이번달·다음달 신청서 fetch → customer_id NULL 인 것을 pendings 로 병합
+    // (기존 Phase 7-D 의 `status=신규 & assigned_to=null` 조건은 이미 배정·진행된 신청서를
+    //  누락시켜 캘린더 대비 리스트가 비는 gap 을 만들었음)
+    const now = new Date()
+    const y = now.getFullYear()
+    const m = now.getMonth() + 1
+    const thisMonth = `${y}-${String(m).padStart(2, '0')}`
+    const nextY = m === 12 ? y + 1 : y
+    const nextM = m === 12 ? 1 : m + 1
+    const nextMonth = `${nextY}-${String(nextM).padStart(2, '0')}`
+    const [customersRes, appsThisRes, appsNextRes] = await Promise.all([
       fetch(url),
-      archivedView ? Promise.resolve(null) : fetch('/api/admin/applications?status=신규'),
+      archivedView ? Promise.resolve(null) : fetch(`/api/admin/applications?month=${thisMonth}`),
+      archivedView ? Promise.resolve(null) : fetch(`/api/admin/applications?month=${nextMonth}`),
     ])
     const data = await customersRes.json()
     setCustomers(data.customers ?? [])
-    if (appsRes) {
+    if (appsThisRes && appsNextRes) {
       try {
-        const appsData = await appsRes.json()
-        const unassigned = (appsData.applications ?? []).filter(
-          (a: { assigned_to: string | null }) => !a.assigned_to
-        )
-        setPendingApplications(unassigned)
+        const [j1, j2] = await Promise.all([appsThisRes.json(), appsNextRes.json()])
+        const merged = [...(j1.applications ?? []), ...(j2.applications ?? [])]
+        // customer 미등록 신청서만 pendings 로 (customer 등록된 회차는 customers 리스트에서 표시)
+        const orphaned = merged.filter((a: { customer_id: string | null }) => !a.customer_id)
+        setPendingApplications(orphaned)
       } catch {
         setPendingApplications([])
       }
@@ -740,7 +760,8 @@ export function CustomersManagementView({
           const e = r.end > monthEndDate ? monthEndDate : r.end
           const label = `${s.getMonth() + 1}.${s.getDate()} ~ ${e.getMonth() + 1}.${e.getDate()}`
           const isCurrent = wsIso >= toIso(r.start) && wsIso <= toIso(r.end)
-          return { label, amount: perWeek[i], isCurrent }
+          // Phase 27-J: 리스트 divider 삽입 매칭용 raw ISO (월~일)
+          return { label, amount: perWeek[i], isCurrent, startIso: toIso(r.start), endIso: toIso(r.end) }
         })
         setRevenueSummary({ week: weekSum, month: monthSum, weeks })
       })
@@ -1520,76 +1541,89 @@ export function CustomersManagementView({
         const noConstructionDate = isOnce && !c.next_visit_date
         return noManager || noConstructionDate
       })
-      // Phase 7-D: 신청서 폼 유입(assigned_to=null)을 Customer 형태로 매핑해 상단 병합
-      if (!archivedView && pendingApplications.length > 0) {
-        const pendings: Customer[] = pendingApplications
-          .filter(a => {
-            // 유형 필터 활성 시 신청서 service_type도 함께 필터
-            if (selectedTypes.size === 0) return true
+    }
+
+    // Phase 27-L: customer 미등록 신청서(pendings) 를 상시 병합.
+    // 이전(Phase 7-D)에는 `showUnassignedOnly` 조건 안에만 병합해서, 신청서가 배정·진행 상태이지만
+    // customer 로 등록 안 된 회차가 리스트에서 통째로 누락됐음(캘린더에는 표시됨) — 그 gap 해결.
+    if (!archivedView && pendingApplications.length > 0) {
+      const pendings: Customer[] = pendingApplications
+        .filter(a => {
+          // 유형 필터 활성 시 신청서 service_type도 함께 필터
+          if (selectedTypes.size > 0) {
             const t = (a.service_type ?? '1회성케어') as CustomerType
+            let matched = false
             for (const opt of selectedTypes) {
-              if (matchesCustomerFilter(t, opt)) return true
+              if (matchesCustomerFilter(t, opt)) { matched = true; break }
             }
-            return false
-          })
-          .map(a => ({
-            id: `app:${a.id}`,
-            // Phase 14: 신청서 → Customer 전체 필드 매핑
-            business_name: a.business_name ?? '(업체명 미기재)',
-            contact_name: a.owner_name ?? '',
-            contact_phone: a.phone ?? '',
-            contact_phone_2: a.phone_2 ?? null,
-            email: a.email ?? null,
-            address: a.address ?? '',
-            address_detail: null,
-            business_number: a.business_number ?? null,
-            account_number: a.account_number ?? null,
-            platform_nickname: a.platform_nickname ?? null,
-            payment_method: a.payment_method ?? null,
-            elevator: a.elevator ?? null,
-            building_access: a.building_access ?? null,
-            access_method: a.access_method ?? null,
-            business_hours_start: a.business_hours_start ?? null,
-            business_hours_end: a.business_hours_end ?? null,
-            door_password: null,
-            parking_info: a.parking ?? null,        // parking → parking_info
-            special_notes: a.request_notes ?? null, // request_notes → special_notes
-            admin_notes: a.admin_notes ?? a.admin_request_notes ?? null,
-            care_scope: a.care_scope ?? null,
-            pipeline_status: '',
-            customer_type: (a.service_type as CustomerType) ?? '1회성케어',
-            status: 'active',
-            billing_cycle: null, billing_amount: null, billing_start_date: null, billing_next_date: null,
-            contract_start_date: null, contract_end_date: null,
-            unit_price: a.unit_price_per_visit ?? null,
-            visit_interval_days: null,
-            next_visit_date: a.construction_date ?? null,
-            visit_schedule_type: null, visit_weekdays: null, visit_monthly_dates: null,
-            notes: null, disposition: null, grade: null,
-            rotation_type: null, visit_count_per_month: null,
-            payment_status: null, payment_date: null,
-            assigned_user_id: a.assigned_to ?? null,
-            assigned_worker_id: null,
-            deposit: a.deposit ?? null,
-            supply_amount: a.supply_amount ?? null,
-            vat: a.vat ?? null,
-            balance: a.balance ?? null,
-            user_id: null, account_user_id: null,
-            notification_log: null, phone_notify_1: null, phone_notify_2: null,
-            construction_time: a.construction_time ?? null,
-            deposit_payment_url: null, balance_payment_url: null,
-            deposit_portone_id: null, balance_portone_id: null,
-            deposit_paid_at: null, balance_paid_at: null,
-            billing_key: null,
-            progress_status: '신청서작성',
-            payment_status_detail: null,
-            injection_cycle_months: null,
-            created_at: a.created_at,
-            updated_at: a.created_at,
-          }))
-        // 신청서를 상단에 배치 (신규 유입 강조)
-        list = [...pendings, ...list]
-      }
+            if (!matched) return false
+          }
+          // 미배정 필터 활성 시 pendings 도 동일 규칙 적용
+          if (showUnassignedOnly) {
+            const noManager = !a.assigned_to
+            const isOnce = a.service_type === '1회성케어'
+            const noConstructionDate = isOnce && !a.construction_date
+            if (!(noManager || noConstructionDate)) return false
+          }
+          return true
+        })
+        .map(a => ({
+          id: `app:${a.id}`,
+          // Phase 14: 신청서 → Customer 전체 필드 매핑
+          business_name: a.business_name ?? '(업체명 미기재)',
+          contact_name: a.owner_name ?? '',
+          contact_phone: a.phone ?? '',
+          contact_phone_2: a.phone_2 ?? null,
+          email: a.email ?? null,
+          address: a.address ?? '',
+          address_detail: null,
+          business_number: a.business_number ?? null,
+          account_number: a.account_number ?? null,
+          platform_nickname: a.platform_nickname ?? null,
+          payment_method: a.payment_method ?? null,
+          elevator: a.elevator ?? null,
+          building_access: a.building_access ?? null,
+          access_method: a.access_method ?? null,
+          business_hours_start: a.business_hours_start ?? null,
+          business_hours_end: a.business_hours_end ?? null,
+          door_password: null,
+          parking_info: a.parking ?? null,        // parking → parking_info
+          special_notes: a.request_notes ?? null, // request_notes → special_notes
+          admin_notes: a.admin_notes ?? a.admin_request_notes ?? null,
+          care_scope: a.care_scope ?? null,
+          pipeline_status: '',
+          customer_type: (a.service_type as CustomerType) ?? '1회성케어',
+          status: 'active',
+          billing_cycle: null, billing_amount: null, billing_start_date: null, billing_next_date: null,
+          contract_start_date: null, contract_end_date: null,
+          unit_price: a.unit_price_per_visit ?? null,
+          visit_interval_days: null,
+          next_visit_date: a.construction_date ?? null,
+          visit_schedule_type: null, visit_weekdays: null, visit_monthly_dates: null,
+          notes: null, disposition: null, grade: null,
+          rotation_type: null, visit_count_per_month: null,
+          payment_status: null, payment_date: null,
+          assigned_user_id: a.assigned_to ?? null,
+          assigned_worker_id: null,
+          deposit: a.deposit ?? null,
+          supply_amount: a.supply_amount ?? null,
+          vat: a.vat ?? null,
+          balance: a.balance ?? null,
+          user_id: null, account_user_id: null,
+          notification_log: null, phone_notify_1: null, phone_notify_2: null,
+          construction_time: a.construction_time ?? null,
+          deposit_payment_url: null, balance_payment_url: null,
+          deposit_portone_id: null, balance_portone_id: null,
+          deposit_paid_at: null, balance_paid_at: null,
+          billing_key: null,
+          progress_status: a.status ?? '신청서작성',
+          payment_status_detail: null,
+          injection_cycle_months: null,
+          created_at: a.created_at,
+          updated_at: a.created_at,
+        }))
+      // pendings 를 상단에 배치 (신규·시공 임박 강조)
+      list = [...pendings, ...list]
     }
 
     // 직원 필터 (담당자 또는 작업자)
@@ -1798,9 +1832,8 @@ export function CustomersManagementView({
           </select>
         </div>
 
-        {/* 서비스 유형 체크박스 복수선택 — Phase 3: forceCustomerType 있으면 숨김 */}
-        <div className={`flex flex-wrap gap-1.5 mb-4 ${forceCustomerType ? 'hidden' : ''}`}>
-          <span className="text-xs text-text-secondary self-center mr-0.5">유형</span>
+        {/* Phase 27-J: 유형 필터 + 미배정 + 뷰 토글을 한 줄로 통합 (라벨 축약, 토글 1개) */}
+        <div className={`flex flex-wrap items-center gap-1.5 mb-3 ${forceCustomerType ? 'hidden' : ''}`}>
           {FILTER_OPTIONS.map(t => {
             const checked = selectedTypes.has(t)
             return (
@@ -1810,7 +1843,7 @@ export function CustomersManagementView({
                     ? 'bg-brand-600 text-white border-brand-600'
                     : 'bg-surface text-text-secondary border-border hover:border-blue-400'
                 }`}>
-                <span>{t}</span>
+                <span>{FILTER_SHORT_LABEL[t]}</span>
                 <span className={`text-xs px-1 py-0.5 rounded-full ${
                   checked ? 'bg-brand-500 text-white' : 'bg-surface-sunken text-text-secondary'
                 }`}>
@@ -1837,6 +1870,27 @@ export function CustomersManagementView({
             title="담당자 미배정 또는 1회성 시공일자 미설정 건만 표시">
             {showUnassignedOnly && '✓ '}미배정
           </button>
+          {/* Phase 27-J: 리스트 ↔ 캘린더 단일 토글 (누를 때마다 반대 뷰로 전환) */}
+          {!isWorker && !archivedView && (
+            <button
+              onClick={() => setViewMode(viewMode === 'list' ? 'calendar' : 'list')}
+              className="ml-auto text-xs px-3 py-1 rounded-lg border transition-colors bg-surface border-border text-text-secondary hover:border-brand-400 font-medium"
+              title={viewMode === 'list' ? '캘린더 뷰로 전환' : '리스트 뷰로 전환'}
+            >
+              {viewMode === 'list' ? '📅 캘린더' : '📋 리스트'}
+            </button>
+          )}
+          {/* Phase 27-E: 이번주·이번달 매출 요약 (뷰 토글 옆) */}
+          {!isWorker && !archivedView && (revenueSummary.week > 0 || revenueSummary.month > 0) && (
+            <div className="flex items-center gap-1">
+              <span className="text-[11px] px-2 py-1 rounded-md bg-emerald-50 border border-emerald-200 text-emerald-800 font-semibold whitespace-nowrap">
+                이번주 {fmtAmount(revenueSummary.week)}
+              </span>
+              <span className="text-[11px] px-2 py-1 rounded-md bg-emerald-100 border border-emerald-300 text-emerald-900 font-bold whitespace-nowrap">
+                이번달 {fmtAmount(revenueSummary.month)}
+              </span>
+            </div>
+          )}
         </div>
 
         {/* 액션 바 — Phase 6-H: embed 활성 시 숨김 (embed 뷰가 자체 액션바 사용) */}
@@ -1873,66 +1927,8 @@ export function CustomersManagementView({
           </div>
         )}
 
-        {/* Phase 27: 리스트/캘린더 뷰 토글 + 매출 요약 (관리자 전용, embed·이력 뷰가 아닐 때만) */}
-        {!isWorker && !archivedView && !forceCustomerType && (
-          <div className="flex items-center gap-2 mb-3 -mt-1 flex-wrap">
-            <button
-              onClick={() => setViewMode('list')}
-              className={`text-xs px-3 py-1.5 rounded-md border transition-colors ${
-                viewMode === 'list'
-                  ? 'bg-brand-600 border-brand-600 text-white'
-                  : 'bg-surface border-border text-text-secondary hover:border-brand-400'
-              }`}
-            >
-              📋 리스트
-            </button>
-            <button
-              onClick={() => setViewMode('calendar')}
-              className={`text-xs px-3 py-1.5 rounded-md border transition-colors ${
-                viewMode === 'calendar'
-                  ? 'bg-brand-600 border-brand-600 text-white'
-                  : 'bg-surface border-border text-text-secondary hover:border-brand-400'
-              }`}
-            >
-              📅 캘린더
-            </button>
-            {/* Phase 27-E: 이번주·이번달 매출 요약 배지 */}
-            {(revenueSummary.week > 0 || revenueSummary.month > 0) && (
-              <div className="ml-auto flex items-center gap-1.5">
-                <span className="text-[11px] px-2 py-1 rounded-md bg-emerald-50 border border-emerald-200 text-emerald-800 font-semibold whitespace-nowrap">
-                  이번주 {fmtAmount(revenueSummary.week)}
-                </span>
-                <span className="text-[11px] px-2 py-1 rounded-md bg-emerald-100 border border-emerald-300 text-emerald-900 font-bold whitespace-nowrap">
-                  이번달 {fmtAmount(revenueSummary.month)}
-                </span>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Phase 27-E: 리스트뷰에서 이번달 주별 매출 breakdown (한 줄에 주 카드 나열) */}
-        {viewMode === 'list' && !isWorker && !archivedView && !forceCustomerType && revenueSummary.weeks.length > 0 && (
-          <div className="mb-3 grid gap-1.5" style={{ gridTemplateColumns: `repeat(${revenueSummary.weeks.length}, minmax(0, 1fr))` }}>
-            {revenueSummary.weeks.map((w, i) => (
-              <div key={i}
-                className={`px-2 py-1.5 rounded-md border text-center transition-colors ${
-                  w.isCurrent
-                    ? 'bg-emerald-100 border-emerald-400 shadow-soft'
-                    : w.amount > 0
-                      ? 'bg-emerald-50 border-emerald-200'
-                      : 'bg-surface border-border-subtle'
-                }`}
-              >
-                <p className={`text-[10px] font-medium ${w.isCurrent ? 'text-emerald-900' : 'text-text-tertiary'}`}>
-                  {w.label}
-                </p>
-                <p className={`text-xs font-bold tabular-nums ${w.amount > 0 ? 'text-emerald-800' : 'text-text-tertiary'}`}>
-                  {w.amount > 0 ? fmtAmount(w.amount) : '-'}
-                </p>
-              </div>
-            ))}
-          </div>
-        )}
+        {/* Phase 27-J: 상단 위치의 주간 breakdown 카드 제거 — 리스트 내부 divider row로 대체됨.
+            뷰 토글·이번주/이번달 요약은 유형 필터 라인으로 통합됨. */}
 
         {/* Phase 27: 캘린더 뷰 or 리스트 뷰 조건 렌더링.
             (Phase 9-D의 1회성 embed dead code는 이 조건 분기로 대체됨) */}
@@ -1946,7 +1942,7 @@ export function CustomersManagementView({
         ) : (
         <>
         {/* 목록 (검색창은 필터 위로 이동됨) */}
-        <div className="bg-surface rounded-2xl border border-border shadow-soft overflow-auto flex-1">
+        <div className="bg-surface rounded-2xl border border-border shadow-soft overflow-auto flex-1 min-h-[320px]">
           {loading ? (
             <div className="py-20 text-center text-text-tertiary text-sm">불러오는 중...</div>
           ) : filtered.length === 0 ? (
@@ -2021,13 +2017,33 @@ export function CustomersManagementView({
                 </tr>
               </thead>
               <tbody className="divide-y divide-border-subtle">
-                {displayed.map(c => {
+                {(() => {
+                  // Phase 27-J: 리스트 내부 주간 divider — 이전 행의 주 인덱스를 IIFE 클로저로 추적
+                  let lastWeek = -2
+                  // 날짜 정렬 상태에서만 divider 노출 (시공일자 sort or 1회성/일반 단독)
+                  const isDateSorted = sortKey === 'construction_date' || sortKey === 'next_visit' ||
+                    (!sortKey && selectedTypes.size === 1 && (selectedTypes.has('1회성케어') || selectedTypes.has('일반일정')))
+                  const getWeekIdx = (dateStr: string | null | undefined): number => {
+                    if (!isDateSorted || !dateStr || revenueSummary.weeks.length === 0) return -1
+                    const d = dateStr.slice(0, 10)
+                    for (let i = 0; i < revenueSummary.weeks.length; i++) {
+                      const w = revenueSummary.weeks[i]
+                      if (d >= w.startIso && d <= w.endIso) return i
+                    }
+                    return -1
+                  }
+                  return displayed.map(c => {
                   const rawType = c.customer_type ?? '1회성케어'
                   const type: CustomerType = (rawType in TYPE_STYLE ? rawType : '1회성케어') as CustomerType
                   const tStyle = TYPE_STYLE[type] ?? TYPE_STYLE['1회성케어']
                   const sStyle = STATUS_STYLE[c.status ?? 'active']
                   const isSelected = selected?.id === c.id
                   const isChecked = checkedIds.includes(c.id)
+                  // Phase 27-J: 이 행이 새 주의 시작이면 divider 삽입
+                  const wIdx = getWeekIdx(c.next_visit_date)
+                  const showDivider = wIdx >= 0 && wIdx !== lastWeek
+                  if (showDivider) lastWeek = wIdx
+                  const weekInfo = showDivider ? revenueSummary.weeks[wIdx] : null
                   // Phase 7-D: 신청서 폼 유입은 아직 customer 미등록 → 체크박스·bulk 액션 제외
                   const isPendingApp = c.id.startsWith('app:')
                   const visitIntervalText = (() => {
@@ -2053,8 +2069,21 @@ export function CustomersManagementView({
                   const isToday = c.next_visit_date?.slice(0, 10) === todayStr
                   const isPaused = c.status === 'paused'
                   return (
-                    <tr key={c.id}
-                      className={`border-l-4 ${progressBorder} ${paymentBg} hover:brightness-95 transition-all cursor-pointer ${isToday ? 'ring-2 ring-inset ring-sky-400' : ''} ${isSelected ? 'ring-2 ring-brand-500 ring-inset' : ''} ${isChecked ? 'ring-2 ring-brand-400 ring-inset' : ''} ${isPendingApp ? 'bg-amber-50' : ''} ${isPaused ? 'bg-gray-100 opacity-60' : ''}`}
+                    <Fragment key={c.id}>
+                    {weekInfo && (
+                      <tr className="bg-emerald-50/70 border-y border-emerald-200">
+                        <td colSpan={99} className="px-3 py-1.5">
+                          <div className="flex items-center justify-between gap-3">
+                            <span className="text-[11px] font-semibold text-emerald-900">📅 {weekInfo.label} 주간</span>
+                            <span className={`text-xs font-bold tabular-nums ${weekInfo.amount > 0 ? 'text-emerald-800' : 'text-text-tertiary'}`}>
+                              {weekInfo.amount > 0 ? fmtAmount(weekInfo.amount) : '금액 없음'}
+                            </span>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                    <tr
+                      className={`border-l-4 ${isToday ? TODAY_ROW_BORDER : progressBorder} ${isToday ? `${TODAY_ROW_BG} ${TODAY_ROW_SHADOW}` : paymentBg} hover:brightness-95 transition-all cursor-pointer ${isSelected ? 'ring-2 ring-brand-500 ring-inset' : ''} ${isChecked ? 'ring-2 ring-brand-400 ring-inset' : ''} ${isPendingApp && !isToday ? 'bg-amber-50' : ''} ${isPaused ? 'bg-gray-100 opacity-60' : ''}`}
                       onClick={() => handleSelect(c)}>
                       <td className="px-3 py-3" onClick={e => { e.stopPropagation(); if (!isPendingApp) toggleCheck(c.id) }}>
                         <input type="checkbox" checked={isChecked} readOnly disabled={isPendingApp} className="accent-blue-600 pointer-events-none cursor-pointer disabled:opacity-40" />
@@ -2332,8 +2361,10 @@ export function CustomersManagementView({
                         )
                       })()}
                     </tr>
+                    </Fragment>
                   )
-                })}
+                })
+                })()}
               </tbody>
             </table>
           )}
@@ -3219,8 +3250,9 @@ export function CustomersManagementView({
 
             {/* Phase 22: D-day 요약 → 저장 버튼 아래로 이관됨 (자리 제거) */}
 
-            {/* Phase 22 v6: 결제 상태 요약 — 이번달 일정 위에 미해결 결제/계산서 이슈 컴팩트 노출 */}
-            {selected && !isNew && (form.customer_type === '정기딥케어' || form.customer_type === '정기엔드케어') && (
+            {/* Phase 22 v6: 결제 상태 요약 — 이번달 일정 위에 미해결 결제/계산서 이슈 컴팩트 노출
+                Phase 27-I: worker에겐 완전 블라인드 */}
+            {!isWorker && selected && !isNew && (form.customer_type === '정기딥케어' || form.customer_type === '정기엔드케어') && (
               <PaymentIssuesSummary
                 customerId={selected.id}
                 phone={form.contact_phone}
@@ -3231,8 +3263,9 @@ export function CustomersManagementView({
             )}
 
             {/* Phase 2: 이번달 일정 (정기딥/엔드 고객만 노출, 저장 버튼 바로 위)
-                Phase 27: 캘린더에서 진입 시 focus된 회차 아코디언 자동 확장 + 해당 월로 이동 */}
-            {selected && !isNew && (form.customer_type === '정기딥케어' || form.customer_type === '정기엔드케어') && (
+                Phase 27: 캘린더에서 진입 시 focus된 회차 아코디언 자동 확장 + 해당 월로 이동
+                Phase 27-I: worker에겐 완전 블라인드 */}
+            {!isWorker && selected && !isNew && (form.customer_type === '정기딥케어' || form.customer_type === '정기엔드케어') && (
               <MonthlyScheduleSection
                 customerId={selected.id}
                 businessName={form.business_name}

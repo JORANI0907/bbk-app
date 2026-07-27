@@ -12,6 +12,10 @@ import { MapSelectorModal } from '@/components/MapSelectorModal'
 import { Button } from '@/components/ui'
 import { Phone, Map, Camera, ClipboardList, Calendar } from 'lucide-react'
 import { getScheduleToday } from '@/lib/schedule-today'
+import {
+  TODAY_ROW_BORDER, TODAY_ROW_BG, TODAY_ROW_SHADOW,
+  TODAY_CELL_BG, TODAY_CELL_SHADOW, TODAY_CIRCLE, TODAY_BADGE,
+} from '@/lib/ui/today-styles'
 
 // ─── 타입 ──────────────────────────────────────────────────────
 
@@ -394,11 +398,11 @@ function CalendarGrid({
               key={day}
               onClick={() => hasApps && onDaySelect(dateStr, apps)}
               className={`border-r border-b border-border-subtle p-1.5 flex flex-col gap-0.5
-                ${isToday ? 'bg-brand-50' : (dow === 0 || dow === 6) ? 'bg-surface-sunken/50' : ''}
+                ${isToday ? `${TODAY_CELL_BG} ${TODAY_CELL_SHADOW}` : (dow === 0 || dow === 6) ? 'bg-surface-sunken/50' : ''}
                 ${hasApps ? 'cursor-pointer hover:bg-indigo-50/40 transition-colors' : ''}`}
             >
               <div className={`text-xs font-bold w-6 h-6 flex items-center justify-center rounded-full shrink-0
-                ${isToday ? 'bg-brand-600 text-white' : dow === 0 ? 'text-red-500' : dow === 6 ? 'text-brand-500' : 'text-text-primary'}`}>
+                ${isToday ? TODAY_CIRCLE : dow === 0 ? 'text-red-500' : dow === 6 ? 'text-brand-500' : 'text-text-primary'}`}>
                 {day}
               </div>
               <div className="flex flex-col gap-0.5 overflow-hidden">
@@ -1466,19 +1470,22 @@ export default function SchedulePage() {
                   // Phase 11 (v2): 유형 = 행 전체 배경, 진행상태 = 좌측 border-l-4
                   const typeBg = SERVICE_TYPE_ROW_BG[app.service_type ?? ''] ?? ''
                   const progressBorder = app.progress_status ? (PROGRESS_ROW_BORDER[app.progress_status] ?? 'border-l-transparent') : 'border-l-transparent'
-                  // 우선순위: 선택 > 완료 > 오늘 > 유형 배경 (기본)
+                  // 우선순위: 선택 > 완료 > 오늘(토스식) > 유형 배경 (기본)
+                  // Phase 27-K: 오늘 강조는 ring 대신 좌측 accent bar + 옅은 그라데이션 + tint shadow
                   const rowClass = isSelected
                     ? 'bg-brand-100 hover:bg-brand-200 ring-2 ring-brand-500 ring-inset'
                     : isCompleted
                       ? 'bg-surface-sunken/60 text-text-tertiary opacity-70 hover:bg-surface-sunken hover:opacity-100'
                       : isToday
-                        ? 'bg-sky-50 hover:bg-sky-100 ring-2 ring-inset ring-sky-400'
+                        ? `${TODAY_ROW_BG} ${TODAY_ROW_SHADOW} hover:brightness-[0.98]`
                         : `${typeBg} hover:brightness-95`
+                  // 오늘일 땐 progressBorder 대신 sky-500 accent (양각·강조 유지)
+                  const rowBorder = isToday && !isSelected && !isCompleted ? TODAY_ROW_BORDER : progressBorder
                   return (
                     <tr key={app.id}
                       ref={el => { rowRefs.current[app.id] = el }}
                       onClick={() => isSelected ? handleClose() : setSelected(app)}
-                      className={`cursor-pointer transition-all border-l-4 ${progressBorder} ${rowClass}`}>
+                      className={`cursor-pointer transition-all border-l-4 ${rowBorder} ${rowClass}`}>
                       {isAdmin && (
                         <td className="px-3 py-3 w-8" onClick={e => e.stopPropagation()}>
                           <input
@@ -1492,7 +1499,7 @@ export default function SchedulePage() {
                       <td className="px-4 py-3 whitespace-nowrap">
                         <span className="font-mono text-xs text-text-secondary">{fmtDate(app.construction_date)}</span>
                         {isToday && (
-                          <span className="ml-1.5 text-xs font-bold text-brand-600 bg-brand-100 px-1.5 py-0.5 rounded-full">오늘</span>
+                          <span className={`ml-1.5 ${TODAY_BADGE}`}>오늘</span>
                         )}
                         {app.construction_time && (
                           <div>
