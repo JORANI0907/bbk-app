@@ -873,15 +873,69 @@ export function CustomersManagementView({
 
   // Phase 27: 캘린더에서 회차 선택 → 리스트 클릭과 완전히 동일한 세부화면 오픈 + 캘린더 focus 저장
   // handleSelect를 그대로 재사용해서 폼·요일·일자·미리결제·알림이력 모두 정합 초기화됨.
+  // Phase 27-G: customer_id 없는 신청서 유입 회차는 app-like Customer로 변환 후 신규 등록 폼으로 오픈
+  //   (기존 pendingApplications 처리 패턴과 동일 — handleSelect가 'app:' 프리픽스 감지)
   const handleCalendarSelect = (app: CalendarApp) => {
-    // Phase 27-D: customer_id 없는 신청서 유입 회차는 서비스관리로 유도
     if (!app.customer_id) {
-      toast(
-        `"${app.business_name}"은(는) 아직 고객으로 등록되지 않은 신청서입니다.\n서비스관리 탭에서 확인·전환하세요.`,
-        { icon: 'ℹ️', duration: 5000 },
-      )
+      // 신청서 유입 → customer-like 객체로 변환 (pendingApplications 매핑과 동일 필드 세트)
+      const nowIso = new Date().toISOString()
+      const customerLike: Customer = {
+        id: `app:${app.id}`,
+        business_name: app.business_name || '(업체명 미기재)',
+        contact_name: app.owner_name ?? '',
+        contact_phone: app.phone ?? '',
+        contact_phone_2: app.phone_2 ?? null,
+        email: app.email ?? null,
+        address: app.address ?? '',
+        address_detail: null,
+        business_number: app.business_number ?? null,
+        account_number: app.account_number ?? null,
+        platform_nickname: app.platform_nickname ?? null,
+        payment_method: app.payment_method ?? null,
+        elevator: app.elevator ?? null,
+        building_access: app.building_access ?? null,
+        access_method: app.access_method ?? null,
+        business_hours_start: app.business_hours_start ?? null,
+        business_hours_end: app.business_hours_end ?? null,
+        door_password: null,
+        parking_info: app.parking ?? null,
+        special_notes: app.request_notes ?? null,
+        admin_notes: app.admin_notes ?? app.admin_request_notes ?? null,
+        care_scope: app.care_scope ?? null,
+        pipeline_status: '',
+        customer_type: (app.service_type as CustomerType) ?? '1회성케어',
+        status: 'active',
+        billing_cycle: null, billing_amount: null, billing_start_date: null, billing_next_date: null,
+        contract_start_date: null, contract_end_date: null,
+        unit_price: null, visit_interval_days: null,
+        next_visit_date: app.construction_date ?? null,
+        visit_schedule_type: null, visit_weekdays: null, visit_monthly_dates: null,
+        notes: null, disposition: null, grade: null,
+        rotation_type: null, visit_count_per_month: null,
+        payment_status: null, payment_date: null,
+        assigned_user_id: app.assigned_to ?? null,
+        assigned_worker_id: null,
+        deposit: app.deposit ?? null,
+        supply_amount: app.supply_amount ?? null,
+        vat: app.vat ?? null,
+        balance: app.balance ?? null,
+        user_id: null, account_user_id: null,
+        notification_log: null, phone_notify_1: null, phone_notify_2: null,
+        construction_time: app.construction_time ?? null,
+        deposit_payment_url: null, balance_payment_url: null,
+        deposit_portone_id: null, balance_portone_id: null,
+        deposit_paid_at: null, balance_paid_at: null,
+        billing_key: null,
+        progress_status: '신청서작성',
+        payment_status_detail: null,
+        injection_cycle_months: null,
+        created_at: nowIso,
+        updated_at: nowIso,
+      }
+      handleSelect(customerLike)
       return
     }
+
     const customer = customers.find(c => c.id === app.customer_id)
     if (!customer) {
       toast.error('이 회차의 고객 정보를 찾을 수 없습니다.')

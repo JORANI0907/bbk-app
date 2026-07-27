@@ -34,6 +34,28 @@ export interface CalendarApp {
   supply_amount?: number | null
   vat?: number | null
   payment_method?: string | null
+  // Phase 27-G: customer_id NULL 케이스에서 신청서를 customer-like로 변환 시 사용
+  owner_name?: string | null
+  phone?: string | null
+  phone_2?: string | null
+  email?: string | null
+  business_number?: string | null
+  account_number?: string | null
+  platform_nickname?: string | null
+  elevator?: string | null
+  building_access?: string | null
+  access_method?: string | null
+  business_hours_start?: string | null
+  business_hours_end?: string | null
+  parking?: string | null
+  request_notes?: string | null
+  admin_notes?: string | null
+  admin_request_notes?: string | null
+  care_scope?: string | null
+  construction_time?: string | null
+  deposit?: number | null
+  balance?: number | null
+  drive_folder_url?: string | null
 }
 
 interface Props {
