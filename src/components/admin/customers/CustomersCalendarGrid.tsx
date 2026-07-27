@@ -106,14 +106,14 @@ export function CustomersCalendarGrid({ onSelectApp, filterTypes }: Props) {
       }
       const appsBody = await appsRes.json()
       const rawApps = (appsBody.applications ?? []) as CalendarApp[]
-      // 규칙 1: customer_id NULL (미등록) 제외
-      const filteredApps = rawApps.filter(a => !!a.customer_id)
+      // Phase 27-D: customer_id NULL도 포함 (신청서 유입 회차 — 아직 고객 등록 안 된 상태).
+      // 시공일자(construction_date)가 있는 회차는 실제 스케줄된 작업이므로 캘린더에 반드시 표시.
+      // 셀 클릭 시 customer_id 없으면 '서비스관리 탭에서 확인' 안내로 처리.
+      const filteredApps = rawApps.filter(a => !!a.construction_date)
 
       // 병합용 기존 키 세트 (business_name::YYYY-MM-DD)
       const existingKeys = new Set(
-        filteredApps
-          .filter(a => a.construction_date)
-          .map(a => `${a.business_name}::${a.construction_date!.slice(0, 10)}`),
+        filteredApps.map(a => `${a.business_name}::${a.construction_date!.slice(0, 10)}`),
       )
 
       // customers 조회 — 신규 1회성 병합용 (custRes 실패해도 신청서 뷰는 정상 표시)

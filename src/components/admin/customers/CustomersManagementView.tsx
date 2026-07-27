@@ -796,7 +796,14 @@ export function CustomersManagementView({
   // Phase 27: 캘린더에서 회차 선택 → 리스트 클릭과 완전히 동일한 세부화면 오픈 + 캘린더 focus 저장
   // handleSelect를 그대로 재사용해서 폼·요일·일자·미리결제·알림이력 모두 정합 초기화됨.
   const handleCalendarSelect = (app: CalendarApp) => {
-    if (!app.customer_id) return
+    // Phase 27-D: customer_id 없는 신청서 유입 회차는 서비스관리로 유도
+    if (!app.customer_id) {
+      toast(
+        `"${app.business_name}"은(는) 아직 고객으로 등록되지 않은 신청서입니다.\n서비스관리 탭에서 확인·전환하세요.`,
+        { icon: 'ℹ️', duration: 5000 },
+      )
+      return
+    }
     const customer = customers.find(c => c.id === app.customer_id)
     if (!customer) {
       toast.error('이 회차의 고객 정보를 찾을 수 없습니다.')
