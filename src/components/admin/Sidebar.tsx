@@ -38,8 +38,8 @@ const NAV_ITEMS: NavItem[] = [
     roles: ['admin'],
     children: [
       { href: '/admin/schedule', label: '배정관리', badgeKey: 'schedule' },
-      { href: '/admin/applications', label: '서비스관리', badgeKey: 'applications' },
       { href: '/admin/customers', label: '고객관리' },
+      { href: '/admin/customer-history', label: '고객DB이력' },
       { href: '/admin/franchise-hq', label: '프렌차이즈 본사' },
       { href: '/admin/quotes', label: '견적관리' },
       { href: '/admin/contracts', label: '계약서 관리' },
@@ -54,6 +54,7 @@ const NAV_ITEMS: NavItem[] = [
     children: [
       { href: '/admin/schedule', label: '배정관리', badgeKey: 'schedule' },
       { href: '/admin/customers', label: '고객관리' },
+      { href: '/admin/customer-history', label: '고객DB이력' },
     ],
   },
   {
@@ -104,7 +105,8 @@ const NAV_ITEMS: NavItem[] = [
       { href: '/admin/notices', label: '공지·이벤트관리', badgeKey: 'notices' },
       { href: '/admin/events', label: '혜택 페이지 관리' },
       { href: '/admin/automation', label: '자동화관리' },
-      { href: '/admin/push', label: '푸시알림 관리' },
+      { href: '/admin/notification-templates', label: '문자알림 관리' },
+      { href: '/admin/push', label: '앱알림 관리' },
       { href: '/admin/nav-settings', label: '하단 메뉴 설정' },
       { href: '/admin/permissions', label: '탭 권한 설정' },
       { href: '/admin/members', label: '회원관리' },

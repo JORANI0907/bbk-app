@@ -17,7 +17,6 @@ interface NavItem {
 const ADMIN_ALL: NavItem[] = [
   { href: '/admin', label: '홈' },
   { href: '/admin/schedule', label: '배정관리' },
-  { href: '/admin/applications', label: '서비스' },
   { href: '/admin/customers', label: '고객관리' },
   { href: '/admin/workers', label: '직원정보' },
   { href: '/admin/attendance', label: '출퇴근' },
@@ -29,6 +28,7 @@ const ADMIN_ALL: NavItem[] = [
   { href: '/admin/requests', label: '요청관리' },
   { href: '/admin/notices', label: '공지·이벤트' },
   { href: '/admin/invoices', label: '세금계산서' },
+  { href: '/admin/notification-templates', label: '문자알림 관리' },
 ]
 
 const WORKER_ALL: NavItem[] = [
@@ -41,7 +41,7 @@ const WORKER_ALL: NavItem[] = [
   { href: '/admin/my-requests', label: '요청하기' },
 ]
 
-const DEFAULT_ADMIN_QUICK = ['/admin', '/admin/schedule', '/admin/applications', '/admin/customers']
+const DEFAULT_ADMIN_QUICK = ['/admin', '/admin/schedule', '/admin/customers', '/admin/workers']
 const DEFAULT_WORKER_QUICK = ['/admin', '/admin/schedule', '/admin/customers', '/admin/attendance']
 
 const MAX_QUICK = 4

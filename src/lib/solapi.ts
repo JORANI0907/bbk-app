@@ -32,6 +32,36 @@ export async function sendSMS(to: string, text: string): Promise<void> {
   })
 }
 
+/**
+ * Phase 25: SMS/LMS 통합 발송 (byte에 따라 자동 승격).
+ * subject는 LMS 발송 시에만 사용됨. SMS이면 무시.
+ */
+export async function sendSmsOrLms(
+  to: string,
+  text: string,
+  opts?: { subject?: string | null },
+): Promise<void> {
+  const from = process.env.SOLAPI_SENDER_NUMBER
+  if (!from) throw new Error('발신번호(SOLAPI_SENDER_NUMBER)가 설정되지 않았습니다.')
+
+  const service = getService()
+  const phone = to.replace(/-/g, '')
+
+  // byte 계산해 LMS 판별
+  let bytes = 0
+  for (const c of text) bytes += c.charCodeAt(0) > 127 ? 2 : 1
+  const isLms = bytes > 90
+
+  const payload: Record<string, unknown> = {
+    to: phone,
+    from,
+    text,
+  }
+  if (isLms && opts?.subject) payload.subject = opts.subject
+
+  await service.sendOne(payload as Parameters<typeof service.sendOne>[0])
+}
+
 export async function sendOTP(phone: string, otp: string): Promise<void> {
   const text = `[BBK Korea] 인증번호: ${otp}\n5분 내에 입력해주세요.`
   await sendSMS(phone, text)

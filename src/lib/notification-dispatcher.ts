@@ -142,6 +142,7 @@ export async function dispatch(type: string, ctx: DispatchContext): Promise<Disp
   }
 
   // 2. 알림톡 발송 (customer만 — KakaoTalk은 1:1 메시지)
+  // Phase 25c 롤백: template SMS 마이그레이션 대기 중 → 카톡 알림톡 유지
   if (rule.channel_alimtalk && rule.notify_customer && ctx.customer?.phone) {
     const templateId = ctx.templateIdOverride ?? rule.alimtalk_template_id
     if (templateId) {

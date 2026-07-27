@@ -1,0 +1,566 @@
+'use client'
+
+/**
+ * Phase 25: 알림메세지관리 페이지
+ * - 탭: 1회성케어 · 정기딥케어 · 정기엔드케어 · 이번달일정
+ * - 좌측 템플릿 리스트 → 우측 편집 패널 (제목·본문·변수 팔레트·미리보기·byte 카운터)
+ * - SMS/LMS 자동 판별
+ */
+
+import { useEffect, useMemo, useRef, useState } from 'react'
+import toast from 'react-hot-toast'
+import { AlertCircle, Mail, Plus, Save, Trash2, Type } from 'lucide-react'
+import { AVAILABLE_VARIABLES, variablesByCategoryForTab, VariableCategory, TemplateTab } from '@/lib/notification-variables'
+import { renderTemplate, SAMPLE_CONTEXT } from '@/lib/notification-renderer'
+import { countSmsBytes, classifyMessage, estimatedSmsCost, messageTypeLabel, SMS_MAX_BYTES, LMS_MAX_BYTES } from '@/lib/sms-byte-counter'
+
+interface Template {
+  id: string
+  code: string
+  scope: 'customer' | 'application'
+  applicable_types: string[]
+  applicable_locations: string[]
+  category: string | null
+  title: string
+  subject: string | null
+  body: string
+  is_active: boolean
+  is_system: boolean
+  auto_used: boolean
+  trigger_desc: string | null
+  updated_at: string
+}
+
+type TabKey = TemplateTab
+
+const TABS: Array<{ key: TabKey; label: string; filter: (t: Template) => boolean }> = [
+  { key: '1회성케어', label: '1회성케어', filter: t => t.applicable_types.includes('1회성케어') && t.applicable_locations.includes('customer_detail') },
+  { key: '정기딥케어', label: '정기딥케어', filter: t => t.applicable_types.includes('정기딥케어') && t.applicable_locations.includes('customer_detail') },
+  { key: '정기엔드케어', label: '정기엔드케어', filter: t => t.applicable_types.includes('정기엔드케어') && t.applicable_locations.includes('customer_detail') },
+  { key: 'monthly_schedule', label: '이번달 일정', filter: t => t.applicable_locations.includes('monthly_schedule') },
+]
+
+const CATEGORY_COLORS: Record<string, string> = {
+  '예약': 'bg-brand-100 text-brand-700',
+  '결제': 'bg-emerald-100 text-emerald-700',
+  '작업': 'bg-blue-100 text-blue-700',
+  'A/S': 'bg-violet-100 text-violet-700',
+  '계정': 'bg-amber-100 text-amber-700',
+}
+
+export default function NotificationTemplatesPage() {
+  const [templates, setTemplates] = useState<Template[]>([])
+  const [loading, setLoading] = useState(true)
+  const [activeTab, setActiveTab] = useState<TabKey>('1회성케어')
+  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const bodyRef = useRef<HTMLTextAreaElement | null>(null)
+
+  // 편집 buffer
+  const [buffer, setBuffer] = useState<Partial<Template>>({})
+  const [saving, setSaving] = useState(false)
+  // Phase 25-b: 신규 템플릿 추가 모달
+  const [addOpen, setAddOpen] = useState(false)
+  const [addForm, setAddForm] = useState({ code: '', title: '', category: '' })
+  const [adding, setAdding] = useState(false)
+
+  const load = async () => {
+    setLoading(true)
+    try {
+      const res = await fetch('/api/admin/notification-templates')
+      const j = await res.json()
+      if (!res.ok) throw new Error(j.error ?? '조회 실패')
+      setTemplates(j.templates ?? [])
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : '조회 실패')
+    } finally {
+      setLoading(false)
+    }
+  }
+  useEffect(() => { load() }, [])
+
+  const filtered = useMemo(() => {
+    const tab = TABS.find(t => t.key === activeTab)
+    return tab ? templates.filter(tab.filter) : []
+  }, [templates, activeTab])
+
+  const selected = templates.find(t => t.id === selectedId) ?? null
+  const merged: Partial<Template> = { ...selected, ...buffer }
+
+  useEffect(() => {
+    // 탭 변경 시 첫 번째 템플릿 자동 선택
+    if (filtered.length > 0 && !filtered.find(t => t.id === selectedId)) {
+      setSelectedId(filtered[0].id)
+      setBuffer({})
+    }
+  }, [filtered, selectedId])
+
+  const dirty = Object.keys(buffer).length > 0
+
+  const handleSave = async () => {
+    if (!selected) return
+    if (!dirty) return
+    setSaving(true)
+    try {
+      const res = await fetch('/api/admin/notification-templates', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: selected.id, ...buffer }),
+      })
+      const j = await res.json()
+      if (!res.ok) throw new Error(j.error ?? '저장 실패')
+      setTemplates(prev => prev.map(t => t.id === selected.id ? j.template : t))
+      setBuffer({})
+      toast.success('저장 완료')
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : '저장 실패')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleDelete = async () => {
+    if (!selected || selected.is_system) return
+    if (!confirm(`"${selected.title}" 템플릿을 삭제하시겠습니까?`)) return
+    try {
+      const res = await fetch(`/api/admin/notification-templates?id=${selected.id}`, { method: 'DELETE' })
+      const j = await res.json()
+      if (!res.ok) throw new Error(j.error ?? '삭제 실패')
+      setTemplates(prev => prev.filter(t => t.id !== selected.id))
+      setSelectedId(null)
+      setBuffer({})
+      toast.success('삭제 완료')
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : '삭제 실패')
+    }
+  }
+
+  const handleAdd = async () => {
+    if (!addForm.code.trim() || !addForm.title.trim()) {
+      toast.error('코드·라벨은 필수입니다.')
+      return
+    }
+    if (templates.some(t => t.code === addForm.code.trim())) {
+      toast.error('이미 존재하는 코드입니다.')
+      return
+    }
+    setAdding(true)
+    try {
+      // 현재 활성 탭 컨텍스트로 scope·applicable_types·locations 자동 세팅
+      const tabCtx: Record<TabKey, { scope: 'customer' | 'application'; types: string[]; locations: string[] }> = {
+        '1회성케어':    { scope: 'application', types: ['1회성케어'],   locations: ['customer_detail'] },
+        '정기딥케어':   { scope: 'customer',    types: ['정기딥케어'],  locations: ['customer_detail'] },
+        '정기엔드케어': { scope: 'customer',    types: ['정기엔드케어'], locations: ['customer_detail'] },
+        'monthly_schedule': { scope: 'application', types: ['정기딥케어','정기엔드케어'], locations: ['monthly_schedule'] },
+      }
+      const ctx = tabCtx[activeTab]
+      const res = await fetch('/api/admin/notification-templates', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          code: addForm.code.trim(),
+          scope: ctx.scope,
+          applicable_types: ctx.types,
+          applicable_locations: ctx.locations,
+          category: addForm.category.trim() || null,
+          title: addForm.title.trim(),
+          body: '[범빌드코리아]\n{{업체명}} 고객님, ',
+          is_active: true,
+        }),
+      })
+      const j = await res.json()
+      if (!res.ok) throw new Error(j.error ?? '생성 실패')
+      setTemplates(prev => [...prev, j.template])
+      setSelectedId(j.template.id)
+      setBuffer({})
+      setAddOpen(false)
+      setAddForm({ code: '', title: '', category: '' })
+      toast.success('신규 템플릿 생성 완료 — 본문을 편집하세요')
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : '생성 실패')
+    } finally {
+      setAdding(false)
+    }
+  }
+
+  const insertVariable = (label: string) => {
+    const textarea = bodyRef.current
+    if (!textarea) return
+    const value = merged.body ?? ''
+    const start = textarea.selectionStart
+    const end = textarea.selectionEnd
+    const insertion = `{{${label}}}`
+    const next = value.slice(0, start) + insertion + value.slice(end)
+    setBuffer(prev => ({ ...prev, body: next }))
+    // 커서 위치 복원
+    setTimeout(() => {
+      textarea.focus()
+      const pos = start + insertion.length
+      textarea.setSelectionRange(pos, pos)
+    }, 0)
+  }
+
+  const bodyText = merged.body ?? ''
+  const bytes = countSmsBytes(bodyText)
+  const msgType = classifyMessage(bodyText)
+  const cost = estimatedSmsCost(bodyText)
+  const rendered = renderTemplate(bodyText, SAMPLE_CONTEXT)
+  const maxBytes = msgType === 'SMS' ? SMS_MAX_BYTES : LMS_MAX_BYTES
+  const progressPct = Math.min(100, Math.round((bytes / maxBytes) * 100))
+  const showLmsSubject = msgType === 'LMS'
+
+  return (
+    <div className="p-4 md:p-6 max-w-[1400px] mx-auto">
+      <div className="mb-4 flex items-center justify-between flex-wrap gap-2">
+        <div>
+          <h1 className="text-xl md:text-2xl font-bold text-text-primary">문자알림 관리</h1>
+          <p className="text-xs text-text-secondary mt-1">
+            고객에게 발송되는 SMS/LMS 문구를 관리합니다. 90byte 초과 시 자동으로 LMS로 발송됩니다.
+          </p>
+        </div>
+        <button
+          onClick={() => setAddOpen(true)}
+          className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-brand-600 text-white text-sm font-semibold hover:bg-brand-700 shadow-sm"
+        >
+          <Plus size={14} /> 새 알림 추가
+        </button>
+      </div>
+
+      {/* Phase 25c: 전역 안내 배너 */}
+      <div className="mb-4 bg-brand-50 border border-brand-200 rounded-lg p-3 text-xs text-brand-900 leading-relaxed">
+        <p><b>💡 안내</b></p>
+        <ul className="mt-1 space-y-0.5 list-disc list-inside">
+          <li><b>⚡ 자동</b> 배지가 있는 템플릿은 자동 발송 로직에서 사용됩니다 (예약 1일전·당일·정기결제 등). 본문 편집만 가능하며 삭제·비활성 불가.</li>
+          <li>변수({'{{업체명}}'}, {'{{시공일자}}'} 등)를 삭제하면 실제 발송 시 <b>빈 값</b>으로 나갑니다. 반드시 미리보기 확인 후 저장하세요.</li>
+          <li>모든 편집은 <b>즉시 실 발송에 반영</b>됩니다. 카톡 알림톡은 SMS 발송 실패 시에만 fallback으로 나갑니다.</li>
+        </ul>
+      </div>
+
+      {/* 탭 */}
+      <div className="flex gap-1 border-b border-border mb-4 overflow-x-auto">
+        {TABS.map(t => {
+          const count = templates.filter(t.filter).length
+          const active = activeTab === t.key
+          return (
+            <button
+              key={t.key}
+              onClick={() => setActiveTab(t.key)}
+              className={`px-4 py-2 text-sm font-medium border-b-2 whitespace-nowrap transition-colors ${
+                active ? 'border-brand-600 text-brand-700' : 'border-transparent text-text-secondary hover:text-text-primary'
+              }`}
+            >
+              {t.label} <span className="text-xs text-text-tertiary">({count})</span>
+            </button>
+          )
+        })}
+      </div>
+
+      {loading ? (
+        <p className="text-center py-16 text-text-tertiary">불러오는 중...</p>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-[280px_1fr] gap-4">
+          {/* 좌측 리스트 */}
+          <div className="border border-border rounded-xl overflow-hidden bg-surface">
+            <div className="max-h-[calc(100vh-260px)] overflow-y-auto divide-y divide-border-subtle">
+              {filtered.length === 0 ? (
+                <p className="text-xs text-text-tertiary text-center py-8">템플릿 없음</p>
+              ) : filtered.map(t => {
+                const active = selectedId === t.id
+                return (
+                  <button
+                    key={t.id}
+                    onClick={() => { setSelectedId(t.id); setBuffer({}) }}
+                    className={`w-full text-left px-3 py-2.5 transition-colors ${
+                      active ? 'bg-brand-50 border-l-4 border-brand-600' : 'hover:bg-surface-sunken border-l-4 border-transparent'
+                    } ${!t.is_active ? 'opacity-50' : ''}`}
+                  >
+                    <div className="flex items-center gap-1.5 mb-0.5 flex-wrap">
+                      {t.category && (
+                        <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${CATEGORY_COLORS[t.category] ?? 'bg-surface-sunken text-text-secondary'}`}>
+                          {t.category}
+                        </span>
+                      )}
+                      {t.is_system && <span className="text-[10px] text-text-tertiary">기본</span>}
+                      {t.auto_used && (
+                        <span
+                          className="text-[10px] px-1 py-0 rounded font-semibold bg-amber-100 text-amber-700 leading-tight"
+                          title={t.trigger_desc ?? '자동 발송용 템플릿'}
+                        >
+                          ⚡자동
+                        </span>
+                      )}
+                      {!t.is_active && <span className="text-[10px] text-state-danger">비활성</span>}
+                    </div>
+                    <p className="text-sm font-semibold text-text-primary">{t.title}</p>
+                    <p className="text-[11px] text-text-tertiary truncate mt-0.5">{t.code}</p>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
+          {/* 우측 편집 패널 */}
+          {selected ? (
+            <div className="border border-border rounded-xl bg-surface p-4 md:p-5 space-y-4">
+              {/* 헤더: 제목·상태·삭제 */}
+              <div className="flex items-center justify-between flex-wrap gap-2 pb-3 border-b border-border-subtle">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <p className="text-xs text-text-tertiary">{selected.code}</p>
+                    {selected.auto_used && (
+                      <span
+                        className="text-[10px] px-1 py-0 rounded font-semibold bg-amber-100 text-amber-700 leading-tight"
+                        title={selected.trigger_desc ?? '자동 발송용 템플릿'}
+                      >
+                        ⚡자동
+                      </span>
+                    )}
+                  </div>
+                  <input
+                    type="text"
+                    value={merged.title ?? ''}
+                    onChange={e => setBuffer(prev => ({ ...prev, title: e.target.value }))}
+                    className="text-lg font-bold text-text-primary bg-transparent border-none focus:outline-none focus:ring-2 focus:ring-brand-500 rounded px-1 w-full"
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <label className={`flex items-center gap-1.5 text-xs ${selected.auto_used ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}>
+                    <input
+                      type="checkbox"
+                      checked={merged.is_active ?? true}
+                      disabled={selected.auto_used}
+                      onChange={e => setBuffer(prev => ({ ...prev, is_active: e.target.checked }))}
+                      className="accent-brand-600"
+                    />
+                    활성
+                  </label>
+                  {!selected.is_system && !selected.auto_used && (
+                    <button
+                      onClick={handleDelete}
+                      className="text-xs text-state-danger px-2 py-1 rounded hover:bg-state-danger-bg flex items-center gap-1"
+                    >
+                      <Trash2 size={12} /> 삭제
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Phase 25c: 자동 발송용 템플릿 경고 배너 */}
+              {selected.auto_used && (
+                <div className="bg-amber-50 border-2 border-amber-300 rounded-lg p-3 flex items-start gap-2">
+                  <span className="text-xl">⚡</span>
+                  <div className="flex-1 text-xs leading-relaxed text-amber-900">
+                    <p className="font-bold mb-1">자동 발송 템플릿</p>
+                    <p className="text-amber-800">
+                      이 템플릿은 아래 조건에서 <b>자동으로 발송</b>됩니다. 본문·제목만 수정 가능하며 <b>비활성·삭제는 잠겨있습니다</b>.
+                    </p>
+                    {selected.trigger_desc && (
+                      <p className="mt-1.5 bg-white/70 rounded px-2 py-1 font-medium">
+                        ⏰ {selected.trigger_desc}
+                      </p>
+                    )}
+                    <p className="mt-1.5 text-[11px] text-amber-700">
+                      💡 변수({'{{업체명}}'} 등)를 삭제하면 실제 발송 시 빈 값으로 나갑니다. 신중히 편집하세요.
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* LMS 제목 (byte 초과 시만) */}
+              {showLmsSubject && (
+                <div>
+                  <label className="text-xs font-medium text-text-secondary mb-1 flex items-center gap-1">
+                    <Mail size={11} /> 제목 <span className="text-text-tertiary">(LMS 발송 시)</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={merged.subject ?? ''}
+                    onChange={e => setBuffer(prev => ({ ...prev, subject: e.target.value }))}
+                    placeholder="예: 예약 확정 안내"
+                    className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+                  />
+                </div>
+              )}
+
+              {/* 본문 */}
+              <div>
+                <label className="text-xs font-medium text-text-secondary mb-1 flex items-center gap-1">
+                  <Type size={11} /> 본문
+                </label>
+                <textarea
+                  ref={bodyRef}
+                  value={bodyText}
+                  onChange={e => setBuffer(prev => ({ ...prev, body: e.target.value }))}
+                  rows={8}
+                  className="w-full border border-border rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-brand-500 resize-y"
+                  placeholder="본문을 입력하세요. 팔레트의 변수를 클릭하면 커서 위치에 삽입됩니다."
+                />
+
+                {/* Byte 카운터 */}
+                <div className="mt-2 space-y-1">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="flex items-center gap-2">
+                      <span className={`font-mono font-semibold ${msgType === 'OVER' ? 'text-state-danger' : msgType === 'LMS' ? 'text-orange-600' : 'text-emerald-600'}`}>
+                        {bytes} bytes
+                      </span>
+                      <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${
+                        msgType === 'OVER' ? 'bg-red-100 text-red-700'
+                          : msgType === 'LMS' ? 'bg-orange-100 text-orange-700'
+                          : 'bg-emerald-100 text-emerald-700'
+                      }`}>
+                        {messageTypeLabel(msgType)}
+                      </span>
+                      {msgType !== 'OVER' && (
+                        <span className="text-text-tertiary">약 {cost}원</span>
+                      )}
+                    </span>
+                    <span className="text-text-tertiary font-mono">{bytes} / {maxBytes}</span>
+                  </div>
+                  <div className="h-1.5 bg-surface-sunken rounded-full overflow-hidden">
+                    <div
+                      className={`h-full transition-all ${
+                        msgType === 'OVER' ? 'bg-red-500' : msgType === 'LMS' ? 'bg-orange-500' : 'bg-emerald-500'
+                      }`}
+                      style={{ width: `${progressPct}%` }}
+                    />
+                  </div>
+                  {msgType === 'LMS' && (
+                    <p className="text-[11px] text-orange-700 flex items-center gap-1">
+                      <AlertCircle size={11} /> 90byte 초과로 LMS로 자동 승격 (SMS 대비 약 2.5배 요금)
+                    </p>
+                  )}
+                  {msgType === 'OVER' && (
+                    <p className="text-[11px] text-state-danger flex items-center gap-1">
+                      <AlertCircle size={11} /> 2000byte 초과 — 발송할 수 없습니다
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* 변수 팔레트 — 활성 탭(1회성케어/정기딥케어/정기엔드케어/이번달일정)에 사용 가능한 필드만 자동 필터 */}
+              <div className="border border-border-subtle rounded-lg p-3 bg-surface-sunken/40">
+                <div className="flex items-center justify-between mb-2 flex-wrap gap-1">
+                  <p className="text-xs font-semibold text-text-secondary">📌 변수 삽입 (클릭하면 커서 위치에 삽입됨)</p>
+                  <span className="text-[10px] text-text-tertiary bg-white border border-border-subtle rounded px-1.5 py-0.5">
+                    {TABS.find(t => t.key === activeTab)?.label} 필드
+                  </span>
+                </div>
+                <div className="space-y-2">
+                  {(Object.entries(variablesByCategoryForTab(activeTab)) as Array<[VariableCategory, typeof AVAILABLE_VARIABLES]>)
+                    .filter(([, vars]) => vars.length > 0)
+                    .map(([cat, vars]) => (
+                      <div key={cat} className="flex items-start gap-2">
+                        <span className="text-[11px] text-text-tertiary w-14 shrink-0 pt-1">{cat}</span>
+                        <div className="flex flex-wrap gap-1">
+                          {vars.map(v => (
+                            <button
+                              key={v.label}
+                              onClick={() => insertVariable(v.label)}
+                              title={v.desc}
+                              className="text-[11px] px-2 py-0.5 rounded-md border border-brand-200 bg-white text-brand-700 hover:bg-brand-50 font-medium transition-colors"
+                            >
+                              + {v.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                </div>
+              </div>
+
+              {/* 미리보기 */}
+              <div>
+                <p className="text-xs font-medium text-text-secondary mb-1 flex items-center gap-1">
+                  <Mail size={11} /> 미리보기 <span className="text-text-tertiary">(샘플 데이터)</span>
+                </p>
+                <div className="border border-brand-200 rounded-lg p-3 bg-brand-50/40 whitespace-pre-wrap text-sm leading-relaxed break-keep">
+                  {rendered || <span className="text-text-tertiary">본문을 입력하면 여기에 미리보기가 나타납니다</span>}
+                </div>
+              </div>
+
+              {/* 저장 */}
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-border-subtle">
+                {dirty && <span className="text-xs text-orange-600">저장되지 않은 변경사항</span>}
+                <button
+                  onClick={handleSave}
+                  disabled={!dirty || saving || msgType === 'OVER'}
+                  className="inline-flex items-center gap-1 px-4 py-2 rounded-lg bg-brand-600 text-white text-sm font-semibold hover:bg-brand-700 disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  <Save size={14} /> {saving ? '저장 중...' : '저장'}
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="border border-border rounded-xl bg-surface p-8 text-center text-text-tertiary">
+              <Plus size={24} className="mx-auto mb-2 opacity-40" />
+              <p className="text-sm">좌측에서 편집할 템플릿을 선택하세요</p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Phase 25-b: 신규 템플릿 추가 모달 */}
+      {addOpen && (
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4" onClick={() => !adding && setAddOpen(false)}>
+          <div className="bg-surface rounded-2xl max-w-md w-full p-5 space-y-3" onClick={e => e.stopPropagation()}>
+            <div>
+              <h2 className="text-lg font-bold text-text-primary">새 알림 추가</h2>
+              <p className="text-xs text-text-tertiary mt-0.5">현재 탭 &quot;{TABS.find(t => t.key === activeTab)?.label}&quot;에 자동 배정됩니다.</p>
+            </div>
+            <div>
+              <label className="text-xs font-medium text-text-secondary mb-1 block">코드 (영문/한글, 고유)</label>
+              <input
+                type="text"
+                value={addForm.code}
+                onChange={e => setAddForm(f => ({ ...f, code: e.target.value }))}
+                placeholder="예: 특별할인알림"
+                className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+              />
+              <p className="text-[11px] text-text-tertiary mt-1">자동화 라우트와 매칭되는 식별자. 나중에 변경 가능</p>
+            </div>
+            <div>
+              <label className="text-xs font-medium text-text-secondary mb-1 block">라벨 (관리자용 표시명)</label>
+              <input
+                type="text"
+                value={addForm.title}
+                onChange={e => setAddForm(f => ({ ...f, title: e.target.value }))}
+                placeholder="예: 특별 할인 안내"
+                className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-text-secondary mb-1 block">카테고리 (선택)</label>
+              <select
+                value={addForm.category}
+                onChange={e => setAddForm(f => ({ ...f, category: e.target.value }))}
+                className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-surface focus:outline-none focus:ring-2 focus:ring-brand-500"
+              >
+                <option value="">(선택 안함)</option>
+                <option value="예약">예약</option>
+                <option value="결제">결제</option>
+                <option value="작업">작업</option>
+                <option value="A/S">A/S</option>
+                <option value="계정">계정</option>
+              </select>
+            </div>
+            <div className="flex justify-end gap-2 pt-2 border-t border-border-subtle">
+              <button
+                onClick={() => setAddOpen(false)}
+                disabled={adding}
+                className="px-3 py-1.5 text-sm text-text-secondary hover:bg-surface-sunken rounded-lg"
+              >
+                취소
+              </button>
+              <button
+                onClick={handleAdd}
+                disabled={adding || !addForm.code.trim() || !addForm.title.trim()}
+                className="px-4 py-1.5 text-sm bg-brand-600 text-white rounded-lg font-semibold hover:bg-brand-700 disabled:opacity-40"
+              >
+                {adding ? '생성 중...' : '생성'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}

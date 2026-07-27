@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { sendAlimtalk, sendSMS, sendSubscriptionPromoSMS } from '@/lib/solapi'
+import { sendByTemplate } from '@/lib/template-sender'
+import type { NotificationContext } from '@/lib/notification-variables'
 import { createServiceClient } from '@/lib/supabase/server'
 import { saveNotificationHistory } from '@/lib/notification'
 import { sendPushToUsers } from '@/lib/push'
@@ -8,7 +10,9 @@ import { dispatch, lookupFranchiseHqIdsForCustomer } from '@/lib/notification-di
 
 const WORKER_NOTIFY_TYPES = new Set(['작업자 일정 안내', '작업자 자세한 일정 안내'])
 
-// ─── 계약상태 자동변경 매핑 ────────────────────────────────────────
+// ─── 계약상태 자동변경 매핑 (Phase 8-B: backward-compat status 컬럼) ─
+// Dual-write 원칙: 기존 status는 그대로 유지하여 자동화(cron 필터, finance 등)가 안 깨지도록 함.
+// 신규 컬럼(progress_status, payment_status_detail)는 아래 두 매핑으로 별도 추적.
 const NOTIFY_TO_STATUS: Record<string, string> = {
   '예약확정알림':       '예약확정',
   '예약1일전알림':      '예약1일전',
@@ -29,6 +33,33 @@ const NOTIFY_TO_STATUS: Record<string, string> = {
   // 신청서작성완료알림은 상태 변경 없음 (신규 유지)
   'A/S방문알림':        'A/S방문',
   '방문견적알림':       '방문견적',
+}
+
+// Phase 8-B: 진행상태 자동변경 매핑 (progress_status 컬럼)
+const NOTIFY_TO_PROGRESS_STATUS: Record<string, string> = {
+  '신청서작성완료알림': '신청서작성',
+  '예약확정알림':       '예약확정',
+  '예약1일전알림':      '예약1일전',
+  '예약당일알림':       '예약당일',
+  '작업완료알림':               '작업완료',
+  '작업완료알림(현금)':         '작업완료',
+  '작업완료알림(카드,플렛폼)':  '작업완료',
+  '작업완료알림(정기엔드케어)': '작업완료',
+  '예약취소알림':       '예약취소',
+  'A/S방문알림':        'A/S방문',
+  '방문견적알림':       '방문견적',
+}
+
+// Phase 8-B: 결제상태 자동변경 매핑 (payment_status_detail 컬럼)
+const NOTIFY_TO_PAYMENT_STATUS_DETAIL: Record<string, string> = {
+  '결제알림':               '결제',
+  '결제알림(현금)':         '결제',
+  '결제알림(카드,플렛폼)':  '결제',
+  '결제완료알림':       '결제완료',
+  '결제완료알림(잔금)':   '결제완료(잔금)',
+  '예약금 입금완료 알림': '예약금 입금',
+  '계산서발행완료알림': '계산서발행완료',
+  '예약금환급완료알림': '예약금환급완료',
 }
 
 // ─── 솔라피 카카오 알림톡 템플릿 ID (최신 자동화 v2) ──────────────
@@ -295,6 +326,7 @@ interface NotificationLogEntry {
   phone: string
   method: 'auto' | 'manual'
   template_id?: string
+  channel?: 'sms' | 'lms' | 'alimtalk'
 }
 
 export async function POST(request: NextRequest) {
@@ -489,9 +521,19 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: true, new_status: null, worker_phones: sentPhones })
     }
 
-    let templateId = ALIMTALK_TEMPLATES[type]
-    if (!templateId && type !== '작업완료알림') {
-      return NextResponse.json({ error: '알 수 없는 알림 유형입니다.' }, { status: 400 })
+    let legacyTemplateId: string | null = ALIMTALK_TEMPLATES[type] ?? null
+    // 게이팅: legacy 카톡 매핑 OR notification_templates(code=type) 중 하나만 있으면 진행
+    // 단, '작업완료알림'은 아래에서 세분화 후 재검증하므로 여기서 통과시킴
+    if (!legacyTemplateId && type !== '작업완료알림') {
+      const { data: dbTpl } = await supabase
+        .from('notification_templates')
+        .select('id, is_active')
+        .eq('code', type)
+        .maybeSingle()
+      const hasDbTemplate = !!dbTpl && dbTpl.is_active !== false
+      if (!hasDbTemplate) {
+        return NextResponse.json({ error: `알 수 없는 알림 유형입니다: ${type}` }, { status: 400 })
+      }
     }
 
     // 신청서 + 담당자 이름 조회 (삭제된 레코드 제외)
@@ -518,9 +560,16 @@ export async function POST(request: NextRequest) {
           return NextResponse.json({ success: true, skipped: true, reason: `결제방법 '${pm}'은(는) 발송 대상이 아닙니다.` })
         }
       }
-      templateId = ALIMTALK_TEMPLATES[type]
-      if (!templateId) {
-        return NextResponse.json({ error: '알 수 없는 알림 유형입니다.' }, { status: 400 })
+      legacyTemplateId = ALIMTALK_TEMPLATES[type] ?? null
+      if (!legacyTemplateId) {
+        const { data: dbTpl } = await supabase
+          .from('notification_templates')
+          .select('id, is_active')
+          .eq('code', type)
+          .maybeSingle()
+        if (!dbTpl || dbTpl.is_active === false) {
+          return NextResponse.json({ error: `알 수 없는 알림 유형입니다: ${type}` }, { status: 400 })
+        }
       }
     }
 
@@ -563,10 +612,25 @@ export async function POST(request: NextRequest) {
     const fallbackText = buildFallback(type, app as Record<string, unknown>)
 
     // 각 번호로 순차 발송. 하나 실패해도 나머지는 계속.
+    // Phase 25e: notification_templates code 기반 SMS 우선 → 실패 시 legacy 카톡 fallback (legacy ID 있을 때만)
     const sendErrors: string[] = []
+    const channelsUsed: Array<'sms' | 'lms' | 'alimtalk'> = []
     for (const target of targets) {
+      const smsResult = await sendByTemplate(type, target, {
+        application: app as NotificationContext['application'],
+      })
+      if (smsResult.ok) {
+        channelsUsed.push(smsResult.type === 'LMS' ? 'lms' : 'sms')
+        continue
+      }
+      if (!legacyTemplateId) {
+        sendErrors.push(`${target}: ${smsResult.reason}${smsResult.details ? ` (${smsResult.details})` : ''}`)
+        console.error(`[notify] SMS 발송 실패 (${target}): ${smsResult.reason}`)
+        continue
+      }
       try {
-        await sendAlimtalk(target, templateId, variables, fallbackText)
+        await sendAlimtalk(target, legacyTemplateId, variables, fallbackText)
+        channelsUsed.push('alimtalk')
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e)
         sendErrors.push(`${target}: ${msg}`)
@@ -594,10 +658,13 @@ export async function POST(request: NextRequest) {
         ? `${targets.join(', ')} (${targets.length}건)`
         : targets[0]
       const sendErrorLine = sendErrors.length > 0 ? `\n⚠️ 일부 실패: ${sendErrors.join(' / ')}` : ''
+      const channelLabel = channelsUsed.length > 0
+        ? channelsUsed.map(c => c.toUpperCase()).join('+')
+        : '알림톡'
       sendSlack([
         `📤 *알림 발송* | ${type}`,
         `업체: ${String(app.business_name ?? '-')} / 고객: ${String(app.owner_name ?? '-')} (${targetSummary})`,
-        `발송: ${method === 'manual' ? '수동' : '자동'} | 템플릿: ${templateId}${sendErrorLine}`,
+        `발송: ${method === 'manual' ? '수동' : '자동'} | 채널: ${channelLabel} | 템플릿: ${legacyTemplateId ?? `DB(${type})`}${sendErrorLine}`,
         ``,
         `[적용 변수]`,
         varLines,
@@ -607,8 +674,10 @@ export async function POST(request: NextRequest) {
       ].join('\n')).catch(() => {})
     }
 
-    // ── 계약상태 자동변경 ──────────────────────────────────────────
+    // ── 계약상태 자동변경 (Phase 8-B: dual-write) ──────────────────
     const newStatus = NOTIFY_TO_STATUS[type]
+    const newProgressStatus = NOTIFY_TO_PROGRESS_STATUS[type]
+    const newPaymentStatusDetail = NOTIFY_TO_PAYMENT_STATUS_DETAIL[type]
     const nowIso = new Date().toISOString()
 
     // ── notification_log append ────────────────────────────────────
@@ -618,11 +687,19 @@ export async function POST(request: NextRequest) {
 
     // 실제 발송된 번호(들)를 기록. 두 번호 발송 시 콤마 구분.
     const sentPhoneRecord = targets.join(',')
-    const newEntry: NotificationLogEntry = { type, sent_at: nowIso, phone: sentPhoneRecord, method, template_id: templateId }
+    const primaryChannel: 'sms' | 'lms' | 'alimtalk' = channelsUsed[0] ?? (legacyTemplateId ? 'alimtalk' : 'sms')
+    const newEntry: NotificationLogEntry = {
+      type, sent_at: nowIso, phone: sentPhoneRecord, method,
+      template_id: legacyTemplateId ?? undefined,
+      channel: primaryChannel,
+    }
     const updatedLog = [newEntry, ...existingLog]
 
     const dbUpdates: Record<string, unknown> = { notification_log: updatedLog }
     if (newStatus) dbUpdates.status = newStatus
+    // Phase 8-B: dual-write — 신규 두 컬럼도 함께 업데이트
+    if (newProgressStatus) dbUpdates.progress_status = newProgressStatus
+    if (newPaymentStatusDetail) dbUpdates.payment_status_detail = newPaymentStatusDetail
     // 작업완료알림 발송 시 notification_sent_at 기록 (WorkPanel 완료 표시용)
     if (
       type === '작업완료알림' ||
@@ -640,8 +717,10 @@ export async function POST(request: NextRequest) {
       .eq('id', application_id)
 
     // ── 알림 이력 저장 ──────────────────────────────────────────────
+    const historyCategory: 'alimtalk' | 'sms' =
+      primaryChannel === 'alimtalk' ? 'alimtalk' : 'sms'
     await saveNotificationHistory({
-      category: 'alimtalk',
+      category: historyCategory,
       type,
       body: `${type} 발송 완료 — ${app.owner_name ?? ''} (${sentPhoneRecord})`,
       title: type,
@@ -649,7 +728,11 @@ export async function POST(request: NextRequest) {
       recipientType: 'customer',
       recipientName: String(app.owner_name ?? ''),
       recipientPhone: sentPhoneRecord,
-      metadata: { application_id, business_name: app.business_name ?? '' },
+      metadata: {
+        application_id,
+        business_name: app.business_name ?? '',
+        channels: channelsUsed,
+      },
       status: 'sent',
     })
 
