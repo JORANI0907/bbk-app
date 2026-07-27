@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { sendAlimtalk } from '@/lib/solapi'
+import { sendByTemplate } from '@/lib/template-sender'
+import type { NotificationContext } from '@/lib/notification-variables'
 
 const CRON_SECRET = process.env.CRON_SECRET
 
@@ -140,27 +142,82 @@ const NOTIFY_TO_PAYMENT_STATUS_DETAIL: Record<string, string> = {
   '결제알림(카드,플렛폼)':  '결제',
 }
 
-// ─── 단일 알림 발송 + log 업데이트 ───────────────────────────────
+// ─── 단일 알림 발송 + log 업데이트 ─────────────────────────────────
+// Phase 27-S: 3종 자동 알림 전부 DB template + sendByTemplate 로 통일.
+// - auto_used=true 인 template 만 발송 (관리자가 관리 탭에서 켜야 활성)
+// - applicable_types 검사 (신청서 service_type 매칭 안 되면 skip)
+// - 카톡 알림톡(sendAlimtalk) 완전 폐기, SMS/LMS 로만 발송
 async function sendAndLog(
   supabase: ReturnType<typeof createServiceClient>,
   app: Record<string, unknown>,
   type: keyof typeof TEMPLATES,
   assignedName: string,
   notifyToStatus: Record<string, string>,
-): Promise<void> {
-  const templateId = TEMPLATES[type]
-  const phone      = String(app.phone ?? '').replace(/-/g, '')
-  const variables  = buildVariables(type, app, assignedName)
-  const fallback   = buildFallback(type, app)
+): Promise<'sent' | 'skipped_auto_off' | 'skipped_applicable_types'> {
+  void assignedName // buildVariables 미사용 이후 unused, dead-code 정리 전까지 파라미터만 유지
 
-  // Phase 25c 롤백: template SMS 마이그레이션 대기 중 → 카톡 알림톡 유지
-  await sendAlimtalk(phone, templateId, variables, fallback)
+  // 1) template 조회 → auto_used·is_active·applicable_types 검사
+  const { data: tpl } = await supabase
+    .from('notification_templates')
+    .select('auto_used, applicable_types, is_active')
+    .eq('code', type)
+    .maybeSingle()
 
-  const nowIso    = new Date().toISOString()
+  if (!tpl || !tpl.is_active || !tpl.auto_used) {
+    return 'skipped_auto_off'
+  }
+
+  const serviceType = String(app.service_type ?? '')
+  const applicable = (tpl.applicable_types as string[] | null) ?? []
+  if (applicable.length > 0 && !applicable.includes(serviceType)) {
+    return 'skipped_applicable_types'
+  }
+
+  // 2) NotificationContext 구성 (application 필드 병합)
+  const phone = String(app.phone ?? '').replace(/-/g, '')
+  const context: NotificationContext = {
+    application: {
+      business_name: (app.business_name as string | null) ?? null,
+      business_number: (app.business_number as string | null) ?? null,
+      owner_name: (app.owner_name as string | null) ?? null,
+      phone: (app.phone as string | null) ?? null,
+      email: (app.email as string | null) ?? null,
+      address: (app.address as string | null) ?? null,
+      construction_date: (app.construction_date as string | null) ?? null,
+      construction_time: (app.construction_time as string | null) ?? null,
+      business_hours_start: (app.business_hours_start as string | null) ?? null,
+      business_hours_end: (app.business_hours_end as string | null) ?? null,
+      pre_meeting_at: (app.pre_meeting_at as string | null) ?? null,
+      payment_method: (app.payment_method as string | null) ?? null,
+      account_number: (app.account_number as string | null) ?? null,
+      supply_amount: (app.supply_amount as number | null) ?? null,
+      vat: (app.vat as number | null) ?? null,
+      deposit: (app.deposit as number | null) ?? null,
+      balance: (app.balance as number | null) ?? null,
+      deposit_payment_url: (app.deposit_payment_url as string | null) ?? null,
+      balance_payment_url: (app.balance_payment_url as string | null) ?? null,
+      care_scope: (app.care_scope as string | null) ?? null,
+      parking: (app.parking as string | null) ?? null,
+      elevator: (app.elevator as string | null) ?? null,
+      building_access: (app.building_access as string | null) ?? null,
+      access_method: (app.access_method as string | null) ?? null,
+      drive_folder_url: (app.drive_folder_url as string | null) ?? null,
+      request_notes: (app.request_notes as string | null) ?? null,
+    },
+  }
+
+  // 3) sendByTemplate 호출 (SMS/LMS 자동 판정)
+  const result = await sendByTemplate(type, phone, context)
+  if (!result.ok) {
+    throw new Error(`SMS 발송 실패: ${result.reason}${result.details ? ` (${result.details})` : ''}`)
+  }
+
+  // 4) 이력 저장
+  const nowIso = new Date().toISOString()
   const existLog  = Array.isArray(app.notification_log)
     ? (app.notification_log as Array<{ type: string; sent_at: string; phone: string; method: string }>)
     : []
-  const newEntry  = { type, sent_at: nowIso, phone, method: 'auto' as const, template_id: templateId }
+  const newEntry = { type, sent_at: nowIso, phone, method: 'auto' as const, channel: result.type }
   const updatedLog = [newEntry, ...existLog]
 
   const updates: Record<string, unknown> = { notification_log: updatedLog }
@@ -178,6 +235,8 @@ async function sendAndLog(
     .eq('id', app.id as string)
 
   if (error) throw new Error(`DB 업데이트 실패: ${error.message}`)
+
+  return 'sent'
 }
 
 // ─── 메인 핸들러 ─────────────────────────────────────────────────
@@ -231,8 +290,9 @@ export async function GET(request: NextRequest) {
 
       const assignedName = await getAssignedName(app.assigned_to as string | null)
       try {
-        await sendAndLog(supabase, app as Record<string, unknown>, '예약1일전알림', assignedName, NOTIFY_TO_STATUS)
-        sent++
+        const outcome = await sendAndLog(supabase, app as Record<string, unknown>, '예약1일전알림', assignedName, NOTIFY_TO_STATUS)
+        if (outcome === 'sent') sent++
+        else skipped++
       } catch { failed++ }
     }
     results.push({ type: '예약1일전알림', sent, failed, skipped })
@@ -256,8 +316,9 @@ export async function GET(request: NextRequest) {
 
       const assignedName = await getAssignedName(app.assigned_to as string | null)
       try {
-        await sendAndLog(supabase, app as Record<string, unknown>, '예약당일알림', assignedName, NOTIFY_TO_STATUS)
-        sent++
+        const outcome = await sendAndLog(supabase, app as Record<string, unknown>, '예약당일알림', assignedName, NOTIFY_TO_STATUS)
+        if (outcome === 'sent') sent++
+        else skipped++
       } catch { failed++ }
     }
     results.push({ type: '예약당일알림', sent, failed, skipped })
@@ -297,8 +358,9 @@ export async function GET(request: NextRequest) {
       if (alreadySentToday(log, billingType, todayKST)) { skipped++; continue }
 
       try {
-        await sendAndLog(supabase, app as Record<string, unknown>, billingType, '-', NOTIFY_TO_STATUS)
-        sent++
+        const outcome = await sendAndLog(supabase, app as Record<string, unknown>, billingType, '-', NOTIFY_TO_STATUS)
+        if (outcome === 'sent') sent++
+        else skipped++
       } catch { failed++ }
     }
     results.push({ type: '결제알림', sent, failed, skipped })

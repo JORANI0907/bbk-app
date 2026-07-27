@@ -83,8 +83,10 @@ export async function PATCH(request: NextRequest) {
     .eq('id', id)
     .single()
 
+  // Phase 27-S: trigger_desc 는 시스템 고정 (편집 UI 없음, API 도 잠금).
+  // 관리자가 편집 가능한 필드: title, subject, body, is_active, applicable_types, auto_used 등
   const SYSTEM_EDITABLE = new Set(['title', 'subject', 'body', 'is_active', 'category',
-    'applicable_types', 'applicable_locations'])
+    'applicable_types', 'applicable_locations', 'auto_used'])
   const ALL_EDITABLE = new Set([...SYSTEM_EDITABLE, 'code', 'scope'])
 
   // Phase 25c: auto_used 템플릿은 is_active 잠금 (본문·제목만 편집)
@@ -98,8 +100,8 @@ export async function PATCH(request: NextRequest) {
   const updates: Record<string, unknown> = { updated_at: new Date().toISOString(), updated_by: session.userId }
   for (const key of Object.keys(rest)) {
     if (!editable.has(key)) continue
-    // auto_used면 is_active 변경 무시 (항상 true 유지)
-    if (existingFull?.auto_used && key === 'is_active') continue
+    // Phase 27-S 5-c: auto_used 상태에서도 is_active 편집 허용.
+    // UI 에 자물쇠 해제 게이트가 있어 실수 방지. cron 은 is_active·auto_used 둘 다 검사하므로 안전.
     updates[key] = rest[key]
   }
 

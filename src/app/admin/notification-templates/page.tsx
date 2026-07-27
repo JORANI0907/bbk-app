@@ -48,6 +48,33 @@ const CATEGORY_COLORS: Record<string, string> = {
   '계정': 'bg-amber-100 text-amber-700',
 }
 
+// Phase 27-S: 발송 대상 케어 유형. 신설 시 이 배열에만 추가하면 자동으로 관리 탭 체크박스 노출.
+const CARE_TYPES = ['1회성케어', '정기딥케어', '정기엔드케어'] as const
+
+// Phase 27-S 5-b: template code 별 트리거 방식 분류
+// - auto:      cron/webhook 이 auto_used 조회해 자동 발송 → 자동 토글 노출
+// - semi_auto: 관리자가 상세 화면에서 [알림발송] 클릭 시 발송 → 토글 대신 "클릭 발송" 뱃지
+// - unwired:   아직 트리거 자체가 없음 → 토글 대신 "미배선" 뱃지
+const AUTO_TRIGGER_CODES = new Set([
+  '예약당일알림', '예약1일전알림',
+  '결제알림', '결제알림(현금)', '결제알림(카드,플렛폼)',
+  '예약확정알림', '신청서작성완료알림',
+  '예약금 입금완료 알림', '결제완료알림', '결제완료알림(잔금)',
+  '계정안내알림',
+])
+const SEMI_AUTO_CODES = new Set([
+  '작업완료알림',
+  '작업완료알림(현금)', '작업완료알림(카드,플렛폼)', '작업완료알림(정기엔드케어)',
+  'A/S방문알림', '계산서발행완료알림',
+  '방문견적알림', '예약취소알림', '예약금환급완료알림',
+])
+type TriggerKind = 'auto' | 'semi_auto' | 'unwired'
+function classifyTrigger(code: string): TriggerKind {
+  if (AUTO_TRIGGER_CODES.has(code)) return 'auto'
+  if (SEMI_AUTO_CODES.has(code)) return 'semi_auto'
+  return 'unwired'
+}
+
 export default function NotificationTemplatesPage() {
   const [templates, setTemplates] = useState<Template[]>([])
   const [loading, setLoading] = useState(true)
@@ -58,6 +85,8 @@ export default function NotificationTemplatesPage() {
   // 편집 buffer
   const [buffer, setBuffer] = useState<Partial<Template>>({})
   const [saving, setSaving] = useState(false)
+  // Phase 27-S 5-c: 자동 template 잠금 해제 상태 (세션 로컬, 새로고침 시 리셋)
+  const [unlockedIds, setUnlockedIds] = useState<Set<string>>(new Set())
   // Phase 25-b: 신규 템플릿 추가 모달
   const [addOpen, setAddOpen] = useState(false)
   const [addForm, setAddForm] = useState({ code: '', title: '', category: '' })
@@ -115,6 +144,27 @@ export default function NotificationTemplatesPage() {
       toast.error(e instanceof Error ? e.message : '저장 실패')
     } finally {
       setSaving(false)
+    }
+  }
+
+  // Phase 27-S: 자동 발송 토글 — 즉시 PATCH (optimistic UI, 실패 시 롤백)
+  const handleToggleAutoUsed = async (templateId: string, next: boolean) => {
+    // 1) UI 즉시 반영
+    setTemplates(prev => prev.map(t => t.id === templateId ? { ...t, auto_used: next } : t))
+    try {
+      const res = await fetch('/api/admin/notification-templates', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: templateId, auto_used: next }),
+      })
+      const j = await res.json()
+      if (!res.ok) throw new Error(j.error ?? '자동 발송 설정 변경 실패')
+      setTemplates(prev => prev.map(t => t.id === templateId ? j.template : t))
+      toast.success(next ? '⚡ 자동 발송 켜짐' : '자동 발송 꺼짐')
+    } catch (e) {
+      // 실패 시 롤백
+      setTemplates(prev => prev.map(t => t.id === templateId ? { ...t, auto_used: !next } : t))
+      toast.error(e instanceof Error ? e.message : '설정 변경 실패')
     }
   }
 
@@ -273,25 +323,70 @@ export default function NotificationTemplatesPage() {
                       active ? 'bg-brand-50 border-l-4 border-brand-600' : 'hover:bg-surface-sunken border-l-4 border-transparent'
                     } ${!t.is_active ? 'opacity-50' : ''}`}
                   >
-                    <div className="flex items-center gap-1.5 mb-0.5 flex-wrap">
-                      {t.category && (
-                        <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${CATEGORY_COLORS[t.category] ?? 'bg-surface-sunken text-text-secondary'}`}>
-                          {t.category}
-                        </span>
-                      )}
-                      {t.is_system && <span className="text-[10px] text-text-tertiary">기본</span>}
-                      {t.auto_used && (
-                        <span
-                          className="text-[10px] px-1 py-0 rounded font-semibold bg-amber-100 text-amber-700 leading-tight"
-                          title={t.trigger_desc ?? '자동 발송용 템플릿'}
-                        >
-                          ⚡자동
-                        </span>
-                      )}
-                      {!t.is_active && <span className="text-[10px] text-state-danger">비활성</span>}
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1.5 mb-0.5 flex-wrap">
+                          {t.category && (
+                            <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${CATEGORY_COLORS[t.category] ?? 'bg-surface-sunken text-text-secondary'}`}>
+                              {t.category}
+                            </span>
+                          )}
+                          {t.is_system && <span className="text-[10px] text-text-tertiary">기본</span>}
+                          {t.auto_used && (
+                            <span
+                              className="text-[10px] px-1 py-0 rounded font-semibold bg-amber-100 text-amber-700 leading-tight"
+                              title={t.trigger_desc ?? '자동 발송용 템플릿'}
+                            >
+                              ⚡자동
+                            </span>
+                          )}
+                          {!t.is_active && <span className="text-[10px] text-state-danger">비활성</span>}
+                        </div>
+                        <p className="text-sm font-semibold text-text-primary">{t.title}</p>
+                        <p className="text-[11px] text-text-tertiary truncate mt-0.5">{t.code}</p>
+                      </div>
+                      {/* Phase 27-S 5-b: 자동 template 만 토글, 반자동/미배선은 뱃지 */}
+                      {(() => {
+                        const kind = classifyTrigger(t.code)
+                        if (kind === 'auto') {
+                          return (
+                            <label
+                              onClick={e => e.stopPropagation()}
+                              className="shrink-0 cursor-pointer mt-1"
+                              title={t.auto_used ? '자동 발송 끄기' : '자동 발송 켜기'}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={t.auto_used}
+                                onChange={e => handleToggleAutoUsed(t.id, e.target.checked)}
+                                className="sr-only peer"
+                              />
+                              <div className="relative w-8 h-4 bg-gray-300 rounded-full peer-checked:bg-amber-500 transition-colors">
+                                <div className="absolute top-0.5 left-0.5 w-3 h-3 bg-white rounded-full shadow-sm transition-transform peer-checked:translate-x-4" />
+                              </div>
+                            </label>
+                          )
+                        }
+                        if (kind === 'semi_auto') {
+                          return (
+                            <span
+                              className="shrink-0 text-[10px] px-1.5 py-0.5 rounded font-semibold bg-blue-100 text-blue-700 leading-tight mt-0.5"
+                              title="관리자가 상세 화면에서 [알림발송] 버튼 클릭 시 발송"
+                            >
+                              👆 클릭
+                            </span>
+                          )
+                        }
+                        return (
+                          <span
+                            className="shrink-0 text-[10px] px-1.5 py-0.5 rounded font-semibold bg-gray-100 text-gray-500 leading-tight mt-0.5"
+                            title="아직 자동 발송 트리거가 구현되지 않음"
+                          >
+                            ⚠️ 미배선
+                          </span>
+                        )
+                      })()}
                     </div>
-                    <p className="text-sm font-semibold text-text-primary">{t.title}</p>
-                    <p className="text-[11px] text-text-tertiary truncate mt-0.5">{t.code}</p>
                   </button>
                 )
               })}
@@ -322,17 +417,87 @@ export default function NotificationTemplatesPage() {
                     className="text-lg font-bold text-text-primary bg-transparent border-none focus:outline-none focus:ring-2 focus:ring-brand-500 rounded px-1 w-full"
                   />
                 </div>
-                <div className="flex items-center gap-2">
-                  <label className={`flex items-center gap-1.5 text-xs ${selected.auto_used ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}>
-                    <input
-                      type="checkbox"
-                      checked={merged.is_active ?? true}
-                      disabled={selected.auto_used}
-                      onChange={e => setBuffer(prev => ({ ...prev, is_active: e.target.checked }))}
-                      className="accent-brand-600"
-                    />
-                    활성
-                  </label>
+                <div className="flex items-center gap-3">
+                  {/* Phase 27-S 5-b: 자동/반자동/미배선 조건부 렌더링 */}
+                  {(() => {
+                    const kind = classifyTrigger(selected.code)
+                    if (kind === 'auto') {
+                      return (
+                        <label
+                          className="flex items-center gap-1.5 text-xs cursor-pointer"
+                          title={selected.auto_used ? '자동 발송 끄기' : '자동 발송 켜기'}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={selected.auto_used ?? false}
+                            onChange={e => handleToggleAutoUsed(selected.id, e.target.checked)}
+                            className="sr-only peer"
+                          />
+                          <div className="relative w-9 h-5 bg-gray-300 rounded-full peer-checked:bg-amber-500 transition-colors">
+                            <div className="absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow-sm transition-transform peer-checked:translate-x-4" />
+                          </div>
+                          <span className={selected.auto_used ? 'font-semibold text-amber-700' : 'text-text-secondary'}>
+                            {selected.auto_used ? '⚡자동' : '자동'}
+                          </span>
+                        </label>
+                      )
+                    }
+                    if (kind === 'semi_auto') {
+                      return (
+                        <span
+                          className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-md font-semibold bg-blue-100 text-blue-700"
+                          title="관리자가 상세 화면에서 [알림발송] 버튼 클릭 시 발송"
+                        >
+                          👆 반자동 (관리자 클릭)
+                        </span>
+                      )
+                    }
+                    return (
+                      <span
+                        className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-md font-semibold bg-gray-100 text-gray-500"
+                        title="아직 자동 발송 트리거가 구현되지 않음"
+                      >
+                        ⚠️ 미배선
+                      </span>
+                    )
+                  })()}
+                  {(() => {
+                    // Phase 27-S 5-c: 자동 template 은 자물쇠 클릭 후 활성 편집 가능
+                    const locked = selected.auto_used && !unlockedIds.has(selected.id)
+                    return (
+                      <div className="flex items-center gap-1">
+                        {selected.auto_used && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setUnlockedIds(prev => {
+                                const next = new Set(prev)
+                                if (next.has(selected.id)) next.delete(selected.id)
+                                else next.add(selected.id)
+                                return next
+                              })
+                            }}
+                            title={locked ? '잠금 해제 (자동 template 은 활성 편집 잠김)' : '다시 잠금'}
+                            className={`text-sm w-6 h-6 flex items-center justify-center rounded transition-colors ${
+                              locked ? 'text-amber-600 hover:bg-amber-100' : 'text-brand-600 hover:bg-brand-50'
+                            }`}
+                          >
+                            {locked ? '🔒' : '🔓'}
+                          </button>
+                        )}
+                        <label className={`flex items-center gap-1.5 text-xs ${locked ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}>
+                          <input
+                            type="checkbox"
+                            checked={merged.is_active ?? true}
+                            disabled={locked}
+                            onChange={e => setBuffer(prev => ({ ...prev, is_active: e.target.checked }))}
+                            className="accent-brand-600"
+                          />
+                          활성
+                        </label>
+                      </div>
+                    )
+                  })()}
                   {!selected.is_system && !selected.auto_used && (
                     <button
                       onClick={handleDelete}
@@ -344,26 +509,83 @@ export default function NotificationTemplatesPage() {
                 </div>
               </div>
 
-              {/* Phase 25c: 자동 발송용 템플릿 경고 배너 */}
-              {selected.auto_used && (
-                <div className="bg-amber-50 border-2 border-amber-300 rounded-lg p-3 flex items-start gap-2">
-                  <span className="text-xl">⚡</span>
-                  <div className="flex-1 text-xs leading-relaxed text-amber-900">
-                    <p className="font-bold mb-1">자동 발송 템플릿</p>
-                    <p className="text-amber-800">
-                      이 템플릿은 아래 조건에서 <b>자동으로 발송</b>됩니다. 본문·제목만 수정 가능하며 <b>비활성·삭제는 잠겨있습니다</b>.
+              {/* Phase 27-S: 자동 발송 안내 카드 — auto_used 상관없이 항상 표시.
+                  꺼진 상태에서도 관리자가 "켜면 언제 발송되는지" 미리 알 수 있도록. */}
+              <div className={`rounded-lg p-3 border-2 ${
+                selected.auto_used
+                  ? 'bg-amber-50 border-amber-300'
+                  : 'bg-gray-50 border-gray-200'
+              }`}>
+                <div className="flex items-start gap-2">
+                  <span className="text-xl">{selected.auto_used ? '⚡' : '⏰'}</span>
+                  <div className="flex-1 text-xs leading-relaxed">
+                    <p className={`font-bold mb-1 ${selected.auto_used ? 'text-amber-900' : 'text-text-primary'}`}>
+                      {selected.auto_used ? '자동 발송 중' : '자동 발송 시점·조건'}
                     </p>
-                    {selected.trigger_desc && (
-                      <p className="mt-1.5 bg-white/70 rounded px-2 py-1 font-medium">
-                        ⏰ {selected.trigger_desc}
+                    <p className={selected.auto_used ? 'text-amber-800' : 'text-text-secondary'}>
+                      {selected.auto_used
+                        ? <>이 템플릿은 아래 조건에서 <b>자동으로 발송</b>됩니다. 본문·제목만 수정 가능하며 <b>비활성·삭제는 잠겨있습니다</b>.</>
+                        : <>상단 <b>⚡자동</b> 토글을 켜면 아래 조건에서 자동 발송됩니다. 켜기 전 조건을 확인하세요.</>}
+                    </p>
+                    {/* Phase 27-S: 발송 시점·조건은 시스템 코드에 하드코딩됨 (편집 불가).
+                        관리자는 "언제 자동 발송되는지" 참고용으로만 확인.
+                        문구 변경이 필요하면 개발자에게 요청. */}
+                    <div className={`mt-2 rounded px-3 py-2 border text-xs font-medium ${
+                      selected.auto_used
+                        ? 'bg-white border-amber-200 text-amber-900'
+                        : 'bg-white border-border text-text-primary'
+                    }`}>
+                      <span className="text-[10px] font-semibold text-text-tertiary mr-1.5">🔒 시스템 고정 :</span>
+                      {selected.trigger_desc ?? <span className="text-text-tertiary">(발송 조건 미설정)</span>}
+                    </div>
+                    {selected.auto_used && (
+                      <p className="mt-1.5 text-[11px] text-amber-700">
+                        💡 변수({'{{업체명}}'} 등)를 삭제하면 실제 발송 시 빈 값으로 나갑니다. 신중히 편집하세요.
                       </p>
                     )}
-                    <p className="mt-1.5 text-[11px] text-amber-700">
-                      💡 변수({'{{업체명}}'} 등)를 삭제하면 실제 발송 시 빈 값으로 나갑니다. 신중히 편집하세요.
-                    </p>
                   </div>
                 </div>
-              )}
+              </div>
+
+              {/* Phase 27-S: 발송 대상 케어 유형 (다중 선택) */}
+              <div>
+                <label className="text-xs font-medium text-text-secondary mb-1.5 block">
+                  발송 대상 유형 <span className="text-text-tertiary">(다중 선택)</span>
+                </label>
+                <div className="flex flex-wrap gap-1.5">
+                  {CARE_TYPES.map(careType => {
+                    const currentTypes = (merged.applicable_types ?? []) as string[]
+                    const checked = currentTypes.includes(careType)
+                    return (
+                      <label
+                        key={careType}
+                        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border cursor-pointer transition-colors ${
+                          checked
+                            ? 'bg-brand-600 text-white border-brand-600'
+                            : 'bg-surface text-text-secondary border-border hover:border-brand-400'
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={e => {
+                            const nextTypes = e.target.checked
+                              ? [...currentTypes, careType]
+                              : currentTypes.filter(t => t !== careType)
+                            setBuffer(prev => ({ ...prev, applicable_types: nextTypes }))
+                          }}
+                          className="sr-only"
+                        />
+                        {checked && <span>✓</span>}
+                        {careType}
+                      </label>
+                    )
+                  })}
+                </div>
+                <p className="text-[11px] text-text-tertiary mt-1.5">
+                  선택된 유형의 신청서에만 자동 발송됩니다. 예: 정기엔드케어 매일 방문 시 예약당일알림 스팸 방지하려면 정기엔드케어 체크 해제.
+                </p>
+              </div>
 
               {/* LMS 제목 (byte 초과 시만) */}
               {showLmsSubject && (

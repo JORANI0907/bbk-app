@@ -162,6 +162,8 @@ export default function QuotesPage() {
   const [page, setPage]         = useState(1)
   const [total, setTotal]       = useState(0)
   const [loadedAt, setLoadedAt] = useState<Date | null>(null)
+  // Phase 27-Q: 견적 이력 모드 — last_quote_no 있는 신청서만, 최근 수정순 정렬
+  const [quoteHistoryMode, setQuoteHistoryMode] = useState(false)
 
   // 선택
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -382,10 +384,16 @@ export default function QuotesPage() {
   }
 
   // ── 목록 로딩 ─────────────────────────────────────────────────
-  const loadApplications = useCallback(async (p: number, q: string) => {
+  // Phase 27-Q: quoteHistoryMode=true 이면 mode=quotes 파라미터 전달 → 견적 이력 필터/정렬
+  const loadApplications = useCallback(async (p: number, q: string, historyMode: boolean) => {
     setLoading(true)
     try {
-      const params = new URLSearchParams({ page: String(p), limit: String(PAGE_SIZE), ...(q ? { search: q } : {}) })
+      const params = new URLSearchParams({
+        page: String(p),
+        limit: String(PAGE_SIZE),
+        ...(q ? { search: q } : {}),
+        ...(historyMode ? { mode: 'quotes' } : {}),
+      })
       const res  = await fetch(`/api/admin/quotes?${params}`)
       if (!res.ok) throw new Error()
       const { applications: data, total: t } = await res.json()
@@ -399,15 +407,23 @@ export default function QuotesPage() {
     }
   }, [])
 
-  useEffect(() => { loadApplications(1, '') }, [loadApplications])
+  useEffect(() => { loadApplications(1, '', quoteHistoryMode) }, [loadApplications, quoteHistoryMode])
 
   const handleSearchChange = (value: string) => {
     setSearch(value)
     if (searchTimer.current) clearTimeout(searchTimer.current)
-    searchTimer.current = setTimeout(() => { setPage(1); setSelectedId(null); loadApplications(1, value) }, 500)
+    searchTimer.current = setTimeout(() => { setPage(1); setSelectedId(null); loadApplications(1, value, quoteHistoryMode) }, 500)
   }
-  const handlePageChange = (p: number) => { setPage(p); setSelectedId(null); loadApplications(p, search) }
-  const handleRefresh    = () => loadApplications(page, search)
+  const handlePageChange = (p: number) => { setPage(p); setSelectedId(null); loadApplications(p, search, quoteHistoryMode) }
+  const handleRefresh    = () => loadApplications(page, search, quoteHistoryMode)
+  // Phase 27-Q: 이력 모드 토글 (버튼 클릭) — page 리셋 + 선택 해제 + 재로딩
+  const handleToggleHistoryMode = () => {
+    const next = !quoteHistoryMode
+    setQuoteHistoryMode(next)
+    setPage(1)
+    setSelectedId(null)
+    // useEffect 가 quoteHistoryMode 변경 감지해 재로드하므로 여기선 setState 만
+  }
 
   // ── 케어범위 → 견적 항목 파싱 ────────────────────────────────
   const parseCareScope = (careScope: string): QuoteItem[] =>
@@ -898,13 +914,13 @@ export default function QuotesPage() {
           if (result.warnings?.seal) toast(parts.join('\n'), { duration: 6000, icon: '⚠️' })
           else toast.success(parts.join('\n'))
         }
-        await loadApplications(page, search)
+        await loadApplications(page, search, quoteHistoryMode)
       } else {
         const msg = result.errors
           ? Object.entries(result.errors as Record<string, string>).filter(([k]) => k !== 'kakao').map(([, v]) => v).join(', ')
           : '발송 실패'
         toast.error(`발송 오류: ${msg}`)
-        await loadApplications(page, search)
+        await loadApplications(page, search, quoteHistoryMode)
       }
     } catch (e) {
       toast.error(e instanceof Error ? e.message : '오류가 발생했습니다.')
@@ -929,7 +945,7 @@ export default function QuotesPage() {
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? '재생성 실패')
       toast.success(`'${q.label}' PDF 재생성 완료 (${data.quote_no})`)
-      await loadApplications(page, search)
+      await loadApplications(page, search, quoteHistoryMode)
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'PDF 재생성 실패')
     } finally {
@@ -963,9 +979,29 @@ export default function QuotesPage() {
           </div>
         </div>
 
-        <Button size="sm" onClick={handleNewApplication} className="bg-brand-600 hover:bg-brand-700 text-white">
-          <Plus size={14} /> 새 신청서 만들기
-        </Button>
+        {/* Phase 27-Q: 새 신청서 만들기 + 최근 견적 이력 토글 반반 배치 */}
+        <div className="flex items-center gap-2">
+          <Button
+            size="sm"
+            onClick={handleNewApplication}
+            className="flex-1 bg-brand-600 hover:bg-brand-700 text-white"
+          >
+            <Plus size={14} /> 새 신청서 만들기
+          </Button>
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={handleToggleHistoryMode}
+            className={`flex-1 ${
+              quoteHistoryMode
+                ? 'bg-sky-500 hover:bg-sky-600 text-white border-sky-500'
+                : ''
+            }`}
+            title={quoteHistoryMode ? '전체 신청서 보기로' : '최근 견적 이력만 보기'}
+          >
+            <FileText size={14} /> {quoteHistoryMode ? '전체 보기' : '견적 이력'}
+          </Button>
+        </div>
 
         <Input placeholder="고객명·업체명·연락처" value={search} onChange={e => handleSearchChange(e.target.value)} />
 

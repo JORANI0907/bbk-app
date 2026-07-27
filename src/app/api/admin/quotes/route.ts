@@ -7,18 +7,22 @@ export async function GET(request: NextRequest) {
   const limit  = Math.min(50, Math.max(1, parseInt(searchParams.get('limit') || '20')))
   const search = searchParams.get('search')?.trim() || ''
   const appId  = searchParams.get('appId')?.trim() || ''
+  // Phase 27-Q: mode=quotes → 견적서(saved_quotes)가 있는 신청서만, 최근 수정/발송 순으로
+  const mode   = searchParams.get('mode')?.trim() || ''
   const offset = (page - 1) * limit
 
   const supabase = createServiceClient()
 
+  const sortByRecentQuote = mode === 'quotes'
+
   let query = supabase
     .from('service_applications')
     .select(
-      'id, owner_name, business_name, phone, phone_2, phone_notify_1, phone_notify_2, email, address, construction_date, care_scope, last_quote_no, last_quote_pdf_url, quote_items, quote_log, quote_notes, saved_quotes, created_at, status, notification_log, source',
+      'id, owner_name, business_name, phone, phone_2, phone_notify_1, phone_notify_2, email, address, construction_date, care_scope, last_quote_no, last_quote_pdf_url, quote_items, quote_log, quote_notes, saved_quotes, created_at, updated_at, status, notification_log, source',
       { count: 'exact' }
     )
     .is('deleted_at', null)
-    .order('created_at', { ascending: false })
+    .order(sortByRecentQuote ? 'updated_at' : 'created_at', { ascending: false })
 
   if (appId) {
     query = query.eq('id', appId)
@@ -27,6 +31,10 @@ export async function GET(request: NextRequest) {
       query = query.or(
         `owner_name.ilike.%${search}%,business_name.ilike.%${search}%,phone.ilike.%${search}%`
       )
+    }
+    // Phase 27-Q: 견적 이력 모드 — last_quote_no 있는 신청서만 (견적서 저장·발송 이력)
+    if (sortByRecentQuote) {
+      query = query.not('last_quote_no', 'is', null)
     }
     query = query.range(offset, offset + limit - 1)
   }
