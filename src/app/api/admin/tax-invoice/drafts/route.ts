@@ -11,7 +11,8 @@ function requireAdmin() {
 const ALLOWED_FIELDS = [
   'supplier_id',
   'receiver_business_number', 'receiver_business_name', 'receiver_owner_name',
-  'receiver_address', 'receiver_email', 'receiver_business_type', 'receiver_business_item',
+  'receiver_address', 'receiver_email', 'receiver_email_2',
+  'receiver_business_type', 'receiver_business_item',
   'items', 'invoice_kind', 'bill_receipt_type', 'written_date', 'notes',
 ] as const
 

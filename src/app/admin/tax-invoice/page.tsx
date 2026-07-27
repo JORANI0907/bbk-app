@@ -7,6 +7,7 @@ import Link from 'next/link'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { DraftEditor } from './DraftEditor'
+import { buildHometaxCsv, todayYmdKst, type HometaxRow, type HometaxItem } from '@/lib/hometax-csv'
 
 type Source = 'application' | 'billing'
 
@@ -34,6 +35,12 @@ interface Candidate {
   has_draft: boolean
   draft_supplier_id: string | null
   draft_items: Array<{ name: string; qty?: number; unit_price?: number; supply_amount?: number; vat?: number; spec?: string; remark?: string }> | null
+  // 홈택스 CSV 전용 draft 필드
+  draft_receiver_business_type: string | null
+  draft_receiver_business_item: string | null
+  draft_receiver_email_2: string | null
+  draft_receipt_type: string | null
+  draft_invoice_kind: string | null
 }
 
 const SERVICE_TYPES_FALLBACK = ['1회성케어', '정기딥케어', '정기엔드케어']
@@ -76,28 +83,6 @@ const FALLBACK_SUPPLIER: Supplier = {
 
 const fmtKr = (n: number) => n.toLocaleString('ko-KR')
 const fmtDate = (s: string | null) => s ? s.slice(0, 10) : '—'
-
-// 홈택스 일괄발급 CSV 헤더 순서 (tax-invoice-auto 스키마와 일치)
-const CSV_HEADERS = [
-  '공급자등록번호', '공급자상호', '공급자대표자', '공급자주소', '공급자업태', '공급자종목', '공급자이메일',
-  '공급받는자등록번호', '공급받는자상호', '공급받는자대표자', '공급받는자주소', '공급받는자이메일',
-  '공급가액', '세액', '공급가액1', '세액1',
-  '계산서종류', '작성일자', '일자1', '영수청구구분',
-] as const
-
-function todayYmd(): { yyyymmdd: string; ddQuoted: string } {
-  const now = new Date(Date.now() + 9 * 60 * 60 * 1000)
-  const y = now.getUTCFullYear()
-  const m = String(now.getUTCMonth() + 1).padStart(2, '0')
-  const d = String(now.getUTCDate()).padStart(2, '0')
-  return { yyyymmdd: `${y}${m}${d}`, ddQuoted: `'${d}` }
-}
-
-function csvEscape(v: string | number): string {
-  const s = String(v ?? '')
-  if (/[",\n]/.test(s)) return `"${s.replace(/"/g, '""')}"`
-  return s
-}
 
 export default function TaxInvoiceDashboardPage() {
   const [candidates, setCandidates] = useState<Candidate[]>([])
@@ -275,8 +260,8 @@ export default function TaxInvoiceDashboardPage() {
     }
   }
 
-  // ── CSV 다운로드 ────────────────────────────────────────
-  const handleDownloadCsv = () => {
+  // ── CSV → Google Drive 업로드 (실패 시 로컬 다운로드 fallback) ───
+  const handleDownloadCsv = async () => {
     const selected = filteredCandidates.filter(c => selectedIds.has(rowKey(c)))
     if (selected.length === 0) {
       toast.error('먼저 발행 대상을 선택하세요.')
@@ -288,50 +273,118 @@ export default function TaxInvoiceDashboardPage() {
       return
     }
 
-    const { yyyymmdd, ddQuoted } = todayYmd()
-    const rows = selected.map(c => {
-      // 이 건에 draft.supplier_id 가 지정되어 있으면 그 공급자로 override
+    const yyyymmdd = todayYmdKst()
+    const rows: HometaxRow[] = selected.map(c => {
+      // 이 건에 draft.supplier_id가 지정되어 있으면 그 공급자로 override
       const rowSupplier = c.draft_supplier_id
         ? (suppliers.find(s => s.id === c.draft_supplier_id) ?? supplier)
         : supplier
+
+      // 품목: draft_items가 있으면 그대로 (최대 4개 잘라내기), 없으면 서비스유형 기반 자동 채움
+      const items: HometaxItem[] = (c.draft_items && c.draft_items.length > 0)
+        ? c.draft_items.slice(0, 4).map(it => ({
+            name: it.name,
+            spec: it.spec ?? null,
+            qty: it.qty ?? 1,
+            unit_price: it.unit_price ?? Number(it.supply_amount ?? 0),
+            supply_amount: Number(it.supply_amount ?? 0),
+            vat: Number(it.vat ?? 0),
+            remark: it.remark ?? null,
+          }))
+        : [{
+            name: `${c.service_type ?? '청소 서비스'}${c.billing_period ? ` - ${c.billing_period}` : ''}`,
+            qty: 1,
+            unit_price: c.supply_amount,
+            supply_amount: c.supply_amount,
+            vat: c.vat,
+          }]
+
       return {
-      공급자등록번호:   rowSupplier.registration_number,
-      공급자상호:       rowSupplier.company_name,
-      공급자대표자:     rowSupplier.representative,
-      공급자주소:       rowSupplier.address,
-      공급자업태:       rowSupplier.business_type,
-      공급자종목:       rowSupplier.business_item,
-      공급자이메일:     rowSupplier.email,
-      공급받는자등록번호: c.business_number ?? '',
-      공급받는자상호:     c.business_name ?? '',
-      공급받는자대표자:   c.owner_name ?? '',
-      공급받는자주소:     c.address ?? '',
-      공급받는자이메일:   c.email ?? '',
-      공급가액:  c.supply_amount,
-      세액:      c.vat,
-      공급가액1: c.supply_amount,
-      세액1:     c.vat,
-      계산서종류:   "'01",
-      작성일자:     yyyymmdd,
-      일자1:        ddQuoted,
-      영수청구구분: "'01",
+        invoice_kind: (c.draft_invoice_kind === '02' ? '02' : '01'),
+        written_date: yyyymmdd,
+        supplier: {
+          registration_number: rowSupplier.registration_number,
+          company_name: rowSupplier.company_name,
+          representative: rowSupplier.representative,
+          address: rowSupplier.address,
+          business_type: rowSupplier.business_type,
+          business_item: rowSupplier.business_item,
+          email: rowSupplier.email,
+        },
+        receiver: {
+          registration_number: c.business_number,
+          business_name: c.business_name,
+          owner_name: c.owner_name,
+          address: c.address,
+          business_type: c.draft_receiver_business_type,
+          business_item: c.draft_receiver_business_item,
+          email: c.email,
+          email_2: c.draft_receiver_email_2,
+        },
+        items,
+        receipt_type: (c.draft_receipt_type === '02' ? '02' : '01'),
       }
     })
 
-    const csv = [
-      CSV_HEADERS.join(','),
-      ...rows.map(r => CSV_HEADERS.map(h => csvEscape(r[h as keyof typeof r])).join(',')),
-    ].join('\r\n')
+    let csv: string
+    try {
+      csv = buildHometaxCsv(rows)
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'CSV 생성 실패')
+      return
+    }
 
-    // UTF-8 BOM (Excel/한글 호환)
-    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `세금계산서_${yyyymmdd}_${rows.length}건.csv`
-    a.click()
-    URL.revokeObjectURL(url)
-    toast.success(`${rows.length}건 CSV 다운로드 완료`)
+    const filename = `홈택스_세금계산서_${yyyymmdd}_${rows.length}건.csv`
+
+    // 로컬 다운로드 fallback 함수
+    const downloadLocally = () => {
+      const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = filename
+      a.click()
+      URL.revokeObjectURL(url)
+    }
+
+    // Google Drive에 Google Sheets로 저장 시도
+    const uploadingToast = toast.loading('Google Sheets로 저장 중...')
+    try {
+      const res = await fetch('/api/admin/tax-invoice/upload-csv', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ filename, csv }),
+      })
+      const json = await res.json()
+      toast.dismiss(uploadingToast)
+      if (!res.ok) throw new Error(json.error ?? '업로드 실패')
+
+      toast.success(
+        (t) => (
+          <span className="flex items-center gap-2">
+            <span>{rows.length}건 Google Sheets 저장 완료</span>
+            {json.webViewLink && (
+              <a
+                href={json.webViewLink}
+                target="_blank"
+                rel="noreferrer"
+                onClick={() => toast.dismiss(t.id)}
+                className="text-brand-600 underline text-xs"
+              >
+                시트 열기
+              </a>
+            )}
+          </span>
+        ),
+        { duration: 8000 },
+      )
+    } catch (e) {
+      toast.dismiss(uploadingToast)
+      const msg = e instanceof Error ? e.message : String(e)
+      // Drive 실패 시 자동 로컬 CSV 다운로드로 fallback
+      downloadLocally()
+      toast.error(`Sheets 저장 실패 — 로컬 CSV로 다운로드: ${msg}`, { duration: 6000 })
+    }
   }
 
   return (
@@ -367,8 +420,9 @@ export default function TaxInvoiceDashboardPage() {
           </Link>
           <Button size="sm" onClick={handleDownloadCsv}
             disabled={selectedIds.size === 0}
-            className="flex items-center gap-1.5">
-            <Download size={13} />CSV ({selectedIds.size})
+            className="flex items-center gap-1.5"
+            title="Google Drive '세금계산서' 폴더에 Google Sheets로 저장 (실패 시 로컬 CSV 다운로드 fallback)">
+            <Download size={13} />Sheets 저장 ({selectedIds.size})
           </Button>
           <Button size="sm" variant="secondary" onClick={handleMarkIssued}
             disabled={selectedIds.size === 0 || markingIssued}
@@ -527,17 +581,27 @@ export default function TaxInvoiceDashboardPage() {
                       <RowStatus c={c} />
                     </td>
                     <td className="pr-3 py-2 text-right">
-                      <button type="button"
-                        onClick={() => setEditingCandidate(c)}
-                        className={`flex items-center gap-1 text-[11px] px-2 py-1 rounded-md border transition-colors ${
-                          c.has_draft
-                            ? 'border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100'
-                            : 'border-border-subtle text-text-secondary hover:bg-surface-sunken'
-                        }`}
-                        title={c.has_draft ? '편집된 초안이 있습니다' : '발행 전 편집'}>
-                        <Pencil size={11} />
-                        {c.has_draft ? '편집됨' : '편집'}
-                      </button>
+                      <div className="flex items-center justify-end gap-1">
+                        {(!c.draft_receiver_business_type || !c.draft_receiver_business_item) && (
+                          <span
+                            className="text-[10px] px-1 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200"
+                            title="홈택스 선택 필드 (업태·종목) 미입력 — 없어도 발행은 가능하나 상세 명세를 원하면 편집에서 채우세요"
+                          >
+                            업·종
+                          </span>
+                        )}
+                        <button type="button"
+                          onClick={() => setEditingCandidate(c)}
+                          className={`flex items-center gap-1 text-[11px] px-2 py-1 rounded-md border transition-colors ${
+                            c.has_draft
+                              ? 'border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100'
+                              : 'border-border-subtle text-text-secondary hover:bg-surface-sunken'
+                          }`}
+                          title={c.has_draft ? '편집된 초안이 있습니다' : '발행 전 편집'}>
+                          <Pencil size={11} />
+                          {c.has_draft ? '편집됨' : '편집'}
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 )
@@ -650,17 +714,19 @@ function StatCard({ label, value, tone = 'default', small = false }: {
   )
 }
 
-function SourceBadge({ source, label }: { source: Source; label: string }) {
-  const isApp = source === 'application'
+// Phase 22 v13: 유형(service_type)만 색상 뱃지로 노출. "서비스/고객" 라벨은 제거 — source 구분은 백엔드 내부용
+const TYPE_BADGE: Record<string, string> = {
+  '1회성케어':    'bg-emerald-100 text-emerald-700',
+  '정기딥케어':   'bg-brand-100 text-brand-700',
+  '정기엔드케어': 'bg-purple-100 text-purple-700',
+  '일반일정':     'bg-stone-100 text-stone-700',
+}
+function SourceBadge({ label }: { source: Source; label: string }) {
+  const cls = TYPE_BADGE[label] ?? 'bg-surface-sunken text-text-secondary'
   return (
-    <div className="flex flex-col gap-0.5">
-      <span className={`inline-block text-[10px] px-1.5 py-0.5 rounded-full font-medium w-fit ${
-        isApp ? 'bg-blue-50 text-blue-700' : 'bg-purple-50 text-purple-700'
-      }`}>
-        {isApp ? '서비스' : '고객'}
-      </span>
-      <span className="text-[11px] text-text-secondary truncate max-w-[110px]">{label || '—'}</span>
-    </div>
+    <span className={`inline-block text-[11px] px-2 py-0.5 rounded-full font-medium ${cls}`}>
+      {label || '—'}
+    </span>
   )
 }
 

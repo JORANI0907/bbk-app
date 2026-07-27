@@ -31,7 +31,15 @@ export interface CandidateSlim {
   has_draft: boolean
   draft_supplier_id: string | null
   draft_items: DraftItem[] | null
+  // 홈택스 CSV 전용 draft 필드
+  draft_receiver_business_type?: string | null
+  draft_receiver_business_item?: string | null
+  draft_receiver_email_2?: string | null
+  draft_receipt_type?: string | null
+  draft_invoice_kind?: string | null
 }
+
+const MAX_ITEMS = 4  // 홈택스 CSV는 슬롯 4개까지 지원
 
 interface Supplier {
   id: string
@@ -54,8 +62,13 @@ export function DraftEditor({ candidate, suppliers, onClose, onSaved }: Props) {
   const [receiverOwnerName, setReceiverOwnerName] = useState(candidate.owner_name)
   const [receiverAddress, setReceiverAddress] = useState(candidate.address ?? '')
   const [receiverEmail, setReceiverEmail] = useState(candidate.email ?? '')
-  const [receiverBusinessType, setReceiverBusinessType] = useState('')
-  const [receiverBusinessItem, setReceiverBusinessItem] = useState('')
+  const [receiverEmail2, setReceiverEmail2] = useState(candidate.draft_receiver_email_2 ?? '')
+  const [receiverBusinessType, setReceiverBusinessType] = useState(candidate.draft_receiver_business_type ?? '')
+  const [receiverBusinessItem, setReceiverBusinessItem] = useState(candidate.draft_receiver_business_item ?? '')
+  // 홈택스 CSV — 영수(01) / 청구(02), 기본 '01'
+  const [receiptType, setReceiptType] = useState<'01' | '02'>(
+    (candidate.draft_receipt_type === '02' ? '02' : '01') as '01' | '02',
+  )
 
   const [supplierId, setSupplierId] = useState(candidate.draft_supplier_id ?? '')
 
@@ -88,8 +101,12 @@ export function DraftEditor({ candidate, suppliers, onClose, onSaved }: Props) {
         setReceiverOwnerName(draft.receiver_owner_name ?? receiverOwnerName)
         setReceiverAddress(draft.receiver_address ?? receiverAddress)
         setReceiverEmail(draft.receiver_email ?? receiverEmail)
+        setReceiverEmail2(draft.receiver_email_2 ?? '')
         setReceiverBusinessType(draft.receiver_business_type ?? '')
         setReceiverBusinessItem(draft.receiver_business_item ?? '')
+        if (draft.bill_receipt_type === '01' || draft.bill_receipt_type === '02') {
+          setReceiptType(draft.bill_receipt_type)
+        }
         setNotes(draft.notes ?? '')
       })
       .catch(() => {})
@@ -111,7 +128,13 @@ export function DraftEditor({ candidate, suppliers, onClose, onSaved }: Props) {
     }))
   }
 
-  const addItem = () => setItems(prev => [...prev, { name: '', qty: 1, unit_price: 0, supply_amount: 0, vat: 0 }])
+  const addItem = () => {
+    if (items.length >= MAX_ITEMS) {
+      toast.error(`품목은 최대 ${MAX_ITEMS}개까지만 추가할 수 있습니다.`)
+      return
+    }
+    setItems(prev => [...prev, { name: '', qty: 1, unit_price: 0, supply_amount: 0, vat: 0 }])
+  }
   const removeItem = (idx: number) => setItems(prev => prev.filter((_, i) => i !== idx))
 
   const totalSupply = items.reduce((s, i) => s + Number(i.supply_amount ?? 0), 0)
@@ -123,6 +146,10 @@ export function DraftEditor({ candidate, suppliers, onClose, onSaved }: Props) {
     if (items.length === 0) { toast.error('품목을 1개 이상 추가하세요.'); return }
     if (items.some(i => !i.name.trim())) { toast.error('품목명이 비어있는 항목이 있습니다.'); return }
 
+    if (items.length > MAX_ITEMS) {
+      toast.error(`품목은 ${MAX_ITEMS}개까지만 저장 가능합니다.`)
+      return
+    }
     setSaving(true)
     try {
       const res = await fetch('/api/admin/tax-invoice/drafts', {
@@ -137,8 +164,10 @@ export function DraftEditor({ candidate, suppliers, onClose, onSaved }: Props) {
           receiver_owner_name: receiverOwnerName.trim() || null,
           receiver_address: receiverAddress.trim() || null,
           receiver_email: receiverEmail.trim() || null,
+          receiver_email_2: receiverEmail2.trim() || null,
           receiver_business_type: receiverBusinessType.trim() || null,
           receiver_business_item: receiverBusinessItem.trim() || null,
+          bill_receipt_type: receiptType,
           items,
           notes: notes.trim() || null,
         }),
@@ -216,14 +245,17 @@ export function DraftEditor({ candidate, suppliers, onClose, onSaved }: Props) {
               <Field label="대표자">
                 <Input value={receiverOwnerName} onChange={e => setReceiverOwnerName(e.target.value)} />
               </Field>
-              <Field label="이메일">
+              <Field label="이메일1">
                 <Input value={receiverEmail} onChange={e => setReceiverEmail(e.target.value)} />
               </Field>
-              <Field label="업태">
-                <Input value={receiverBusinessType} onChange={e => setReceiverBusinessType(e.target.value)} />
+              <Field label="이메일2 (선택)">
+                <Input value={receiverEmail2} onChange={e => setReceiverEmail2(e.target.value)} placeholder="추가 수신 이메일" />
               </Field>
-              <Field label="종목">
-                <Input value={receiverBusinessItem} onChange={e => setReceiverBusinessItem(e.target.value)} />
+              <Field label="업태 (선택 · 없어도 발행)">
+                <Input value={receiverBusinessType} onChange={e => setReceiverBusinessType(e.target.value)} placeholder="예: 음식점업" />
+              </Field>
+              <Field label="종목 (선택 · 없어도 발행)">
+                <Input value={receiverBusinessItem} onChange={e => setReceiverBusinessItem(e.target.value)} placeholder="예: 한식" />
               </Field>
               <div className="sm:col-span-2">
                 <Field label="주소">
@@ -234,7 +266,10 @@ export function DraftEditor({ candidate, suppliers, onClose, onSaved }: Props) {
           </Section>
 
           {/* 품목 */}
-          <Section title="품목">
+          <Section title={`품목 (${items.length}/${MAX_ITEMS})`}>
+            <p className="text-[11px] text-text-tertiary mb-2">
+              홈택스 세금계산서 CSV는 한 건당 최대 {MAX_ITEMS}개 품목까지 지원됩니다.
+            </p>
             <div className="space-y-2">
               {items.map((it, idx) => (
                 <div key={idx} className="border border-border-subtle rounded-xl p-3 bg-surface-sunken/30">
@@ -285,16 +320,49 @@ export function DraftEditor({ candidate, suppliers, onClose, onSaved }: Props) {
                   </div>
                 </div>
               ))}
-              <button onClick={addItem}
-                className="w-full py-2 border border-dashed border-border rounded-xl text-xs text-text-secondary hover:border-brand-400 hover:text-brand-600 flex items-center justify-center gap-1 transition-colors">
-                <Plus size={12} />품목 추가
-              </button>
+              {items.length < MAX_ITEMS && (
+                <button onClick={addItem}
+                  className="w-full py-2 border border-dashed border-border rounded-xl text-xs text-text-secondary hover:border-brand-400 hover:text-brand-600 flex items-center justify-center gap-1 transition-colors">
+                  <Plus size={12} />품목 추가
+                </button>
+              )}
+              {items.length >= MAX_ITEMS && (
+                <p className="text-[11px] text-text-tertiary text-center py-1">홈택스 슬롯 최대치 도달 ({MAX_ITEMS}/{MAX_ITEMS})</p>
+              )}
             </div>
 
             <div className="mt-3 flex items-center justify-end gap-4 text-sm border-t border-border-subtle pt-3">
               <span className="text-text-tertiary">공급 <b className="text-text-primary tabular-nums">{fmtKr(totalSupply)}</b>원</span>
               <span className="text-text-tertiary">세액 <b className="text-text-primary tabular-nums">{fmtKr(totalVat)}</b>원</span>
               <span className="font-semibold">합계 <b className="text-brand-600 tabular-nums">{fmtKr(totalAmount)}</b>원</span>
+            </div>
+          </Section>
+
+          {/* 영수/청구 (홈택스 BG열, 필수) */}
+          <Section title="영수·청구 구분">
+            <div className="flex items-center gap-4">
+              <label className="flex items-center gap-1.5 cursor-pointer text-sm">
+                <input
+                  type="radio"
+                  name="receiptType"
+                  value="01"
+                  checked={receiptType === '01'}
+                  onChange={() => setReceiptType('01')}
+                  className="accent-brand-600"
+                />
+                영수(01) <span className="text-[11px] text-text-tertiary">대가를 받은 경우</span>
+              </label>
+              <label className="flex items-center gap-1.5 cursor-pointer text-sm">
+                <input
+                  type="radio"
+                  name="receiptType"
+                  value="02"
+                  checked={receiptType === '02'}
+                  onChange={() => setReceiptType('02')}
+                  className="accent-brand-600"
+                />
+                청구(02) <span className="text-[11px] text-text-tertiary">아직 못 받은 경우</span>
+              </label>
             </div>
           </Section>
 

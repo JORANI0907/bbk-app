@@ -4,9 +4,9 @@ import { getServerSession } from '@/lib/session'
 
 export const dynamic = 'force-dynamic'
 
-// 세금계산서 발행 대상 통합 조회
-// - source 'application': service_applications 중 결제완료 + 미발행 (1회성/정기딥케어 대상)
-// - source 'billing'    : service_billings 중 status='paid' + tax_invoice_issued=false (정기엔드케어 등)
+// Phase 22 v12: 세금계산서 발행 대상 통합 조회 (신규 아키텍처)
+// - source 'application': service_applications 중 결제완료+미발행 — **1회성케어만** (정기유형은 billings로 이관됨)
+// - source 'billing'    : service_billings 중 due_date≤오늘 + 미발행 — 정기딥연간·정기딥월간·정기엔드 모두
 //
 // query params:
 //   include_issued=true              → 이미 발행된 건도 포함 (이력 확인용)
@@ -56,6 +56,12 @@ interface Candidate {
   has_draft: boolean
   draft_supplier_id: string | null
   draft_items: DraftItem[] | null
+  // 홈택스 CSV 전용 draft 필드 (없어도 발행 가능, 있으면 CSV에 채워짐)
+  draft_receiver_business_type: string | null   // P
+  draft_receiver_business_item: string | null   // Q
+  draft_receiver_email_2: string | null         // S
+  draft_receipt_type: string | null             // BG — 기본 '01' 영수
+  draft_invoice_kind: string | null             // A — 기본 '01' 일반
 }
 
 function checkValidity(row: Pick<Candidate, 'business_number' | 'business_name' | 'owner_name'>): {
@@ -90,7 +96,13 @@ export async function GET(request: NextRequest) {
   // ── drafts 한번에 로드 (source+source_id 매칭용 맵) ────
   const { data: draftRows } = await supabase
     .from('tax_invoice_drafts')
-    .select('source, source_id, supplier_id, receiver_business_number, receiver_business_name, receiver_owner_name, receiver_address, receiver_email, items')
+    .select(
+      'source, source_id, supplier_id, ' +
+      'receiver_business_number, receiver_business_name, receiver_owner_name, ' +
+      'receiver_address, receiver_email, receiver_email_2, ' +
+      'receiver_business_type, receiver_business_item, ' +
+      'items, invoice_kind, bill_receipt_type'
+    )
   const draftMap = new Map<string, {
     supplier_id: string | null
     receiver_business_number: string | null
@@ -98,9 +110,30 @@ export async function GET(request: NextRequest) {
     receiver_owner_name: string | null
     receiver_address: string | null
     receiver_email: string | null
+    receiver_email_2: string | null
+    receiver_business_type: string | null
+    receiver_business_item: string | null
     items: DraftItem[] | null
+    invoice_kind: string | null
+    bill_receipt_type: string | null
   }>()
-  for (const d of draftRows ?? []) {
+  interface DraftRow {
+    source: string
+    source_id: string
+    supplier_id: string | null
+    receiver_business_number: string | null
+    receiver_business_name: string | null
+    receiver_owner_name: string | null
+    receiver_address: string | null
+    receiver_email: string | null
+    receiver_email_2: string | null
+    receiver_business_type: string | null
+    receiver_business_item: string | null
+    items: unknown
+    invoice_kind: string | null
+    bill_receipt_type: string | null
+  }
+  for (const d of ((draftRows ?? []) as unknown) as DraftRow[]) {
     draftMap.set(`${d.source}:${d.source_id}`, {
       supplier_id: d.supplier_id ?? null,
       receiver_business_number: d.receiver_business_number ?? null,
@@ -108,11 +141,17 @@ export async function GET(request: NextRequest) {
       receiver_owner_name: d.receiver_owner_name ?? null,
       receiver_address: d.receiver_address ?? null,
       receiver_email: d.receiver_email ?? null,
+      receiver_email_2: d.receiver_email_2 ?? null,
+      receiver_business_type: d.receiver_business_type ?? null,
+      receiver_business_item: d.receiver_business_item ?? null,
       items: Array.isArray(d.items) ? d.items as DraftItem[] : null,
+      invoice_kind: d.invoice_kind ?? null,
+      bill_receipt_type: d.bill_receipt_type ?? null,
     })
   }
 
-  // ── 소스 1: service_applications ─────────────────────
+  // ── 소스 1: service_applications (1회성케어 전용) ─────────────────────
+  // Phase 22 v12: 정기딥/정기엔드 발행 대상은 모두 billings에서 조회하므로 여기선 1회성만
   if (!sourceFilter || sourceFilter === 'application') {
     let appQ = supabase
       .from('service_applications')
@@ -135,6 +174,7 @@ export async function GET(request: NextRequest) {
         created_at
       `)
       .is('deleted_at', null)
+      .eq('service_type', '1회성케어')
 
     if (includeIssued) {
       appQ = appQ.in('status', [...APPLICATION_TARGET_STATUSES, APPLICATION_ISSUED_STATUS])
@@ -193,12 +233,20 @@ export async function GET(request: NextRequest) {
         has_draft: !!draft,
         draft_supplier_id: draft?.supplier_id ?? null,
         draft_items: draft?.items ?? null,
+        draft_receiver_business_type: draft?.receiver_business_type ?? null,
+        draft_receiver_business_item: draft?.receiver_business_item ?? null,
+        draft_receiver_email_2: draft?.receiver_email_2 ?? null,
+        draft_receipt_type: draft?.bill_receipt_type ?? null,
+        draft_invoice_kind: draft?.invoice_kind ?? null,
       })
     }
   }
 
   // ── 소스 2: service_billings JOIN customers ─────────
   if (!sourceFilter || sourceFilter === 'billing') {
+    // Phase 22 v11: billings 소스는 결제 완료 여부와 무관하게 due_date 도래한 것 모두 후보
+    // (선청구/후결제 지원 — 계산서는 결제 전에도 발행 가능)
+    const todayISO = new Date().toISOString().slice(0, 10)
     let billQ = supabase
       .from('service_billings')
       .select(`
@@ -208,6 +256,7 @@ export async function GET(request: NextRequest) {
         billing_period,
         amount,
         status,
+        due_date,
         tax_invoice_issued,
         tax_invoice_issued_date,
         created_at,
@@ -223,11 +272,11 @@ export async function GET(request: NextRequest) {
           payment_method
         )
       `)
-      .eq('status', 'paid')
+      .lte('due_date', todayISO)
 
     if (!includeIssued) billQ = billQ.eq('tax_invoice_issued', false)
-    if (fromDate) billQ = billQ.gte('created_at', `${fromDate}T00:00:00`)
-    if (toDate) billQ = billQ.lte('created_at', `${toDate}T23:59:59`)
+    if (fromDate) billQ = billQ.gte('due_date', fromDate)
+    if (toDate) billQ = billQ.lte('due_date', toDate)
 
     const { data: bills, error: billErr } = await billQ.order('created_at', { ascending: false })
     if (billErr) {
@@ -286,6 +335,11 @@ export async function GET(request: NextRequest) {
         has_draft: !!draft,
         draft_supplier_id: draft?.supplier_id ?? null,
         draft_items: draft?.items ?? null,
+        draft_receiver_business_type: draft?.receiver_business_type ?? null,
+        draft_receiver_business_item: draft?.receiver_business_item ?? null,
+        draft_receiver_email_2: draft?.receiver_email_2 ?? null,
+        draft_receipt_type: draft?.bill_receipt_type ?? null,
+        draft_invoice_kind: draft?.invoice_kind ?? null,
       })
     }
   }
