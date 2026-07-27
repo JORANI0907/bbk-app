@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { sendAlimtalk, sendSMS, sendSubscriptionPromoSMS } from '@/lib/solapi'
+import { sendAlimtalk, sendSMS, sendSmsOrLms, sendSubscriptionPromoSMS } from '@/lib/solapi'
 import { sendByTemplate } from '@/lib/template-sender'
 import type { NotificationContext } from '@/lib/notification-variables'
 import { createServiceClient } from '@/lib/supabase/server'
@@ -811,6 +811,68 @@ export async function POST(request: NextRequest) {
         }
       } catch {
         // 구독권유알림 실패는 메인 응답에 영향 없음
+      }
+    }
+
+    // ── Phase 27-M: 작업완료알림 직후 특이사항·내부메모 부가 전달 ──
+    // 카카오 승인 템플릿에는 자유텍스트 슬롯이 없어 customer_memo/internal_memo 가
+    // 그동안 어떤 채널로도 전달되지 않았음. 관리자가 [알림 발송] 을 누르는 시점에
+    // - customer_memo: 고객 후행 SMS/LMS + 관리자 Slack
+    // - internal_memo: 관리자 Slack 만
+    if (
+      type === '작업완료알림' ||
+      type === '작업완료알림(현금)' ||
+      type === '작업완료알림(카드,플렛폼)' ||
+      type === '작업완료알림(정기엔드케어)'
+    ) {
+      const customerMemo = String(app.customer_memo ?? '').trim()
+      const internalMemo = String(app.internal_memo ?? '').trim()
+      const businessName = String(app.business_name ?? '')
+      const ownerName = String(app.owner_name ?? '')
+      const serviceType = String(app.service_type ?? '')
+      const constructionDate = String(app.construction_date ?? '').slice(0, 10)
+
+      // 1) 고객 특이사항 → 고객 후행 SMS/LMS + 관리자 Slack
+      if (customerMemo) {
+        try {
+          const smsText =
+            `[BBK 공간케어] 오늘 작업 관련 특이사항입니다.\n\n` +
+            `${customerMemo}\n\n` +
+            `문의는 답장 또는 대표번호(031-759-4877)로 부탁드립니다.`
+          await sendSmsOrLms(phone, smsText, { subject: '[BBK] 작업 특이사항' })
+          await saveNotificationHistory({
+            category: 'sms',
+            type: '작업완료 특이사항',
+            body: smsText,
+            title: '작업완료 특이사항',
+            method,
+            recipientType: 'customer',
+            recipientName: ownerName,
+            recipientPhone: phone,
+            metadata: { application_id, trigger: type },
+            status: 'sent',
+          })
+        } catch {
+          // 특이사항 SMS 실패는 메인 알림톡 응답에 영향 없음
+        }
+        try {
+          await sendSlack(
+            `📌 *고객 전달 특이사항* — ${businessName} (${serviceType})\n` +
+            `👤 ${ownerName} · ${constructionDate || '-'}\n` +
+            `${customerMemo}`
+          )
+        } catch { /* fire-and-forget */ }
+      }
+
+      // 2) 내부 메모 → 관리자 Slack 만
+      if (internalMemo) {
+        try {
+          await sendSlack(
+            `📝 *내부 메모* — ${businessName} (${serviceType})\n` +
+            `👤 ${ownerName} · ${constructionDate || '-'}\n` +
+            `${internalMemo}`
+          )
+        } catch { /* fire-and-forget */ }
       }
     }
 

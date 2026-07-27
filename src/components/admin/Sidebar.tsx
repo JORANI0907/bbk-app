@@ -54,7 +54,7 @@ const NAV_ITEMS: NavItem[] = [
     children: [
       { href: '/admin/schedule', label: '배정관리', badgeKey: 'schedule' },
       { href: '/admin/customers', label: '고객관리' },
-      { href: '/admin/customer-history', label: '고객DB이력' },
+      // Phase 27-N: 직원 포털에서 고객DB이력 메뉴 숨김 (관리자 전용 데이터)
     ],
   },
   {
