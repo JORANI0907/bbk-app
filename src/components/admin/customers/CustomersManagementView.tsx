@@ -1973,22 +1973,23 @@ export function CustomersManagementView({
                     const isOneTimeView = selectedArr.length > 0 && selectedArr.every(t => oneTimeGroup.has(t))
                     const isDipCareView = selectedArr.length > 0 && selectedArr.every(t => regularGroup.has(t))
                     if (isOneTimeView) {
+                      // Phase 27-H: worker는 결제방법·총액·진행상태·결제상태 컬럼 헤더 자체 숨김
                       return ([
                         { key: 'construction_date' as const, label: '시공일자' },
                         { key: 'business_name' as const, label: '업체명 / 주소' },
                         { key: null, label: '케어범위' },
                         { key: null, label: '담당자' },
                         ...(!isWorker ? [{ key: null, label: '결제방법' } as const, { key: null, label: '총액' } as const] : []),
-                        { key: null, label: '진행상태' },
-                        { key: null, label: '결제상태' },
+                        ...(!isWorker ? [{ key: null, label: '진행상태' } as const, { key: null, label: '결제상태' } as const] : []),
                       ] as const)
                     }
                     if (isDipCareView) {
+                      // Phase 27-H: worker는 계약정보·결제 상태 요약 컬럼 헤더 자체 숨김
                       return ([
                         { key: 'business_name' as const, label: '일반정보' },
                         { key: null, label: '고객상태' },
-                        { key: null, label: '계약정보' },
-                        { key: null, label: '결제 상태 요약' },
+                        ...(!isWorker ? [{ key: null, label: '계약정보' } as const] : []),
+                        ...(!isWorker ? [{ key: null, label: '결제 상태 요약' } as const] : []),
                       ] as const)
                     }
                     return ([
@@ -2099,36 +2100,41 @@ export function CustomersManagementView({
                                   })()}
                                 </div>
                               </td>
-                              {/* 3열: 계약정보 — 결제주기·총액·계약기간·방문일정 */}
-                              <td className="px-3 py-3 min-w-[180px] max-w-[240px]">
-                                <div className="flex flex-col gap-0.5 text-xs">
-                                  <span className="text-text-primary font-semibold">
-                                    {cyclePrefix}
-                                    {contractTotal > 0 && (
-                                      <> · {contractTotal.toLocaleString('ko-KR')}<span className="text-text-tertiary font-normal">원</span></>
-                                    )}
-                                  </span>
-                                  {(c.contract_start_date || c.contract_end_date) && (
-                                    <span className="text-[11px] text-text-tertiary">
-                                      {fmtDate(c.contract_start_date)} ~ {fmtDate(c.contract_end_date)}
-                                    </span>
-                                  )}
-                                  {visitScheduleText && (
-                                    <span className="text-[11px] text-text-secondary">{visitScheduleText}</span>
-                                  )}
-                                </div>
-                              </td>
-                              {/* 4열: 결제 상태 요약 — 결제방법 + 미해결 이슈 카운트 */}
-                              <td className="px-3 py-3 min-w-[140px]">
-                                <PaymentIssuesSummary
-                                  customerId={c.id}
-                                  phone={c.contact_phone ?? null}
-                                  businessName={c.business_name}
-                                  paymentMethod={c.payment_method ?? null}
-                                  customerType={c.customer_type}
-                                  compact
-                                />
-                              </td>
+                              {/* Phase 27-H: worker에겐 계약정보·결제 상태 요약 두 컬럼 통째 숨김 */}
+                              {!isWorker && (
+                                <>
+                                  {/* 3열: 계약정보 — 결제주기·총액·계약기간·방문일정 */}
+                                  <td className="px-3 py-3 min-w-[180px] max-w-[240px]">
+                                    <div className="flex flex-col gap-0.5 text-xs">
+                                      <span className="text-text-primary font-semibold">
+                                        {cyclePrefix}
+                                        {contractTotal > 0 && (
+                                          <> · {contractTotal.toLocaleString('ko-KR')}<span className="text-text-tertiary font-normal">원</span></>
+                                        )}
+                                      </span>
+                                      {(c.contract_start_date || c.contract_end_date) && (
+                                        <span className="text-[11px] text-text-tertiary">
+                                          {fmtDate(c.contract_start_date)} ~ {fmtDate(c.contract_end_date)}
+                                        </span>
+                                      )}
+                                      {visitScheduleText && (
+                                        <span className="text-[11px] text-text-secondary">{visitScheduleText}</span>
+                                      )}
+                                    </div>
+                                  </td>
+                                  {/* 4열: 결제 상태 요약 */}
+                                  <td className="px-3 py-3 min-w-[140px]">
+                                    <PaymentIssuesSummary
+                                      customerId={c.id}
+                                      phone={c.contact_phone ?? null}
+                                      businessName={c.business_name}
+                                      paymentMethod={c.payment_method ?? null}
+                                      customerType={c.customer_type}
+                                      compact
+                                    />
+                                  </td>
+                                </>
+                              )}
                             </>
                           )
                         }
@@ -2184,21 +2190,26 @@ export function CustomersManagementView({
                                   </td>
                                 </>
                               )}
-                              {/* 진행상태 뱃지 (Phase 9-A) */}
-                              <td className="px-3 py-3 whitespace-nowrap">
-                                {c.progress_status
-                                  ? <span className="text-xs px-1.5 py-0.5 rounded-full font-medium bg-indigo-50 text-indigo-700 border border-indigo-200">{c.progress_status}</span>
-                                  : <span className="text-xs text-text-tertiary">-</span>}
-                              </td>
-                              {/* 결제상태 뱃지 + Phase 11 dot */}
-                              <td className="px-3 py-3 whitespace-nowrap">
-                                {c.payment_status_detail
-                                  ? <span className="inline-flex items-center gap-1.5 text-xs px-1.5 py-0.5 rounded-full font-medium bg-teal-50 text-teal-700 border border-teal-200">
-                                      <span className={`w-1.5 h-1.5 rounded-full ${PAYMENT_STATUS_DOT[c.payment_status_detail] ?? 'bg-gray-400'}`} />
-                                      {c.payment_status_detail === '비과세' ? '비과세 결제' : c.payment_status_detail}
-                                    </span>
-                                  : <span className="text-xs text-text-tertiary">-</span>}
-                              </td>
+                              {/* Phase 27-H: worker에겐 진행상태·결제상태도 숨김 (헤더와 짝 유지) */}
+                              {!isWorker && (
+                                <>
+                                  {/* 진행상태 뱃지 (Phase 9-A) */}
+                                  <td className="px-3 py-3 whitespace-nowrap">
+                                    {c.progress_status
+                                      ? <span className="text-xs px-1.5 py-0.5 rounded-full font-medium bg-indigo-50 text-indigo-700 border border-indigo-200">{c.progress_status}</span>
+                                      : <span className="text-xs text-text-tertiary">-</span>}
+                                  </td>
+                                  {/* 결제상태 뱃지 + Phase 11 dot */}
+                                  <td className="px-3 py-3 whitespace-nowrap">
+                                    {c.payment_status_detail
+                                      ? <span className="inline-flex items-center gap-1.5 text-xs px-1.5 py-0.5 rounded-full font-medium bg-teal-50 text-teal-700 border border-teal-200">
+                                          <span className={`w-1.5 h-1.5 rounded-full ${PAYMENT_STATUS_DOT[c.payment_status_detail] ?? 'bg-gray-400'}`} />
+                                          {c.payment_status_detail === '비과세' ? '비과세 결제' : c.payment_status_detail}
+                                        </span>
+                                      : <span className="text-xs text-text-tertiary">-</span>}
+                                  </td>
+                                </>
+                              )}
                             </>
                           )
                         }
