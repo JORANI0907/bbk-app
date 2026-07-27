@@ -507,45 +507,8 @@ export default function NotificationTemplatesPage() {
                 </div>
               </div>
 
-              {/* Phase 27-S: 발송 대상 케어 유형 (다중 선택) */}
-              <div>
-                <label className="text-xs font-medium text-text-secondary mb-1.5 block">
-                  발송 대상 유형 <span className="text-text-tertiary">(다중 선택)</span>
-                </label>
-                <div className="flex flex-wrap gap-1.5">
-                  {CARE_TYPES.map(careType => {
-                    const currentTypes = (merged.applicable_types ?? []) as string[]
-                    const checked = currentTypes.includes(careType)
-                    return (
-                      <label
-                        key={careType}
-                        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border cursor-pointer transition-colors ${
-                          checked
-                            ? 'bg-brand-600 text-white border-brand-600'
-                            : 'bg-surface text-text-secondary border-border hover:border-brand-400'
-                        }`}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={checked}
-                          onChange={e => {
-                            const nextTypes = e.target.checked
-                              ? [...currentTypes, careType]
-                              : currentTypes.filter(t => t !== careType)
-                            setBuffer(prev => ({ ...prev, applicable_types: nextTypes }))
-                          }}
-                          className="sr-only"
-                        />
-                        {checked && <span>✓</span>}
-                        {careType}
-                      </label>
-                    )
-                  })}
-                </div>
-                <p className="text-[11px] text-text-tertiary mt-1.5">
-                  선택된 유형의 신청서에만 자동 발송됩니다. 예: 정기엔드케어 매일 방문 시 예약당일알림 스팸 방지하려면 정기엔드케어 체크 해제.
-                </p>
-              </div>
+              {/* Phase 27-S 5-e: 발송 대상 유형 pill 그룹 제거 —
+                  상단 탭(1회성·정기딥·정기엔드·이번달일정) 이 이미 applicable_types 로 필터링해서 중복. */}
 
               {/* LMS 제목 (byte 초과 시만) */}
               {showLmsSubject && (
