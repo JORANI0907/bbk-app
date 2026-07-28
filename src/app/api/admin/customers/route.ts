@@ -303,6 +303,37 @@ export async function PATCH(request: NextRequest) {
     }
   }
 
+  // Phase 27-AG: 1회성·일반일정은 이번달 일정 섹션이 없어 시공일자를 세부화면 상단에서 직접 편집.
+  // 이 경우 next_visit_date 변경을 linked application 의 construction_date 로 자동 동기화.
+  // 정기딥/엔드는 이번달 일정 섹션에서 회차별로 편집하므로 이 로직 스킵.
+  if ('next_visit_date' in rest &&
+      (updatedCustomer.customer_type === '1회성케어' || updatedCustomer.customer_type === '일반일정')) {
+    try {
+      // 해당 customer 의 유일한 활성 application 찾기 (1회성은 1:1)
+      const { data: linkedApps } = await supabase
+        .from('service_applications')
+        .select('id, construction_date')
+        .eq('customer_id', id)
+        .is('deleted_at', null)
+        .is('archived_at', null)
+        .limit(2)   // 유일성 확인용
+
+      if (linkedApps && linkedApps.length === 1) {
+        const targetApp = linkedApps[0]
+        const newDate = (rest.next_visit_date as string | null) || null
+        if (targetApp.construction_date !== newDate) {
+          await supabase
+            .from('service_applications')
+            .update({ construction_date: newDate })
+            .eq('id', targetApp.id)
+        }
+      }
+      // linkedApps.length !== 1 이면 애매하므로 스킵 (분리 마이그레이션 후엔 항상 1이어야 정상)
+    } catch (e) {
+      console.error('시공일자 application 동기화 실패:', e instanceof Error ? e.message : e)
+    }
+  }
+
   return NextResponse.json({ success: true, customer: updatedCustomer })
 }
 

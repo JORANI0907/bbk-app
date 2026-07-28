@@ -2665,23 +2665,18 @@ export function CustomersManagementView({
                   <p className="text-xs font-semibold text-text-primary">{form.customer_type === '일반일정' ? '일반일정 정보' : '1회성케어 계약 정보'}</p>
                 </div>
                 <div className="p-4 flex flex-col gap-3">
-                  {/* Phase 27-AE: 시공일자를 조회 전용으로 변경. 편집은 이번달 일정 섹션에서만.
-                      값은 DB 트리거(sa_recalc_next_visit)가 application.construction_date 기반으로
-                      자동 재계산해 저장하므로 관리자가 여기서 편집할 필요 없음.
-                      과거에 이 input 이 customer.next_visit_date 를 직접 편집해 application 과 어긋나던
-                      뒤죽박죽 문제(쇼쿠토 사례)의 근원. */}
-                  <div className="flex items-start gap-2">
-                    <span className="text-xs text-text-secondary w-24 shrink-0 pt-1.5">시공일자</span>
-                    <div className="flex-1">
-                      <div className="border border-border-subtle bg-surface-sunken rounded-lg px-2 py-1.5 text-xs text-text-primary">
-                        {form.next_visit_date
-                          ? new Date(form.next_visit_date).toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit' })
-                          : <span className="text-text-tertiary">회차 없음</span>}
-                      </div>
-                      <p className="text-[10px] text-text-tertiary mt-1 leading-tight">
-                        이번달 일정 섹션의 회차 편집을 사용하세요. 시공일자는 자동으로 반영됩니다.
-                      </p>
-                    </div>
+                  {/* Phase 27-AG: 1회성·일반일정은 이번달 일정 섹션이 없으므로 세부화면 상단에서 직접 편집.
+                      저장 시 서버(PATCH /api/admin/customers)가 linked application 의 construction_date 도
+                      함께 동기화 → customer.next_visit_date 와 application.construction_date 어긋나지 않음.
+                      정기딥/엔드는 이 섹션 자체가 렌더 안 됨 (isOnceCare gate) → 이번달 일정 섹션에서 편집. */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-text-secondary w-24 shrink-0">시공일자</span>
+                    <input
+                      type="date"
+                      value={form.next_visit_date}
+                      onChange={e => set('next_visit_date')(e.target.value)}
+                      className="flex-1 border border-border rounded-lg px-2 py-1.5 text-xs text-text-primary focus:outline-none focus:ring-2 focus:ring-brand-500 bg-surface"
+                    />
                   </div>
                   {/* Phase 9-C: 진행상태 (자동화: 알림 발송 시 자동 세팅. 수동 편집도 가능) */}
                   <div className="flex items-center gap-2">
