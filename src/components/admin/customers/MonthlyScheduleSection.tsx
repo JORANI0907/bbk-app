@@ -23,6 +23,8 @@ interface Props {
   initialMonth?: string
   /** Phase 27: 캘린더에서 진입 시 이 application의 아코디언을 자동으로 펼침 */
   focusApplicationId?: string | null
+  /** Phase 27-AI: 고객 마스터 Drive 폴더 URL — 회차 폴더를 그 하위로 생성 */
+  parentDriveFolderUrl?: string | null
 }
 
 function currentMonthStr() {
@@ -45,7 +47,7 @@ function fmtMonth(monthStr: string): string {
  * Phase 2: 고객 상세페이지 내 "이번달 일정" 섹션.
  * 해당 고객의 service_applications를 월 단위로 조회하고 아코디언 편집 UI를 제공.
  */
-export function MonthlyScheduleSection({ customerId, businessName, phone, users, workers, initialMonth, focusApplicationId }: Props) {
+export function MonthlyScheduleSection({ customerId, businessName, phone, users, workers, initialMonth, focusApplicationId, parentDriveFolderUrl }: Props) {
   const [month, setMonth] = useState(initialMonth ?? currentMonthStr())
 
   // Phase 27: initialMonth가 나중에 바뀌면 (예: 캘린더에서 다른 월 회차 선택) 그 월로 이동
@@ -140,6 +142,8 @@ export function MonthlyScheduleSection({ customerId, businessName, phone, users,
               onOptimisticUpdate={handleOptimisticUpdate}
               onDelete={handleDeleted}
               defaultExpanded={focusApplicationId === app.id}
+              parentDriveFolderUrl={parentDriveFolderUrl ?? null}
+              parentBusinessName={businessName}
             />
           ))}
         </div>

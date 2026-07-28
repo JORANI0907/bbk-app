@@ -7,7 +7,8 @@ import { useModalBackButton } from '@/hooks/useModalBackButton'
 import { MapSelectorModal } from '@/components/MapSelectorModal'
 import { BillingHistoryPanel } from '@/components/admin/BillingHistoryPanel'
 import { Button } from '@/components/ui'
-import { Phone, ClipboardList, Map, Banknote, Save, Megaphone, Calendar, BookOpen, Archive, Trash2, Copy } from 'lucide-react'
+import { Phone, ClipboardList, Map, Banknote, Save, Megaphone, Calendar, BookOpen, Archive, Trash2, Copy, Folder, FolderOpen, FolderPlus } from 'lucide-react'
+import { useDriveFolder } from '@/hooks/useDriveFolder'
 import { CustomerAccountLink } from '@/components/admin/CustomerAccountLink'
 import { FieldHint } from '@/components/ui/FieldHint'
 import { MonthlyScheduleSection } from '@/components/admin/customers/MonthlyScheduleSection'
@@ -74,6 +75,8 @@ interface Customer {
   assigned_worker_id: string | null
   // Phase 27-AH: 다중 작업자 배정 (1회성·일반일정만 사용) — customer 세부화면 chip UI 용
   assigned_worker_ids?: string[]
+  // Phase 27-AI: Google Drive 마스터 폴더 URL
+  drive_folder_url?: string | null
   // 결제 금액 (서비스관리와 동기화)
   deposit: number | null
   supply_amount: number | null
@@ -624,6 +627,21 @@ export function CustomersManagementView({
   const [visitWeekdays, setVisitWeekdays] = useState<number[]>([])
   // Phase 27-AH: 1회성·일반일정 세부화면 다중 작업자 배정용 state (chip UI)
   const [customerWorkerIds, setCustomerWorkerIds] = useState<string[]>([])
+  // Phase 27-AI: customer 마스터 Drive 폴더 훅
+  const customerDrive = useDriveFolder({
+    businessName: selected?.business_name ?? '',
+    dateForName: selected?.next_visit_date ?? null,
+    onSaved: async (url) => {
+      if (!selected) return
+      const res = await fetch('/api/admin/customers', {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: selected.id, drive_folder_url: url }),
+      })
+      if (!res.ok) throw new Error('drive_folder_url 저장 실패')
+      setSelected(prev => prev ? { ...prev, drive_folder_url: url } : prev)
+      setCustomers(prev => prev.map(c => c.id === selected.id ? { ...c, drive_folder_url: url } : c))
+    },
+  })
   const [visitMonthlyDates, setVisitMonthlyDates] = useState<number[]>([])
   const [prepaidPeriods, setPrepaidPeriods] = useState(1)
   // 현재 사용자 세션
@@ -2737,6 +2755,66 @@ export function CustomersManagementView({
               </div>
             )}
 
+            {/* Phase 27-AI: Google Drive 마스터 폴더 섹션 (모든 유형 공통, 관리자만) */}
+            {!isWorker && selected && !isNew && (
+              <div className="bg-green-50/60 border border-green-200 rounded-xl p-4 flex flex-col gap-2">
+                <div className="flex items-center gap-2">
+                  <Folder size={14} className="text-green-700" />
+                  <p className="text-xs font-semibold text-green-900 uppercase tracking-wide">Google Drive 폴더</p>
+                </div>
+                {selected.drive_folder_url ? (
+                  <>
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <a
+                        href={selected.drive_folder_url}
+                        target="_blank" rel="noreferrer"
+                        className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs bg-green-600 text-white rounded-lg hover:bg-green-700"
+                      >
+                        <FolderOpen size={13} /> 폴더 열기
+                      </a>
+                      <button
+                        type="button"
+                        disabled={customerDrive.saving || !customerDrive.apisReady}
+                        onClick={() => customerDrive.pickParentAndCreate()}
+                        className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs bg-surface text-text-primary rounded-lg border border-border hover:bg-surface-sunken disabled:opacity-50"
+                        title="다른 위치에 새 폴더 생성"
+                      >
+                        <FolderPlus size={13} /> {customerDrive.saving ? '생성 중...' : '위치 변경'}
+                      </button>
+                    </div>
+                    <p className="text-[10px] text-text-tertiary truncate">{selected.drive_folder_url}</p>
+                  </>
+                ) : (
+                  <>
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <button
+                        type="button"
+                        disabled={customerDrive.saving || !customerDrive.apisReady}
+                        onClick={() => customerDrive.createOrChange(true)}
+                        className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
+                      >
+                        <FolderPlus size={13} />
+                        {customerDrive.saving ? '생성 중...' : (customerDrive.savedDefaultParent ? `"${customerDrive.savedDefaultParent.name}"에 폴더 생성` : '폴더 생성 (위치 선택)')}
+                      </button>
+                      {customerDrive.savedDefaultParent && (
+                        <button
+                          type="button"
+                          disabled={customerDrive.saving || !customerDrive.apisReady}
+                          onClick={() => customerDrive.pickParentAndCreate()}
+                          className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs bg-surface text-text-primary rounded-lg border border-border hover:bg-surface-sunken disabled:opacity-50"
+                        >
+                          다른 위치
+                        </button>
+                      )}
+                    </div>
+                    <p className="text-[10px] text-text-tertiary">
+                      폴더 생성 시 &ldquo;{form.business_name || '업체명'}_{(selected.next_visit_date ?? '').replace(/-/g, '') || 'YYYYMMDD'}&rdquo; 이름으로 만들어지고 &ldquo;작업 전/후&rdquo; 하위 폴더도 자동 생성됩니다.
+                    </p>
+                  </>
+                )}
+              </div>
+            )}
+
             {/* 담당직원 */}
             <div className="bg-surface-sunken rounded-xl p-4 flex flex-col gap-3">
               <p className="text-xs font-semibold text-text-secondary uppercase tracking-wide">담당직원</p>
@@ -3454,6 +3532,7 @@ export function CustomersManagementView({
                 workers={flexibleWorkers}
                 initialMonth={calendarFocus?.month}
                 focusApplicationId={calendarFocus?.appId}
+                parentDriveFolderUrl={selected.drive_folder_url ?? null}
               />
             )}
 

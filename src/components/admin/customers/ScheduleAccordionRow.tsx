@@ -1,7 +1,15 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { ChevronDown, ChevronUp, Trash2, Send } from 'lucide-react'
+import { ChevronDown, ChevronUp, Trash2, Send, Folder, FolderOpen, FolderPlus, Camera } from 'lucide-react'
+import { requestGoogleToken, createWorkFolderStructure } from '@/lib/googleDrive'
+
+/** URL 에서 Google Drive 폴더 id 추출 (…/folders/{id} 형태) */
+function extractDriveFolderId(url: string | null | undefined): string | null {
+  if (!url) return null
+  const m = url.match(/\/folders\/([a-zA-Z0-9_-]+)/)
+  return m ? m[1] : null
+}
 import toast from 'react-hot-toast'
 import { useAutoSave, AutoSaveStatus } from '@/hooks/useAutoSave'
 import { NOTIFY_TYPES } from './CustomersManagementView'
@@ -61,6 +69,8 @@ export interface ScheduleAppRow {
   payment_status_detail: string | null
   /** Phase 22: 알림 발송 이력 */
   notification_log: Array<{ type: string; sent_at: string; phone?: string; method?: 'auto' | 'manual' }> | null
+  /** Phase 27-AI: 이 회차 Drive 폴더 URL */
+  drive_folder_url?: string | null
 }
 
 // Phase 8-D: 진행상태·결제상태 옵션 (자동화 매핑과 동일 값)
@@ -92,6 +102,10 @@ interface Props {
   onDelete?: (id: string) => void
   /** Phase 27: 캘린더에서 선택된 회차는 처음부터 펼쳐진 상태로 시작 */
   defaultExpanded?: boolean
+  /** Phase 27-AI: 고객 마스터 Drive 폴더 URL (있으면 회차 폴더를 그 하위로 생성) */
+  parentDriveFolderUrl?: string | null
+  /** Phase 27-AI: 고객 업체명 (Drive 폴더명에 사용) */
+  parentBusinessName?: string
 }
 
 // Phase 20-A: WORK_STATUS_LABEL, PAYMENT_STATUS_LABEL 제거 — 세부 상태 뱃지로 대체
@@ -125,7 +139,7 @@ function AutoSaveIndicator({ status }: { status: AutoSaveStatus }) {
  * 첫 줄: 날짜 · 담당자 · 작업자
  * 둘째 줄: 상태 뱃지 2개
  */
-export function ScheduleAccordionRow({ app, users, workers, onOptimisticUpdate, onDelete, defaultExpanded = false }: Props) {
+export function ScheduleAccordionRow({ app, users, workers, onOptimisticUpdate, onDelete, defaultExpanded = false, parentDriveFolderUrl, parentBusinessName }: Props) {
   const [expanded, setExpanded] = useState(defaultExpanded)
   const [draft, setDraft] = useState<Partial<ScheduleAppRow>>({})
   const [deleting, setDeleting] = useState(false)
@@ -271,6 +285,9 @@ export function ScheduleAccordionRow({ app, users, workers, onOptimisticUpdate, 
             update={update}
             status={status}
             onOptimisticUpdate={onOptimisticUpdate}
+            parentDriveFolderUrl={parentDriveFolderUrl}
+            parentBusinessName={parentBusinessName ?? merged.business_name}
+            appId={app.id}
           />
         </div>
       )}
@@ -285,9 +302,12 @@ interface ExpandedProps {
   update: <K extends keyof ScheduleAppRow>(key: K, value: ScheduleAppRow[K]) => void
   status: AutoSaveStatus
   onOptimisticUpdate: (id: string, patch: Partial<ScheduleAppRow>) => void
+  parentDriveFolderUrl?: string | null
+  parentBusinessName?: string
+  appId: string
 }
 
-function ExpandedEditor({ merged, users, workers, update, status, onOptimisticUpdate }: ExpandedProps) {
+function ExpandedEditor({ merged, users, workers, update, status, onOptimisticUpdate, parentDriveFolderUrl, parentBusinessName, appId }: ExpandedProps) {
   const inputCls = 'w-full text-xs border border-border rounded-md px-2 py-1 bg-surface focus:outline-none focus:ring-2 focus:ring-brand-500'
   const labelCls = 'text-[10px] font-semibold text-text-secondary'
 
@@ -339,8 +359,72 @@ function ExpandedEditor({ merged, users, workers, update, status, onOptimisticUp
   const workerIdsView: string[] = merged.assigned_worker_ids
     ?? (merged.assigned_worker_id ? [merged.assigned_worker_id] : [])
 
+  // Phase 27-AI: 회차 Drive 폴더 관리 (부모 폴더 있으면 그 안에 자식 생성, 없으면 피커)
+  const [driveCreating, setDriveCreating] = useState(false)
+  const parentFolderId = extractDriveFolderId(parentDriveFolderUrl)
+  async function handleCreateChildFolder() {
+    if (driveCreating) return
+    const bizName = parentBusinessName?.trim() || merged.business_name?.trim() || '업체'
+    const date = merged.construction_date?.slice(0, 10) || new Date().toISOString().slice(0, 10)
+    setDriveCreating(true)
+    try {
+      const token = await requestGoogleToken()
+      if (!parentFolderId) {
+        toast.error('먼저 고객 마스터 폴더를 만들어야 회차 폴더를 그 안에 생성할 수 있습니다.', { duration: 6000 })
+        return
+      }
+      const result = await createWorkFolderStructure(parentFolderId, bizName, date, token)
+      // 저장 (application PATCH)
+      await fetch('/api/admin/applications', {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: appId, drive_folder_url: result.folderUrl }),
+      })
+      onOptimisticUpdate(appId, { drive_folder_url: result.folderUrl })
+      toast.success(`"${result.folderName}" 회차 폴더 생성 완료`, { duration: 5000 })
+      window.open(result.folderUrl, '_blank')
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e)
+      toast.error(`회차 폴더 생성 실패: ${msg}`, { duration: 8000 })
+    } finally {
+      setDriveCreating(false)
+    }
+  }
+
   return (
     <>
+      {/* Phase 27-AI: 회차 Drive 폴더 섹션 */}
+      <div className="border border-green-200 rounded-lg p-2 bg-green-50/50 flex items-center flex-wrap gap-1.5">
+        <Folder size={12} className="text-green-700 shrink-0" />
+        <span className="text-[11px] font-semibold text-green-900 mr-1">회차 폴더</span>
+        {merged.drive_folder_url ? (
+          <>
+            <a href={merged.drive_folder_url} target="_blank" rel="noreferrer"
+              className="inline-flex items-center gap-1 px-2 py-1 text-[11px] bg-green-600 text-white rounded hover:bg-green-700"
+              title="Drive 폴더 열기">
+              <FolderOpen size={11} /> 사진 보기
+            </a>
+            <a href={merged.drive_folder_url} target="_blank" rel="noreferrer"
+              className="inline-flex items-center gap-1 px-2 py-1 text-[11px] bg-white border border-green-300 text-green-800 rounded hover:bg-green-100"
+              title="Drive 폴더에서 사진 업로드">
+              <Camera size={11} /> 사진 올리기
+            </a>
+          </>
+        ) : (
+          <button
+            type="button"
+            disabled={driveCreating}
+            onClick={handleCreateChildFolder}
+            className="inline-flex items-center gap-1 px-2 py-1 text-[11px] bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50"
+            title={parentFolderId ? '고객 마스터 폴더 안에 회차 폴더 생성' : '먼저 상단 고객DB에서 마스터 폴더를 만드세요'}
+          >
+            <FolderPlus size={11} /> {driveCreating ? '생성 중...' : '회차 폴더 생성'}
+          </button>
+        )}
+        {!parentFolderId && !merged.drive_folder_url && (
+          <span className="text-[10px] text-text-tertiary">고객 마스터 폴더가 필요합니다</span>
+        )}
+      </div>
+
       {/* 2열 그리드 */}
       <div className="grid grid-cols-2 gap-2">
         <div>
