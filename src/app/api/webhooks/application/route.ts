@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { sendSlack } from '@/lib/slack'
-import { findAutoLinkCustomerId } from '@/lib/customerAutoLink'
+import { findOrCreateCustomer } from '@/lib/customerAutoLink'
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -117,12 +117,33 @@ export async function POST(request: NextRequest) {
       timestamp,
     }
 
-    // Phase 27-X: 기존 customer 자동 매칭 (phone 또는 business_number 유일 일치 시).
-    // 매칭 실패 시 null → 지금까지처럼 pending 으로 남아 관리자가 수동 검수 가능.
-    // 매칭 성공 시 pending 딱지 없이 바로 해당 고객의 신청 이력으로 편입.
-    const autoLinkedCustomerId = await findAutoLinkCustomerId(supabase, phone, businessNumber)
+    // Phase 27-AD: 신청서 접수 시 customer 자동 승격 (pending 개념 원천 제거).
+    // - 기존 고객 매칭되면 그 customer_id 연결
+    // - 매칭 실패하면 customer 자동 생성 후 연결
+    // - 두 경우 모두 customer_id 가 항상 채워져 pending 딱지가 안 뜸.
+    // - 자동 생성 실패 시(예: DB 오류) null 반환 → 기존처럼 pending 으로 fallback (안전망).
+    const { customerId: autoLinkedCustomerId, created: autoCreated } = await findOrCreateCustomer(supabase, {
+      business_name: businessName,
+      owner_name: ownerName,
+      phone,
+      phone_2: normalizedPhone2,
+      email,
+      address,
+      business_number: businessNumber,
+      account_number: accountNumber,
+      platform_nickname: platformNickname,
+      business_hours_start: cleanBusinessHoursStart,
+      business_hours_end: cleanBusinessHoursEnd,
+      elevator,
+      building_access: buildingAccess,
+      access_method: accessMethod,
+      parking,
+      payment_method: paymentMethod,
+      care_scope: careScope,
+      request_notes: requestNotes,
+    })
     if (autoLinkedCustomerId) {
-      console.log(`[webhook] auto-link 성공: application → customer(${autoLinkedCustomerId})`)
+      console.log(`[webhook] customer ${autoCreated ? '자동 생성' : '자동 연결'}: ${autoLinkedCustomerId}`)
     }
 
     // Supabase 저장과 Make 웹훅을 병렬 실행 — 하나가 실패해도 나머지는 동작
@@ -200,7 +221,9 @@ export async function POST(request: NextRequest) {
       (careScope ? `• 케어범위: ${careScope}\n` : '') +
       (constructionDate ? `• 희망시공일: ${constructionDate}\n` : '') +
       `• 접수시각: ${kstTime}\n` +
-      (autoLinkedCustomerId ? `• 🔗 기존 고객 자동 연결 완료` : `• 🆕 신규 고객 (pending 검수 대상)`)
+      (autoLinkedCustomerId
+        ? (autoCreated ? `• 🆕 신규 고객 자동 등록 완료` : `• 🔗 기존 고객 자동 연결 완료`)
+        : `• ⚠️ 고객 자동 승격 실패 (pending 상태 · 수동 검수 필요)`)
     ).catch(() => {})
 
     // 신청서작성완료 알림 자동 발송 — 견적서 신청(source='quote')은 제외

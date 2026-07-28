@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { sendSlack } from '@/lib/slack'
-import { findAutoLinkCustomerId } from '@/lib/customerAutoLink'
+import { findOrCreateCustomer } from '@/lib/customerAutoLink'
 
 export async function POST(request: NextRequest) {
   try {
@@ -20,11 +20,22 @@ export async function POST(request: NextRequest) {
 
     const supabase = createServiceClient()
 
-    // Phase 27-Y: /apply/deepcare + /apply/endcare 폼에도 자동 매칭 적용.
-    // 웹훅 라우트와 달리 business_number 는 폼에서 옵션 필드 — 있으면 함께 매칭, 없으면 phone 만으로.
-    const autoLinkedCustomerId = await findAutoLinkCustomerId(supabase, phone, business_number)
+    // Phase 27-AD: 자동 매칭 + 자동 승격 (pending 개념 제거).
+    // 매칭 성공 시 연결 · 실패 시 customer 자동 생성. 두 경우 모두 customer_id 채워짐.
+    const { customerId: autoLinkedCustomerId, created: autoCreated } = await findOrCreateCustomer(supabase, {
+      business_name: resolvedBusinessName,
+      owner_name,
+      phone,
+      phone_2: (typeof phone_2 === 'string' && phone_2.trim()) ? phone_2.trim() : null,
+      email,
+      address,
+      business_number,
+      care_scope,
+      request_notes,
+      service_type,
+    })
     if (autoLinkedCustomerId) {
-      console.log(`[apply] auto-link 성공: application → customer(${autoLinkedCustomerId})`)
+      console.log(`[apply] customer ${autoCreated ? '자동 생성' : '자동 연결'}: ${autoLinkedCustomerId}`)
     }
 
     const { data, error } = await supabase
@@ -63,7 +74,9 @@ export async function POST(request: NextRequest) {
       (email ? `• 이메일: ${email}\n` : '') +
       (care_scope ? `• 내용: ${care_scope}\n` : '') +
       `• 접수시각: ${kstTime}\n` +
-      (autoLinkedCustomerId ? `• 🔗 기존 고객 자동 연결 완료` : `• 🆕 신규 고객 (pending 검수 대상)`)
+      (autoLinkedCustomerId
+        ? (autoCreated ? `• 🆕 신규 고객 자동 등록 완료` : `• 🔗 기존 고객 자동 연결 완료`)
+        : `• ⚠️ 고객 자동 승격 실패 (pending 상태 · 수동 검수 필요)`)
     ).catch(() => {})
 
     return NextResponse.json({ success: true, id: data.id }, { status: 201 })

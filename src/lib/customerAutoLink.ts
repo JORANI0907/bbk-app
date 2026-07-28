@@ -58,3 +58,108 @@ export async function findAutoLinkCustomerId(
     return null
   }
 }
+
+/**
+ * Phase 27-AD: 신청서 접수 시 customer 자동 승격 (pending 개념 제거).
+ *
+ * 동작 순서:
+ * 1) findAutoLinkCustomerId 로 기존 customer 매칭 시도
+ * 2) 매칭되면 그 id 반환 (created=false)
+ * 3) 매칭 실패 시 상호명(business_name) 정확 일치 customer 재조회 (INSERT unique 대비)
+ * 4) 여전히 없으면 customer INSERT (created=true)
+ * 5) INSERT 실패 시(예: unique violation) 상호명으로 재조회 후 그 id 반환
+ *
+ * 실패해도 null 반환하고 흐름은 이어지도록 방어(pending 상태로 fallback).
+ * 포털 계정 자동 생성은 여기서 하지 않음 — 관리자가 명시적으로 트리거하도록 유지 (스팸 방지).
+ */
+export interface AutoCreateInput {
+  business_name: string
+  owner_name?: string | null
+  phone?: string | null
+  phone_2?: string | null
+  email?: string | null
+  address?: string | null
+  business_number?: string | null
+  account_number?: string | null
+  platform_nickname?: string | null
+  business_hours_start?: string | null
+  business_hours_end?: string | null
+  elevator?: string | null
+  building_access?: string | null
+  access_method?: string | null
+  parking?: string | null
+  payment_method?: string | null
+  care_scope?: string | null
+  request_notes?: string | null
+  service_type?: string | null
+}
+
+export async function findOrCreateCustomer(
+  supabase: ReturnType<typeof createServiceClient>,
+  input: AutoCreateInput,
+): Promise<{ customerId: string | null; created: boolean }> {
+  // 1) 기존 매칭 우선 시도
+  const matched = await findAutoLinkCustomerId(supabase, input.phone ?? null, input.business_number ?? null)
+  if (matched) return { customerId: matched, created: false }
+
+  const bizName = (input.business_name ?? '').trim()
+  if (!bizName) return { customerId: null, created: false }
+
+  // 2) 상호명 정확 일치 재조회 (INSERT unique constraint 대비)
+  const { data: existingByName } = await supabase
+    .from('customers')
+    .select('id')
+    .eq('business_name', bizName)
+    .is('deleted_at', null)
+    .maybeSingle()
+  if (existingByName?.id) return { customerId: existingByName.id, created: false }
+
+  // 3) 자동 생성
+  try {
+    const { data: created, error } = await supabase
+      .from('customers')
+      .insert({
+        business_name: bizName,
+        contact_name: input.owner_name || null,
+        contact_phone: input.phone || null,
+        contact_phone_2: input.phone_2 || null,
+        email: input.email || null,
+        address: input.address || null,
+        business_number: input.business_number || null,
+        account_number: input.account_number || null,
+        platform_nickname: input.platform_nickname || null,
+        business_hours_start: input.business_hours_start || null,
+        business_hours_end: input.business_hours_end || null,
+        elevator: input.elevator || null,
+        building_access: input.building_access || null,
+        access_method: input.access_method || null,
+        parking_info: input.parking || null,           // parking → parking_info (컬럼명 차이)
+        payment_method: input.payment_method || null,
+        care_scope: input.care_scope || null,
+        special_notes: input.request_notes || null,    // request_notes → special_notes (컬럼명 차이)
+        customer_type: input.service_type || '1회성케어',
+        status: 'active',
+        pipeline_status: 'inquiry',
+      })
+      .select('id')
+      .single()
+
+    if (error) {
+      // unique violation 등 → 상호명 재조회로 fallback
+      console.warn('[auto-create] customer INSERT 실패, 상호명 재조회 시도:', error.message)
+      const { data: retryExisting } = await supabase
+        .from('customers')
+        .select('id')
+        .eq('business_name', bizName)
+        .is('deleted_at', null)
+        .maybeSingle()
+      if (retryExisting?.id) return { customerId: retryExisting.id, created: false }
+      return { customerId: null, created: false }
+    }
+
+    return { customerId: created.id, created: true }
+  } catch (e) {
+    console.warn('[auto-create] 처리 중 오류 (non-critical):', e)
+    return { customerId: null, created: false }
+  }
+}
