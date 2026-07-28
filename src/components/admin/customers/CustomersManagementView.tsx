@@ -7,7 +7,7 @@ import { useModalBackButton } from '@/hooks/useModalBackButton'
 import { MapSelectorModal } from '@/components/MapSelectorModal'
 import { BillingHistoryPanel } from '@/components/admin/BillingHistoryPanel'
 import { Button } from '@/components/ui'
-import { Phone, ClipboardList, Map, Banknote, Save, Megaphone, Calendar, BookOpen } from 'lucide-react'
+import { Phone, ClipboardList, Map, Banknote, Save, Megaphone, Calendar, BookOpen, Archive, Trash2 } from 'lucide-react'
 import { CustomerAccountLink } from '@/components/admin/CustomerAccountLink'
 import { FieldHint } from '@/components/ui/FieldHint'
 import { MonthlyScheduleSection } from '@/components/admin/customers/MonthlyScheduleSection'
@@ -1410,6 +1410,40 @@ export function CustomersManagementView({
 
   // Phase 7-J: handleCreateApplicationBulk 제거 — "서비스 신청서 생성 →" 버튼 삭제로 미사용
 
+  // Phase 27-W: pending 신청서(id='app:xxx') 개별 정리 액션.
+  // customers 벌크 API 는 service_applications 를 못 다루므로 서비스관리 탭 통합 후
+  // 신청서에 대한 이관/삭제 UX 가 통째로 사라졌던 gap 을 국소적으로 복원.
+  // 두 API 는 이미 존재: POST /api/admin/applications/archive · DELETE /api/admin/applications?id=
+  const handleArchivePendingApp = async (appId: string) => {
+    if (!confirm('이 신청서를 고객DB이력으로 이관하시겠습니까?')) return
+    try {
+      const res = await fetch('/api/admin/applications/archive', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: [appId], archived_by: currentUserId ?? null }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.error ?? '이관 실패')
+      setPendingApplications(prev => prev.filter(a => a.id !== appId))
+      toast.success('신청서를 이력으로 이관했습니다.')
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : '이관 실패')
+    }
+  }
+
+  const handleDeletePendingApp = async (appId: string) => {
+    if (!confirm('이 신청서를 삭제하시겠습니까?\n연결된 일정도 함께 소프트 삭제됩니다.')) return
+    try {
+      const res = await fetch(`/api/admin/applications?id=${appId}`, { method: 'DELETE' })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.error ?? '삭제 실패')
+      setPendingApplications(prev => prev.filter(a => a.id !== appId))
+      toast.success('신청서를 삭제했습니다.')
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : '삭제 실패')
+    }
+  }
+
   const handleNotify = async () => {
     if (!selected || !notifyType) { toast.error('알림 유형을 선택하세요.'); return }
     setSending(true)
@@ -2102,8 +2136,37 @@ export function CustomersManagementView({
                     <tr
                       className={`border-l-4 ${isToday ? TODAY_ROW_BORDER : progressBorder} ${isToday ? `${TODAY_ROW_BG} ${TODAY_ROW_SHADOW}` : paymentBg} hover:brightness-95 transition-all cursor-pointer ${isSelected ? 'ring-2 ring-brand-500 ring-inset' : ''} ${isChecked ? 'ring-2 ring-brand-400 ring-inset' : ''} ${isPendingApp && !isToday ? 'bg-amber-50' : ''} ${isPaused ? 'bg-gray-100 opacity-60' : ''}`}
                       onClick={() => handleSelect(c)}>
-                      <td className="px-3 py-3" onClick={e => { e.stopPropagation(); if (!isPendingApp) toggleCheck(c.id) }}>
-                        <input type="checkbox" checked={isChecked} readOnly disabled={isPendingApp} className="accent-blue-600 pointer-events-none cursor-pointer disabled:opacity-40" />
+                      {/* Phase 27-W: pending 신청서는 체크박스 대신 개별 이관/삭제 아이콘.
+                          service_applications 는 customers 벌크 API 로 다룰 수 없어서 체크박스 자체가 무의미.
+                          원래 서비스관리 탭에서 가능했던 개별 정리 UX 를 국소적으로 복원. */}
+                      <td
+                        className="px-3 py-3"
+                        onClick={e => { e.stopPropagation(); if (!isPendingApp) toggleCheck(c.id) }}
+                      >
+                        {isPendingApp ? (
+                          <div className="flex items-center gap-0.5" onClick={e => e.stopPropagation()}>
+                            <button
+                              type="button"
+                              onClick={() => handleArchivePendingApp(c.id.replace(/^app:/, ''))}
+                              title="이력으로 이관"
+                              aria-label="신청서를 이력으로 이관"
+                              className="p-1 rounded hover:bg-brand-100 text-text-tertiary hover:text-brand-700 transition-colors"
+                            >
+                              <Archive size={14} />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeletePendingApp(c.id.replace(/^app:/, ''))}
+                              title="삭제"
+                              aria-label="신청서 삭제"
+                              className="p-1 rounded hover:bg-state-danger-bg text-text-tertiary hover:text-state-danger transition-colors"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
+                        ) : (
+                          <input type="checkbox" checked={isChecked} readOnly className="accent-blue-600 pointer-events-none cursor-pointer" />
+                        )}
                       </td>
                       {(() => {
                         // Phase 22 v10: 다중 선택에서도 같은 그룹이면 통합 뷰 유지 (헤더 판정과 동일)

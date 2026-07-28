@@ -6,7 +6,7 @@ import toast from 'react-hot-toast'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Textarea } from '@/components/ui/Textarea'
-import { Plus, X, FileText, ExternalLink, RefreshCw, ChevronLeft, ChevronRight, Save, RotateCcw, Upload, Trash2, Send, Pencil, CheckCircle2, MoreVertical, Copy, Search } from 'lucide-react'
+import { Plus, X, FileText, ExternalLink, RefreshCw, ChevronLeft, ChevronRight, Save, RotateCcw, Upload, Trash2, Send, Pencil, CheckCircle2, MoreVertical, Copy, Search, HelpCircle } from 'lucide-react'
 import { BrowseQuotesModal } from './BrowseQuotesModal'
 
 // ─── 타입 ────────────────────────────────────────────────────────
@@ -731,7 +731,41 @@ export default function QuotesPage() {
       setApplications(prev => prev.map(a =>
         a.id === selected.id ? { ...a, saved_quotes: updated } : a
       ))
-      toast.success(editingQuoteId ? `'${label}' 수정 완료` : `'${label}' 저장 완료`)
+
+      // Phase 27-V: 저장 성공 즉시 Google Drive 백업 (신규 저장만).
+      // 수정은 사용자가 명시적으로 "재생성" 버튼을 눌러 백업하도록 유지 (Drive 파일 폭증 방지).
+      // regenerate-pdf 재사용 — PDF 렌더 + Supabase Storage + Drive 백업 + saved_quotes 갱신 통합.
+      // fire-and-forget: 5–10초 걸리는 PDF 생성이 UI를 막지 않도록 await 하지 않음.
+      const backupTargetId = editingQuoteId ?? updated[updated.length - 1].id
+      const isNewSave = !editingQuoteId
+      if (isNewSave) {
+        const appId = selected.id
+        fetch(`/api/admin/quotes/${appId}/regenerate-pdf`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ saved_quote_id: backupTargetId }),
+        })
+          .then(async (r) => {
+            if (!r.ok) return
+            const d = await r.json()
+            setApplications(prev => prev.map(a =>
+              a.id === appId
+                ? {
+                    ...a,
+                    saved_quotes: (a.saved_quotes ?? []).map((q: SavedQuote) =>
+                      q.id === backupTargetId
+                        ? { ...q, quote_no: d.quote_no, pdf_url: d.pdf_url }
+                        : q
+                    ),
+                  }
+                : a
+            ))
+            toast.success('Google Drive 백업 완료', { duration: 2000, icon: '📁' })
+          })
+          .catch(() => {/* non-critical, 재생성 버튼으로 복구 가능 */})
+      }
+
+      toast.success(editingQuoteId ? `'${label}' 수정 완료` : `'${label}' 저장 완료 · Drive 백업 중`)
       // 폼 유지 (사용자가 바로 수정해서 다음 견적서를 이어서 만들 수 있도록)
       // editingQuoteId만 해제 → 다음 완성은 신규로 저장됨
       // quoteLabel은 그대로 두어 새 이름을 원하면 사용자가 직접 수정
@@ -979,7 +1013,9 @@ export default function QuotesPage() {
           </div>
         </div>
 
-        {/* Phase 27-Q: 새 신청서 만들기 + 최근 견적 이력 토글 반반 배치 */}
+        {/* Phase 27-Q/V: 새 신청서 만들기 + 최근 견적 이력 토글 반반 배치.
+            도움말은 lucide HelpCircle 아이콘으로, 견적 이력 버튼은 raw <button> 으로
+            활성/비활성 색 대비 명확히. */}
         <div className="flex items-center gap-2">
           <Button
             size="sm"
@@ -988,26 +1024,31 @@ export default function QuotesPage() {
           >
             <Plus size={14} /> 새 신청서
           </Button>
-          {/* Phase 27-V: 도움말 툴팁 */}
+          {/* 도움말 툴팁 — span 래퍼에 title 속성을 붙여야 네이티브 툴팁이 뜬다.
+              (lucide-react 아이콘 안에 <title> 넣으면 React가 컴포넌트로 해석해 무시함) */}
           <span
-            className="shrink-0 w-5 h-5 flex items-center justify-center rounded-full bg-surface-sunken text-text-tertiary text-[10px] font-bold cursor-help"
             title="새 신청서를 만드는 경우 고객관리 탭에 같이 생성됩니다."
+            className="shrink-0 inline-flex items-center justify-center cursor-help"
           >
-            ?
+            <HelpCircle
+              size={16}
+              className="text-text-tertiary hover:text-brand-600 transition-colors"
+              aria-label="도움말"
+            />
           </span>
-          <Button
-            size="sm"
-            variant="secondary"
+          {/* 견적 이력 토글 — raw button 으로 활성 색 명확화 */}
+          <button
+            type="button"
             onClick={handleToggleHistoryMode}
-            className={`flex-1 ${
+            className={`flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
               quoteHistoryMode
-                ? 'bg-sky-500 hover:bg-sky-600 text-white border-sky-500'
-                : ''
+                ? 'bg-sky-500 text-white hover:bg-sky-600 shadow-sm'
+                : 'bg-surface-sunken text-text-primary hover:bg-border border border-border-subtle'
             }`}
             title={quoteHistoryMode ? '전체 신청서 보기로' : '최근 견적 이력만 보기'}
           >
             <FileText size={14} /> {quoteHistoryMode ? '전체 보기' : '견적 이력'}
-          </Button>
+          </button>
         </div>
 
         <Input placeholder="고객명·업체명·연락처" value={search} onChange={e => handleSearchChange(e.target.value)} />
