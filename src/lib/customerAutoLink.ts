@@ -98,21 +98,28 @@ export async function findOrCreateCustomer(
   supabase: ReturnType<typeof createServiceClient>,
   input: AutoCreateInput,
 ): Promise<{ customerId: string | null; created: boolean }> {
-  // 1) 기존 매칭 우선 시도
-  const matched = await findAutoLinkCustomerId(supabase, input.phone ?? null, input.business_number ?? null)
-  if (matched) return { customerId: matched, created: false }
+  // Phase 27-AF: 1회성·일반일정은 어미-자식 관계 없음 → 매 건 독립 customer 생성.
+  // 정기딥/엔드만 어미(customer 마스터) + 자식(회차 apps) 관계이므로 매칭 시도.
+  const isRecurring = input.service_type === '정기딥케어' || input.service_type === '정기엔드케어'
 
   const bizName = (input.business_name ?? '').trim()
   if (!bizName) return { customerId: null, created: false }
 
-  // 2) 상호명 정확 일치 재조회 (INSERT unique constraint 대비)
-  const { data: existingByName } = await supabase
-    .from('customers')
-    .select('id')
-    .eq('business_name', bizName)
-    .is('deleted_at', null)
-    .maybeSingle()
-  if (existingByName?.id) return { customerId: existingByName.id, created: false }
+  if (isRecurring) {
+    // 1) 정기: 기존 customer 매칭 우선 (재신청은 같은 customer 아래 새 회차)
+    const matched = await findAutoLinkCustomerId(supabase, input.phone ?? null, input.business_number ?? null)
+    if (matched) return { customerId: matched, created: false }
+
+    // 2) 상호명 정확 일치 재조회 (INSERT unique constraint 대비)
+    const { data: existingByName } = await supabase
+      .from('customers')
+      .select('id')
+      .eq('business_name', bizName)
+      .is('deleted_at', null)
+      .maybeSingle()
+    if (existingByName?.id) return { customerId: existingByName.id, created: false }
+  }
+  // 1회성/일반일정 또는 정기지만 매칭 실패 시 → 아래에서 신규 생성
 
   // 3) 자동 생성
   try {
