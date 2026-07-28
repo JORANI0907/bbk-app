@@ -57,6 +57,8 @@ export interface CalendarApp {
   deposit?: number | null
   balance?: number | null
   drive_folder_url?: string | null
+  // Phase 27-AB: 신청서 자동 발송 이력 (pending 세부화면에서 감사용)
+  notification_log?: Array<{ type: string; sent_at: string; phone?: string; method?: 'auto' | 'manual'; template_id?: string }> | null
 }
 
 interface Props {

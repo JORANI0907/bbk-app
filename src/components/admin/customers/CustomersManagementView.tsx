@@ -556,6 +556,8 @@ export function CustomersManagementView({
     customer_id: string | null
     status: string | null
     created_at: string
+    // Phase 27-AB: 자동 발송된 알림 이력을 세부화면에서 감사(audit) 가능하도록 노출
+    notification_log: Array<{ type: string; sent_at: string; phone?: string; method?: 'auto' | 'manual'; template_id?: string }> | null
   }>>([])
   // 리스트 미리보기용 최신 청구 요약 (customer_id → 대표 청구 record)
   const [latestBillings, setLatestBillings] = useState<Record<string, {
@@ -588,6 +590,9 @@ export function CustomersManagementView({
   const [search, setSearch] = useState('')
   const [selected, setSelected] = useState<Customer | null>(null)
   const [isNew, setIsNew] = useState(false)
+  // Phase 27-AB: pending 신청서 세부화면 진입 여부 (자동 발송 이력 감사 패널 노출 조건)
+  //   handleSelect 의 app: 프리픽스 분기에서 세팅, 신규 폼 리셋·저장 완료 시 해제.
+  const [pendingAppId, setPendingAppId] = useState<string | null>(null)
   // Phase 27: 뷰 모드 (리스트/캘린더) + 캘린더에서 선택된 회차 focus
   const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list')
   const [calendarFocus, setCalendarFocus] = useState<{ appId: string; month: string } | null>(null)
@@ -874,8 +879,12 @@ export function CustomersManagementView({
     // Phase 7-D / Phase 14: 신청서 폼 유입(app:${appId}) — appToCustomerLike에서 이미 전체 필드 매핑됨
     // toForm(c)로 신규 등록 폼에 모든 필드 자동 프리필 (연락처2·이메일·사업자번호·계좌·영업시간·엘리베이터·건물접근·주차·결제방법·요청사항 등)
     if (c.id.startsWith('app:')) {
+      const appId = c.id.replace(/^app:/, '')
+      setPendingAppId(appId)  // Phase 27-AB: 자동 발송 이력 감사 패널 노출용
       setSelected(null); setIsNew(true); setNotifyType('')
-      setNotifyLogs([])
+      // Phase 27-AB: 신청서(pending) 도 자동 발송 이력을 감사 가능하도록 노출.
+      // 원본 service_applications.notification_log 를 pendings 매핑 시 보존해 전달.
+      setNotifyLogs((c.notification_log ?? []).map(dbLogToNotifyLog))
       setForm(toForm(c))
       setVisitWeekdays(c.visit_weekdays ?? [])
       setVisitMonthlyDates(c.visit_monthly_dates ?? [])
@@ -883,6 +892,7 @@ export function CustomersManagementView({
       toast('신청서 정보로 신규 고객 등록 폼을 채웠습니다. 검토 후 저장하세요.', { icon: 'ℹ️' })
       return
     }
+    setPendingAppId(null)  // Phase 27-AB: 정상 고객 선택 시 pending 상태 해제
     setSelected(c); setIsNew(false); setNotifyType('')
     setForm(toForm(c))
     setVisitWeekdays(c.visit_weekdays ?? [])
@@ -941,7 +951,9 @@ export function CustomersManagementView({
         vat: app.vat ?? null,
         balance: app.balance ?? null,
         user_id: null, account_user_id: null,
-        notification_log: null, phone_notify_1: null, phone_notify_2: null,
+        // Phase 27-AB: 자동 발송 이력을 pending 세부화면에서 볼 수 있도록 원본 유지
+        notification_log: app.notification_log ?? null,
+        phone_notify_1: null, phone_notify_2: null,
         construction_time: app.construction_time ?? null,
         deposit_payment_url: null, balance_payment_url: null,
         deposit_portone_id: null, balance_portone_id: null,
@@ -970,6 +982,7 @@ export function CustomersManagementView({
   }
 
   const handleNew = () => {
+    setPendingAppId(null)  // Phase 27-AB: 완전 신규 고객 입력이므로 pending 상태 해제
     setSelected(null); setIsNew(true); setNotifyType('')
     setNotifyLogs([])
     setForm(EMPTY_FORM)
@@ -1694,7 +1707,9 @@ export function CustomersManagementView({
           vat: a.vat ?? null,
           balance: a.balance ?? null,
           user_id: null, account_user_id: null,
-          notification_log: null, phone_notify_1: null, phone_notify_2: null,
+          // Phase 27-AB: 자동 발송 이력을 pending 세부화면에서 볼 수 있도록 원본 유지
+          notification_log: a.notification_log ?? null,
+          phone_notify_1: null, phone_notify_2: null,
           construction_time: a.construction_time ?? null,
           deposit_payment_url: null, balance_payment_url: null,
           deposit_portone_id: null, balance_portone_id: null,
@@ -3455,6 +3470,53 @@ export function CustomersManagementView({
             {/* Phase 22 v10: 청구 요약 완전 제거 — 정기딥/정기엔드 모두 계약정보 인라인 이력 + 상단 PaymentIssuesSummary가 대체 */}
 
             {/* Phase 22 v9: 청구 이력 — 정기딥/정기엔드 모두 계약정보 인라인 이력이 대체하므로 하단 렌더 제거됨 */}
+
+            {/* Phase 27-AB: pending 신청서 자동 발송 이력 감사 패널.
+                신청서 상태에선 수동 발송이 불가(고객 등록 후에만 가능) — 대신 자동 발송 이력만 조회.
+                고객으로 승격되면 이 패널은 사라지고 아래의 정식 "고객 알림 발송" 패널이 활성화됨. */}
+            {!isWorker && isNew && pendingAppId && (
+              <div className="border border-amber-200 rounded-xl overflow-hidden bg-amber-50/40">
+                <p className="text-xs font-semibold text-amber-800 px-4 py-2.5 bg-amber-100/60 border-b border-amber-200 flex items-center gap-1.5">
+                  <span>신청서 자동 발송 이력</span>
+                  <span className="text-[10px] font-normal text-amber-700">(승격 후 수동 발송 가능)</span>
+                </p>
+                <div className="p-4 space-y-2">
+                  <p className="text-[11px] text-amber-700 leading-relaxed">
+                    이 신청서는 아직 고객으로 등록되지 않아 수동 발송은 잠금 상태입니다.
+                    자동화(웹훅·cron)로 발송된 알림 이력만 아래에서 확인할 수 있습니다.
+                  </p>
+                  <div className="border border-amber-200 rounded-lg overflow-hidden bg-surface">
+                    <p className="text-xs font-semibold text-text-secondary px-3 py-2 bg-surface-sunken border-b border-border-subtle">
+                      자동 발송 내역 ({notifyLogs.length}건)
+                    </p>
+                    {notifyLogs.length === 0 ? (
+                      <p className="text-xs text-text-tertiary text-center py-4">아직 자동 발송된 알림이 없습니다.</p>
+                    ) : (
+                      <div className="max-h-52 overflow-y-auto divide-y divide-border-subtle">
+                        {notifyLogs.map((log, i) => {
+                          const cfg = NOTIFY_TYPE_CONFIG[log.type]
+                          return (
+                            <div key={i} className="flex items-center justify-between px-3 py-2 gap-2">
+                              <div className="flex items-center gap-1.5 min-w-0">
+                                {log.method === 'auto' && (
+                                  <span className="text-[10px] px-1.5 py-0.5 bg-brand-100 text-brand-700 rounded font-medium shrink-0">자동</span>
+                                )}
+                                {log.method === 'manual' && (
+                                  <span className="text-[10px] px-1.5 py-0.5 bg-orange-100 text-orange-700 rounded font-medium shrink-0">수동</span>
+                                )}
+                                {cfg && <span className={`inline-block w-1.5 h-1.5 rounded-full ${cfg.dot} shrink-0`}></span>}
+                                <span className={`text-xs font-medium truncate ${cfg ? cfg.badge.split(' ').find(c => c.startsWith('text-')) : 'text-text-primary'}`}>{log.type}</span>
+                              </div>
+                              <span className="text-[11px] text-text-tertiary shrink-0 tabular-nums">{new Date(log.sentAt).toLocaleString('ko-KR', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}</span>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* 알림 발송 (1회성 + 정기 모두, 관리자만) — Phase A-3 이관 */}
             {/* Phase 27-AA: 로딩 중에도 패널 노출 (DB 로딩 지연 시 순간 사라짐 방지).
