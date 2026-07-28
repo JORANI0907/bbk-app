@@ -2,6 +2,61 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { sendSlack } from '@/lib/slack'
 
+/**
+ * Phase 27-X: 신청서 접수 시점에 기존 customer 자동 연결.
+ *
+ * 매칭 규칙 (엄격):
+ * - phone(정규화 후 8~11자리) OR business_number(정규화 후 10자리)가 일치하는 활성 고객 조회
+ * - archived_at·deleted_at 이 null 인 것만 대상
+ * - 정확히 1건일 때만 customer_id 반환. 0건(신규) 또는 2건+(모호)는 null → pending 유지
+ *
+ * false positive(오매칭) 리스크가 pending 남는 것보다 훨씬 큼 (알림·청구가 남의 계정으로 흘러감).
+ * 그래서 "유일하게 일치할 때만" 원칙을 지킨다. 여러 후보가 나오면 관리자가 수동으로 결정.
+ */
+async function findAutoLinkCustomerId(
+  supabase: ReturnType<typeof createServiceClient>,
+  phone: string | undefined | null,
+  businessNumber: string | undefined | null,
+): Promise<string | null> {
+  try {
+    const phoneNorm = (phone ?? '').replace(/[^0-9]/g, '')
+    const bizNumNorm = (businessNumber ?? '').replace(/[^0-9]/g, '')
+    const validPhone = phoneNorm.length >= 8 && phoneNorm.length <= 11
+    const validBizNum = bizNumNorm.length === 10
+
+    if (!validPhone && !validBizNum) return null
+
+    // 정규화 값과 원본 값 두 형식 모두 매칭 (DB 저장 시 대시 유무가 섞여 있어도 대응)
+    const conditions: string[] = []
+    if (validPhone) {
+      conditions.push(`contact_phone.eq.${phoneNorm}`)
+      if (phone && phone !== phoneNorm) conditions.push(`contact_phone.eq.${phone}`)
+    }
+    if (validBizNum) {
+      conditions.push(`business_number.eq.${bizNumNorm}`)
+      if (businessNumber && businessNumber !== bizNumNorm) conditions.push(`business_number.eq.${businessNumber}`)
+    }
+
+    const { data, error } = await supabase
+      .from('customers')
+      .select('id')
+      .or(conditions.join(','))
+      .is('archived_at', null)
+      .is('deleted_at', null)
+      .limit(2)   // 유일성 판정에는 2건만 조회하면 충분
+
+    if (error) {
+      console.warn('[webhook] auto-link 쿼리 실패:', error.message)
+      return null
+    }
+    if (data && data.length === 1) return data[0].id
+    return null
+  } catch (e) {
+    console.warn('[webhook] auto-link 처리 중 오류 (non-critical):', e)
+    return null
+  }
+}
+
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
@@ -116,6 +171,14 @@ export async function POST(request: NextRequest) {
       timestamp,
     }
 
+    // Phase 27-X: 기존 customer 자동 매칭 (phone 또는 business_number 유일 일치 시).
+    // 매칭 실패 시 null → 지금까지처럼 pending 으로 남아 관리자가 수동 검수 가능.
+    // 매칭 성공 시 pending 딱지 없이 바로 해당 고객의 신청 이력으로 편입.
+    const autoLinkedCustomerId = await findAutoLinkCustomerId(supabase, phone, businessNumber)
+    if (autoLinkedCustomerId) {
+      console.log(`[webhook] auto-link 성공: application → customer(${autoLinkedCustomerId})`)
+    }
+
     // Supabase 저장과 Make 웹훅을 병렬 실행 — 하나가 실패해도 나머지는 동작
     const [supabaseResult, makeResult] = await Promise.allSettled([
       supabase
@@ -146,6 +209,7 @@ export async function POST(request: NextRequest) {
           source: source ?? 'application',
           status: '신규',
           progress_status: '신청서작성', // Phase 8-C
+          customer_id: autoLinkedCustomerId, // Phase 27-X: 자동 매칭된 경우만 세팅
         })
         .select()
         .single(),
@@ -189,7 +253,8 @@ export async function POST(request: NextRequest) {
       `• 주소: ${address ?? '-'}\n` +
       (careScope ? `• 케어범위: ${careScope}\n` : '') +
       (constructionDate ? `• 희망시공일: ${constructionDate}\n` : '') +
-      `• 접수시각: ${kstTime}`
+      `• 접수시각: ${kstTime}\n` +
+      (autoLinkedCustomerId ? `• 🔗 기존 고객 자동 연결 완료` : `• 🆕 신규 고객 (pending 검수 대상)`)
     ).catch(() => {})
 
     // 신청서작성완료 알림 자동 발송 — 견적서 신청(source='quote')은 제외
