@@ -1854,11 +1854,17 @@ export function CustomersManagementView({
       .catch(() => {})
   }, [form.customer_type, dbNotifyCodes])
 
+  // Phase 27-AA: 하드코딩 NOTIFY_TYPES fallback 완전 제거 — notification_templates DB 를
+  // 단일 진실 소스(single source of truth)로 삼는다. 이유: 하드코딩 dropdown 에는 있는데
+  // DB 에는 없는 "유령 알림"(예: 결제알림(현금)) 을 선택·발송하면 문자알림관리 탭에서
+  // 통제되지 않는 문구가 나가는 감사·회계 리스크. 문자알림관리 탭에서 만들어야만 dropdown
+  // 에도 노출되도록 강제. NOTIFY_TYPES 상수는 이력 표시 badge 매핑용으로만 남김.
+  const notifyLoading = !!form.customer_type && dbNotifyCodes[form.customer_type] === undefined
+
   // Phase 19: 정기딥+연간 = 이미 결제완료 → 결제 계열 알림 옵션 필터링
   const notifyOptions = (() => {
     if (!form.customer_type) return []
-    // DB 우선, 없으면 legacy 하드코딩 fallback
-    const base = dbNotifyCodes[form.customer_type] ?? NOTIFY_TYPES[form.customer_type] ?? []
+    const base = dbNotifyCodes[form.customer_type] ?? []
     if (form.customer_type === '정기딥케어' && form.billing_cycle === '연간') {
       const paymentRelated = new Set([
         '결제알림', '결제알림(현금)', '결제알림(카드,플렛폼)',
@@ -3451,17 +3457,27 @@ export function CustomersManagementView({
             {/* Phase 22 v9: 청구 이력 — 정기딥/정기엔드 모두 계약정보 인라인 이력이 대체하므로 하단 렌더 제거됨 */}
 
             {/* 알림 발송 (1회성 + 정기 모두, 관리자만) — Phase A-3 이관 */}
-            {!isWorker && !isNew && selected && notifyOptions.length > 0 && (
+            {/* Phase 27-AA: 로딩 중에도 패널 노출 (DB 로딩 지연 시 순간 사라짐 방지).
+                notifyOptions.length===0 && !notifyLoading = "DB에 해당 유형 템플릿 없음"
+                → 문자알림관리 탭에서 등록 유도 안내를 대신 표시. */}
+            {!isWorker && !isNew && selected && (notifyLoading || notifyOptions.length > 0 || (form.customer_type && !notifyLoading && dbNotifyCodes[form.customer_type]?.length === 0)) && (
               <div className="border border-border-subtle rounded-xl overflow-hidden">
                 <p className="text-xs font-semibold text-text-secondary px-4 py-2.5 bg-surface-sunken border-b border-border-subtle">고객 알림 발송</p>
                 <div className="p-4 space-y-3">
                   <div className="flex gap-2">
                     <select value={notifyType} onChange={e => setNotifyType(e.target.value)}
-                      className="flex-1 border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400 bg-surface">
-                      <option value="">알림 유형 선택...</option>
+                      disabled={notifyLoading || notifyOptions.length === 0}
+                      className="flex-1 border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400 bg-surface disabled:bg-surface-sunken disabled:text-text-tertiary">
+                      <option value="">
+                        {notifyLoading
+                          ? '알림 목록 불러오는 중...'
+                          : notifyOptions.length === 0
+                            ? '이 유형에 등록된 알림 없음 (문자알림관리 탭에서 추가)'
+                            : '알림 유형 선택...'}
+                      </option>
                       {notifyOptions.map(t => <option key={t} value={t}>{t}</option>)}
                     </select>
-                    <Button onClick={handleNotify} disabled={sending || !notifyType} className="bg-orange-500 hover:bg-orange-600 text-white whitespace-nowrap">
+                    <Button onClick={handleNotify} disabled={sending || !notifyType || notifyLoading} className="bg-orange-500 hover:bg-orange-600 text-white whitespace-nowrap">
                       {sending ? '발송 중...' : <><Megaphone size={14} /> 발송</>}
                     </Button>
                   </div>
