@@ -7,7 +7,7 @@ import { useModalBackButton } from '@/hooks/useModalBackButton'
 import { MapSelectorModal } from '@/components/MapSelectorModal'
 import { BillingHistoryPanel } from '@/components/admin/BillingHistoryPanel'
 import { Button } from '@/components/ui'
-import { Phone, ClipboardList, Map, Banknote, Save, Megaphone, Calendar, BookOpen, Archive, Trash2 } from 'lucide-react'
+import { Phone, ClipboardList, Map, Banknote, Save, Megaphone, Calendar, BookOpen, Archive, Trash2, Copy } from 'lucide-react'
 import { CustomerAccountLink } from '@/components/admin/CustomerAccountLink'
 import { FieldHint } from '@/components/ui/FieldHint'
 import { MonthlyScheduleSection } from '@/components/admin/customers/MonthlyScheduleSection'
@@ -1444,6 +1444,26 @@ export function CustomersManagementView({
     }
   }
 
+  // Phase 27-W: 신청서 복제 (기존 /api/admin/applications/[id]/duplicate 재사용).
+  // 원본과 무관한 별도 레코드 생성 — 상태·알림이력·드라이브 폴더·notion 페이지 등 초기화됨.
+  // 복제본은 여전히 customer_id=null 이므로 pendings 로 자동 편입.
+  const handleDuplicatePendingApp = async (appId: string) => {
+    if (!confirm('이 신청서를 복제하시겠습니까?\n복제본은 원본과 관계없는 별도 신청서로 생성됩니다.')) return
+    try {
+      const res = await fetch(`/api/admin/applications/${appId}/duplicate`, { method: 'POST' })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.error ?? '복제 실패')
+      // 낙관적 업데이트 — 복제본은 customer_id null 이므로 pendings 리스트 상단에 즉시 노출.
+      // 서버 응답의 application 객체를 그대로 push (필드 세트가 loadCustomers 와 동일).
+      if (data.application) {
+        setPendingApplications(prev => [data.application, ...prev])
+      }
+      toast.success('신청서를 복제했습니다.')
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : '복제 실패')
+    }
+  }
+
   const handleNotify = async () => {
     if (!selected || !notifyType) { toast.error('알림 유형을 선택하세요.'); return }
     setSending(true)
@@ -2145,6 +2165,15 @@ export function CustomersManagementView({
                       >
                         {isPendingApp ? (
                           <div className="flex items-center gap-0.5" onClick={e => e.stopPropagation()}>
+                            <button
+                              type="button"
+                              onClick={() => handleDuplicatePendingApp(c.id.replace(/^app:/, ''))}
+                              title="복제"
+                              aria-label="신청서 복제"
+                              className="p-1 rounded hover:bg-yellow-100 text-text-tertiary hover:text-yellow-700 transition-colors"
+                            >
+                              <Copy size={14} />
+                            </button>
                             <button
                               type="button"
                               onClick={() => handleArchivePendingApp(c.id.replace(/^app:/, ''))}
