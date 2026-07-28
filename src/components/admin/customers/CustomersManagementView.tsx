@@ -1109,7 +1109,20 @@ export function CustomersManagementView({
         })
         const data = await res.json()
         if (!res.ok) throw new Error(data.error || '추가 실패')
-        const newCustomer = data.customer as Customer
+        // Phase 27-Z fix: duplicate 경로에서도 customer 키 보장 (백엔드 라인 198 통일). 방어적 가드 유지.
+        const newCustomer = data.customer as Customer | undefined
+        if (!newCustomer) {
+          toast.error('고객 응답 형식이 올바르지 않습니다. 새로고침 후 다시 시도해주세요.')
+          return
+        }
+        // 이미 등록된 고객(같은 업체명) 이면 그 고객으로 전환 안내
+        if (data.skipped) {
+          setCustomers(prev => prev.some(c => c.id === newCustomer.id) ? prev : [newCustomer, ...prev])
+          handleSelect(newCustomer)
+          setIsNew(false)
+          toast(`같은 업체명의 고객이 이미 있어 기존 정보로 전환합니다.`, { icon: 'ℹ️', duration: 4000 })
+          return
+        }
         setCustomers(prev => [newCustomer, ...prev])
         handleSelect(newCustomer)
         setIsNew(false)

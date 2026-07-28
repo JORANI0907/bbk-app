@@ -195,7 +195,9 @@ export async function POST(request: NextRequest) {
     .maybeSingle()
 
   if (existing) {
-    return NextResponse.json({ success: true, skipped: true, data: existing })
+    // Phase 27-Z fix: 이전엔 data:existing 로 반환해 프론트의 data.customer 참조가 undefined 되어
+    // handleSelect(undefined)에서 TypeError → 화면 크래시. customer 키로 통일 + skipped 플래그 유지.
+    return NextResponse.json({ customer: existing, skipped: true })
   }
 
   const insert: Record<string, unknown> = {}
