@@ -39,8 +39,10 @@ export interface ScheduleAppRow {
   construction_date: string | null
   construction_time: string | null
   assigned_to: string | null
-  /** Phase 2: GET API에서 병합된 첫 번째 배정 워커 id */
+  /** Phase 2: GET API에서 병합된 첫 번째 배정 워커 id (하위호환 · 요약 표시용) */
   assigned_worker_id: string | null
+  /** Phase 27-AC: 다중 배정 지원 — 배정된 모든 작업자 id 배열 (없으면 빈 배열) */
+  assigned_worker_ids?: string[]
   care_scope: string | null
   request_notes: string | null
   admin_request_notes: string | null
@@ -156,8 +158,13 @@ export function ScheduleAccordionRow({ app, users, workers, onOptimisticUpdate, 
     enabled: Object.keys(draft).length > 0,
     save: async (patch) => {
       if (Object.keys(patch).length === 0) return
-      // 작업자 필드는 별도 헬퍼 API로 분리 저장 (work_assignments 갱신)
-      const { assigned_worker_id, ...restPatch } = patch as Partial<ScheduleAppRow> & { assigned_worker_id?: string | null }
+      // Phase 27-AC: assigned_worker_ids (다중) · assigned_worker_id (하위호환) 둘 다 지원.
+      // 배정 API 는 별도 헬퍼로 분리 저장 (work_assignments 갱신).
+      const {
+        assigned_worker_id,
+        assigned_worker_ids,
+        ...restPatch
+      } = patch as Partial<ScheduleAppRow> & { assigned_worker_id?: string | null; assigned_worker_ids?: string[] }
 
       onOptimisticUpdate(app.id, patch)
 
@@ -173,11 +180,14 @@ export function ScheduleAccordionRow({ app, users, workers, onOptimisticUpdate, 
         }
       }
 
-      if ('assigned_worker_id' in patch) {
+      if ('assigned_worker_ids' in patch || 'assigned_worker_id' in patch) {
+        const workerIds: string[] = Array.isArray(assigned_worker_ids)
+          ? assigned_worker_ids
+          : (assigned_worker_id ? [assigned_worker_id] : [])
         const res2 = await fetch(`/api/admin/applications/${app.id}/assign-worker`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ worker_id: assigned_worker_id ?? null }),
+          body: JSON.stringify({ worker_ids: workerIds }),
         })
         if (!res2.ok) {
           const body = await res2.json().catch(() => ({}))
@@ -189,7 +199,17 @@ export function ScheduleAccordionRow({ app, users, workers, onOptimisticUpdate, 
 
   // Phase 20-A: workStyle, payStyle 제거 (세부 상태 뱃지 사용)
   const managerName = users.find(u => u.id === merged.assigned_to)?.name ?? '미배정'
-  const workerName = workers.find(w => w.id === merged.assigned_worker_id)?.name ?? '미배정'
+  // Phase 27-AC: 다중 배정 요약 표시 — 여러 명이면 "홍길동 외 N명"
+  const workerIdsView: string[] = merged.assigned_worker_ids
+    ?? (merged.assigned_worker_id ? [merged.assigned_worker_id] : [])
+  const workerNames = workerIdsView
+    .map(id => workers.find(w => w.id === id)?.name)
+    .filter((n): n is string => !!n)
+  const workerName = workerNames.length === 0
+    ? '미배정'
+    : workerNames.length === 1
+      ? workerNames[0]
+      : `${workerNames[0]} 외 ${workerNames.length - 1}명`
 
   const update = <K extends keyof ScheduleAppRow>(key: K, value: ScheduleAppRow[K]) => {
     setDraft(prev => ({ ...prev, [key]: value }))
@@ -315,6 +335,10 @@ function ExpandedEditor({ merged, users, workers, update, status, onOptimisticUp
     }
   }
 
+  // Phase 27-AC: 다중 배정 chip 표시용 — merged 에서 계산
+  const workerIdsView: string[] = merged.assigned_worker_ids
+    ?? (merged.assigned_worker_id ? [merged.assigned_worker_id] : [])
+
   return (
     <>
       {/* 2열 그리드 */}
@@ -331,15 +355,41 @@ function ExpandedEditor({ merged, users, workers, update, status, onOptimisticUp
           </select>
         </div>
         <div>
-          <p className={labelCls}>작업자</p>
-          <select
-            value={merged.assigned_worker_id ?? ''}
-            onChange={e => update('assigned_worker_id', e.target.value || null)}
-            className={inputCls}
-          >
-            <option value="">미배정</option>
-            {workers.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
-          </select>
+          <p className={labelCls}>작업자 (복수 선택)</p>
+          {/* Phase 27-AC: 다중 선택 chip UI. work_assignments 를 배열로 저장해
+              여러 작업자 배정 지원. 클릭 = toggle. 아무것도 선택 안 하면 미배정. */}
+          <div className="flex flex-wrap gap-1.5 min-h-[38px] items-center px-2 py-1.5 border border-border rounded-md bg-surface">
+            {workers.length === 0 && (
+              <span className="text-xs text-text-tertiary px-1">등록된 작업자 없음</span>
+            )}
+            {workers.map(w => {
+              const selected = workerIdsView.includes(w.id)
+              return (
+                <button
+                  key={w.id}
+                  type="button"
+                  onClick={() => {
+                    const next = selected
+                      ? workerIdsView.filter(id => id !== w.id)
+                      : [...workerIdsView, w.id]
+                    update('assigned_worker_ids', next)
+                    update('assigned_worker_id', next[0] ?? null)  // 하위호환 프리뷰 동기화
+                  }}
+                  className={`text-xs px-2 py-1 rounded-full border transition-colors ${
+                    selected
+                      ? 'bg-brand-600 text-white border-brand-600 hover:bg-brand-700'
+                      : 'bg-surface text-text-secondary border-border hover:bg-surface-sunken'
+                  }`}
+                >
+                  {selected && <span className="mr-1">✓</span>}
+                  {w.name}
+                </button>
+              )
+            })}
+          </div>
+          {workerIdsView.length > 1 && (
+            <p className="text-[10px] text-text-tertiary mt-1">{workerIdsView.length}명 배정됨</p>
+          )}
         </div>
         <div>
           <p className={labelCls}>시공일자</p>

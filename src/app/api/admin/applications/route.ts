@@ -62,23 +62,30 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
-  // Phase 2: 각 application에 배정된 첫 번째 작업자 정보 병합
+  // Phase 27-AC: 각 application 에 배정된 모든 작업자 id 배열로 병합 (다중 배정 지원).
+  // - assigned_worker_ids: string[]  (신규, 다중)
+  // - assigned_worker_id: string | null  (하위호환, 첫 번째 id — 기존 UI·필터·payroll 이 참조 중)
   const apps = data ?? []
   if (apps.length > 0) {
     const appIds = apps.map(a => a.id)
     const { data: assignments } = await supabase
       .from('work_assignments')
-      .select('application_id, worker_id')
+      .select('application_id, worker_id, id')
       .in('application_id', appIds)
+      .order('id', { ascending: true })   // 삽입 순서 유지 → 첫 번째가 primary
 
-    const workerMap: Record<string, string> = {}
+    const workerMap: Record<string, string[]> = {}
     for (const a of assignments ?? []) {
-      if (a.application_id && !workerMap[a.application_id]) {
-        workerMap[a.application_id] = a.worker_id
+      if (!a.application_id || !a.worker_id) continue
+      if (!workerMap[a.application_id]) workerMap[a.application_id] = []
+      if (!workerMap[a.application_id].includes(a.worker_id)) {
+        workerMap[a.application_id].push(a.worker_id)
       }
     }
     for (const app of apps) {
-      (app as Record<string, unknown>).assigned_worker_id = workerMap[app.id] ?? null
+      const ids = workerMap[app.id] ?? []
+      ;(app as Record<string, unknown>).assigned_worker_ids = ids
+      ;(app as Record<string, unknown>).assigned_worker_id = ids[0] ?? null
     }
   }
 
