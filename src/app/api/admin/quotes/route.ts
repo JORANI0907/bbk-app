@@ -18,11 +18,12 @@ export async function GET(request: NextRequest) {
   let query = supabase
     .from('service_applications')
     .select(
-      'id, owner_name, business_name, phone, phone_2, phone_notify_1, phone_notify_2, email, address, construction_date, care_scope, last_quote_no, last_quote_pdf_url, quote_items, quote_log, quote_notes, saved_quotes, created_at, updated_at, status, notification_log, source',
+      'id, owner_name, business_name, phone, phone_2, phone_notify_1, phone_notify_2, email, address, construction_date, care_scope, last_quote_no, last_quote_pdf_url, quote_items, quote_log, quote_notes, saved_quotes, created_at, status, notification_log, source',
       { count: 'exact' }
     )
     .is('deleted_at', null)
-    .order(sortByRecentQuote ? 'updated_at' : 'created_at', { ascending: false })
+    // Phase 27-V fix: service_applications 에 updated_at 컬럼 없음 → mode=quotes 도 created_at 으로 정렬
+    .order('created_at', { ascending: false })
 
   if (appId) {
     query = query.eq('id', appId)

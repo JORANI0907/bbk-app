@@ -986,8 +986,15 @@ export default function QuotesPage() {
             onClick={handleNewApplication}
             className="flex-1 bg-brand-600 hover:bg-brand-700 text-white"
           >
-            <Plus size={14} /> 새 신청서 만들기
+            <Plus size={14} /> 새 신청서
           </Button>
+          {/* Phase 27-V: 도움말 툴팁 */}
+          <span
+            className="shrink-0 w-5 h-5 flex items-center justify-center rounded-full bg-surface-sunken text-text-tertiary text-[10px] font-bold cursor-help"
+            title="새 신청서를 만드는 경우 고객관리 탭에 같이 생성됩니다."
+          >
+            ?
+          </span>
           <Button
             size="sm"
             variant="secondary"
