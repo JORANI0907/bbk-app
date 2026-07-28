@@ -72,6 +72,8 @@ interface Customer {
   payment_date: number | null
   assigned_user_id: string | null
   assigned_worker_id: string | null
+  // Phase 27-AH: 다중 작업자 배정 (1회성·일반일정만 사용) — customer 세부화면 chip UI 용
+  assigned_worker_ids?: string[]
   // 결제 금액 (서비스관리와 동기화)
   deposit: number | null
   supply_amount: number | null
@@ -620,6 +622,8 @@ export function CustomersManagementView({
   const [sortKey, setSortKey] = useState<string | null>(null)
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
   const [visitWeekdays, setVisitWeekdays] = useState<number[]>([])
+  // Phase 27-AH: 1회성·일반일정 세부화면 다중 작업자 배정용 state (chip UI)
+  const [customerWorkerIds, setCustomerWorkerIds] = useState<string[]>([])
   const [visitMonthlyDates, setVisitMonthlyDates] = useState<number[]>([])
   const [prepaidPeriods, setPrepaidPeriods] = useState(1)
   // 현재 사용자 세션
@@ -888,6 +892,7 @@ export function CustomersManagementView({
       setForm(toForm(c))
       setVisitWeekdays(c.visit_weekdays ?? [])
       setVisitMonthlyDates(c.visit_monthly_dates ?? [])
+      setCustomerWorkerIds(c.assigned_worker_ids ?? (c.assigned_worker_id ? [c.assigned_worker_id] : []))
       setPrepaidPeriods(1)
       toast('신청서 정보로 신규 고객 등록 폼을 채웠습니다. 검토 후 저장하세요.', { icon: 'ℹ️' })
       return
@@ -897,6 +902,8 @@ export function CustomersManagementView({
     setForm(toForm(c))
     setVisitWeekdays(c.visit_weekdays ?? [])
     setVisitMonthlyDates(c.visit_monthly_dates ?? [])
+    // Phase 27-AH: customer 로드 시 다중 작업자 배열 로드
+    setCustomerWorkerIds(c.assigned_worker_ids ?? (c.assigned_worker_id ? [c.assigned_worker_id] : []))
     setPrepaidPeriods(1)
     // Phase A-3: 알림 발송 이력 로딩
     setNotifyLogs((c.notification_log ?? []).map(dbLogToNotifyLog))
@@ -988,6 +995,7 @@ export function CustomersManagementView({
     setForm(EMPTY_FORM)
     setVisitWeekdays([])
     setVisitMonthlyDates([])
+    setCustomerWorkerIds([])
     setPrepaidPeriods(1)
   }
 
@@ -1076,7 +1084,9 @@ export function CustomersManagementView({
     payment_status: form.payment_status.length > 0 ? form.payment_status : null,
     payment_date: form.payment_date ? Number(form.payment_date) : null,
     assigned_user_id: form.assigned_user_id || null,
-    assigned_worker_id: form.assigned_worker_id || null,
+    assigned_worker_id: customerWorkerIds[0] || form.assigned_worker_id || null,
+    // Phase 27-AH: 다중 작업자 배정 (1회성·일반일정만 서버에서 처리)
+    worker_ids: customerWorkerIds,
     disposition: form.disposition ?? '보통',
     grade: form.grade || null,
     // Phase A-5: 시공시간, 전화 발송 체크박스
@@ -2740,15 +2750,38 @@ export function CustomersManagementView({
                   ))}
                 </select>
               </div>
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-text-secondary w-24 shrink-0">작업자</span>
-                <select value={form.assigned_worker_id} onChange={e => set('assigned_worker_id')(e.target.value)}
-                  className="flex-1 border border-border rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 bg-surface">
-                  <option value="">작업자 없음</option>
-                  {workersList.map(w => (
-                    <option key={w.id} value={w.id}>{w.name}</option>
-                  ))}
-                </select>
+              {/* Phase 27-AH: 작업자 다중 선택 chip UI (1회성·일반일정 = customer 단일 회차이므로 여기서 편집).
+                  정기딥/엔드 는 이번달 일정 섹션의 회차별 chip UI 로 관리 — 여기 chip 은 참고용. */}
+              <div className="flex items-start gap-2">
+                <span className="text-xs text-text-secondary w-24 shrink-0 pt-1.5">작업자 (복수)</span>
+                <div className="flex-1">
+                  <div className="flex flex-wrap gap-1.5 min-h-[34px] items-center px-2 py-1.5 border border-border rounded-md bg-surface">
+                    {workersList.length === 0 && <span className="text-xs text-text-tertiary px-1">등록된 작업자 없음</span>}
+                    {workersList.map(w => {
+                      const selected = customerWorkerIds.includes(w.id)
+                      return (
+                        <button
+                          key={w.id}
+                          type="button"
+                          onClick={() => {
+                            setCustomerWorkerIds(prev => selected ? prev.filter(id => id !== w.id) : [...prev, w.id])
+                          }}
+                          className={`text-xs px-2 py-1 rounded-full border transition-colors ${
+                            selected
+                              ? 'bg-brand-600 text-white border-brand-600 hover:bg-brand-700'
+                              : 'bg-surface text-text-secondary border-border hover:bg-surface-sunken'
+                          }`}
+                        >
+                          {selected && <span className="mr-1">✓</span>}
+                          {w.name}
+                        </button>
+                      )
+                    })}
+                  </div>
+                  {customerWorkerIds.length > 1 && (
+                    <p className="text-[10px] text-text-tertiary mt-1">{customerWorkerIds.length}명 배정됨</p>
+                  )}
+                </div>
               </div>
             </div>
 

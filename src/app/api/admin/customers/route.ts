@@ -175,7 +175,61 @@ export async function GET(request: NextRequest) {
 
   const { data, error } = await query
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json({ customers: data })
+
+  // Phase 27-AH: 각 customer 에 assigned_worker_ids: string[] 배열 병합 (다중 작업자 지원).
+  // 1회성/일반일정은 linked application 의 work_assignments 전체를, 정기는 customer 대표 worker 만.
+  // 첫 번째 id 는 하위호환용 assigned_worker_id 와 정합 유지.
+  const customers = data ?? []
+  if (customers.length > 0) {
+    const oneShotIds = customers
+      .filter(c => c.customer_type === '1회성케어' || c.customer_type === '일반일정')
+      .map(c => c.id)
+    if (oneShotIds.length > 0) {
+      const { data: apps } = await supabase
+        .from('service_applications')
+        .select('id, customer_id')
+        .in('customer_id', oneShotIds)
+        .is('deleted_at', null)
+        .is('archived_at', null)
+      const appIdToCustomer = new Map<string, string>()
+      const appIds: string[] = []
+      for (const a of apps ?? []) {
+        if (a.id && a.customer_id) {
+          appIdToCustomer.set(a.id, a.customer_id)
+          appIds.push(a.id)
+        }
+      }
+      if (appIds.length > 0) {
+        const { data: assignments } = await supabase
+          .from('work_assignments')
+          .select('application_id, worker_id, id')
+          .in('application_id', appIds)
+          .order('id', { ascending: true })
+        const customerWorkers = new Map<string, string[]>()
+        for (const wa of assignments ?? []) {
+          const custId = appIdToCustomer.get(wa.application_id)
+          if (!custId || !wa.worker_id) continue
+          if (!customerWorkers.has(custId)) customerWorkers.set(custId, [])
+          const arr = customerWorkers.get(custId)!
+          if (!arr.includes(wa.worker_id)) arr.push(wa.worker_id)
+        }
+        for (const c of customers) {
+          const ids = customerWorkers.get(c.id) ?? []
+          ;(c as Record<string, unknown>).assigned_worker_ids = ids
+          // 하위호환: assigned_worker_id 첫 번째로 override (기존 필드값이 어긋난 경우 자동 정합)
+          if (ids.length > 0) (c as Record<string, unknown>).assigned_worker_id = ids[0]
+        }
+      }
+    }
+    // 정기딥/엔드 등 나머지는 assigned_worker_ids 빈 배열
+    for (const c of customers) {
+      if (!(c as Record<string, unknown>).assigned_worker_ids) {
+        (c as Record<string, unknown>).assigned_worker_ids = c.assigned_worker_id ? [c.assigned_worker_id] : []
+      }
+    }
+  }
+
+  return NextResponse.json({ customers })
 }
 
 export async function POST(request: NextRequest) {
@@ -305,32 +359,62 @@ export async function PATCH(request: NextRequest) {
 
   // Phase 27-AG: 1회성·일반일정은 이번달 일정 섹션이 없어 시공일자를 세부화면 상단에서 직접 편집.
   // 이 경우 next_visit_date 변경을 linked application 의 construction_date 로 자동 동기화.
-  // 정기딥/엔드는 이번달 일정 섹션에서 회차별로 편집하므로 이 로직 스킵.
-  if ('next_visit_date' in rest &&
-      (updatedCustomer.customer_type === '1회성케어' || updatedCustomer.customer_type === '일반일정')) {
+  const isOneShot = updatedCustomer.customer_type === '1회성케어' || updatedCustomer.customer_type === '일반일정'
+  if ('next_visit_date' in rest && isOneShot) {
     try {
-      // 해당 customer 의 유일한 활성 application 찾기 (1회성은 1:1)
       const { data: linkedApps } = await supabase
         .from('service_applications')
         .select('id, construction_date')
         .eq('customer_id', id)
         .is('deleted_at', null)
         .is('archived_at', null)
-        .limit(2)   // 유일성 확인용
-
+        .limit(2)
       if (linkedApps && linkedApps.length === 1) {
         const targetApp = linkedApps[0]
         const newDate = (rest.next_visit_date as string | null) || null
         if (targetApp.construction_date !== newDate) {
-          await supabase
-            .from('service_applications')
-            .update({ construction_date: newDate })
-            .eq('id', targetApp.id)
+          await supabase.from('service_applications').update({ construction_date: newDate }).eq('id', targetApp.id)
         }
       }
-      // linkedApps.length !== 1 이면 애매하므로 스킵 (분리 마이그레이션 후엔 항상 1이어야 정상)
     } catch (e) {
       console.error('시공일자 application 동기화 실패:', e instanceof Error ? e.message : e)
+    }
+  }
+
+  // Phase 27-AH: worker_ids 배열이 들어오면 linked application 의 work_assignments 다중 배정 동기화.
+  // 1회성/일반일정(1:1) 에서 다중 작업자 배정 지원 — 정기는 별도 이번달 일정 섹션에서 회차별 배정.
+  if ('worker_ids' in rest && Array.isArray(rest.worker_ids) && isOneShot) {
+    try {
+      const workerIds = (rest.worker_ids as unknown[])
+        .filter((x): x is string => typeof x === 'string' && x.trim().length > 0)
+      const { data: linkedApps } = await supabase
+        .from('service_applications')
+        .select('id, construction_date, business_name')
+        .eq('customer_id', id)
+        .is('deleted_at', null)
+        .is('archived_at', null)
+        .limit(2)
+      if (linkedApps && linkedApps.length === 1) {
+        const app = linkedApps[0]
+        // 기존 assignments 전체 삭제 후 재삽입 (assign-worker API 와 동일 패턴)
+        await supabase.from('work_assignments').delete().eq('application_id', app.id)
+        if (workerIds.length > 0 && app.construction_date && app.business_name) {
+          const rows = workerIds.map(wid => ({
+            worker_id: wid,
+            application_id: app.id,
+            construction_date: app.construction_date,
+            business_name: app.business_name,
+          }))
+          await supabase.from('work_assignments').insert(rows)
+        }
+        // customer.assigned_worker_id 도 첫 번째 로 동기화 (하위호환)
+        await supabase
+          .from('customers')
+          .update({ assigned_worker_id: workerIds[0] ?? null })
+          .eq('id', id)
+      }
+    } catch (e) {
+      console.error('worker_ids 동기화 실패:', e instanceof Error ? e.message : e)
     }
   }
 
