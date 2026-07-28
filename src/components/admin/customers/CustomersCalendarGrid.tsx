@@ -114,9 +114,15 @@ export function CustomersCalendarGrid({ onSelectApp, filterTypes }: Props) {
   const monthStr = toMonthStr(year, month)
 
   // Phase 27-C: 유형 필터 적용 (비어있으면 전체)
+  // Phase 27-AM: 유형 필터 활성 시 담당자(assigned_to) 없는 회차는 자동 제외.
+  //   미배정 항목은 리스트뷰의 "미배정" 필터에서만 확인 가능. 캘린더의 잡음 제거.
   const visibleApps = useMemo(() => {
     if (!filterTypes || filterTypes.size === 0) return apps
-    return apps.filter(a => a.service_type && filterTypes.has(a.service_type))
+    return apps.filter(a =>
+      !!a.service_type
+      && filterTypes.has(a.service_type)
+      && !!a.assigned_to
+    )
   }, [apps, filterTypes])
 
   const load = useCallback(async () => {

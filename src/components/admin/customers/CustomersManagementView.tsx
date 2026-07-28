@@ -1631,8 +1631,11 @@ export function CustomersManagementView({
     }
 
     // 서비스 유형 복수 필터 (비어있으면 전체)
+    // Phase 27-AM: 유형 필터에서는 담당자(assigned_user_id) 없는 건 자동 제외.
+    // 미배정 항목은 "미배정" 필터에서만 확인 가능하도록 하여 유형 뷰의 잡음 제거.
     if (selectedTypes.size > 0) {
       list = list.filter(c => {
+        if (!c.assigned_user_id) return false
         const ct = (c.customer_type ?? '1회성케어') as CustomerType
         for (const opt of selectedTypes) {
           if (matchesCustomerFilter(ct, opt)) return true
@@ -1675,7 +1678,9 @@ export function CustomersManagementView({
           const appBiz = (a.business_name ?? '').trim()
           if (appBiz && existingBizNames.has(appBiz)) return false
           // 유형 필터 활성 시 신청서 service_type도 함께 필터
+          // Phase 27-AM: 유형 필터에서는 담당자(assigned_to) 없는 pending 도 자동 제외.
           if (selectedTypes.size > 0) {
+            if (!a.assigned_to) return false
             const t = (a.service_type ?? '1회성케어') as CustomerType
             let matched = false
             for (const opt of selectedTypes) {
