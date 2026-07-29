@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { ChevronDown, ChevronUp, Trash2, Send, Folder, FolderOpen, FolderPlus, Camera } from 'lucide-react'
+import { ChevronDown, ChevronUp, Trash2, Send, Folder, FolderOpen, FolderPlus, Camera, Save } from 'lucide-react'
 import { requestGoogleToken, createWorkFolderStructure } from '@/lib/googleDrive'
 
 /** URL 에서 Google Drive 폴더 id 추출 (…/folders/{id} 형태) */
@@ -11,8 +11,11 @@ function extractDriveFolderId(url: string | null | undefined): string | null {
   return m ? m[1] : null
 }
 import toast from 'react-hot-toast'
-import { useAutoSave, AutoSaveStatus } from '@/hooks/useAutoSave'
 import { NOTIFY_TYPES } from './CustomersManagementView'
+
+// Phase 27-AU: 자동저장 → 저장 버튼 방식으로 변경.
+// 편집 후 draft 축적 → 사용자가 명시적으로 저장 버튼 클릭할 때만 서버 반영.
+type SaveStatus = 'idle' | 'saving' | 'saved' | 'error'
 
 // Phase 27-AQ: 하드코딩 NOTIFY_TO_PROGRESS / NOTIFY_TO_PAYMENT 매핑 제거.
 // → notification_templates.linked_progress_status / linked_payment_status 로 이관.
@@ -108,11 +111,12 @@ function StatusPill({ label, tone }: { label: string; tone: string }) {
   )
 }
 
-function AutoSaveIndicator({ status }: { status: AutoSaveStatus }) {
-  if (status === 'idle') return <span className="text-[10px] text-text-tertiary">자동저장</span>
+function SaveStatusIndicator({ status, isDirty }: { status: SaveStatus; isDirty: boolean }) {
   if (status === 'saving') return <span className="text-[10px] text-text-secondary">저장중…</span>
   if (status === 'saved') return <span className="text-[10px] text-state-success">✓ 저장됨</span>
-  return <span className="text-[10px] text-state-danger">✕ 실패</span>
+  if (status === 'error') return <span className="text-[10px] text-state-danger">✕ 실패</span>
+  if (isDirty) return <span className="text-[10px] text-amber-600">변경 있음 · 저장 필요</span>
+  return null
 }
 
 /**
@@ -124,6 +128,7 @@ export function ScheduleAccordionRow({ app, users, workers, onOptimisticUpdate, 
   const [expanded, setExpanded] = useState(defaultExpanded)
   const [draft, setDraft] = useState<Partial<ScheduleAppRow>>({})
   const [deleting, setDeleting] = useState(false)
+  const [status, setStatus] = useState<SaveStatus>('idle')
 
   const handleDelete = async () => {
     if (deleting) return
@@ -144,23 +149,22 @@ export function ScheduleAccordionRow({ app, users, workers, onOptimisticUpdate, 
     }
   }
 
-  useEffect(() => { setDraft({}) }, [app.id])
+  useEffect(() => { setDraft({}); setStatus('idle') }, [app.id])
 
   const merged: ScheduleAppRow = { ...app, ...draft }
+  const isDirty = Object.keys(draft).length > 0
 
-  const { status } = useAutoSave({
-    value: draft,
-    enabled: Object.keys(draft).length > 0,
-    save: async (patch) => {
-      if (Object.keys(patch).length === 0) return
-      // Phase 27-AC: assigned_worker_ids (다중) · assigned_worker_id (하위호환) 둘 다 지원.
-      // 배정 API 는 별도 헬퍼로 분리 저장 (work_assignments 갱신).
-      const {
-        assigned_worker_id,
-        assigned_worker_ids,
-        ...restPatch
-      } = patch as Partial<ScheduleAppRow> & { assigned_worker_id?: string | null; assigned_worker_ids?: string[] }
-
+  // Phase 27-AU: 자동저장 제거 → 수동 저장. 명시적 클릭 시에만 서버 반영.
+  const handleSave = async () => {
+    if (!isDirty || status === 'saving') return
+    setStatus('saving')
+    const patch = draft
+    const {
+      assigned_worker_id,
+      assigned_worker_ids,
+      ...restPatch
+    } = patch as Partial<ScheduleAppRow> & { assigned_worker_id?: string | null; assigned_worker_ids?: string[] }
+    try {
       onOptimisticUpdate(app.id, patch)
 
       if (Object.keys(restPatch).length > 0) {
@@ -189,8 +193,17 @@ export function ScheduleAccordionRow({ app, users, workers, onOptimisticUpdate, 
           throw new Error(body?.error ?? '작업자 배정 실패')
         }
       }
-    },
-  })
+
+      setDraft({})
+      setStatus('saved')
+      toast.success('저장되었습니다.')
+      // 잠시 후 저장됨 뱃지 숨김
+      setTimeout(() => setStatus(s => s === 'saved' ? 'idle' : s), 2000)
+    } catch (e) {
+      setStatus('error')
+      toast.error(e instanceof Error ? e.message : '저장 실패')
+    }
+  }
 
   // Phase 20-A: workStyle, payStyle 제거 (세부 상태 뱃지 사용)
   const managerName = users.find(u => u.id === merged.assigned_to)?.name ?? '미배정'
@@ -265,6 +278,8 @@ export function ScheduleAccordionRow({ app, users, workers, onOptimisticUpdate, 
             workers={workers}
             update={update}
             status={status}
+            isDirty={isDirty}
+            onSave={handleSave}
             onOptimisticUpdate={onOptimisticUpdate}
             parentDriveFolderUrl={parentDriveFolderUrl}
             parentBusinessName={parentBusinessName ?? merged.business_name}
@@ -282,7 +297,9 @@ interface ExpandedProps {
   users: UserLite[]
   workers: WorkerLite[]
   update: <K extends keyof ScheduleAppRow>(key: K, value: ScheduleAppRow[K]) => void
-  status: AutoSaveStatus
+  status: SaveStatus
+  isDirty: boolean
+  onSave: () => void | Promise<void>
   onOptimisticUpdate: (id: string, patch: Partial<ScheduleAppRow>) => void
   parentDriveFolderUrl?: string | null
   parentBusinessName?: string
@@ -291,7 +308,7 @@ interface ExpandedProps {
   customerType?: string | null
 }
 
-function ExpandedEditor({ merged, users, workers, update, status, onOptimisticUpdate, parentDriveFolderUrl, parentBusinessName, appId, customerType }: ExpandedProps) {
+function ExpandedEditor({ merged, users, workers, update, status, isDirty, onSave, onOptimisticUpdate, parentDriveFolderUrl, parentBusinessName, appId, customerType }: ExpandedProps) {
   const inputCls = 'w-full text-xs border border-border rounded-md px-2 py-1 bg-surface focus:outline-none focus:ring-2 focus:ring-brand-500'
   const labelCls = 'text-[10px] font-semibold text-text-secondary'
 
@@ -607,9 +624,22 @@ function ExpandedEditor({ merged, users, workers, update, status, onOptimisticUp
         </div>
       )}
 
-      {/* 상태 표시 */}
-      <div className="flex items-center justify-end gap-2 pt-1">
-        <AutoSaveIndicator status={status} />
+      {/* Phase 27-AU: 상태 표시 + 저장 버튼 (자동저장 대체) */}
+      <div className="flex items-center justify-end gap-2 pt-2 border-t border-border-subtle mt-1">
+        <SaveStatusIndicator status={status} isDirty={isDirty} />
+        <button
+          type="button"
+          onClick={() => void onSave()}
+          disabled={!isDirty || status === 'saving'}
+          className={`inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+            isDirty && status !== 'saving'
+              ? 'bg-brand-600 hover:bg-brand-700 text-white'
+              : 'bg-surface-sunken text-text-tertiary cursor-not-allowed'
+          }`}
+        >
+          <Save size={12} />
+          {status === 'saving' ? '저장 중…' : '저장'}
+        </button>
       </div>
     </>
   )
