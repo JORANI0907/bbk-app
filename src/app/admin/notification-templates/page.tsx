@@ -33,11 +33,14 @@ interface Template {
 
 type TabKey = TemplateTab
 
+// Phase 27-AO: 이번달일정 탭을 정기딥/정기엔드로 분리. 총 5개 관리 컨텍스트.
+// 각 dropdown 실제 조회는 (types × locations) AND 조합이므로 두 유형이 각자 다른 리스트를 갖게 됨.
 const TABS: Array<{ key: TabKey; label: string; filter: (t: Template) => boolean }> = [
-  { key: '1회성케어', label: '1회성케어', filter: t => t.applicable_types.includes('1회성케어') && t.applicable_locations.includes('customer_detail') },
-  { key: '정기딥케어', label: '정기딥케어', filter: t => t.applicable_types.includes('정기딥케어') && t.applicable_locations.includes('customer_detail') },
-  { key: '정기엔드케어', label: '정기엔드케어', filter: t => t.applicable_types.includes('정기엔드케어') && t.applicable_locations.includes('customer_detail') },
-  { key: 'monthly_schedule', label: '이번달 일정', filter: t => t.applicable_locations.includes('monthly_schedule') },
+  { key: '1회성케어',    label: '1회성케어',         filter: t => t.applicable_types.includes('1회성케어')    && t.applicable_locations.includes('customer_detail') },
+  { key: '정기딥케어',   label: '정기딥케어',        filter: t => t.applicable_types.includes('정기딥케어')   && t.applicable_locations.includes('customer_detail') },
+  { key: '정기엔드케어', label: '정기엔드케어',      filter: t => t.applicable_types.includes('정기엔드케어') && t.applicable_locations.includes('customer_detail') },
+  { key: 'monthly_schedule_deep', label: '이번달일정 (정기딥)',   filter: t => t.applicable_types.includes('정기딥케어')   && t.applicable_locations.includes('monthly_schedule') },
+  { key: 'monthly_schedule_end',  label: '이번달일정 (정기엔드)', filter: t => t.applicable_types.includes('정기엔드케어') && t.applicable_locations.includes('monthly_schedule') },
 ]
 
 const CATEGORY_COLORS: Record<string, string> = {
@@ -195,12 +198,14 @@ export default function NotificationTemplatesPage() {
     }
     setAdding(true)
     try {
-      // 현재 활성 탭 컨텍스트로 scope·applicable_types·locations 자동 세팅
+      // Phase 27-AO: 이번달일정 신규 생성 시 활성 탭이 정기딥이면 정기딥만, 정기엔드면 정기엔드만 태그.
+      // 이전엔 두 유형 다 태그해서 dropdown 리스트가 뒤섞였음.
       const tabCtx: Record<TabKey, { scope: 'customer' | 'application'; types: string[]; locations: string[] }> = {
         '1회성케어':    { scope: 'application', types: ['1회성케어'],   locations: ['customer_detail'] },
         '정기딥케어':   { scope: 'customer',    types: ['정기딥케어'],  locations: ['customer_detail'] },
         '정기엔드케어': { scope: 'customer',    types: ['정기엔드케어'], locations: ['customer_detail'] },
-        'monthly_schedule': { scope: 'application', types: ['정기딥케어','정기엔드케어'], locations: ['monthly_schedule'] },
+        'monthly_schedule_deep': { scope: 'application', types: ['정기딥케어'],   locations: ['monthly_schedule'] },
+        'monthly_schedule_end':  { scope: 'application', types: ['정기엔드케어'], locations: ['monthly_schedule'] },
       }
       const ctx = tabCtx[activeTab]
       const res = await fetch('/api/admin/notification-templates', {
@@ -507,8 +512,76 @@ export default function NotificationTemplatesPage() {
                 </div>
               </div>
 
-              {/* Phase 27-S 5-e: 발송 대상 유형 pill 그룹 제거 —
-                  상단 탭(1회성·정기딥·정기엔드·이번달일정) 이 이미 applicable_types 로 필터링해서 중복. */}
+              {/* Phase 27-AO: 노출 컨텍스트 5개 체크박스 —
+                  한 템플릿이 어느 유형·화면 dropdown에 뜰지 관리자가 직접 관리.
+                  저장 시 applicable_types + applicable_locations 배열이 union으로 계산됨. */}
+              {(() => {
+                const locked = selected.auto_used && !unlockedIds.has(selected.id)
+                const currentTypes: string[] = merged.applicable_types ?? []
+                const currentLocations: string[] = merged.applicable_locations ?? []
+                const CONTEXTS = [
+                  { key: 'oneshot',      label: '① 1회성 세부화면',      type: '1회성케어',    location: 'customer_detail' },
+                  { key: 'deep_master',  label: '② 정기딥 세부화면',     type: '정기딥케어',   location: 'customer_detail' },
+                  { key: 'end_master',   label: '③ 정기엔드 세부화면',   type: '정기엔드케어', location: 'customer_detail' },
+                  { key: 'deep_monthly', label: '④ 이번달일정 (정기딥)',   type: '정기딥케어',   location: 'monthly_schedule' },
+                  { key: 'end_monthly',  label: '⑤ 이번달일정 (정기엔드)', type: '정기엔드케어', location: 'monthly_schedule' },
+                ] as const
+
+                const isChecked = (ctx: (typeof CONTEXTS)[number]) =>
+                  currentTypes.includes(ctx.type) && currentLocations.includes(ctx.location)
+
+                const toggle = (target: (typeof CONTEXTS)[number], nextChecked: boolean) => {
+                  // 다른 컨텍스트의 현재 체크 상태 유지 + 이 컨텍스트만 반전 → union 재계산.
+                  // types/locations 카티션 곱 특성상 원치 않은 조합이 열릴 수 있으나
+                  // 실제 dropdown 렌더 지점(1회성·정기딥·정기엔드 세부화면 3곳, 이번달일정 2탭)이 정해져 있어
+                  // 통상 관리 시나리오에서 유출은 무의미. 그래도 발생하면 스키마 확장을 검토.
+                  const nextStates = CONTEXTS.map(c => ({
+                    ctx: c,
+                    checked: c.key === target.key ? nextChecked : isChecked(c),
+                  })).filter(s => s.checked)
+                  const types = Array.from(new Set(nextStates.map(s => s.ctx.type)))
+                  const locations = Array.from(new Set(nextStates.map(s => s.ctx.location)))
+                  setBuffer(prev => ({ ...prev, applicable_types: types, applicable_locations: locations }))
+                }
+
+                return (
+                  <div className={`rounded-lg p-3 border ${locked ? 'bg-gray-50 border-gray-200 opacity-60' : 'bg-brand-50/40 border-brand-200'}`}>
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-xs font-semibold text-text-primary">📍 노출 위치 (이 알림이 뜨는 dropdown)</p>
+                      {locked && <span className="text-[10px] text-text-tertiary">🔒 잠금 상태 — 자물쇠 해제 후 편집</span>}
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                      {CONTEXTS.map(ctx => {
+                        const checked = isChecked(ctx)
+                        return (
+                          <label
+                            key={ctx.key}
+                            className={`flex items-center gap-2 text-xs px-2 py-1.5 rounded border transition-colors ${
+                              locked
+                                ? 'cursor-not-allowed bg-white border-border'
+                                : checked
+                                  ? 'cursor-pointer bg-brand-50 border-brand-300 text-brand-900 font-medium'
+                                  : 'cursor-pointer bg-white border-border hover:bg-brand-50/50'
+                            }`}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              disabled={locked}
+                              onChange={e => toggle(ctx, e.target.checked)}
+                              className="accent-brand-600"
+                            />
+                            <span>{ctx.label}</span>
+                          </label>
+                        )
+                      })}
+                    </div>
+                    <p className="text-[11px] text-text-tertiary mt-2">
+                      💡 여러 위치 동시 선택 가능. 체크된 dropdown에만 이 템플릿이 나타납니다.
+                    </p>
+                  </div>
+                )
+              })()}
 
               {/* LMS 제목 (byte 초과 시만) */}
               {showLmsSubject && (

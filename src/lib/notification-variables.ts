@@ -9,10 +9,15 @@ export type VariableScope = 'customer' | 'application'
 
 /**
  * 문자알림 관리 탭 종류.
- * 각 변수는 appliesTo에 지정된 탭에서만 팔레트에 노출됨.
- * 신규 탭 추가 시 이 union을 확장.
+ * Phase 27-AO: 이번달일정을 유형별로 분리 (monthly_schedule → deep / end 2개).
+ * 정기딥과 정기엔드가 각자 다른 dropdown 리스트를 가져야 하므로 관리 컨텍스트도 5개.
  */
-export type TemplateTab = '1회성케어' | '정기딥케어' | '정기엔드케어' | 'monthly_schedule'
+export type TemplateTab =
+  | '1회성케어'
+  | '정기딥케어'
+  | '정기엔드케어'
+  | 'monthly_schedule_deep'
+  | 'monthly_schedule_end'
 
 export interface VariableDef {
   label: string           // {{업체명}}의 "업체명"
@@ -174,9 +179,11 @@ function isNoVat(method: string | null | undefined): boolean {
  * 필드가 새로 추가되면 이 리스트에 항목을 추가하고 appliesTo에 관련 탭을 명시하면
  * 문자알림 관리 페이지 팔레트가 자동 갱신됨.
  */
-const TAB_ALL: TemplateTab[] = ['1회성케어', '정기딥케어', '정기엔드케어', 'monthly_schedule']
-const TAB_ONESHOT_MONTHLY: TemplateTab[] = ['1회성케어', 'monthly_schedule']
+// Phase 27-AO: 이번달일정 탭이 정기딥/정기엔드로 분리됨. 팔레트 노출은 두 유형에 동일하게 적용.
+const TAB_ALL: TemplateTab[] = ['1회성케어', '정기딥케어', '정기엔드케어', 'monthly_schedule_deep', 'monthly_schedule_end']
+const TAB_ONESHOT_MONTHLY: TemplateTab[] = ['1회성케어', 'monthly_schedule_deep', 'monthly_schedule_end']
 const TAB_RECURRING: TemplateTab[] = ['정기딥케어', '정기엔드케어']
+const TAB_MONTHLY: TemplateTab[] = ['monthly_schedule_deep', 'monthly_schedule_end']
 
 export const AVAILABLE_VARIABLES: VariableDef[] = [
   // ══════ 일반정보 (모든 탭 공통) ══════
@@ -213,7 +220,7 @@ export const AVAILABLE_VARIABLES: VariableDef[] = [
   { label: '시공시간', category: '일정정보', scope: 'application', appliesTo: TAB_ONESHOT_MONTHLY,
     desc: '방문/시공 예정 시각 (HH:MM)',
     resolve: (c) => fmtTime(c.schedule?.scheduled_time_start ?? c.application?.construction_time ?? c.customer?.construction_time) },
-  { label: '시공종료시간', category: '일정정보', scope: 'application', appliesTo: ['monthly_schedule'],
+  { label: '시공종료시간', category: '일정정보', scope: 'application', appliesTo: TAB_MONTHLY,
     desc: '개별 회차 종료 예정 시각',
     resolve: (c) => fmtTime(c.schedule?.scheduled_time_end) },
   // 다음방문일: 정기 계약에서만 의미
@@ -279,7 +286,7 @@ export const AVAILABLE_VARIABLES: VariableDef[] = [
   { label: '잔금', category: '결제정보', scope: 'application', appliesTo: TAB_ONESHOT_MONTHLY,
     desc: '자동계산: 총액-예약금',
     resolve: (c) => fmtMoney(c.application?.balance ?? c.customer?.balance) },
-  { label: '회차결제금액', category: '결제정보', scope: 'application', appliesTo: ['monthly_schedule'],
+  { label: '회차결제금액', category: '결제정보', scope: 'application', appliesTo: TAB_MONTHLY,
     desc: '이번 회차 청구 금액',
     resolve: (c) => fmtMoney(c.schedule?.payment_amount) },
   { label: '단가', category: '결제정보', scope: 'customer', appliesTo: TAB_RECURRING,
