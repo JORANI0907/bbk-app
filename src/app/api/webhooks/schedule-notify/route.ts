@@ -1,29 +1,23 @@
-// P2-25: 예약 알림 자동 발송 웹훅
+// P2-25 / Phase 27-AP: 예약 알림 자동 발송 웹훅
 // Make.com에서 매일 오전 6시에 호출 (KST)
 // 예약당일알림 (오늘 시공일자, 배정완료 건)
 // 예약1일전알림 (내일 시공일자, 배정완료 건)
+//
+// Phase 27-AP: 본문 하드코딩 제거 → notification_templates 참조.
+// 관리자가 알림 관리에서 auto_used=false 로 끄면 이 웹훅도 skip.
+// SMS 본문 편집은 즉시 실 발송에 반영됨.
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
-import { sendSMS } from '@/lib/solapi'
+import { sendByTemplate } from '@/lib/template-sender'
 import { notifySlack } from '@/lib/slack'
+import type { NotificationContext } from '@/lib/notification-variables'
 
 // 알림 발송 대상 계약상태
 const VALID_STATUSES = ['예약확정', '배정완료', '계약완료']
 
-// 마감시간 +1h ~ +4h 범위 ("~3시간 후")
-// 예) 21:00 → "22:00 ~ 01:00 사이"
-function calcRequestTime(endTime: string | null | undefined): string {
-  if (!endTime) return ''
-  const match = endTime.match(/^(\d{1,2}):(\d{2})/)
-  if (!match) return endTime
-  const h = parseInt(match[1], 10)
-  const m = parseInt(match[2], 10)
-  const startH = (h + 1) % 24
-  const endH   = (h + 4) % 24
-  const fmt = (hour: number) => `${String(hour).padStart(2, '0')}:${String(m).padStart(2, '0')}`
-  return `${fmt(startH)} ~ ${fmt(endH)} 사이`
-}
+// Phase 27-AP: 시간대 안내 문구는 이제 template body에서 관리자가 편집.
+// (calcRequestTime 은 하드코딩 SMS 제거로 dead code — 삭제됨)
 
 interface ServiceApplication {
   id: string
@@ -75,17 +69,27 @@ async function appendNotificationLog(
 }
 
 export async function POST(request: NextRequest) {
-  // 웹훅 시크릿 검증
   const secret = request.headers.get('x-webhook-secret')
   if (secret !== process.env.WEBHOOK_SECRET) {
     return NextResponse.json({ error: '인증 실패' }, { status: 401 })
   }
 
   const supabase = createServiceClient()
+
+  // Phase 27-AP: 두 template의 활성/자동 스위치 조회. 꺼져 있으면 그 유형은 skip.
+  // 관리자가 알림 관리 페이지에서 auto_used 를 끄면 이 웹훅도 즉시 반영됨.
+  const { data: templatesData } = await supabase
+    .from('notification_templates')
+    .select('code, auto_used, is_active')
+    .in('code', ['예약당일알림', '예약1일전알림'])
+  const canSend: Record<string, boolean> = {}
+  for (const t of (templatesData ?? []) as Array<{ code: string; auto_used: boolean; is_active: boolean }>) {
+    canSend[t.code] = t.is_active && t.auto_used
+  }
+
   const todayKST = toKSTDateString(new Date())
   const tomorrowKST = addDays(todayKST, 1)
-
-  const results = { today: 0, tomorrow: 0, errors: 0 }
+  const results = { today: 0, tomorrow: 0, skipped_switch_off: 0, errors: 0 }
 
   // 배정완료 + 유효 상태인 신청서 조회 (오늘 + 내일)
   const { data: apps, error } = await supabase
@@ -107,7 +111,12 @@ export async function POST(request: NextRequest) {
 
     const isToday = app.construction_date === todayKST
     const notifyType = isToday ? '예약당일알림' : '예약1일전알림'
-    const time = calcRequestTime(app.business_hours_end) || (app.business_hours_start ?? '')
+
+    // Phase 27-AP: 관리자 스위치 게이트
+    if (!canSend[notifyType]) {
+      results.skipped_switch_off++
+      continue
+    }
 
     const existingLog: NotificationLogEntry[] = Array.isArray(app.notification_log)
       ? (app.notification_log as NotificationLogEntry[])
@@ -121,11 +130,23 @@ export async function POST(request: NextRequest) {
     if (alreadySent) continue
 
     try {
-      const message = isToday
-        ? `[BBK 공간케어] ${app.owner_name}님, 오늘 ${time}에 방문 예정입니다.\n준비사항을 확인해주세요. 문의: 031-759-4877`
-        : `[BBK 공간케어] ${app.owner_name}님, 내일 ${time}에 ${app.business_name} 방문 예정입니다.\n문의: 031-759-4877`
-
-      await sendSMS(phone, message)
+      // Phase 27-AP: 하드코딩 SMS → template body 로 전환.
+      // 관리자가 알림 관리 페이지에서 편집한 body 가 그대로 나감. 변수({{업체명}}, {{시공일자}}, {{영업종료시간}} 등) 자동 치환.
+      const context: NotificationContext = {
+        application: {
+          business_name: app.business_name,
+          owner_name: app.owner_name,
+          phone: app.phone,
+          construction_date: app.construction_date,
+          business_hours_start: app.business_hours_start,
+          business_hours_end: app.business_hours_end,
+        },
+      }
+      const send = await sendByTemplate(notifyType, phone, context)
+      if (!send.ok) {
+        results.errors++
+        continue
+      }
 
       const nowIso = new Date().toISOString()
       const entry: NotificationLogEntry = {
@@ -133,8 +154,8 @@ export async function POST(request: NextRequest) {
         sent_at: nowIso,
         phone,
         method: 'auto',
+        template_id: send.templateId,
       }
-
       await appendNotificationLog(supabase, app.id, existingLog, entry)
 
       await notifySlack({
@@ -157,6 +178,7 @@ export async function POST(request: NextRequest) {
     success: true,
     sent_today: results.today,
     sent_tomorrow: results.tomorrow,
+    skipped_switch_off: results.skipped_switch_off,
     errors: results.errors,
   })
 }
