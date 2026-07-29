@@ -294,16 +294,16 @@ export async function POST(request: NextRequest) {
     const supabase = createServiceClient()
 
     // 게이팅: (a) 레거시 카톡 템플릿 매핑에 있거나 (b) notification_templates에 code로 등록된 신규 템플릿이면 OK
+    // Phase 27-AR: linked_progress_status / linked_payment_status 도 함께 조회 → 발송 성공 시 customer 자동 갱신.
     const legacyTemplateId: string | null = ALIMTALK_TEMPLATES[type] ?? null
-    let hasDbTemplate = false
-    if (!legacyTemplateId) {
-      const { data: dbTpl } = await supabase
-        .from('notification_templates')
-        .select('id, is_active')
-        .eq('code', type)
-        .maybeSingle()
-      hasDbTemplate = !!dbTpl && dbTpl.is_active !== false
-    }
+    const { data: dbTpl } = await supabase
+      .from('notification_templates')
+      .select('id, is_active, linked_progress_status, linked_payment_status')
+      .eq('code', type)
+      .maybeSingle()
+    const hasDbTemplate = !!dbTpl && dbTpl.is_active !== false
+    const linkedProgress: string | null = (dbTpl?.linked_progress_status as string | null) ?? null
+    const linkedPayment: string | null = (dbTpl?.linked_payment_status as string | null) ?? null
     if (!legacyTemplateId && !hasDbTemplate) {
       return NextResponse.json({ error: `알 수 없는 알림 유형입니다: ${type}` }, { status: 400 })
     }
@@ -406,10 +406,14 @@ export async function POST(request: NextRequest) {
     }
     const updatedLog = [newEntry, ...existingLog]
 
-    // pipeline_status 자동 업데이트
+    // pipeline_status 자동 업데이트 + Phase 27-AR: template.linked_* 로 progress/payment 자동 세팅
     const dbUpdates: Record<string, unknown> = { notification_log: updatedLog }
     const newStatus = NOTIFY_PIPELINE_STATUS[type]
     if (newStatus) dbUpdates.pipeline_status = newStatus
+    // Phase 27-AR: 정기딥/정기엔드 세부화면의 진행상태·결제상태 필드 자동 갱신
+    // (하드코딩 매핑 없음 → 관리자가 관리 페이지에서 dropdown 으로 지정한 값 사용)
+    if (linkedProgress) dbUpdates.progress_status = linkedProgress
+    if (linkedPayment)  dbUpdates.payment_status_detail = linkedPayment
 
     await supabase
       .from('customers')
@@ -459,11 +463,14 @@ export async function POST(request: NextRequest) {
       fallbackText,
     ].join('\n')).catch(() => {})
 
+    // Phase 27-AR: 프론트 옵티미스틱 업데이트가 응답 값 그대로 반영하도록 확장
     return NextResponse.json({
       success: true,
       type,
       method,
       pipeline_status: newStatus ?? null,
+      new_progress_status: linkedProgress,
+      new_payment_status_detail: linkedPayment,
       notification_log: updatedLog,
     })
   } catch (e) {

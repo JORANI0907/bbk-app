@@ -1532,14 +1532,29 @@ export function CustomersManagementView({
       const log: NotifyLog = { type: notifyType, sentAt: nowIso, method: 'manual' }
       const dbEntry = { type: notifyType, sent_at: nowIso, method: 'manual' as const }
       setNotifyLogs(prev => [log, ...prev])
+      // Phase 27-AR: 응답의 linked_* 값으로 진행/결제 상태 옵티미스틱 업데이트
+      const nextProgress: string | null | undefined = data?.new_progress_status
+      const nextPayment: string | null | undefined = data?.new_payment_status_detail
       setSelected(prev => prev ? {
         ...prev,
         notification_log: [dbEntry, ...(prev.notification_log ?? [])],
+        ...(nextProgress ? { progress_status: nextProgress } : {}),
+        ...(nextPayment  ? { payment_status_detail: nextPayment } : {}),
       } : prev)
       setCustomers(prev => prev.map(c => c.id === selected.id ? {
         ...c,
         notification_log: [dbEntry, ...(c.notification_log ?? [])],
+        ...(nextProgress ? { progress_status: nextProgress } : {}),
+        ...(nextPayment  ? { payment_status_detail: nextPayment } : {}),
       } : c))
+      // 편집 폼도 즉시 반영 (사용자가 화면에서 갱신된 값을 바로 보게)
+      if (nextProgress || nextPayment) {
+        setForm(prev => ({
+          ...prev,
+          ...(nextProgress ? { progress_status: nextProgress } : {}),
+          ...(nextPayment  ? { payment_status_detail: nextPayment } : {}),
+        }))
+      }
       toast.success(`${notifyType} 발송 완료`)
       setNotifyType('')
     } catch (e) {
@@ -1561,14 +1576,28 @@ export function CustomersManagementView({
       const log: NotifyLog = { type: `[재발송] ${type}`, sentAt: nowIso, method: 'manual' }
       const dbEntry = { type, sent_at: nowIso, method: 'manual' as const }
       setNotifyLogs(prev => [log, ...prev])
+      // Phase 27-AR: 재발송 시에도 응답 linked_* 반영
+      const nextProgress: string | null | undefined = data?.new_progress_status
+      const nextPayment: string | null | undefined = data?.new_payment_status_detail
       setSelected(prev => prev ? {
         ...prev,
         notification_log: [dbEntry, ...(prev.notification_log ?? [])],
+        ...(nextProgress ? { progress_status: nextProgress } : {}),
+        ...(nextPayment  ? { payment_status_detail: nextPayment } : {}),
       } : prev)
       setCustomers(prev => prev.map(c => c.id === selected.id ? {
         ...c,
         notification_log: [dbEntry, ...(c.notification_log ?? [])],
+        ...(nextProgress ? { progress_status: nextProgress } : {}),
+        ...(nextPayment  ? { payment_status_detail: nextPayment } : {}),
       } : c))
+      if (nextProgress || nextPayment) {
+        setForm(prev => ({
+          ...prev,
+          ...(nextProgress ? { progress_status: nextProgress } : {}),
+          ...(nextPayment  ? { payment_status_detail: nextPayment } : {}),
+        }))
+      }
       toast.success(`${type} 재발송 완료`)
     } catch (e) {
       toast.error(e instanceof Error ? e.message : '재발송 실패')
