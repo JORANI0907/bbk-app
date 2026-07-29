@@ -147,6 +147,11 @@ export function CustomersCalendarGrid({ onSelectApp, filterTypes }: Props) {
       // 셀 클릭 시 customer_id 없으면 '서비스관리 탭에서 확인' 안내로 처리.
       const filteredApps = rawApps.filter(a => !!a.construction_date)
 
+      // Phase 27-AR: 신청서.assigned_to 가 NULL이라도 매칭된 customer.assigned_user_id 가 있으면
+      // 그 값을 fallback으로 채워서 유형 필터(assigned_to 필수) 로 인해 잡히지 않는 이슈 방지.
+      // customer 조회는 아래 병합용으로 어차피 실행되므로 재활용.
+      // 실제 병합 로직은 아래 mergedCustomers 처리와 함께 진행 → customerMap 은 아래에서 만든 뒤 filteredApps 를 수정.
+
       // 병합용 기존 키 세트 (business_name::YYYY-MM-DD)
       const existingKeys = new Set(
         filteredApps.map(a => `${a.business_name}::${a.construction_date!.slice(0, 10)}`),
@@ -154,6 +159,7 @@ export function CustomersCalendarGrid({ onSelectApp, filterTypes }: Props) {
 
       // customers 조회 — 신규 1회성 병합용 (custRes 실패해도 신청서 뷰는 정상 표시)
       let mergedCustomers: CalendarApp[] = []
+      let customerAssigneeMap = new Map<string, string>()   // customer_id → assigned_user_id
       if (custRes.ok) {
         const custBody = await custRes.json()
         type CustRow = {
@@ -165,6 +171,10 @@ export function CustomersCalendarGrid({ onSelectApp, filterTypes }: Props) {
           assigned_user_id: string | null
         }
         const custs = ((custBody.customers ?? []) as CustRow[])
+        // Phase 27-AR: customer_id → assigned_user_id 맵을 만들어 신청서의 assigned_to fallback 용으로 사용.
+        customerAssigneeMap = new Map(
+          custs.filter(c => !!c.assigned_user_id).map(c => [c.id, c.assigned_user_id!])
+        )
         const [y, m] = monthStr.split('-').map(Number)
         const monthStart = `${monthStr}-01`
         const nextMonth = m === 12 ? `${y + 1}-01-01` : `${monthStr.slice(0, 5)}${String(m + 1).padStart(2, '0')}-01`
@@ -190,7 +200,17 @@ export function CustomersCalendarGrid({ onSelectApp, filterTypes }: Props) {
           }))
       }
 
-      setApps([...filteredApps, ...mergedCustomers])
+      // Phase 27-AR: filteredApps 의 assigned_to 가 NULL 이지만 customer 에 담당자가 있으면 fallback 세팅.
+      // 유형 필터(assigned_to 필수) 로 인해 사라지는 이슈 방지.
+      const patchedApps = filteredApps.map(a => {
+        if (!a.assigned_to && a.customer_id) {
+          const fallback = customerAssigneeMap.get(a.customer_id)
+          if (fallback) return { ...a, assigned_to: fallback }
+        }
+        return a
+      })
+
+      setApps([...patchedApps, ...mergedCustomers])
     } catch (e) {
       toast.error(`캘린더 조회 실패: ${e instanceof Error ? e.message : String(e)}`)
     } finally {

@@ -357,6 +357,23 @@ export async function PATCH(request: NextRequest) {
     }
   }
 
+  // Phase 27-AR: 담당자(assigned_user_id) 변경을 linked application(1:1 또는 다건)의 assigned_to 로 자동 동기화.
+  // 이전에 캘린더뷰가 service_applications.assigned_to 를 기준으로 잡음 제거(assigned_to NULL 자동 배제)하는
+  // 로직 때문에, customers 만 담당자 지정하고 신청서엔 반영 안 되어 캘린더에서 사라지던 이슈 해결.
+  if ('assigned_user_id' in rest) {
+    try {
+      const targetUserId = (rest.assigned_user_id as string | null) || null
+      await supabase
+        .from('service_applications')
+        .update({ assigned_to: targetUserId })
+        .eq('customer_id', id)
+        .is('deleted_at', null)
+        .is('archived_at', null)
+    } catch (e) {
+      console.error('담당자 application 동기화 실패:', e instanceof Error ? e.message : e)
+    }
+  }
+
   // Phase 27-AG: 1회성·일반일정은 이번달 일정 섹션이 없어 시공일자를 세부화면 상단에서 직접 편집.
   // 이 경우 next_visit_date 변경을 linked application 의 construction_date 로 자동 동기화.
   const isOneShot = updatedCustomer.customer_type === '1회성케어' || updatedCustomer.customer_type === '일반일정'
