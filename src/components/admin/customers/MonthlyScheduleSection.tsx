@@ -94,12 +94,12 @@ export function MonthlyScheduleSection({ customerId, businessName, phone, users,
   }
 
   return (
-    <div className="border-2 border-cyan-200 rounded-xl p-3 bg-cyan-50/40">
+    <div className="border-2 border-brand-200 rounded-xl p-3 bg-brand-50/40">
       {/* Phase 22: 이번달 일정 섹션 — 파스텔 cyan 테두리+배경 (다른 섹션과 시각 구분) */}
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-2">
-          <Calendar size={14} className="text-cyan-700" />
-          <p className="text-xs font-semibold text-cyan-900 uppercase tracking-wide">
+          <Calendar size={14} className="text-brand-700" />
+          <p className="text-xs font-semibold text-brand-900 uppercase tracking-wide">
             이번달 일정
           </p>
         </div>

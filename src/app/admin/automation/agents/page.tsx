@@ -73,8 +73,8 @@ export default function AgentsPage() {
             <p className="text-xl font-bold text-green-700">{activeCount}개</p>
           </div>
           <div>
-            <p className="text-xs text-blue-600 font-medium">오늘 실행</p>
-            <p className="text-xl font-bold text-blue-700">{todayTotal}회</p>
+            <p className="text-xs text-brand-600 font-medium">오늘 실행</p>
+            <p className="text-xl font-bold text-brand-700">{todayTotal}회</p>
           </div>
         </div>
       </div>

@@ -273,7 +273,7 @@ export default function UnitPriceSettings({ month }: { month: string }) {
               className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
                 typeFilter === key
                   ? 'bg-brand-600 text-white'
-                  : 'bg-surface border border-border text-text-secondary hover:border-blue-400'
+                  : 'bg-surface border border-border text-text-secondary hover:border-brand-400'
               }`}
             >
               {label}
@@ -289,7 +289,7 @@ export default function UnitPriceSettings({ month }: { month: string }) {
           value={search}
           onChange={e => setSearch(e.target.value)}
           placeholder="업체명 검색..."
-          className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
         />
       </div>
 
@@ -307,7 +307,7 @@ export default function UnitPriceSettings({ month }: { month: string }) {
         <button
           onClick={handleCarryBaseToMonth}
           disabled={groups.length === 0 || savingAll}
-          className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-md text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200 hover:bg-indigo-100 transition-colors disabled:opacity-50"
+          className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-md text-xs font-semibold bg-brand-50 text-brand-700 border border-brand-200 hover:bg-brand-100 transition-colors disabled:opacity-50"
           title="기본단가 값을 이번달 단가 칸에 복사 (DB 저장 아님, 로컬 복사만)"
         >
           <ArrowDownToLine size={14} />
@@ -316,7 +316,7 @@ export default function UnitPriceSettings({ month }: { month: string }) {
         <button
           onClick={handleSaveMonth}
           disabled={!hasMonthChanges || savingAll}
-          className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-md text-xs font-semibold bg-blue-600 text-white hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-md text-xs font-semibold bg-brand-600 text-white hover:bg-brand-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           title="오른쪽 이번달 단가만 저장 (해당 월 급여정산에 적용)"
         >
           <Save size={14} />
@@ -346,7 +346,7 @@ export default function UnitPriceSettings({ month }: { month: string }) {
                     <span className="text-xs bg-orange-50 text-orange-500 px-2 py-0.5 rounded-full">이달 설정</span>
                   )}
                   {(baseChanged || monthChanged) && (
-                    <span className="text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full">변경됨</span>
+                    <span className="text-xs bg-brand-50 text-brand-600 px-2 py-0.5 rounded-full">변경됨</span>
                   )}
                 </div>
 
@@ -359,8 +359,8 @@ export default function UnitPriceSettings({ month }: { month: string }) {
                       value={getBasePrice(group)}
                       onChange={e => setBaseEdits(prev => ({ ...prev, [group.business_name]: e.target.value }))}
                       placeholder="0"
-                      className={`w-full px-2 py-1.5 border rounded-md text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                        baseChanged ? 'border-blue-400 bg-blue-50' : 'border-border'
+                      className={`w-full px-2 py-1.5 border rounded-md text-xs focus:outline-none focus:ring-2 focus:ring-brand-500 ${
+                        baseChanged ? 'border-brand-400 bg-brand-50' : 'border-border'
                       }`}
                     />
                   </div>
@@ -371,8 +371,8 @@ export default function UnitPriceSettings({ month }: { month: string }) {
                       value={getMonthPrice(group)}
                       onChange={e => setMonthEdits(prev => ({ ...prev, [group.business_name]: e.target.value }))}
                       placeholder="기본 단가 사용"
-                      className={`w-full px-2 py-1.5 border rounded-md text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                        monthChanged ? 'border-blue-400 bg-blue-50' : 'border-border'
+                      className={`w-full px-2 py-1.5 border rounded-md text-xs focus:outline-none focus:ring-2 focus:ring-brand-500 ${
+                        monthChanged ? 'border-brand-400 bg-brand-50' : 'border-border'
                       }`}
                     />
                   </div>

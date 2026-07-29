@@ -238,7 +238,7 @@ export default function PayrollPage() {
                 <button
                   onClick={() => setShowExport(true)}
                   title="급여 지급 현황 저장"
-                  className="flex items-center gap-1 px-2 py-1.5 text-xs font-medium bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition"
+                  className="btn-toss-primary flex items-center gap-1 px-2 py-1.5 text-xs font-medium bg-brand-600 hover:bg-brand-700 text-white rounded-lg"
                 >
                   <BarChart2 size={13} />
                   <span className="hidden sm:inline">현황 저장</span>
@@ -246,7 +246,7 @@ export default function PayrollPage() {
                 <button
                   onClick={handleOpenPayslip}
                   title="선택 인원 급여명세서 발행"
-                  className="flex items-center gap-1 px-2 py-1.5 text-xs font-medium bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition disabled:opacity-50"
+                  className="btn-toss-primary flex items-center gap-1 px-2 py-1.5 text-xs font-medium bg-brand-600 hover:bg-brand-700 text-white rounded-lg disabled:opacity-50"
                   disabled={selectedCount === 0}
                 >
                   <FileText size={13} />
@@ -311,7 +311,7 @@ export default function PayrollPage() {
                 </button>
               )}
               {selectedCount > 0 && (
-                <span className="ml-2 text-xs font-semibold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full">
+                <span className="ml-2 text-xs font-semibold text-brand-600 bg-brand-50 px-2 py-0.5 rounded-full">
                   {selectedCount}명 선택
                 </span>
               )}

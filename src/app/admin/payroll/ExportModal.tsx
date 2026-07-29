@@ -126,7 +126,7 @@ export default function ExportModal({
         <p className="text-xs text-text-tertiary mb-4">
           <span className="font-semibold text-brand-600">{displayMonth}</span> 급여 지급 현황을 엑셀로 내보냅니다.
           {selectedPersons && selectedPersons.length > 0 && (
-            <span className="ml-1 font-semibold text-indigo-600">
+            <span className="ml-1 font-semibold text-brand-600">
               (선택 {selectedPersons.length}명만)
             </span>
           )}
@@ -185,7 +185,7 @@ export default function ExportModal({
           <Button
             onClick={handleExport}
             disabled={exporting || folderLoading}
-            className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white disabled:opacity-60"
+            className="flex-1 py-2.5 bg-brand-600 hover:bg-brand-700 text-white disabled:opacity-60"
           >
             {exporting ? '처리 중...' : folder ? <><Upload size={14} className="inline mr-1" />Drive에 저장</> : <><Download size={14} className="inline mr-1" />다운로드</>}
           </Button>

@@ -169,7 +169,7 @@ export function PaymentIssuesSummary({
             )}
             {invoicePendingLabels.length > 0 && (
               <div
-                className="text-[11px] text-blue-700 truncate"
+                className="text-[11px] text-brand-700 truncate"
                 title={invoicePendingLabels.join(', ')}
               >
                 <FileText size={10} className="inline mr-0.5" />
@@ -222,7 +222,7 @@ export function PaymentIssuesSummary({
         )}
         {invoicePendingLabels.length > 0 && (
           <div>
-            <p className="text-[11px] font-semibold text-blue-700 flex items-center gap-1">
+            <p className="text-[11px] font-semibold text-brand-700 flex items-center gap-1">
               <FileText size={11} /> 계산서 대기 · {invoicePendingLabels.length}건
             </p>
             <p className="text-[11px] text-text-secondary mt-0.5 leading-relaxed">

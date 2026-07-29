@@ -171,7 +171,7 @@ export default function RegisterForm({
                 onFocus={() => setShowCustomerDropdown(true)}
                 onBlur={() => setTimeout(() => setShowCustomerDropdown(false), 150)}
                 placeholder="예: 스타벅스, 홍길동, 01012345678"
-                className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-surface"
+                className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 bg-surface"
               />
               {showCustomerDropdown && (
                 <div className="absolute z-20 mt-1 w-full bg-surface border border-border rounded-lg shadow-pop max-h-56 overflow-y-auto">
@@ -240,7 +240,7 @@ export default function RegisterForm({
                 onFocus={() => setShowFranchiseDropdown(true)}
                 onBlur={() => setTimeout(() => setShowFranchiseDropdown(false), 150)}
                 placeholder="예: 깔끔치킨, 홍길동"
-                className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-surface"
+                className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 bg-surface"
               />
               {showFranchiseDropdown && (
                 <div className="absolute z-20 mt-1 w-full bg-surface border border-border rounded-lg shadow-pop max-h-56 overflow-y-auto">
@@ -309,7 +309,7 @@ export default function RegisterForm({
                   value={form.phone}
                   onChange={e => setForm(prev => ({ ...prev, phone: normalizePhone(e.target.value) }))}
                   placeholder="01012345678"
-                  className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-surface"
+                  className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 bg-surface"
                 />
               </div>
             )}
@@ -330,7 +330,7 @@ export default function RegisterForm({
                 onFocus={() => setShowWorkerDropdown(true)}
                 onBlur={() => setTimeout(() => setShowWorkerDropdown(false), 150)}
                 placeholder="예: 홍길동, 01012345678"
-                className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-surface"
+                className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 bg-surface"
               />
               {showWorkerDropdown && (
                 <div className="absolute z-20 mt-1 w-full bg-surface border border-border rounded-lg shadow-pop max-h-56 overflow-y-auto">

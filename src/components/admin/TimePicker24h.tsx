@@ -66,7 +66,7 @@ export function TimePicker24h({ value, onChange, placeholder = '시간 선택', 
       <button
         type="button"
         onClick={handleOpen}
-        className={`border border-border rounded-lg px-3 py-1.5 text-xs text-left focus:outline-none focus:ring-2 focus:ring-blue-400 ${
+        className={`border border-border rounded-lg px-3 py-1.5 text-xs text-left focus:outline-none focus:ring-2 focus:ring-brand-400 ${
           value ? 'text-text-primary' : 'text-text-tertiary'
         } ${className}`}
       >

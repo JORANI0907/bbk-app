@@ -65,26 +65,26 @@ export function CustomerAccountLink({
   const isLinked = !!accountUserId
 
   return (
-    <div className="rounded-lg border border-indigo-200 bg-gradient-to-br from-indigo-50 to-violet-50 p-3 flex flex-col gap-2">
+    <div className="rounded-lg border border-brand-200 bg-brand-50 p-3 flex flex-col gap-2">
       <div className="flex items-center gap-2">
-        <Users size={14} className="text-indigo-600 shrink-0" />
-        <span className="text-xs font-semibold text-indigo-900">고객 계정</span>
+        <Users size={14} className="text-brand-600 shrink-0" />
+        <span className="text-xs font-semibold text-brand-900">고객 계정</span>
         {/* 통합 UI 노출 시에만 도움말 물음표 표시 */}
         {showMerger && (
           <span
-            className="inline-flex items-center justify-center w-4 h-4 rounded-full border border-indigo-300 text-[10px] text-indigo-500 cursor-help bg-white/60"
+            className="inline-flex items-center justify-center w-4 h-4 rounded-full border border-brand-300 text-[10px] text-brand-500 cursor-help bg-white/60"
             title="같은 사업장이 다른 유형의 정기 계약도 이용 중이라면, 이 계약을 그 계정에 통합해 한 로그인으로 함께 보이게 할 수 있습니다."
           >?</span>
         )}
         {isLinked && showMerger && (
-          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-indigo-600 text-white font-semibold">
+          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-brand-600 text-white font-semibold">
             통합됨
           </span>
         )}
       </div>
 
       {/* Phase 22 v3: 포털 계정 표시 — 생성완료 시 실제 계정 정보(이름·전화) 노출 (계정관리에서 수정 시 자동 반영) */}
-      <div className="flex items-center gap-1.5 rounded-md border border-indigo-200 bg-white/70 px-2.5 py-1">
+      <div className="flex items-center gap-1.5 rounded-md border border-brand-200 bg-white/70 px-2.5 py-1">
         <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${ownerAccountLabel ? 'bg-green-500' : 'bg-gray-400'}`} />
         {ownerAccountLabel ? (
           <span className="text-xs font-medium text-text-primary truncate">{ownerAccountLabel}</span>
@@ -97,9 +97,9 @@ export function CustomerAccountLink({
       {showMerger && (isLinked ? (
         <>
           {linkedLabel ? (
-            <div className="flex items-center gap-1.5 rounded-md border border-indigo-200 bg-white px-2.5 py-1.5">
-              <Link2 size={12} className="text-indigo-600 shrink-0" />
-              <span className="text-xs font-semibold text-indigo-700 truncate">{linkedLabel}</span>
+            <div className="flex items-center gap-1.5 rounded-md border border-brand-200 bg-white px-2.5 py-1.5">
+              <Link2 size={12} className="text-brand-600 shrink-0" />
+              <span className="text-xs font-semibold text-brand-700 truncate">{linkedLabel}</span>
             </div>
           ) : (
             <p className="text-[11px] text-text-secondary leading-normal">
@@ -110,7 +110,7 @@ export function CustomerAccountLink({
             type="button"
             onClick={() => apply(null)}
             disabled={submitting}
-            className="inline-flex items-center justify-center gap-1 text-[11px] font-semibold px-2.5 py-1.5 rounded-md border border-indigo-300 bg-white text-indigo-700 hover:bg-indigo-100 disabled:opacity-50"
+            className="inline-flex items-center justify-center gap-1 text-[11px] font-semibold px-2.5 py-1.5 rounded-md border border-brand-300 bg-white text-brand-700 hover:bg-brand-100 disabled:opacity-50"
           >
             <Link2Off size={12} />
             통합 해제

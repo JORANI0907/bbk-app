@@ -11,7 +11,7 @@ const EMP_BADGE: Record<string, string> = {
 }
 
 const SKILL_BADGE: Record<string, string> = {
-  '상': 'bg-blue-100 text-blue-700',
+  '상': 'bg-brand-100 text-brand-700',
   '중': 'bg-green-100 text-green-700',
   '하': 'bg-yellow-100 text-yellow-700',
 }
@@ -99,7 +99,7 @@ export default function WorkerList({
           {canAdd && (
             <button
               onClick={() => onShowAddForm(!showAddForm)}
-              className="text-xs bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 rounded-lg transition-colors"
+              className="text-xs bg-brand-600 hover:bg-brand-700 text-white px-2 py-1 rounded-lg transition-colors"
             >
               + 직원 추가
             </button>
@@ -111,7 +111,7 @@ export default function WorkerList({
           value={search}
           onChange={e => onSearchChange(e.target.value)}
           placeholder="이름, 연락처 검색"
-          className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-xs mb-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-xs mb-2 focus:outline-none focus:ring-2 focus:ring-brand-500"
         />
 
         {/* Filters */}
@@ -119,7 +119,7 @@ export default function WorkerList({
           <select
             value={filterType}
             onChange={e => onFilterTypeChange(e.target.value)}
-            className="flex-1 border border-gray-200 rounded-lg px-1.5 py-1 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="flex-1 border border-gray-200 rounded-lg px-1.5 py-1 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-brand-500"
           >
             <option value="">고용형태</option>
             <option>정직원</option>
@@ -129,7 +129,7 @@ export default function WorkerList({
           <select
             value={filterSkill}
             onChange={e => onFilterSkillChange(e.target.value)}
-            className="flex-1 border border-gray-200 rounded-lg px-1.5 py-1 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="flex-1 border border-gray-200 rounded-lg px-1.5 py-1 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-brand-500"
           >
             <option value="">능력</option>
             <option>상</option>
@@ -141,25 +141,25 @@ export default function WorkerList({
           value={filterSpecialty}
           onChange={e => onFilterSpecialtyChange(e.target.value)}
           placeholder="특화작업 검색"
-          className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-brand-500"
         />
       </div>
 
       {/* Add form (inline) — 관리자 전용 */}
       {canAdd && showAddForm && (
-        <div className="p-3 bg-blue-50 border-b border-blue-100">
-          <p className="text-xs font-semibold text-blue-700 mb-2">새 직원 추가</p>
+        <div className="p-3 bg-brand-50 border-b border-brand-100">
+          <p className="text-xs font-semibold text-brand-700 mb-2">새 직원 추가</p>
           <div className="flex flex-col gap-1.5">
             <input
               value={addForm.name}
               onChange={e => setAddForm(prev => ({ ...prev, name: e.target.value }))}
               placeholder="이름 *"
-              className="border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-brand-500"
             />
             <select
               value={addForm.employment_type}
               onChange={e => setAddForm(prev => ({ ...prev, employment_type: e.target.value }))}
-              className="border border-gray-200 rounded-lg px-2 py-1.5 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="border border-gray-200 rounded-lg px-2 py-1.5 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-brand-500"
             >
               <option>정직원</option>
               <option>인턴</option>
@@ -169,13 +169,13 @@ export default function WorkerList({
               value={addForm.phone}
               onChange={e => setAddForm(prev => ({ ...prev, phone: e.target.value }))}
               placeholder="연락처"
-              className="border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-brand-500"
             />
             <div className="flex gap-1.5">
               <button
                 onClick={handleAdd}
                 disabled={saving}
-                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white text-xs py-1.5 rounded-lg disabled:opacity-50 transition-colors"
+                className="flex-1 bg-brand-600 hover:bg-brand-700 text-white text-xs py-1.5 rounded-lg disabled:opacity-50 transition-colors"
               >
                 {saving ? '추가 중...' : '추가'}
               </button>
@@ -202,7 +202,7 @@ export default function WorkerList({
               key={worker.id}
               onClick={() => onSelectWorker(worker)}
               className={`w-full text-left p-3 border-b border-gray-50 hover:bg-gray-50 transition-colors ${
-                selectedId === worker.id ? 'bg-blue-50 border-l-2 border-l-blue-600' : ''
+                selectedId === worker.id ? 'bg-brand-50 border-l-2 border-l-blue-600' : ''
               }`}
             >
               <div className="flex items-center gap-2.5">

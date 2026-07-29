@@ -23,7 +23,7 @@ interface Props {
 
 const CATEGORY_LABEL: Record<string, string> = { fixed: '고정비', variable: '변동비' }
 const CATEGORY_COLOR: Record<string, string> = {
-  fixed: 'bg-indigo-100 text-indigo-700',
+  fixed: 'bg-brand-100 text-brand-700',
   variable: 'bg-purple-100 text-purple-700',
 }
 

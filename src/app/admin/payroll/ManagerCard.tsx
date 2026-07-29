@@ -195,7 +195,7 @@ export default function ManagerCard({
               )}
               {payslips.length > 0 && (
                 <span
-                  className="text-xs px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200 flex items-center gap-0.5"
+                  className="text-xs px-2 py-0.5 rounded-full bg-brand-50 text-brand-700 border border-brand-200 flex items-center gap-0.5"
                   title="발행된 급여명세서"
                 >
                   <FileText size={11} />
@@ -257,14 +257,14 @@ export default function ManagerCard({
               value={finalInput}
               onChange={e => setFinalInput(e.target.value)}
               placeholder={`최종 지급액 (${entry.auto_amount.toLocaleString('ko-KR')})`}
-              className="flex-1 min-w-0 px-2 py-1.5 border border-border rounded-md text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="flex-1 min-w-0 px-2 py-1.5 border border-border rounded-md text-xs focus:outline-none focus:ring-2 focus:ring-brand-500"
             />
             <input
               type="text"
               value={noteInput}
               onChange={e => setNoteInput(e.target.value)}
               placeholder="메모"
-              className="flex-1 min-w-0 px-2 py-1.5 border border-border rounded-md text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="flex-1 min-w-0 px-2 py-1.5 border border-border rounded-md text-xs focus:outline-none focus:ring-2 focus:ring-brand-500"
             />
           </div>
 
@@ -272,7 +272,7 @@ export default function ManagerCard({
             <button
               onClick={handleSave}
               disabled={saving}
-              className="flex-1 py-1.5 text-xs font-semibold rounded-md bg-blue-600 text-white hover:bg-blue-700 transition-colors disabled:opacity-60"
+              className="flex-1 py-1.5 text-xs font-semibold rounded-md bg-brand-600 text-white hover:bg-brand-700 transition-colors disabled:opacity-60"
             >
               {saving ? '저장 중...' : '저장'}
             </button>
@@ -337,7 +337,7 @@ export default function ManagerCard({
                                     type="number"
                                     value={editVal}
                                     onChange={e => setJobPayEdits(prev => ({ ...prev, [job.id]: e.target.value }))}
-                                    className="w-20 px-1.5 py-0.5 border border-blue-300 rounded text-[11px] focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                    className="w-20 px-1.5 py-0.5 border border-brand-300 rounded text-[11px] focus:outline-none focus:ring-1 focus:ring-brand-500"
                                     placeholder="금액"
                                     autoFocus
                                   />

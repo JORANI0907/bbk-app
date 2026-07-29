@@ -225,7 +225,7 @@ function CameraCapture({ onCapture, onCancel }: CameraProps) {
               취소
             </button>
             <button onClick={capture}
-              className="flex-1 py-4 bg-blue-600 text-white rounded-2xl text-sm font-semibold">
+              className="btn-toss-primary flex-1 py-4 bg-brand-600 text-white rounded-2xl text-sm font-semibold">
               촬영
             </button>
           </>
@@ -236,7 +236,7 @@ function CameraCapture({ onCapture, onCancel }: CameraProps) {
               다시 촬영
             </button>
             <button onClick={confirm}
-              className="flex-1 py-4 bg-blue-600 text-white rounded-2xl text-sm font-semibold">
+              className="btn-toss-primary flex-1 py-4 bg-brand-600 text-white rounded-2xl text-sm font-semibold">
               사용
             </button>
           </>
@@ -638,7 +638,7 @@ function WorkerClockView({ workerInfo }: WorkerClockViewProps) {
           value={selectedDate}
           max={kstToday}
           onChange={(e) => { setSelectedDate(e.target.value); setPhase('idle') }}
-          className="w-full px-3 py-2.5 border border-border rounded-xl text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="w-full px-3 py-2.5 border border-border rounded-xl text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-brand-500"
         />
         <p className="text-xs text-text-tertiary mt-1.5">
           야간 근무(22시~익일 06시)의 경우 실제 출근한 날짜를 선택해 주세요
@@ -652,7 +652,7 @@ function WorkerClockView({ workerInfo }: WorkerClockViewProps) {
           <p className="text-sm text-text-secondary text-center">출근 기록이 없습니다.<br />출근 버튼을 눌러 출근하세요.</p>
           <button
             onClick={() => startFlow('clock_in')}
-            className="w-full py-4 bg-brand-600 text-white rounded-2xl text-base font-bold active:scale-95 transition-all shadow-lg shadow-blue-100"
+            className="btn-toss-primary w-full py-4 bg-brand-600 text-white rounded-2xl text-base font-bold"
           >
             <span className="inline-block w-2 h-2 rounded-full bg-green-500 mr-1" />출근하기
           </button>
@@ -931,7 +931,7 @@ function AdminTableView() {
         <select
           value={selectedWorkerId}
           onChange={e => setSelectedWorkerId(e.target.value)}
-          className="border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ml-auto"
+          className="border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 ml-auto"
         >
           <option value="">전체 직원</option>
           {workers.map(w => (
@@ -1055,7 +1055,7 @@ function AdminTableView() {
                               value={noteValue}
                               onChange={e => setNoteValue(e.target.value)}
                               onKeyDown={e => { if (e.key === 'Enter') saveNote(rec.id) }}
-                              className="border border-border rounded-lg px-2 py-1 text-xs flex-1 focus:outline-none focus:ring-1 focus:ring-blue-400"
+                              className="border border-border rounded-lg px-2 py-1 text-xs flex-1 focus:outline-none focus:ring-1 focus:ring-brand-400"
                               placeholder="메모 입력"
                               autoFocus
                             />

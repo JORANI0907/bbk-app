@@ -66,7 +66,7 @@ const TABS: Array<{ key: TabKey; label: string; filter: (t: Template) => boolean
 const CATEGORY_COLORS: Record<string, string> = {
   '예약': 'bg-brand-100 text-brand-700',
   '결제': 'bg-emerald-100 text-emerald-700',
-  '작업': 'bg-blue-100 text-blue-700',
+  '작업': 'bg-brand-100 text-brand-700',
   'A/S': 'bg-violet-100 text-violet-700',
   '계정': 'bg-amber-100 text-amber-700',
 }

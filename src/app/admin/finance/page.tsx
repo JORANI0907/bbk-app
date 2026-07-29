@@ -376,8 +376,8 @@ export default function FinanceDashboardPage() {
 // ─── 카드 컴포넌트 ──────────────────────────────────────
 
 const KPI_COLOR: Record<string, { bg: string; icon: string; border: string }> = {
-  blue: { bg: 'bg-blue-50', icon: 'text-blue-600', border: 'border-blue-100' },
-  indigo: { bg: 'bg-indigo-50', icon: 'text-indigo-600', border: 'border-indigo-100' },
+  blue: { bg: 'bg-brand-50', icon: 'text-brand-600', border: 'border-brand-100' },
+  indigo: { bg: 'bg-brand-50', icon: 'text-brand-600', border: 'border-brand-100' },
   amber: { bg: 'bg-amber-50', icon: 'text-amber-600', border: 'border-amber-100' },
   emerald: { bg: 'bg-emerald-50', icon: 'text-emerald-600', border: 'border-emerald-100' },
   green: { bg: 'bg-green-50', icon: 'text-green-600', border: 'border-green-100' },

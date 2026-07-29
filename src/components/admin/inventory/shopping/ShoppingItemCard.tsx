@@ -61,12 +61,12 @@ export function ShoppingItemCard({ item, knownCategories, onUpdated, onDeleted }
 
   if (editing) {
     return (
-      <div className="bg-white border-2 border-blue-300 rounded-xl p-3.5 shadow-sm flex flex-col gap-2">
+      <div className="bg-white border-2 border-brand-300 rounded-xl p-3.5 shadow-sm flex flex-col gap-2">
         <input
           autoFocus
           value={draft.title}
           onChange={e => setDraft({ ...draft, title: e.target.value })}
-          className="px-2.5 py-1.5 text-sm font-semibold border border-gray-200 rounded-lg outline-none focus:border-blue-400"
+          className="px-2.5 py-1.5 text-sm font-semibold border border-gray-200 rounded-lg outline-none focus:border-brand-400"
         />
         <div className="flex flex-wrap gap-1.5">
           {categories.map(c => (
@@ -74,7 +74,7 @@ export function ShoppingItemCard({ item, knownCategories, onUpdated, onDeleted }
               key={c}
               onClick={() => setDraft({ ...draft, category: draft.category === c ? '' : c })}
               className={`px-2 py-0.5 rounded-full text-[10px] border ${
-                draft.category === c ? 'bg-blue-500 text-white border-blue-500' : 'bg-white text-gray-600 border-gray-200'
+                draft.category === c ? 'bg-brand-500 text-white border-brand-500' : 'bg-white text-gray-600 border-gray-200'
               }`}
             >
               {c}
@@ -141,7 +141,7 @@ export function ShoppingItemCard({ item, knownCategories, onUpdated, onDeleted }
           <button
             onClick={handleSave}
             disabled={saving || !draft.title.trim()}
-            className="px-2.5 py-1 text-[11px] rounded-lg bg-blue-500 text-white font-semibold hover:bg-blue-600 disabled:opacity-50 flex items-center gap-1"
+            className="px-2.5 py-1 text-[11px] rounded-lg bg-brand-500 text-white font-semibold hover:bg-brand-600 disabled:opacity-50 flex items-center gap-1"
           >
             {saving ? <Loader2 size={10} className="animate-spin" /> : <Check size={10} />} 저장
           </button>
@@ -153,7 +153,7 @@ export function ShoppingItemCard({ item, knownCategories, onUpdated, onDeleted }
   return (
     <div
       className={`bg-white border rounded-xl p-3 shadow-sm transition-all flex items-start gap-2.5 ${
-        isPurchased ? 'opacity-60 border-gray-200' : 'border-gray-200 hover:border-blue-200'
+        isPurchased ? 'opacity-60 border-gray-200' : 'border-gray-200 hover:border-brand-200'
       }`}
     >
       {/* 체크박스 */}
@@ -163,7 +163,7 @@ export function ShoppingItemCard({ item, knownCategories, onUpdated, onDeleted }
         className={`mt-0.5 w-5 h-5 rounded-md border-2 flex items-center justify-center shrink-0 transition-colors ${
           isPurchased
             ? 'bg-green-500 border-green-500 text-white'
-            : 'bg-white border-gray-300 hover:border-blue-400'
+            : 'bg-white border-gray-300 hover:border-brand-400'
         }`}
       >
         {toggling ? <Loader2 size={10} className="animate-spin" /> : isPurchased && <Check size={12} strokeWidth={3} />}
@@ -194,7 +194,7 @@ export function ShoppingItemCard({ item, knownCategories, onUpdated, onDeleted }
         </div>
         {item.url && (
           <div className="mt-0.5">
-            <Link href={item.url} target="_blank" rel="noopener" className="text-[11px] text-blue-500 hover:underline inline-flex items-center gap-0.5">
+            <Link href={item.url} target="_blank" rel="noopener" className="text-[11px] text-brand-500 hover:underline inline-flex items-center gap-0.5">
               <ExternalLink size={9} /> 링크
             </Link>
           </div>

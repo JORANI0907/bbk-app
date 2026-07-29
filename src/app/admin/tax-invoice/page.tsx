@@ -536,7 +536,7 @@ export default function TaxInvoiceDashboardPage() {
                 <th className="w-16 py-2.5" />
               </tr>
             </thead>
-            <tbody className="divide-y divide-border-subtle">
+            <tbody className="anim-stagger-fast divide-y divide-border-subtle">
               {loading ? (
                 <tr><td colSpan={12} className="py-16 text-center text-sm text-text-tertiary">로딩 중…</td></tr>
               ) : filteredCandidates.length === 0 ? (

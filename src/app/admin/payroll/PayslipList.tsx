@@ -98,10 +98,10 @@ export default function PayslipList({
   }
 
   return (
-    <div className="border-t border-border-subtle bg-indigo-50/30">
+    <div className="border-t border-border-subtle bg-brand-50/30">
       <div className="px-3 py-1.5 flex items-center gap-1.5 border-b border-border-subtle">
-        <FileText size={11} className="text-indigo-600" />
-        <span className="text-[11px] font-semibold text-indigo-700">
+        <FileText size={11} className="text-brand-600" />
+        <span className="text-[11px] font-semibold text-brand-700">
           발행된 급여명세서 · {payslips.length}건
         </span>
       </div>
@@ -152,7 +152,7 @@ export default function PayslipList({
                 className={`p-1.5 rounded-md disabled:opacity-40 ${
                   p.is_sent
                     ? 'text-emerald-600 hover:bg-emerald-50'
-                    : 'text-indigo-600 hover:bg-indigo-50'
+                    : 'text-brand-600 hover:bg-brand-50'
                 }`}
               >
                 <Send size={12} />

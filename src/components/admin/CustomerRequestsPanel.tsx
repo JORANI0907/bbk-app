@@ -66,7 +66,7 @@ export function CustomerRequestsPanel({ customerId }: Props) {
         <button
           onClick={() => setTab('requests')}
           className={`flex-1 text-xs font-medium py-2 rounded-lg transition-colors ${
-            tab === 'requests' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600'
+            tab === 'requests' ? 'bg-brand-600 text-white' : 'bg-gray-100 text-gray-600'
           }`}
         >
           요청사항 이력 {requests.length > 0 && `(${requests.length})`}
@@ -74,7 +74,7 @@ export function CustomerRequestsPanel({ customerId }: Props) {
         <button
           onClick={() => setTab('memos')}
           className={`flex-1 text-xs font-medium py-2 rounded-lg transition-colors ${
-            tab === 'memos' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600'
+            tab === 'memos' ? 'bg-brand-600 text-white' : 'bg-gray-100 text-gray-600'
           }`}
         >
           담당자 메모 관리
@@ -114,7 +114,7 @@ export function CustomerRequestsPanel({ customerId }: Props) {
                     disabled={toggling === s.id}
                     className={`shrink-0 text-xs font-medium px-2.5 py-1 rounded-lg transition-colors ${
                       s.memo_visible
-                        ? 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+                        ? 'bg-brand-100 text-brand-700 hover:bg-brand-200'
                         : 'bg-gray-200 text-gray-500 hover:bg-gray-300'
                     }`}
                   >

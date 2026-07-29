@@ -304,8 +304,8 @@ export function BillingHistoryPanel({
   const missingCount = allPeriods.filter(p => !existingPeriodSet.has(p.billing_period)).length
 
   const typeLabel = isAnnual ? '연간 결제 이력' : '월간 청구 이력'
-  const headerBg = isAnnual ? 'bg-blue-50 border-blue-100' : 'bg-purple-50 border-purple-100'
-  const addBtnColor = isAnnual ? 'bg-blue-600 hover:bg-blue-700' : 'bg-purple-600 hover:bg-purple-700'
+  const headerBg = isAnnual ? 'bg-brand-50 border-brand-100' : 'bg-purple-50 border-purple-100'
+  const addBtnColor = isAnnual ? 'bg-brand-600 hover:bg-brand-700' : 'bg-purple-600 hover:bg-purple-700'
   const periodPlaceholder = isAnnual ? '예: 2026' : '예: 2026-04'
   const periodHint = isAnnual ? '연도 (예: 2026)' : '연-월 (예: 2026-04)'
 
@@ -370,14 +370,14 @@ export function BillingHistoryPanel({
               <input
                 type="text" value={newPeriod} onChange={e => setNewPeriod(e.target.value)}
                 placeholder={periodPlaceholder}
-                className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-400"
+                className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-brand-400"
               />
             </div>
             <div>
               <label className="text-xs text-gray-500 mb-0.5 block">결제 예정일</label>
               <input
                 type="date" value={newDueDate} onChange={e => setNewDueDate(e.target.value)}
-                className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-400"
+                className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-brand-400"
               />
             </div>
           </div>
@@ -386,7 +386,7 @@ export function BillingHistoryPanel({
             <input
               type="number" value={newAmount} onChange={e => setNewAmount(e.target.value)}
               placeholder="0"
-              className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-400"
+              className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-brand-400"
             />
           </div>
           <div>
@@ -394,7 +394,7 @@ export function BillingHistoryPanel({
             <input
               type="text" value={newNotes} onChange={e => setNewNotes(e.target.value)}
               placeholder="특이사항 입력"
-              className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-400"
+              className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-brand-400"
             />
           </div>
           <div className="flex gap-2">
@@ -433,7 +433,7 @@ export function BillingHistoryPanel({
                     {STATUS_STYLE[b.status].label}
                   </span>
                   {b.tax_invoice_issued && (
-                    <span className="text-xs px-1.5 py-0.5 rounded-full font-medium bg-blue-100 text-blue-700">
+                    <span className="text-xs px-1.5 py-0.5 rounded-full font-medium bg-brand-100 text-brand-700">
                       계산서완료
                     </span>
                   )}
@@ -445,7 +445,7 @@ export function BillingHistoryPanel({
                 <span>예정: {fmtDate(b.due_date)}</span>
                 {b.paid_date && <span className="text-emerald-600">완료: {fmtDate(b.paid_date)}</span>}
                 {b.tax_invoice_issued_date && (
-                  <span className="text-blue-600">계산서: {fmtDate(b.tax_invoice_issued_date)}</span>
+                  <span className="text-brand-600">계산서: {fmtDate(b.tax_invoice_issued_date)}</span>
                 )}
               </div>
 
@@ -487,8 +487,8 @@ export function BillingHistoryPanel({
                         onClick={() => handleToggleTaxInvoice(b)}
                         className={`flex-1 py-1 text-xs font-medium rounded-lg border transition-colors ${
                           b.tax_invoice_issued
-                            ? 'bg-blue-100 text-blue-700 border-blue-300 hover:bg-blue-200'
-                            : 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100'
+                            ? 'bg-brand-100 text-brand-700 border-brand-300 hover:bg-brand-200'
+                            : 'bg-brand-50 text-brand-700 border-brand-200 hover:bg-brand-100'
                         }`}
                       >
                         {b.tax_invoice_issued ? '계산서 발행 취소' : '세금계산서 발행 처리'}
@@ -519,8 +519,8 @@ export function BillingHistoryPanel({
                     onClick={() => handleToggleTaxInvoice(b)}
                     className={`flex-1 py-1 text-xs font-medium rounded-lg border transition-colors ${
                       b.tax_invoice_issued
-                        ? 'bg-blue-100 text-blue-700 border-blue-300 hover:bg-blue-200'
-                        : 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100'
+                        ? 'bg-brand-100 text-brand-700 border-brand-300 hover:bg-brand-200'
+                        : 'bg-brand-50 text-brand-700 border-brand-200 hover:bg-brand-100'
                     }`}
                   >
                     {b.tax_invoice_issued ? '계산서 발행 취소' : '세금계산서 발행 처리'}

@@ -175,7 +175,7 @@ export function ShoppingItemsSection({
               <span className="text-gray-400">{item.category}</span>
               <span className={`px-1.5 py-0.5 rounded text-white text-[10px] ${
                 item.priority === 'urgent' ? 'bg-red-500' :
-                item.priority === 'normal' ? 'bg-blue-500' : 'bg-gray-400'
+                item.priority === 'normal' ? 'bg-brand-500' : 'bg-gray-400'
               }`}>
                 {item.priority === 'urgent' ? '긴급' : item.priority === 'normal' ? '보통' : '나중에'}
               </span>
@@ -217,7 +217,7 @@ export function ShoppingItemsSection({
                 onChange={e => updateItem(item.localId, { title: e.target.value })}
                 placeholder="물건명 입력"
                 className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-gray-900
-                  bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  bg-white focus:outline-none focus:ring-2 focus:ring-brand-500"
               />
               <button
                 type="button"
@@ -225,7 +225,7 @@ export function ShoppingItemsSection({
                 aria-label={item.expanded ? '상세 닫기' : '상세 열기'}
                 className={`p-1 rounded transition-colors ${
                   item.expanded
-                    ? 'text-blue-500 hover:bg-blue-50'
+                    ? 'text-brand-500 hover:bg-brand-50'
                     : 'text-gray-400 hover:bg-gray-200'
                 }`}
               >
@@ -260,7 +260,7 @@ export function ShoppingItemsSection({
                         })
                       }
                       className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-xs bg-white
-                        focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        focus:outline-none focus:ring-2 focus:ring-brand-500"
                     >
                       {CATEGORY_OPTIONS.map(opt => (
                         <option key={opt.value} value={opt.value}>
@@ -279,7 +279,7 @@ export function ShoppingItemsSection({
                         })
                       }
                       className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-xs bg-white
-                        focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        focus:outline-none focus:ring-2 focus:ring-brand-500"
                     >
                       {PRIORITY_OPTIONS.map(opt => (
                         <option key={opt.value} value={opt.value}>
@@ -304,7 +304,7 @@ export function ShoppingItemsSection({
                         })
                       }
                       className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-gray-900
-                        bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        bg-white focus:outline-none focus:ring-2 focus:ring-brand-500"
                     />
                   </div>
                   <div className="flex-1">
@@ -322,7 +322,7 @@ export function ShoppingItemsSection({
                         })
                       }
                       className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-gray-900
-                        bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        bg-white focus:outline-none focus:ring-2 focus:ring-brand-500"
                     />
                   </div>
                 </div>
@@ -339,7 +339,7 @@ export function ShoppingItemsSection({
                         updateItem(item.localId, { where_to_buy: e.target.value })
                       }
                       className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-gray-900
-                        bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        bg-white focus:outline-none focus:ring-2 focus:ring-brand-500"
                     />
                   </div>
                   <div className="flex-1">
@@ -352,7 +352,7 @@ export function ShoppingItemsSection({
                         updateItem(item.localId, { url: e.target.value })
                       }
                       className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-gray-900
-                        bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        bg-white focus:outline-none focus:ring-2 focus:ring-brand-500"
                     />
                   </div>
                 </div>
@@ -365,7 +365,7 @@ export function ShoppingItemsSection({
                     rows={2}
                     onChange={e => updateItem(item.localId, { memo: e.target.value })}
                     className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-gray-900
-                      bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                      bg-white focus:outline-none focus:ring-2 focus:ring-brand-500 resize-none"
                   />
                 </div>
               </div>
@@ -379,7 +379,7 @@ export function ShoppingItemsSection({
           onClick={addItem}
           className="w-full flex items-center justify-center gap-1.5 py-2 text-xs
             border border-dashed border-gray-300 rounded-lg text-gray-500
-            hover:border-blue-400 hover:text-blue-500 transition-colors"
+            hover:border-brand-400 hover:text-brand-500 transition-colors"
         >
           <Plus className="w-3.5 h-3.5" />
           항목 추가
@@ -393,8 +393,8 @@ export function ShoppingItemsSection({
             type="button"
             onClick={handleSave}
             disabled={items.length === 0 || saving}
-            className="px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg
-              hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="px-4 py-2 bg-brand-600 text-white text-sm font-semibold rounded-lg
+              hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             {saving ? '저장 중...' : `구매 리스트에 추가 (${items.filter(i => i.title.trim()).length}개)`}
           </button>

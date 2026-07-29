@@ -34,7 +34,7 @@ function Field({ label, value, onChange, type = 'text', mono, placeholder }: {
         value={value}
         onChange={e => onChange(e.target.value)}
         placeholder={placeholder}
-        className={`flex-1 border border-gray-200 rounded-md px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white ${mono ? 'font-mono' : ''}`}
+        className={`flex-1 border border-gray-200 rounded-md px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-brand-500 bg-white ${mono ? 'font-mono' : ''}`}
       />
     </div>
   )
@@ -52,7 +52,7 @@ function SelectField({ label, value, options, onChange }: {
       <select
         value={value}
         onChange={e => onChange(e.target.value)}
-        className="flex-1 border border-gray-200 rounded-md px-2.5 py-1.5 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+        className="flex-1 border border-gray-200 rounded-md px-2.5 py-1.5 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-brand-500"
       >
         <option value="">선택</option>
         {options.map(o => <option key={o}>{o}</option>)}
@@ -428,7 +428,7 @@ export default function WorkerDetail({ worker, onWorkerUpdated, onWorkerDeleted 
           <div className="relative shrink-0">
             <div
               onClick={() => photoInputRef.current?.click()}
-              className="w-20 h-24 rounded-lg border-2 border-dashed border-gray-300 bg-gray-50 flex flex-col items-center justify-center cursor-pointer overflow-hidden hover:border-blue-400 transition-colors"
+              className="w-20 h-24 rounded-lg border-2 border-dashed border-gray-300 bg-gray-50 flex flex-col items-center justify-center cursor-pointer overflow-hidden hover:border-brand-400 transition-colors"
             >
               {worker.photo_url ? (
                 <img src={worker.photo_url} alt="직원사진" className="w-full h-full object-cover" />
@@ -440,7 +440,7 @@ export default function WorkerDetail({ worker, onWorkerUpdated, onWorkerDeleted 
               )}
               {photoUploading && (
                 <div className="absolute inset-0 bg-white/80 flex items-center justify-center">
-                  <span className="text-[10px] text-blue-600">업로드 중...</span>
+                  <span className="text-[10px] text-brand-600">업로드 중...</span>
                 </div>
               )}
             </div>
@@ -549,7 +549,7 @@ export default function WorkerDetail({ worker, onWorkerUpdated, onWorkerDeleted 
                   value={item.company}
                   onChange={e => updateHistory(i, 'company', e.target.value)}
                   placeholder="근무처 / 프로젝트명"
-                  className="flex-1 border border-gray-200 rounded-md px-2.5 py-1.5 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="flex-1 border border-gray-200 rounded-md px-2.5 py-1.5 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-brand-500"
                 />
                 <button
                   onClick={() => removeHistory(i)}
@@ -559,7 +559,7 @@ export default function WorkerDetail({ worker, onWorkerUpdated, onWorkerDeleted 
             ))}
             <button
               onClick={addHistory}
-              className="border border-dashed border-gray-300 rounded-xl py-2.5 text-xs text-gray-400 hover:border-blue-400 hover:text-blue-500 transition-colors"
+              className="border border-dashed border-gray-300 rounded-xl py-2.5 text-xs text-gray-400 hover:border-brand-400 hover:text-brand-500 transition-colors"
             >
               + 이력 추가
             </button>
@@ -656,7 +656,7 @@ export default function WorkerDetail({ worker, onWorkerUpdated, onWorkerDeleted 
                   <select
                     value={selectedUserId}
                     onChange={e => setSelectedUserId(e.target.value)}
-                    className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-brand-500"
                   >
                     <option value="">계정 선택</option>
                     {availableAccounts.map(u => (
@@ -666,7 +666,7 @@ export default function WorkerDetail({ worker, onWorkerUpdated, onWorkerDeleted 
                   <button
                     onClick={handleLink}
                     disabled={!selectedUserId || linkSaving}
-                    className="bg-blue-600 hover:bg-blue-700 text-white text-xs px-3 py-1.5 rounded-lg disabled:opacity-50 transition-colors"
+                    className="bg-brand-600 hover:bg-brand-700 text-white text-xs px-3 py-1.5 rounded-lg disabled:opacity-50 transition-colors"
                   >
                     {linkSaving ? '연결 중...' : '연결'}
                   </button>
@@ -686,7 +686,7 @@ export default function WorkerDetail({ worker, onWorkerUpdated, onWorkerDeleted 
           <button
             onClick={handleSave}
             disabled={saving}
-            className="flex-1 bg-blue-600 hover:bg-blue-700 text-white text-xs py-2.5 rounded-lg disabled:opacity-50 transition-colors font-medium"
+            className="flex-1 bg-brand-600 hover:bg-brand-700 text-white text-xs py-2.5 rounded-lg disabled:opacity-50 transition-colors font-medium"
           >
             {saving ? '저장 중...' : '저장'}
           </button>

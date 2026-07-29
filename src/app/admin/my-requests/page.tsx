@@ -177,7 +177,7 @@ export default function MyRequestsPage() {
               <div>
                 <label className="block text-xs font-medium text-text-secondary mb-1">카테고리</label>
                 <select value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))}
-                  className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                  className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500">
                   {CATEGORY_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                 </select>
               </div>
@@ -185,7 +185,7 @@ export default function MyRequestsPage() {
                 <label className="block text-xs font-medium text-text-secondary mb-1">내용 <span className="text-state-danger">*</span></label>
                 <textarea rows={5} value={form.content} placeholder="요청 내용을 상세히 작성해주세요"
                   onChange={e => setForm(f => ({ ...f, content: e.target.value }))}
-                  className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none" />
+                  className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 resize-none" />
               </div>
             </div>
             <div className="px-6 py-4 border-t border-border-subtle flex gap-2 justify-end">

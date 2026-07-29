@@ -561,7 +561,7 @@ function LiveCard({ app, workers, column }: {
               className={`text-[10px] font-medium px-1.5 py-0.5 rounded-md border ${
                 p.role === 'manager'
                   ? 'bg-brand-50 text-brand-700 border-brand-200'
-                  : 'bg-indigo-50 text-indigo-700 border-indigo-100'
+                  : 'bg-brand-50 text-brand-700 border-brand-100'
               }`}
               title={p.role === 'manager' ? '담당자' : '작업자'}
             >

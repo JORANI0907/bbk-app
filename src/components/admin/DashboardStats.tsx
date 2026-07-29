@@ -27,8 +27,8 @@ export function DashboardStats({ stats }: DashboardStatsProps) {
       label: '오늘 예정',
       value: stats.todayScheduled,
       icon: <Calendar size={18} />,
-      colorClass: 'text-blue-700',
-      bgClass: 'bg-blue-50',
+      colorClass: 'text-brand-700',
+      bgClass: 'bg-brand-50',
     },
     {
       label: '진행 중',

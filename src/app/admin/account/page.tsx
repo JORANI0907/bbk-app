@@ -106,13 +106,13 @@ export default function AccountPage() {
 
       {/* 프로필 카드 */}
       <div className="bg-surface rounded-2xl border border-border-subtle shadow-soft overflow-hidden">
-        {/* 헤더 */}
-        <div className="bg-gradient-to-br from-blue-600 to-indigo-600 px-6 py-8 text-white">
-          <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center text-2xl font-bold mb-3">
+        {/* 헤더 (Toss 스타일 — 그라디언트 대신 subtle brand tint) */}
+        <div className="bg-brand-50 border-b border-brand-100 px-6 py-8">
+          <div className="w-16 h-16 bg-brand-600 rounded-full flex items-center justify-center text-2xl font-bold mb-3 text-white shadow-card">
             {profile.name?.charAt(0) ?? '?'}
           </div>
-          <p className="text-xl font-bold">{profile.name}</p>
-          <span className="inline-block mt-1.5 text-xs bg-white/20 px-2.5 py-0.5 rounded-full font-medium">
+          <p className="text-xl font-bold text-text-primary">{profile.name}</p>
+          <span className="inline-block mt-1.5 text-xs bg-brand-100 text-brand-700 px-2.5 py-0.5 rounded-md font-semibold">
             {roleLabel(profile.role)}
           </span>
         </div>
@@ -174,7 +174,7 @@ export default function AccountPage() {
                 value={pwForm.next}
                 onChange={e => setPwForm(f => ({ ...f, next: e.target.value }))}
                 placeholder="6자 이상"
-                className="w-full border border-border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full border border-border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
               />
             </div>
             <div>
@@ -184,7 +184,7 @@ export default function AccountPage() {
                 value={pwForm.confirm}
                 onChange={e => setPwForm(f => ({ ...f, confirm: e.target.value }))}
                 placeholder="동일하게 입력"
-                className="w-full border border-border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full border border-border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
               />
             </div>
             {pwForm.next && pwForm.confirm && pwForm.next !== pwForm.confirm && (

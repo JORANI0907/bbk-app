@@ -196,7 +196,7 @@ export default function VariablesTab() {
               <div key={v.id} className="p-4 flex items-start justify-between gap-3 hover:bg-surface-sunken">
                 <div className="min-w-0 flex-1 space-y-1">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <code className="bg-sky-50 text-brand-600 border border-sky-200 px-2 py-0.5 rounded text-xs font-mono">
+                    <code className="bg-brand-50 text-brand-600 border border-brand-200 px-2 py-0.5 rounded text-xs font-mono">
                       {`{{${v.name}}}`}
                     </code>
                     <span className="text-sm font-semibold text-text-primary">{v.label}</span>
@@ -273,7 +273,7 @@ export default function VariablesTab() {
               />
               <p className="text-xs text-text-tertiary mt-1">
                 실제 저장 이름:{' '}
-                <code className="bg-sky-50 text-brand-600 border border-sky-200 px-1.5 py-0.5 rounded font-mono">
+                <code className="bg-brand-50 text-brand-600 border border-brand-200 px-1.5 py-0.5 rounded font-mono">
                   {previewName ? `{{${previewName}}}` : '(입력 대기)'}
                 </code>
               </p>

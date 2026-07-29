@@ -149,7 +149,7 @@ function WriteModal({ form, submitting, onChange, onSubmit, onClose }: WriteModa
             <select
               value={form.type}
               onChange={e => onChange({ type: e.target.value })}
-              className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
             >
               {TYPE_OPTIONS.map(o => (
                 <option key={o.value} value={o.value}>{o.label}</option>
@@ -165,7 +165,7 @@ function WriteModal({ form, submitting, onChange, onSubmit, onClose }: WriteModa
               type="date"
               value={form.incident_date}
               onChange={e => onChange({ incident_date: e.target.value })}
-              className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
             />
           </div>
 
@@ -176,7 +176,7 @@ function WriteModal({ form, submitting, onChange, onSubmit, onClose }: WriteModa
               value={form.location}
               placeholder="예: OO빌딩 3층"
               onChange={e => onChange({ location: e.target.value })}
-              className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
             />
           </div>
 
@@ -190,7 +190,7 @@ function WriteModal({ form, submitting, onChange, onSubmit, onClose }: WriteModa
               value={form.description}
               placeholder="사건 경위를 상세히 기술하세요"
               onChange={e => onChange({ description: e.target.value })}
-              className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+              className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 resize-none"
             />
             <p className={`text-xs mt-1 ${form.description.length < 100 ? 'text-text-tertiary' : 'text-state-success'}`}>
               {form.description.length}자 입력됨
@@ -204,7 +204,7 @@ function WriteModal({ form, submitting, onChange, onSubmit, onClose }: WriteModa
               value={form.action_taken}
               placeholder="취한 조치 내용을 입력하세요"
               onChange={e => onChange({ action_taken: e.target.value })}
-              className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+              className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 resize-none"
             />
           </div>
         </div>
@@ -309,7 +309,7 @@ function DetailPanel({
               <select
                 value={adminStatus}
                 onChange={e => onStatusChange(e.target.value as 'pending' | 'reviewed' | 'closed')}
-                className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
               >
                 {(Object.keys(STATUS_CONFIG) as Array<'pending' | 'reviewed' | 'closed'>).map(s => (
                   <option key={s} value={s}>{STATUS_CONFIG[s].label}</option>
@@ -324,7 +324,7 @@ function DetailPanel({
                 value={adminComment}
                 onChange={e => onCommentChange(e.target.value)}
                 placeholder="처리 내용, 피드백 등을 입력하세요"
-                className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 resize-none"
               />
             </div>
           </>

@@ -130,7 +130,7 @@ const NOTIFICATION_CATEGORY_OPTIONS: { value: string; label: string }[] = [
 
 const NOTIFICATION_CATEGORY_STYLES: Record<NotificationCategory, string> = {
   alimtalk: 'bg-yellow-50 text-yellow-700 border-yellow-200',
-  sms: 'bg-blue-50 text-blue-700 border-blue-200',
+  sms: 'bg-brand-50 text-brand-700 border-brand-200',
   missed_call: 'bg-orange-50 text-orange-700 border-orange-200',
   payment: 'bg-green-50 text-green-700 border-green-200',
   system: 'bg-surface-sunken text-text-secondary border-border',
@@ -311,7 +311,7 @@ function RulesTab() {
                 <th className="text-center px-2 py-2 text-xs font-semibold text-text-secondary">본사</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-border-subtle">
+            <tbody className="anim-stagger-fast divide-y divide-border-subtle">
               {rules.map((rule) => (
                 <tr key={rule.id} className="hover:bg-surface-sunken transition-colors">
                   <td className="px-4 py-3 text-text-primary font-medium whitespace-nowrap">
@@ -512,7 +512,7 @@ function NotificationsTab() {
                   <th className="text-left px-4 py-3 text-xs font-semibold text-text-secondary whitespace-nowrap">상태</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-border-subtle">
+              <tbody className="anim-stagger-fast divide-y divide-border-subtle">
                 {items.map((item) => (
                   <tr key={item.id} className="hover:bg-surface-sunken transition-colors">
                     <td className="px-4 py-3 text-text-secondary whitespace-nowrap tabular-nums text-xs">

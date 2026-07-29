@@ -139,11 +139,11 @@ function AddItemForm({ onAdd }: { onAdd: (name: string, amount: string, note: st
   return (
     <div className="flex gap-2 mt-3">
       <input value={name} onChange={e => setName(e.target.value)}
-        placeholder="항목명" className="flex-1 border border-border rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        placeholder="항목명" className="flex-1 border border-border rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-brand-500" />
       <input type="number" value={amount} onChange={e => setAmount(e.target.value)}
-        placeholder="금액" className="w-28 border border-border rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        placeholder="금액" className="w-28 border border-border rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-brand-500" />
       <input value={note} onChange={e => setNote(e.target.value)}
-        placeholder="메모" className="w-24 border border-border rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        placeholder="메모" className="w-24 border border-border rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-brand-500" />
       <Button onClick={handleSubmit} disabled={adding || !name.trim() || !amount} size="sm">
         {adding ? '...' : '+ 추가'}
       </Button>
@@ -518,7 +518,7 @@ export default function FinancePage() {
               매입
             </button>
           </div>
-          <Button onClick={downloadSheet} disabled={!data} size="sm" className="bg-emerald-600 hover:bg-emerald-700 whitespace-nowrap">
+          <Button onClick={downloadSheet} disabled={!data} size="sm" className="bg-brand-600 hover:bg-brand-700 whitespace-nowrap">
             <BarChart2 size={14} className="inline mr-1" />시트 만들기
           </Button>
         </div>
@@ -573,7 +573,7 @@ export default function FinancePage() {
                     className={`px-2 py-0.5 rounded-full text-[11px] font-medium transition-colors ${
                       selectedTypes.includes(type)
                         ? 'bg-brand-600 text-white'
-                        : 'bg-surface border border-border text-text-secondary hover:border-blue-400'
+                        : 'bg-surface border border-border text-text-secondary hover:border-brand-400'
                     }`}
                   >
                     {type}
@@ -589,7 +589,7 @@ export default function FinancePage() {
 
               {/* 서비스 유형별 소계 */}
               {filteredRevenue.length > 0 && (
-                <div className="px-3 py-1 flex gap-x-3 gap-y-0.5 flex-wrap border-b border-border-subtle bg-blue-50">
+                <div className="px-3 py-1 flex gap-x-3 gap-y-0.5 flex-wrap border-b border-border-subtle bg-brand-50">
                   {Object.entries(
                     filteredRevenue.reduce<Record<string, { total: number; count: number }>>((acc, item) => {
                       const key = item.service_type ?? '미분류'
@@ -656,25 +656,25 @@ export default function FinancePage() {
               const fixedSelected = data.fixed.records.filter(r => selectedIds.has(r.id))
               return (
                 <div className="bg-surface border border-border-subtle rounded-xl overflow-hidden">
-                  <div className="px-4 py-3 bg-indigo-50 border-b border-indigo-100 flex items-center justify-between">
+                  <div className="px-4 py-3 bg-brand-50 border-b border-brand-100 flex items-center justify-between">
                     <div>
-                      <span className="text-sm font-bold text-indigo-800">고정비</span>
-                      <span className="text-xs text-indigo-400 ml-2">임대료, 보험료 등</span>
+                      <span className="text-sm font-bold text-brand-800">고정비</span>
+                      <span className="text-xs text-brand-400 ml-2">임대료, 보험료 등</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <button
                         onClick={() => setPurchaseSortDir(d => d === 'asc' ? 'desc' : 'asc')}
                         title={purchaseSortDir === 'asc' ? '이름 오름차순' : '이름 내림차순'}
-                        className="text-xs text-indigo-500 hover:text-indigo-700 font-medium flex items-center gap-0.5"
+                        className="text-xs text-brand-500 hover:text-brand-700 font-medium flex items-center gap-0.5"
                       >
                         이름 {purchaseSortDir === 'asc' ? '↑' : '↓'}
                       </button>
-                      <span className="text-sm font-bold text-indigo-700 font-mono">{fmt(data.fixed.total)}원</span>
+                      <span className="text-sm font-bold text-brand-700 font-mono">{fmt(data.fixed.total)}원</span>
                     </div>
                   </div>
                   {data.fixed.records.length > 0 && data.fixed.total > 0 && (
-                    <div className="px-4 py-3 border-b border-indigo-100 bg-indigo-50/30">
-                      <p className="text-xs font-semibold text-indigo-400 uppercase tracking-wide mb-2">항목별 구성</p>
+                    <div className="px-4 py-3 border-b border-brand-100 bg-brand-50/30">
+                      <p className="text-xs font-semibold text-brand-400 uppercase tracking-wide mb-2">항목별 구성</p>
                       <StackedComposition records={data.fixed.records} />
                     </div>
                   )}
@@ -691,7 +691,7 @@ export default function FinancePage() {
                       </label>
                       {fixedSelected.length > 0 && (
                         <>
-                          <span className="text-xs text-indigo-600 font-medium">{fixedSelected.length}건 선택</span>
+                          <span className="text-xs text-brand-600 font-medium">{fixedSelected.length}건 선택</span>
                           <div className="ml-auto flex items-center gap-2">
                             {fixedSelected.length === 1 && (
                               <Button size="sm" variant="ghost" onClick={() => setEditingId(fixedSelected[0].id)}>
@@ -701,7 +701,7 @@ export default function FinancePage() {
                             <Button
                               size="sm"
                               onClick={() => handleBulkDelete(fixedSelected.map(r => r.id))}
-                              className="bg-red-500 hover:bg-red-600 text-white"
+                              variant="danger"
                             >
                               삭제 ({fixedSelected.length}건)
                             </Button>
@@ -733,7 +733,7 @@ export default function FinancePage() {
                           onClick={() => handleSaveGroups('fixed')}
                           disabled={savingGroups === 'fixed' || dirtyCount('fixed') === 0}
                           size="sm"
-                          className={dirtyCount('fixed') > 0 ? 'bg-indigo-600 hover:bg-indigo-700 text-white' : ''}
+                          className={dirtyCount('fixed') > 0 ? 'bg-brand-600 hover:bg-brand-700 text-white' : ''}
                         >
                           <Save size={13} className="inline mr-1" />
                           {savingGroups === 'fixed' ? '저장 중...' : `유형 일괄 저장${dirtyCount('fixed') > 0 ? ` (${dirtyCount('fixed')}건)` : ''}`}
@@ -795,7 +795,7 @@ export default function FinancePage() {
                             <Button
                               size="sm"
                               onClick={() => handleBulkDelete(variableSelected.map(r => r.id))}
-                              className="bg-red-500 hover:bg-red-600 text-white"
+                              variant="danger"
                             >
                               삭제 ({variableSelected.length}건)
                             </Button>
@@ -827,7 +827,7 @@ export default function FinancePage() {
                           onClick={() => handleSaveGroups('variable')}
                           disabled={savingGroups === 'variable' || dirtyCount('variable') === 0}
                           size="sm"
-                          className={dirtyCount('variable') > 0 ? 'bg-purple-600 hover:bg-purple-700 text-white' : ''}
+                          className={dirtyCount('variable') > 0 ? 'bg-brand-600 hover:bg-brand-700 text-white' : ''}
                         >
                           <Save size={13} className="inline mr-1" />
                           {savingGroups === 'variable' ? '저장 중...' : `유형 일괄 저장${dirtyCount('variable') > 0 ? ` (${dirtyCount('variable')}건)` : ''}`}

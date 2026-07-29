@@ -64,7 +64,7 @@ export function AddItemForm({ knownCategories, onCreated, onCategoryAdded }: Pro
     return (
       <button
         onClick={() => setOpen(true)}
-        className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border-2 border-dashed border-blue-300 text-blue-600 hover:bg-blue-50 transition-colors text-sm font-medium"
+        className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border-2 border-dashed border-brand-300 text-brand-600 hover:bg-brand-50 transition-colors text-sm font-medium"
       >
         <Plus size={16} /> 새 품목 추가
       </button>
@@ -72,7 +72,7 @@ export function AddItemForm({ knownCategories, onCreated, onCategoryAdded }: Pro
   }
 
   return (
-    <div className="bg-white border border-blue-200 rounded-xl p-4 shadow-sm">
+    <div className="bg-white border border-brand-200 rounded-xl p-4 shadow-sm">
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-sm font-bold text-gray-900">새 품목 추가</h3>
         <button onClick={() => { reset(); setOpen(false) }} className="text-gray-400 hover:text-gray-600">
@@ -87,7 +87,7 @@ export function AddItemForm({ knownCategories, onCreated, onCategoryAdded }: Pro
           value={title}
           onChange={e => setTitle(e.target.value)}
           onKeyDown={e => { if (e.key === 'Enter' && title.trim()) handleSave() }}
-          className="px-3 py-2 text-sm border border-gray-200 rounded-lg focus:border-blue-400 outline-none"
+          className="px-3 py-2 text-sm border border-gray-200 rounded-lg focus:border-brand-400 outline-none"
         />
 
         {/* 카테고리 */}
@@ -99,7 +99,7 @@ export function AddItemForm({ knownCategories, onCreated, onCategoryAdded }: Pro
                 key={c}
                 onClick={() => setCategory(category === c ? '' : c)}
                 className={`px-2.5 py-1 rounded-full text-xs border transition-colors ${
-                  category === c ? 'bg-blue-500 text-white border-blue-500' : 'bg-white text-gray-600 border-gray-200 hover:border-blue-300'
+                  category === c ? 'bg-brand-500 text-white border-brand-500' : 'bg-white text-gray-600 border-gray-200 hover:border-brand-300'
                 }`}
               >
                 {c}
@@ -116,14 +116,14 @@ export function AddItemForm({ knownCategories, onCreated, onCategoryAdded }: Pro
                     if (e.key === 'Escape') { setAddingCategory(false); setNewCategory('') }
                   }}
                   placeholder="새 카테고리"
-                  className="px-2 py-0.5 text-xs border border-blue-300 rounded-full outline-none w-24"
+                  className="px-2 py-0.5 text-xs border border-brand-300 rounded-full outline-none w-24"
                 />
-                <button onClick={confirmNewCategory} className="text-xs text-blue-600 font-semibold">확인</button>
+                <button onClick={confirmNewCategory} className="text-xs text-brand-600 font-semibold">확인</button>
               </span>
             ) : (
               <button
                 onClick={() => setAddingCategory(true)}
-                className="px-2.5 py-1 rounded-full text-xs border border-dashed border-gray-300 text-gray-500 hover:border-blue-400 hover:text-blue-600"
+                className="px-2.5 py-1 rounded-full text-xs border border-dashed border-gray-300 text-gray-500 hover:border-brand-400 hover:text-brand-600"
               >
                 + 추가
               </button>
@@ -164,7 +164,7 @@ export function AddItemForm({ knownCategories, onCreated, onCategoryAdded }: Pro
             min={1}
             value={qty}
             onChange={e => setQty(parseInt(e.target.value) || 1)}
-            className="w-24 px-3 py-2 text-sm border border-gray-200 rounded-lg outline-none focus:border-blue-400"
+            className="w-24 px-3 py-2 text-sm border border-gray-200 rounded-lg outline-none focus:border-brand-400"
           />
         </label>
 
@@ -176,7 +176,7 @@ export function AddItemForm({ knownCategories, onCreated, onCategoryAdded }: Pro
             value={url}
             onChange={e => setUrl(e.target.value)}
             placeholder="https://..."
-            className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg outline-none focus:border-blue-400"
+            className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg outline-none focus:border-brand-400"
           />
         </label>
         <label>
@@ -185,7 +185,7 @@ export function AddItemForm({ knownCategories, onCreated, onCategoryAdded }: Pro
             value={memo}
             onChange={e => setMemo(e.target.value)}
             rows={2}
-            className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg outline-none focus:border-blue-400 resize-none"
+            className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg outline-none focus:border-brand-400 resize-none"
           />
         </label>
 
@@ -199,7 +199,7 @@ export function AddItemForm({ knownCategories, onCreated, onCategoryAdded }: Pro
           <button
             onClick={handleSave}
             disabled={!title.trim() || saving}
-            className="px-4 py-2 text-xs rounded-lg bg-blue-500 text-white font-semibold hover:bg-blue-600 disabled:opacity-50 flex items-center gap-1.5"
+            className="px-4 py-2 text-xs rounded-lg bg-brand-500 text-white font-semibold hover:bg-brand-600 disabled:opacity-50 flex items-center gap-1.5"
           >
             {saving ? <Loader2 size={12} className="animate-spin" /> : <Plus size={12} />}
             추가

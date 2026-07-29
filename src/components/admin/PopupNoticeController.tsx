@@ -159,14 +159,14 @@ export function PopupNoticeController() {
                 type="checkbox"
                 checked={dontShow}
                 onChange={e => setDontShow(e.target.checked)}
-                className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                className="w-4 h-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500"
               />
               <span className="text-xs text-gray-500">오늘 하루 보지 않기 (앱 종료 전까지)</span>
             </label>
 
             <button
               onClick={handleClose}
-              className="w-full py-2.5 bg-blue-600 text-white rounded-xl text-sm font-semibold hover:bg-blue-700 transition-colors"
+              className="w-full py-2.5 bg-brand-600 text-white rounded-xl text-sm font-semibold hover:bg-brand-700 transition-colors"
             >
               {queue.length > 1 && currentIndex < queue.length - 1
                 ? '다음 공지 보기'

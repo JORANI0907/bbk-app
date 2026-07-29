@@ -6,7 +6,7 @@ import type { AgentLog } from '@/hooks/useAgentActivity'
 const EVENT_STYLE: Record<string, { label: string; badge: string; dot: string }> = {
   SubagentStart: { label: '에이전트 시작',  badge: 'bg-green-100 text-green-700',  dot: 'bg-green-500' },
   SubagentStop:  { label: '에이전트 완료',  badge: 'bg-gray-100 text-gray-500',    dot: 'bg-gray-400'  },
-  Stop:          { label: '세션 완료',      badge: 'bg-blue-100 text-blue-700',    dot: 'bg-blue-400'  },
+  Stop:          { label: '세션 완료',      badge: 'bg-brand-100 text-brand-700',    dot: 'bg-brand-400'  },
   StopFailure:   { label: '오류 발생',      badge: 'bg-red-100 text-red-700',      dot: 'bg-red-500'   },
   SessionStart:  { label: '세션 시작',      badge: 'bg-violet-100 text-violet-700', dot: 'bg-violet-500' },
   SessionEnd:    { label: '세션 종료',      badge: 'bg-gray-100 text-gray-400',    dot: 'bg-gray-300'  },

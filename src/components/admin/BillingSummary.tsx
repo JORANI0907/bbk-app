@@ -101,7 +101,7 @@ export function BillingSummary({ customerId, customerType, billingCycle, payment
             <span
               className={`text-[10px] px-1.5 py-0.5 rounded-full font-semibold ${
                 target.tax_invoice_issued
-                  ? 'bg-blue-100 text-blue-700'
+                  ? 'bg-brand-100 text-brand-700'
                   : 'bg-surface text-text-tertiary border border-border'
               }`}
             >
@@ -130,7 +130,7 @@ export function BillingSummary({ customerId, customerType, billingCycle, payment
             {target.tax_invoice_issued_date && (
               <div className="flex items-center gap-1.5">
                 <span className="text-text-tertiary">계산서 발행일</span>
-                <span className="font-semibold text-blue-700">{fmtDate(target.tax_invoice_issued_date)}</span>
+                <span className="font-semibold text-brand-700">{fmtDate(target.tax_invoice_issued_date)}</span>
               </div>
             )}
           </>

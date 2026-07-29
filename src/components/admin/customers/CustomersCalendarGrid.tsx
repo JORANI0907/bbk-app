@@ -92,13 +92,13 @@ const DAYS_KR = ['일', '월', '화', '수', '목', '금', '토']
 // 유형별 색상 (CustomersManagementView와 일관성 유지)
 const TYPE_ROW_BG: Record<string, string> = {
   '1회성케어':    'bg-emerald-50 border-emerald-200',
-  '정기딥케어':   'bg-cyan-50 border-cyan-200',
+  '정기딥케어':   'bg-brand-50 border-brand-200',
   '정기엔드케어': 'bg-purple-50 border-purple-200',
   '일반일정':     'bg-stone-50 border-stone-200',
 }
 const TYPE_TEXT: Record<string, string> = {
   '1회성케어':    'text-emerald-800',
-  '정기딥케어':   'text-cyan-800',
+  '정기딥케어':   'text-brand-800',
   '정기엔드케어': 'text-purple-800',
   '일반일정':     'text-stone-700',
 }

@@ -67,15 +67,16 @@ function timeAgo(iso: string) {
   return new Date(iso).toLocaleDateString('ko-KR', { month: 'long', day: 'numeric' })
 }
 
+// Toss식 위계: brand 컬러 명도로만 표현 (긴급 > 중요 > 일반)
 const PRIORITY_CONFIG = {
-  urgent:    { label: '긴급', badge: 'bg-red-500 text-white',      border: 'border-l-red-500',    bg: 'bg-red-50' },
-  important: { label: '중요', badge: 'bg-orange-500 text-white',   border: 'border-l-orange-400', bg: 'bg-orange-50' },
-  normal:    { label: '일반', badge: 'bg-surface-sunken text-text-secondary', border: 'border-l-gray-300', bg: 'bg-surface' },
+  urgent:    { label: '긴급', badge: 'bg-brand-600 text-white',       bar: 'bg-brand-600' },
+  important: { label: '중요', badge: 'bg-brand-100 text-brand-700',   bar: 'bg-brand-400' },
+  normal:    { label: '일반', badge: 'bg-surface-sunken text-text-secondary', bar: 'bg-border' },
 }
 
 const TYPE_CONFIG = {
   notice: { icon: <Megaphone size={20} />, label: '공지', color: 'text-brand-600' },
-  event:  { icon: <PartyPopper size={20} />, label: '이벤트', color: 'text-purple-600' },
+  event:  { icon: <PartyPopper size={20} />, label: '이벤트', color: 'text-brand-500' },
 }
 
 // ─── 명언 ─────────────────────────────────────────────────────────
@@ -135,30 +136,32 @@ function NoticeCard({ notice }: { notice: Notice }) {
   }).replace(/\.\s?/g, '.').replace(/\.$/, '')
 
   return (
-    <div className={`border-l-4 ${pc.border} ${pc.bg} rounded-r-xl overflow-hidden transition-all`}>
-      <div className="p-4">
+    <div className="relative bg-surface border border-border-subtle rounded-2xl overflow-hidden card-toss shadow-flat">
+      {/* 우선순위 accent bar (Toss 방식: border 대신 내부 absolute) */}
+      <div className={`absolute left-0 top-3 bottom-3 w-1 rounded-r-full ${pc.bar}`} />
+      <div className="p-4 pl-5">
         <div className="flex items-start gap-3">
           <span className="text-xl shrink-0 mt-0.5">{tc.icon}</span>
           <div className="flex-1 min-w-0">
             {/* 뱃지 행 + 우측 년월일 */}
             <div className="flex items-start justify-between gap-2 mb-1">
               <div className="flex items-center gap-1.5 flex-wrap">
-                <span className={`text-xs font-medium ${tc.color}`}>{tc.label}</span>
+                <span className={`text-xs font-semibold ${tc.color}`}>{tc.label}</span>
                 {notice.pinned && (
-                  <span className="inline-flex items-center gap-0.5 text-xs font-semibold text-brand-600 bg-brand-100 px-1.5 py-0.5 rounded-full">
+                  <span className="inline-flex items-center gap-0.5 text-xs font-semibold text-brand-700 bg-brand-100 px-1.5 py-0.5 rounded-md">
                     <Pin size={10} className="inline mr-0.5" />고정
                   </span>
                 )}
-                <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${pc.badge}`}>
+                <span className={`text-xs font-semibold px-1.5 py-0.5 rounded-md ${pc.badge}`}>
                   {pc.label}
                 </span>
                 {notice.event_date && (
-                  <span className="text-xs text-purple-600 bg-purple-50 px-2 py-0.5 rounded-full">
+                  <span className="text-xs font-semibold text-brand-700 bg-brand-50 px-1.5 py-0.5 rounded-md">
                     <Calendar size={12} className="inline mr-0.5" />{new Date(notice.event_date).toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'short' })}
                   </span>
                 )}
                 {notice.image_url && !expanded && (
-                  <span className="text-xs text-text-tertiary bg-surface-sunken px-1.5 py-0.5 rounded-full"><Camera size={16} /></span>
+                  <span className="text-xs text-text-tertiary bg-surface-sunken px-1.5 py-0.5 rounded-md"><Camera size={12} /></span>
                 )}
               </div>
               <span className="text-xs font-medium text-text-tertiary whitespace-nowrap shrink-0">
@@ -237,7 +240,7 @@ function TodayScheduleCard({ role, userId }: { role: string; userId: string }) {
       ) : schedules.length === 0 ? (
         <div className="px-4 py-6 text-center text-text-tertiary text-xs">오늘 배정된 일정이 없습니다.</div>
       ) : (
-        <div className="divide-y divide-border-subtle">
+        <div className="anim-stagger-fast divide-y divide-border-subtle">
           {schedules.slice(0, 5).map(sch => (
             <div key={sch.id} className="px-4 py-3">
               <p className="text-xs font-semibold text-text-primary truncate">
@@ -311,17 +314,17 @@ function NewScheduleCard({ role, userId }: { role: string; userId: string }) {
       ) : apps.length === 0 ? (
         <div className="px-4 py-6 text-center text-text-tertiary text-xs">최근 7일 내 새 일정이 없습니다.</div>
       ) : (
-        <div className="divide-y divide-border-subtle">
+        <div className="anim-stagger-fast divide-y divide-border-subtle">
           {apps.map(app => (
             <div key={app.id} className="px-4 py-3">
               <p className="text-xs font-semibold text-text-primary truncate">{app.business_name}</p>
               <p className="text-xs text-text-secondary">{app.owner_name}</p>
               <div className="flex items-center gap-2 mt-0.5">
                 {app.scheduled_date && (
-                  <span className="text-xs text-purple-500">{app.scheduled_date}</span>
+                  <span className="text-xs font-semibold text-brand-600">{app.scheduled_date}</span>
                 )}
                 {app.service_type && (
-                  <span className="text-xs bg-surface-sunken text-text-secondary px-1.5 py-0.5 rounded-full">
+                  <span className="text-xs bg-surface-sunken text-text-secondary px-1.5 py-0.5 rounded-md">
                     {app.service_type}
                   </span>
                 )}
@@ -380,48 +383,30 @@ export default function AdminHomePage() {
   return (
     <div className="flex flex-col gap-6 h-full overflow-y-auto pb-20 md:pb-6">
 
-      {/* ── 웰컴 배너 ─────────────────────────────────────────── */}
-      <div className="relative rounded-2xl bg-gradient-to-br from-blue-600 via-blue-500 to-indigo-600 p-5 text-white shadow-lg">
-        {/* 장식 원: 별도 레이어에서만 overflow-hidden 적용 (content 잘림 방지) */}
-        <div className="absolute inset-0 rounded-2xl overflow-hidden pointer-events-none">
-          <div className="absolute -right-8 -top-8 w-40 h-40 bg-white/10 rounded-full" />
-          <div className="absolute -right-2 top-8 w-24 h-24 bg-white/10 rounded-full" />
-          <div className="absolute left-1/2 -bottom-10 w-48 h-48 bg-white/5 rounded-full" />
-        </div>
-
-        <div className="relative z-10">
-          <div className="flex items-start justify-between gap-3">
-            <div className="flex-1 min-w-0">
-              <p className="text-blue-200 text-xs">{dateStr}</p>
-              <h1 className="text-xl sm:text-2xl font-bold mt-1 leading-tight">
-                {currentUser?.name ?? ''}님,<br />환영합니다!
-              </h1>
-            </div>
-            {/* 시계 — 모바일에서도 표시 */}
-            <div className="text-right shrink-0">
-              <div className="text-3xl sm:text-4xl font-bold tabular-nums leading-none">
-                {now.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false })}
-              </div>
-              <p className="text-blue-200 text-xs mt-1">BBK 공간케어</p>
-            </div>
-          </div>
+      {/* ── 인사말 (Toss 스타일 — 그라디언트 배너 제거) ─────── */}
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div className="flex-1 min-w-0">
+          <p className="text-xs font-medium text-text-tertiary">{dateStr}</p>
+          <h1 className="mt-1 text-2xl sm:text-3xl font-bold text-text-primary leading-tight break-keep">
+            안녕하세요, {currentUser?.name ?? ''}님
+          </h1>
           {/* 오늘의 명언 */}
-          <p className="mt-3 text-xs sm:text-sm text-blue-100 italic opacity-90 leading-snug">
+          <p className="mt-2 text-sm text-text-secondary italic leading-snug break-keep">
             &ldquo;{dailyQuote}&rdquo;
           </p>
         </div>
 
         {(urgentCount > 0 || pinnedCount > 0) && (
-          <div className="relative z-10 flex gap-2 mt-4 flex-wrap">
+          <div className="flex gap-2 flex-wrap shrink-0 justify-end">
             {urgentCount > 0 && (
-              <span className="flex items-center gap-1.5 bg-red-500/30 border border-red-400/40 text-white text-xs font-semibold px-3 py-1.5 rounded-full backdrop-blur-sm">
-                <Siren size={14} className="inline mr-1" />긴급 공지 {urgentCount}건
-              </span>
+              <Link href="/admin/notices" className="btn-toss-primary inline-flex items-center gap-1.5 bg-brand-600 text-white px-3 py-1.5 rounded-lg text-xs font-semibold">
+                <Siren size={14} />긴급 공지 {urgentCount}건
+              </Link>
             )}
             {pinnedCount > 0 && (
-              <span className="flex items-center gap-1.5 bg-white/20 border border-white/30 text-white text-xs font-medium px-3 py-1.5 rounded-full backdrop-blur-sm">
-                <Pin size={14} className="inline mr-1" />고정 공지 {pinnedCount}건
-              </span>
+              <Link href="/admin/notices" className="btn-toss inline-flex items-center gap-1.5 bg-brand-50 text-brand-700 border border-brand-100 px-3 py-1.5 rounded-lg text-xs font-semibold">
+                <Pin size={14} />고정 공지 {pinnedCount}건
+              </Link>
             )}
           </div>
         )}
@@ -436,14 +421,14 @@ export default function AdminHomePage() {
             <div className="flex items-center gap-2">
               <h2 className="text-base font-bold text-text-primary">공지사항</h2>
               {notices.length > 0 && (
-                <span className="text-xs bg-surface-sunken text-text-secondary px-2 py-0.5 rounded-full">{notices.length}</span>
+                <span className="text-xs bg-surface-sunken text-text-secondary px-2 py-0.5 rounded-md font-semibold">{notices.length}</span>
               )}
             </div>
-            <div className="flex border border-border rounded-lg overflow-hidden text-xs">
+            <div className="inline-flex rounded-lg bg-surface-sunken p-1 text-xs font-semibold border border-border-subtle">
               {(['all', 'notice', 'event'] as const).map(f => (
                 <button key={f} onClick={() => { setFilter(f); setShowAllNotices(false) }}
-                  className={`px-3 py-1.5 font-medium transition-colors ${filter === f ? 'bg-gray-800 text-white' : 'bg-surface text-text-secondary hover:bg-surface-sunken'}`}>
-                  {f === 'all' ? '전체' : f === 'notice' ? <><Megaphone size={12} className="inline mr-0.5" />공지</> : <><PartyPopper size={12} className="inline mr-0.5" />이벤트</>}
+                  className={`pill-toss px-3 py-1 rounded flex items-center gap-1 ${filter === f ? 'segment-active-toss bg-surface text-text-primary' : 'text-text-secondary hover:text-text-primary'}`}>
+                  {f === 'all' ? '전체' : f === 'notice' ? <><Megaphone size={12} />공지</> : <><PartyPopper size={12} />이벤트</>}
                 </button>
               ))}
             </div>
@@ -459,7 +444,7 @@ export default function AdminHomePage() {
               </p>
             </div>
           ) : (
-            <div className="flex flex-col gap-2">
+            <div className="anim-stagger-fast flex flex-col gap-2">
               {slicedNotices.map((n, i) => (
                 <div key={n.id} className={!showAllNotices && i >= NOTICE_LIMIT_MOBILE ? 'hidden sm:block' : ''}>
                   <NoticeCard notice={n} />
@@ -468,7 +453,7 @@ export default function AdminHomePage() {
               {!showAllNotices && filteredNotices.length > NOTICE_LIMIT_MOBILE && (
                 <button
                   onClick={() => setShowAllNotices(true)}
-                  className="w-full py-2 text-xs font-medium text-text-secondary bg-surface-sunken hover:bg-surface border border-border rounded-xl transition-colors"
+                  className="btn-toss w-full py-2 text-xs font-semibold text-text-secondary bg-surface-sunken hover:bg-surface hover:text-brand-700 border border-border rounded-lg"
                 >
                   전체보기 ({filteredNotices.length}개)
                 </button>

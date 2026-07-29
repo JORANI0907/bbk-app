@@ -242,12 +242,12 @@ export function ScheduleAccordionRow({ app, users, workers, onOptimisticUpdate, 
           {/* Phase 20-A: 작업/결제 요약 뱃지 제거 — 세부 상태 뱃지만 유지 */}
           <div className="flex items-center gap-1 flex-wrap">
             {merged.progress_status && (
-              <StatusPill label={merged.progress_status} tone="bg-indigo-50 text-indigo-700 border-indigo-200" />
+              <StatusPill label={merged.progress_status} tone="bg-brand-50 text-brand-700 border-brand-200" />
             )}
             {merged.payment_status_detail && (
               <StatusPill
                 label={merged.payment_status_detail === '비과세' ? '비과세 결제' : merged.payment_status_detail}
-                tone="bg-teal-50 text-teal-700 border-teal-200"
+                tone="bg-brand-50 text-brand-700 border-brand-200"
               />
             )}
           </div>
@@ -609,7 +609,7 @@ function ExpandedEditor({ merged, users, workers, update, status, isDirty, onSav
             {merged.notification_log.slice(0, 8).map((log, i) => (
               <div key={i} className="flex items-center gap-1.5 text-[11px] text-text-secondary bg-surface-sunken/50 rounded px-1.5 py-0.5">
                 {log.method === 'auto' && (
-                  <span className="text-[9px] px-1 py-0.5 bg-indigo-100 text-indigo-600 rounded font-medium leading-none">자동</span>
+                  <span className="text-[9px] px-1 py-0.5 bg-brand-100 text-brand-600 rounded font-medium leading-none">자동</span>
                 )}
                 <span className="font-mono text-text-tertiary shrink-0">
                   {log.sent_at.slice(5, 10)} {log.sent_at.slice(11, 16)}

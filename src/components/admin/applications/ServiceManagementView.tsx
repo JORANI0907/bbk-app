@@ -94,10 +94,10 @@ type SortDir = 'asc' | 'desc'
 const SERVICE_TYPES: ServiceType[] = ['정기딥케어', '정기엔드케어']
 const STATUS_CONFIG: Record<ApplicationStatus, { color: string; badge: string; dot: string; row: string }> = {
   '신규':          { color: 'bg-brand-500 text-white',    badge: 'bg-brand-100 text-brand-700 ring-brand-300',   dot: 'bg-brand-500',  row: 'bg-brand-50' },
-  '견적발송':      { color: 'bg-indigo-500 text-white',   badge: 'bg-indigo-100 text-indigo-700 ring-indigo-300', dot: 'bg-indigo-500', row: 'bg-indigo-50' },
+  '견적발송':      { color: 'bg-brand-500 text-white',   badge: 'bg-brand-100 text-brand-700 ring-indigo-300', dot: 'bg-brand-500', row: 'bg-brand-50' },
   '예약확정':      { color: 'bg-green-600 text-white',    badge: 'bg-green-100 text-green-800 ring-green-300',    dot: 'bg-green-600',  row: 'bg-green-50' },
   '예약1일전':     { color: 'bg-brand-500 text-white',    badge: 'bg-brand-100 text-brand-700 ring-brand-300',   dot: 'bg-brand-500',  row: 'bg-brand-50' },
-  '예약당일':      { color: 'bg-brand-600 text-white',    badge: 'bg-brand-100 text-brand-800 ring-brand-300',   dot: 'bg-brand-600',  row: 'bg-sky-50' },
+  '예약당일':      { color: 'bg-brand-600 text-white',    badge: 'bg-brand-100 text-brand-800 ring-brand-300',   dot: 'bg-brand-600',  row: 'bg-brand-50' },
   '작업완료':      { color: 'bg-orange-500 text-white',   badge: 'bg-orange-100 text-orange-700 ring-orange-300', dot: 'bg-orange-500', row: 'bg-orange-50' },
   '작업완료(엔드)': { color: 'bg-orange-600 text-white', badge: 'bg-orange-100 text-orange-800 ring-orange-300', dot: 'bg-orange-600', row: 'bg-orange-50' },
   '결제':          { color: 'bg-orange-400 text-white',   badge: 'bg-orange-100 text-orange-600 ring-orange-200', dot: 'bg-orange-400', row: 'bg-amber-50' },
@@ -107,7 +107,7 @@ const STATUS_CONFIG: Record<ApplicationStatus, { color: string; badge: string; d
   '비과세':         { color: 'bg-gray-300 text-gray-700', badge: 'bg-surface-sunken text-text-tertiary ring-gray-200',         dot: 'bg-gray-300',   row: 'bg-surface' },
   '카드결제 완료':  { color: 'bg-gray-300 text-gray-700', badge: 'bg-surface-sunken text-text-tertiary ring-gray-200',         dot: 'bg-gray-300',   row: 'bg-surface' },
   '예약금환급완료': { color: 'bg-gray-300 text-gray-700', badge: 'bg-surface-sunken text-text-tertiary ring-gray-200',       dot: 'bg-gray-300',   row: 'bg-surface' },
-  '예약금 입금':   { color: 'bg-teal-600 text-white',    badge: 'bg-teal-100 text-teal-700 ring-teal-300',      dot: 'bg-teal-600',   row: 'bg-teal-50' },
+  '예약금 입금':   { color: 'bg-brand-600 text-white',    badge: 'bg-brand-100 text-brand-700 ring-teal-300',      dot: 'bg-brand-600',   row: 'bg-brand-50' },
   '예약취소':      { color: 'bg-gray-400 text-white',     badge: 'bg-surface-sunken text-text-secondary ring-gray-300',      dot: 'bg-gray-400',   row: 'bg-surface-sunken' },
   'A/S방문':       { color: 'bg-gray-400 text-white',     badge: 'bg-surface-sunken text-text-secondary ring-gray-300',      dot: 'bg-gray-400',   row: 'bg-surface-sunken' },
   '방문견적':      { color: 'bg-gray-400 text-white',     badge: 'bg-surface-sunken text-text-secondary ring-gray-300',      dot: 'bg-gray-400',   row: 'bg-surface-sunken' },
@@ -123,7 +123,7 @@ const NOTIFICATION_TYPES = [
 ]
 const NOTIFY_TYPE_CONFIG: Record<string, { badge: string; dot: string }> = {
   '예약확정알림':       { badge: 'bg-brand-100 text-brand-700',    dot: 'bg-brand-500' },
-  '예약1일전알림':      { badge: 'bg-sky-100 text-sky-700',        dot: 'bg-sky-400' },
+  '예약1일전알림':      { badge: 'bg-brand-100 text-brand-700',        dot: 'bg-brand-400' },
   '예약당일알림':       { badge: 'bg-violet-100 text-violet-700',  dot: 'bg-violet-500' },
   '작업완료알림':           { badge: 'bg-green-100 text-green-700',    dot: 'bg-green-500' },
   '작업완료알림(현금)':     { badge: 'bg-green-100 text-green-800',    dot: 'bg-green-600' },
@@ -133,12 +133,12 @@ const NOTIFY_TYPE_CONFIG: Record<string, { badge: string; dot: string }> = {
   '결제알림(카드,플렛폼)':  { badge: 'bg-amber-100 text-amber-700',    dot: 'bg-amber-500' },
   '결제완료알림':       { badge: 'bg-emerald-100 text-emerald-700', dot: 'bg-emerald-500' },
   '결제완료알림(잔금)': { badge: 'bg-emerald-100 text-emerald-800', dot: 'bg-emerald-600' },
-  '계산서발행완료알림': { badge: 'bg-teal-100 text-teal-700',      dot: 'bg-teal-500' },
-  '예약금환급완료알림':  { badge: 'bg-cyan-100 text-cyan-700',      dot: 'bg-cyan-500' },
-  '예약금 입금완료 알림': { badge: 'bg-teal-100 text-teal-700',   dot: 'bg-teal-500' },
+  '계산서발행완료알림': { badge: 'bg-brand-100 text-brand-700',      dot: 'bg-brand-500' },
+  '예약금환급완료알림':  { badge: 'bg-brand-100 text-brand-700',      dot: 'bg-brand-500' },
+  '예약금 입금완료 알림': { badge: 'bg-brand-100 text-brand-700',   dot: 'bg-brand-500' },
   '예약취소알림':       { badge: 'bg-red-100 text-red-700',        dot: 'bg-red-500' },
   'A/S방문알림':        { badge: 'bg-yellow-100 text-yellow-700',  dot: 'bg-yellow-500' },
-  '방문견적알림':       { badge: 'bg-indigo-100 text-indigo-700',  dot: 'bg-indigo-500' },
+  '방문견적알림':       { badge: 'bg-brand-100 text-brand-700',  dot: 'bg-brand-500' },
   '작업자 일정 안내':        { badge: 'bg-slate-100 text-slate-700',  dot: 'bg-slate-500' },
   '작업자 자세한 일정 안내': { badge: 'bg-slate-200 text-slate-800',  dot: 'bg-slate-600' },
   '구독권유알림':      { badge: 'bg-pink-100 text-pink-700',       dot: 'bg-pink-500' },
@@ -248,7 +248,7 @@ function EditRow({ label, value, onChange, mono }: { label: string; value: strin
     <div className="flex items-center gap-2">
       <span className="text-xs text-text-secondary w-20 shrink-0">{label}</span>
       <input value={value} onChange={e => onChange(e.target.value)}
-        className={`flex-1 border border-border rounded-lg px-2 py-1.5 text-xs text-text-primary focus:outline-none focus:ring-2 focus:ring-blue-500 ${mono ? 'font-mono' : ''}`} />
+        className={`flex-1 border border-border rounded-lg px-2 py-1.5 text-xs text-text-primary focus:outline-none focus:ring-2 focus:ring-brand-500 ${mono ? 'font-mono' : ''}`} />
     </div>
   )
 }
@@ -262,7 +262,7 @@ function AmountInput({ label, value, onChange, hint, disabled }: {
       </label>
       <input type="number" value={value} onChange={e => onChange(e.target.value)}
         placeholder="0" disabled={disabled}
-        className="w-full border border-border rounded-lg px-3 py-2 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-surface-sunken" />
+        className="w-full border border-border rounded-lg px-3 py-2 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-brand-500 disabled:bg-surface-sunken" />
     </div>
   )
 }
@@ -1581,7 +1581,7 @@ export function ServiceManagementPage({
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               placeholder="업체명, 대표자, 연락처, 주소, 케어범위, 계좌·사업자번호, 금액 검색..."
-              className="w-full pl-8 pr-8 py-1.5 text-xs text-text-primary border border-border rounded-lg bg-surface focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full pl-8 pr-8 py-1.5 text-xs text-text-primary border border-border rounded-lg bg-surface focus:outline-none focus:ring-2 focus:ring-brand-500"
             />
             {searchQuery && (
               <button onClick={() => setSearchQuery('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-text-tertiary hover:text-text-secondary text-sm leading-none">✕</button>
@@ -1620,7 +1620,7 @@ export function ServiceManagementPage({
               </div>
             )}
             <select value={paymentFilter} onChange={e => setPaymentFilter(e.target.value)}
-              className="text-xs border border-border rounded-lg px-2 py-1.5 bg-surface focus:outline-none focus:ring-2 focus:ring-blue-500">
+              className="text-xs border border-border rounded-lg px-2 py-1.5 bg-surface focus:outline-none focus:ring-2 focus:ring-brand-500">
               <option value="">결제방법 전체</option>
               {['현금(계산서 희망)', '현금(비과세)', '카드(온라인 간편결제)', '플랫폼'].map(p => (
                 <option key={p} value={p}>{p}</option>
@@ -1629,7 +1629,7 @@ export function ServiceManagementPage({
             <select
               value={selectedStaffId ?? ''}
               onChange={e => setSelectedStaffId(e.target.value || null)}
-              className="text-xs border border-border rounded-lg px-2 py-1.5 bg-surface focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="text-xs border border-border rounded-lg px-2 py-1.5 bg-surface focus:outline-none focus:ring-2 focus:ring-brand-500"
             >
               <option value="">담당자·작업자 전체</option>
               {staffList.map(s => (
@@ -1642,7 +1642,7 @@ export function ServiceManagementPage({
                 setSortField(f as SortField)
                 setSortDir(d as SortDir)
               }}
-              className="text-xs border border-border rounded-lg px-2 py-1.5 bg-surface focus:outline-none focus:ring-2 focus:ring-blue-500 ml-auto">
+              className="text-xs border border-border rounded-lg px-2 py-1.5 bg-surface focus:outline-none focus:ring-2 focus:ring-brand-500 ml-auto">
               {(Object.entries(SORT_LABELS) as [SortField, string][]).flatMap(([f, l]) => [
                 <option key={`${f}:desc`} value={`${f}:desc`}>{l} ↓</option>,
                 <option key={`${f}:asc`} value={`${f}:asc`}>{l} ↑</option>,
@@ -1668,7 +1668,7 @@ export function ServiceManagementPage({
                 </button>
               </div>
               <div className="flex flex-wrap gap-2">
-                <Button size="sm" onClick={handleDuplicateBulk} disabled={bulkSaving} className="bg-yellow-500 hover:bg-yellow-400 text-white whitespace-nowrap">
+                <Button size="sm" onClick={handleDuplicateBulk} disabled={bulkSaving} className="bg-brand-100 hover:bg-brand-200 text-brand-700 whitespace-nowrap">
                   {bulkSaving ? '처리 중...' : '복제'}
                 </Button>
                 <Button variant="danger" size="sm" onClick={handleDeleteApplicationBulk} disabled={bulkSaving} className="whitespace-nowrap">
@@ -1676,11 +1676,11 @@ export function ServiceManagementPage({
                 </Button>
                 <Button size="sm" onClick={handleArchiveApplicationBulk} disabled={bulkSaving}
                   className={archivedView
-                    ? 'bg-sky-600 hover:bg-sky-700 text-white whitespace-nowrap'
+                    ? 'bg-brand-600 hover:bg-brand-700 text-white whitespace-nowrap'
                     : 'bg-purple-600 hover:bg-purple-700 text-white whitespace-nowrap'}>
                   {bulkSaving ? '처리 중...' : archivedView ? '↩ 고객관리로 되돌리기' : '📦 이력으로 이관'}
                 </Button>
-                <Button size="sm" onClick={handleTaxInvoiceBulk} disabled={bulkSaving} className="bg-teal-500 hover:bg-teal-400 text-white whitespace-nowrap">
+                <Button size="sm" onClick={handleTaxInvoiceBulk} disabled={bulkSaving} className="bg-brand-100 hover:bg-brand-200 text-brand-700 whitespace-nowrap">
                   {bulkSaving ? '처리 중...' : '계산서 작성'}
                 </Button>
                 {/* Phase 7-J: "고객 DB 저장 →" 버튼 제거 — 서비스관리 흡수 이후 미사용 (사용자 지시) */}
@@ -1750,7 +1750,7 @@ export function ServiceManagementPage({
                       ))}
                     </tr>
                   </thead>
-                  <tbody>
+                  <tbody className="anim-stagger-fast">
                     {(() => {
                       const weekTotals: Map<string, number> = new Map()
                       for (const app of rows) {
@@ -1769,7 +1769,7 @@ export function ServiceManagementPage({
                             lastWeekKey = key
                             const weekSum = weekTotals.get(key) ?? 0
                             cells.push(
-                              <tr key={`wk-${key}`} className="bg-gradient-to-r from-brand-50 to-indigo-50 border-t-2 border-brand-200">
+                              <tr key={`wk-${key}`} className="bg-surface-sunken border-t border-border-subtle">
                                 <td colSpan={10} className="px-4 py-1.5">
                                   <div className="flex items-center justify-between">
                                     <span className="text-xs font-bold text-brand-700 tracking-wide">{label}</span>
@@ -1851,7 +1851,7 @@ export function ServiceManagementPage({
                             {lastLog && notifyCfg ? (
                               <div className="flex items-center gap-1 flex-wrap">
                                 {lastLog.method === 'auto' && (
-                                  <span className="text-xs px-1 py-0.5 bg-indigo-100 text-indigo-500 rounded font-medium leading-none">[자동]</span>
+                                  <span className="text-xs px-1 py-0.5 bg-brand-100 text-brand-500 rounded font-medium leading-none">[자동]</span>
                                 )}
                                 <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${notifyCfg.badge}`}>
                                   <span className={`w-1.5 h-1.5 rounded-full ${notifyCfg.dot} shrink-0`} />
@@ -1914,7 +1914,7 @@ export function ServiceManagementPage({
                     value={selected.status}
                     disabled={saving}
                     onChange={e => quickSave({ status: e.target.value as ApplicationStatus })}
-                    className={`flex-1 border rounded-lg px-3 py-2 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500 ${STATUS_CONFIG[selected.status]?.badge ?? 'bg-surface-sunken text-text-secondary'}`}
+                    className={`flex-1 border rounded-lg px-3 py-2 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-brand-500 ${STATUS_CONFIG[selected.status]?.badge ?? 'bg-surface-sunken text-text-secondary'}`}
                   >
                     {(Object.keys(STATUS_CONFIG) as ApplicationStatus[]).map(s => (
                       <option key={s} value={s}>{s}</option>
@@ -1936,7 +1936,7 @@ export function ServiceManagementPage({
                 </div>
                 <div className="flex gap-1.5 flex-wrap mt-2">
                   {(['호의', '보통', '블랙'] as const).map(d => {
-                    const style = d === '호의' ? 'bg-sky-100 text-sky-700' : d === '블랙' ? 'bg-red-100 text-red-700' : 'bg-surface-sunken text-text-secondary'
+                    const style = d === '호의' ? 'bg-brand-100 text-brand-700' : d === '블랙' ? 'bg-red-100 text-red-700' : 'bg-surface-sunken text-text-secondary'
                     const isActive = (selected.disposition ?? '보통') === d
                     return (
                       <button key={d} disabled={saving}
@@ -1952,13 +1952,13 @@ export function ServiceManagementPage({
               {/* 시공일자 */}
               <Section title="시공일자">
                 <input type="date" value={constructionDate} onChange={e => setConstructionDate(e.target.value)}
-                  className="w-full border border-border rounded-lg px-3 py-2 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                  className="w-full border border-border rounded-lg px-3 py-2 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-brand-500" />
               </Section>
 
               {/* 담당자 + 작업자 */}
               <Section title="담당자 / 작업자">
                 <select value={assignedTo} onChange={e => setAssignedTo(e.target.value)}
-                  className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-surface mb-2">
+                  className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 bg-surface mb-2">
                   <option value="">담당자 미배정</option>
                   {users.map(u => (
                     <option key={u.id} value={u.id}>{u.name} ({u.role === 'admin' ? '관리자' : '직원'})</option>
@@ -1968,16 +1968,16 @@ export function ServiceManagementPage({
                 <div className="relative">
                   <button type="button"
                     onClick={() => setWorkerDropdownOpen(o => !o)}
-                    className="w-full border border-border rounded-lg px-3 py-2 text-sm text-left bg-surface focus:outline-none focus:ring-2 focus:ring-blue-500 flex items-center justify-between">
+                    className="w-full border border-border rounded-lg px-3 py-2 text-sm text-left bg-surface focus:outline-none focus:ring-2 focus:ring-brand-500 flex items-center justify-between">
                     <span className="flex flex-wrap gap-1">
                       {selectedWorkerIds.length === 0
                         ? <span className="text-text-tertiary">작업자 선택 (복수 가능)</span>
                         : selectedWorkerIds.map(wid => {
                             const w = workers.find(x => x.id === wid)
                             return w ? (
-                              <span key={wid} className="inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-indigo-100 text-indigo-700 rounded text-xs">
+                              <span key={wid} className="inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-brand-100 text-brand-700 rounded text-xs">
                                 {w.name}
-                                <button type="button" onClick={e => { e.stopPropagation(); handleWorkerToggle(wid) }} className="text-indigo-400 hover:text-indigo-700 leading-none">×</button>
+                                <button type="button" onClick={e => { e.stopPropagation(); handleWorkerToggle(wid) }} className="text-brand-400 hover:text-brand-700 leading-none">×</button>
                               </span>
                             ) : null
                           })}
@@ -1994,8 +1994,8 @@ export function ServiceManagementPage({
                           return (
                             <button key={w.id} type="button"
                               onClick={() => handleWorkerToggle(w.id)}
-                              className={`w-full flex items-center gap-2 px-3 py-2 text-sm text-left hover:bg-surface-sunken transition-colors ${checked ? 'bg-indigo-50' : ''}`}>
-                              <span className={`w-4 h-4 rounded border flex items-center justify-center text-xs shrink-0 ${checked ? 'bg-indigo-600 border-indigo-600 text-white' : 'border-border'}`}>
+                              className={`w-full flex items-center gap-2 px-3 py-2 text-sm text-left hover:bg-surface-sunken transition-colors ${checked ? 'bg-brand-50' : ''}`}>
+                              <span className={`w-4 h-4 rounded border flex items-center justify-center text-xs shrink-0 ${checked ? 'bg-brand-600 border-brand-600 text-white' : 'border-border'}`}>
                                 {checked && '✓'}
                               </span>
                               <span className="font-medium text-text-primary flex-1">{w.name}</span>
@@ -2050,7 +2050,7 @@ export function ServiceManagementPage({
                         발송
                       </label>
                       <input value={phone} onChange={e => setPhone(e.target.value)}
-                        className="flex-1 border border-border rounded-lg px-2 py-1.5 text-xs text-text-primary focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                        className="flex-1 border border-border rounded-lg px-2 py-1.5 text-xs text-text-primary focus:outline-none focus:ring-2 focus:ring-brand-500" />
                       <a href={`tel:${phone}`} className="px-2 py-1.5 text-xs bg-brand-50 text-brand-600 rounded-lg hover:bg-brand-100"><Phone size={14} /></a>
                       <button onClick={() => copyText(phone, '연락처')} className="px-2 py-1.5 text-xs bg-surface-sunken rounded-lg hover:bg-surface-sunken"><ClipboardList size={14} /></button>
                     </div>
@@ -2070,7 +2070,7 @@ export function ServiceManagementPage({
                       </label>
                       <input value={phone2} onChange={e => setPhone2(e.target.value)}
                         placeholder="알림수신 추가번호 (선택)"
-                        className="flex-1 border border-border rounded-lg px-2 py-1.5 text-xs text-text-primary focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                        className="flex-1 border border-border rounded-lg px-2 py-1.5 text-xs text-text-primary focus:outline-none focus:ring-2 focus:ring-brand-500" />
                       {phone2 && (
                         <a href={`tel:${phone2}`} className="px-2 py-1.5 text-xs bg-brand-50 text-brand-600 rounded-lg hover:bg-brand-100"><Phone size={14} /></a>
                       )}
@@ -2081,7 +2081,7 @@ export function ServiceManagementPage({
                     <span className="text-xs text-text-secondary w-20 shrink-0">주소</span>
                     <div className="flex flex-1 gap-1">
                       <input value={address} onChange={e => setAddress(e.target.value)}
-                        className="flex-1 border border-border rounded-lg px-2 py-1.5 text-xs text-text-primary focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                        className="flex-1 border border-border rounded-lg px-2 py-1.5 text-xs text-text-primary focus:outline-none focus:ring-2 focus:ring-brand-500" />
                       <button onClick={() => setMapAddress(address)}
                         className="px-2 py-1.5 text-xs bg-green-50 text-green-700 rounded-lg hover:bg-green-100 shrink-0"><MapIcon size={14} /></button>
                     </div>
@@ -2149,7 +2149,7 @@ export function ServiceManagementPage({
                   <div className="flex items-center gap-2">
                     <span className="text-xs text-text-secondary w-20 shrink-0">결제방법</span>
                     <select value={paymentMethod} onChange={e => handlePaymentMethodChange(e.target.value)}
-                      className="flex-1 border border-border rounded-lg px-2 py-1.5 text-xs text-text-primary focus:outline-none focus:ring-2 focus:ring-blue-500 bg-surface">
+                      className="flex-1 border border-border rounded-lg px-2 py-1.5 text-xs text-text-primary focus:outline-none focus:ring-2 focus:ring-brand-500 bg-surface">
                       <option value="">선택...</option>
                       <option value="현금(계산서 희망)">현금(계산서 희망)</option>
                       <option value="현금(비과세)">현금(비과세)</option>
@@ -2161,7 +2161,7 @@ export function ServiceManagementPage({
                     <span className="text-xs text-text-secondary w-20 shrink-0">계좌번호</span>
                     <div className="flex flex-1 gap-1">
                       <input value={accountNumber} onChange={e => setAccountNumber(e.target.value)}
-                        className="flex-1 border border-border rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono" />
+                        className="flex-1 border border-border rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-brand-500 font-mono" />
                       <button onClick={() => copyText(accountNumber, '계좌번호')} className="px-2 py-1.5 text-xs bg-surface-sunken rounded-lg hover:bg-surface-sunken"><ClipboardList size={14} /></button>
                     </div>
                   </div>
@@ -2169,7 +2169,7 @@ export function ServiceManagementPage({
                     <span className="text-xs text-text-secondary w-20 shrink-0">사업자번호</span>
                     <div className="flex flex-1 gap-1">
                       <input value={businessNumber} onChange={e => setBusinessNumber(e.target.value)}
-                        className="flex-1 border border-border rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono" />
+                        className="flex-1 border border-border rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-brand-500 font-mono" />
                       <button onClick={() => copyText(businessNumber, '사업자번호')} className="px-2 py-1.5 text-xs bg-surface-sunken rounded-lg hover:bg-surface-sunken"><ClipboardList size={14} /></button>
                     </div>
                   </div>
@@ -2240,7 +2240,7 @@ export function ServiceManagementPage({
                         {selected.balance_paid_at ? (
                           <div className="flex-1 border border-border-subtle rounded-lg px-2 py-1.5 text-xs text-state-success bg-state-success-bg">✅ 잔금 결제완료</div>
                         ) : selected.billing_key ? (
-                          <Button onClick={handleChargeBalance} disabled={chargingBalance} className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white text-xs">
+                          <Button onClick={handleChargeBalance} disabled={chargingBalance} className="flex-1 bg-brand-600 hover:bg-brand-700 text-white text-xs">
                             {chargingBalance ? '청구 중...' : '잔금 자동 청구'}
                           </Button>
                         ) : (
@@ -2265,7 +2265,7 @@ export function ServiceManagementPage({
                     <option value="">알림 유형 선택...</option>
                     {NOTIFICATION_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
                   </select>
-                  <Button onClick={handleNotify} disabled={sending || !notifyType} className="bg-orange-500 hover:bg-orange-600 text-white whitespace-nowrap">
+                  <Button onClick={handleNotify} disabled={sending || !notifyType} className="bg-brand-600 hover:bg-brand-700 text-white whitespace-nowrap">
                     {sending ? '발송 중...' : <><Megaphone size={14} /> 발송</>}
                   </Button>
                 </div>
@@ -2303,7 +2303,7 @@ export function ServiceManagementPage({
                               )}
                               {/* P2-31: 자동/수동 구분 태그 */}
                               {log.method === 'auto' && (
-                                <span className="text-xs px-1.5 py-0.5 bg-indigo-100 text-indigo-600 rounded font-medium shrink-0">[자동]</span>
+                                <span className="text-xs px-1.5 py-0.5 bg-brand-100 text-brand-600 rounded font-medium shrink-0">[자동]</span>
                               )}
                               <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium ${cfg?.badge ?? 'bg-surface-sunken text-text-secondary'}`}>
                                 <span className={`w-1.5 h-1.5 rounded-full ${cfg?.dot ?? 'bg-text-tertiary'} shrink-0`} />

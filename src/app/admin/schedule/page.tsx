@@ -129,9 +129,9 @@ const STATUS_CONFIG: Record<string, { badge: string; dot: string }> = {
 
 // Phase 1: 작업상태 뱃지 (파란 계열)
 const WORK_STATUS_CONFIG: Record<string, { label: string; badge: string; dot: string }> = {
-  'not_started': { label: '예정',   badge: 'bg-blue-50 text-blue-600 border border-blue-100', dot: 'bg-blue-400' },
-  'in_progress': { label: '진행중', badge: 'bg-blue-100 text-blue-700 border border-blue-200', dot: 'bg-blue-500 animate-pulse' },
-  'completed':   { label: '완료',   badge: 'bg-sky-100 text-sky-700 border border-sky-200', dot: 'bg-sky-600' },
+  'not_started': { label: '예정',   badge: 'bg-brand-50 text-brand-600 border border-brand-100', dot: 'bg-brand-400' },
+  'in_progress': { label: '진행중', badge: 'bg-brand-100 text-brand-700 border border-brand-200', dot: 'bg-brand-500 animate-pulse' },
+  'completed':   { label: '완료',   badge: 'bg-brand-100 text-brand-700 border border-brand-200', dot: 'bg-brand-600' },
 }
 
 // Phase 1: 결제상태 뱃지 (초록/주황 계열)
@@ -203,10 +203,10 @@ const PAYMENT_STATUS_DOT: Record<string, string> = {
   '결제':             'bg-orange-500',
   '결제완료':         'bg-emerald-500',
   '결제완료(잔금)':   'bg-emerald-600',
-  '계산서발행완료':   'bg-blue-500',
+  '계산서발행완료':   'bg-brand-500',
   '예약금환급완료':   'bg-gray-400',
-  '비과세':           'bg-teal-500',
-  '카드결제 완료':    'bg-indigo-500',
+  '비과세':           'bg-brand-500',
+  '카드결제 완료':    'bg-brand-500',
 }
 
 const SERVICE_TYPE_OPTIONS = ['전체보기', '1회성케어', '정기딥케어', '정기엔드케어', '일반일정']
@@ -331,7 +331,7 @@ function DayListPanel({
                     <p className="text-[11px] text-brand-500 ml-4 mt-0.5 line-clamp-1">{app.care_scope}</p>
                   )}
                   {workerNames && (
-                    <p className="text-[11px] text-indigo-500 ml-4 mt-0.5">{workerNames}</p>
+                    <p className="text-[11px] text-brand-500 ml-4 mt-0.5">{workerNames}</p>
                   )}
                 </button>
               )
@@ -399,7 +399,7 @@ function CalendarGrid({
               onClick={() => hasApps && onDaySelect(dateStr, apps)}
               className={`border-r border-b border-border-subtle p-1.5 flex flex-col gap-0.5
                 ${isToday ? `${TODAY_CELL_BG} ${TODAY_CELL_SHADOW}` : (dow === 0 || dow === 6) ? 'bg-surface-sunken/50' : ''}
-                ${hasApps ? 'cursor-pointer hover:bg-indigo-50/40 transition-colors' : ''}`}
+                ${hasApps ? 'cursor-pointer hover:bg-brand-50/40 transition-colors' : ''}`}
             >
               <div className={`text-xs font-bold w-6 h-6 flex items-center justify-center rounded-full shrink-0
                 ${isToday ? TODAY_CIRCLE : dow === 0 ? 'text-red-500' : dow === 6 ? 'text-brand-500' : 'text-text-primary'}`}>
@@ -409,8 +409,8 @@ function CalendarGrid({
                 {apps.slice(0, 3).map(app => {
                   const cfg = STATUS_CONFIG[app.status] ?? STATUS_CONFIG['신규']
                   // Phase 24: 캘린더 뱃지에도 유형별 배경색 반영 (리스트와 동일 SERVICE_TYPE_ROW_BG)
-                  const bg = SERVICE_TYPE_ROW_BG[app.service_type ?? ''] ?? 'bg-indigo-50'
-                  const typeText = SERVICE_TYPE_CONFIG[app.service_type ?? ''] ?? 'text-indigo-800'
+                  const bg = SERVICE_TYPE_ROW_BG[app.service_type ?? ''] ?? 'bg-brand-50'
+                  const typeText = SERVICE_TYPE_CONFIG[app.service_type ?? ''] ?? 'text-brand-800'
                   return (
                     <div key={app.id}
                       className={`px-1 py-0.5 rounded-md border border-black/5 ${bg}`}>
@@ -575,7 +575,7 @@ function DetailPanel({
                 workerNames.length > 0
                   ? <div className="flex flex-wrap gap-1 justify-end">
                       {workerNames.map(n => (
-                        <span key={n} className="bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded text-xs">{n}</span>
+                        <span key={n} className="bg-brand-100 text-brand-700 px-1.5 py-0.5 rounded text-xs">{n}</span>
                       ))}
                     </div>
                   : '미배정'
@@ -1269,15 +1269,15 @@ export default function SchedulePage() {
           </div>
           <div className="flex flex-wrap gap-2">
             <Button onClick={handleDuplicateBulk} disabled={bulkSaving} size="sm"
-              className="bg-yellow-500 hover:bg-yellow-400 whitespace-nowrap">
+              className="bg-brand-100 hover:bg-brand-200 text-brand-700 whitespace-nowrap">
               {bulkSaving ? '처리 중...' : '복제'}
             </Button>
             <Button onClick={handleDeleteBulk} disabled={bulkSaving} variant="danger" size="sm"
-              className="bg-red-500 hover:bg-red-400 whitespace-nowrap">
+              className="whitespace-nowrap">
               삭제
             </Button>
             <Button onClick={handleArchiveBulk} disabled={bulkSaving} size="sm"
-              className="bg-purple-600 hover:bg-purple-700 text-white whitespace-nowrap">
+              className="bg-brand-600 hover:bg-brand-700 text-white whitespace-nowrap">
               {bulkSaving ? '처리 중...' : '📦 이력으로 이관'}
             </Button>
           </div>
@@ -1304,9 +1304,9 @@ export default function SchedulePage() {
                 onClick={() => setServiceTypeFilters(prev =>
                   active ? prev.filter(t => t !== type) : [...prev, type]
                 )}
-                className={`text-[11px] px-2.5 py-1 rounded-full font-medium border transition-colors ${
+                className={`pill-toss text-xs px-3 py-1 rounded-full font-semibold border ${
                   active
-                    ? `${SERVICE_TYPE_CONFIG[type] ?? 'bg-brand-100 text-brand-700'} border-current ring-2 ring-offset-1 ring-current`
+                    ? `pill-active-toss ${SERVICE_TYPE_CONFIG[type] ?? 'bg-brand-500 text-white'} border-transparent`
                     : 'bg-surface text-text-secondary border-border hover:bg-surface-sunken'
                 }`}
               >
@@ -1331,7 +1331,7 @@ export default function SchedulePage() {
           <select
             value={personFilter}
             onChange={e => setPersonFilter(e.target.value)}
-            className="border border-border rounded-lg px-3 py-1.5 text-xs text-text-primary bg-surface focus:outline-none focus:ring-2 focus:ring-blue-500 min-w-[110px]"
+            className="border border-border rounded-lg px-3 py-1.5 text-xs text-text-primary bg-surface focus:outline-none focus:ring-2 focus:ring-brand-500 min-w-[110px]"
           >
             <option value="">담당자 전체</option>
             {users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
@@ -1347,7 +1347,7 @@ export default function SchedulePage() {
           <select
             value={workerFilter}
             onChange={e => setWorkerFilter(e.target.value)}
-            className="border border-border rounded-lg px-3 py-1.5 text-xs text-text-primary bg-surface focus:outline-none focus:ring-2 focus:ring-blue-500 min-w-[110px]"
+            className="border border-border rounded-lg px-3 py-1.5 text-xs text-text-primary bg-surface focus:outline-none focus:ring-2 focus:ring-brand-500 min-w-[110px]"
           >
             <option value="">작업자 전체</option>
             {workers.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
@@ -1366,7 +1366,7 @@ export default function SchedulePage() {
             value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder="업체명, 주소, 케어범위..."
-            className="pl-7 pr-7 py-1.5 text-xs text-text-primary border border-border rounded-lg bg-surface focus:outline-none focus:ring-2 focus:ring-blue-500 w-40"
+            className="pl-7 pr-7 py-1.5 text-xs text-text-primary border border-border rounded-lg bg-surface focus:outline-none focus:ring-2 focus:ring-brand-500 w-40"
           />
           {search && (
             <button onClick={() => setSearch('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-text-tertiary hover:text-text-secondary text-xs">✕</button>
@@ -1444,16 +1444,16 @@ export default function SchedulePage() {
                   )}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-border-subtle">
+              <tbody className="anim-stagger-fast divide-y divide-border-subtle">
                 {listItems.map(item => {
                   if (item.kind === 'week') {
-                    // Phase 7: 주차 구분자 시각 강조 (bar + 좌측 두꺼운 인디케이터)
+                    // Toss 스타일: gradient 배경 제거, 얇은 gray 배경 + 좌측 브랜드 accent bar만
                     return (
-                      <tr key={item.key} className="bg-gradient-to-r from-brand-100 via-brand-50 to-transparent border-y-2 border-brand-300">
+                      <tr key={item.key} className="bg-surface-sunken border-t border-border-subtle">
                         <td colSpan={isAdmin ? 9 : 7} className="px-4 py-2.5">
                           <div className="flex items-center gap-2">
                             <span className="w-1 h-4 bg-brand-500 rounded-full shrink-0" />
-                            <span className="text-sm font-bold text-brand-800 tracking-wide">{item.label}</span>
+                            <span className="text-sm font-bold text-text-primary tracking-wide">{item.label}</span>
                           </div>
                         </td>
                       </tr>
@@ -1517,13 +1517,13 @@ export default function SchedulePage() {
                           {app.drive_folder_url && <span className="text-brand-400 text-xs shrink-0"><Camera size={14} /></span>}
                           {/* Phase 11: 진행상태 뱃지 (연한 indigo) */}
                           {app.progress_status && (
-                            <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium bg-indigo-50 text-indigo-700 border border-indigo-200 whitespace-nowrap shrink-0">
+                            <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium bg-brand-50 text-brand-700 border border-brand-200 whitespace-nowrap shrink-0">
                               {app.progress_status}
                             </span>
                           )}
                           {/* Phase 11: 결제상태 dot 뱃지 (금전축) */}
                           {app.payment_status_detail && (
-                            <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full font-medium bg-teal-50 text-teal-700 border border-teal-200 whitespace-nowrap shrink-0">
+                            <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full font-medium bg-brand-50 text-brand-700 border border-brand-200 whitespace-nowrap shrink-0">
                               <span className={`w-1.5 h-1.5 rounded-full ${PAYMENT_STATUS_DOT[app.payment_status_detail] ?? 'bg-gray-400'}`} />
                               {app.payment_status_detail === '비과세' ? '비과세 결제' : app.payment_status_detail}
                             </span>
@@ -1551,7 +1551,7 @@ export default function SchedulePage() {
                         {workerNames.length > 0
                           ? <div className="flex flex-wrap gap-1">
                               {workerNames.map(name => (
-                                <span key={name} className="bg-indigo-50 text-indigo-700 border border-indigo-100 px-1.5 py-0.5 rounded-md text-xs whitespace-nowrap">
+                                <span key={name} className="bg-brand-50 text-brand-700 border border-brand-100 px-1.5 py-0.5 rounded-md text-xs whitespace-nowrap">
                                   {name}
                                 </span>
                               ))}
@@ -1573,7 +1573,7 @@ export default function SchedulePage() {
                               type="checkbox"
                               checked={app.work_status === 'completed'}
                               onChange={e => handleToggleComplete(app, e.target.checked)}
-                              className="w-5 h-5 rounded border-gray-300 text-sky-600 cursor-pointer focus:ring-sky-500"
+                              className="w-5 h-5 rounded border-gray-300 text-brand-600 cursor-pointer focus:ring-sky-500"
                             />
                           </label>
                         </td>

@@ -57,7 +57,7 @@ const EMPTY_FORM: NoticeFormData = {
 const TYPE_LABELS: Record<NoticeType, string> = { notice: '공지', event: '이벤트' }
 const TYPE_BADGE: Record<NoticeType, string> = {
   notice: 'bg-brand-100 text-brand-700',
-  event: 'bg-purple-100 text-purple-700',
+  event: 'bg-brand-50 text-brand-600',
 }
 const PRIORITY_LABELS: Record<Priority, string> = { normal: '일반', important: '중요', urgent: '긴급' }
 const PRIORITY_BADGE: Record<Priority, string> = {

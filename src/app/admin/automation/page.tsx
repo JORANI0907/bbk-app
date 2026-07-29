@@ -337,14 +337,14 @@ const ACTIVITY_ICON_MAP: Record<string, React.ReactNode> = {
 function ChannelBadge({ type }: { type?: string }) {
   if (!type || type === 'none') return null
   if (type === 'alimtalk') return <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-700 flex items-center gap-1"><MessageSquare size={10} /> 알림톡</span>
-  if (type === 'sms') return <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 flex items-center gap-1"><Smartphone size={10} /> SMS</span>
+  if (type === 'sms') return <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-brand-100 text-brand-700 flex items-center gap-1"><Smartphone size={10} /> SMS</span>
   if (type === 'both') return <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 flex items-center gap-1"><MessageSquare size={10} /> 알림톡+SMS</span>
   return null
 }
 
 function TriggerTypeBadge({ type }: { type: 'auto' | 'manual' | 'webhook' }) {
   const map = {
-    auto:    'bg-blue-100 text-blue-700 자동',
+    auto:    'bg-brand-100 text-brand-700 자동',
     manual:  'bg-orange-100 text-orange-700 반자동',
     webhook: 'bg-purple-100 text-purple-700 자동(웹훅)',
   }
@@ -456,7 +456,7 @@ export default function AutomationPage() {
           <div><p className="text-[11px] text-brand-600 font-medium">전체</p><p className="text-xl font-bold text-brand-700">{items.length}개</p></div>
           <div><p className="text-[11px] text-state-success font-medium">활성</p><p className="text-xl font-bold text-state-success">{items.filter(i => i.active).length}개</p></div>
           <div><p className="text-[11px] text-yellow-600 font-medium">알림톡</p><p className="text-xl font-bold text-yellow-700">{totalAlimtalk}개</p></div>
-          <div><p className="text-[11px] text-blue-600 font-medium">SMS</p><p className="text-xl font-bold text-blue-700">{totalSms}개</p></div>
+          <div><p className="text-[11px] text-brand-600 font-medium">SMS</p><p className="text-xl font-bold text-brand-700">{totalSms}개</p></div>
         </div>
       </div>
 
@@ -606,7 +606,7 @@ export default function AutomationPage() {
               <div className="space-y-2">
                 {[
                   { step: '1', color: 'bg-brand-600',   label: '관리자', text: '계약서 작성 — 고객 선택 시 정보 자동 채움' },
-                  { step: '2', color: 'bg-sky-500',     label: '관리자', text: '서명 요청 발송 — 고객 전화번호로 SMS 링크 전송' },
+                  { step: '2', color: 'bg-brand-500',     label: '관리자', text: '서명 요청 발송 — 고객 전화번호로 SMS 링크 전송' },
                   { step: '3', color: 'bg-emerald-500', label: '고객',   text: '링크 접속 → 계약서 확인 → 조항 체크박스 동의' },
                   { step: '4', color: 'bg-violet-500',  label: '고객',   text: 'OTP 인증 — 휴대폰 번호 입력 → 인증번호 수신 → 입력' },
                   { step: '5', color: 'bg-orange-500',  label: '관리자', text: 'Slack 알림 수신 → 최종 확인 클릭 → 계약 완료' },
@@ -623,7 +623,7 @@ export default function AutomationPage() {
               <div className="space-y-2">
                 {[
                   { status: '작성 중',        color: 'bg-surface-sunken text-text-secondary',   desc: '서명 요청 전' },
-                  { status: '서명 대기',      color: 'bg-sky-100 text-sky-700',                 desc: 'SMS 발송 완료, 고객 서명 대기 중' },
+                  { status: '서명 대기',      color: 'bg-brand-100 text-brand-700',                 desc: 'SMS 발송 완료, 고객 서명 대기 중' },
                   { status: '고객 서명 완료', color: 'bg-amber-100 text-amber-700',             desc: 'OTP 인증 완료, 관리자 최종 확인 필요' },
                   { status: '계약 완료',      color: 'bg-state-success-bg text-state-success',  desc: '관리자 최종 확인 완료' },
                 ].map(({ status, color, desc }) => (

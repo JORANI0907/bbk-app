@@ -220,11 +220,11 @@ export default function PayslipModal({
     >
       <div className="bg-surface rounded-2xl shadow-modal w-full max-w-sm p-5 max-h-[90vh] overflow-y-auto">
         <h3 className="font-bold text-text-primary text-base mb-1 flex items-center gap-1.5">
-          <FileText size={16} className="text-indigo-600" />
+          <FileText size={16} className="text-brand-600" />
           급여명세서 발행
         </h3>
         <p className="text-xs text-text-tertiary mb-4">
-          <span className="font-semibold text-indigo-600">{displayMonth}</span> · {persons.length}명
+          <span className="font-semibold text-brand-600">{displayMonth}</span> · {persons.length}명
         </p>
 
         {/* 옵션 */}
@@ -279,7 +279,7 @@ export default function PayslipModal({
               <button
                 onClick={handleSelectFolder}
                 disabled={selecting || publishing}
-                className="w-full flex items-center justify-center gap-1.5 px-3 py-2 border-2 border-dashed border-border rounded-lg text-xs text-text-secondary hover:border-indigo-400 hover:text-indigo-600 disabled:opacity-50"
+                className="w-full flex items-center justify-center gap-1.5 px-3 py-2 border-2 border-dashed border-border rounded-lg text-xs text-text-secondary hover:border-brand-400 hover:text-brand-600 disabled:opacity-50"
               >
                 <Folder size={14} />
                 <span>{selecting ? '선택 중...' : 'Google Drive 폴더 선택'}</span>
@@ -298,13 +298,13 @@ export default function PayslipModal({
           <div className="mb-4">
             <div className="flex items-center justify-between text-xs mb-1">
               <span className="text-text-secondary">발행 진행 중...</span>
-              <span className="font-semibold text-indigo-600">
+              <span className="font-semibold text-brand-600">
                 {progress} / {persons.length}
               </span>
             </div>
             <div className="w-full bg-surface-sunken rounded-full h-2 overflow-hidden">
               <div
-                className="bg-indigo-600 h-full transition-all duration-300"
+                className="bg-brand-600 h-full transition-all duration-300"
                 style={{ width: `${(progress / persons.length) * 100}%` }}
               />
             </div>
@@ -323,7 +323,7 @@ export default function PayslipModal({
           <Button
             onClick={handlePublishAll}
             disabled={publishing || folderLoading || persons.length === 0}
-            className="flex-1 py-2 bg-indigo-600 hover:bg-indigo-700 text-white disabled:opacity-60"
+            className="flex-1 py-2 bg-brand-600 hover:bg-brand-700 text-white disabled:opacity-60"
           >
             {publishing ? '발행 중...' : `${persons.length}명 발행`}
           </Button>

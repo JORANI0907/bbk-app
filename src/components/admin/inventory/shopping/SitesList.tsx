@@ -77,12 +77,12 @@ export function SitesList() {
       {!adding ? (
         <button
           onClick={() => setAdding(true)}
-          className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border-2 border-dashed border-blue-300 text-blue-600 hover:bg-blue-50 transition-colors text-sm font-medium"
+          className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border-2 border-dashed border-brand-300 text-brand-600 hover:bg-brand-50 transition-colors text-sm font-medium"
         >
           <Plus size={16} /> 구입 사이트 추가
         </button>
       ) : (
-        <div className="bg-white border border-blue-200 rounded-xl p-4 shadow-sm flex flex-col gap-2">
+        <div className="bg-white border border-brand-200 rounded-xl p-4 shadow-sm flex flex-col gap-2">
           <div className="flex items-center justify-between mb-1">
             <h3 className="text-sm font-bold text-gray-900">새 사이트 저장</h3>
             <button onClick={() => { setAdding(false); setName(''); setUrl('') }} className="text-gray-400 hover:text-gray-600">
@@ -95,7 +95,7 @@ export function SitesList() {
               value={name}
               onChange={e => setName(e.target.value)}
               placeholder="예: 쿠팡"
-              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg outline-none focus:border-blue-400"
+              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg outline-none focus:border-brand-400"
             />
           </label>
           <label>
@@ -106,7 +106,7 @@ export function SitesList() {
               onChange={e => setUrl(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter' && url.trim()) handleCreate() }}
               placeholder="https://www.coupang.com"
-              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg outline-none focus:border-blue-400"
+              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg outline-none focus:border-brand-400"
             />
           </label>
           <div className="flex gap-2 justify-end pt-1">
@@ -119,7 +119,7 @@ export function SitesList() {
             <button
               onClick={handleCreate}
               disabled={!url.trim() || saving}
-              className="px-4 py-2 text-xs rounded-lg bg-blue-500 text-white font-semibold hover:bg-blue-600 disabled:opacity-50 flex items-center gap-1.5"
+              className="px-4 py-2 text-xs rounded-lg bg-brand-500 text-white font-semibold hover:bg-brand-600 disabled:opacity-50 flex items-center gap-1.5"
             >
               {saving ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />} 저장
             </button>
@@ -138,18 +138,18 @@ export function SitesList() {
         <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
           {sites.map(site => (
             editingId === site.id ? (
-              <div key={site.id} className="col-span-2 md:col-span-3 bg-white border border-blue-300 rounded-xl p-3 flex flex-col gap-2">
+              <div key={site.id} className="col-span-2 md:col-span-3 bg-white border border-brand-300 rounded-xl p-3 flex flex-col gap-2">
                 <input
                   value={editName}
                   onChange={e => setEditName(e.target.value)}
                   placeholder="사이트명"
-                  className="px-2 py-1.5 text-sm border border-gray-200 rounded-lg outline-none focus:border-blue-400"
+                  className="px-2 py-1.5 text-sm border border-gray-200 rounded-lg outline-none focus:border-brand-400"
                 />
                 <input
                   value={editUrl}
                   onChange={e => setEditUrl(e.target.value)}
                   placeholder="URL"
-                  className="px-2 py-1.5 text-sm border border-gray-200 rounded-lg outline-none focus:border-blue-400"
+                  className="px-2 py-1.5 text-sm border border-gray-200 rounded-lg outline-none focus:border-brand-400"
                 />
                 <div className="flex gap-1.5 justify-end">
                   <button
@@ -166,7 +166,7 @@ export function SitesList() {
                   </button>
                   <button
                     onClick={() => handleSaveEdit(site.id)}
-                    className="px-2.5 py-1 text-[11px] rounded-lg bg-blue-500 text-white font-semibold hover:bg-blue-600"
+                    className="px-2.5 py-1 text-[11px] rounded-lg bg-brand-500 text-white font-semibold hover:bg-brand-600"
                   >
                     저장
                   </button>
@@ -178,7 +178,7 @@ export function SitesList() {
                   href={site.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-2 px-3 py-3 bg-white border border-gray-200 rounded-xl hover:border-blue-300 hover:shadow-sm transition-all"
+                  className="flex items-center gap-2 px-3 py-3 bg-white border border-gray-200 rounded-xl hover:border-brand-300 hover:shadow-sm transition-all"
                 >
                   {faviconOf(site.url) ? (
                     // eslint-disable-next-line @next/next/no-img-element

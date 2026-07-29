@@ -53,15 +53,15 @@ export function MarketingAgentSummary() {
   return (
     <div className="space-y-4">
       {/* 요약 배너 */}
-      <div className="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-100 rounded-2xl p-4">
+      <div className="bg-brand-50 border border-brand-100 rounded-2xl p-4">
         <div className="flex items-center justify-between mb-3">
           <div>
-            <p className="text-sm font-bold text-amber-800">마케팅 AI 에이전트 팀</p>
-            <p className="text-xs text-amber-600">LEADER · MKT · DSN · STR · INSTA</p>
+            <p className="text-sm font-bold text-brand-800">마케팅 AI 에이전트 팀</p>
+            <p className="text-xs text-brand-600">LEADER · MKT · DSN · STR · INSTA</p>
           </div>
           <div className="text-right">
-            <p className="text-2xl font-bold text-amber-700">{loading ? '—' : totalToday}</p>
-            <p className="text-[10px] text-amber-600">오늘 생성</p>
+            <p className="text-2xl font-bold text-brand-700">{loading ? '—' : totalToday}</p>
+            <p className="text-[10px] text-brand-600">오늘 생성</p>
           </div>
         </div>
 
@@ -121,7 +121,7 @@ export function MarketingAgentSummary() {
             { day: '금요일', content: '블로그 + 인스타 포스팅' },
           ].map(({ day, content }) => (
             <div key={day} className="flex items-center gap-2 text-xs">
-              <span className="text-[10px] font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full w-14 text-center shrink-0">
+              <span className="text-[10px] font-bold text-brand-600 bg-amber-50 px-2 py-0.5 rounded-full w-14 text-center shrink-0">
                 {day}
               </span>
               <span className="text-gray-500">{content}</span>

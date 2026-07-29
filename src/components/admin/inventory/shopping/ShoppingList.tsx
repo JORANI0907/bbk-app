@@ -71,7 +71,7 @@ export function ShoppingList({ lowStockItems = [] }: Props = {}) {
           onClick={() => setTab('pending')}
           className={`px-4 py-2 text-sm font-semibold border-b-2 transition-colors ${
             tab === 'pending'
-              ? 'border-blue-500 text-blue-600'
+              ? 'border-brand-500 text-brand-600'
               : 'border-transparent text-gray-400 hover:text-gray-600'
           }`}
         >
@@ -91,7 +91,7 @@ export function ShoppingList({ lowStockItems = [] }: Props = {}) {
           onClick={() => setTab('sites')}
           className={`px-4 py-2 text-sm font-semibold border-b-2 transition-colors ${
             tab === 'sites'
-              ? 'border-indigo-500 text-indigo-600'
+              ? 'border-brand-500 text-brand-600'
               : 'border-transparent text-gray-400 hover:text-gray-600'
           }`}
         >
@@ -110,7 +110,7 @@ export function ShoppingList({ lowStockItems = [] }: Props = {}) {
             value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder="품목 검색"
-            className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg outline-none focus:border-blue-400"
+            className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg outline-none focus:border-brand-400"
           />
         </div>
         <div className="flex flex-wrap gap-1.5">

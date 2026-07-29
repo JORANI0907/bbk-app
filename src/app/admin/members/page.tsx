@@ -435,11 +435,11 @@ export default function MembersPage() {
               <div className="space-y-3">
                 <div>
                   <label className="text-xs font-medium text-text-secondary mb-1.5 block">새 비밀번호 (8자 이상)</label>
-                  <input type="password" value={selfNewPw} onChange={e => setSelfNewPw(e.target.value)} placeholder="새 비밀번호" className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                  <input type="password" value={selfNewPw} onChange={e => setSelfNewPw(e.target.value)} placeholder="새 비밀번호" className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" />
                 </div>
                 <div>
                   <label className="text-xs font-medium text-text-secondary mb-1.5 block">비밀번호 확인</label>
-                  <input type="password" value={selfConfirmPw} onChange={e => setSelfConfirmPw(e.target.value)} placeholder="비밀번호 재입력" className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                  <input type="password" value={selfConfirmPw} onChange={e => setSelfConfirmPw(e.target.value)} placeholder="비밀번호 재입력" className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" />
                 </div>
                 {selfNewPw && selfConfirmPw && selfNewPw !== selfConfirmPw && <p className="text-xs text-state-danger">비밀번호가 일치하지 않습니다.</p>}
                 <Button onClick={handleSelfPasswordChange} isLoading={selfSaving} className="w-full">비밀번호 변경</Button>

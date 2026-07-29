@@ -174,7 +174,7 @@ export const NOTIFY_TYPES: Record<CustomerType, string[]> = {
 // 알림 타입별 뱃지 스타일 (발송 이력 표시용)
 const NOTIFY_TYPE_CONFIG: Record<string, { badge: string; dot: string }> = {
   '예약확정알림':       { badge: 'bg-brand-100 text-brand-700',    dot: 'bg-brand-500' },
-  '예약1일전알림':      { badge: 'bg-sky-100 text-sky-700',        dot: 'bg-sky-400' },
+  '예약1일전알림':      { badge: 'bg-brand-100 text-brand-700',        dot: 'bg-brand-400' },
   '예약당일알림':       { badge: 'bg-violet-100 text-violet-700',  dot: 'bg-violet-500' },
   '작업완료알림':               { badge: 'bg-green-100 text-green-700',    dot: 'bg-green-500' },
   '작업완료알림(현금)':         { badge: 'bg-green-100 text-green-800',    dot: 'bg-green-600' },
@@ -185,12 +185,12 @@ const NOTIFY_TYPE_CONFIG: Record<string, { badge: string; dot: string }> = {
   '결제알림(카드,플렛폼)':  { badge: 'bg-amber-100 text-amber-700',    dot: 'bg-amber-500' },
   '결제완료알림':       { badge: 'bg-emerald-100 text-emerald-700', dot: 'bg-emerald-500' },
   '결제완료알림(잔금)': { badge: 'bg-emerald-100 text-emerald-800', dot: 'bg-emerald-600' },
-  '계산서발행완료알림': { badge: 'bg-teal-100 text-teal-700',      dot: 'bg-teal-500' },
-  '예약금환급완료알림':  { badge: 'bg-cyan-100 text-cyan-700',      dot: 'bg-cyan-500' },
-  '예약금 입금완료 알림': { badge: 'bg-teal-100 text-teal-700',    dot: 'bg-teal-500' },
+  '계산서발행완료알림': { badge: 'bg-brand-100 text-brand-700',      dot: 'bg-brand-500' },
+  '예약금환급완료알림':  { badge: 'bg-brand-100 text-brand-700',      dot: 'bg-brand-500' },
+  '예약금 입금완료 알림': { badge: 'bg-brand-100 text-brand-700',    dot: 'bg-brand-500' },
   '예약취소알림':       { badge: 'bg-red-100 text-red-700',        dot: 'bg-red-500' },
   'A/S방문알림':        { badge: 'bg-yellow-100 text-yellow-700',  dot: 'bg-yellow-500' },
-  '방문견적알림':       { badge: 'bg-indigo-100 text-indigo-700',  dot: 'bg-indigo-500' },
+  '방문견적알림':       { badge: 'bg-brand-100 text-brand-700',  dot: 'bg-brand-500' },
   '정기결제알림':       { badge: 'bg-emerald-100 text-emerald-700', dot: 'bg-emerald-500' },
   '정기방문알림':       { badge: 'bg-brand-100 text-brand-700',    dot: 'bg-brand-500' },
   '계약갱신알림':       { badge: 'bg-purple-100 text-purple-700',  dot: 'bg-purple-500' },
@@ -222,12 +222,12 @@ const STATUS_STYLE: Record<CustomerStatus, { badge: string; label: string }> = {
 
 const GRADE_STYLE: Record<CustomerGrade, { badge: string; label: string }> = {
   '화이트': { badge: 'bg-gray-100 text-gray-700',   label: '화이트' },
-  '블루':   { badge: 'bg-sky-100 text-sky-700',     label: '블루' },
+  '블루':   { badge: 'bg-brand-100 text-brand-700',     label: '블루' },
   '블랙':   { badge: 'bg-gray-900 text-white',       label: '블랙' },
 }
 
 const DISPOSITION_STYLE: Record<string, { badge: string; label: string }> = {
-  '호의':  { badge: 'bg-sky-100 text-sky-700',   label: '호의' },
+  '호의':  { badge: 'bg-brand-100 text-brand-700',   label: '호의' },
   '보통':  { badge: 'bg-surface-sunken text-text-secondary', label: '보통' },
   '주의':  { badge: 'bg-state-warning-bg text-state-warning', label: '주의' },
   '블랙':  { badge: 'bg-state-danger-bg text-state-danger',  label: '블랙' },  // 하위호환
@@ -252,10 +252,10 @@ const PAYMENT_ROW_BG: Record<string, string> = {
   '결제':             'bg-orange-50',
   '결제완료':         'bg-emerald-50',
   '결제완료(잔금)':   'bg-emerald-100',
-  '계산서발행완료':   'bg-blue-50',
+  '계산서발행완료':   'bg-brand-50',
   '예약금환급완료':   'bg-gray-100',
-  '비과세':           'bg-teal-50',
-  '카드결제 완료':    'bg-indigo-50',
+  '비과세':           'bg-brand-50',
+  '카드결제 완료':    'bg-brand-50',
 }
 
 // 결제상태 = 우측 뱃지 dot 색 (금전축 · 세밀)
@@ -264,10 +264,10 @@ const PAYMENT_STATUS_DOT: Record<string, string> = {
   '결제':             'bg-orange-500',
   '결제완료':         'bg-emerald-500',
   '결제완료(잔금)':   'bg-emerald-600',
-  '계산서발행완료':   'bg-blue-500',
+  '계산서발행완료':   'bg-brand-500',
   '예약금환급완료':   'bg-gray-400',
-  '비과세':           'bg-teal-500',
-  '카드결제 완료':    'bg-indigo-500',
+  '비과세':           'bg-brand-500',
+  '카드결제 완료':    'bg-brand-500',
 }
 
 const EMPTY_FORM = {
@@ -342,8 +342,8 @@ function VisitScheduleEditor({ scheduleType, weekdays, monthlyDates, onScheduleT
   onMonthlyDatesChange: (v: number[]) => void
   color?: 'blue' | 'purple'
 }) {
-  const active = color === 'purple' ? 'bg-purple-600 text-white' : 'bg-blue-600 text-white'
-  const ring = color === 'purple' ? 'ring-purple-400' : 'ring-blue-400'
+  const active = color === 'purple' ? 'bg-purple-600 text-white' : 'bg-brand-600 text-white'
+  const ring = color === 'purple' ? 'ring-purple-400' : 'ring-brand-400'
 
   const toggleWeekday = (day: number) =>
     onWeekdaysChange(weekdays.includes(day) ? weekdays.filter(d => d !== day) : [...weekdays, day])
@@ -373,7 +373,7 @@ function VisitScheduleEditor({ scheduleType, weekdays, monthlyDates, onScheduleT
             ))}
           </div>
           {weekdays.length > 0 && (
-            <p className={`text-xs ${color === 'purple' ? 'text-purple-600' : 'text-blue-600'}`}>
+            <p className={`text-xs ${color === 'purple' ? 'text-purple-600' : 'text-brand-600'}`}>
               선택: {WEEKDAYS.filter(w => weekdays.includes(w.value)).map(w => w.label).join(', ')}요일
             </p>
           )}
@@ -392,7 +392,7 @@ function VisitScheduleEditor({ scheduleType, weekdays, monthlyDates, onScheduleT
             ))}
           </div>
           {monthlyDates.length > 0 && (
-            <p className={`text-xs ${color === 'purple' ? 'text-purple-600' : 'text-blue-600'}`}>
+            <p className={`text-xs ${color === 'purple' ? 'text-purple-600' : 'text-brand-600'}`}>
               선택: 매월 {[...monthlyDates].sort((a, b) => a - b).join('일, ')}일
             </p>
           )}
@@ -470,7 +470,7 @@ function Field({ label, value, onChange, type = 'text', mono, placeholder, hint 
       <span className="text-xs text-text-secondary w-24 shrink-0">{label}</span>
       <div className="flex-1">
         <input type={type} value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder}
-          className={`w-full border border-border rounded-lg px-2 py-1.5 text-xs text-text-primary focus:outline-none focus:ring-2 focus:ring-blue-500 ${mono ? 'font-mono' : ''}`} />
+          className={`w-full border border-border rounded-lg px-2 py-1.5 text-xs text-text-primary focus:outline-none focus:ring-2 focus:ring-brand-500 ${mono ? 'font-mono' : ''}`} />
         {hint && <p className="text-xs text-text-tertiary mt-0.5">{hint}</p>}
       </div>
     </div>
@@ -488,7 +488,7 @@ function SelectField({ label, value, options, onChange }: {
         <select
           value={isCustom ? '직접입력' : value}
           onChange={e => e.target.value === '직접입력' ? onChange('') : onChange(e.target.value)}
-          className="w-full border border-border rounded-lg px-2 py-1.5 text-xs text-text-primary focus:outline-none focus:ring-2 focus:ring-blue-500 bg-surface"
+          className="w-full border border-border rounded-lg px-2 py-1.5 text-xs text-text-primary focus:outline-none focus:ring-2 focus:ring-brand-500 bg-surface"
         >
           <option value="">선택</option>
           {options.map(o => <option key={o} value={o}>{o}</option>)}
@@ -497,7 +497,7 @@ function SelectField({ label, value, options, onChange }: {
         {isCustom && (
           <input value={value} onChange={e => onChange(e.target.value)}
             placeholder="직접 입력"
-            className="w-full border border-border rounded-lg px-2 py-1.5 text-xs text-text-primary focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            className="w-full border border-border rounded-lg px-2 py-1.5 text-xs text-text-primary focus:outline-none focus:ring-2 focus:ring-brand-500" />
         )}
       </div>
     </div>
@@ -2005,14 +2005,14 @@ export function CustomersManagementView({
             const checked = selectedTypes.has(t)
             return (
               <button key={t} onClick={() => toggleType(t)}
-                className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium border transition-colors ${
+                className={`pill-toss flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold border ${
                   checked
-                    ? 'bg-brand-600 text-white border-brand-600'
-                    : 'bg-surface text-text-secondary border-border hover:border-blue-400'
+                    ? 'pill-active-toss bg-brand-600 text-white border-brand-600'
+                    : 'bg-surface text-text-secondary border-border hover:border-brand-400'
                 }`}>
                 <span>{FILTER_SHORT_LABEL[t]}</span>
                 <span className={`text-xs px-1 py-0.5 rounded-full ${
-                  checked ? 'bg-brand-500 text-white' : 'bg-surface-sunken text-text-secondary'
+                  checked ? 'bg-white/25 text-white' : 'bg-surface-sunken text-text-secondary'
                 }`}>
                   {typeCounts[t] ?? 0}
                 </span>
@@ -2020,18 +2020,18 @@ export function CustomersManagementView({
             )
           })}
           <button onClick={() => { setSelectedTypes(new Set()); setShowUnassignedOnly(false) }}
-            className={`px-2 py-1 text-xs border rounded-lg transition-colors ${
+            className={`pill-toss px-2 py-1 text-xs font-semibold border rounded-lg ${
               selectedTypes.size === 0 && !showUnassignedOnly
-                ? 'bg-brand-600 text-white border-brand-600'
-                : 'bg-surface text-text-secondary border-border hover:border-blue-400'
+                ? 'pill-active-toss bg-brand-600 text-white border-brand-600'
+                : 'bg-surface text-text-secondary border-border hover:border-brand-400'
             }`}>
             전체 ({typeCounts['전체'] ?? 0})
           </button>
           {/* Phase 6-B/D: 미배정 토글 — 유형과 상호 배타 */}
           <button onClick={toggleUnassigned}
-            className={`px-2.5 py-1 text-xs border rounded-lg transition-colors font-medium ${
+            className={`pill-toss px-2.5 py-1 text-xs border rounded-lg font-semibold ${
               showUnassignedOnly
-                ? 'bg-orange-500 text-white border-orange-500'
+                ? 'pill-active-toss bg-orange-500 text-white border-orange-500'
                 : 'bg-orange-50 text-orange-700 border-orange-200 hover:border-orange-400'
             }`}
             title="담당자 미배정 또는 1회성 시공일자 미설정 건만 표시">
@@ -2062,14 +2062,14 @@ export function CustomersManagementView({
 
         {/* 액션 바 — Phase 6-H: embed 활성 시 숨김 (embed 뷰가 자체 액션바 사용) */}
         {checkedIds.length > 0 && !isEmbedActive && (
-          <div className="mb-3 flex items-center gap-2 bg-blue-600 text-white px-4 py-2.5 rounded-xl shadow-sm">
+          <div className="mb-3 flex items-center gap-2 bg-brand-600 text-white px-4 py-2.5 rounded-xl shadow-sm">
             <span className="text-sm font-semibold flex-1">{checkedIds.length}건 선택됨</span>
             <button onClick={() => setCheckedIds([])}
-              className="text-xs text-blue-200 hover:text-white px-2 py-1 rounded transition-colors">
+              className="text-xs text-brand-200 hover:text-white px-2 py-1 rounded transition-colors">
               선택 해제
             </button>
             {!isWorker && (
-              <Button size="sm" onClick={handleDuplicateBulk} disabled={bulkCreating} className="bg-yellow-500 hover:bg-yellow-400 text-white whitespace-nowrap">
+              <Button size="sm" onClick={handleDuplicateBulk} disabled={bulkCreating} className="bg-brand-100 hover:bg-brand-200 text-brand-700 whitespace-nowrap">
                 {bulkCreating ? '처리 중...' : '복제'}
               </Button>
             )}
@@ -2081,7 +2081,7 @@ export function CustomersManagementView({
             {!isWorker && (
               <Button size="sm" onClick={handleArchiveBulk} disabled={bulkCreating}
                 className={archivedView
-                  ? 'bg-sky-600 hover:bg-sky-700 text-white whitespace-nowrap'
+                  ? 'bg-brand-600 hover:bg-brand-700 text-white whitespace-nowrap'
                   : 'bg-purple-600 hover:bg-purple-700 text-white whitespace-nowrap'}>
                 {bulkCreating ? '처리 중...' : archivedView ? '↩ 고객관리로 되돌리기' : '📦 이력으로 이관'}
               </Button>
@@ -2183,7 +2183,7 @@ export function CustomersManagementView({
                   ))}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-border-subtle">
+              <tbody className="anim-stagger-fast divide-y divide-border-subtle">
                 {(() => {
                   // Phase 27-J: 리스트 내부 주간 divider — 이전 행의 주 인덱스를 IIFE 클로저로 추적
                   let lastWeek = -2
@@ -2430,13 +2430,13 @@ export function CustomersManagementView({
                                   {/* 진행상태 뱃지 (Phase 9-A) */}
                                   <td className="px-3 py-3 whitespace-nowrap">
                                     {c.progress_status
-                                      ? <span className="text-xs px-1.5 py-0.5 rounded-full font-medium bg-indigo-50 text-indigo-700 border border-indigo-200">{c.progress_status}</span>
+                                      ? <span className="text-xs px-1.5 py-0.5 rounded-full font-medium bg-brand-50 text-brand-700 border border-brand-200">{c.progress_status}</span>
                                       : <span className="text-xs text-text-tertiary">-</span>}
                                   </td>
                                   {/* 결제상태 뱃지 + Phase 11 dot */}
                                   <td className="px-3 py-3 whitespace-nowrap">
                                     {c.payment_status_detail
-                                      ? <span className="inline-flex items-center gap-1.5 text-xs px-1.5 py-0.5 rounded-full font-medium bg-teal-50 text-teal-700 border border-teal-200">
+                                      ? <span className="inline-flex items-center gap-1.5 text-xs px-1.5 py-0.5 rounded-full font-medium bg-brand-50 text-brand-700 border border-brand-200">
                                           <span className={`w-1.5 h-1.5 rounded-full ${PAYMENT_STATUS_DOT[c.payment_status_detail] ?? 'bg-gray-400'}`} />
                                           {c.payment_status_detail === '비과세' ? '비과세 결제' : c.payment_status_detail}
                                         </span>
@@ -2494,7 +2494,7 @@ export function CustomersManagementView({
                           )}
                           {/* Phase 22: 투입주기 뱃지 (자유 텍스트) — 숫자면 "N개월/1회", 아니면 원문 */}
                           {(type === '정기딥케어' || type === '정기엔드케어') && c.injection_cycle_months && (
-                            <span className="text-[10px] px-1 py-0.5 rounded font-medium bg-sky-100 text-sky-700">
+                            <span className="text-[10px] px-1 py-0.5 rounded font-medium bg-brand-100 text-brand-700">
                               {/^\d+$/.test(String(c.injection_cycle_months))
                                 ? `${c.injection_cycle_months}개월/1회`
                                 : c.injection_cycle_months}
@@ -2533,7 +2533,7 @@ export function CustomersManagementView({
                                 </span>
                                 <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium ${
                                   b.tax_invoice_issued
-                                    ? 'bg-blue-100 text-blue-700'
+                                    ? 'bg-brand-100 text-brand-700'
                                     : 'bg-surface-sunken text-text-tertiary border border-border'
                                 }`}>
                                   {b.tax_invoice_issued ? '계산서완료' : '계산서 미발행'}
@@ -2797,7 +2797,7 @@ export function CustomersManagementView({
               <div className="flex items-center gap-2">
                 <span className="text-xs text-text-secondary w-24 shrink-0">담당자</span>
                 <select value={form.assigned_user_id} onChange={e => set('assigned_user_id')(e.target.value)}
-                  className="flex-1 border border-border rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 bg-surface">
+                  className="flex-1 border border-border rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-brand-500 bg-surface">
                   <option value="">담당자 없음</option>
                   {usersList.filter(u => u.role === 'admin' || u.role === 'worker').map(u => (
                     <option key={u.id} value={u.id}>{u.name} ({u.role === 'admin' ? '관리자' : '직원'})</option>
@@ -2846,12 +2846,12 @@ export function CustomersManagementView({
                 <div className="flex items-center gap-2">
                   <span className="text-xs text-text-secondary w-20 shrink-0">고객명</span>
                   <input value={form.contact_name} onChange={e => set('contact_name')(e.target.value)}
-                    className="flex-1 border border-border rounded-lg px-2 py-1.5 text-xs text-text-primary focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                    className="flex-1 border border-border rounded-lg px-2 py-1.5 text-xs text-text-primary focus:outline-none focus:ring-2 focus:ring-brand-500" />
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="text-xs text-text-secondary w-20 shrink-0">업체명</span>
                   <input value={form.business_name} onChange={e => set('business_name')(e.target.value)}
-                    className="flex-1 border border-border rounded-lg px-2 py-1.5 text-xs text-text-primary focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                    className="flex-1 border border-border rounded-lg px-2 py-1.5 text-xs text-text-primary focus:outline-none focus:ring-2 focus:ring-brand-500" />
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="text-xs text-text-secondary w-20 shrink-0">연락처</span>
@@ -2866,7 +2866,7 @@ export function CustomersManagementView({
                       발송
                     </label>
                     <input value={form.contact_phone} onChange={e => set('contact_phone')(e.target.value)}
-                      className="flex-1 border border-border rounded-lg px-2 py-1.5 text-xs text-text-primary focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                      className="flex-1 border border-border rounded-lg px-2 py-1.5 text-xs text-text-primary focus:outline-none focus:ring-2 focus:ring-brand-500" />
                     <a href={`tel:${form.contact_phone}`} className="px-2 py-1.5 text-xs bg-brand-50 text-brand-600 rounded-lg hover:bg-brand-100"><Phone size={14} /></a>
                     <button onClick={() => navigator.clipboard.writeText(form.contact_phone).then(() => toast.success('연락처 복사됨'))} className="px-2 py-1.5 text-xs bg-surface-sunken rounded-lg hover:bg-surface-sunken"><ClipboardList size={14} /></button>
                   </div>
@@ -2886,7 +2886,7 @@ export function CustomersManagementView({
                     </label>
                     <input value={form.contact_phone_2} onChange={e => set('contact_phone_2')(e.target.value)}
                       placeholder="알림수신 추가번호 (선택)"
-                      className="flex-1 border border-border rounded-lg px-2 py-1.5 text-xs text-text-primary focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                      className="flex-1 border border-border rounded-lg px-2 py-1.5 text-xs text-text-primary focus:outline-none focus:ring-2 focus:ring-brand-500" />
                     {form.contact_phone_2 && (
                       <a href={`tel:${form.contact_phone_2}`} className="px-2 py-1.5 text-xs bg-brand-50 text-brand-600 rounded-lg hover:bg-brand-100"><Phone size={14} /></a>
                     )}
@@ -2896,13 +2896,13 @@ export function CustomersManagementView({
                 <div className="flex items-center gap-2">
                   <span className="text-xs text-text-secondary w-20 shrink-0">이메일</span>
                   <input value={form.email} onChange={e => set('email')(e.target.value)}
-                    className="flex-1 border border-border rounded-lg px-2 py-1.5 text-xs text-text-primary focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                    className="flex-1 border border-border rounded-lg px-2 py-1.5 text-xs text-text-primary focus:outline-none focus:ring-2 focus:ring-brand-500" />
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="text-xs text-text-secondary w-20 shrink-0">주소</span>
                   <div className="flex flex-1 gap-1">
                     <input value={form.address} onChange={e => set('address')(e.target.value)}
-                      className="flex-1 border border-border rounded-lg px-2 py-1.5 text-xs text-text-primary focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                      className="flex-1 border border-border rounded-lg px-2 py-1.5 text-xs text-text-primary focus:outline-none focus:ring-2 focus:ring-brand-500" />
                     <button onClick={() => setMapAddress(form.address)}
                       className="px-2 py-1.5 text-xs bg-green-50 text-green-700 rounded-lg hover:bg-green-100 shrink-0"><Map size={14} /></button>
                   </div>
@@ -2911,10 +2911,10 @@ export function CustomersManagementView({
                   <span className="text-xs text-text-secondary w-20 shrink-0">영업시간</span>
                   <div className="flex items-center gap-1 flex-1">
                     <input type="time" value={form.business_hours_start} onChange={e => set('business_hours_start')(e.target.value)}
-                      className="flex-1 border border-border rounded-lg px-2 py-1.5 text-xs text-text-primary focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                      className="flex-1 border border-border rounded-lg px-2 py-1.5 text-xs text-text-primary focus:outline-none focus:ring-2 focus:ring-brand-500" />
                     <span className="text-text-tertiary text-xs">~</span>
                     <input type="time" value={form.business_hours_end} onChange={e => set('business_hours_end')(e.target.value)}
-                      className="flex-1 border border-border rounded-lg px-2 py-1.5 text-xs text-text-primary focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                      className="flex-1 border border-border rounded-lg px-2 py-1.5 text-xs text-text-primary focus:outline-none focus:ring-2 focus:ring-brand-500" />
                   </div>
                 </div>
               </div>
@@ -2949,9 +2949,9 @@ export function CustomersManagementView({
             )}
 
             {/* Phase 22: 작업장정보 — 헤더를 테두리 안으로 이동, teal 파스텔로 시공정보(green)와 구분 */}
-            <div className="border-2 border-teal-200 rounded-xl overflow-hidden bg-teal-50/30">
-              <div className="bg-teal-100/60 px-3 py-2 border-b border-teal-200">
-                <p className="text-xs font-semibold text-teal-900 uppercase tracking-wide">작업장정보</p>
+            <div className="border-2 border-brand-200 rounded-xl overflow-hidden bg-brand-50/30">
+              <div className="bg-brand-100/60 px-3 py-2 border-b border-brand-200">
+                <p className="text-xs font-semibold text-brand-900 uppercase tracking-wide">작업장정보</p>
               </div>
               <div className="p-3 space-y-2">
                 <div className="flex items-center gap-2">
@@ -2985,7 +2985,7 @@ export function CustomersManagementView({
                   <button
                     type="button"
                     onClick={() => { window.location.href = `/admin/customers/${selected.id}/care-manual` }}
-                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white text-[11px] font-semibold shadow-sm hover:shadow-md transition-all"
+                    className="btn-toss-primary inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-brand-600 hover:bg-brand-700 text-white text-xs font-semibold"
                   >
                     <BookOpen size={11} />
                     {isWorker ? '매뉴얼 보기' : '매뉴얼 편집'}
@@ -3176,7 +3176,7 @@ export function CustomersManagementView({
                       {selected.balance_paid_at ? (
                         <div className="flex-1 border border-border-subtle rounded-lg px-2 py-1.5 text-xs text-state-success bg-state-success-bg">✅ 잔금 결제완료</div>
                       ) : selected.billing_key ? (
-                        <Button onClick={handleChargeBalance} disabled={chargingBalance} className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white text-xs">
+                        <Button onClick={handleChargeBalance} disabled={chargingBalance} className="flex-1 bg-brand-600 hover:bg-brand-700 text-white text-xs">
                           {chargingBalance ? '청구 중...' : '잔금 자동 청구'}
                         </Button>
                       ) : (
@@ -3351,13 +3351,13 @@ export function CustomersManagementView({
 
             {/* ── 정기딥케어 계약 — worker 숨김 ── */}
             {!isWorker && isDipCare && (
-              <div className="rounded-xl border border-blue-200 overflow-hidden">
-                <div className="bg-blue-50 px-4 py-2.5 border-b border-blue-200">
-                  <p className="text-xs font-semibold text-blue-800">정기딥케어 계약 정보</p>
+              <div className="rounded-xl border border-brand-200 overflow-hidden">
+                <div className="bg-brand-50 px-4 py-2.5 border-b border-brand-200">
+                  <p className="text-xs font-semibold text-brand-800">정기딥케어 계약 정보</p>
                 </div>
                 <div className="p-3 flex flex-col gap-3">
                   {/* Phase 21: 결제 소섹션 — 컴팩트 + 파스텔 blue */}
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 flex flex-col gap-2.5">
+                  <div className="bg-brand-50 border border-brand-200 rounded-lg p-3 flex flex-col gap-2.5">
                     <div className="flex items-center gap-2">
                       <span className="text-xs text-text-secondary w-20 shrink-0 inline-flex items-center gap-1">
                         결제 주기
@@ -3367,7 +3367,7 @@ export function CustomersManagementView({
                         {(['월간', '연간'] as BillingCycle[]).map(c => (
                           <button key={c} onClick={() => set('billing_cycle')(c)}
                             className={`flex-1 py-1 text-xs rounded-md font-medium transition-colors ${
-                              form.billing_cycle === c ? 'bg-blue-600 text-white' : 'bg-white text-gray-600 border border-blue-100 hover:bg-blue-100'
+                              form.billing_cycle === c ? 'bg-brand-600 text-white' : 'bg-white text-gray-600 border border-brand-100 hover:bg-brand-100'
                             }`}>{c}</button>
                         ))}
                       </div>
@@ -3386,7 +3386,7 @@ export function CustomersManagementView({
                         </label>
                         <input type="number" value={form.supply_amount} onChange={e => set('supply_amount')(e.target.value)}
                           placeholder="0"
-                          className="w-full border border-border rounded-md px-1.5 py-1 text-xs bg-white focus:outline-none focus:ring-1 focus:ring-blue-500" />
+                          className="w-full border border-border rounded-md px-1.5 py-1 text-xs bg-white focus:outline-none focus:ring-1 focus:ring-brand-500" />
                       </div>
                       <div>
                         <label className="text-[10px] text-text-secondary block">부가세 <span className="text-text-tertiary">{isNoVatMethod(form.payment_method) ? '(X)' : '(10%)'}</span></label>
@@ -3395,7 +3395,7 @@ export function CustomersManagementView({
                           onChange={e => set('vat')(e.target.value)}
                           disabled={isNoVatMethod(form.payment_method)}
                           placeholder="0"
-                          className="w-full border border-border rounded-md px-1.5 py-1 text-xs bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:bg-surface-sunken disabled:text-text-tertiary" />
+                          className="w-full border border-border rounded-md px-1.5 py-1 text-xs bg-white focus:outline-none focus:ring-1 focus:ring-brand-500 disabled:bg-surface-sunken disabled:text-text-tertiary" />
                       </div>
                       <div>
                         <label className="text-[10px] text-text-secondary block">총액</label>
@@ -3405,7 +3405,7 @@ export function CustomersManagementView({
                       </div>
                     </div>
                     {form.billing_cycle === '연간' && form.supply_amount && (
-                      <p className="text-[11px] text-blue-700 bg-blue-100 rounded px-2 py-1">
+                      <p className="text-[11px] text-brand-700 bg-brand-100 rounded px-2 py-1">
                         월 환산 {Math.round(((Number(form.supply_amount) || 0) + (isNoVatMethod(form.payment_method) ? 0 : (Number(form.vat) || 0))) / 12).toLocaleString('ko-KR')}원
                       </p>
                     )}
@@ -3415,7 +3415,7 @@ export function CustomersManagementView({
                         <button
                           type="button"
                           onClick={() => setShowInlineAnnualHistory(v => !v)}
-                          className="w-full py-1 text-[11px] text-blue-700 font-semibold rounded-md border border-blue-200 bg-white hover:bg-blue-100 flex items-center justify-center gap-1"
+                          className="w-full py-1 text-[11px] text-brand-700 font-semibold rounded-md border border-brand-200 bg-white hover:bg-brand-100 flex items-center justify-center gap-1"
                         >
                           {showInlineAnnualHistory ? '연간 결제 이력 접기 ▲' : '연간 결제 이력 보기 ▼'}
                         </button>
@@ -3440,7 +3440,7 @@ export function CustomersManagementView({
                   </div>
 
                   {/* Phase 21: 계약기간 소섹션 — 한 줄 + 파스텔 sky */}
-                  <div className="bg-sky-50 border border-sky-200 rounded-lg p-3 flex items-center gap-2">
+                  <div className="bg-brand-50 border border-brand-200 rounded-lg p-3 flex items-center gap-2">
                     <p className="text-xs font-semibold text-text-primary shrink-0">
                       계약기간 <span className="text-text-tertiary font-normal">(시작 · 만료)</span>
                     </p>
@@ -3452,7 +3452,7 @@ export function CustomersManagementView({
                   </div>
 
                   {/* Phase 21: 방문 일정 소섹션 — 파스텔 indigo */}
-                  <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-3 flex flex-col gap-2">
+                  <div className="bg-brand-50 border border-brand-200 rounded-lg p-3 flex flex-col gap-2">
                     <p className="text-xs font-semibold text-text-primary">방문 일정</p>
                     <VisitScheduleEditor
                       scheduleType={form.visit_schedule_type}
@@ -3469,11 +3469,11 @@ export function CustomersManagementView({
                   {!isNew && selected && (
                     <div className="flex justify-end gap-1.5 mt-1">
                       <button onClick={() => { setCheckedIds([selected.id]); openScheduleGenModal('cleanup') }} disabled={saving}
-                        className="px-3 py-1.5 text-xs font-medium bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:opacity-50">
+                        className="px-3 py-1.5 text-xs font-medium bg-brand-600 hover:bg-brand-700 text-white rounded-lg transition-colors disabled:opacity-50">
                         저장
                       </button>
                       <button onClick={() => { setCheckedIds([selected.id]); openScheduleGenModal('create') }} disabled={saving}
-                        className="px-3 py-1.5 text-xs font-medium bg-white hover:bg-blue-50 text-blue-700 border border-blue-300 rounded-lg transition-colors disabled:opacity-50">
+                        className="px-3 py-1.5 text-xs font-medium bg-white hover:bg-brand-50 text-brand-700 border border-brand-300 rounded-lg transition-colors disabled:opacity-50">
                         생성
                       </button>
                     </div>
@@ -3522,7 +3522,7 @@ export function CustomersManagementView({
             {/* Phase 5-G: 이력탭 모드에서 개별 되돌리기 */}
             {!isWorker && !isNew && selected && archivedView && (
               <Button onClick={handleUnarchiveSingle} size="lg"
-                className="w-full mt-2 bg-sky-600 hover:bg-sky-700 text-white">
+                className="w-full mt-2 bg-brand-600 hover:bg-brand-700 text-white">
                 ↩ 고객관리로 되돌리기
               </Button>
             )}
@@ -3692,7 +3692,7 @@ export function CustomersManagementView({
                       </option>
                       {notifyOptions.map(t => <option key={t} value={t}>{t}</option>)}
                     </select>
-                    <Button onClick={handleNotify} disabled={sending || !notifyType || notifyLoading} className="bg-orange-500 hover:bg-orange-600 text-white whitespace-nowrap">
+                    <Button onClick={handleNotify} disabled={sending || !notifyType || notifyLoading} className="bg-brand-600 hover:bg-brand-700 text-white whitespace-nowrap">
                       {sending ? '발송 중...' : <><Megaphone size={14} /> 발송</>}
                     </Button>
                   </div>
@@ -3734,7 +3734,7 @@ export function CustomersManagementView({
                                   <span className="text-xs px-1.5 py-0.5 bg-surface-sunken text-text-secondary rounded font-medium shrink-0">재발송</span>
                                 )}
                                 {log.method === 'auto' && (
-                                  <span className="text-xs px-1.5 py-0.5 bg-indigo-100 text-indigo-600 rounded font-medium shrink-0">[자동]</span>
+                                  <span className="text-xs px-1.5 py-0.5 bg-brand-100 text-brand-600 rounded font-medium shrink-0">[자동]</span>
                                 )}
                                 <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium ${cfg?.badge ?? 'bg-surface-sunken text-text-secondary'}`}>
                                   <span className={`w-1.5 h-1.5 rounded-full ${cfg?.dot ?? 'bg-text-tertiary'} shrink-0`} />

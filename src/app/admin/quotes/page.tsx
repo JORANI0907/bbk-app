@@ -1042,7 +1042,7 @@ export default function QuotesPage() {
             onClick={handleToggleHistoryMode}
             className={`flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
               quoteHistoryMode
-                ? 'bg-sky-500 text-white hover:bg-sky-600 shadow-sm'
+                ? 'bg-brand-500 text-white hover:bg-brand-600 shadow-sm'
                 : 'bg-surface-sunken text-text-primary hover:bg-border border border-border-subtle'
             }`}
             title={quoteHistoryMode ? '전체 신청서 보기로' : '최근 견적 이력만 보기'}
@@ -1395,7 +1395,7 @@ export default function QuotesPage() {
                         <th className="py-2.5 w-9" />
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-border-subtle">
+                    <tbody className="anim-stagger-fast divide-y divide-border-subtle">
                       {quoteItems.map((item, idx) => (
                         <tr key={idx} className="hover:bg-surface-sunken transition-colors">
                           <td className="px-4 py-2">
@@ -1809,7 +1809,7 @@ type SectionTone = 'default' | 'brand' | 'sky' | 'amber' | 'emerald' | 'violet' 
 const TONE_STYLES: Record<SectionTone, { border: string; ring: string; bg: string; barBg: string; barText: string }> = {
   default: { border: 'border-border',       ring: '',                          bg: 'bg-surface',                     barBg: 'bg-slate-500',   barText: 'text-slate-700' },
   brand:   { border: 'border-brand-200',    ring: 'ring-1 ring-brand-100/50',  bg: 'bg-brand-50/40',                 barBg: 'bg-brand-600',   barText: 'text-brand-700' },
-  sky:     { border: 'border-sky-200',      ring: 'ring-1 ring-sky-100/50',    bg: 'bg-sky-50/40',                   barBg: 'bg-sky-600',     barText: 'text-sky-700' },
+  sky:     { border: 'border-brand-200',      ring: 'ring-1 ring-sky-100/50',    bg: 'bg-brand-50/40',                   barBg: 'bg-brand-600',     barText: 'text-brand-700' },
   amber:   { border: 'border-amber-200',    ring: 'ring-1 ring-amber-100/50',  bg: 'bg-amber-50/40',                 barBg: 'bg-amber-600',   barText: 'text-amber-700' },
   emerald: { border: 'border-emerald-200',  ring: 'ring-1 ring-emerald-100/50',bg: 'bg-emerald-50/40',               barBg: 'bg-emerald-600', barText: 'text-emerald-700' },
   violet:  { border: 'border-violet-200',   ring: 'ring-1 ring-violet-100/50', bg: 'bg-violet-50/40',                barBg: 'bg-violet-600',  barText: 'text-violet-700' },

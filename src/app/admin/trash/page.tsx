@@ -430,7 +430,7 @@ function CustomersTab({
                 <th className="px-4 py-3 text-right font-medium text-text-secondary">액션</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-border-subtle">
+            <tbody className="anim-stagger-fast divide-y divide-border-subtle">
               {customers.map(c => (
                 <tr key={c.id} className={selected.has(c.id) ? 'bg-brand-50' : 'hover:bg-surface-sunken'}>
                   <td className="px-4 py-3">
@@ -560,7 +560,7 @@ function ContractsTab({
                 <th className="px-4 py-3 text-right font-medium text-text-secondary">액션</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-border-subtle">
+            <tbody className="anim-stagger-fast divide-y divide-border-subtle">
               {contracts.map(c => (
                 <tr key={c.id} className={selected.has(c.id) ? 'bg-brand-50' : 'hover:bg-surface-sunken'}>
                   <td className="px-4 py-3">
@@ -690,7 +690,7 @@ function ApplicationsTab({
                 <th className="px-4 py-3 text-right font-medium text-text-secondary">액션</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-border-subtle">
+            <tbody className="anim-stagger-fast divide-y divide-border-subtle">
               {applications.map(a => (
                 <tr key={a.id} className={selected.has(a.id) ? 'bg-brand-50' : 'hover:bg-surface-sunken'}>
                   <td className="px-4 py-3">

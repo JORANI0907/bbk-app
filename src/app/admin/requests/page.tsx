@@ -131,7 +131,7 @@ function WorkerSubmitForm({ onSubmitted }: { onSubmitted: () => void }) {
           category === 'material' ? '필요한 자료 종류와 목적을 입력하세요.' :
           '내용을 자유롭게 입력하세요.'
         }
-        className="w-full border border-border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+        className="w-full border border-border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 resize-none"
       />
 
       <Button type="submit" disabled={submitting} className="self-end">
@@ -276,9 +276,9 @@ function AdminRequestView() {
           <p className="text-xs font-medium text-amber-600 mb-0.5">직원 대기중</p>
           <p className="text-2xl font-bold text-amber-700">{workerPending}</p>
         </div>
-        <div className="bg-purple-50 border border-purple-100 rounded-xl p-3">
-          <p className="text-xs font-medium text-purple-600 mb-0.5">고객 대기중</p>
-          <p className="text-2xl font-bold text-purple-700">{customerPending}</p>
+        <div className="bg-brand-50 border border-brand-100 rounded-xl p-3">
+          <p className="text-xs font-medium text-brand-600 mb-0.5">고객 대기중</p>
+          <p className="text-2xl font-bold text-brand-700">{customerPending}</p>
         </div>
       </div>
 
@@ -404,7 +404,7 @@ function AdminRequestView() {
                 <textarea rows={3} value={adminMemo}
                   onChange={e => setAdminMemo(e.target.value)}
                   placeholder="승인/거절 사유 또는 답변을 입력하세요"
-                  className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none" />
+                  className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 resize-none" />
               </div>
             </div>
             {selected.status === 'pending' && (

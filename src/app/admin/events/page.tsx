@@ -19,7 +19,7 @@ interface BBKEvent {
 }
 
 const STATUS_LABEL: Record<string, { label: string; cls: string }> = {
-  upcoming: { label: '예정', cls: 'bg-blue-100 text-blue-700' },
+  upcoming: { label: '예정', cls: 'bg-brand-100 text-brand-700' },
   active:   { label: '진행중', cls: 'bg-green-100 text-green-700' },
   ended:    { label: '종료', cls: 'bg-gray-100 text-gray-500' },
 }

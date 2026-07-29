@@ -51,7 +51,7 @@ interface AdminInventoryLog extends InventoryLog {
 
 const CATEGORY_CONFIG: Record<InventoryCategory, { label: string; dot: string; badge: string }> = {
   chemical:   { label: '약품',   dot: 'bg-purple-500', badge: 'bg-purple-100 text-purple-700' },
-  equipment:  { label: '장비',   dot: 'bg-blue-500',   badge: 'bg-blue-100 text-blue-700' },
+  equipment:  { label: '장비',   dot: 'bg-brand-500',   badge: 'bg-brand-100 text-brand-700' },
   consumable: { label: '소모품', dot: 'bg-green-500',  badge: 'bg-green-100 text-green-700' },
   other:      { label: '기타',   dot: 'bg-gray-400',   badge: 'bg-gray-100 text-gray-600' },
 }
@@ -73,7 +73,7 @@ const TX_DESCRIPTIONS: Record<TxType, string> = {
 const TX_BUTTON_STYLE: Record<TxType, string> = {
   receive: 'bg-green-50 text-green-700 hover:bg-green-100 border-green-200',
   use:     'bg-orange-50 text-orange-700 hover:bg-orange-100 border-orange-200',
-  return:  'bg-blue-50 text-blue-700 hover:bg-blue-100 border-blue-200',
+  return:  'bg-brand-50 text-brand-700 hover:bg-brand-100 border-brand-200',
   adjust:  'bg-gray-50 text-gray-700 hover:bg-gray-100 border-gray-200',
 }
 
@@ -546,7 +546,7 @@ export default function AdminInventoryPage() {
               type="month"
               value={logMonth}
               onChange={e => setLogMonth(e.target.value)}
-              className="border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
             />
             <div className="flex gap-1">
               {(['all', 'use', 'return'] as const).map(t => (
@@ -604,7 +604,7 @@ export default function AdminInventoryPage() {
                           <span className="text-xs text-text-secondary w-28 shrink-0 truncate">{name}</span>
                           <div className="flex-1 bg-surface-sunken rounded-full h-4 overflow-hidden">
                             <div
-                              className="bg-orange-400 h-4 rounded-full transition-all"
+                              className="bg-brand-500 h-4 rounded-full transition-all"
                               style={{ width: `${(qty / maxUsage) * 100}%` }}
                             />
                           </div>
@@ -774,7 +774,7 @@ export default function AdminInventoryPage() {
             placeholder="아이템 검색..."
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
-            className="w-full px-3 py-2 text-sm border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 mb-2"
+            className="w-full px-3 py-2 text-sm border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 mb-2"
           />
 
           <div className="flex gap-1 flex-wrap">
@@ -889,7 +889,7 @@ export default function AdminInventoryPage() {
                     <input
                       value={editForm.item_name}
                       onChange={e => setEditForm(f => ({ ...f, item_name: e.target.value }))}
-                      className="w-full px-3 py-2 text-sm border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 text-sm border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500"
                     />
                   ) : (
                     <p className="px-3 py-2 text-sm text-text-primary bg-surface-sunken rounded-lg">{editForm.item_name}</p>
@@ -901,7 +901,7 @@ export default function AdminInventoryPage() {
                     <select
                       value={editForm.category}
                       onChange={e => setEditForm(f => ({ ...f, category: e.target.value as InventoryCategory }))}
-                      className="w-full px-3 py-2 text-sm border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 text-sm border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500"
                     >
                       <option value="chemical">약품</option>
                       <option value="equipment">장비</option>
@@ -920,7 +920,7 @@ export default function AdminInventoryPage() {
                     <input
                       value={editForm.unit}
                       onChange={e => setEditForm(f => ({ ...f, unit: e.target.value }))}
-                      className="w-full px-3 py-2 text-sm border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 text-sm border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500"
                     />
                   ) : (
                     <p className="px-3 py-2 text-sm text-text-primary bg-surface-sunken rounded-lg">{editForm.unit}</p>
@@ -938,7 +938,7 @@ export default function AdminInventoryPage() {
                       step={1}
                       value={editForm.min_qty}
                       onChange={e => setEditForm(f => ({ ...f, min_qty: Math.max(0, Number(e.target.value)) }))}
-                      className="w-full px-3 py-2 text-sm border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 text-sm border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500"
                     />
                   ) : (
                     <p className="px-3 py-2 text-sm text-text-primary bg-surface-sunken rounded-lg">
@@ -1078,7 +1078,7 @@ export default function AdminInventoryPage() {
                 <input
                   value={addForm.item_name}
                   onChange={e => setAddForm(f => ({ ...f, item_name: e.target.value }))}
-                  className="w-full px-3 py-2 text-sm border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 text-sm border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500"
                   placeholder="예: 에탄올 70%"
                 />
               </div>
@@ -1088,7 +1088,7 @@ export default function AdminInventoryPage() {
                   <select
                     value={addForm.category}
                     onChange={e => setAddForm(f => ({ ...f, category: e.target.value as InventoryCategory }))}
-                    className="w-full px-3 py-2 text-sm border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 text-sm border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500"
                   >
                     <option value="chemical">약품</option>
                     <option value="equipment">장비</option>
@@ -1102,7 +1102,7 @@ export default function AdminInventoryPage() {
                     value={addForm.unit}
                     onChange={e => setAddForm(f => ({ ...f, unit: e.target.value }))}
                     placeholder="예: L, 개, kg"
-                    className="w-full px-3 py-2 text-sm border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 text-sm border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500"
                   />
                 </div>
               </div>
@@ -1114,7 +1114,7 @@ export default function AdminInventoryPage() {
                   step={0.1}
                   value={addForm.current_qty}
                   onChange={e => setAddForm(f => ({ ...f, current_qty: Number(e.target.value) }))}
-                  className="w-full px-3 py-2 text-sm border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 text-sm border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500"
                 />
                 <p className="text-xs text-text-tertiary mt-1">0.1 단위로 입력 가능합니다</p>
               </div>
@@ -1169,7 +1169,7 @@ export default function AdminInventoryPage() {
                   value={txQty}
                   onChange={e => setTxQty(e.target.value)}
                   placeholder="0.0"
-                  className="w-full px-3 py-2 text-sm border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-center text-lg font-bold text-text-primary"
+                  className="w-full px-3 py-2 text-sm border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 text-center text-lg font-bold text-text-primary"
                   autoFocus
                 />
               </div>
@@ -1180,7 +1180,7 @@ export default function AdminInventoryPage() {
                   onChange={e => setTxNote(e.target.value)}
                   placeholder="(선택)"
                   rows={2}
-                  className="w-full px-3 py-2 text-sm border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none text-text-primary"
+                  className="w-full px-3 py-2 text-sm border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 resize-none text-text-primary"
                 />
               </div>
 
@@ -1247,12 +1247,7 @@ export default function AdminInventoryPage() {
               <button
                 onClick={handleTransaction}
                 disabled={txLoading || !canSubmit}
-                className={`flex-1 py-2 rounded-xl text-white text-sm font-medium transition-colors disabled:opacity-50 ${
-                  txType === 'receive' ? 'bg-green-600 hover:bg-green-700' :
-                  txType === 'use'     ? 'bg-orange-500 hover:bg-orange-600' :
-                  txType === 'return'  ? 'bg-blue-600 hover:bg-blue-700' :
-                  'bg-gray-600 hover:bg-gray-700'
-                }`}
+                className="btn-toss-primary flex-1 py-2 rounded-xl text-white text-sm font-medium bg-brand-600 hover:bg-brand-700 disabled:opacity-50"
               >
                 {txLoading ? '처리 중...' : '확인'}
               </button>

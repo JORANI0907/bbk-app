@@ -25,7 +25,7 @@ const CATEGORY_LABEL: Record<string, string> = {
 
 const CATEGORY_DOT: Record<string, string> = {
   chemical:   'bg-purple-500',
-  equipment:  'bg-blue-500',
+  equipment:  'bg-brand-500',
   consumable: 'bg-green-500',
   other:      'bg-gray-400',
 }

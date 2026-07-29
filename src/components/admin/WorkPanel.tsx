@@ -228,11 +228,11 @@ export function WorkPanel({ app, onUpdate, isAdmin = false }: Props) {
             <div key={label} className="flex items-center flex-1 last:flex-none">
               <div className="flex flex-col items-center gap-0.5">
                 <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold
-                  ${done ? 'bg-green-500 text-white' : active ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-400'}`}>
+                  ${done ? 'bg-green-500 text-white' : active ? 'bg-brand-600 text-white' : 'bg-gray-200 text-gray-400'}`}>
                   {done ? '✓' : idx}
                 </div>
                 <span className={`text-[10px] font-medium whitespace-nowrap
-                  ${done ? 'text-green-600' : active ? 'text-blue-600' : 'text-gray-400'}`}>
+                  ${done ? 'text-green-600' : active ? 'text-brand-600' : 'text-gray-400'}`}>
                   {label}
                 </span>
               </div>
@@ -268,7 +268,7 @@ export function WorkPanel({ app, onUpdate, isAdmin = false }: Props) {
           <button
             onClick={handleStart}
             disabled={saving}
-            className="w-full py-3 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-semibold rounded-xl text-sm"
+            className="w-full py-3 bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white font-semibold rounded-xl text-sm"
           >
             {saving ? '처리 중...' : '▶ 작업 시작'}
           </button>
@@ -295,8 +295,8 @@ export function WorkPanel({ app, onUpdate, isAdmin = false }: Props) {
           </div>
 
           {/* ── 작업 정보 섹션 박스 (파란색) ── */}
-          <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4 space-y-3">
-            <p className="text-xs font-bold text-blue-700">작업 내용</p>
+          <div className="bg-brand-50 border border-brand-200 rounded-2xl p-4 space-y-3">
+            <p className="text-xs font-bold text-brand-700">작업 내용</p>
 
             {/* 사진 업로드 체크 */}
             <div className="bg-white rounded-xl p-3 space-y-2">
@@ -306,7 +306,7 @@ export function WorkPanel({ app, onUpdate, isAdmin = false }: Props) {
                   href={app.drive_folder_url}
                   target="_blank"
                   rel="noreferrer"
-                  className="flex items-center justify-center gap-2 w-full py-2.5 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-bold text-sm rounded-xl transition-colors"
+                  className="flex items-center justify-center gap-2 w-full py-2.5 bg-brand-600 hover:bg-brand-700 active:bg-brand-800 text-white font-bold text-sm rounded-xl transition-colors"
                 >
                   <Folder size={15} /> 사진 올리기
                 </a>
@@ -319,12 +319,12 @@ export function WorkPanel({ app, onUpdate, isAdmin = false }: Props) {
               <div className="space-y-1.5">
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input type="checkbox" checked={beforeChecked} onChange={e => setBeforeChecked(e.target.checked)}
-                    className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
+                    className="w-4 h-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500" />
                   <span className="text-xs text-gray-700">작업 전 사진 업로드 완료</span>
                 </label>
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input type="checkbox" checked={afterChecked} onChange={e => setAfterChecked(e.target.checked)}
-                    className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
+                    className="w-4 h-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500" />
                   <span className="text-xs text-gray-700">작업 후 사진 업로드 완료</span>
                 </label>
               </div>
@@ -337,13 +337,13 @@ export function WorkPanel({ app, onUpdate, isAdmin = false }: Props) {
               </label>
               <textarea value={customerMemo} onChange={e => setCustomerMemo(e.target.value)} onBlur={saveMemos}
                 placeholder="고객에게 전달할 내용 (완료 알림에 포함됩니다)" rows={3}
-                className="w-full text-xs text-gray-900 border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none bg-white" />
+                className="w-full text-xs text-gray-900 border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-500 resize-none bg-white" />
             </div>
             <div>
               <label className="text-xs font-semibold text-gray-600 mb-1 block">내부 메모</label>
               <textarea value={internalMemo} onChange={e => setInternalMemo(e.target.value)} onBlur={saveMemos}
                 placeholder="내부 참고용 (고객에게 발송되지 않음)" rows={2}
-                className="w-full text-xs text-gray-900 border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none bg-blue-50" />
+                className="w-full text-xs text-gray-900 border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-500 resize-none bg-brand-50" />
             </div>
 
             {/* 정기딥케어·정기엔드케어 전용: 전반적 상태 + 추천 서비스 */}
@@ -438,27 +438,27 @@ export function WorkPanel({ app, onUpdate, isAdmin = false }: Props) {
           {/* Drive 링크 */}
           {app.drive_folder_url && (
             <a href={app.drive_folder_url} target="_blank" rel="noreferrer"
-              className="inline-flex items-center gap-1 text-xs font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 px-2.5 py-1 rounded-lg transition-colors">
+              className="inline-flex items-center gap-1 text-xs font-medium text-brand-600 bg-brand-50 hover:bg-brand-100 px-2.5 py-1 rounded-lg transition-colors">
               <Folder size={14} /> Google Drive 사진 확인
             </a>
           )}
 
           {/* 메모 수정 가능 (알림 발송 전까지) */}
-          <div className={`rounded-xl p-3 space-y-3 border ${app.notification_sent_at ? 'bg-gray-50 border-gray-200' : 'bg-blue-50 border-blue-200'}`}>
+          <div className={`rounded-xl p-3 space-y-3 border ${app.notification_sent_at ? 'bg-gray-50 border-gray-200' : 'bg-brand-50 border-brand-200'}`}>
             {!app.notification_sent_at && (
-              <p className="text-xs text-blue-600 font-semibold flex items-center gap-1"><PenLine size={14} /> 알림 발송 전 내용을 수정할 수 있습니다</p>
+              <p className="text-xs text-brand-600 font-semibold flex items-center gap-1"><PenLine size={14} /> 알림 발송 전 내용을 수정할 수 있습니다</p>
             )}
             <div>
               <label className="text-xs font-semibold text-gray-600 mb-1 block">고객 전달 특이사항</label>
               <textarea value={customerMemo} onChange={e => setCustomerMemo(e.target.value)} onBlur={saveMemos}
                 disabled={!!app.notification_sent_at} rows={3}
-                className="w-full text-xs text-gray-900 border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none disabled:bg-white disabled:text-gray-400" />
+                className="w-full text-xs text-gray-900 border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-500 resize-none disabled:bg-white disabled:text-gray-400" />
             </div>
             <div>
               <label className="text-xs font-semibold text-gray-600 mb-1 block">내부 메모</label>
               <textarea value={internalMemo} onChange={e => setInternalMemo(e.target.value)} onBlur={saveMemos}
                 rows={2}
-                className="w-full text-xs text-gray-900 border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none bg-white" />
+                className="w-full text-xs text-gray-900 border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-500 resize-none bg-white" />
             </div>
           </div>
 
@@ -573,7 +573,7 @@ export function WorkPanel({ app, onUpdate, isAdmin = false }: Props) {
             </div>
           ) : (
             <button onClick={handleSendNow} disabled={saving}
-              className="w-full py-3 bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white font-bold rounded-xl text-sm">
+              className="btn-toss-primary w-full py-3 bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white font-bold rounded-xl text-sm">
               {saving ? '발송 중...' : <span className="flex items-center justify-center gap-1.5"><Megaphone size={14} /> 작업완료 알림 발송</span>}
             </button>
           )}
