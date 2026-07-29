@@ -512,73 +512,48 @@ export default function NotificationTemplatesPage() {
                 </div>
               </div>
 
-              {/* Phase 27-AO: 노출 컨텍스트 5개 체크박스 —
-                  한 템플릿이 어느 유형·화면 dropdown에 뜰지 관리자가 직접 관리.
-                  저장 시 applicable_types + applicable_locations 배열이 union으로 계산됨. */}
+              {/* Phase 27-AO2: 노출 위치는 상단 탭이 유일한 관리 지점. 편집 패널에서는 배지로만 조회.
+                  이 템플릿이 여러 탭에 걸쳐 노출되는 경우, 본문 수정이 그 모든 탭에 공용 반영됨을 관리자에게 안내.
+                  탭별로 문구를 다르게 하려면 하단 [이 탭 전용으로 복제] 버튼으로 사본 생성. */}
               {(() => {
-                const locked = selected.auto_used && !unlockedIds.has(selected.id)
-                const currentTypes: string[] = merged.applicable_types ?? []
-                const currentLocations: string[] = merged.applicable_locations ?? []
                 const CONTEXTS = [
-                  { key: 'oneshot',      label: '① 1회성 세부화면',      type: '1회성케어',    location: 'customer_detail' },
-                  { key: 'deep_master',  label: '② 정기딥 세부화면',     type: '정기딥케어',   location: 'customer_detail' },
-                  { key: 'end_master',   label: '③ 정기엔드 세부화면',   type: '정기엔드케어', location: 'customer_detail' },
-                  { key: 'deep_monthly', label: '④ 이번달일정 (정기딥)',   type: '정기딥케어',   location: 'monthly_schedule' },
-                  { key: 'end_monthly',  label: '⑤ 이번달일정 (정기엔드)', type: '정기엔드케어', location: 'monthly_schedule' },
-                ] as const
+                  { key: 'oneshot',      label: '1회성 세부화면',        tab: '1회성케어' as TabKey,          type: '1회성케어',    location: 'customer_detail' },
+                  { key: 'deep_master',  label: '정기딥 세부화면',       tab: '정기딥케어' as TabKey,         type: '정기딥케어',   location: 'customer_detail' },
+                  { key: 'end_master',   label: '정기엔드 세부화면',     tab: '정기엔드케어' as TabKey,       type: '정기엔드케어', location: 'customer_detail' },
+                  { key: 'deep_monthly', label: '이번달일정 (정기딥)',    tab: 'monthly_schedule_deep' as TabKey, type: '정기딥케어',   location: 'monthly_schedule' },
+                  { key: 'end_monthly',  label: '이번달일정 (정기엔드)',  tab: 'monthly_schedule_end' as TabKey,  type: '정기엔드케어', location: 'monthly_schedule' },
+                ]
+                const activeCtxs = CONTEXTS.filter(c =>
+                  (selected.applicable_types ?? []).includes(c.type)
+                  && (selected.applicable_locations ?? []).includes(c.location)
+                )
+                const otherTabs = activeCtxs.filter(c => c.tab !== activeTab)
 
-                const isChecked = (ctx: (typeof CONTEXTS)[number]) =>
-                  currentTypes.includes(ctx.type) && currentLocations.includes(ctx.location)
-
-                const toggle = (target: (typeof CONTEXTS)[number], nextChecked: boolean) => {
-                  // 다른 컨텍스트의 현재 체크 상태 유지 + 이 컨텍스트만 반전 → union 재계산.
-                  // types/locations 카티션 곱 특성상 원치 않은 조합이 열릴 수 있으나
-                  // 실제 dropdown 렌더 지점(1회성·정기딥·정기엔드 세부화면 3곳, 이번달일정 2탭)이 정해져 있어
-                  // 통상 관리 시나리오에서 유출은 무의미. 그래도 발생하면 스키마 확장을 검토.
-                  const nextStates = CONTEXTS.map(c => ({
-                    ctx: c,
-                    checked: c.key === target.key ? nextChecked : isChecked(c),
-                  })).filter(s => s.checked)
-                  const types = Array.from(new Set(nextStates.map(s => s.ctx.type)))
-                  const locations = Array.from(new Set(nextStates.map(s => s.ctx.location)))
-                  setBuffer(prev => ({ ...prev, applicable_types: types, applicable_locations: locations }))
-                }
+                if (otherTabs.length === 0) return null
 
                 return (
-                  <div className={`rounded-lg p-3 border ${locked ? 'bg-gray-50 border-gray-200 opacity-60' : 'bg-brand-50/40 border-brand-200'}`}>
-                    <div className="flex items-center justify-between mb-2">
-                      <p className="text-xs font-semibold text-text-primary">📍 노출 위치 (이 알림이 뜨는 dropdown)</p>
-                      {locked && <span className="text-[10px] text-text-tertiary">🔒 잠금 상태 — 자물쇠 해제 후 편집</span>}
+                  <div className="rounded-lg p-3 border border-amber-200 bg-amber-50/60">
+                    <div className="flex items-start gap-2">
+                      <span className="text-sm mt-0.5">🔗</span>
+                      <div className="flex-1 text-xs leading-relaxed">
+                        <p className="font-semibold text-amber-900 mb-1">
+                          이 템플릿은 다른 탭에도 노출됩니다 — 본문 수정 시 <b>모든 탭에 동시 반영</b>
+                        </p>
+                        <div className="flex flex-wrap gap-1 mb-1.5">
+                          {otherTabs.map(c => (
+                            <span
+                              key={c.key}
+                              className="inline-flex items-center text-[11px] px-1.5 py-0.5 rounded bg-white border border-amber-300 text-amber-800 font-medium"
+                            >
+                              {c.label}
+                            </span>
+                          ))}
+                        </div>
+                        <p className="text-[11px] text-amber-700">
+                          💡 탭별로 다른 문구를 쓰려면 각 탭에서 <b>[+ 새 알림 추가]</b>로 별도 템플릿을 만드세요.
+                        </p>
+                      </div>
                     </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
-                      {CONTEXTS.map(ctx => {
-                        const checked = isChecked(ctx)
-                        return (
-                          <label
-                            key={ctx.key}
-                            className={`flex items-center gap-2 text-xs px-2 py-1.5 rounded border transition-colors ${
-                              locked
-                                ? 'cursor-not-allowed bg-white border-border'
-                                : checked
-                                  ? 'cursor-pointer bg-brand-50 border-brand-300 text-brand-900 font-medium'
-                                  : 'cursor-pointer bg-white border-border hover:bg-brand-50/50'
-                            }`}
-                          >
-                            <input
-                              type="checkbox"
-                              checked={checked}
-                              disabled={locked}
-                              onChange={e => toggle(ctx, e.target.checked)}
-                              className="accent-brand-600"
-                            />
-                            <span>{ctx.label}</span>
-                          </label>
-                        )
-                      })}
-                    </div>
-                    <p className="text-[11px] text-text-tertiary mt-2">
-                      💡 여러 위치 동시 선택 가능. 체크된 dropdown에만 이 템플릿이 나타납니다.
-                    </p>
                   </div>
                 )
               })()}
