@@ -84,9 +84,10 @@ export async function PATCH(request: NextRequest) {
     .single()
 
   // Phase 27-S: trigger_desc 는 시스템 고정 (편집 UI 없음, API 도 잠금).
-  // 관리자가 편집 가능한 필드: title, subject, body, is_active, applicable_types, auto_used 등
+  // Phase 27-AQ: linked_progress_status / linked_payment_status 추가 — 알림 발송 시 자동 세팅될 상태를 관리자가 지정.
   const SYSTEM_EDITABLE = new Set(['title', 'subject', 'body', 'is_active', 'category',
-    'applicable_types', 'applicable_locations', 'auto_used'])
+    'applicable_types', 'applicable_locations', 'auto_used',
+    'linked_progress_status', 'linked_payment_status'])
   const ALL_EDITABLE = new Set([...SYSTEM_EDITABLE, 'code', 'scope'])
 
   // Phase 25c: auto_used 템플릿은 is_active 잠금 (본문·제목만 편집)

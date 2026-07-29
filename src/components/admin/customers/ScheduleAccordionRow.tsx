@@ -14,30 +14,9 @@ import toast from 'react-hot-toast'
 import { useAutoSave, AutoSaveStatus } from '@/hooks/useAutoSave'
 import { NOTIFY_TYPES } from './CustomersManagementView'
 
-// Phase 20-B: 알림 발송 시 자동으로 세팅될 진행/결제 상태 (admin/notify dual-write와 동일 매핑)
-const NOTIFY_TO_PROGRESS: Record<string, string> = {
-  '신청서작성완료알림': '신청서작성',
-  '예약확정알림': '예약확정',
-  '예약1일전알림': '예약1일전',
-  '예약당일알림': '예약당일',
-  '작업완료알림': '작업완료',
-  '작업완료알림(현금)': '작업완료',
-  '작업완료알림(카드,플렛폼)': '작업완료',
-  '작업완료알림(정기엔드케어)': '작업완료',
-  '예약취소알림': '예약취소',
-  'A/S방문알림': 'A/S방문',
-  '방문견적알림': '방문견적',
-}
-const NOTIFY_TO_PAYMENT: Record<string, string> = {
-  '결제알림': '결제',
-  '결제알림(현금)': '결제',
-  '결제알림(카드,플렛폼)': '결제',
-  '결제완료알림': '결제완료',
-  '결제완료알림(잔금)': '결제완료(잔금)',
-  '예약금 입금완료 알림': '예약금 입금',
-  '계산서발행완료알림': '계산서발행완료',
-  '예약금환급완료알림': '예약금환급완료',
-}
+// Phase 27-AQ: 하드코딩 NOTIFY_TO_PROGRESS / NOTIFY_TO_PAYMENT 매핑 제거.
+// → notification_templates.linked_progress_status / linked_payment_status 로 이관.
+// 발송 후 응답의 new_progress_status / new_payment_status_detail 를 옵티미스틱 업데이트에 사용.
 
 export interface ScheduleAppRow {
   id: string
@@ -343,17 +322,17 @@ function ExpandedEditor({ merged, users, workers, update, status, onOptimisticUp
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(data?.error ?? '발송 실패')
-      // 발송 성공 → 진행/결제 상태 + 알림 이력 optimistic update
+      // Phase 27-AQ: 서버 응답의 linked_* 값으로 옵티미스틱 업데이트 (하드코딩 매핑 제거).
+      // 관리자가 관리 페이지에서 dropdown 으로 지정한 값이 그대로 세팅됨.
       const patch: Partial<ScheduleAppRow> = {}
-      const newProgress = NOTIFY_TO_PROGRESS[notifyType]
-      const newPayment = NOTIFY_TO_PAYMENT[notifyType]
-      if (newProgress) patch.progress_status = newProgress
-      if (newPayment) patch.payment_status_detail = newPayment
-      // 알림 이력에 신규 항목 추가 (최신순)
-      const newLog = { type: notifyType, sent_at: new Date().toISOString(), method: 'manual' as const }
+      if (data?.new_progress_status) patch.progress_status = data.new_progress_status
+      if (data?.new_payment_status_detail) patch.payment_status_detail = data.new_payment_status_detail
+      // 작업완료알림은 서버에서 결제방법에 따라 세분화됨 → 응답의 final_type 을 우선 사용
+      const finalType: string = data?.final_type ?? notifyType
+      const newLog = { type: finalType, sent_at: new Date().toISOString(), method: 'manual' as const }
       patch.notification_log = [newLog, ...(merged.notification_log ?? [])]
       onOptimisticUpdate(merged.id, patch)
-      toast.success(`${notifyType} 발송 완료`)
+      toast.success(`${finalType} 발송 완료`)
       setNotifyType('')
     } catch (e) {
       toast.error(e instanceof Error ? e.message : '발송 실패')

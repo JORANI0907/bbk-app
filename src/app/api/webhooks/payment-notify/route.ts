@@ -135,14 +135,18 @@ export async function POST(request: NextRequest) {
   const results = { case1: 0, case3: 0, case4: 0, case5: 0, skipped_switch_off: 0, errors: 0 }
 
   // Phase 27-AP: template 게이트 조회. 각 case 시작에서 auto_used·is_active 확인.
-  // 하나라도 없으면 그 case skip (관리 페이지에서 스위치 off 하면 즉시 반영).
+  // Phase 27-AQ: linked_progress_status / linked_payment_status 함께 조회 → 발송 성공 시 application 자동 갱신 (Case 1 만 적용).
   const { data: tplRows } = await supabase
     .from('notification_templates')
-    .select('code, body, is_active, auto_used')
+    .select('code, body, is_active, auto_used, linked_progress_status, linked_payment_status')
     .in('code', TEMPLATE_CODES as unknown as string[])
   const gate: Record<string, TemplateGate | undefined> = {}
-  for (const t of (tplRows ?? []) as Array<TemplateGate & { code: string }>) {
+  const linkedProgress: Record<string, string | null> = {}
+  const linkedPayment: Record<string, string | null> = {}
+  for (const t of (tplRows ?? []) as Array<TemplateGate & { code: string; linked_progress_status: string | null; linked_payment_status: string | null }>) {
     gate[t.code] = { body: t.body, is_active: t.is_active, auto_used: t.auto_used }
+    linkedProgress[t.code] = t.linked_progress_status
+    linkedPayment[t.code] = t.linked_payment_status
   }
   const canSend = (code: string) => Boolean(gate[code]?.is_active && gate[code]?.auto_used)
   const renderFallback = (code: string, ctx: NotificationContext, fallback: string): string => {
@@ -211,7 +215,13 @@ export async function POST(request: NextRequest) {
           }
 
           const entry: NotificationLogEntry = { type: '결제알림', sent_at: nowIso, phone, method: 'auto', template_id: ALIMTALK_BILLING }
-          await appendLog(supabase, app.id, existingLog, entry)
+          // Phase 27-AQ: notification_log + linked_* 통합 UPDATE (관리자가 관리 페이지에서 지정한 상태 자동 세팅)
+          const patch: Record<string, unknown> = {
+            notification_log: [entry, ...existingLog],
+          }
+          if (linkedProgress['결제알림']) patch.progress_status = linkedProgress['결제알림']
+          if (linkedPayment['결제알림'])  patch.payment_status_detail = linkedPayment['결제알림']
+          await supabase.from('service_applications').update(patch).eq('id', app.id)
           await notifySlack({ notifyType: '결제알림', customerName: app.owner_name ?? '', phone, businessName: app.business_name ?? '', constructionDate: app.construction_date, method: 'auto' }).catch(() => { /* 무시 */ })
           results.case1++
         } catch {

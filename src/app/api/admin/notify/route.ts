@@ -12,7 +12,7 @@ const WORKER_NOTIFY_TYPES = new Set(['작업자 일정 안내', '작업자 자�
 
 // ─── 계약상태 자동변경 매핑 (Phase 8-B: backward-compat status 컬럼) ─
 // Dual-write 원칙: 기존 status는 그대로 유지하여 자동화(cron 필터, finance 등)가 안 깨지도록 함.
-// 신규 컬럼(progress_status, payment_status_detail)는 아래 두 매핑으로 별도 추적.
+// 이건 legacy status 컬럼용이라 하드코딩 유지 (도메인 의미가 코드에 고정).
 const NOTIFY_TO_STATUS: Record<string, string> = {
   '예약확정알림':       '예약확정',
   '예약1일전알림':      '예약1일전',
@@ -35,32 +35,10 @@ const NOTIFY_TO_STATUS: Record<string, string> = {
   '방문견적알림':       '방문견적',
 }
 
-// Phase 8-B: 진행상태 자동변경 매핑 (progress_status 컬럼)
-const NOTIFY_TO_PROGRESS_STATUS: Record<string, string> = {
-  '신청서작성완료알림': '신청서작성',
-  '예약확정알림':       '예약확정',
-  '예약1일전알림':      '예약1일전',
-  '예약당일알림':       '예약당일',
-  '작업완료알림':               '작업완료',
-  '작업완료알림(현금)':         '작업완료',
-  '작업완료알림(카드,플렛폼)':  '작업완료',
-  '작업완료알림(정기엔드케어)': '작업완료',
-  '예약취소알림':       '예약취소',
-  'A/S방문알림':        'A/S방문',
-  '방문견적알림':       '방문견적',
-}
-
-// Phase 8-B: 결제상태 자동변경 매핑 (payment_status_detail 컬럼)
-const NOTIFY_TO_PAYMENT_STATUS_DETAIL: Record<string, string> = {
-  '결제알림':               '결제',
-  '결제알림(현금)':         '결제',
-  '결제알림(카드,플렛폼)':  '결제',
-  '결제완료알림':       '결제완료',
-  '결제완료알림(잔금)':   '결제완료(잔금)',
-  '예약금 입금완료 알림': '예약금 입금',
-  '계산서발행완료알림': '계산서발행완료',
-  '예약금환급완료알림': '예약금환급완료',
-}
+// Phase 27-AQ: 진행상태·결제상태 하드코딩 매핑 제거.
+// → notification_templates.linked_progress_status / linked_payment_status 로 이관.
+// 관리자가 새 template 추가 시에도 관리 페이지 dropdown 으로 상태 연결을 지정 가능.
+// 발송 직전에 template row 를 조회해 두 필드를 읽어 자동 업데이트.
 
 // ─── 솔라피 카카오 알림톡 템플릿 ID (최신 자동화 v2) ──────────────
 const ALIMTALK_TEMPLATES: Record<string, string> = {
@@ -674,10 +652,18 @@ export async function POST(request: NextRequest) {
       ].join('\n')).catch(() => {})
     }
 
-    // ── 계약상태 자동변경 (Phase 8-B: dual-write) ──────────────────
+    // ── 계약상태 자동변경 (Phase 8-B: dual-write + Phase 27-AQ: template.linked_*) ──
     const newStatus = NOTIFY_TO_STATUS[type]
-    const newProgressStatus = NOTIFY_TO_PROGRESS_STATUS[type]
-    const newPaymentStatusDetail = NOTIFY_TO_PAYMENT_STATUS_DETAIL[type]
+    // Phase 27-AQ: 하드코딩 매핑 → template row 의 linked_* 조회로 이관.
+    // 최종 type 이 결정된 후 (작업완료알림 세분화 이후) 조회. 관리자가 관리 페이지에서
+    // dropdown 으로 연결한 상태 값이 자동으로 세팅됨. 새 template 추가 시에도 즉시 반영.
+    const { data: linkedRow } = await supabase
+      .from('notification_templates')
+      .select('linked_progress_status, linked_payment_status')
+      .eq('code', type)
+      .maybeSingle()
+    const newProgressStatus: string | null = (linkedRow?.linked_progress_status as string | null) ?? null
+    const newPaymentStatusDetail: string | null = (linkedRow?.linked_payment_status as string | null) ?? null
     const nowIso = new Date().toISOString()
 
     // ── notification_log append ────────────────────────────────────
@@ -881,7 +867,14 @@ export async function POST(request: NextRequest) {
     // "활성·자동 스위치가 유일한 결정자" 원칙에 따라 제거. 계정안내는 관리자 수동 발송
     // 또는 문자알림 관리 탭에서 계정안내 템플릿의 auto_used=true 로 통제.
 
-    return NextResponse.json({ success: true, new_status: newStatus ?? null })
+    // Phase 27-AQ: 프론트 옵티미스틱 업데이트가 응답 값 그대로 반영하도록 확장
+    return NextResponse.json({
+      success: true,
+      new_status: newStatus ?? null,
+      new_progress_status: newProgressStatus,
+      new_payment_status_detail: newPaymentStatusDetail,
+      final_type: type,   // 작업완료알림이 세분화된 최종 code (프론트 알림 이력 표기용)
+    })
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
     return NextResponse.json({ error: msg }, { status: 500 })

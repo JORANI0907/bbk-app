@@ -77,14 +77,21 @@ export async function POST(request: NextRequest) {
   const supabase = createServiceClient()
 
   // Phase 27-AP: 두 template의 활성/자동 스위치 조회. 꺼져 있으면 그 유형은 skip.
-  // 관리자가 알림 관리 페이지에서 auto_used 를 끄면 이 웹훅도 즉시 반영됨.
+  // Phase 27-AQ: linked_progress_status / linked_payment_status 도 함께 조회 → 발송 성공 시 application 자동 갱신.
   const { data: templatesData } = await supabase
     .from('notification_templates')
-    .select('code, auto_used, is_active')
+    .select('code, auto_used, is_active, linked_progress_status, linked_payment_status')
     .in('code', ['예약당일알림', '예약1일전알림'])
   const canSend: Record<string, boolean> = {}
-  for (const t of (templatesData ?? []) as Array<{ code: string; auto_used: boolean; is_active: boolean }>) {
+  const linkedProgress: Record<string, string | null> = {}
+  const linkedPayment: Record<string, string | null> = {}
+  for (const t of (templatesData ?? []) as Array<{
+    code: string; auto_used: boolean; is_active: boolean;
+    linked_progress_status: string | null; linked_payment_status: string | null;
+  }>) {
     canSend[t.code] = t.is_active && t.auto_used
+    linkedProgress[t.code] = t.linked_progress_status
+    linkedPayment[t.code] = t.linked_payment_status
   }
 
   const todayKST = toKSTDateString(new Date())
@@ -156,7 +163,13 @@ export async function POST(request: NextRequest) {
         method: 'auto',
         template_id: send.templateId,
       }
-      await appendNotificationLog(supabase, app.id, existingLog, entry)
+      // Phase 27-AQ: notification_log 추가 + linked_* 자동 세팅 (한 번의 UPDATE로 병합)
+      const patch: Record<string, unknown> = {
+        notification_log: [entry, ...existingLog],
+      }
+      if (linkedProgress[notifyType]) patch.progress_status = linkedProgress[notifyType]
+      if (linkedPayment[notifyType])  patch.payment_status_detail = linkedPayment[notifyType]
+      await supabase.from('service_applications').update(patch).eq('id', app.id)
 
       await notifySlack({
         notifyType,

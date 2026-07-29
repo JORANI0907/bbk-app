@@ -29,7 +29,27 @@ interface Template {
   auto_used: boolean
   trigger_desc: string | null
   updated_at: string
+  // Phase 27-AQ: 알림 발송 시 자동 세팅될 상태 (관리 페이지 dropdown 으로 지정)
+  linked_progress_status: string | null
+  linked_payment_status: string | null
 }
+
+// Phase 27-AQ: 알림 발송 성공 시 자동 세팅될 상태 옵션.
+// ScheduleAccordionRow 의 PROGRESS_STATUS_OPTIONS / PAYMENT_STATUS_DETAIL_OPTIONS 와 동일 세트.
+const LINKED_PROGRESS_OPTIONS = [
+  '신청서작성', '예약확정', '예약1일전', '예약당일',
+  '작업완료', '예약취소', 'A/S방문', '방문견적',
+] as const
+const LINKED_PAYMENT_OPTIONS = [
+  { value: '예약금 입금',    label: '예약금 입금' },
+  { value: '결제',           label: '결제' },
+  { value: '결제완료',       label: '결제완료' },
+  { value: '결제완료(잔금)', label: '결제완료(잔금)' },
+  { value: '계산서발행완료', label: '계산서발행완료' },
+  { value: '예약금환급완료', label: '예약금환급완료' },
+  { value: '비과세',         label: '비과세 결제' },
+  { value: '카드결제 완료',  label: '카드결제 완료' },
+] as const
 
 type TabKey = TemplateTab
 
@@ -554,6 +574,60 @@ export default function NotificationTemplatesPage() {
                         </p>
                       </div>
                     </div>
+                  </div>
+                )
+              })()}
+
+              {/* Phase 27-AQ: 발송 성공 시 자동 세팅될 진행/결제 상태 dropdown 2개.
+                  관리자가 여기서 지정하면 발송 API 가 template row 를 읽어 application 상태 자동 갱신.
+                  기존 하드코딩 매핑을 관리 페이지로 이관 → 새 template 추가 시에도 상태 연결 가능. */}
+              {(() => {
+                const locked = selected.auto_used && !unlockedIds.has(selected.id)
+                return (
+                  <div className="rounded-lg p-3 border border-purple-200 bg-purple-50/40">
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-xs font-semibold text-text-primary">🔄 발송 성공 시 자동 세팅될 상태</p>
+                      {locked && <span className="text-[10px] text-text-tertiary">🔒 잠금 상태</span>}
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <div>
+                        <label className="text-[11px] font-medium text-text-secondary mb-1 block">진행상태</label>
+                        <select
+                          value={merged.linked_progress_status ?? ''}
+                          disabled={locked}
+                          onChange={e => setBuffer(prev => ({
+                            ...prev,
+                            linked_progress_status: e.target.value || null,
+                          }))}
+                          className="w-full border border-border rounded-md px-2 py-1.5 text-xs bg-surface disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          <option value="">(변경 안 함)</option>
+                          {LINKED_PROGRESS_OPTIONS.map(v => (
+                            <option key={v} value={v}>{v}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="text-[11px] font-medium text-text-secondary mb-1 block">결제상태</label>
+                        <select
+                          value={merged.linked_payment_status ?? ''}
+                          disabled={locked}
+                          onChange={e => setBuffer(prev => ({
+                            ...prev,
+                            linked_payment_status: e.target.value || null,
+                          }))}
+                          className="w-full border border-border rounded-md px-2 py-1.5 text-xs bg-surface disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          <option value="">(변경 안 함)</option>
+                          {LINKED_PAYMENT_OPTIONS.map(o => (
+                            <option key={o.value} value={o.value}>{o.label}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                    <p className="text-[11px] text-text-tertiary mt-2">
+                      💡 이 알림이 발송되면 회차의 해당 상태가 자동으로 이 값으로 바뀝니다. (변경 안 함 = 상태 갱신 없음)
+                    </p>
                   </div>
                 )
               })()}
