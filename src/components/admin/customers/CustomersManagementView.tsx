@@ -2789,65 +2789,7 @@ export function CustomersManagementView({
               </div>
             )}
 
-            {/* Phase 27-AI: Google Drive 마스터 폴더 섹션 (모든 유형 공통, 관리자만) */}
-            {!isWorker && selected && !isNew && (
-              <div className="bg-green-50/60 border border-green-200 rounded-xl p-4 flex flex-col gap-2">
-                <div className="flex items-center gap-2">
-                  <Folder size={14} className="text-green-700" />
-                  <p className="text-xs font-semibold text-green-900 uppercase tracking-wide">Google Drive 폴더</p>
-                </div>
-                {selected.drive_folder_url ? (
-                  <>
-                    <div className="flex flex-wrap items-center gap-1.5">
-                      <a
-                        href={selected.drive_folder_url}
-                        target="_blank" rel="noreferrer"
-                        className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs bg-green-600 text-white rounded-lg hover:bg-green-700"
-                      >
-                        <FolderOpen size={13} /> 폴더 열기
-                      </a>
-                      <button
-                        type="button"
-                        disabled={customerDrive.saving || !customerDrive.apisReady}
-                        onClick={() => customerDrive.pickParentAndCreate()}
-                        className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs bg-surface text-text-primary rounded-lg border border-border hover:bg-surface-sunken disabled:opacity-50"
-                        title="다른 위치에 새 폴더 생성"
-                      >
-                        <FolderPlus size={13} /> {customerDrive.saving ? '생성 중...' : '위치 변경'}
-                      </button>
-                    </div>
-                    <p className="text-[10px] text-text-tertiary truncate">{selected.drive_folder_url}</p>
-                  </>
-                ) : (
-                  <>
-                    <div className="flex flex-wrap items-center gap-1.5">
-                      <button
-                        type="button"
-                        disabled={customerDrive.saving || !customerDrive.apisReady}
-                        onClick={() => customerDrive.createOrChange(true)}
-                        className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
-                      >
-                        <FolderPlus size={13} />
-                        {customerDrive.saving ? '생성 중...' : (customerDrive.savedDefaultParent ? `"${customerDrive.savedDefaultParent.name}"에 폴더 생성` : '폴더 생성 (위치 선택)')}
-                      </button>
-                      {customerDrive.savedDefaultParent && (
-                        <button
-                          type="button"
-                          disabled={customerDrive.saving || !customerDrive.apisReady}
-                          onClick={() => customerDrive.pickParentAndCreate()}
-                          className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs bg-surface text-text-primary rounded-lg border border-border hover:bg-surface-sunken disabled:opacity-50"
-                        >
-                          다른 위치
-                        </button>
-                      )}
-                    </div>
-                    <p className="text-[10px] text-text-tertiary">
-                      폴더 생성 시 &ldquo;{form.business_name || '업체명'}_{(selected.next_visit_date ?? '').replace(/-/g, '') || 'YYYYMMDD'}&rdquo; 이름으로 만들어지고 &ldquo;작업 전/후&rdquo; 하위 폴더도 자동 생성됩니다.
-                    </p>
-                  </>
-                )}
-              </div>
-            )}
+            {/* Phase 27-AS: Google Drive 마스터 폴더 섹션은 저장 버튼 아래로 이관됨 (자리 제거) */}
 
             {/* 담당직원 */}
             <div className="bg-surface-sunken rounded-xl p-4 flex flex-col gap-3">
@@ -3587,6 +3529,66 @@ export function CustomersManagementView({
             {isWorker && (
               <div className="w-full py-2.5 bg-surface-sunken text-text-secondary text-sm font-semibold rounded-lg text-center">
                 읽기 전용 (수정 권한 없음)
+              </div>
+            )}
+
+            {/* Phase 27-AS: Google Drive 마스터 폴더 섹션 (저장 버튼 아래로 이관) */}
+            {!isWorker && selected && !isNew && (
+              <div className="bg-green-50/60 border border-green-200 rounded-xl p-4 flex flex-col gap-2">
+                <div className="flex items-center gap-2">
+                  <Folder size={14} className="text-green-700" />
+                  <p className="text-xs font-semibold text-green-900 uppercase tracking-wide">Google Drive 폴더</p>
+                </div>
+                {selected.drive_folder_url ? (
+                  <>
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <a
+                        href={selected.drive_folder_url}
+                        target="_blank" rel="noreferrer"
+                        className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs bg-green-600 text-white rounded-lg hover:bg-green-700"
+                      >
+                        <FolderOpen size={13} /> 폴더 열기
+                      </a>
+                      <button
+                        type="button"
+                        disabled={customerDrive.saving || !customerDrive.apisReady}
+                        onClick={() => customerDrive.pickParentAndCreate()}
+                        className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs bg-surface text-text-primary rounded-lg border border-border hover:bg-surface-sunken disabled:opacity-50"
+                        title="다른 위치에 새 폴더 생성"
+                      >
+                        <FolderPlus size={13} /> {customerDrive.saving ? '생성 중...' : '위치 변경'}
+                      </button>
+                    </div>
+                    <p className="text-[10px] text-text-tertiary truncate">{selected.drive_folder_url}</p>
+                  </>
+                ) : (
+                  <>
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <button
+                        type="button"
+                        disabled={customerDrive.saving || !customerDrive.apisReady}
+                        onClick={() => customerDrive.createOrChange(true)}
+                        className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
+                      >
+                        <FolderPlus size={13} />
+                        {customerDrive.saving ? '생성 중...' : (customerDrive.savedDefaultParent ? `"${customerDrive.savedDefaultParent.name}"에 폴더 생성` : '폴더 생성 (위치 선택)')}
+                      </button>
+                      {customerDrive.savedDefaultParent && (
+                        <button
+                          type="button"
+                          disabled={customerDrive.saving || !customerDrive.apisReady}
+                          onClick={() => customerDrive.pickParentAndCreate()}
+                          className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs bg-surface text-text-primary rounded-lg border border-border hover:bg-surface-sunken disabled:opacity-50"
+                        >
+                          다른 위치
+                        </button>
+                      )}
+                    </div>
+                    <p className="text-[10px] text-text-tertiary">
+                      폴더 생성 시 &ldquo;{form.business_name || '업체명'}_{(selected.next_visit_date ?? '').replace(/-/g, '') || 'YYYYMMDD'}&rdquo; 이름으로 만들어지고 &ldquo;작업 전/후&rdquo; 하위 폴더도 자동 생성됩니다.
+                    </p>
+                  </>
+                )}
               </div>
             )}
 
