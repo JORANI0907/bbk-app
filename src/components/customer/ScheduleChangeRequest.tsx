@@ -104,7 +104,7 @@ export function ScheduleChangeRequest({ upcomingSchedules }: Props) {
                   <select
                     value={selectedScheduleId}
                     onChange={e => setSelectedScheduleId(e.target.value)}
-                    className={`w-full border rounded-xl px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-surface transition-colors ${
+                    className={`w-full border rounded-xl px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 bg-surface transition-colors ${
                       selectedScheduleId ? 'border-brand-600 text-text-primary' : 'border-border text-text-tertiary'
                     }`}
                   >
@@ -131,7 +131,7 @@ export function ScheduleChangeRequest({ upcomingSchedules }: Props) {
                     value={preferredDate}
                     onChange={e => setPreferredDate(e.target.value)}
                     min={format(new Date(), 'yyyy-MM-dd')}
-                    className={`w-full border rounded-xl px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors ${
+                    className={`w-full border rounded-xl px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 transition-colors ${
                       preferredDate ? 'border-brand-600 text-text-primary' : 'border-border text-text-tertiary'
                     }`}
                   />
@@ -145,7 +145,7 @@ export function ScheduleChangeRequest({ upcomingSchedules }: Props) {
                     onChange={e => setReason(e.target.value)}
                     rows={2}
                     placeholder="변경 사유를 입력해주세요."
-                    className="w-full border border-border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none placeholder:text-text-tertiary"
+                    className="w-full border border-border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 resize-none placeholder:text-text-tertiary"
                   />
                 </div>
 

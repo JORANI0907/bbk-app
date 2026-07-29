@@ -19,8 +19,8 @@ export type ScheduleListItem = ServiceSchedule & {
 }
 
 const SERVICE_TYPE_BADGE: Record<string, { label: string; chip: string }> = {
-  '정기딥케어':  { label: '딥',   chip: 'bg-indigo-100 text-indigo-700' },
-  '정기엔드케어': { label: '엔드', chip: 'bg-sky-100 text-sky-700' },
+  '정기딥케어':  { label: '딥',   chip: 'bg-brand-100 text-brand-700' },
+  '정기엔드케어': { label: '엔드', chip: 'bg-brand-100 text-brand-700' },
   '1회성케어':   { label: '1회', chip: 'bg-surface-sunken text-text-secondary' },
 }
 

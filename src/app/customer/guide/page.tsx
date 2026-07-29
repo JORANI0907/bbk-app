@@ -133,15 +133,15 @@ export default async function CustomerGuidePage() {
             rel="noopener noreferrer"
             className="bg-surface rounded-2xl border border-border-subtle shadow-soft p-5 flex items-center gap-4 group hover:bg-surface-sunken active:scale-[0.98] transition-all"
           >
-            <div className="w-9 h-9 rounded-xl bg-indigo-50 flex items-center justify-center shrink-0">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5 text-indigo-600">
+            <div className="w-9 h-9 rounded-xl bg-brand-50 flex items-center justify-center shrink-0">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5 text-brand-600">
                 <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
               </svg>
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 mb-0.5">
                 <p className="text-sm font-bold text-text-primary group-hover:text-brand-600 transition-colors">정기딥케어</p>
-                <span className="text-xs px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700 font-medium">구독</span>
+                <span className="text-xs px-2 py-0.5 rounded-full bg-brand-100 text-brand-700 font-medium">구독</span>
               </div>
               <p className="text-xs text-text-secondary leading-normal">후드·덕트·바닥 등 주방 딥 클리닝 정기 관리</p>
             </div>
@@ -159,8 +159,8 @@ export default async function CustomerGuidePage() {
             rel="noopener noreferrer"
             className="bg-surface rounded-2xl border border-border-subtle shadow-soft p-5 flex items-center gap-4 group hover:bg-surface-sunken active:scale-[0.98] transition-all"
           >
-            <div className="w-9 h-9 rounded-xl bg-sky-50 flex items-center justify-center shrink-0">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5 text-sky-600">
+            <div className="w-9 h-9 rounded-xl bg-brand-50 flex items-center justify-center shrink-0">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5 text-brand-600">
                 <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
                 <polyline points="9 22 9 12 15 12 15 22"/>
               </svg>
@@ -168,7 +168,7 @@ export default async function CustomerGuidePage() {
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 mb-0.5">
                 <p className="text-sm font-bold text-text-primary group-hover:text-brand-600 transition-colors">정기엔드케어</p>
-                <span className="text-xs px-2 py-0.5 rounded-full bg-sky-100 text-sky-700 font-medium">구독</span>
+                <span className="text-xs px-2 py-0.5 rounded-full bg-brand-100 text-brand-700 font-medium">구독</span>
               </div>
               <p className="text-xs text-text-secondary leading-normal">쓰레기 배출·청소·설거지 마감청소 정기 관리</p>
             </div>

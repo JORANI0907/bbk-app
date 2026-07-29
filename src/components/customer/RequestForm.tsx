@@ -52,7 +52,7 @@ export function RequestForm({ initialRequests }: Props) {
             onChange={e => setContent(e.target.value)}
             placeholder="궁금하신 점이나 요청사항을 자유롭게 적어주세요."
             rows={4}
-            className="w-full border border-border rounded-xl px-3 py-2.5 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder:text-text-tertiary"
+            className="w-full border border-border rounded-xl px-3 py-2.5 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-brand-500 placeholder:text-text-tertiary"
           />
           {error && <p className="text-xs text-state-danger">{error}</p>}
           <Button

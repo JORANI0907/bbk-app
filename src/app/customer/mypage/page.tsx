@@ -35,7 +35,7 @@ function formatPhone(phone: string): string {
 }
 
 const CUSTOMER_TYPE_LABELS: Record<string, { label: string; color: string }> = {
-  '정기딥케어': { label: '정기딥케어', color: 'bg-indigo-100 text-indigo-700' },
+  '정기딥케어': { label: '정기딥케어', color: 'bg-brand-100 text-brand-700' },
   '정기엔드케어': { label: '정기엔드케어', color: 'bg-brand-100 text-brand-700' },
   '1회성케어': { label: '1회성케어', color: 'bg-surface-sunken text-text-secondary' },
 }

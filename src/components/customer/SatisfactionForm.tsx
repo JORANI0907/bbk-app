@@ -119,7 +119,7 @@ export function SatisfactionForm({ scheduleId, onSubmit }: Props) {
           placeholder="서비스에 대한 의견을 자유롭게 작성해주세요."
           rows={4}
           maxLength={500}
-          className="w-full px-4 py-3 text-sm border border-border rounded-xl resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          className="w-full px-4 py-3 text-sm border border-border rounded-xl resize-none focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
         />
         <p className="text-xs text-text-tertiary text-right">{comment.length}/500</p>
       </div>

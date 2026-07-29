@@ -201,8 +201,8 @@ export function ScheduleTabs({ upcoming, past, driveFolderUrl, closingsBySchedul
             className={`text-xs px-3 py-1.5 rounded-full font-semibold transition-colors ${
               selectedTypes.has(t)
                 ? t === '딥케어'
-                  ? 'bg-indigo-600 text-white'
-                  : 'bg-teal-600 text-white'
+                  ? 'bg-brand-600 text-white'
+                  : 'bg-brand-600 text-white'
                 : 'bg-surface-sunken text-text-secondary hover:text-text-primary'
             }`}
           >

@@ -90,7 +90,7 @@ export function AddressSearch({
           type="button"
           onClick={search}
           disabled={loading || !query.trim()}
-          className="px-4 py-2.5 rounded-xl bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 disabled:opacity-50 flex items-center gap-1.5 whitespace-nowrap transition-colors"
+          className="px-4 py-2.5 rounded-xl bg-brand-600 text-white text-sm font-semibold hover:bg-brand-700 disabled:opacity-50 flex items-center gap-1.5 whitespace-nowrap transition-colors"
         >
           <Search size={14} />
           {loading ? '검색 중…' : '검색'}

@@ -18,7 +18,7 @@ import {
 
 const GRADE_HERO: Record<CustomerGrade, { label: string; year: string; dot: string }> = {
   '화이트': { label: 'WHITE', year: '1년차', dot: 'bg-white' },
-  '블루':   { label: 'BLUE',  year: '2년차', dot: 'bg-sky-300' },
+  '블루':   { label: 'BLUE',  year: '2년차', dot: 'bg-brand-300' },
   '블랙':   { label: 'BLACK', year: '3년차', dot: 'bg-gray-900 ring-1 ring-white/40' },
 }
 
@@ -28,9 +28,9 @@ function GradeBadge({ grade }: { grade: CustomerGrade }) {
     <div className="absolute top-4 right-4 z-20 text-right">
       <div className="flex items-center justify-end gap-1.5 leading-none">
         <span className={`w-2 h-2 rounded-full ${meta.dot}`} />
-        <p className="text-sm font-bold text-white">{meta.label} 등급</p>
+        <p className="text-sm font-bold text-text-primary">{meta.label} 등급</p>
       </div>
-      <p className="text-[11px] text-white/70 mt-1 leading-none">{meta.year}</p>
+      <p className="text-xs text-text-tertiary mt-1 leading-none">{meta.year}</p>
     </div>
   )
 }
@@ -195,38 +195,36 @@ export default async function CustomerHomePage() {
   return (
     <div className="px-4 py-5 flex flex-col gap-5 max-w-2xl mx-auto md:px-6 md:py-8 md:gap-6">
 
-      {/* 웰컴 배너 */}
-      <div
-        className="rounded-3xl p-5 relative overflow-hidden"
-        style={{ background: 'linear-gradient(135deg, #1e40af 0%, #3b82f6 60%, #60a5fa 100%)' }}
-      >
+      {/* 웰컴 배너 (Toss 스타일 — 그라디언트 제거) */}
+      <div className="rounded-2xl p-5 relative overflow-hidden bg-brand-50 border border-brand-100">
         {/* 등급 뱃지 — 우상단 고정 */}
         {customer?.grade && <GradeBadge grade={customer.grade} />}
 
         <div className="relative z-10 pr-20">
           {customer?.customer_type && (
             <div className="mb-1">
-              <span className="text-xs px-2 py-0.5 rounded-full font-semibold bg-white/20 text-white">
+              <span className="text-xs px-2 py-0.5 rounded-md font-semibold bg-brand-100 text-brand-700">
                 {customer.customer_type}
               </span>
             </div>
           )}
-          <p className="text-white/80 text-sm mb-0.5">안녕하세요</p>
-          <h1 className="text-xl font-black text-white leading-tight flex items-baseline gap-2 flex-wrap">
+          <p className="text-text-tertiary text-sm mb-0.5">안녕하세요</p>
+          <h1 className="text-xl font-black text-text-primary leading-tight flex items-baseline gap-2 flex-wrap break-keep">
             <span>{customer?.business_name ?? userProfile?.name ?? '고객'}</span>
-            <span className="text-sm font-semibold text-white/70">× 범빌드코리아</span>
+            <span className="text-sm font-semibold text-text-secondary">× 범빌드코리아</span>
           </h1>
           {savingsAmount !== null && (
-            <p className="text-white/90 text-xs mt-1.5 font-semibold">
+            <p className="text-brand-700 text-xs mt-1.5 font-semibold">
               연간 {savingsAmount.toLocaleString()}원 절약 중
             </p>
           )}
-          <p className="text-white/70 text-xs mt-1.5">BBK 공간케어를 이용해 주셔서 감사합니다.</p>
+          <p className="text-text-tertiary text-xs mt-1.5">BBK 공간케어를 이용해 주셔서 감사합니다.</p>
 
           {/* 3개 원형 게이지 */}
           {hasAnyGauge && (
             <div className="mt-4 grid grid-cols-3 gap-3">
               <CircularGauge
+                variant="light"
                 pct={comfortIndex}
                 displayTop={comfortIndex !== null ? `${comfortIndex}` : '-'}
                 displaySub="점"
@@ -235,6 +233,7 @@ export default async function CustomerHomePage() {
                 description={GAUGE_DESCRIPTIONS.comfort}
               />
               <CircularGauge
+                variant="light"
                 pct={outerComfortIndex}
                 displayTop={outerComfortIndex !== null ? `${outerComfortIndex}` : '-'}
                 displaySub="점"
@@ -243,6 +242,7 @@ export default async function CustomerHomePage() {
                 description={GAUGE_DESCRIPTIONS.outerComfort}
               />
               <CircularGauge
+                variant="light"
                 pct={progressPct}
                 displayTop={progressPct !== null ? `${progressPct}` : '-'}
                 displaySub="%"

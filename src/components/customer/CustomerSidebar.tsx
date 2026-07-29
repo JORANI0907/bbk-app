@@ -59,7 +59,7 @@ export function CustomerSidebar({ userName, userId: _userId, customerType }: Pro
         />
         <div className="min-w-0">
           <p className="font-bold text-text-primary leading-tight truncate">BBK 공간케어</p>
-          <span className="inline-block text-xs font-semibold px-1.5 py-0.5 rounded-full bg-sky-100 text-sky-700 mt-0.5">
+          <span className="inline-block text-xs font-semibold px-1.5 py-0.5 rounded-full bg-brand-100 text-brand-700 mt-0.5">
             고객 포털
           </span>
         </div>

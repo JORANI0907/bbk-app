@@ -70,7 +70,7 @@ export function ScheduleChangeFAB({ userId, isFranchiseView, branchName }: Props
           className="bg-gray-950 text-white rounded-2xl px-3 py-2 shadow-modal border border-gray-700 hover:bg-gray-800 active:scale-[0.97] transition-all select-none disabled:opacity-60 max-w-[180px]"
           aria-label="본사 홈으로 이동"
         >
-          <p className="text-[10px] font-bold text-sky-300 uppercase tracking-widest leading-none whitespace-nowrap">
+          <p className="text-[10px] font-bold text-brand-300 uppercase tracking-widest leading-none whitespace-nowrap">
             본사모드{branchName ? `(${branchName})` : ''}
           </p>
           <p className="text-xs font-bold text-white leading-tight mt-1 flex items-center gap-1 whitespace-nowrap">
@@ -88,10 +88,10 @@ export function ScheduleChangeFAB({ userId, isFranchiseView, branchName }: Props
         className="flex flex-col items-center gap-1 active:scale-95 transition-transform"
         aria-label="알림"
       >
-        <div className="w-12 h-12 rounded-full bg-amber-400 text-white shadow-modal flex items-center justify-center relative hover:bg-amber-500 transition-colors">
+        <div className="btn-toss-primary w-12 h-12 rounded-full bg-brand-600 text-white shadow-modal flex items-center justify-center relative hover:bg-brand-700">
           {BELL_ICON}
           {unreadCount > 0 && (
-            <span className="absolute -top-1 -right-1 min-w-[16px] h-4 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-0.5">
+            <span className="absolute -top-1 -right-1 min-w-[16px] h-4 bg-brand-800 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-0.5 ring-2 ring-white">
               {unreadCount > 99 ? '99+' : unreadCount}
             </span>
           )}

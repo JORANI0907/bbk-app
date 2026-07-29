@@ -89,7 +89,7 @@ const CONTRACT_STATUS_COLORS: Record<SigningStatus, string> = {
 }
 
 const CUSTOMER_TYPE_COLORS: Record<string, string> = {
-  '정기딥케어':  'bg-indigo-100 text-indigo-700',
+  '정기딥케어':  'bg-brand-100 text-brand-700',
   '정기엔드케어': 'bg-brand-100 text-brand-700',
   '1회성케어':   'bg-surface-sunken text-text-secondary',
 }
