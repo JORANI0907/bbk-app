@@ -85,7 +85,7 @@ export function BottomNav() {
             <Link
               key={item.href}
               href={item.href}
-              className={`relative flex flex-col items-center justify-center flex-1 gap-1 transition-colors ${
+              className={`nav-item-toss relative flex flex-col items-center justify-center flex-1 gap-1 ${
                 active ? 'text-brand-600' : 'text-text-tertiary hover:text-text-secondary'
               }`}
             >

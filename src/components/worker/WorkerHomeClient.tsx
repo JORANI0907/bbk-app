@@ -28,25 +28,26 @@ export function WorkerHomeClient() {
 
   return (
     <div className="px-4 py-5">
-      {/* Greeting header */}
-      <div className="mb-5 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-2xl p-5 text-white shadow-lg shadow-blue-200">
-        <TodayLabel className="text-blue-200 text-xs font-medium mb-1 block" />
-        <h1 className="text-lg font-bold leading-tight">
+      {/* Toss 스타일 인사말 (그라디언트 배너 제거) */}
+      <div className="mb-5">
+        <TodayLabel className="text-text-tertiary text-xs font-medium mb-1 block" />
+        <h1 className="text-2xl font-bold leading-tight text-text-primary break-keep">
           {workerName ? `${workerName}님, 안녕하세요` : '안녕하세요'}
         </h1>
 
-        <div className="flex items-center gap-3 mt-3">
-          <div className="flex-1 bg-white/20 rounded-xl p-3 text-center">
-            <p className="text-2xl font-black">{schedules.length}</p>
-            <p className="text-[10px] text-blue-100 mt-0.5">오늘 현장</p>
+        {/* 3-metric summary — 화이트 카드 + subtle brand accent */}
+        <div className="flex items-center gap-2 mt-4">
+          <div className="flex-1 bg-surface border border-border-subtle shadow-soft rounded-2xl p-3 text-center">
+            <p className="text-2xl font-bold text-text-primary tabular-nums">{schedules.length}</p>
+            <p className="text-xs text-text-secondary mt-0.5 font-medium">오늘 현장</p>
           </div>
-          <div className="flex-1 bg-white/20 rounded-xl p-3 text-center">
-            <p className="text-2xl font-black text-orange-200">{inProgressCount}</p>
-            <p className="text-[10px] text-blue-100 mt-0.5">진행 중</p>
+          <div className="flex-1 bg-surface border border-border-subtle shadow-soft rounded-2xl p-3 text-center">
+            <p className="text-2xl font-bold text-brand-600 tabular-nums">{inProgressCount}</p>
+            <p className="text-xs text-text-secondary mt-0.5 font-medium">진행 중</p>
           </div>
-          <div className="flex-1 bg-white/20 rounded-xl p-3 text-center">
-            <p className="text-2xl font-black text-green-200">{completedCount}</p>
-            <p className="text-[10px] text-blue-100 mt-0.5">완료</p>
+          <div className="flex-1 bg-surface border border-border-subtle shadow-soft rounded-2xl p-3 text-center">
+            <p className="text-2xl font-bold text-state-success tabular-nums">{completedCount}</p>
+            <p className="text-xs text-text-secondary mt-0.5 font-medium">완료</p>
           </div>
         </div>
       </div>

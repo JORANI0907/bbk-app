@@ -22,7 +22,7 @@ interface InventoryItem {
 
 const CATEGORY_CONFIG: Record<InventoryCategory, { label: string; dot: string }> = {
   chemical: { label: '약품', dot: 'bg-purple-500' },
-  equipment: { label: '장비', dot: 'bg-blue-500' },
+  equipment: { label: '장비', dot: 'bg-brand-500' },
   consumable: { label: '소모품', dot: 'bg-green-500' },
   other: { label: '기타', dot: 'bg-gray-400' },
 }
@@ -171,7 +171,7 @@ export default function WorkerInventoryPage() {
             placeholder="재고 검색..."
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
-            className="w-full px-4 py-2.5 text-sm border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 mb-3 bg-surface-sunken"
+            className="w-full px-4 py-2.5 text-sm border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 mb-3 bg-surface-sunken"
           />
 
           {/* Category filter pills */}
@@ -283,7 +283,7 @@ export default function WorkerInventoryPage() {
                   min={1}
                   value={quantity}
                   onChange={e => setQuantity(e.target.value)}
-                  className="w-full px-4 py-3 text-center text-2xl font-bold border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-text-primary"
+                  className="w-full px-4 py-3 text-center text-2xl font-bold border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-text-primary"
                 />
               </div>
 
@@ -295,7 +295,7 @@ export default function WorkerInventoryPage() {
                   onChange={e => setNote(e.target.value)}
                   placeholder="비고를 입력하세요..."
                   rows={2}
-                  className="w-full px-3 py-2 text-sm border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none text-text-primary"
+                  className="w-full px-3 py-2 text-sm border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 resize-none text-text-primary"
                 />
               </div>
 
@@ -356,9 +356,7 @@ export default function WorkerInventoryPage() {
                   disabled={submitting}
                   isLoading={submitting}
                   variant="primary"
-                  className={`flex-1 py-3 rounded-xl text-sm font-semibold ${
-                    txType === 'receive' ? 'bg-green-600 hover:bg-green-700' : ''
-                  }`}
+                  className="flex-1 py-3 rounded-xl text-sm font-semibold"
                 >
                   {submitting ? '처리 중...' : '확인'}
                 </Button>

@@ -101,7 +101,7 @@ export function WorkerScheduleListClient({ schedules: initial }: Props) {
   }
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="anim-stagger-fast flex flex-col gap-4">
       {schedules.map((schedule) => {
         const isDone = schedule.status === 'completed'
         const isInProgress = schedule.status === 'in_progress'
@@ -142,7 +142,7 @@ export function WorkerScheduleListClient({ schedules: initial }: Props) {
                 <>
                   <Link
                     href={`/worker/schedule/${schedule.id}`}
-                    className="flex-1 py-2.5 bg-orange-500 text-white text-sm font-bold rounded-xl flex items-center justify-center active:scale-[0.98] transition-transform"
+                    className="btn-toss flex-1 py-2.5 bg-brand-50 text-brand-700 border border-brand-200 text-sm font-bold rounded-xl flex items-center justify-center"
                   >
                     ↩ 작업 계속
                   </Link>
@@ -151,7 +151,7 @@ export function WorkerScheduleListClient({ schedules: initial }: Props) {
                     disabled={isLoading}
                     isLoading={isLoading}
                     variant="primary"
-                    className="flex-1 py-2.5 text-sm font-bold rounded-xl active:scale-[0.98] bg-green-600 hover:bg-green-700"
+                    className="flex-1 py-2.5 text-sm font-bold rounded-xl"
                   >
                     {isLoading ? '처리 중...' : '■ 작업 종료'}
                   </Button>

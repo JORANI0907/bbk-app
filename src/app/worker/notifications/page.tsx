@@ -43,7 +43,7 @@ const CATEGORY_LABELS: Record<NotificationCategory, string> = {
 
 const CATEGORY_STYLES: Record<NotificationCategory, string> = {
   alimtalk: 'bg-yellow-50 text-yellow-700',
-  sms: 'bg-blue-50 text-blue-700',
+  sms: 'bg-brand-50 text-brand-700',
   missed_call: 'bg-orange-50 text-orange-700',
   payment: 'bg-green-50 text-green-700',
   system: 'bg-surface-sunken text-text-secondary',

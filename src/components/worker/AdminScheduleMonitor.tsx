@@ -61,7 +61,7 @@ function StepProgressBar({ step }: { step: number }) {
 
   const color =
     step === 0 ? 'bg-border' :
-    step < 3 ? 'bg-blue-500' :
+    step < 3 ? 'bg-brand-500' :
     step < 5 ? 'bg-orange-500' :
     'bg-green-500'
 
@@ -101,7 +101,7 @@ function ScheduleRow({ s }: { s: Schedule }) {
 
       <div className="flex items-center gap-2 mt-2 flex-wrap">
         <span className="text-xs text-text-secondary flex items-center gap-1">
-          <Clock size={12} /> {s.scheduled_time_start.slice(0, 5)} ~ {s.scheduled_time_end.slice(0, 5)}
+          <Clock size={12} /> {s.scheduled_time_start?.slice(0, 5) ?? '--:--'} ~ {s.scheduled_time_end?.slice(0, 5) ?? '--:--'}
         </span>
         {stepInfo && (
           <span className="text-xs text-orange-600 bg-orange-50 px-2 py-0.5 rounded-full flex items-center gap-1">

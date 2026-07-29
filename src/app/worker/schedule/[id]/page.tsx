@@ -296,7 +296,7 @@ export default function ScheduleDetailPage() {
               disabled={isSubmitting}
               isLoading={isSubmitting}
               variant="primary"
-              className="mt-4 w-full max-w-xs py-4 text-lg font-bold rounded-2xl active:scale-[0.98] bg-orange-500 hover:bg-orange-600"
+              className="mt-4 w-full max-w-xs py-4 text-lg font-bold rounded-2xl"
             >
               {isSubmitting ? '처리 중...' : '도착 확인'}
             </Button>
@@ -433,7 +433,7 @@ export default function ScheduleDetailPage() {
               }
               isLoading={isSubmitting}
               variant="primary"
-              className="w-full py-4 text-lg font-bold rounded-2xl active:scale-[0.98] bg-green-600 hover:bg-green-700"
+              className="w-full py-4 text-lg font-bold rounded-2xl"
             >
               {isSubmitting ? '처리 중...' : '작업 완료'}
             </Button>

@@ -189,7 +189,7 @@ export default function WorkerRequestsPage() {
                 <label className="block text-xs font-medium text-text-secondary mb-1.5">내용</label>
                 <textarea rows={5} value={form.content} placeholder="요청 내용을 상세히 작성해주세요"
                   onChange={e => setForm(f => ({ ...f, content: e.target.value }))}
-                  className="w-full border border-border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none" />
+                  className="w-full border border-border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 resize-none" />
               </div>
               <Button
                 onClick={handleSubmit}

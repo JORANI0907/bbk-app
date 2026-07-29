@@ -169,7 +169,7 @@ export default function AttendancePage() {
             value={selectedDate}
             max={kstToday}
             onChange={(e) => handleDateChange(e.target.value)}
-            className="w-full px-3 py-2.5 border border-border rounded-xl text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-3 py-2.5 border border-border rounded-xl text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-brand-500"
           />
           <p className="text-xs text-text-tertiary mt-1.5">
             야간 근무(22시~익일 06시)의 경우 실제 출근한 날짜를 선택해 주세요
@@ -252,7 +252,7 @@ export default function AttendancePage() {
             이번 달 출퇴근 내역이 없습니다.
           </p>
         ) : (
-          <div className="flex flex-col divide-y divide-border-subtle">
+          <div className="anim-stagger-fast flex flex-col divide-y divide-border-subtle">
             {[...monthRecords]
               .sort((a, b) => b.work_date.localeCompare(a.work_date))
               .map((record) => (
