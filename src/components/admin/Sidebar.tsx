@@ -137,7 +137,7 @@ interface SidebarProps {
 function NavBadge({ count }: { count: number }) {
   if (count <= 0) return null
   return (
-    <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 text-xs font-bold bg-red-500 text-white rounded-full">
+    <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 text-xs font-bold bg-brand-600 text-white rounded-full">
       {count > 99 ? '99+' : count}
     </span>
   )
@@ -190,7 +190,7 @@ export function Sidebar({ role, userName, navBadges = {} }: SidebarProps) {
   }
 
   const roleLabel = role === 'admin' ? '관리자' : '직원'
-  const roleBadgeClass = role === 'admin' ? 'bg-brand-100 text-brand-700' : 'bg-green-100 text-green-700'
+  const roleBadgeClass = role === 'admin' ? 'bg-brand-100 text-brand-700' : 'bg-brand-50 text-brand-600'
 
   // 그룹 내 자식들의 뱃지 합산 (그룹 헤더에 표시용)
   const getGroupBadgeCount = (children: { href: string; badgeKey?: string }[]) =>
@@ -221,10 +221,10 @@ export function Sidebar({ role, userName, navBadges = {} }: SidebarProps) {
                 key={item.href}
                 href={item.href}
                 onClick={() => handleNavClick(item.badgeKey)}
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                className={`nav-item-toss flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm ${
                   active
-                    ? 'bg-brand-600 text-white'
-                    : 'text-text-secondary hover:bg-surface-sunken hover:text-text-primary'
+                    ? 'bg-brand-50 text-brand-700 font-semibold shadow-card'
+                    : 'font-medium text-text-secondary hover:bg-surface-sunken hover:text-text-primary'
                 }`}
               >
                 <span className="text-base">{item.icon}</span>
@@ -244,10 +244,10 @@ export function Sidebar({ role, userName, navBadges = {} }: SidebarProps) {
               {/* 그룹 헤더 */}
               <button
                 onClick={() => toggleGroup(item.label)}
-                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                className={`nav-item-toss w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm ${
                   groupActive
-                    ? 'bg-brand-50 text-brand-700'
-                    : 'text-text-secondary hover:bg-surface-sunken hover:text-text-primary'
+                    ? 'bg-brand-50 text-brand-700 font-semibold'
+                    : 'font-medium text-text-secondary hover:bg-surface-sunken hover:text-text-primary'
                 }`}
               >
                 <span className="text-base">{item.icon}</span>
@@ -268,10 +268,10 @@ export function Sidebar({ role, userName, navBadges = {} }: SidebarProps) {
                         key={child.href}
                         href={child.href}
                         onClick={() => handleNavClick(child.badgeKey)}
-                        className={`flex items-center px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                        className={`nav-item-toss flex items-center px-3 py-2 rounded-lg text-sm ${
                           childActive
-                            ? 'bg-brand-600 text-white'
-                            : 'text-text-secondary hover:bg-surface-sunken hover:text-text-primary'
+                            ? 'bg-brand-50 text-brand-700 font-semibold shadow-card'
+                            : 'font-medium text-text-secondary hover:bg-surface-sunken hover:text-text-primary'
                         }`}
                       >
                         <span className="flex-1">{child.label}</span>
@@ -291,7 +291,7 @@ export function Sidebar({ role, userName, navBadges = {} }: SidebarProps) {
         <div className="px-3 py-2 text-sm text-text-primary font-medium">{userName}</div>
         <button
           onClick={handleLogout}
-          className="flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm font-medium text-text-secondary hover:bg-red-50 hover:text-red-600 transition-colors"
+          className="nav-item-toss flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm font-medium text-text-tertiary hover:bg-surface-sunken hover:text-text-primary"
         >
           <LogOut size={16} />
           로그아웃
