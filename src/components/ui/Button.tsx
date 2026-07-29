@@ -16,9 +16,15 @@ export function Button({
   className = '',
   ...props
 }: ButtonProps) {
+  // primary는 브랜드 컬러 그림자와 살짝 뜨는 hover
+  // 나머지는 일반 그림자 + press scale
+  const interactionClass =
+    variant === 'primary' ? 'btn-toss-primary' : 'btn-toss'
+
   const variantStyles = {
     primary: 'bg-brand-600 hover:bg-brand-700 text-white',
-    secondary: 'bg-surface-sunken hover:bg-border text-text-primary',
+    secondary:
+      'bg-surface border border-border hover:bg-surface-sunken text-text-primary',
     danger: 'bg-state-danger hover:bg-red-700 text-white',
     ghost: 'hover:bg-surface-sunken text-text-secondary',
   }
@@ -32,7 +38,7 @@ export function Button({
   return (
     <button
       type="button"
-      className={`inline-flex items-center justify-center gap-2 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${variantStyles[variant]} ${sizeStyles[size]} ${className}`}
+      className={`${interactionClass} inline-flex items-center justify-center gap-2 rounded-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:transform-none ${variantStyles[variant]} ${sizeStyles[size]} ${className}`}
       {...props}
       disabled={isLoading || props.disabled}
     >
