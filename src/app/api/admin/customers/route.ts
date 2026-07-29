@@ -14,6 +14,8 @@ const ALLOWED = [
   'door_password', 'parking_info',
   // 시공정보
   'care_scope', 'special_notes',
+  // Phase 27-AS: 관리자 메모 (누락되어 있어 저장 후 사라지던 이슈 해결)
+  'admin_notes',
   // 결제정보
   'payment_method',
   'unit_price', 'deposit', 'supply_amount', 'vat', 'balance',

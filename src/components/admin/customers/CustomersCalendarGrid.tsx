@@ -169,6 +169,10 @@ export function CustomersCalendarGrid({ onSelectApp, filterTypes }: Props) {
           next_visit_date: string | null
           address: string | null
           assigned_user_id: string | null
+          // Phase 27-AS: 금액 계산에 필요한 필드 (누락 시 합계 0으로 처리되어 캘린더 합계 누락 원인)
+          supply_amount: number | null
+          vat: number | null
+          payment_method: string | null
         }
         const custs = ((custBody.customers ?? []) as CustRow[])
         // Phase 27-AR: customer_id → assigned_user_id 맵을 만들어 신청서의 assigned_to fallback 용으로 사용.
@@ -197,6 +201,10 @@ export function CustomersCalendarGrid({ onSelectApp, filterTypes }: Props) {
             status: null,
             address: c.address,
             assigned_to: c.assigned_user_id,
+            // Phase 27-AS: 캘린더 일일 합계 표시용 (누락 이슈 해결)
+            supply_amount: c.supply_amount,
+            vat: c.vat,
+            payment_method: c.payment_method,
           }))
       }
 
@@ -346,7 +354,7 @@ export function CustomersCalendarGrid({ onSelectApp, filterTypes }: Props) {
 
           return (
             <div key={wIdx}>
-              <div className="grid grid-cols-7 auto-rows-[5rem] sm:auto-rows-[7rem]">
+              <div className="grid grid-cols-7 auto-rows-[6rem] sm:auto-rows-[7.5rem]">
                 {week.map((day, i) => {
                   if (!day) {
                     return <div key={`e-${wIdx}-${i}`} className="border-r border-b border-border-subtle bg-surface-sunken/40" />
@@ -366,13 +374,15 @@ export function CustomersCalendarGrid({ onSelectApp, filterTypes }: Props) {
                         ${isToday ? `${TODAY_CELL_BG} ${TODAY_CELL_SHADOW}` : (dow === 0 || dow === 6) ? 'bg-surface-sunken/50' : ''}
                         ${hasApps ? 'cursor-pointer hover:bg-brand-50/40 transition-colors' : ''}`}
                     >
-                      <div className="flex items-center justify-between gap-1">
+                      {/* Phase 27-AS: 일자 상단 · 일일합계 하단 (모바일에서 우측 잘림 문제 해결).
+                          정보 계층: 일자 (뚜렷) → 합계 (덜 강조) → 항목 리스트. */}
+                      <div className="flex flex-col items-start gap-0.5">
                         <div className={`text-xs font-bold w-6 h-6 flex items-center justify-center rounded-full shrink-0
                           ${isToday ? TODAY_CIRCLE : dow === 0 ? 'text-red-500' : dow === 6 ? 'text-brand-500' : 'text-text-primary'}`}>
                           {day}
                         </div>
                         {dayAmount > 0 && (
-                          <span className="text-[9px] font-semibold text-emerald-700 leading-tight whitespace-nowrap truncate">
+                          <span className="text-[10px] font-semibold text-emerald-700 leading-tight whitespace-nowrap truncate max-w-full">
                             {dayAmount.toLocaleString('ko-KR')}
                           </span>
                         )}
