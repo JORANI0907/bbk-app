@@ -160,6 +160,7 @@ export function CustomersCalendarGrid({ onSelectApp, filterTypes }: Props) {
       // customers 조회 — 신규 1회성 병합용 (custRes 실패해도 신청서 뷰는 정상 표시)
       let mergedCustomers: CalendarApp[] = []
       let customerAssigneeMap = new Map<string, string>()   // customer_id → assigned_user_id
+      let customerMoneyMap = new Map<string, { supply_amount: number | null; vat: number | null; payment_method: string | null }>()
       if (custRes.ok) {
         const custBody = await custRes.json()
         type CustRow = {
@@ -174,10 +175,18 @@ export function CustomersCalendarGrid({ onSelectApp, filterTypes }: Props) {
           vat: number | null
           payment_method: string | null
         }
+        // Phase 27-AT: 1회성 신청서의 supply_amount 가 0이지만 customer 에 값이 있는 케이스 방어용 맵
+        type MoneyFallback = { supply_amount: number | null; vat: number | null; payment_method: string | null }
         const custs = ((custBody.customers ?? []) as CustRow[])
         // Phase 27-AR: customer_id → assigned_user_id 맵을 만들어 신청서의 assigned_to fallback 용으로 사용.
         customerAssigneeMap = new Map(
           custs.filter(c => !!c.assigned_user_id).map(c => [c.id, c.assigned_user_id!])
+        )
+        // Phase 27-AT: 1회성 customer_id → 금액 정보 맵 (신청서 supply_amount 0 일 때 fallback).
+        customerMoneyMap = new Map(
+          custs
+            .filter(c => c.customer_type === '1회성케어' && Number(c.supply_amount ?? 0) > 0)
+            .map(c => [c.id, { supply_amount: c.supply_amount, vat: c.vat, payment_method: c.payment_method } as MoneyFallback])
         )
         const [y, m] = monthStr.split('-').map(Number)
         const monthStart = `${monthStr}-01`
@@ -208,14 +217,27 @@ export function CustomersCalendarGrid({ onSelectApp, filterTypes }: Props) {
           }))
       }
 
-      // Phase 27-AR: filteredApps 의 assigned_to 가 NULL 이지만 customer 에 담당자가 있으면 fallback 세팅.
-      // 유형 필터(assigned_to 필수) 로 인해 사라지는 이슈 방지.
+      // Phase 27-AR/AT: 신청서.assigned_to 가 NULL 이지만 customer 에 담당자가 있으면 fallback 세팅.
+      // 그리고 1회성 신청서의 supply_amount 가 0 이지만 customer 에 값 있으면 금액도 fallback.
+      // (유형 필터 assigned_to 필수 로 인한 미표시 + 캘린더 일일 합계 누락 이슈 방지)
       const patchedApps = filteredApps.map(a => {
-        if (!a.assigned_to && a.customer_id) {
-          const fallback = customerAssigneeMap.get(a.customer_id)
-          if (fallback) return { ...a, assigned_to: fallback }
+        let next = a
+        if (!next.assigned_to && next.customer_id) {
+          const fallback = customerAssigneeMap.get(next.customer_id)
+          if (fallback) next = { ...next, assigned_to: fallback }
         }
-        return a
+        if (next.service_type === '1회성케어' && Number(next.supply_amount ?? 0) === 0 && next.customer_id) {
+          const moneyFallback = customerMoneyMap.get(next.customer_id)
+          if (moneyFallback) {
+            next = {
+              ...next,
+              supply_amount: moneyFallback.supply_amount ?? next.supply_amount,
+              vat:           moneyFallback.vat ?? next.vat,
+              payment_method: moneyFallback.payment_method ?? next.payment_method,
+            }
+          }
+        }
+        return next
       })
 
       setApps([...patchedApps, ...mergedCustomers])

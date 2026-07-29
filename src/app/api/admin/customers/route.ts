@@ -376,6 +376,30 @@ export async function PATCH(request: NextRequest) {
     }
   }
 
+  // Phase 27-AT: 금액(supply_amount/vat/payment_method) 을 linked application 으로 자동 동기화.
+  // 1회성케어만 대상 — 정기딥/정기엔드는 회차별 금액이 다를 수 있어 무조건 동기화하면 캘린더 다중 카운트 발생.
+  // 캘린더뷰(computeAppAmount) 가 service_applications 의 supply_amount 를 기준으로 하기 때문에
+  // customers 만 금액 수정하고 신청서에는 반영 안 되면 일일 합계에 0으로 잡히던 이슈 해결.
+  if (updatedCustomer.customer_type === '1회성케어') {
+    const amountRelevantChanged = ['supply_amount', 'vat', 'payment_method'].some(k => k in rest)
+    if (amountRelevantChanged) {
+      try {
+        const patch: Record<string, unknown> = {}
+        if ('supply_amount' in rest) patch.supply_amount = rest.supply_amount
+        if ('vat' in rest) patch.vat = rest.vat
+        if ('payment_method' in rest) patch.payment_method = rest.payment_method
+        await supabase
+          .from('service_applications')
+          .update(patch)
+          .eq('customer_id', id)
+          .is('deleted_at', null)
+          .is('archived_at', null)
+      } catch (e) {
+        console.error('금액 application 동기화 실패:', e instanceof Error ? e.message : e)
+      }
+    }
+  }
+
   // Phase 27-AG: 1회성·일반일정은 이번달 일정 섹션이 없어 시공일자를 세부화면 상단에서 직접 편집.
   // 이 경우 next_visit_date 변경을 linked application 의 construction_date 로 자동 동기화.
   const isOneShot = updatedCustomer.customer_type === '1회성케어' || updatedCustomer.customer_type === '일반일정'
