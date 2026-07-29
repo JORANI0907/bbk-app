@@ -69,7 +69,9 @@
 
 ### 1.5 음영 (Shadow)
 
-5단계 토큰화. **카드는 한 가지 shadow만 사용**한다(혼재 금지).
+**정적 5단계 + 인터랙션 4단계**. 카드는 한 가지 정적 shadow만 사용한다(혼재 금지).
+
+**정적 shadow (카드/표면용)**
 
 | 토큰 | CSS | 사용처 |
 |------|-----|--------|
@@ -78,6 +80,55 @@
 | `shadow-card` | `0 4px 16px -4px rgba(15,23,42,0.08)` | hover/active 카드 |
 | `shadow-pop` | `0 8px 24px -8px rgba(15,23,42,0.12)` | 모달, 팝오버, 드롭다운 |
 | `shadow-modal` | `0 16px 40px -8px rgba(15,23,42,0.16)` | 풀스크린 모달 |
+
+**인터랙션 shadow (Toss 스타일 micro-interaction)**
+
+| 토큰 | CSS | 사용처 |
+|------|-----|--------|
+| `shadow-pressed` | `inset 0 1px 2px rgba(15,23,42,0.06)` | 버튼/카드 눌리는 순간 |
+| `shadow-focus` | `0 0 0 3px rgba(42,171,226,0.18)` | 인풋 focus 링 (브랜드 컬러) |
+| `shadow-brand-hover` | `0 4px 12px rgba(42,171,226,0.22)` | Primary 버튼 hover 시 브랜드 그림자 |
+| `shadow-segment` | `0 1px 3px rgba(15,23,42,0.08)` | 세그먼트 컨트롤 활성 항목 |
+
+### 1.6 인터랙션 (Interaction) — Toss 스타일
+
+**원칙**: 클릭 가능한 요소는 시각적으로 "누를 수 있음"을 알려야 하고, 클릭 순간 물리적 피드백을 준다.
+
+**Transition 표준**
+- 지속 시간: `150ms` (기본), `120ms` (아이콘 등 작은 요소), `200ms` (카드 리프트)
+- Easing: `ease-out-toss` = `cubic-bezier(0.2, 0, 0.2, 1)` — 빠르게 시작, 부드럽게 안착
+
+**요소별 hover/active 규칙**
+
+| 요소 | hover | active (press) |
+|------|-------|---------------|
+| Primary 버튼 | `translateY(-1px)` + `shadow-brand-hover` | `scale(0.98)` + shadow 감소 |
+| Secondary/Ghost 버튼 | 옅은 그림자 등장 | `scale(0.97)` + `shadow-pressed` |
+| 클릭 카드 | `translateY(-2px)` + `shadow-card` + `border-strong` | 원위치 + shadow 감소 |
+| 리스트 아이템 | `bg-surface-sunken` + 좌측 3px 브랜드 accent bar 등장 | (액티브 없음) |
+| 테이블 row | `bg-surface-sunken` + 좌측 3px 브랜드 accent bar (inset) | (액티브 없음) |
+| 아이콘 버튼 | `bg-surface-sunken` | `scale(0.92)` |
+| 필터 pill | 색상 진해짐 | `scale(0.95)` |
+| 인풋 | (변화 없음) | focus 시 `shadow-focus` 브랜드 컬러 링 |
+
+**전용 유틸리티 클래스** (globals.css의 `@layer components`에 정의)
+
+프리미티브 컴포넌트가 이미 이 클래스를 사용하므로, 신규 화면에서는 대부분 `<Button>`, `<Card>` 등을 그대로 쓰면 자동 적용된다. raw HTML을 써야 하는 특수 케이스에만 아래 클래스를 직접 사용:
+
+- `.btn-toss`, `.btn-toss-primary` — 버튼
+- `.card-toss` — 클릭 가능한 카드
+- `.list-item-toss` — 리스트 아이템 (좌측 accent bar 자동)
+- `.table-row-toss` — 테이블 row (좌측 accent 자동)
+- `.icon-btn-toss` — 아이콘 버튼
+- `.nav-item-toss` — 네비 항목
+- `.segment-active-toss` — 세그먼트 컨트롤 활성
+- `.pill-toss`, `.pill-active-toss` — 필터 pill
+- `.input-toss` — 인풋 focus 링
+
+**금지 사항**
+- transition 값 임의 지정(`duration-[173ms]`) 금지 — 위 표준만 사용
+- `hover:` 상태에서 색만 바뀌고 depth 변화 없는 버튼 금지 (반드시 shadow 또는 transform 동반)
+- 카드에 `hover:shadow-lg` 같은 Tailwind 기본 shadow 사용 금지 (반드시 토큰)
 
 **테두리 + shadow 조합 규칙**: `border border-slate-100 shadow-soft` 또는 `border-0 shadow-card` 중 택일. 둘 다 강하면 무거워 보인다.
 

@@ -77,12 +77,19 @@ const config: Config = {
       },
 
       // ─── 음영 ──────────────────────────────────────────────────
+      // 정적 5단계(flat/soft/card/pop/modal) + 인터랙션 3단계(pressed/focus/brand)
       boxShadow: {
         flat: '0 1px 2px 0 rgba(15, 23, 42, 0.04)',
         soft: '0 2px 8px -2px rgba(15, 23, 42, 0.06), 0 1px 2px -1px rgba(15, 23, 42, 0.04)',
         card: '0 4px 16px -4px rgba(15, 23, 42, 0.08), 0 2px 4px -2px rgba(15, 23, 42, 0.04)',
         pop: '0 8px 24px -8px rgba(15, 23, 42, 0.12), 0 4px 8px -4px rgba(15, 23, 42, 0.06)',
         modal: '0 16px 40px -8px rgba(15, 23, 42, 0.16), 0 8px 16px -8px rgba(15, 23, 42, 0.08)',
+
+        // Toss 스타일 micro-interaction 전용
+        pressed: 'inset 0 1px 2px rgba(15, 23, 42, 0.06)',
+        focus: '0 0 0 3px rgba(42, 171, 226, 0.18)',
+        'brand-hover': '0 4px 12px rgba(42, 171, 226, 0.22), 0 2px 4px rgba(42, 171, 226, 0.10)',
+        segment: '0 1px 3px rgba(15, 23, 42, 0.08), 0 1px 2px rgba(15, 23, 42, 0.04)',
       },
 
       // ─── 둥글기 ────────────────────────────────────────────────
@@ -127,6 +134,16 @@ const config: Config = {
         'portal-mobile': '32rem',  // 512px — 고객 포털
         'portal-worker': '36rem',  // 576px — 작업자 포털
         'portal-admin': '80rem',   // 1280px — 관리자 포털
+      },
+
+      // ─── Transition timing (Toss 표준) ────────────────────────
+      // key가 유틸리티 접두어 뒤에 붙음 → 'out-toss' 키 → class 'ease-out-toss'
+      transitionTimingFunction: {
+        'out-toss': 'cubic-bezier(0.2, 0, 0.2, 1)',
+      },
+      transitionDuration: {
+        // 120ms만 신규. 150/200 등은 Tailwind 기본 제공
+        '120': '120ms',
       },
     },
   },

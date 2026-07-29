@@ -55,17 +55,286 @@ body {
   }
 }
 
-@keyframes bbk-wobble {
-  0%, 100% { transform: rotate(0deg) scale(1); }
-  15% { transform: rotate(-8deg) scale(1.05); }
-  30% { transform: rotate(6deg) scale(1.05); }
-  45% { transform: rotate(-4deg) scale(1.02); }
-  60% { transform: rotate(3deg) scale(1.02); }
-  75% { transform: rotate(-2deg) scale(1.01); }
+/* ============================================================
+   Toss 스타일 micro-interaction 유틸리티 (raw CSS — @apply 불사용)
+   ------------------------------------------------------------
+   원칙:
+   - 클릭 가능한 요소에만 사용
+   - 정적 카드/텍스트에는 붙이지 않음
+   - transition timing 통일: 150ms cubic-bezier(0.2, 0, 0.2, 1)
+   ------------------------------------------------------------
+   NOTE: 여기 클래스들은 커스텀 Tailwind 확장에 의존하지 않도록
+   전부 raw CSS로 작성되어 있음 (webpack 캐시 이슈 방지).
+   ============================================================ */
+
+/* 일반 버튼: spread negative로 잘림 방지, transform은 유지 */
+.btn-toss {
+  transition-property: transform, box-shadow, background-color, border-color;
+  transition-duration: 150ms;
+  transition-timing-function: cubic-bezier(0.2, 0, 0.2, 1);
+}
+.btn-toss:hover {
+  box-shadow: 0 2px 6px -2px rgba(15, 23, 42, 0.10), 0 1px 3px -1px rgba(15, 23, 42, 0.06);
+  transform: translateY(-1px);
+  border-color: #94a3b8;
+}
+.btn-toss:active {
+  transform: scale(0.96);
+  box-shadow: inset 0 1px 3px rgba(15, 23, 42, 0.08);
 }
 
+/* Primary(브랜드) 버튼: 브랜드 그림자도 절제 */
+.btn-toss-primary {
+  transition-property: transform, box-shadow, background-color;
+  transition-duration: 150ms;
+  transition-timing-function: cubic-bezier(0.2, 0, 0.2, 1);
+}
+.btn-toss-primary:hover {
+  box-shadow: 0 4px 10px -3px rgba(42, 171, 226, 0.32), 0 2px 4px -1px rgba(42, 171, 226, 0.16);
+  transform: translateY(-2px);
+}
+.btn-toss-primary:active {
+  transform: translateY(0) scale(0.97);
+  box-shadow: 0 1px 3px -1px rgba(42, 171, 226, 0.24);
+}
+
+/* 클릭 가능한 카드: transform으로 depth 표현, shadow는 절제 */
+.card-toss {
+  transition-property: transform, box-shadow, border-color;
+  transition-duration: 200ms;
+  transition-timing-function: cubic-bezier(0.2, 0, 0.2, 1);
+}
+.card-toss:hover {
+  box-shadow: 0 6px 14px -6px rgba(15, 23, 42, 0.14), 0 3px 6px -3px rgba(15, 23, 42, 0.08);
+  transform: translateY(-3px);
+  border-color: #94a3b8;
+}
+.card-toss:active {
+  transform: translateY(-1px);
+  box-shadow: 0 1px 3px -1px rgba(15, 23, 42, 0.06);
+}
+
+/* 리스트 아이템 (카드 안의 row): hover 시 확실한 background + 좌측 accent bar */
+.list-item-toss {
+  position: relative;
+  transition: background-color 150ms cubic-bezier(0.2, 0, 0.2, 1);
+}
+.list-item-toss::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 8px;
+  bottom: 8px;
+  width: 4px;
+  background: #2aabe2;
+  border-radius: 0 4px 4px 0;
+  opacity: 0;
+  transition: opacity 150ms cubic-bezier(0.2, 0, 0.2, 1);
+}
+.list-item-toss:hover {
+  background-color: #e8f6fc;  /* brand-50 */
+}
+.list-item-toss:hover::before {
+  opacity: 1;
+}
+
+/* 아이콘 버튼: scale과 배경변화만, shadow는 절제 */
+.icon-btn-toss {
+  transition-property: transform, background-color, color, box-shadow;
+  transition-duration: 120ms;
+  transition-timing-function: cubic-bezier(0.2, 0, 0.2, 1);
+}
+.icon-btn-toss:hover {
+  transform: scale(1.08);
+  box-shadow: 0 1px 3px -1px rgba(15, 23, 42, 0.10);
+}
+.icon-btn-toss:active {
+  transform: scale(0.90);
+  box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.08);
+}
+
+/* 네비 아이템 */
+.nav-item-toss {
+  transition-property: background-color, color, transform, box-shadow;
+  transition-duration: 150ms;
+  transition-timing-function: cubic-bezier(0.2, 0, 0.2, 1);
+}
+.nav-item-toss:hover {
+  box-shadow: 0 1px 2px -1px rgba(15, 23, 42, 0.06);
+}
+.nav-item-toss:active {
+  transform: scale(0.97);
+}
+
+/* 세그먼트 컨트롤 활성 항목: 절제된 depth */
+.segment-active-toss {
+  box-shadow: 0 1px 3px -1px rgba(15, 23, 42, 0.12), 0 1px 1px -1px rgba(15, 23, 42, 0.06);
+}
+
+/* 필터 pill */
+.pill-toss {
+  transition-property: transform, background-color, color, box-shadow, border-color;
+  transition-duration: 150ms;
+  transition-timing-function: cubic-bezier(0.2, 0, 0.2, 1);
+}
+.pill-toss:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 5px -2px rgba(15, 23, 42, 0.10);
+}
+.pill-toss:active {
+  transform: translateY(0) scale(0.94);
+  box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.08);
+}
+.pill-active-toss {
+  box-shadow: 0 2px 6px -2px rgba(42, 171, 226, 0.30);
+}
+
+/* 테이블 row: hover 시 확실한 배경 + 좌측 4px 브랜드 accent bar */
+.table-row-toss {
+  transition: background-color 150ms cubic-bezier(0.2, 0, 0.2, 1),
+              box-shadow 150ms cubic-bezier(0.2, 0, 0.2, 1);
+}
+.table-row-toss:hover {
+  background-color: #e8f6fc !important;  /* brand-50 강제 override */
+  box-shadow: inset 4px 0 0 #2aabe2;
+}
+
+/* 인풋 focus 링 */
+.input-toss:focus {
+  outline: none;
+  border-color: #2aabe2;
+  box-shadow: 0 0 0 3px rgba(42, 171, 226, 0.18);
+}
+
+/* ============================================================
+   페이지 진입 애니메이션 (Toss 스타일 — fade + slide up + stagger)
+   ------------------------------------------------------------
+   원칙:
+   - 짧고 절제된 이동 (translateY 10px)
+   - duration 400ms cubic-bezier(0.2, 0, 0.2, 1)
+   - stagger 지연 70ms (겹쳐서 자연스러운 흐름)
+   - prefers-reduced-motion 존중 (접근성)
+   ============================================================ */
+
+@keyframes toss-fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes toss-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* 개별 요소 진입 (수동 지연 필요 시)
+   NOTE: opacity:1 명시로 애니메이션 실패 시에도 요소 안 사라짐 (안전장치).
+   `forwards` 대신 `both` 유지 이유: delay 있는 stagger에서 delay 전 flash 방지. */
+.anim-in {
+  opacity: 1;
+  animation: toss-fade-in-up 400ms cubic-bezier(0.2, 0, 0.2, 1) both;
+}
+.anim-in-fade {
+  opacity: 1;
+  animation: toss-fade-in 400ms cubic-bezier(0.2, 0, 0.2, 1) both;
+}
+.anim-delay-1  { animation-delay:  70ms; }
+.anim-delay-2  { animation-delay: 140ms; }
+.anim-delay-3  { animation-delay: 210ms; }
+.anim-delay-4  { animation-delay: 280ms; }
+.anim-delay-5  { animation-delay: 350ms; }
+
+/* 컨테이너에 붙이면 자식들이 자동 stagger 등장 (최대 12개) */
+.anim-stagger > * {
+  opacity: 1;
+  animation: toss-fade-in-up 400ms cubic-bezier(0.2, 0, 0.2, 1) both;
+}
+.anim-stagger > *:nth-child(1)  { animation-delay:   0ms; }
+.anim-stagger > *:nth-child(2)  { animation-delay:  70ms; }
+.anim-stagger > *:nth-child(3)  { animation-delay: 140ms; }
+.anim-stagger > *:nth-child(4)  { animation-delay: 210ms; }
+.anim-stagger > *:nth-child(5)  { animation-delay: 280ms; }
+.anim-stagger > *:nth-child(6)  { animation-delay: 350ms; }
+.anim-stagger > *:nth-child(7)  { animation-delay: 420ms; }
+.anim-stagger > *:nth-child(8)  { animation-delay: 490ms; }
+.anim-stagger > *:nth-child(9)  { animation-delay: 560ms; }
+.anim-stagger > *:nth-child(10) { animation-delay: 630ms; }
+.anim-stagger > *:nth-child(11) { animation-delay: 700ms; }
+.anim-stagger > *:nth-child(12) { animation-delay: 770ms; }
+
+/* 리스트용 짧은 stagger (테이블 row 등 많은 요소) */
+.anim-stagger-fast > * {
+  opacity: 1;
+  animation: toss-fade-in-up 300ms cubic-bezier(0.2, 0, 0.2, 1) both;
+}
+.anim-stagger-fast > *:nth-child(1)  { animation-delay:   0ms; }
+.anim-stagger-fast > *:nth-child(2)  { animation-delay:  30ms; }
+.anim-stagger-fast > *:nth-child(3)  { animation-delay:  60ms; }
+.anim-stagger-fast > *:nth-child(4)  { animation-delay:  90ms; }
+.anim-stagger-fast > *:nth-child(5)  { animation-delay: 120ms; }
+.anim-stagger-fast > *:nth-child(6)  { animation-delay: 150ms; }
+.anim-stagger-fast > *:nth-child(7)  { animation-delay: 180ms; }
+.anim-stagger-fast > *:nth-child(8)  { animation-delay: 210ms; }
+.anim-stagger-fast > *:nth-child(9)  { animation-delay: 240ms; }
+.anim-stagger-fast > *:nth-child(10) { animation-delay: 270ms; }
+.anim-stagger-fast > *:nth-child(n+11) { animation-delay: 300ms; }
+
+/* 접근성: 애니메이션 비선호 사용자 즉시 표시 */
+@media (prefers-reduced-motion: reduce) {
+  .anim-in,
+  .anim-in-fade,
+  .anim-stagger > *,
+  .anim-stagger-fast > * {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+}
+
+/* [Deprecated] bbk-wobble — 발랄한 흔들림. 새 breathe로 대체. 잔여 사용처 없어 keyframes 삭제. */
+
+/* Toss 스타일 로딩: 절제된 호흡 (scale + brand glow) */
+@keyframes bbk-breathe {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 4px 12px -2px rgba(42, 171, 226, 0.20),
+                0 0 0 0 rgba(42, 171, 226, 0.14);
+  }
+  50% {
+    transform: scale(1.04);
+    box-shadow: 0 6px 20px -4px rgba(42, 171, 226, 0.35),
+                0 0 0 6px rgba(42, 171, 226, 0.06);
+  }
+}
+
+.animate-bbk-breathe {
+  animation: bbk-breathe 1.8s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* 뒤에서 확산되는 sonar 링 (로고 뒤에 배치하면 파장이 퍼져나가는 느낌) */
+@keyframes bbk-sonar {
+  0% {
+    transform: scale(1);
+    opacity: 0.35;
+  }
+  100% {
+    transform: scale(1.5);
+    opacity: 0;
+  }
+}
+
+.animate-bbk-sonar {
+  animation: bbk-sonar 1.8s cubic-bezier(0.2, 0, 0.4, 1) infinite;
+}
+
+/* 하위 호환: 이전 클래스명이 어딘가에 남아있어도 안전하게 breathe로 대체 */
 .animate-bbk-wobble {
-  animation: bbk-wobble 1.4s ease-in-out infinite;
+  animation: bbk-breathe 1.8s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 
 /* TipTap 계약서 에디터 스타일 */
