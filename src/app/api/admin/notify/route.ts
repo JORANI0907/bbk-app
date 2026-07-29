@@ -876,97 +876,10 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // ── 작업완료알림 발송 직후 계정안내알림 자동 발송 ────────────────
-    if (
-      (
-        type === '작업완료알림' ||
-        type === '작업완료알림(현금)' ||
-        type === '작업완료알림(카드,플렛폼)' ||
-        type === '작업완료알림(정기엔드케어)'
-      ) &&
-      ['정기딥케어', '정기엔드케어'].includes(String(app.service_type ?? ''))
-    ) {
-      try {
-        // 고객 계정 조회: customer_id 우선, fallback은 phone
-        type AccountRow = { phone: string | null; password_hint: string | null; account_sent_at: string | null }
-        let accountUser: AccountRow | null = null
-
-        if (app.customer_id) {
-          const { data } = await supabase
-            .from('users')
-            .select('phone, password_hint, account_sent_at')
-            .eq('id', String(app.customer_id))
-            .single()
-          accountUser = data as AccountRow | null
-        }
-
-        if (!accountUser) {
-          const cleanPhone = (app.phone ?? '').replace(/-/g, '')
-          const { data } = await supabase
-            .from('users')
-            .select('phone, password_hint, account_sent_at')
-            .eq('phone', cleanPhone)
-            .eq('role', 'customer')
-            .maybeSingle()
-          accountUser = data as AccountRow | null
-        }
-
-        if (!accountUser?.phone || !accountUser?.password_hint) {
-          await sendSlack(
-            `⚠️ 계정안내알림 스킵 — ${app.owner_name ?? ''} (${app.business_name ?? ''}): 계정 정보 없음 (아이디 또는 비밀번호 미등록)`
-          ).catch(() => {})
-        } else {
-          const accountPhone = accountUser.phone.replace(/-/g, '')
-          const ACCOUNT_TEMPLATE = 'KA01TP260404141110684azipFQYSyxX'
-          const APP_URL = 'https://bbk-app.vercel.app'
-
-          // 카카오 알림톡
-          await sendAlimtalk(
-            accountPhone,
-            ACCOUNT_TEMPLATE,
-            {
-              '아이디':   accountUser.phone,
-              '비밀번호': accountUser.password_hint,
-              '앱URL':    APP_URL,
-            },
-            `[BBK 공간케어] ${app.owner_name ?? ''}님, 고객 포털 계정을 안내드립니다.\n아이디: ${accountUser.phone}\n비밀번호: ${accountUser.password_hint}\n접속: ${APP_URL}`
-          )
-
-          const accountNow = new Date().toISOString()
-
-          // account_sent_at 기록
-          await supabase
-            .from('users')
-            .update({ account_sent_at: accountNow })
-            .eq('phone', accountUser.phone)
-
-          // notification_log에 추가
-          const accountEntry: NotificationLogEntry = {
-            type: '계정안내알림', sent_at: accountNow,
-            phone: accountPhone, method: 'auto', template_id: ACCOUNT_TEMPLATE,
-          }
-          await supabase
-            .from('service_applications')
-            .update({ notification_log: [accountEntry, ...updatedLog] })
-            .eq('id', application_id)
-
-          await saveNotificationHistory({
-            category: 'alimtalk',
-            type: '계정안내알림',
-            body: `계정안내알림 자동 발송 — ${app.owner_name ?? ''} (${accountPhone})`,
-            title: '계정안내알림',
-            method: 'auto',
-            recipientType: 'customer',
-            recipientName: String(app.owner_name ?? ''),
-            recipientPhone: accountPhone,
-            metadata: { application_id, trigger: '작업완료알림' },
-            status: 'sent',
-          })
-        }
-      } catch {
-        // 계정안내알림 실패는 메인 응답에 영향 없음
-      }
-    }
+    // Phase 27-AN: 하드코딩 자동 연쇄 삭제.
+    // 이전엔 작업완료알림 발송 직후 계정안내알림을 자동으로 이어서 발송했으나,
+    // "활성·자동 스위치가 유일한 결정자" 원칙에 따라 제거. 계정안내는 관리자 수동 발송
+    // 또는 문자알림 관리 탭에서 계정안내 템플릿의 auto_used=true 로 통제.
 
     return NextResponse.json({ success: true, new_status: newStatus ?? null })
   } catch (e) {

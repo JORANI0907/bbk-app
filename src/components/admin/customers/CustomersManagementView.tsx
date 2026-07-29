@@ -3538,6 +3538,7 @@ export function CustomersManagementView({
                 initialMonth={calendarFocus?.month}
                 focusApplicationId={calendarFocus?.appId}
                 parentDriveFolderUrl={selected.drive_folder_url ?? null}
+                customerType={form.customer_type}
               />
             )}
 

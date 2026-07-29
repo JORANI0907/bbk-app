@@ -25,6 +25,8 @@ interface Props {
   focusApplicationId?: string | null
   /** Phase 27-AI: 고객 마스터 Drive 폴더 URL — 회차 폴더를 그 하위로 생성 */
   parentDriveFolderUrl?: string | null
+  /** Phase 27-AN: 고객 유형 (정기딥/엔드) → 각 회차 dropdown 이 유형별 템플릿만 노출 */
+  customerType?: string | null
 }
 
 function currentMonthStr() {
@@ -47,7 +49,7 @@ function fmtMonth(monthStr: string): string {
  * Phase 2: 고객 상세페이지 내 "이번달 일정" 섹션.
  * 해당 고객의 service_applications를 월 단위로 조회하고 아코디언 편집 UI를 제공.
  */
-export function MonthlyScheduleSection({ customerId, businessName, phone, users, workers, initialMonth, focusApplicationId, parentDriveFolderUrl }: Props) {
+export function MonthlyScheduleSection({ customerId, businessName, phone, users, workers, initialMonth, focusApplicationId, parentDriveFolderUrl, customerType }: Props) {
   const [month, setMonth] = useState(initialMonth ?? currentMonthStr())
 
   // Phase 27: initialMonth가 나중에 바뀌면 (예: 캘린더에서 다른 월 회차 선택) 그 월로 이동
@@ -144,6 +146,7 @@ export function MonthlyScheduleSection({ customerId, businessName, phone, users,
               defaultExpanded={focusApplicationId === app.id}
               parentDriveFolderUrl={parentDriveFolderUrl ?? null}
               parentBusinessName={businessName}
+              customerType={customerType}
             />
           ))}
         </div>

@@ -106,6 +106,8 @@ interface Props {
   parentDriveFolderUrl?: string | null
   /** Phase 27-AI: 고객 업체명 (Drive 폴더명에 사용) */
   parentBusinessName?: string
+  /** Phase 27-AN: 이 회차가 속한 customer 유형 (dropdown 을 유형별로 분기하기 위함) */
+  customerType?: string | null
 }
 
 // Phase 20-A: WORK_STATUS_LABEL, PAYMENT_STATUS_LABEL 제거 — 세부 상태 뱃지로 대체
@@ -139,7 +141,7 @@ function AutoSaveIndicator({ status }: { status: AutoSaveStatus }) {
  * 첫 줄: 날짜 · 담당자 · 작업자
  * 둘째 줄: 상태 뱃지 2개
  */
-export function ScheduleAccordionRow({ app, users, workers, onOptimisticUpdate, onDelete, defaultExpanded = false, parentDriveFolderUrl, parentBusinessName }: Props) {
+export function ScheduleAccordionRow({ app, users, workers, onOptimisticUpdate, onDelete, defaultExpanded = false, parentDriveFolderUrl, parentBusinessName, customerType }: Props) {
   const [expanded, setExpanded] = useState(defaultExpanded)
   const [draft, setDraft] = useState<Partial<ScheduleAppRow>>({})
   const [deleting, setDeleting] = useState(false)
@@ -288,6 +290,7 @@ export function ScheduleAccordionRow({ app, users, workers, onOptimisticUpdate, 
             parentDriveFolderUrl={parentDriveFolderUrl}
             parentBusinessName={parentBusinessName ?? merged.business_name}
             appId={app.id}
+            customerType={customerType}
           />
         </div>
       )}
@@ -305,24 +308,28 @@ interface ExpandedProps {
   parentDriveFolderUrl?: string | null
   parentBusinessName?: string
   appId: string
+  /** Phase 27-AN: 이 회차가 속한 customer 의 유형 (정기딥/엔드) → dropdown 이 그 유형용 템플릿만 노출 */
+  customerType?: string | null
 }
 
-function ExpandedEditor({ merged, users, workers, update, status, onOptimisticUpdate, parentDriveFolderUrl, parentBusinessName, appId }: ExpandedProps) {
+function ExpandedEditor({ merged, users, workers, update, status, onOptimisticUpdate, parentDriveFolderUrl, parentBusinessName, appId, customerType }: ExpandedProps) {
   const inputCls = 'w-full text-xs border border-border rounded-md px-2 py-1 bg-surface focus:outline-none focus:ring-2 focus:ring-brand-500'
   const labelCls = 'text-[10px] font-semibold text-text-secondary'
 
-  // Phase 22: 이번달 일정 각 row는 개별 방문(1회성 성격) → 알림 목록·워크플로우를 1회성케어와 동일하게 통일
-  // Phase 25d: DB에서 monthly_schedule location + 1회성케어 type template 동적 로드
+  // Phase 27-AN: dropdown 알림 목록을 customer 유형(정기딥/엔드) 별로 분기.
+  // 이전엔 type=1회성케어 하드코딩 → 정기딥/엔드 회차에서 잘못된 리스트 노출.
+  // 이번엔 customerType 기반으로 문자알림 관리 탭의 그 유형 활성 템플릿만 노출.
+  const notifyTemplateType = customerType || '1회성케어'
   const [notifyType, setNotifyType] = useState('')
   const [sending, setSending] = useState(false)
   const [dbCodes, setDbCodes] = useState<string[] | null>(null)
   useEffect(() => {
-    fetch('/api/admin/notification-templates?type=1회성케어&location=monthly_schedule&active_only=true')
+    fetch(`/api/admin/notification-templates?type=${encodeURIComponent(notifyTemplateType)}&location=monthly_schedule&active_only=true`)
       .then(r => r.json())
       .then(j => setDbCodes(((j.templates ?? []) as Array<{ code: string }>).map(t => t.code)))
       .catch(() => setDbCodes(null))
-  }, [])
-  const notifyList = dbCodes ?? NOTIFY_TYPES['1회성케어']
+  }, [notifyTemplateType])
+  const notifyList = dbCodes ?? []
 
   async function handleSendNotification() {
     if (!notifyType) { toast.error('알림 유형을 선택하세요.'); return }
