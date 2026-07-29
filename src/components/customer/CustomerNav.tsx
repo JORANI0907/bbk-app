@@ -26,7 +26,7 @@ export function CustomerNav() {
           <Link
             key={item.href}
             href={item.href}
-            className={`relative flex-1 text-center py-2.5 text-xs font-medium transition-colors ${
+            className={`nav-item-toss relative flex-1 text-center py-2.5 text-xs font-medium ${
               active ? 'text-brand-600' : 'text-text-tertiary hover:text-text-primary'
             }`}
           >

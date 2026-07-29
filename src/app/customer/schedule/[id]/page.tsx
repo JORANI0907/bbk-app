@@ -738,7 +738,7 @@ export default async function CustomerScheduleDetailPage({ params }: PageProps) 
       {/* ── 케어메뉴얼 이동 버튼 ── */}
       <Link
         href="/customer/care-manual"
-        className="flex items-center justify-between w-full bg-brand-50 border border-brand-200 rounded-2xl px-5 py-4 active:scale-[0.98] transition-transform"
+        className="btn-toss flex items-center justify-between w-full bg-brand-50 border border-brand-200 rounded-2xl px-5 py-4 hover:border-brand-400"
       >
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-full bg-brand-100 flex items-center justify-center shrink-0">

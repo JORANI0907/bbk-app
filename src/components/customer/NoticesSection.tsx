@@ -61,7 +61,7 @@ function NoticeCard({ item, onClick }: { item: NoticeItem; onClick: () => void }
       <div className="flex items-start justify-between gap-2">
         <div className="flex items-center gap-1 flex-wrap">
           <span className={`text-[9px] font-medium px-1.5 py-0.5 rounded-full ${
-            item.type === 'notice' ? 'bg-brand-100 text-brand-700' : 'bg-purple-100 text-purple-700'
+            item.type === 'notice' ? 'bg-brand-100 text-brand-700' : 'bg-brand-50 text-brand-600'
           }`}>
             {item.type === 'notice' ? '공지' : '이벤트'}
           </span>
@@ -99,7 +99,7 @@ function NoticeModalContent({ item }: { item: NoticeItem }) {
     <>
       <div className="flex items-center gap-2 flex-wrap">
         <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${
-          item.type === 'notice' ? 'bg-brand-100 text-brand-700' : 'bg-purple-100 text-purple-700'
+          item.type === 'notice' ? 'bg-brand-100 text-brand-700' : 'bg-brand-50 text-brand-600'
         }`}>
           {item.type === 'notice' ? '공지' : '이벤트'}
         </span>
@@ -281,7 +281,7 @@ export function NoticesSection({ notices, events }: Props) {
             <div className="px-5 pb-6">
               <button
                 onClick={dismissPopup}
-                className="w-full py-3 bg-brand-600 text-white rounded-xl text-sm font-bold hover:bg-brand-700 transition-colors"
+                className="btn-toss-primary w-full py-3 bg-brand-600 text-white rounded-xl text-sm font-bold hover:bg-brand-700"
               >
                 확인
               </button>

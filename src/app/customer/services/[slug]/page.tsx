@@ -110,7 +110,7 @@ export default async function ServiceDetailPage({ params }: Props) {
       {/* 문의 CTA */}
       <a
         href="tel:0317594877"
-        className="flex items-center justify-between bg-brand-600 rounded-2xl px-5 py-4 active:scale-[0.98] transition-transform"
+        className="btn-toss-primary flex items-center justify-between bg-brand-600 rounded-2xl px-5 py-4"
       >
         <div>
           <p className="text-sm font-bold text-white">{item.name} 청소 문의하기</p>

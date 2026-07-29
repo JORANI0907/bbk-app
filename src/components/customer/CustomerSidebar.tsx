@@ -59,7 +59,7 @@ export function CustomerSidebar({ userName, userId: _userId, customerType }: Pro
         />
         <div className="min-w-0">
           <p className="font-bold text-text-primary leading-tight truncate">BBK 공간케어</p>
-          <span className="inline-block text-xs font-semibold px-1.5 py-0.5 rounded-full bg-brand-100 text-brand-700 mt-0.5">
+          <span className="inline-block text-xs font-semibold px-1.5 py-0.5 rounded-md bg-brand-100 text-brand-700 mt-0.5">
             고객 포털
           </span>
         </div>
@@ -74,10 +74,10 @@ export function CustomerSidebar({ userName, userId: _userId, customerType }: Pro
             <Link
               key={item.href}
               href={item.href}
-              className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+              className={`nav-item-toss flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm ${
                 active
-                  ? 'bg-brand-600 text-white shadow-soft'
-                  : 'text-text-secondary hover:bg-surface-sunken hover:text-text-primary'
+                  ? 'bg-brand-50 text-brand-700 font-semibold shadow-card'
+                  : 'font-medium text-text-secondary hover:bg-surface-sunken hover:text-text-primary'
               }`}
             >
               <item.Icon size={16} className="shrink-0" />
@@ -98,7 +98,7 @@ export function CustomerSidebar({ userName, userId: _userId, customerType }: Pro
         <button
           onClick={handleLogout}
           disabled={loggingOut}
-          className="flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm font-medium text-text-secondary hover:bg-red-50 hover:text-red-600 transition-colors disabled:opacity-60"
+          className="nav-item-toss flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm font-medium text-text-tertiary hover:bg-surface-sunken hover:text-text-primary disabled:opacity-60"
         >
           <LogOut size={16} className="shrink-0" />
           {loggingOut ? '로그아웃 중...' : '로그아웃'}
