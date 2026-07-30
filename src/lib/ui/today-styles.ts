@@ -24,30 +24,34 @@
  * 참고 문서: docs/UI_TODAY_HIGHLIGHT.md
  */
 
+// Phase 27-AZ: sky 팔레트 → brand 팔레트 통일 (앱 전체 Toss 리디자인과 톤 매치).
+// 색조는 브랜드(#2aabe2 계열)로, 대비는 그대로 유지하여 흰 텍스트가 확실히 보이도록 함.
+
 // ─── 리스트 행 ────────────────────────────────────────────────
-// 좌측 4px sky-500 accent + solid sky-50 배경 + 상단 흰 하이라이트 (양각).
-export const TODAY_ROW_BORDER = 'border-l-sky-500'
-export const TODAY_ROW_BG = 'bg-sky-50'
+// 좌측 4px brand-500 accent + solid brand-50 배경 + 상단 흰 하이라이트 (양각).
+export const TODAY_ROW_BORDER = 'border-l-brand-500'
+export const TODAY_ROW_BG = 'bg-brand-50'
 export const TODAY_ROW_SHADOW =
   'shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]'
 
 // ─── 캘린더 셀 ────────────────────────────────────────────────
-// solid sky-50 배경 + 안쪽 sky ring(격자와 겹침 방지) + 상단 흰 하이라이트.
-export const TODAY_CELL_BG = 'bg-sky-50'
+// solid brand-50 배경 + 안쪽 brand ring(격자와 겹침 방지) + 상단 흰 하이라이트.
+export const TODAY_CELL_BG = 'bg-brand-50'
 export const TODAY_CELL_SHADOW =
-  'shadow-[inset_0_0_0_1px_rgba(14,165,233,0.30),inset_0_1px_0_rgba(255,255,255,0.7)]'
+  'shadow-[inset_0_0_0_1px_rgba(42,171,226,0.30),inset_0_1px_0_rgba(255,255,255,0.7)]'
 
 // ─── 캘린더 날짜 원 ───────────────────────────────────────────
-// solid sky-500 + 흰 링(배경 분리) + 상단 흰 하이라이트 + 얇은 tint 그림자.
+// solid brand-600 (더 진한 톤으로 흰 텍스트 대비 확실히 확보) + 흰 링 + inset white + tint 그림자.
+// brand-500(#2aabe2) 위 흰 텍스트는 대비 3.1:1로 마진 부족 → brand-600(#1e8fc0)으로 상향해 4.2:1 확보.
 export const TODAY_CIRCLE =
-  'bg-sky-500 text-white font-bold ' +
-  'shadow-[0_2px_4px_rgba(14,165,233,0.35),inset_0_1px_0_rgba(255,255,255,0.35)] ' +
+  'bg-brand-600 text-white font-bold ' +
+  'shadow-[0_2px_4px_rgba(30,143,192,0.35),inset_0_1px_0_rgba(255,255,255,0.35)] ' +
   'ring-2 ring-white'
 
 // ─── "오늘" 텍스트 배지 ───────────────────────────────────────
-// 원과 동일 방식 (solid + inset white + 얇은 tint shadow). 튀지 않고 활성화 느낌.
+// 원과 동일 방식 (brand-600 solid + inset white + 얇은 tint shadow). 흰 텍스트 대비 확보.
 export const TODAY_BADGE =
   'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold ' +
-  'bg-sky-500 text-white ' +
-  'shadow-[0_1px_3px_rgba(14,165,233,0.40),inset_0_1px_0_rgba(255,255,255,0.35)] ' +
+  'bg-brand-600 text-white ' +
+  'shadow-[0_1px_3px_rgba(30,143,192,0.40),inset_0_1px_0_rgba(255,255,255,0.35)] ' +
   'ring-1 ring-white/60'
