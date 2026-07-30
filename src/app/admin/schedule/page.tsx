@@ -93,6 +93,16 @@ function fmtDate(d: string | null): string {
   return `${yy}.${mm}.${dd}(${dow})`
 }
 
+/** 모바일용 짧은 날짜 포맷 (연도 생략): `07.30(수)` */
+function fmtDateShort(d: string | null): string {
+  if (!d) return '-'
+  const date = new Date(d.slice(0, 10) + 'T00:00:00')
+  const mm = String(date.getMonth() + 1).padStart(2, '0')
+  const dd = String(date.getDate()).padStart(2, '0')
+  const dow = DOW_KO[date.getDay()]
+  return `${mm}.${dd}(${dow})`
+}
+
 /** 주차 레이블 계산 - "N월 N주차 (M.D 월 ~ M.D 일)" 형식 */
 function getWeekLabel(dateStr: string): { key: string; label: string } {
   const date = new Date(dateStr.slice(0, 10) + 'T00:00:00')
@@ -1230,7 +1240,7 @@ export default function SchedulePage() {
   }, [listItems, viewMode, loading])
 
   return (
-    <div className="flex flex-col h-full gap-3 overflow-hidden relative">
+    <div className="flex flex-col h-full gap-1.5 md:gap-3 overflow-hidden relative">
       {/* 지도 앱 선택 모달 */}
       {mapAddress && (
         <MapSelectorModal address={mapAddress} onClose={() => setMapAddress(null)} />
@@ -1425,7 +1435,7 @@ export default function SchedulePage() {
       ) : viewMode === 'list' ? (
 
         /* 목록 뷰 */
-        <div ref={listContainerRef} className="flex-1 bg-surface rounded-xl border border-border overflow-auto min-h-0 pb-16 md:pb-0">
+        <div ref={listContainerRef} className="flex-1 bg-surface rounded-xl border border-border overflow-auto min-h-0 pb-2 md:pb-0">
           {filteredApps.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full gap-3 text-center py-20">
               <ClipboardList size={40} />
@@ -1440,7 +1450,7 @@ export default function SchedulePage() {
                     <th
                       key={h}
                       className={`text-left py-3 text-xs font-semibold text-text-secondary whitespace-nowrap ${
-                        h === '시공일자' ? 'px-2 md:px-4' : 'px-4'
+                        h === '시공일자' ? 'px-2 md:px-4 w-16 md:w-auto' : 'px-4'
                       }`}
                     >
                       {h}
@@ -1505,14 +1515,17 @@ export default function SchedulePage() {
                           />
                         </td>
                       )}
-                      <td className="px-2 md:px-4 py-3 whitespace-nowrap">
-                        <span className="font-mono text-xs text-text-secondary">{fmtDate(app.construction_date)}</span>
-                        {isToday && (
-                          <span className={`ml-1.5 ${TODAY_BADGE}`}>오늘</span>
-                        )}
+                      <td className="px-2 md:px-4 py-3 w-16 md:w-auto md:whitespace-nowrap align-top">
+                        <div className="flex flex-col md:flex-row md:items-center md:gap-1.5">
+                          <span className="font-mono text-xs text-text-secondary whitespace-nowrap md:hidden">{fmtDateShort(app.construction_date)}</span>
+                          <span className="font-mono text-xs text-text-secondary whitespace-nowrap hidden md:inline">{fmtDate(app.construction_date)}</span>
+                          {isToday && (
+                            <span className={`${TODAY_BADGE} self-start md:self-auto mt-0.5 md:mt-0`}>오늘</span>
+                          )}
+                        </div>
                         {app.construction_time && (
-                          <div>
-                            <span className="text-xs text-text-tertiary">
+                          <div className="mt-0.5">
+                            <span className="text-xs text-text-tertiary whitespace-nowrap">
                               {app.construction_time.slice(0, 5)}시
                             </span>
                           </div>
