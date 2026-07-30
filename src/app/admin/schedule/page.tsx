@@ -1298,7 +1298,7 @@ export default function SchedulePage() {
       {/* Phase 27-N: max-h-48(192px) → max-h-96(384px) — flex-wrap 4~5줄 시 마지막 줄
           (새로고침·목록·캘린더 토글)이 잘리던 문제 해결. 애니메이션 유효 범위만 확장. */}
       <div className={`transition-all duration-300 overflow-hidden shrink-0 ${filtersVisible ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0 md:max-h-96 md:opacity-100'}`}>
-      <div className="flex items-center gap-2 flex-nowrap md:flex-wrap overflow-x-auto md:overflow-visible bg-surface border border-border rounded-2xl px-2 py-1.5 md:px-4 md:py-3 shadow-soft">
+      <div className="flex items-center gap-2 flex-wrap bg-surface border border-border rounded-2xl px-4 py-3 shadow-soft">
 
         {/* 월 이동 */}
         <MonthNavigator value={selectedMonth} onChange={setSelectedMonth} />
