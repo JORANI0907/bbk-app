@@ -583,14 +583,16 @@ export function CustomersManagementView({
   // Phase 7-F: 1회성 embed(ServiceManagementView)에 새로고침 트리거 전달용 카운터
   const [embedRefetchKey, setEmbedRefetchKey] = useState(0)
   const [loading, setLoading] = useState(true)
-  // Phase 6-B: 진입 시 유형은 전체(빈 Set), 미배정 필터 활성 (forceCustomerType 있을 땐 그것으로 강제)
+  // Phase 27-AW: 진입 기본값을 관리자용(1회성 + 정기딥 활성 · 미배정 비활성)으로 세팅.
+  // 워커 role 확정 시 아래 useEffect에서 원래 defaults로 reset (빈 Set + 미배정 활성).
+  // forceCustomerType 있을 때는 그것으로 강제 (기존 동작 유지).
   const [selectedTypes, setSelectedTypes] = useState<Set<FilterOption>>(
     () => forceCustomerType
       ? new Set([forceCustomerType as FilterOption])
-      : new Set()
+      : new Set(['1회성케어', '정기딥케어'] as FilterOption[])
   )
   const [showUnassignedOnly, setShowUnassignedOnly] = useState<boolean>(
-    () => !forceCustomerType && !archivedView
+    () => !forceCustomerType && !archivedView && false  // 관리자 기본: 미배정 필터 off (유형과 상호배타)
   )
   const [search, setSearch] = useState('')
   const [selected, setSelected] = useState<Customer | null>(null)
@@ -598,8 +600,8 @@ export function CustomersManagementView({
   // Phase 27-AB: pending 신청서 세부화면 진입 여부 (자동 발송 이력 감사 패널 노출 조건)
   //   handleSelect 의 app: 프리픽스 분기에서 세팅, 신규 폼 리셋·저장 완료 시 해제.
   const [pendingAppId, setPendingAppId] = useState<string | null>(null)
-  // Phase 27: 뷰 모드 (리스트/캘린더) + 캘린더에서 선택된 회차 focus
-  const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list')
+  // Phase 27-AW: 뷰 모드 기본값 관리자는 '캘린더', 워커는 useEffect에서 'list'로 reset.
+  const [viewMode, setViewMode] = useState<'list' | 'calendar'>('calendar')
   const [calendarFocus, setCalendarFocus] = useState<{ appId: string; month: string } | null>(null)
   // Phase 27-E: 이번주·이번달 매출 요약 + 주별 breakdown (리스트/캘린더 무관하게 상단 배지)
   interface WeekBreakdown { label: string; amount: number; isCurrent: boolean; startIso: string; endIso: string }
@@ -824,8 +826,16 @@ export function CustomersManagementView({
     refetchLatestBillings()
     fetch('/api/auth/me').then(r => r.json()).then(d => {
       if (d.user) {
-        setCurrentRole(d.user.role ?? 'admin')
+        const role = d.user.role ?? 'admin'
+        setCurrentRole(role)
         setCurrentUserId(d.user.userId ?? null)
+        // Phase 27-AW: 워커일 경우 관리자 defaults(캘린더 + 1회성·정기딥 선택)를 원래 defaults로 reset.
+        // forceCustomerType/archivedView 컨텍스트는 그대로 존중.
+        if (role === 'worker' && !forceCustomerType) {
+          setSelectedTypes(new Set())
+          setViewMode('list')
+          if (!archivedView) setShowUnassignedOnly(true)
+        }
       }
     }).catch(() => { /* 무시 */ })
     fetch('/api/admin/users').then(r => r.json()).then(d => setUsersList(d.users ?? [])).catch(() => {})
