@@ -34,8 +34,10 @@ export const CUSTOMER_TO_APP_FIELD_MAP: Record<string, string> = {
   payment_method:        'payment_method',
   elevator:              'elevator',
   building_access:       'building_access',
-  parking_info:          'parking',       // 이름 다름
-  special_notes:         'request_notes', // 이름 다름 (신청서에선 "요청사항")
+  parking_info:          'parking',              // 이름 다름
+  special_notes:         'request_notes',        // 이름 다름 (신청서에선 "고객 요청사항")
+  admin_notes:           'admin_request_notes',  // 이름 다름 (신청서에선 "관리자 요청")
+  construction_time:     'construction_time',
   business_name:         'business_name',
 }
 
