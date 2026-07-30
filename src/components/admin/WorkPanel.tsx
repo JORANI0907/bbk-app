@@ -31,6 +31,15 @@ function fromRecommendationState(state: RecommendationState): RecommendedService
   return Object.entries(state).map(([name, { reason, priority }]) => ({ name, reason, priority }))
 }
 
+interface NotificationLogEntry {
+  type: string
+  sent_at: string
+  method?: 'auto' | 'manual'
+  phone?: string
+  template_id?: string
+  channel?: 'sms' | 'lms' | 'alimtalk'
+}
+
 interface WorkApp {
   id: string
   status?: string | null
@@ -49,6 +58,10 @@ interface WorkApp {
   construction_time?: string | null           // 예정 시각 (계획 힌트용)
   worker_planned_departure?: string | null    // 직원 계획 출발 시각
   worker_plan_note?: string | null            // 특이사항
+  // ScheduleAccordionRow와 대칭 — /api/admin/notify 응답을 optimistic UI에 반영하기 위함
+  notification_log?: NotificationLogEntry[] | null
+  progress_status?: string | null
+  payment_status_detail?: string | null
 }
 
 interface Props {
@@ -187,10 +200,14 @@ export function WorkPanel({ app, onUpdate, isAdmin = false }: Props) {
   }
 
   // ── 3단계: 알림 발송 ──────────────────────────────────────────
+  // Phase 27-AV: ScheduleAccordionRow(정기딥/엔드)와 동일 optimistic 반영.
+  // notify API 응답의 new_progress_status / new_payment_status_detail / final_type 을
+  // 그대로 반영하여 "발송이력"에 즉시 나타나고 진행/결제 상태가 화면과 DB 동기화됨.
   async function handleSendNow() {
     setSaving(true)
     try {
       await saveMemos()
+      const nowIso = new Date().toISOString()
       const res = await fetch('/api/admin/notify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -199,11 +216,19 @@ export function WorkPanel({ app, onUpdate, isAdmin = false }: Props) {
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
       if (data.skipped) throw new Error(data.reason ?? '발송 대상이 아닙니다. 결제방법을 확인해주세요.')
+
+      // 서버에서 결제방법에 따라 세분화된 최종 타입 사용 (예: 작업완료알림(현금))
+      const finalType: string = data?.final_type ?? '작업완료알림'
+      const newLog: NotificationLogEntry = { type: finalType, sent_at: nowIso, method: 'manual' }
+
       onUpdate({
-        notification_sent_at: new Date().toISOString(),
+        notification_sent_at: nowIso,
         customer_memo: customerMemo,
         internal_memo: internalMemo,
+        notification_log: [newLog, ...(app.notification_log ?? [])],
         ...(data.new_status ? { status: data.new_status } : {}),
+        ...(data.new_progress_status ? { progress_status: data.new_progress_status } : {}),
+        ...(data.new_payment_status_detail ? { payment_status_detail: data.new_payment_status_detail } : {}),
       })
       toast.success('고객에게 작업완료 알림을 발송했습니다.')
     } catch (e) { toast.error(String(e)) }

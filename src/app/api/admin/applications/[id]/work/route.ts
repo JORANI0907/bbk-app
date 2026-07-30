@@ -79,6 +79,26 @@ export async function PATCH(request: NextRequest, { params }: Params) {
       .eq('id', id)
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+    // Phase 27-AV: 작업완료 Slack 보고 (작업시작과 대칭). 1회성·정기딥·정기엔드 모두 동일.
+    try {
+      const { data: appData } = await supabase
+        .from('service_applications')
+        .select('business_name, owner_name, construction_date, service_type')
+        .eq('id', id)
+        .single()
+      if (appData) {
+        await notifySlack({
+          notifyType: '작업완료',
+          customerName: appData.owner_name ?? '',
+          phone: '',
+          businessName: appData.business_name ?? '',
+          constructionDate: appData.construction_date?.slice(0, 10) ?? null,
+          method: 'manual',
+        })
+      }
+    } catch { /* Slack 실패 무시 */ }
+
     return NextResponse.json({ success: true })
   }
 
