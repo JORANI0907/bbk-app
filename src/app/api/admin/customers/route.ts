@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { createAuthUser, updateAuthUserEmailAndPassword, updateAuthUserEmail, customerEmail } from '@/lib/auth-helpers'
 import { generateBillingSchedule, computeBillingAmountFromCustomer, shouldAutoGenerateBillings } from '@/lib/billing-generator'
+import { buildAppUpdatesFromCustomerPatch } from '@/lib/customer-app-sync'
 
 const ALLOWED = [
   // 일반정보
@@ -347,18 +348,19 @@ export async function PATCH(request: NextRequest) {
     }
   }
 
-  // Phase 27-AX: contact_phone 변경 시 이 고객의 모든 service_applications.phone 동기화
-  // 배정관리·캘린더뷰가 service_applications 스냅샷을 읽으므로 반드시 함께 갱신.
-  // existingUserId 없어도 (portal 계정 미연결 고객) 신청서는 있을 수 있으므로 phoneChanged 만으로 처리.
-  if (phoneChanged) {
-    const newPhone = ((rest.contact_phone as string) ?? '').replace(/-/g, '')
+  // Phase 27-AY: customer 편집 시 service_applications 스냅샷 필드 일괄 동기화.
+  // 매핑은 lib/customer-app-sync.ts 의 CUSTOMER_TO_APP_FIELD_MAP 중앙 관리.
+  // 새 필드 sync 필요 시 그 파일에만 한 줄 추가하면 여기 로직 자동 반영됨.
+  // 배정관리·캘린더·재무·급여 등 service_applications 를 읽는 모든 화면에 즉시 반영.
+  const appUpdates = buildAppUpdatesFromCustomerPatch(rest)
+  if (Object.keys(appUpdates).length > 0) {
     try {
       await supabase
         .from('service_applications')
-        .update({ phone: newPhone })
+        .update(appUpdates)
         .eq('customer_id', id)
     } catch (e) {
-      console.error('신청서 전화번호 동기화 실패:', e instanceof Error ? e.message : e)
+      console.error('신청서 스냅샷 동기화 실패:', e instanceof Error ? e.message : e)
     }
   }
 
