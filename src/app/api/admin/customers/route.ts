@@ -347,6 +347,21 @@ export async function PATCH(request: NextRequest) {
     }
   }
 
+  // Phase 27-AX: contact_phone 변경 시 이 고객의 모든 service_applications.phone 동기화
+  // 배정관리·캘린더뷰가 service_applications 스냅샷을 읽으므로 반드시 함께 갱신.
+  // existingUserId 없어도 (portal 계정 미연결 고객) 신청서는 있을 수 있으므로 phoneChanged 만으로 처리.
+  if (phoneChanged) {
+    const newPhone = ((rest.contact_phone as string) ?? '').replace(/-/g, '')
+    try {
+      await supabase
+        .from('service_applications')
+        .update({ phone: newPhone })
+        .eq('customer_id', id)
+    } catch (e) {
+      console.error('신청서 전화번호 동기화 실패:', e instanceof Error ? e.message : e)
+    }
+  }
+
   // Phase 22 v11: 계약 관련 필드가 변경됐거나 계약 조건이 충족되면 billings 자동 생성/추가 (idempotent)
   const billingRelevantChanged = ['billing_cycle', 'contract_start_date', 'contract_end_date',
     'payment_date', 'supply_amount', 'vat', 'billing_amount', 'payment_method', 'customer_type']
