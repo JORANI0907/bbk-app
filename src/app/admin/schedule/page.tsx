@@ -1425,7 +1425,7 @@ export default function SchedulePage() {
       ) : viewMode === 'list' ? (
 
         /* 목록 뷰 */
-        <div ref={listContainerRef} className="flex-1 bg-surface rounded-xl border border-border overflow-auto min-h-0 pb-20 md:pb-0">
+        <div ref={listContainerRef} className="flex-1 bg-surface rounded-xl border border-border overflow-auto min-h-0 pb-16 md:pb-0">
           {filteredApps.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full gap-3 text-center py-20">
               <ClipboardList size={40} />
@@ -1437,7 +1437,14 @@ export default function SchedulePage() {
                 <tr>
                   {isAdmin && <th className="px-3 py-3 w-8" />}
                   {['시공일자', '업체명', '케어범위', '대표자', '담당자', '작업자', '사진'].map(h => (
-                    <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-text-secondary whitespace-nowrap">{h}</th>
+                    <th
+                      key={h}
+                      className={`text-left py-3 text-xs font-semibold text-text-secondary whitespace-nowrap ${
+                        h === '시공일자' ? 'px-2 md:px-4' : 'px-4'
+                      }`}
+                    >
+                      {h}
+                    </th>
                   ))}
                   {isAdmin && (
                     <th className="text-center px-3 py-3 text-xs font-semibold text-text-secondary whitespace-nowrap w-14">완료</th>
@@ -1498,7 +1505,7 @@ export default function SchedulePage() {
                           />
                         </td>
                       )}
-                      <td className="px-4 py-3 whitespace-nowrap">
+                      <td className="px-2 md:px-4 py-3 whitespace-nowrap">
                         <span className="font-mono text-xs text-text-secondary">{fmtDate(app.construction_date)}</span>
                         {isToday && (
                           <span className={`ml-1.5 ${TODAY_BADGE}`}>오늘</span>
