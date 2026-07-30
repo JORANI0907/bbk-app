@@ -1298,7 +1298,7 @@ export default function SchedulePage() {
       {/* Phase 27-N: max-h-48(192px) → max-h-96(384px) — flex-wrap 4~5줄 시 마지막 줄
           (새로고침·목록·캘린더 토글)이 잘리던 문제 해결. 애니메이션 유효 범위만 확장. */}
       <div className={`transition-all duration-300 overflow-hidden shrink-0 ${filtersVisible ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0 md:max-h-96 md:opacity-100'}`}>
-      <div className="flex items-center gap-2 flex-wrap bg-surface border border-border rounded-2xl px-4 py-3 shadow-soft">
+      <div className="flex items-center gap-2 flex-nowrap md:flex-wrap overflow-x-auto md:overflow-visible bg-surface border border-border rounded-2xl px-2 py-1.5 md:px-4 md:py-3 shadow-soft">
 
         {/* 월 이동 */}
         <MonthNavigator value={selectedMonth} onChange={setSelectedMonth} />
@@ -1450,7 +1450,9 @@ export default function SchedulePage() {
                     <th
                       key={h}
                       className={`text-left py-3 text-xs font-semibold text-text-secondary whitespace-nowrap ${
-                        h === '시공일자' ? 'px-2 md:px-4 w-16 md:w-auto' : 'px-4'
+                        h === '시공일자' ? 'px-2 md:px-4 w-16 md:w-auto'
+                          : h === '대표자' || h === '담당자' ? 'px-2 md:px-4'
+                          : 'px-4'
                       }`}
                     >
                       {h}
@@ -1556,15 +1558,17 @@ export default function SchedulePage() {
                           <div className="text-xs text-text-tertiary truncate mt-0.5">{app.address}</div>
                         )}
                       </td>
-                      <td className="px-4 py-3 max-w-[130px]">
+                      <td className="px-4 py-3 min-w-[180px] md:min-w-[220px]">
                         {app.care_scope
-                          ? <span className="text-xs text-text-secondary line-clamp-2 leading-tight">{app.care_scope}</span>
+                          ? <span className="text-xs text-text-secondary line-clamp-3 leading-tight">{app.care_scope}</span>
                           : <span className="text-text-tertiary text-xs">-</span>}
                       </td>
-                      <td className="px-4 py-3 text-text-secondary text-xs whitespace-nowrap">{app.owner_name}</td>
-                      <td className="px-4 py-3 text-xs whitespace-nowrap">
+                      <td className="px-2 md:px-4 py-3 text-text-secondary text-xs">
+                        <span className="block truncate max-w-[70px] md:max-w-[100px]">{app.owner_name}</span>
+                      </td>
+                      <td className="px-2 md:px-4 py-3 text-xs">
                         {manager
-                          ? <span className="text-text-primary">{manager.name}</span>
+                          ? <span className="block truncate max-w-[70px] md:max-w-[100px] text-text-primary">{manager.name}</span>
                           : <span className="text-text-tertiary">미배정</span>}
                       </td>
                       <td className="px-4 py-3 text-xs">
