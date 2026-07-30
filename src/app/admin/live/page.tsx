@@ -27,6 +27,9 @@ interface LiveApplication {
   worker_plan_note: string | null
   drive_folder_url: string | null
   assigned_to: string | null           // 담당자 user_id
+  // Phase 1 v2 S1: 관리자 반응 (SPEC 규정 제6조 3항)
+  admin_reacted_by: string | null
+  admin_reacted_at: string | null
 }
 
 interface WorkAssignment {
@@ -484,6 +487,33 @@ function LiveCard({ app, workers, column }: {
 }) {
   const alerts = computeAlerts(app)
   const hasAlert = alerts.lateArrival || alerts.lateDeparture || alerts.overrun
+  // Phase 1 v2 S1: 관리자 반응 (완료 카드 전용). 옵티미스틱 로컬 상태.
+  const [reacting, setReacting] = useState(false)
+  const [localReactedAt, setLocalReactedAt] = useState<string | null>(null)
+  const reactedAt = app.admin_reacted_at ?? localReactedAt
+  async function handleReact() {
+    if (reacting) return
+    setReacting(true)
+    try {
+      const res = await fetch('/api/admin/live/react', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ application_id: app.id }),
+      })
+      const data = await res.json()
+      if (!res.ok || !data.ok) throw new Error(data.error ?? '반응 실패')
+      setLocalReactedAt(data.reacted_at)
+    } catch (e) {
+      alert(`반응 실패: ${e instanceof Error ? e.message : String(e)}`)
+    } finally {
+      setReacting(false)
+    }
+  }
+  // 24h 무반응 판정 (완료된 지 24h + 관리자 미반응)
+  const noReact24h = column === 'post'
+    && app.work_completed_at
+    && !reactedAt
+    && (Date.now() - new Date(app.work_completed_at).getTime()) >= 24 * 3600 * 1000
 
   return (
     <div
@@ -568,6 +598,34 @@ function LiveCard({ app, workers, column }: {
               {p.role === 'manager' ? '👤 ' : ''}{p.name}
             </span>
           ))}
+        </div>
+      )}
+
+      {/* Phase 1 v2 S1: 관리자 반응 (완료 카드 전용) */}
+      {column === 'post' && (
+        <div className="mt-2 pt-2 border-t border-border-subtle flex items-center justify-between gap-2">
+          {reactedAt ? (
+            <span className="inline-flex items-center gap-1 text-[11px] text-state-success font-medium">
+              <CheckCircle2 size={12} />
+              반응함 · {tsHHMM(reactedAt)}
+            </span>
+          ) : (
+            <>
+              {noReact24h && (
+                <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-orange-100 text-orange-700">
+                  <AlertTriangle size={10} /> 24h+
+                </span>
+              )}
+              <button
+                type="button"
+                onClick={handleReact}
+                disabled={reacting}
+                className="ml-auto text-[11px] font-bold px-3 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-700 text-white shadow-brand-hover active:scale-[0.97] transition-all disabled:opacity-40"
+              >
+                {reacting ? '...' : '반응'}
+              </button>
+            </>
+          )}
         </div>
       )}
     </div>

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import toast from 'react-hot-toast'
+import { MonthlyMeetingSection } from '@/components/admin/ops/MonthlyMeetingSection'
 
 // ─── 타입 ────────────────────────────────────────────────────────
 
@@ -184,6 +185,9 @@ export default function ReportsPage() {
                 </div>
               )}
             </div>
+
+            {/* Phase 1 v2 S3: 이달 회의 기록 (SPEC 규정 제8조) */}
+            <MonthlyMeetingSection month={month} />
 
             {/* 직원별 작업 현황 */}
             <div className="bg-surface rounded-xl border border-border-subtle shadow-soft overflow-hidden">

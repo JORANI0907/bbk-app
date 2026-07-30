@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import toast from 'react-hot-toast'
 import { LoadingSpinner } from '@/components/admin/LoadingSpinner'
+import { OpsDashboardSection } from '@/components/admin/ops/OpsDashboardSection'
 import { Camera, ClipboardList, Megaphone, PartyPopper, Pin, Calendar, Sparkles, Siren } from 'lucide-react'
 
 // ─── 타입 ──────────────────────────────────────────────────────────
@@ -382,6 +383,9 @@ export default function AdminHomePage() {
 
   return (
     <div className="flex flex-col gap-6 h-full overflow-y-auto pb-20 md:pb-6">
+
+      {/* ── Phase 1 v2 S5: 운영 대시보드 (admin 전용) ────────── */}
+      {currentUser?.role === 'admin' && <OpsDashboardSection />}
 
       {/* ── 인사말 (Toss 스타일 — 그라디언트 배너 제거) ─────── */}
       <div className="flex items-start justify-between gap-4 flex-wrap">

@@ -4,7 +4,8 @@ import type { ReactNode } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useState, useCallback } from 'react'
-import { Trash2, Home, Building2, Users, TrendingUp, Settings, LogOut } from 'lucide-react'
+import { Trash2, Home, Building2, Users, TrendingUp, Settings, LogOut, Activity, HelpCircle } from 'lucide-react'
+import { OpsHelpSheet } from '@/components/admin/ops/OpsHelpSheet'
 
 // ─── 타입 ─────────────────────────────────────────────────────
 
@@ -23,6 +24,7 @@ interface NavGroup {
   icon: ReactNode
   roles: string[]
   children: { href: string; label: string; badgeKey?: string }[]
+  hasHelp?: boolean
 }
 
 type NavItem = NavLeaf | NavGroup
@@ -67,6 +69,7 @@ const NAV_ITEMS: NavItem[] = [
       { href: '/admin/attendance', label: '출퇴근관리' },
       { href: '/admin/workers', label: '직원관리' },
       { href: '/admin/incidents', label: '경위서', badgeKey: 'incidents' },
+      { href: '/admin/claims', label: '고객 클레임' },
       { href: '/admin/inventory', label: '재고관리', badgeKey: 'inventory' },
       { href: '/admin/requests', label: '요청관리', badgeKey: 'requests' },
     ],
@@ -94,6 +97,19 @@ const NAV_ITEMS: NavItem[] = [
       { href: '/admin/finance/details', label: '매출매입 상세' },
       { href: '/admin/payroll', label: '급여정산' },
       { href: '/admin/tax-invoice', label: '세금계산서 발행' },
+    ],
+  },
+  {
+    type: 'group',
+    label: '운영',
+    icon: <Activity size={16} />,
+    roles: ['admin'],
+    hasHelp: true,
+    children: [
+      { href: '/admin/ops/settings/intent', label: '대표 의도' },
+      { href: '/admin/ops/settings/metrics', label: '지표 설정' },
+      { href: '/admin/ops/settings/functions', label: '기능 담당' },
+      { href: '/admin/ops/interviews', label: '분기 면담' },
     ],
   },
   {
@@ -184,6 +200,8 @@ export function Sidebar({ role, userName, navBadges = {} }: SidebarProps) {
   const toggleGroup = (label: string) =>
     setOpenGroups(prev => ({ ...prev, [label]: !prev[label] }))
 
+  const [helpOpen, setHelpOpen] = useState(false)
+
   const handleLogout = async () => {
     await fetch('/api/auth/session', { method: 'DELETE' })
     router.push('/login')
@@ -197,6 +215,7 @@ export function Sidebar({ role, userName, navBadges = {} }: SidebarProps) {
     children.reduce((sum, c) => sum + getBadgeCount(c.badgeKey), 0)
 
   return (
+    <>
     <aside className="hidden md:flex flex-col w-64 h-screen sticky top-0 bg-surface border-r border-border">
       {/* 로고 */}
       <div className="flex items-center gap-3 px-6 py-5 border-b border-border-subtle">
@@ -242,20 +261,33 @@ export function Sidebar({ role, userName, navBadges = {} }: SidebarProps) {
           return (
             <div key={item.label}>
               {/* 그룹 헤더 */}
-              <button
-                onClick={() => toggleGroup(item.label)}
-                className={`nav-item-toss w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm ${
-                  groupActive
-                    ? 'bg-brand-50 text-brand-700 font-semibold'
-                    : 'font-medium text-text-secondary hover:bg-surface-sunken hover:text-text-primary'
-                }`}
-              >
-                <span className="text-base">{item.icon}</span>
-                <span className="flex-1 text-left">{item.label}</span>
-                {/* 접혀있을 때만 그룹 뱃지 표시 */}
-                {!isOpen && <NavBadge count={groupBadgeCount} />}
-                <span className={`text-xs transition-transform duration-200 ${isOpen ? 'rotate-90' : ''}`}>›</span>
-              </button>
+              <div className="flex items-center gap-0.5">
+                <button
+                  onClick={() => toggleGroup(item.label)}
+                  className={`nav-item-toss flex-1 flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm ${
+                    groupActive
+                      ? 'bg-brand-50 text-brand-700 font-semibold'
+                      : 'font-medium text-text-secondary hover:bg-surface-sunken hover:text-text-primary'
+                  }`}
+                >
+                  <span className="text-base">{item.icon}</span>
+                  <span className="flex-1 text-left">{item.label}</span>
+                  {/* 접혀있을 때만 그룹 뱃지 표시 */}
+                  {!isOpen && <NavBadge count={groupBadgeCount} />}
+                  <span className={`text-xs transition-transform duration-200 ${isOpen ? 'rotate-90' : ''}`}>›</span>
+                </button>
+                {item.hasHelp && (
+                  <button
+                    type="button"
+                    onClick={() => setHelpOpen(true)}
+                    aria-label="운영 기능 사용 안내"
+                    title="사용 안내"
+                    className="shrink-0 w-7 h-7 inline-flex items-center justify-center rounded-md text-text-tertiary hover:text-brand-600 hover:bg-brand-50 transition-colors"
+                  >
+                    <HelpCircle size={13} />
+                  </button>
+                )}
+              </div>
 
               {/* 서브 메뉴 */}
               {isOpen && (
@@ -298,5 +330,7 @@ export function Sidebar({ role, userName, navBadges = {} }: SidebarProps) {
         </button>
       </div>
     </aside>
+    <OpsHelpSheet open={helpOpen} onClose={() => setHelpOpen(false)} />
+    </>
   )
 }

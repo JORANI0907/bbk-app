@@ -4,13 +4,14 @@ import { useState, useEffect, useCallback } from 'react'
 import toast from 'react-hot-toast'
 import { Camera, Pin } from 'lucide-react'
 import { Button } from '@/components/ui'
+import { WeeklyNoticesSection } from '@/components/admin/ops/WeeklyNoticesSection'
 
 // ─── 타입 ────────────────────────────────────────────────────────
 
 type NoticeType = 'notice' | 'event'
 type Priority = 'normal' | 'important' | 'urgent'
 type Audience = 'all' | 'admin' | 'worker' | 'customer'
-type TabFilter = 'all' | 'notice' | 'event'
+type TabFilter = 'all' | 'notice' | 'event' | 'weekly'
 type AudienceFilter = 'all' | 'worker' | 'customer'
 
 interface Notice {
@@ -235,14 +236,16 @@ export default function NoticesPage() {
       {/* 헤더 */}
       <div className="flex items-center justify-between px-4 pt-4 pb-2">
         <h1 className="text-lg font-bold text-text-primary">공지·이벤트관리</h1>
-        <Button onClick={openCreate}>
-          <span className="text-base leading-none">+</span> 새 글
-        </Button>
+        {tab !== 'weekly' && (
+          <Button onClick={openCreate}>
+            <span className="text-base leading-none">+</span> 새 글
+          </Button>
+        )}
       </div>
 
       {/* 탭 */}
-      <div className="flex gap-1 px-4 pb-2">
-        {(['all', 'notice', 'event'] as TabFilter[]).map(t => (
+      <div className="flex gap-1 px-4 pb-2 flex-wrap">
+        {(['all', 'notice', 'event', 'weekly'] as TabFilter[]).map(t => (
           <button
             key={t}
             onClick={() => setTab(t)}
@@ -250,15 +253,25 @@ export default function NoticesPage() {
               tab === t ? 'bg-brand-600 text-white' : 'bg-surface-sunken text-text-secondary hover:bg-surface-sunken'
             }`}
           >
-            {t === 'all' ? '전체' : t === 'notice' ? '공지' : '이벤트'}
-            <span className="ml-1 text-xs opacity-70">
-              {t === 'all' ? notices.length : notices.filter(n => n.type === t).length}
-            </span>
+            {t === 'all' ? '전체' : t === 'notice' ? '공지' : t === 'event' ? '이벤트' : '주간 공지'}
+            {t !== 'weekly' && (
+              <span className="ml-1 text-xs opacity-70">
+                {t === 'all' ? notices.length : notices.filter(n => n.type === t).length}
+              </span>
+            )}
           </button>
         ))}
       </div>
 
+      {/* 주간 공지 세그먼트: 별도 흐름 */}
+      {tab === 'weekly' && (
+        <div className="flex-1 overflow-y-auto px-4 pb-4">
+          <WeeklyNoticesSection />
+        </div>
+      )}
+
       {/* 대상 필터 */}
+      {tab !== 'weekly' && (
       <div className="flex gap-1 px-4 pb-3">
         {([
           { value: 'all', label: '전체 대상' },
@@ -285,8 +298,10 @@ export default function NoticesPage() {
           )
         })}
       </div>
+      )}
 
       {/* 목록 */}
+      {tab !== 'weekly' && (
       <div className="flex-1 overflow-y-auto px-4 pb-4 space-y-2">
         {loading ? (
           <div className="flex items-center justify-center py-20 text-text-tertiary text-sm">로딩 중...</div>
@@ -388,6 +403,7 @@ export default function NoticesPage() {
           })
         )}
       </div>
+      )}
 
       {/* 사진 라이트박스 */}
       {lightboxUrl && (
