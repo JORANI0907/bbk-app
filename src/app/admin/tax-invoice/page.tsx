@@ -54,7 +54,7 @@ interface Candidate {
   unissued_count?: number
 }
 
-const SERVICE_TYPES_FIXED = ['1회성케어', '정기딥케어', '정기엔드케어', '일반일정']
+const SERVICE_TYPES_FIXED = ['1회성케어', '정기딥케어', '정기엔드케어', '일반일정', '미배정']
 
 // 결제방법 필터 화이트리스트 — 실제 DB에는 편차·오타 포함 다양한 값이 있지만
 // 사용자가 실제로 필터링하고 싶은 4가지만 노출
