@@ -48,7 +48,7 @@ export async function POST(request: NextRequest) {
   if (!requireAdmin()) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const body = await request.json().catch(() => ({}))
-  const source = body.source as 'application' | 'billing' | undefined
+  const source = body.source as 'application' | 'billing' | 'customer' | undefined
   const sourceId = body.source_id as string | undefined
   if (!source || !sourceId) {
     return NextResponse.json({ error: 'source, source_id 필수' }, { status: 400 })

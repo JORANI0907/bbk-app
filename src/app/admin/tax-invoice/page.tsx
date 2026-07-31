@@ -7,9 +7,11 @@ import Link from 'next/link'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { DraftEditor } from './DraftEditor'
+import { BillingPeriodSelector, type BillingPeriodItem } from './BillingPeriodSelector'
 import { buildHometaxCsv, todayYmdKst, type HometaxRow, type HometaxItem } from '@/lib/hometax-csv'
 
-type Source = 'application' | 'billing'
+type Source = 'application' | 'customer'
+type InvoiceStatus = 'no_paid' | 'unissued' | 'partial' | 'all_issued'
 
 interface Candidate {
   source: Source
@@ -41,6 +43,12 @@ interface Candidate {
   draft_receiver_email_2: string | null
   draft_receipt_type: string | null
   draft_invoice_kind: string | null
+  // customer 소스 전용
+  customer_status?: 'active' | 'paused' | 'terminated'
+  invoice_status?: InvoiceStatus
+  billing_periods?: BillingPeriodItem[]
+  paid_count?: number
+  unissued_count?: number
 }
 
 const SERVICE_TYPES_FALLBACK = ['1회성케어', '정기딥케어', '정기엔드케어']
@@ -93,6 +101,10 @@ export default function TaxInvoiceDashboardPage() {
   const [includeIssued, setIncludeIssued] = useState(false)
   const [serviceTypes, setServiceTypes] = useState<string[]>([])
   const [paymentMethods, setPaymentMethods] = useState<string[]>([])
+  const [customerStatuses, setCustomerStatuses] = useState<string[]>(['active', 'paused', 'terminated'])
+
+  // 기간 선택 모달 (정기케어 발행용)
+  const [billingSelectTarget, setBillingSelectTarget] = useState<Candidate | null>(null)
   const [search, setSearch] = useState('')
 
   // 필터 옵션 (서버에서 로드)
@@ -137,6 +149,7 @@ export default function TaxInvoiceDashboardPage() {
       if (includeIssued) params.set('include_issued', 'true')
       if (serviceTypes.length > 0) params.set('service_type', serviceTypes.join(','))
       if (paymentMethods.length > 0) params.set('payment_method', paymentMethods.join(','))
+      if (customerStatuses.length < 3) params.set('customer_status', customerStatuses.join(','))
       const res = await fetch(`/api/admin/tax-invoice/candidates?${params}`)
       const json = await res.json()
       if (!res.ok) throw new Error(json.error ?? '조회 실패')
@@ -157,7 +170,7 @@ export default function TaxInvoiceDashboardPage() {
     } finally {
       setLoading(false)
     }
-  }, [includeIssued, serviceTypes, paymentMethods])
+  }, [includeIssued, serviceTypes, paymentMethods, customerStatuses])
 
   useEffect(() => { void load() }, [load])
 
@@ -205,11 +218,11 @@ export default function TaxInvoiceDashboardPage() {
     return { total, valid, missing, alreadyIssued, sumAmount, selected: selectedIds.size }
   }, [filteredCandidates, selectedIds])
 
-  // ── 발행 완료 처리 (선택된 항목 전체) ─────────────────
+  // ── 발행 완료 처리 (1회성케어 선택 항목, customer 소스는 모달에서 처리) ──
   const handleMarkIssued = async () => {
-    const selected = filteredCandidates.filter(c => selectedIds.has(rowKey(c)))
-    if (selected.length === 0) { toast.error('먼저 항목을 선택하세요.'); return }
-    if (!confirm(`선택한 ${selected.length}건을 발행 완료 처리할까요?\n두 소스 모두 반영되며, 감사 로그가 남습니다.`)) return
+    const selected = filteredCandidates.filter(c => selectedIds.has(rowKey(c)) && c.source === 'application')
+    if (selected.length === 0) { toast.error('먼저 1회성케어 항목을 선택하세요.'); return }
+    if (!confirm(`선택한 ${selected.length}건을 발행 완료 처리할까요?`)) return
 
     setMarkingIssued(true)
     try {
@@ -223,7 +236,7 @@ export default function TaxInvoiceDashboardPage() {
       })
       const json = await res.json()
       if (!res.ok) throw new Error(json.error ?? '처리 실패')
-      toast.success(`발행 완료 처리: 서비스 ${json.updated_applications}건 · 고객 ${json.updated_billings}건`)
+      toast.success(`발행 완료 처리: ${json.updated_applications}건`)
       void load()
     } catch (e) {
       toast.error(e instanceof Error ? e.message : '처리 실패')
@@ -232,10 +245,39 @@ export default function TaxInvoiceDashboardPage() {
     }
   }
 
-  // ── 발행 취소 (재발행 필요 시) ─────────────────────────
+  // ── 정기케어 기간 선택 후 발행 처리 ──────────────────────────
+  const handleBillingPeriodIssued = async (billingIds: string[]) => {
+    if (!billingSelectTarget) return
+    try {
+      const res = await fetch('/api/admin/tax-invoice/mark-issued', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          items: [{
+            source: 'customer',
+            source_id: billingSelectTarget.source_id,
+            billing_ids: billingIds,
+          }],
+          supplier_id: supplier.id || null,
+        }),
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error ?? '처리 실패')
+      toast.success(`발행 완료: ${json.updated_billings}건`)
+      setBillingSelectTarget(null)
+      void load()
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : '처리 실패')
+      throw e
+    }
+  }
+
+  // ── 발행 취소 (1회성케어만, 정기케어는 모달에서 처리) ──────
   const handleRevertIssued = async () => {
-    const selected = filteredCandidates.filter(c => selectedIds.has(rowKey(c)) && c.tax_invoice_issued)
-    if (selected.length === 0) { toast.error('발행 완료 상태인 항목만 취소할 수 있습니다.'); return }
+    const selected = filteredCandidates.filter(c =>
+      selectedIds.has(rowKey(c)) && c.tax_invoice_issued && c.source === 'application'
+    )
+    if (selected.length === 0) { toast.error('발행 완료 상태인 1회성케어 항목만 취소할 수 있습니다.'); return }
     const reason = prompt(`선택한 ${selected.length}건을 발행 취소할까요?\n사유(선택):`, '재발행')
     if (reason === null) return
 
@@ -251,7 +293,7 @@ export default function TaxInvoiceDashboardPage() {
       })
       const json = await res.json()
       if (!res.ok) throw new Error(json.error ?? '취소 실패')
-      toast.success(`발행 취소: 서비스 ${json.reverted_applications}건 · 고객 ${json.reverted_billings}건`)
+      toast.success(`발행 취소: ${json.reverted_applications}건`)
       void load()
     } catch (e) {
       toast.error(e instanceof Error ? e.message : '취소 실패')
@@ -443,9 +485,9 @@ export default function TaxInvoiceDashboardPage() {
         <div className="flex items-center gap-1.5 text-xs text-text-tertiary">
           <Filter size={12} />
           <span>필터 (중복 선택 가능)</span>
-          {(serviceTypes.length > 0 || paymentMethods.length > 0) && (
+          {(serviceTypes.length > 0 || paymentMethods.length > 0 || customerStatuses.length < 3) && (
             <button type="button"
-              onClick={() => { setServiceTypes([]); setPaymentMethods([]) }}
+              onClick={() => { setServiceTypes([]); setPaymentMethods([]); setCustomerStatuses(['active', 'paused', 'terminated']) }}
               className="ml-auto text-[11px] text-brand-600 hover:text-brand-700 underline">
               전체 해제
             </button>
@@ -468,6 +510,17 @@ export default function TaxInvoiceDashboardPage() {
           options={availablePaymentMethods}
           selected={paymentMethods}
           onToggle={(v) => setPaymentMethods(prev =>
+            prev.includes(v) ? prev.filter(x => x !== v) : [...prev, v]
+          )}
+        />
+
+        {/* 고객 상태 필터 (정기케어 전용) */}
+        <FilterBadgeGroup
+          label="상태"
+          options={['active', 'paused', 'terminated']}
+          selected={customerStatuses}
+          labelMap={{ active: '활성', paused: '일시중지', terminated: '해지' }}
+          onToggle={(v) => setCustomerStatuses(prev =>
             prev.includes(v) ? prev.filter(x => x !== v) : [...prev, v]
           )}
         />
@@ -590,6 +643,14 @@ export default function TaxInvoiceDashboardPage() {
                             업·종
                           </span>
                         )}
+                        {c.source === 'customer' && (c.unissued_count ?? 0) > 0 && (
+                          <button type="button"
+                            onClick={() => setBillingSelectTarget(c)}
+                            className="flex items-center gap-1 text-[11px] px-2 py-1 rounded-md border border-brand-300 bg-brand-50 text-brand-700 hover:bg-brand-100 transition-colors"
+                            title="기간 선택 후 발행">
+                            <Check size={11} />발행
+                          </button>
+                        )}
                         <button type="button"
                           onClick={() => setEditingCandidate(c)}
                           className={`flex items-center gap-1 text-[11px] px-2 py-1 rounded-md border transition-colors ${
@@ -625,6 +686,18 @@ export default function TaxInvoiceDashboardPage() {
         />
       )}
 
+      {/* 정기케어 기간 선택 발행 모달 */}
+      {billingSelectTarget && (
+        <BillingPeriodSelector
+          customerName={billingSelectTarget.business_name}
+          serviceType={billingSelectTarget.service_type}
+          customerId={billingSelectTarget.source_id}
+          periods={billingSelectTarget.billing_periods ?? []}
+          onClose={() => setBillingSelectTarget(null)}
+          onIssued={handleBillingPeriodIssued}
+        />
+      )}
+
       {/* 현재 선택된 공급자 상세 미리보기 (접기 가능) */}
       <details className="bg-surface border border-border-subtle rounded-2xl">
         <summary className="cursor-pointer px-4 py-3 text-xs font-medium text-text-secondary flex items-center justify-between">
@@ -650,11 +723,12 @@ export default function TaxInvoiceDashboardPage() {
   )
 }
 
-function FilterBadgeGroup({ label, options, selected, onToggle }: {
+function FilterBadgeGroup({ label, options, selected, onToggle, labelMap }: {
   label: string
   options: string[]
   selected: string[]
   onToggle: (v: string) => void
+  labelMap?: Record<string, string>
 }) {
   if (options.length === 0) return null
   return (
@@ -674,7 +748,7 @@ function FilterBadgeGroup({ label, options, selected, onToggle }: {
                   : 'bg-surface border-border text-text-secondary hover:border-brand-400 hover:text-brand-600'
               }`}
             >
-              {opt}
+              {labelMap?.[opt] ?? opt}
             </button>
           )
         })}
@@ -731,6 +805,41 @@ function SourceBadge({ label }: { source: Source; label: string }) {
 }
 
 function RowStatus({ c }: { c: Candidate }) {
+  // 정기케어 (customer 소스) — invoice_status 기반
+  if (c.source === 'customer') {
+    if (!c.is_valid) {
+      return (
+        <span className="inline-flex items-center gap-1 text-[11px] text-state-warning" title={`누락: ${c.missing_fields.join(', ')}`}>
+          <AlertCircle size={11} />정보 누락
+        </span>
+      )
+    }
+    switch (c.invoice_status) {
+      case 'all_issued':
+        return (
+          <span className="inline-flex items-center gap-1 text-[11px] text-state-success">
+            <CheckCircle2 size={11} />발행완료
+          </span>
+        )
+      case 'partial':
+        return (
+          <span className="inline-flex items-center gap-1 text-[11px] text-state-warning">
+            <AlertCircle size={11} />{c.unissued_count}건 미발행 / {c.paid_count}건 중
+          </span>
+        )
+      case 'unissued':
+        return (
+          <span className="inline-flex items-center gap-1 text-[11px] text-state-danger">
+            <AlertCircle size={11} />{c.paid_count}건 미발행
+          </span>
+        )
+      case 'no_paid':
+      default:
+        return <span className="text-[11px] text-text-tertiary">결제이력 없음</span>
+    }
+  }
+
+  // 1회성케어 (application 소스)
   if (c.tax_invoice_issued) {
     return (
       <span className="inline-flex items-center gap-1 text-[11px] text-state-success">

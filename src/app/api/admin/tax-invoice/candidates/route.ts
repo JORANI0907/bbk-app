@@ -4,21 +4,23 @@ import { getServerSession } from '@/lib/session'
 
 export const dynamic = 'force-dynamic'
 
-// Phase 22 v12: 세금계산서 발행 대상 통합 조회 (신규 아키텍처)
-// - source 'application': service_applications 중 결제완료+미발행 — **1회성케어만** (정기유형은 billings로 이관됨)
-// - source 'billing'    : service_billings 중 due_date≤오늘 + 미발행 — 정기딥연간·정기딥월간·정기엔드 모두
+// 세금계산서 발행 대상 통합 조회
+// - source 'application': service_applications — 1회성케어 (결제완료 상태)
+// - source 'customer'   : customers — 정기딥케어·정기엔드케어 마스터 1행
+//                         내부적으로 service_billings paid 건을 집계해 invoice_status 산출
 //
 // query params:
-//   include_issued=true              → 이미 발행된 건도 포함 (이력 확인용)
-//   source=application|billing       → 특정 소스만
-//   service_type=A,B,...             → 다중 필터 (콤마 구분)
-//   payment_method=A,B,...           → 다중 필터 (콤마 구분)
-//   from=YYYY-MM-DD, to=YYYY-MM-DD   → 기준일자 필터
+//   include_issued=true              → 발행완료 건도 포함
+//   source=application|customer      → 특정 소스만
+//   service_type=A,B,...             → 다중 필터
+//   payment_method=A,B,...           → 다중 필터
+//   customer_status=active,paused,terminated → 정기케어 고객 상태 필터 (기본: 모두)
+//   from=YYYY-MM-DD, to=YYYY-MM-DD   → 기준일자 필터 (application 전용)
 
 const APPLICATION_TARGET_STATUSES = ['결제완료', '결제완료(잔금)']
 const APPLICATION_ISSUED_STATUS = '계산서발행완료'
 
-type Source = 'application' | 'billing'
+type Source = 'application' | 'customer'
 
 interface DraftItem {
   name: string
@@ -29,6 +31,21 @@ interface DraftItem {
   vat?: number
   remark?: string
 }
+
+export interface BillingPeriodItem {
+  billing_id: string
+  billing_period: string
+  billing_type: 'monthly' | 'annual'
+  amount: number
+  supply_amount: number
+  vat: number
+  billing_status: 'pending' | 'paid' | 'overdue'
+  tax_invoice_issued: boolean
+  tax_invoice_issued_date: string | null
+  due_date: string | null
+}
+
+export type InvoiceStatus = 'no_paid' | 'unissued' | 'partial' | 'all_issued'
 
 interface Candidate {
   source: Source
@@ -44,24 +61,27 @@ interface Candidate {
   supply_amount: number
   vat: number
   total_amount: number
-  billing_period: string | null       // billings 전용
-  construction_date: string | null    // applications 전용
+  billing_period: string | null
+  construction_date: string | null
   created_at: string
   tax_invoice_issued: boolean
   tax_invoice_issued_at: string | null
-  // 필수 정보 유효성 (사업자번호·상호·대표자 세 필드 기준)
   is_valid: boolean
   missing_fields: string[]
-  // Phase 3: 발행 전 편집 draft
   has_draft: boolean
   draft_supplier_id: string | null
   draft_items: DraftItem[] | null
-  // 홈택스 CSV 전용 draft 필드 (없어도 발행 가능, 있으면 CSV에 채워짐)
-  draft_receiver_business_type: string | null   // P
-  draft_receiver_business_item: string | null   // Q
-  draft_receiver_email_2: string | null         // S
-  draft_receipt_type: string | null             // BG — 기본 '01' 영수
-  draft_invoice_kind: string | null             // A — 기본 '01' 일반
+  draft_receiver_business_type: string | null
+  draft_receiver_business_item: string | null
+  draft_receiver_email_2: string | null
+  draft_receipt_type: string | null
+  draft_invoice_kind: string | null
+  // customer 소스 전용
+  customer_status?: 'active' | 'paused' | 'terminated'
+  invoice_status?: InvoiceStatus
+  billing_periods?: BillingPeriodItem[]
+  paid_count?: number
+  unissued_count?: number
 }
 
 function checkValidity(row: Pick<Candidate, 'business_number' | 'business_name' | 'owner_name'>): {
@@ -72,6 +92,13 @@ function checkValidity(row: Pick<Candidate, 'business_number' | 'business_name' 
   if (!row.business_name?.trim()) missing.push('상호')
   if (!row.owner_name?.trim()) missing.push('대표자')
   return { is_valid: missing.length === 0, missing_fields: missing }
+}
+
+function calcInvoiceStatus(paidCount: number, issuedCount: number): InvoiceStatus {
+  if (paidCount === 0) return 'no_paid'
+  if (issuedCount === 0) return 'unissued'
+  if (issuedCount < paidCount) return 'partial'
+  return 'all_issued'
 }
 
 export async function GET(request: NextRequest) {
@@ -89,11 +116,15 @@ export async function GET(request: NextRequest) {
   const paymentMethods = paymentMethodParam ? paymentMethodParam.split(',').map(s => s.trim()).filter(Boolean) : null
   const fromDate = searchParams.get('from')
   const toDate = searchParams.get('to')
+  const customerStatusParam = searchParams.get('customer_status')
+  const customerStatuses = customerStatusParam
+    ? customerStatusParam.split(',').map(s => s.trim()).filter(Boolean)
+    : ['active', 'paused', 'terminated']
 
   const supabase = createServiceClient()
   const results: Candidate[] = []
 
-  // ── drafts 한번에 로드 (source+source_id 매칭용 맵) ────
+  // ── drafts 한번에 로드 ─────────────────────────────────────────
   const { data: draftRows } = await supabase
     .from('tax_invoice_drafts')
     .select(
@@ -103,6 +134,7 @@ export async function GET(request: NextRequest) {
       'receiver_business_type, receiver_business_item, ' +
       'items, invoice_kind, bill_receipt_type'
     )
+
   const draftMap = new Map<string, {
     supplier_id: string | null
     receiver_business_number: string | null
@@ -117,6 +149,7 @@ export async function GET(request: NextRequest) {
     invoice_kind: string | null
     bill_receipt_type: string | null
   }>()
+
   interface DraftRow {
     source: string
     source_id: string
@@ -133,6 +166,7 @@ export async function GET(request: NextRequest) {
     invoice_kind: string | null
     bill_receipt_type: string | null
   }
+
   for (const d of ((draftRows ?? []) as unknown) as DraftRow[]) {
     draftMap.set(`${d.source}:${d.source_id}`, {
       supplier_id: d.supplier_id ?? null,
@@ -150,8 +184,7 @@ export async function GET(request: NextRequest) {
     })
   }
 
-  // ── 소스 1: service_applications (1회성케어 전용) ─────────────────────
-  // Phase 22 v12: 정기딥/정기엔드 발행 대상은 모두 billings에서 조회하므로 여기선 1회성만
+  // ── 소스 1: service_applications (1회성케어 전용) ──────────────
   if (!sourceFilter || sourceFilter === 'application') {
     let appQ = supabase
       .from('service_applications')
@@ -200,7 +233,6 @@ export async function GET(request: NextRequest) {
       const address = draft?.receiver_address ?? a.address ?? null
       const email = draft?.receiver_email ?? a.email ?? null
 
-      // items 가 있으면 합계 재계산, 없으면 원본 사용
       let supply = Number(a.supply_amount ?? 0)
       let vat = Number(a.vat ?? 0)
       if (draft?.items && draft.items.length > 0) {
@@ -242,68 +274,126 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  // ── 소스 2: service_billings JOIN customers ─────────
-  if (!sourceFilter || sourceFilter === 'billing') {
-    // Phase 22 v11: billings 소스는 결제 완료 여부와 무관하게 due_date 도래한 것 모두 후보
-    // (선청구/후결제 지원 — 계산서는 결제 전에도 발행 가능)
-    const todayISO = new Date().toISOString().slice(0, 10)
-    let billQ = supabase
-      .from('service_billings')
+  // ── 소스 2: customers (정기딥케어·정기엔드케어 마스터 단위) ────
+  if (!sourceFilter || sourceFilter === 'customer') {
+    let custQ = supabase
+      .from('customers')
       .select(`
         id,
-        customer_id,
-        billing_type,
-        billing_period,
-        amount,
+        business_name,
+        business_number,
+        contact_name,
+        address,
+        email,
+        contact_phone,
+        customer_type,
+        payment_method,
+        billing_cycle,
+        billing_amount,
         status,
-        due_date,
-        tax_invoice_issued,
-        tax_invoice_issued_date,
         created_at,
-        customers!inner (
+        service_billings (
           id,
-          business_name,
-          business_number,
-          contact_name,
-          address,
-          email,
-          contact_phone,
-          customer_type,
-          payment_method
+          billing_period,
+          billing_type,
+          amount,
+          status,
+          due_date,
+          tax_invoice_issued,
+          tax_invoice_issued_date
         )
       `)
-      .lte('due_date', todayISO)
+      .in('customer_type', ['정기딥케어', '정기엔드케어'])
+      .is('deleted_at', null)
+      .is('archived_at', null)
+      .in('status', customerStatuses)
 
-    if (!includeIssued) billQ = billQ.eq('tax_invoice_issued', false)
-    if (fromDate) billQ = billQ.gte('due_date', fromDate)
-    if (toDate) billQ = billQ.lte('due_date', toDate)
-
-    const { data: bills, error: billErr } = await billQ.order('created_at', { ascending: false })
-    if (billErr) {
-      return NextResponse.json({ error: `billings: ${billErr.message}` }, { status: 500 })
+    if (paymentMethods && paymentMethods.length > 0) custQ = custQ.in('payment_method', paymentMethods)
+    if (serviceTypes && serviceTypes.length > 0) {
+      const periodicTypes = serviceTypes.filter(t => ['정기딥케어', '정기엔드케어'].includes(t))
+      if (periodicTypes.length > 0) custQ = custQ.in('customer_type', periodicTypes)
+      else {
+        // 1회성만 선택된 경우 customer 소스는 결과 없음
+        return NextResponse.json({
+          candidates: results,
+          count: results.length,
+          available_payment_methods: [],
+          available_service_types: [],
+        })
+      }
     }
 
-    for (const b of bills ?? []) {
-      // customers 는 !inner JOIN 이므로 배열이 아닌 객체로 오지만 supabase-js 타입은 array 로 잡음
-      const c = Array.isArray(b.customers) ? b.customers[0] : b.customers
-      if (!c) continue
+    const { data: customers, error: custErr } = await custQ.order('created_at', { ascending: false })
+    if (custErr) {
+      return NextResponse.json({ error: `customers: ${custErr.message}` }, { status: 500 })
+    }
 
-      // customer_type 필터 (service_type 파라미터와 매칭)
-      if (serviceTypes && serviceTypes.length > 0 && !serviceTypes.includes(c.customer_type ?? '')) continue
-      // payment_method 필터
-      if (paymentMethods && paymentMethods.length > 0 && !paymentMethods.includes(c.payment_method ?? '')) continue
+    for (const c of customers ?? []) {
+      const rawBillings = Array.isArray(c.service_billings) ? c.service_billings : []
 
-      const draft = draftMap.get(`billing:${b.id}`)
+      // paid 건 목록 집계
+      const paidBillings = rawBillings.filter((b: { status: string }) => b.status === 'paid')
+      const paidCount = paidBillings.length
+      const issuedCount = paidBillings.filter((b: { tax_invoice_issued: boolean }) => b.tax_invoice_issued).length
+      const unissuedCount = paidCount - issuedCount
+      const invoiceStatus = calcInvoiceStatus(paidCount, issuedCount)
+
+      // includeIssued=false 이고 전체 발행완료면 목록에서 제외
+      if (!includeIssued && invoiceStatus === 'all_issued') continue
+      // 결제이력이 아예 없는 고객도 includeIssued=false면 제외
+      if (!includeIssued && invoiceStatus === 'no_paid') continue
+
+      // billing_periods 배열 구성 (paid 건 + 미발행 paid 건 우선 정렬)
+      const billingPeriods: BillingPeriodItem[] = rawBillings
+        .filter((b: { status: string; tax_invoice_issued: boolean }) =>
+          b.status === 'paid' || (includeIssued)
+        )
+        .sort((a: { billing_period: string }, b: { billing_period: string }) =>
+          b.billing_period.localeCompare(a.billing_period)
+        )
+        .map((b: {
+          id: string
+          billing_period: string
+          billing_type: string
+          amount: number
+          status: string
+          tax_invoice_issued: boolean
+          tax_invoice_issued_date: string | null
+          due_date: string | null
+        }): BillingPeriodItem => {
+          const amount = Number(b.amount ?? 0)
+          const supply = Math.round(amount / 1.1)
+          const vat = amount - supply
+          return {
+            billing_id: b.id,
+            billing_period: b.billing_period,
+            billing_type: b.billing_type as 'monthly' | 'annual',
+            amount,
+            supply_amount: supply,
+            vat,
+            billing_status: b.status as 'pending' | 'paid' | 'overdue',
+            tax_invoice_issued: !!b.tax_invoice_issued,
+            tax_invoice_issued_date: b.tax_invoice_issued_date ?? null,
+            due_date: b.due_date ?? null,
+          }
+        })
+
+      // 미발행 paid 건 금액 합계 (대표 금액으로 표시)
+      const unissuedAmount = paidBillings
+        .filter((b: { tax_invoice_issued: boolean }) => !b.tax_invoice_issued)
+        .reduce((sum: number, b: { amount: number }) => sum + Number(b.amount ?? 0), 0)
+      const unissuedSupply = Math.round(unissuedAmount / 1.1)
+      const unissuedVat = unissuedAmount - unissuedSupply
+
+      const draft = draftMap.get(`customer:${c.id}`)
       const business_number = draft?.receiver_business_number ?? c.business_number ?? null
       const business_name = draft?.receiver_business_name ?? c.business_name
       const owner_name = draft?.receiver_owner_name ?? c.contact_name ?? ''
       const address = draft?.receiver_address ?? c.address ?? null
       const email = draft?.receiver_email ?? c.email ?? null
-      const phone = c.contact_phone ?? null
 
-      const amount = Number(b.amount ?? 0)
-      let supply = Math.round(amount / 1.1)
-      let vat = amount - supply
+      let supply = unissuedSupply
+      let vat = unissuedVat
       if (draft?.items && draft.items.length > 0) {
         supply = draft.items.reduce((s, i) => s + Number(i.supply_amount ?? (Number(i.qty ?? 1) * Number(i.unit_price ?? 0))), 0)
         vat = draft.items.reduce((s, i) => s + Number(i.vat ?? 0), 0)
@@ -313,24 +403,24 @@ export async function GET(request: NextRequest) {
       const validity = checkValidity({ business_number, business_name, owner_name })
 
       results.push({
-        source: 'billing',
-        source_id: b.id,
+        source: 'customer',
+        source_id: c.id,
         service_type: c.customer_type ?? null,
         business_name,
         business_number,
         owner_name,
         address,
         email,
-        phone,
+        phone: c.contact_phone ?? null,
         payment_method: c.payment_method ?? null,
         supply_amount: supply,
         vat,
         total_amount: supply + vat,
-        billing_period: b.billing_period ?? null,
+        billing_period: null,
         construction_date: null,
-        created_at: b.created_at ?? new Date().toISOString(),
-        tax_invoice_issued: !!b.tax_invoice_issued,
-        tax_invoice_issued_at: b.tax_invoice_issued_date ?? null,
+        created_at: c.created_at ?? new Date().toISOString(),
+        tax_invoice_issued: invoiceStatus === 'all_issued',
+        tax_invoice_issued_at: null,
         ...validity,
         has_draft: !!draft,
         draft_supplier_id: draft?.supplier_id ?? null,
@@ -340,11 +430,17 @@ export async function GET(request: NextRequest) {
         draft_receiver_email_2: draft?.receiver_email_2 ?? null,
         draft_receipt_type: draft?.bill_receipt_type ?? null,
         draft_invoice_kind: draft?.invoice_kind ?? null,
+        // customer 소스 전용
+        customer_status: (c.status as 'active' | 'paused' | 'terminated') ?? 'active',
+        invoice_status: invoiceStatus,
+        billing_periods: billingPeriods,
+        paid_count: paidCount,
+        unissued_count: unissuedCount,
       })
     }
   }
 
-  // ── 필터 옵션 (필터 무시한 전체 unique 값) ─────────
+  // ── 필터 옵션 ──────────────────────────────────────────────────
   const [appPmRes, custPmRes, appStRes, custStRes] = await Promise.all([
     supabase.from('service_applications').select('payment_method').is('deleted_at', null).not('payment_method', 'is', null),
     supabase.from('customers').select('payment_method').is('deleted_at', null).not('payment_method', 'is', null),

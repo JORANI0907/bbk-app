@@ -18,7 +18,7 @@ export interface DraftItem {
 }
 
 export interface CandidateSlim {
-  source: 'application' | 'billing'
+  source: 'application' | 'billing' | 'customer'
   source_id: string
   business_name: string
   business_number: string | null
