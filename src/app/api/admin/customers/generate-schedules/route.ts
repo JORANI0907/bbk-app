@@ -317,7 +317,10 @@ export async function POST(request: NextRequest) {
     // ── 예약확정알림 발송 (고객당 1건, 날짜 통합) ───────────────────────
     // 정기엔드케어는 수동 발송 전환 — 알림 자동발송 스킵
     const phone = (customer.contact_phone || '').replace(/-/g, '')
-    if (phone && insertedApps.length > 0 && customer.customer_type !== '정기엔드케어') {
+    // 정기딥케어/정기엔드케어 모두 수동 발송 전환 — 예약확정알림 자동발송 스킵
+    if (phone && insertedApps.length > 0
+        && customer.customer_type !== '정기엔드케어'
+        && customer.customer_type !== '정기딥케어') {
       let assignedUserName = '-'
       if (customer.assigned_user_id) {
         const { data: userRow } = await supabase
