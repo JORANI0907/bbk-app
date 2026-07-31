@@ -478,16 +478,16 @@ export async function PATCH(request: NextRequest) {
     }
   }
 
-  // 유형 변경 시 기존 회차 일정 소프트 삭제 (정기딥/정기엔드 → 다른 유형)
-  // 정기 유형 회차 일정만 대상 — 1회성케어 등 실계약 신청서는 보존
-  if (rest.deleteSchedules === true) {
+  // 유형 변경 시 이전 유형 일정만 소프트 삭제 (양방향: 정기↔다른유형)
+  // deleteScheduleType = 이전 customer_type 값 (1회성케어, 정기딥케어, 정기엔드케어 등)
+  if (typeof rest.deleteScheduleType === 'string' && rest.deleteScheduleType) {
     try {
       await supabase
         .from('service_applications')
         .update({ deleted_at: new Date().toISOString() })
         .eq('customer_id', id)
         .is('deleted_at', null)
-        .in('service_type', ['정기딥케어', '정기엔드케어'])
+        .eq('service_type', rest.deleteScheduleType)
     } catch (e) {
       console.error('유형 변경 일정 삭제 실패:', e instanceof Error ? e.message : e)
     }
