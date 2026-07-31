@@ -70,6 +70,10 @@ interface Props {
    * 리스트뷰와 캘린더뷰 간 필터 상태 유지되어 UX 통일.
    */
   filterTypes?: Set<string>
+  /** 검색어 — 업체명/주소 기준 필터 (리스트뷰와 동기화) */
+  search?: string
+  /** 부모 새로고침 버튼 클릭 시 증가 → 캘린더 데이터 재조회 트리거 */
+  refetchKey?: number
 }
 
 // ─── 유틸 ─────────────────────────────────────────────────────
@@ -105,7 +109,7 @@ const TYPE_TEXT: Record<string, string> = {
 
 // ─── 컴포넌트 ─────────────────────────────────────────────────
 
-export function CustomersCalendarGrid({ onSelectApp, filterTypes }: Props) {
+export function CustomersCalendarGrid({ onSelectApp, filterTypes, search, refetchKey }: Props) {
   const [{ year, month }, setYm] = useState(currentYearMonth())
   const [apps, setApps] = useState<CalendarApp[]>([])
   const [loading, setLoading] = useState(false)
@@ -117,13 +121,23 @@ export function CustomersCalendarGrid({ onSelectApp, filterTypes }: Props) {
   // Phase 27-AM: 유형 필터 활성 시 담당자(assigned_to) 없는 회차는 자동 제외.
   //   미배정 항목은 리스트뷰의 "미배정" 필터에서만 확인 가능. 캘린더의 잡음 제거.
   const visibleApps = useMemo(() => {
-    if (!filterTypes || filterTypes.size === 0) return apps
-    return apps.filter(a =>
-      !!a.service_type
-      && filterTypes.has(a.service_type)
-      && !!a.assigned_to
-    )
-  }, [apps, filterTypes])
+    let list = apps
+    if (filterTypes && filterTypes.size > 0) {
+      list = list.filter(a =>
+        !!a.service_type
+        && filterTypes.has(a.service_type)
+        && !!a.assigned_to
+      )
+    }
+    if (search && search.trim()) {
+      const q = search.trim().toLowerCase()
+      list = list.filter(a =>
+        (a.business_name ?? '').toLowerCase().includes(q) ||
+        (a.address ?? '').toLowerCase().includes(q)
+      )
+    }
+    return list
+  }, [apps, filterTypes, search])
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -246,7 +260,7 @@ export function CustomersCalendarGrid({ onSelectApp, filterTypes }: Props) {
     } finally {
       setLoading(false)
     }
-  }, [monthStr])
+  }, [monthStr, refetchKey])
 
   useEffect(() => { load() }, [load])
 

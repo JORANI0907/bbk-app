@@ -2137,6 +2137,8 @@ export function CustomersManagementView({
             <CustomersCalendarGrid
               onSelectApp={handleCalendarSelect}
               filterTypes={selectedTypes}
+              search={search}
+              refetchKey={embedRefetchKey}
             />
           </div>
         ) : (
