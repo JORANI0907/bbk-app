@@ -3,6 +3,7 @@ import { createServiceClient } from '@/lib/supabase/server'
 import { sendAlimtalk } from '@/lib/solapi'
 import { sendByTemplate } from '@/lib/template-sender'
 import type { NotificationContext } from '@/lib/notification-variables'
+import { saveNotificationHistory } from '@/lib/notification'
 
 const CRON_SECRET = process.env.CRON_SECRET
 
@@ -212,8 +213,9 @@ async function sendAndLog(
     throw new Error(`SMS 발송 실패: ${result.reason}${result.details ? ` (${result.details})` : ''}`)
   }
 
-  // 4) 이력 저장
-  const nowIso = new Date().toISOString()
+  // 4) 이력 저장 (KST 기준 타임스탬프)
+  const nowKST = new Date(Date.now() + 9 * 60 * 60 * 1000)
+  const nowIso = nowKST.toISOString().replace('Z', '+09:00')
   const existLog  = Array.isArray(app.notification_log)
     ? (app.notification_log as Array<{ type: string; sent_at: string; phone: string; method: string }>)
     : []
@@ -235,6 +237,23 @@ async function sendAndLog(
     .eq('id', app.id as string)
 
   if (error) throw new Error(`DB 업데이트 실패: ${error.message}`)
+
+  // 수정 C: notification_history 기록 (문자알림관리 탭 표시 + Slack 로그)
+  await saveNotificationHistory({
+    category: 'sms',
+    type,
+    body: result.text,
+    method: 'auto',
+    recipientType: 'customer',
+    recipientPhone: phone,
+    metadata: {
+      application_id: app.id as string,
+      business_name: app.business_name as string,
+      channel: result.type,
+      source: 'cron/reservation-reminders',
+    },
+    status: 'sent',
+  })
 
   return 'sent'
 }

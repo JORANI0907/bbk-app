@@ -11,6 +11,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { sendByTemplate } from '@/lib/template-sender'
 import { notifySlack } from '@/lib/slack'
+import { saveNotificationHistory } from '@/lib/notification'
 import type { NotificationContext } from '@/lib/notification-variables'
 
 // 알림 발송 대상 계약상태
@@ -129,10 +130,10 @@ export async function POST(request: NextRequest) {
       ? (app.notification_log as NotificationLogEntry[])
       : []
 
-    // 같은 날 같은 유형 중복 발송 방지
-    const today = new Date().toISOString().slice(0, 10)
+    // 같은 날 같은 유형 중복 발송 방지 (KST 기준 날짜 비교)
+    const todayKST = new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10)
     const alreadySent = existingLog.some(
-      (l) => l.type === notifyType && l.sent_at.startsWith(today),
+      (l) => l.type === notifyType && l.sent_at.slice(0, 10) === todayKST,
     )
     if (alreadySent) continue
 
@@ -155,7 +156,9 @@ export async function POST(request: NextRequest) {
         continue
       }
 
-      const nowIso = new Date().toISOString()
+      // KST 기준 타임스탬프
+      const nowKST = new Date(Date.now() + 9 * 60 * 60 * 1000)
+      const nowIso = nowKST.toISOString().replace('Z', '+09:00')
       const entry: NotificationLogEntry = {
         type: notifyType,
         sent_at: nowIso,
@@ -170,6 +173,23 @@ export async function POST(request: NextRequest) {
       if (linkedProgress[notifyType]) patch.progress_status = linkedProgress[notifyType]
       if (linkedPayment[notifyType])  patch.payment_status_detail = linkedPayment[notifyType]
       await supabase.from('service_applications').update(patch).eq('id', app.id)
+
+      // 수정 C: notification_history 기록 (문자알림관리 탭 표시 + Slack 로그)
+      await saveNotificationHistory({
+        category: 'sms',
+        type: notifyType,
+        body: send.text,
+        method: 'auto',
+        recipientType: 'customer',
+        recipientPhone: phone,
+        metadata: {
+          application_id: app.id,
+          business_name: app.business_name,
+          channel: send.type,
+          source: 'webhooks/schedule-notify',
+        },
+        status: 'sent',
+      })
 
       await notifySlack({
         notifyType,
