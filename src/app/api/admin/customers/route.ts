@@ -348,10 +348,27 @@ export async function PATCH(request: NextRequest) {
     }
   }
 
+  // 유형 변경 시 이전 유형 일정만 소프트 삭제 (양방향: 정기↔다른유형)
+  // 반드시 스냅샷 동기화(아래) 전에 실행해야 함 —
+  // 동기화가 먼저 실행되면 이전 유형의 service_type이 바뀌어 삭제 대상을 못 찾음.
+  if (typeof rest.deleteScheduleType === 'string' && rest.deleteScheduleType) {
+    try {
+      await supabase
+        .from('service_applications')
+        .update({ deleted_at: new Date().toISOString() })
+        .eq('customer_id', id)
+        .is('deleted_at', null)
+        .eq('service_type', rest.deleteScheduleType)
+    } catch (e) {
+      console.error('유형 변경 일정 삭제 실패:', e instanceof Error ? e.message : e)
+    }
+  }
+
   // Phase 27-AY: customer 편집 시 service_applications 스냅샷 필드 일괄 동기화.
   // 매핑은 lib/customer-app-sync.ts 의 CUSTOMER_TO_APP_FIELD_MAP 중앙 관리.
   // 새 필드 sync 필요 시 그 파일에만 한 줄 추가하면 여기 로직 자동 반영됨.
   // 배정관리·캘린더·재무·급여 등 service_applications 를 읽는 모든 화면에 즉시 반영.
+  // deleted_at IS NULL 조건: 삭제된 일정(위에서 처리)은 동기화 대상에서 제외.
   const appUpdates = buildAppUpdatesFromCustomerPatch(rest)
   if (Object.keys(appUpdates).length > 0) {
     try {
@@ -359,6 +376,7 @@ export async function PATCH(request: NextRequest) {
         .from('service_applications')
         .update(appUpdates)
         .eq('customer_id', id)
+        .is('deleted_at', null)
     } catch (e) {
       console.error('신청서 스냅샷 동기화 실패:', e instanceof Error ? e.message : e)
     }
@@ -475,21 +493,6 @@ export async function PATCH(request: NextRequest) {
       }
     } catch (e) {
       console.error('worker_ids 동기화 실패:', e instanceof Error ? e.message : e)
-    }
-  }
-
-  // 유형 변경 시 이전 유형 일정만 소프트 삭제 (양방향: 정기↔다른유형)
-  // deleteScheduleType = 이전 customer_type 값 (1회성케어, 정기딥케어, 정기엔드케어 등)
-  if (typeof rest.deleteScheduleType === 'string' && rest.deleteScheduleType) {
-    try {
-      await supabase
-        .from('service_applications')
-        .update({ deleted_at: new Date().toISOString() })
-        .eq('customer_id', id)
-        .is('deleted_at', null)
-        .eq('service_type', rest.deleteScheduleType)
-    } catch (e) {
-      console.error('유형 변경 일정 삭제 실패:', e instanceof Error ? e.message : e)
     }
   }
 
