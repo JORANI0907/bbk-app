@@ -1295,6 +1295,31 @@ export function CustomersManagementView({
     } finally { setStatusToggling(false) }
   }
 
+  const handleListInvoiceToggle = async (customerId: string, current: boolean) => {
+    const next = !current
+    try {
+      const res = await fetch('/api/admin/customers', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: customerId, tax_invoice_issued: next }),
+      })
+      if (!res.ok) throw new Error('저장 실패')
+      fetch('/api/admin/tax-invoice/application-status', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ customer_id: customerId, tax_invoice_issued: next }),
+      }).catch(() => {})
+      setCustomers(prev => prev.map(c => c.id === customerId ? { ...c, tax_invoice_issued: next } : c))
+      if (selected?.id === customerId) {
+        setSelected(prev => prev ? { ...prev, tax_invoice_issued: next } : prev)
+        setForm(prev => ({ ...prev, tax_invoice_issued: next }))
+      }
+      toast.success(next ? '계산서 발행완료' : '발행완료 취소')
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : '저장 실패')
+    }
+  }
+
   const handleDelete = async () => {
     if (!selected) return
     if (!confirm(`"${selected.business_name}" 고객을 삭제하시겠습니까?`)) return
@@ -2253,7 +2278,7 @@ export function CustomersManagementView({
                         { key: null, label: '케어범위' },
                         { key: null, label: '담당자' },
                         ...(!isWorker ? [{ key: null, label: '결제방법' } as const, { key: null, label: '총액' } as const] : []),
-                        ...(!isWorker ? [{ key: null, label: '진행상태' } as const, { key: null, label: '결제상태' } as const] : []),
+                        ...(!isWorker ? [{ key: null, label: '진행상태' } as const, { key: null, label: '결제상태' } as const, { key: null, label: '계산서발행' } as const] : []),
                       ] as const)
                     }
                     if (isDipCareView) {
@@ -2526,10 +2551,10 @@ export function CustomersManagementView({
                                 <>
                                   {/* 결제방법 */}
                                   <td className="px-3 py-3 text-xs text-text-secondary whitespace-nowrap">{c.payment_method ?? '-'}</td>
-                                  {/* 총액 (공급가액 + 부가세) */}
-                                  <td className="px-3 py-3 text-xs font-mono font-semibold text-text-primary whitespace-nowrap">
+                                  {/* 총액 — 만원 단위 압축 표시 */}
+                                  <td className="px-3 py-3 text-xs font-mono font-semibold text-text-primary whitespace-nowrap w-16">
                                     {total > 0
-                                      ? <>{total.toLocaleString('ko-KR')}<span className="text-text-tertiary font-normal">원</span></>
+                                      ? <>{total >= 10000 ? `${Math.floor(total / 10000)}만` : total.toLocaleString('ko-KR')}<span className="text-text-tertiary font-normal">원</span></>
                                       : <span className="text-text-tertiary">-</span>}
                                   </td>
                                 </>
@@ -2551,6 +2576,22 @@ export function CustomersManagementView({
                                           {c.payment_status_detail === '비과세' ? '비과세 결제' : c.payment_status_detail}
                                         </span>
                                       : <span className="text-xs text-text-tertiary">-</span>}
+                                  </td>
+                                  {/* 계산서발행 체크 */}
+                                  <td className="px-3 py-3 text-center whitespace-nowrap w-16" onClick={e => e.stopPropagation()}>
+                                    {!isPendingApp && (
+                                      <button
+                                        type="button"
+                                        onClick={() => handleListInvoiceToggle(c.id, c.tax_invoice_issued ?? false)}
+                                        className={`w-5 h-5 rounded border-2 flex items-center justify-center mx-auto transition-colors ${
+                                          c.tax_invoice_issued
+                                            ? 'bg-blue-500 border-blue-500 text-white'
+                                            : 'border-gray-300 hover:border-blue-400 bg-white'
+                                        }`}
+                                      >
+                                        {c.tax_invoice_issued && <FileCheck className="w-3 h-3" />}
+                                      </button>
+                                    )}
                                   </td>
                                 </>
                               )}
