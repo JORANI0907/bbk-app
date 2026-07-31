@@ -14,6 +14,7 @@ const TEMPLATES = {
   '결제알림':               'KA01TP260324125232471CIIHJKDOBsf',
   '결제알림(현금)':         'KA01TP251127095540783njh0ig3nyjg',
   '결제알림(카드,플렛폼)':  'KA01TP251201210650817mczUreAtEjU',
+  '결제요청알림(카드)':     '',
 }
 
 // ─── 시공시간 기반 요청시간 계산: 0h ~ +2h ───────────────────────
@@ -110,6 +111,7 @@ function buildFallback(type: keyof typeof TEMPLATES, app: Record<string, unknown
     case '결제알림':              return `[BBK 공간케어] ${name}님, 잔금 결제를 요청드립니다.`
     case '결제알림(현금)':        return `[BBK 공간케어] ${name}님, 잔금 결제를 요청드립니다.`
     case '결제알림(카드,플렛폼)': return `[BBK 공간케어] ${name}님, 잔금 결제를 요청드립니다.`
+    case '결제요청알림(카드)':    return `[BBK 공간케어] ${name}님, 카드 결제창이 카카오톡으로 발송됩니다.`
   }
 }
 
@@ -141,6 +143,7 @@ const NOTIFY_TO_PAYMENT_STATUS_DETAIL: Record<string, string> = {
   '결제알림':               '결제',
   '결제알림(현금)':         '결제',
   '결제알림(카드,플렛폼)':  '결제',
+  '결제요청알림(카드)':     '결제(카드)',
 }
 
 // ─── 단일 알림 발송 + log 업데이트 ─────────────────────────────────
@@ -274,6 +277,7 @@ export async function GET(request: NextRequest) {
     '결제알림':               '결제',
     '결제알림(현금)':         '결제',
     '결제알림(카드,플렛폼)':  '결제',
+    '결제요청알림(카드)':     '결제',
   }
 
   // 담당자 이름 캐싱 (N+1 방지)
@@ -368,7 +372,7 @@ export async function GET(request: NextRequest) {
       } else if (pm === '현금(비과세)') {
         billingType = '결제알림(현금)'
       } else if (pm === '카드(온라인 간편결제)' || pm === '플랫폼') {
-        billingType = '결제알림(카드,플렛폼)'
+        billingType = '결제요청알림(카드)'
       } else {
         skipped++; continue
       }
