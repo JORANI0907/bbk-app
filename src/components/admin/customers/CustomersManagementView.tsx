@@ -1179,6 +1179,16 @@ export function CustomersManagementView({
         setIsNew(false)
         toast.success('고객이 추가되었습니다.')
         autoGenerateBillings(newCustomer.id)
+        // pending 신청서(app:xxx)에서 유입된 경우 → 생성된 customer_id 연결
+        if (pendingAppId) {
+          fetch('/api/admin/applications', {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: pendingAppId, customer_id: newCustomer.id }),
+          }).catch(() => {})
+          setPendingApplications(prev => prev.filter(a => a.id !== pendingAppId))
+          setPendingAppId(null)
+        }
       } else if (selected) {
         const res = await fetch('/api/admin/customers', {
           method: 'PATCH', headers: { 'Content-Type': 'application/json' },

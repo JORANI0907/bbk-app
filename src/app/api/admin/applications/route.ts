@@ -182,6 +182,8 @@ export async function PATCH(request: NextRequest) {
     'customer_memo', 'internal_memo',
     // Phase 8-C: 진행/결제 상태 이원화 (UI 수동 편집 허용)
     'progress_status', 'payment_status_detail',
+    // pending 신청서 → 고객 등록 완료 시 연결
+    'customer_id',
   ]
   const updates: Record<string, unknown> = {}
   for (const key of ALLOWED) {

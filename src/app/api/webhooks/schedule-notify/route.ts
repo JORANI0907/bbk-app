@@ -130,8 +130,7 @@ export async function POST(request: NextRequest) {
       ? (app.notification_log as NotificationLogEntry[])
       : []
 
-    // 같은 날 같은 유형 중복 발송 방지 (KST 기준 날짜 비교)
-    const todayKST = new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10)
+    // 같은 날 같은 유형 중복 발송 방지 (KST 기준 날짜 비교, 외부 todayKST 재사용)
     const alreadySent = existingLog.some(
       (l) => l.type === notifyType && l.sent_at.slice(0, 10) === todayKST,
     )
