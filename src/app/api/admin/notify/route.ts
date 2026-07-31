@@ -662,8 +662,27 @@ export async function POST(request: NextRequest) {
       .select('linked_progress_status, linked_payment_status')
       .eq('code', type)
       .maybeSingle()
+
+    // Phase 29-C: notification_templates에 suffix 없는 code(예약금 입금완료 알림, 결제완료알림(잔금) 등)가
+    // 없을 경우를 대비한 payment_status_detail fallback 맵.
+    // 웹훅 자동처리 호출 시 service_type suffix가 없는 type이 들어오면 linked_payment_status가 null이 되어
+    // payment_status_detail이 업데이트되지 않는 문제를 방지.
+    const NOTIFY_TO_PAYMENT_STATUS: Record<string, string> = {
+      '예약금 입금완료 알림':  '예약금 입금',
+      '결제완료알림(잔금)':    '결제완료(잔금)',
+      '결제완료알림':          '결제완료',
+      '결제알림':              '결제',
+      '결제알림(현금)':        '결제',
+      '결제알림(카드,플렛폼)': '결제',
+      '계산서발행완료알림':    '계산서발행완료',
+      '예약금환급완료알림':    '예약금환급완료',
+    }
+
     const newProgressStatus: string | null = (linkedRow?.linked_progress_status as string | null) ?? null
-    const newPaymentStatusDetail: string | null = (linkedRow?.linked_payment_status as string | null) ?? null
+    const newPaymentStatusDetail: string | null =
+      (linkedRow?.linked_payment_status as string | null) ??
+      NOTIFY_TO_PAYMENT_STATUS[type] ??
+      null
     const nowIso = new Date().toISOString()
 
     // ── notification_log append ────────────────────────────────────

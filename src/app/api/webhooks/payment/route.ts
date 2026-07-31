@@ -228,10 +228,11 @@ export async function POST(request: NextRequest) {
       }
 
       const app = depositCandidates[0]
+      const depositNow = new Date().toISOString()
 
       await supabase
         .from('service_applications')
-        .update({ deposit: amount })
+        .update({ deposit: amount, deposit_paid_at: depositNow })
         .eq('id', app.id)
 
       const { ok, newStatus } = await fireNotify(origin, app.id, '예약금 입금완료 알림')
@@ -283,6 +284,12 @@ export async function POST(request: NextRequest) {
           paid: amount, expected: dbBalance,
         })
       }
+
+      const balanceNow = new Date().toISOString()
+      await supabase
+        .from('service_applications')
+        .update({ balance_paid_at: balanceNow })
+        .eq('id', app.id)
 
       const { ok, newStatus } = await fireNotify(origin, app.id, '결제완료알림(잔금)')
 
