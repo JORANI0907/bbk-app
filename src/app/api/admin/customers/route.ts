@@ -439,6 +439,7 @@ export async function PATCH(request: NextRequest) {
 
   // Phase 27-AG: 1회성·일반일정은 이번달 일정 섹션이 없어 시공일자를 세부화면 상단에서 직접 편집.
   // 이 경우 next_visit_date 변경을 linked application 의 construction_date 로 자동 동기화.
+  // Fix: .limit(1) + order로 최신 앱 1개만 사용 (반복 방문 고객의 다수 앱 문제 해결).
   const isOneShot = updatedCustomer.customer_type === '1회성케어' || updatedCustomer.customer_type === '일반일정'
   if ('next_visit_date' in rest && isOneShot) {
     try {
@@ -448,7 +449,8 @@ export async function PATCH(request: NextRequest) {
         .eq('customer_id', id)
         .is('deleted_at', null)
         .is('archived_at', null)
-        .limit(2)
+        .order('created_at', { ascending: false })
+        .limit(1)
       if (linkedApps && linkedApps.length === 1) {
         const targetApp = linkedApps[0]
         const newDate = (rest.next_visit_date as string | null) || null
@@ -462,27 +464,31 @@ export async function PATCH(request: NextRequest) {
   }
 
   // Phase 27-AH: worker_ids 배열이 들어오면 linked application 의 work_assignments 다중 배정 동기화.
-  // 1회성/일반일정(1:1) 에서 다중 작업자 배정 지원 — 정기는 별도 이번달 일정 섹션에서 회차별 배정.
+  // 1회성/일반일정에서 다중 작업자 배정 지원 — 정기는 이번달 일정 섹션에서 회차별 배정.
+  // Fix: .limit(1) + order로 최신 앱 사용, construction_date 없으면 next_visit_date 폴백.
   if ('worker_ids' in rest && Array.isArray(rest.worker_ids) && isOneShot) {
     try {
       const workerIds = (rest.worker_ids as unknown[])
         .filter((x): x is string => typeof x === 'string' && x.trim().length > 0)
+      const nextVisitDate = (rest.next_visit_date as string | null) || null
       const { data: linkedApps } = await supabase
         .from('service_applications')
         .select('id, construction_date, business_name')
         .eq('customer_id', id)
         .is('deleted_at', null)
         .is('archived_at', null)
-        .limit(2)
+        .order('created_at', { ascending: false })
+        .limit(1)
       if (linkedApps && linkedApps.length === 1) {
         const app = linkedApps[0]
-        // 기존 assignments 전체 삭제 후 재삽입 (assign-worker API 와 동일 패턴)
+        // construction_date 없으면 next_visit_date 폴백 (work_assignments NOT NULL 제약 대응)
+        const effectiveDate = app.construction_date ?? nextVisitDate
         await supabase.from('work_assignments').delete().eq('application_id', app.id)
-        if (workerIds.length > 0 && app.construction_date && app.business_name) {
+        if (workerIds.length > 0 && effectiveDate && app.business_name) {
           const rows = workerIds.map(wid => ({
             worker_id: wid,
             application_id: app.id,
-            construction_date: app.construction_date,
+            construction_date: effectiveDate,
             business_name: app.business_name,
           }))
           await supabase.from('work_assignments').insert(rows)

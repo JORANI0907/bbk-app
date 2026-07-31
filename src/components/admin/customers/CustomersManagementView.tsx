@@ -1235,11 +1235,13 @@ export function CustomersManagementView({
         if (!res.ok) throw new Error(data.error || '저장 실패')
         toast.success('저장되었습니다.')
         const updated = (data.customer ?? { ...selected, ...body }) as Customer
-        setCustomers(prev => prev.map(c => c.id === selected.id ? updated : c))
-        setSelected(updated)
-        setForm(toForm(updated))
-        setVisitWeekdays(updated.visit_weekdays ?? [])
-        setVisitMonthlyDates(updated.visit_monthly_dates ?? [])
+        // assigned_worker_ids는 PATCH 응답에 없음(JOIN 계산 필드) → 현재 선택 상태를 병합해 보존
+        const updatedWithWorkers: Customer = { ...updated, assigned_worker_ids: customerWorkerIds }
+        setCustomers(prev => prev.map(c => c.id === selected.id ? updatedWithWorkers : c))
+        setSelected(updatedWithWorkers)
+        setForm(toForm(updatedWithWorkers))
+        setVisitWeekdays(updatedWithWorkers.visit_weekdays ?? [])
+        setVisitMonthlyDates(updatedWithWorkers.visit_monthly_dates ?? [])
         autoGenerateBillings(selected.id)
       }
     } catch (e) {
