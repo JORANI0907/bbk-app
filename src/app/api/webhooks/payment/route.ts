@@ -302,11 +302,11 @@ export async function POST(request: NextRequest) {
       if (app.customer_id) {
         await supabase
           .from('customers')
-          .update({ balance_paid_at: balanceNow, payment_status_detail: '결제완료(잔금)' })
+          .update({ balance_paid_at: balanceNow, payment_status_detail: '결제완료' })
           .eq('id', app.customer_id)
       }
 
-      const { ok, newStatus } = await fireNotify(origin, app.id, '결제완료알림(잔금)')
+      const { ok, newStatus } = await fireNotify(origin, app.id, '결제완료알림')
 
       await sendSlack(
         `💰 *잔금 입금 확인*\n• 업체: ${app.business_name} (${app.owner_name})\n• 입금자: ${depositor}\n• 금액: ${amount.toLocaleString('ko-KR')}원\n• 알림: ${ok ? '✅' : '❌'} | 상태: ${newStatus ?? '-'}`
