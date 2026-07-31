@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import toast from 'react-hot-toast'
-import { RefreshCw, Download, Filter, Search, AlertCircle, CheckCircle2, FileSpreadsheet, Settings, Pencil, Check, Undo2 } from 'lucide-react'
+import { RefreshCw, Download, Filter, Search, AlertCircle, CheckCircle2, FileSpreadsheet, Settings, Pencil, Check, Undo2, ChevronLeft, ChevronRight } from 'lucide-react'
 import Link from 'next/link'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
@@ -28,6 +28,7 @@ interface Candidate {
   vat: number
   total_amount: number
   billing_period: string | null
+  application_id: string | null
   construction_date: string | null
   created_at: string
   tax_invoice_issued: boolean
@@ -103,6 +104,12 @@ export default function TaxInvoiceDashboardPage() {
   const [paymentMethods, setPaymentMethods] = useState<string[]>([])
   const [customerStatuses, setCustomerStatuses] = useState<string[]>(['active', 'paused', 'terminated'])
 
+  // 월단위 뷰 (1회성케어 시공일자 기준)
+  const [viewMonth, setViewMonth] = useState<string | null>(() => {
+    const d = new Date()
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+  })
+
   // 기간 선택 모달 (정기케어 발행용)
   const [billingSelectTarget, setBillingSelectTarget] = useState<Candidate | null>(null)
   const [search, setSearch] = useState('')
@@ -150,6 +157,13 @@ export default function TaxInvoiceDashboardPage() {
       if (serviceTypes.length > 0) params.set('service_type', serviceTypes.join(','))
       if (paymentMethods.length > 0) params.set('payment_method', paymentMethods.join(','))
       if (customerStatuses.length < 3) params.set('customer_status', customerStatuses.join(','))
+      // 월뷰 필터: 1회성케어 시공일자 기준 (정기케어는 서버에서 필터 무시)
+      if (viewMonth) {
+        const [y, mo] = viewMonth.split('-').map(Number)
+        const lastDay = new Date(y, mo, 0).getDate()
+        params.set('from', `${viewMonth}-01`)
+        params.set('to', `${viewMonth}-${String(lastDay).padStart(2, '0')}`)
+      }
       const res = await fetch(`/api/admin/tax-invoice/candidates?${params}`)
       const json = await res.json()
       if (!res.ok) throw new Error(json.error ?? '조회 실패')
@@ -170,7 +184,7 @@ export default function TaxInvoiceDashboardPage() {
     } finally {
       setLoading(false)
     }
-  }, [includeIssued, serviceTypes, paymentMethods, customerStatuses])
+  }, [includeIssued, serviceTypes, paymentMethods, customerStatuses, viewMonth])
 
   useEffect(() => { void load() }, [load])
 
@@ -183,6 +197,36 @@ export default function TaxInvoiceDashboardPage() {
       (c.business_number ?? '').toLowerCase().includes(q)
     )
   }, [candidates, search])
+
+  // 1회성케어(시공일자 DESC) → 정기케어 순으로 정렬
+  const sortedCandidates = useMemo(() => {
+    const oneTime = filteredCandidates.filter(c => c.source === 'application')
+    const periodic = filteredCandidates.filter(c => c.source === 'customer')
+    const sortedOneTime = [...oneTime].sort((a, b) => {
+      if (!a.construction_date && !b.construction_date) return 0
+      if (!a.construction_date) return 1
+      if (!b.construction_date) return -1
+      return b.construction_date.localeCompare(a.construction_date)
+    })
+    return [...sortedOneTime, ...periodic]
+  }, [filteredCandidates])
+
+  // 월 이동 헬퍼
+  const shiftMonth = (delta: number) => {
+    setViewMonth(m => {
+      if (!m) {
+        const d = new Date()
+        const base = new Date(d.getFullYear(), d.getMonth() + delta, 1)
+        return `${base.getFullYear()}-${String(base.getMonth() + 1).padStart(2, '0')}`
+      }
+      const [y, mo] = m.split('-').map(Number)
+      const next = new Date(y, mo - 1 + delta, 1)
+      return `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, '0')}`
+    })
+  }
+  const viewMonthLabel = viewMonth
+    ? `${viewMonth.slice(0, 4)}년 ${parseInt(viewMonth.slice(5, 7))}월`
+    : '전체'
 
   const rowKey = (c: Candidate) => `${c.source}:${c.source_id}`
 
@@ -561,10 +605,44 @@ export default function TaxInvoiceDashboardPage() {
         <StatCard label={`선택 (${stats.selected}건)`} value={`${fmtKr(stats.sumAmount)}원`} tone="brand" small />
       </div>
 
+      {/* 월단위 뷰 네비게이션 */}
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            onClick={() => shiftMonth(-1)}
+            className="p-1.5 rounded-lg hover:bg-surface-sunken transition-colors text-text-secondary"
+            title="이전 달">
+            <ChevronLeft size={16} />
+          </button>
+          <span className="text-sm font-semibold text-text-primary min-w-[100px] text-center">{viewMonthLabel}</span>
+          <button
+            type="button"
+            onClick={() => shiftMonth(1)}
+            className="p-1.5 rounded-lg hover:bg-surface-sunken transition-colors text-text-secondary"
+            title="다음 달">
+            <ChevronRight size={16} />
+          </button>
+          <button
+            type="button"
+            onClick={() => setViewMonth(null)}
+            className={`ml-1 text-[11px] px-2.5 py-1 rounded-full border transition-colors ${
+              viewMonth === null
+                ? 'bg-brand-600 border-brand-600 text-white'
+                : 'bg-surface border-border text-text-secondary hover:border-brand-400 hover:text-brand-600'
+            }`}>
+            전체보기
+          </button>
+        </div>
+        <p className="text-[11px] text-text-tertiary">
+          {viewMonth ? '1회성케어는 시공일자 기준, 정기케어는 항상 하단에 표시' : '전체 조회 — 정기케어는 하단에 표시'}
+        </p>
+      </div>
+
       {/* Table */}
       <div className="bg-surface rounded-2xl border border-border-subtle overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[1100px] text-sm">
+          <table className="w-full min-w-[1120px] text-sm">
             <thead className="bg-surface-sunken border-b border-border-subtle">
               <tr>
                 <th className="w-10 py-2.5 pl-4">
@@ -584,7 +662,7 @@ export default function TaxInvoiceDashboardPage() {
                 <th className="text-right px-3 py-2.5 text-xs font-medium text-text-secondary">공급가액</th>
                 <th className="text-right px-3 py-2.5 text-xs font-medium text-text-secondary">세액</th>
                 <th className="text-right px-3 py-2.5 text-xs font-medium text-text-secondary">합계</th>
-                <th className="text-left px-3 py-2.5 text-xs font-medium text-text-secondary">기준일</th>
+                <th className="text-left px-3 py-2.5 text-xs font-medium text-text-secondary">시공일자</th>
                 <th className="text-left px-3 py-2.5 text-xs font-medium text-text-secondary">상태</th>
                 <th className="w-16 py-2.5" />
               </tr>
@@ -592,12 +670,12 @@ export default function TaxInvoiceDashboardPage() {
             <tbody className="anim-stagger-fast divide-y divide-border-subtle">
               {loading ? (
                 <tr><td colSpan={12} className="py-16 text-center text-sm text-text-tertiary">로딩 중…</td></tr>
-              ) : filteredCandidates.length === 0 ? (
+              ) : sortedCandidates.length === 0 ? (
                 <tr><td colSpan={12} className="py-16 text-center text-sm text-text-tertiary">
                   <FileSpreadsheet size={28} className="mx-auto opacity-30 mb-2" />
                   발행 대상이 없습니다.
                 </td></tr>
-              ) : filteredCandidates.map(c => {
+              ) : sortedCandidates.map(c => {
                 const key = rowKey(c)
                 const isSelected = selectedIds.has(key)
                 const canSelect = c.is_valid
@@ -627,8 +705,10 @@ export default function TaxInvoiceDashboardPage() {
                     <td className="px-3 py-2 text-right tabular-nums text-text-tertiary">{fmtKr(c.vat)}</td>
                     <td className="px-3 py-2 text-right tabular-nums font-semibold text-text-primary">{fmtKr(c.total_amount)}</td>
                     <td className="px-3 py-2 text-text-tertiary whitespace-nowrap text-xs">
-                      {c.construction_date ?? fmtDate(c.created_at)}
-                      {c.billing_period && <span className="ml-1 text-[10px]">({c.billing_period})</span>}
+                      {c.construction_date
+                        ? c.construction_date.slice(0, 10)
+                        : <span className="text-text-tertiary">—</span>
+                      }
                     </td>
                     <td className="px-3 py-2">
                       <RowStatus c={c} />

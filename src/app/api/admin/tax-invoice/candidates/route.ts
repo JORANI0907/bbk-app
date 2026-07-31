@@ -17,7 +17,6 @@ export const dynamic = 'force-dynamic'
 //   customer_status=active,paused,terminated → 정기케어 고객 상태 필터 (기본: 모두)
 //   from=YYYY-MM-DD, to=YYYY-MM-DD   → 기준일자 필터 (application 전용)
 
-const APPLICATION_TARGET_STATUSES = ['결제완료', '결제완료(잔금)']
 const APPLICATION_ISSUED_STATUS = '계산서발행완료'
 
 type Source = 'application' | 'customer'
@@ -62,6 +61,7 @@ interface Candidate {
   vat: number
   total_amount: number
   billing_period: string | null
+  application_id: string | null
   construction_date: string | null
   created_at: string
   tax_invoice_issued: boolean
@@ -184,93 +184,127 @@ export async function GET(request: NextRequest) {
     })
   }
 
-  // ── 소스 1: service_applications (1회성케어 전용) ──────────────
+  // ── 소스 1: customers (1회성케어) + service_applications ───────
+  // 고객 마스터를 기준으로 SA를 병합 — 상태 조건 없이 전체 조회
   if (!sourceFilter || sourceFilter === 'application') {
-    let appQ = supabase
-      .from('service_applications')
-      .select(`
-        id,
-        service_type,
-        business_name,
-        business_number,
-        owner_name,
-        address,
-        email,
-        phone,
-        payment_method,
-        supply_amount,
-        vat,
-        construction_date,
-        status,
-        tax_invoice_issued,
-        tax_invoice_issued_at,
-        created_at
-      `)
-      .is('deleted_at', null)
-      .eq('service_type', '1회성케어')
+    const skipOneTime = serviceTypes && serviceTypes.length > 0 && !serviceTypes.includes('1회성케어')
 
-    if (includeIssued) {
-      appQ = appQ.in('status', [...APPLICATION_TARGET_STATUSES, APPLICATION_ISSUED_STATUS])
-    } else {
-      appQ = appQ.in('status', APPLICATION_TARGET_STATUSES).eq('tax_invoice_issued', false)
-    }
+    if (!skipOneTime) {
+      let custQ = supabase
+        .from('customers')
+        .select(`
+          id, business_name, business_number, contact_name, address, email, contact_phone,
+          payment_method, status, created_at,
+          service_applications (
+            id, construction_date, status, tax_invoice_issued, tax_invoice_issued_at,
+            supply_amount, vat, payment_method, created_at
+          )
+        `)
+        .eq('customer_type', '1회성케어')
+        .is('deleted_at', null)
+        .is('archived_at', null)
 
-    if (serviceTypes && serviceTypes.length > 0) appQ = appQ.in('service_type', serviceTypes)
-    if (paymentMethods && paymentMethods.length > 0) appQ = appQ.in('payment_method', paymentMethods)
-    if (fromDate) appQ = appQ.gte('construction_date', fromDate)
-    if (toDate) appQ = appQ.lte('construction_date', toDate)
-
-    const { data: apps, error: appErr } = await appQ.order('construction_date', { ascending: false })
-    if (appErr) {
-      return NextResponse.json({ error: `applications: ${appErr.message}` }, { status: 500 })
-    }
-
-    for (const a of apps ?? []) {
-      const draft = draftMap.get(`application:${a.id}`)
-      const business_number = draft?.receiver_business_number ?? a.business_number ?? null
-      const business_name = draft?.receiver_business_name ?? a.business_name
-      const owner_name = draft?.receiver_owner_name ?? a.owner_name
-      const address = draft?.receiver_address ?? a.address ?? null
-      const email = draft?.receiver_email ?? a.email ?? null
-
-      let supply = Number(a.supply_amount ?? 0)
-      let vat = Number(a.vat ?? 0)
-      if (draft?.items && draft.items.length > 0) {
-        supply = draft.items.reduce((s, i) => s + Number(i.supply_amount ?? (Number(i.qty ?? 1) * Number(i.unit_price ?? 0))), 0)
-        vat = draft.items.reduce((s, i) => s + Number(i.vat ?? 0), 0)
-        if (vat === 0) vat = Math.round(supply * 0.1)
+      if (paymentMethods && paymentMethods.length > 0) {
+        custQ = custQ.in('payment_method', paymentMethods)
       }
 
-      const validity = checkValidity({ business_number, business_name, owner_name })
-      results.push({
-        source: 'application',
-        source_id: a.id,
-        service_type: a.service_type ?? null,
-        business_name,
-        business_number,
-        owner_name,
-        address,
-        email,
-        phone: a.phone ?? null,
-        payment_method: a.payment_method ?? null,
-        supply_amount: supply,
-        vat,
-        total_amount: supply + vat,
-        billing_period: null,
-        construction_date: a.construction_date ?? null,
-        created_at: a.created_at,
-        tax_invoice_issued: a.tax_invoice_issued === true || a.status === APPLICATION_ISSUED_STATUS,
-        tax_invoice_issued_at: a.tax_invoice_issued_at ?? null,
-        ...validity,
-        has_draft: !!draft,
-        draft_supplier_id: draft?.supplier_id ?? null,
-        draft_items: draft?.items ?? null,
-        draft_receiver_business_type: draft?.receiver_business_type ?? null,
-        draft_receiver_business_item: draft?.receiver_business_item ?? null,
-        draft_receiver_email_2: draft?.receiver_email_2 ?? null,
-        draft_receipt_type: draft?.bill_receipt_type ?? null,
-        draft_invoice_kind: draft?.invoice_kind ?? null,
-      })
+      const { data: oneTimeCusts, error: oneTimeErr } = await custQ.order('created_at', { ascending: false })
+      if (oneTimeErr) {
+        return NextResponse.json({ error: `1회성케어: ${oneTimeErr.message}` }, { status: 500 })
+      }
+
+      interface SaRow {
+        id: string
+        construction_date: string | null
+        status: string
+        tax_invoice_issued: boolean
+        tax_invoice_issued_at: string | null
+        supply_amount: number | null
+        vat: number | null
+        payment_method: string | null
+        created_at: string
+      }
+      interface OneTimeCust {
+        id: string
+        business_name: string
+        business_number: string | null
+        contact_name: string | null
+        address: string | null
+        email: string | null
+        contact_phone: string | null
+        payment_method: string | null
+        status: string | null
+        created_at: string
+        service_applications: SaRow[]
+      }
+
+      for (const c of ((oneTimeCusts ?? []) as unknown) as OneTimeCust[]) {
+        const apps: SaRow[] = Array.isArray(c.service_applications) ? c.service_applications : []
+
+        // 시공일자 내림차순 정렬 (null은 아래로)
+        const sortedApps = [...apps].sort((a, b) => {
+          if (!a.construction_date && !b.construction_date) return 0
+          if (!a.construction_date) return 1
+          if (!b.construction_date) return -1
+          return b.construction_date.localeCompare(a.construction_date)
+        })
+
+        for (const sa of sortedApps) {
+          // 월별 날짜 필터
+          if (fromDate && sa.construction_date && sa.construction_date < fromDate) continue
+          if (toDate && sa.construction_date && sa.construction_date > toDate) continue
+
+          const isIssued = sa.tax_invoice_issued === true || sa.status === APPLICATION_ISSUED_STATUS
+          if (!includeIssued && isIssued) continue
+
+          const draft = draftMap.get(`application:${sa.id}`)
+          const business_number = draft?.receiver_business_number ?? c.business_number ?? null
+          const business_name = draft?.receiver_business_name ?? c.business_name
+          const owner_name = draft?.receiver_owner_name ?? c.contact_name ?? ''
+          const address = draft?.receiver_address ?? c.address ?? null
+          const email = draft?.receiver_email ?? c.email ?? null
+
+          let supply = Number(sa.supply_amount ?? 0)
+          let vat = Number(sa.vat ?? 0)
+          if (draft?.items && draft.items.length > 0) {
+            supply = draft.items.reduce((s, i) => s + Number(i.supply_amount ?? (Number(i.qty ?? 1) * Number(i.unit_price ?? 0))), 0)
+            vat = draft.items.reduce((s, i) => s + Number(i.vat ?? 0), 0)
+            if (vat === 0) vat = Math.round(supply * 0.1)
+          }
+
+          const validity = checkValidity({ business_number, business_name, owner_name })
+          results.push({
+            source: 'application',
+            source_id: sa.id,
+            application_id: sa.id,
+            service_type: '1회성케어',
+            business_name,
+            business_number,
+            owner_name,
+            address,
+            email,
+            phone: c.contact_phone ?? null,
+            payment_method: sa.payment_method ?? c.payment_method ?? null,
+            supply_amount: supply,
+            vat,
+            total_amount: supply + vat,
+            billing_period: null,
+            construction_date: sa.construction_date ?? null,
+            created_at: sa.created_at,
+            tax_invoice_issued: isIssued,
+            tax_invoice_issued_at: sa.tax_invoice_issued_at ?? null,
+            ...validity,
+            has_draft: !!draft,
+            draft_supplier_id: draft?.supplier_id ?? null,
+            draft_items: draft?.items ?? null,
+            draft_receiver_business_type: draft?.receiver_business_type ?? null,
+            draft_receiver_business_item: draft?.receiver_business_item ?? null,
+            draft_receiver_email_2: draft?.receiver_email_2 ?? null,
+            draft_receipt_type: draft?.bill_receipt_type ?? null,
+            draft_invoice_kind: draft?.invoice_kind ?? null,
+          })
+        }
+      }
     }
   }
 
@@ -338,16 +372,11 @@ export async function GET(request: NextRequest) {
       const unissuedCount = paidCount - issuedCount
       const invoiceStatus = calcInvoiceStatus(paidCount, issuedCount)
 
-      // includeIssued=false 이고 전체 발행완료면 목록에서 제외
+      // 전체 발행완료이고 includeIssued=false면 제외 (신규고객/결제이력 없는 고객은 포함)
       if (!includeIssued && invoiceStatus === 'all_issued') continue
-      // 결제이력이 아예 없는 고객도 includeIssued=false면 제외
-      if (!includeIssued && invoiceStatus === 'no_paid') continue
 
-      // billing_periods 배열 구성 (paid 건 + 미발행 paid 건 우선 정렬)
+      // billing_periods: 모든 기간 포함 (모달에서 전체 이력 확인 가능하도록)
       const billingPeriods: BillingPeriodItem[] = rawBillings
-        .filter((b: { status: string; tax_invoice_issued: boolean }) =>
-          b.status === 'paid' || (includeIssued)
-        )
         .sort((a: { billing_period: string }, b: { billing_period: string }) =>
           b.billing_period.localeCompare(a.billing_period)
         )
@@ -405,6 +434,7 @@ export async function GET(request: NextRequest) {
       results.push({
         source: 'customer',
         source_id: c.id,
+        application_id: null,
         service_type: c.customer_type ?? null,
         business_name,
         business_number,
