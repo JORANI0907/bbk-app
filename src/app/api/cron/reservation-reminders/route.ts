@@ -99,6 +99,8 @@ function buildVariables(
         '고객명':       ownerName,
         '청소카드비용': total,
       }
+    default:
+      return { '고객명': String(app.owner_name ?? '') }
   }
 }
 
@@ -170,11 +172,12 @@ async function sendAndLog(
 
   const { data: tpl } = await supabase
     .from('notification_templates')
-    .select('auto_used, applicable_types, is_active')
+    .select('auto_used, send_mode, applicable_types, is_active')
     .eq('code', lookupCode)
     .maybeSingle()
 
-  if (!tpl || !tpl.is_active || !tpl.auto_used) {
+  // send_mode='auto' AND auto_used=true AND is_active=true 모두 충족해야 발송
+  if (!tpl || !tpl.is_active || !tpl.auto_used || tpl.send_mode !== 'auto') {
     return 'skipped_auto_off'
   }
 

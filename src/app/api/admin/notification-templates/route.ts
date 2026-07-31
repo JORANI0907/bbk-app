@@ -3,11 +3,11 @@ import { createServiceClient } from '@/lib/supabase/server'
 import { getServerSession } from '@/lib/session'
 
 /**
- * Phase 25: 알림 템플릿 CRUD
+ * Phase 28: 알림 템플릿 CRUD — send_mode / is_locked 기반 잠금 체계
  * - GET   ?scope=customer|application&type=1회성케어&location=customer_detail
- * - POST  { code, scope, applicable_types, applicable_locations, category, title, subject, body }
- * - PATCH { id, ...fields } — 시스템 템플릿은 body/subject/title/is_active만 수정 가능
- * - DELETE ?id=... — is_system=true는 삭제 불가
+ * - POST  { code, scope, applicable_types, applicable_locations, category, title, body, send_mode? }
+ * - PATCH { id, ...fields } — is_locked=true 시 body/title/subject/category 만 비잠금 편집 가능
+ * - DELETE ?id=... — is_locked=true 또는 is_system=true 는 삭제 불가
  */
 
 export async function GET(request: NextRequest) {
@@ -19,14 +19,16 @@ export async function GET(request: NextRequest) {
   const type = searchParams.get('type')
   const location = searchParams.get('location')
   const activeOnly = searchParams.get('active_only') === 'true'
+  const sendMode = searchParams.get('send_mode')
 
   const supabase = createServiceClient()
-  let query = supabase.from('notification_templates').select('*').order('category').order('title')
+  let query = supabase.from('notification_templates').select('*').order('send_mode').order('category').order('title')
 
   if (scope) query = query.eq('scope', scope)
   if (activeOnly) query = query.eq('is_active', true)
   if (type) query = query.contains('applicable_types', [type])
   if (location) query = query.contains('applicable_locations', [location])
+  if (sendMode) query = query.eq('send_mode', sendMode)
 
   const { data, error } = await query
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
@@ -43,6 +45,10 @@ export async function POST(request: NextRequest) {
     if (!body[k]) return NextResponse.json({ error: `${k}는 필수입니다.` }, { status: 400 })
   }
 
+  const sendMode = body.send_mode ?? 'manual'
+  const isLocked = sendMode === 'auto' || sendMode === 'semi_auto'
+  const autoUsed = sendMode === 'auto'
+
   const supabase = createServiceClient()
   const { data, error } = await supabase
     .from('notification_templates')
@@ -57,6 +63,9 @@ export async function POST(request: NextRequest) {
       body: body.body,
       is_active: body.is_active ?? true,
       is_system: false,
+      auto_used: autoUsed,
+      send_mode: sendMode,
+      is_locked: isLocked,
       updated_by: session.userId,
     })
     .select()
@@ -76,34 +85,37 @@ export async function PATCH(request: NextRequest) {
 
   const supabase = createServiceClient()
 
-  // 시스템 템플릿 여부 확인 → 수정 가능 필드 제한
   const { data: existing } = await supabase
     .from('notification_templates')
-    .select('is_system')
+    .select('is_system, is_locked, send_mode')
     .eq('id', id)
     .single()
 
-  // Phase 27-S: trigger_desc 는 시스템 고정 (편집 UI 없음, API 도 잠금).
-  // Phase 27-AQ: linked_progress_status / linked_payment_status 추가 — 알림 발송 시 자동 세팅될 상태를 관리자가 지정.
-  const SYSTEM_EDITABLE = new Set(['title', 'subject', 'body', 'is_active', 'category',
-    'applicable_types', 'applicable_locations', 'auto_used',
-    'linked_progress_status', 'linked_payment_status'])
+  // 시스템 템플릿: 일부 필드만 편집 허용
+  const SYSTEM_EDITABLE = new Set([
+    'title', 'subject', 'body', 'is_active', 'category',
+    'applicable_types', 'applicable_locations',
+    'send_mode', 'is_locked', 'auto_used',
+    'linked_progress_status', 'linked_payment_status',
+  ])
   const ALL_EDITABLE = new Set([...SYSTEM_EDITABLE, 'code', 'scope'])
+  const editable = existing?.is_system ? SYSTEM_EDITABLE : ALL_EDITABLE
 
-  // Phase 25c: auto_used 템플릿은 is_active 잠금 (본문·제목만 편집)
-  const { data: existingFull } = await supabase
-    .from('notification_templates')
-    .select('is_system, auto_used')
-    .eq('id', id)
-    .single()
+  const updates: Record<string, unknown> = {
+    updated_at: new Date().toISOString(),
+    updated_by: session.userId,
+  }
 
-  const editable = existingFull?.is_system ? SYSTEM_EDITABLE : ALL_EDITABLE
-  const updates: Record<string, unknown> = { updated_at: new Date().toISOString(), updated_by: session.userId }
   for (const key of Object.keys(rest)) {
     if (!editable.has(key)) continue
-    // Phase 27-S 5-c: auto_used 상태에서도 is_active 편집 허용.
-    // UI 에 자물쇠 해제 게이트가 있어 실수 방지. cron 은 is_active·auto_used 둘 다 검사하므로 안전.
     updates[key] = rest[key]
+  }
+
+  // send_mode 변경 시 auto_used / is_locked 자동 동기화
+  if ('send_mode' in updates) {
+    const newMode = updates.send_mode as string
+    updates.auto_used = newMode === 'auto'
+    updates.is_locked = newMode === 'auto' || newMode === 'semi_auto'
   }
 
   const { data, error } = await supabase
@@ -112,6 +124,7 @@ export async function PATCH(request: NextRequest) {
     .eq('id', id)
     .select()
     .single()
+
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ template: data })
 }
@@ -128,15 +141,15 @@ export async function DELETE(request: NextRequest) {
 
   const { data: existing } = await supabase
     .from('notification_templates')
-    .select('is_system, auto_used')
+    .select('is_system, is_locked, title')
     .eq('id', id)
     .single()
 
-  if (existing?.auto_used) {
-    return NextResponse.json({ error: '자동 발송용 템플릿은 삭제할 수 없습니다. 자동화 로직이 참조 중입니다.' }, { status: 400 })
+  if (existing?.is_locked) {
+    return NextResponse.json({ error: '자동·반자동 템플릿은 삭제할 수 없습니다. 발송 로직이 참조 중입니다.' }, { status: 400 })
   }
   if (existing?.is_system) {
-    return NextResponse.json({ error: '시스템 기본 템플릿은 삭제할 수 없습니다. 비활성화하세요.' }, { status: 400 })
+    return NextResponse.json({ error: '시스템 기본 템플릿은 삭제할 수 없습니다.' }, { status: 400 })
   }
 
   const { error } = await supabase.from('notification_templates').delete().eq('id', id)
