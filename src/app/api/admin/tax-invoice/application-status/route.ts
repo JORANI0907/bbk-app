@@ -11,14 +11,15 @@ export async function PATCH(request: NextRequest) {
   }
 
   const body = await request.json()
-  const { application_id, payment_complete, tax_invoice_issued } = body as {
-    application_id: string
+  const { application_id, customer_id, payment_complete, tax_invoice_issued } = body as {
+    application_id?: string
+    customer_id?: string
     payment_complete?: boolean
     tax_invoice_issued?: boolean
   }
 
-  if (!application_id) {
-    return NextResponse.json({ error: 'application_id required' }, { status: 400 })
+  if (!application_id && !customer_id) {
+    return NextResponse.json({ error: 'application_id or customer_id required' }, { status: 400 })
   }
 
   const patch: Record<string, unknown> = {}
@@ -37,10 +38,10 @@ export async function PATCH(request: NextRequest) {
 
   const supabase = createServiceClient()
 
-  const { error } = await supabase
-    .from('service_applications')
-    .update(patch)
-    .eq('id', application_id)
+  const query = supabase.from('service_applications').update(patch)
+  const { error } = application_id
+    ? await query.eq('id', application_id)
+    : await query.eq('customer_id', customer_id!)
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 })

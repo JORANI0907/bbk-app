@@ -7,7 +7,7 @@ import { useModalBackButton } from '@/hooks/useModalBackButton'
 import { MapSelectorModal } from '@/components/MapSelectorModal'
 import { BillingHistoryPanel } from '@/components/admin/BillingHistoryPanel'
 import { Button } from '@/components/ui'
-import { Phone, ClipboardList, Map, Banknote, Save, Megaphone, Calendar, BookOpen, Archive, Trash2, Copy, Folder, FolderOpen, FolderPlus } from 'lucide-react'
+import { Phone, ClipboardList, Map, Banknote, Save, Megaphone, Calendar, BookOpen, Archive, Trash2, Copy, Folder, FolderOpen, FolderPlus, CreditCard, FileCheck } from 'lucide-react'
 import { useDriveFolder } from '@/hooks/useDriveFolder'
 import { CustomerAccountLink } from '@/components/admin/CustomerAccountLink'
 import { FieldHint } from '@/components/ui/FieldHint'
@@ -336,6 +336,8 @@ const PAYMENT_STATUS_DETAIL_OPTIONS = [
   { value: '카드결제 완료',  label: '카드결제 완료' },
 ] as const
 
+const PAYMENT_COMPLETE_STATUSES = ['결제완료', '결제완료(잔금)', '카드결제 완료', '계산서발행완료']
+
 // ─── 방문 주기 ────────────────────────────────────────────────
 const WEEKDAYS = [
   { label: '월', value: 1 }, { label: '화', value: 2 }, { label: '수', value: 3 },
@@ -616,6 +618,7 @@ export function CustomersManagementView({
   const [revenueSummary, setRevenueSummary] = useState<{ week: number; month: number; weeks: WeekBreakdown[] }>({ week: 0, month: 0, weeks: [] })
   const [form, setForm] = useState<typeof EMPTY_FORM>(EMPTY_FORM)
   const [saving, setSaving] = useState(false)
+  const [statusToggling, setStatusToggling] = useState(false)
   const [notifyType, setNotifyType] = useState('')
   const [sending, setSending] = useState(false)
   const [notifyLogs, setNotifyLogs] = useState<NotifyLog[]>([])
@@ -1238,6 +1241,54 @@ export function CustomersManagementView({
     } catch (e) {
       toast.error(e instanceof Error ? e.message : '저장 실패')
     } finally { setSaving(false) }
+  }
+
+  const handlePaymentCompleteToggle = async () => {
+    if (!selected || statusToggling) return
+    const isComplete = PAYMENT_COMPLETE_STATUSES.includes(form.payment_status_detail ?? '')
+    const nextStatus = isComplete ? '결제' : '결제완료'
+    setStatusToggling(true)
+    try {
+      const res = await fetch('/api/admin/customers', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: selected.id, payment_status_detail: nextStatus }),
+      })
+      if (!res.ok) throw new Error('저장 실패')
+      setForm(prev => ({ ...prev, payment_status_detail: nextStatus }))
+      setSelected(prev => prev ? { ...prev, payment_status_detail: nextStatus } : prev)
+      setCustomers(prev => prev.map(c => c.id === selected.id ? { ...c, payment_status_detail: nextStatus } : c))
+      toast.success(isComplete ? '결제완료 취소됨' : '결제완료 처리됨')
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : '저장 실패')
+    } finally { setStatusToggling(false) }
+  }
+
+  const handleInvoiceIssuedToggle = async () => {
+    if (!selected || statusToggling) return
+    const isIssued = form.payment_status_detail === '계산서발행완료'
+    const nextStatus = isIssued ? '결제완료' : '계산서발행완료'
+    setStatusToggling(true)
+    try {
+      const res = await fetch('/api/admin/customers', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: selected.id, payment_status_detail: nextStatus }),
+      })
+      if (!res.ok) throw new Error('저장 실패')
+      // service_applications.tax_invoice_issued 도 백그라운드 동기화
+      fetch('/api/admin/tax-invoice/application-status', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ customer_id: selected.id, tax_invoice_issued: !isIssued }),
+      }).catch(() => {})
+      setForm(prev => ({ ...prev, payment_status_detail: nextStatus }))
+      setSelected(prev => prev ? { ...prev, payment_status_detail: nextStatus } : prev)
+      setCustomers(prev => prev.map(c => c.id === selected.id ? { ...c, payment_status_detail: nextStatus } : c))
+      toast.success(isIssued ? '세금계산서 발행완료 취소됨' : '세금계산서 발행완료 처리됨')
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : '저장 실패')
+    } finally { setStatusToggling(false) }
   }
 
   const handleDelete = async () => {
@@ -2822,6 +2873,37 @@ export function CustomersManagementView({
                       ))}
                     </select>
                   </div>
+                  {/* 즉시 토글 버튼 — 클릭만으로 저장, 세부화면 유지 */}
+                  {!isNew && (
+                    <div className="flex items-center gap-2 pt-0.5">
+                      <button
+                        type="button"
+                        disabled={statusToggling}
+                        onClick={handlePaymentCompleteToggle}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors disabled:opacity-50 ${
+                          PAYMENT_COMPLETE_STATUSES.includes(form.payment_status_detail ?? '')
+                            ? 'bg-green-100 text-green-700 border-green-300'
+                            : 'bg-gray-50 text-text-tertiary border-border'
+                        }`}
+                      >
+                        <CreditCard className="w-3.5 h-3.5" />
+                        결제완료
+                      </button>
+                      <button
+                        type="button"
+                        disabled={statusToggling}
+                        onClick={handleInvoiceIssuedToggle}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors disabled:opacity-50 ${
+                          form.payment_status_detail === '계산서발행완료'
+                            ? 'bg-blue-100 text-blue-700 border-blue-300'
+                            : 'bg-gray-50 text-text-tertiary border-border'
+                        }`}
+                      >
+                        <FileCheck className="w-3.5 h-3.5" />
+                        세금계산서 발행완료
+                      </button>
+                    </div>
+                  )}
                   <p className="text-[11px] text-text-tertiary break-keep">
                     시공일자를 지정하면 미배정 목록에서 자동으로 빠지고 시공일자 기준 정렬에 반영됩니다. 진행·결제 상태는 알림 발송 시 자동 업데이트되며 수동 편집도 가능합니다.
                   </p>
