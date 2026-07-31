@@ -89,6 +89,7 @@ interface Customer {
   // Phase 9-A: 진행/결제 상태 이원화 (1회성 세부화면 전용, 정기는 null)
   progress_status: string | null
   payment_status_detail: string | null
+  tax_invoice_issued: boolean | null
   // Phase 20-C / 22: 투입주기 (자유 텍스트, INTEGER→TEXT 확장 — 숫자·격주·매월 등 임의 표현)
   injection_cycle_months: string | null
   // Phase 29: 연간 결제 월/일 (정기딥케어 연간 전용)
@@ -312,6 +313,7 @@ const EMPTY_FORM = {
   // Phase 9-C: 1회성 진행/결제 상태 (신규 등록 시 기본은 시공일자 유무로 자동)
   progress_status: '',
   payment_status_detail: '',
+  tax_invoice_issued: false,
   // Phase 20-C: 투입주기 (몇 개월에 1회)
   injection_cycle_months: '',
   // Phase 29: 연간 결제 월/일 (정기딥케어 연간 전용)
@@ -336,7 +338,7 @@ const PAYMENT_STATUS_DETAIL_OPTIONS = [
   { value: '카드결제 완료',  label: '카드결제 완료' },
 ] as const
 
-const PAYMENT_COMPLETE_STATUSES = ['결제완료', '결제완료(잔금)', '카드결제 완료', '계산서발행완료', '비과세']
+const PAYMENT_COMPLETE_STATUSES = ['결제완료', '결제완료(잔금)', '카드결제 완료', '비과세']
 
 // ─── 방문 주기 ────────────────────────────────────────────────
 const WEEKDAYS = [
@@ -914,6 +916,7 @@ export function CustomersManagementView({
     // Phase 9-C: 진행/결제 상태
     progress_status: c.progress_status ?? '',
     payment_status_detail: c.payment_status_detail ?? '',
+    tax_invoice_issued: c.tax_invoice_issued ?? false,
     // Phase 20-C / 22: 투입주기 (TEXT — 그대로 로드)
     injection_cycle_months: c.injection_cycle_months ?? '',
     // Phase 29: 연간 결제 월/일 (정기딥케어 연간 전용)
@@ -1010,6 +1013,7 @@ export function CustomersManagementView({
         billing_key: null,
         progress_status: '신청서작성',
         payment_status_detail: null,
+        tax_invoice_issued: null,
         injection_cycle_months: null,
         yearly_billing_month: null,
         yearly_billing_day: null,
@@ -1266,25 +1270,25 @@ export function CustomersManagementView({
 
   const handleInvoiceIssuedToggle = async () => {
     if (!selected || statusToggling) return
-    const isIssued = form.payment_status_detail === '계산서발행완료'
-    const nextStatus = isIssued ? '결제완료' : '계산서발행완료'
+    const isIssued = form.tax_invoice_issued === true
+    const next = !isIssued
     setStatusToggling(true)
     try {
       const res = await fetch('/api/admin/customers', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: selected.id, payment_status_detail: nextStatus }),
+        body: JSON.stringify({ id: selected.id, tax_invoice_issued: next }),
       })
       if (!res.ok) throw new Error('저장 실패')
       // service_applications.tax_invoice_issued 도 백그라운드 동기화
       fetch('/api/admin/tax-invoice/application-status', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ customer_id: selected.id, tax_invoice_issued: !isIssued }),
+        body: JSON.stringify({ customer_id: selected.id, tax_invoice_issued: next }),
       }).catch(() => {})
-      setForm(prev => ({ ...prev, payment_status_detail: nextStatus }))
-      setSelected(prev => prev ? { ...prev, payment_status_detail: nextStatus } : prev)
-      setCustomers(prev => prev.map(c => c.id === selected.id ? { ...c, payment_status_detail: nextStatus } : c))
+      setForm(prev => ({ ...prev, tax_invoice_issued: next }))
+      setSelected(prev => prev ? { ...prev, tax_invoice_issued: next } : prev)
+      setCustomers(prev => prev.map(c => c.id === selected.id ? { ...c, tax_invoice_issued: next } : c))
       toast.success(isIssued ? '세금계산서 발행완료 취소됨' : '세금계산서 발행완료 처리됨')
     } catch (e) {
       toast.error(e instanceof Error ? e.message : '저장 실패')
@@ -1880,6 +1884,7 @@ export function CustomersManagementView({
           billing_key: null,
           progress_status: a.status ?? '신청서작성',
           payment_status_detail: null,
+          tax_invoice_issued: null,
           injection_cycle_months: null,
           yearly_billing_month: null,
           yearly_billing_day: null,
@@ -2894,7 +2899,7 @@ export function CustomersManagementView({
                         disabled={statusToggling}
                         onClick={handleInvoiceIssuedToggle}
                         className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors disabled:opacity-50 ${
-                          form.payment_status_detail === '계산서발행완료'
+                          form.tax_invoice_issued === true
                             ? 'bg-blue-100 text-blue-700 border-blue-300'
                             : 'bg-gray-50 text-text-tertiary border-border'
                         }`}

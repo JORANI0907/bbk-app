@@ -31,7 +31,7 @@ const ALLOWED = [
   'payment_status', 'payment_date', 'schedule_generation_day',
   'notes', 'drive_folder_url',
   // Phase 9-B: 1회성 진행/결제 상태 이원화 (customers 기반 통합)
-  'progress_status', 'payment_status_detail',
+  'progress_status', 'payment_status_detail', 'tax_invoice_issued',
   // Phase 20-C: 투입주기 (몇 개월에 1회)
   'injection_cycle_months',
   // Phase 29: 연간 결제 월/일 (정기딥케어 연간 전용)
