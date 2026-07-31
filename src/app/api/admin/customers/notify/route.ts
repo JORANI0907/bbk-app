@@ -21,6 +21,9 @@ const NOTIFY_PIPELINE_STATUS: Record<string, string> = {
 const ALIMTALK_TEMPLATES: Record<string, string> = {
   // 기존 customer 알림
   '정기결제알림': 'KA01TP260324125257636A2QdT1YNpL5',
+  // Phase 29: 신설 — 결제방법별 정기결제 알림 (카카오 채널 심사 후 ID 채울 것)
+  '정기결제알림(현금)': '',
+  '정기결제알림(카드)': '',
   '정기방문알림': 'KA01TP260324125257699vIDeuYdkbc0',
   '계약갱신알림': 'KA01TP260324125257737g0vuFScqrCv',
   '건당결제알림': 'KA01TP260324125257773XLuybvXeleL',
@@ -99,6 +102,10 @@ function buildVariables(
   switch (type) {
     // ── 정기 고객 알림 (기존 유지) ────────────────────────────────
     case '정기결제알림':
+      return { '#{고객명}': name, '#{청소비용}': billingAmt }
+    case '정기결제알림(현금)':
+      return { '#{고객명}': name, '#{청소비용}': billingAmt }
+    case '정기결제알림(카드)':
       return { '#{고객명}': name, '#{청소비용}': billingAmt }
     case '건당결제알림':
       return { '#{고객명}': name, '#{청소비용}': unitPrice }
@@ -235,6 +242,8 @@ function buildFallback(type: string, customer: Record<string, unknown>): string 
   const bizName = String(customer.business_name ?? '')
   const map: Record<string, string> = {
     '정기결제알림': `[BBK 공간케어] ${name}님, ${bizName} 정기케어 결제일이 다가왔습니다. 문의: 010-5434-4877`,
+    '정기결제알림(현금)': `[BBK 공간케어] ${name}님, ${bizName} 정기케어 현금 결제일이 다가왔습니다. 문의: 010-5434-4877`,
+    '정기결제알림(카드)': `[BBK 공간케어] ${name}님, ${bizName} 정기케어 카드 결제일이 다가왔습니다. 문의: 010-5434-4877`,
     '정기방문알림': `[BBK 공간케어] ${name}님, ${bizName} 정기케어 방문 예정일이 다가왔습니다. 문의: 010-5434-4877`,
     '계약갱신알림': `[BBK 공간케어] ${name}님, ${bizName} 계약 만료가 다가왔습니다. 갱신 문의: 010-5434-4877`,
     '건당결제알림': `[BBK 공간케어] ${name}님, ${bizName} 건당 서비스 결제를 안내드립니다. 문의: 010-5434-4877`,

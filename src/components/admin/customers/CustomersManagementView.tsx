@@ -91,6 +91,9 @@ interface Customer {
   payment_status_detail: string | null
   // Phase 20-C / 22: 투입주기 (자유 텍스트, INTEGER→TEXT 확장 — 숫자·격주·매월 등 임의 표현)
   injection_cycle_months: string | null
+  // Phase 29: 연간 결제 월/일 (정기딥케어 연간 전용)
+  yearly_billing_month: number | null
+  yearly_billing_day: number | null
   // 서비스관리 이관 필드 (Phase A)
   notification_log: Array<{ type: string; sent_at: string; phone?: string; method?: 'auto' | 'manual'; template_id?: string }> | null
   phone_notify_1: boolean | null
@@ -153,13 +156,15 @@ export const NOTIFY_TYPES: Record<CustomerType, string[]> = {
     '계정안내알림',
   ],
   '정기딥케어': [
-    '정기결제알림', '정기방문알림', '계약갱신알림', '계정안내알림',
+    '정기결제알림', '정기결제알림(현금)', '정기결제알림(카드)',
+    '정기방문알림', '계약갱신알림', '계정안내알림',
     '예약1일전알림', '예약당일알림',
     '작업완료알림', '결제완료알림', '계산서발행완료알림',
     'A/S방문알림',
   ],
   '정기엔드케어': [
-    '정기결제알림', '정기방문알림', '계약갱신알림', '계정안내알림',
+    '정기결제알림', '정기결제알림(현금)', '정기결제알림(카드)',
+    '정기방문알림', '계약갱신알림', '계정안내알림',
     '예약1일전알림', '예약당일알림',
     '작업완료알림(정기엔드케어)', '결제완료알림', '계산서발행완료알림',
     'A/S방문알림',
@@ -309,6 +314,9 @@ const EMPTY_FORM = {
   payment_status_detail: '',
   // Phase 20-C: 투입주기 (몇 개월에 1회)
   injection_cycle_months: '',
+  // Phase 29: 연간 결제 월/일 (정기딥케어 연간 전용)
+  yearly_billing_month: '',
+  yearly_billing_day: '',
 }
 
 // Phase 9-C: 1회성 진행상태·결제상태 옵션 (자동화 매핑과 완전 일치)
@@ -905,6 +913,9 @@ export function CustomersManagementView({
     payment_status_detail: c.payment_status_detail ?? '',
     // Phase 20-C / 22: 투입주기 (TEXT — 그대로 로드)
     injection_cycle_months: c.injection_cycle_months ?? '',
+    // Phase 29: 연간 결제 월/일 (정기딥케어 연간 전용)
+    yearly_billing_month: c.yearly_billing_month?.toString() ?? '',
+    yearly_billing_day: c.yearly_billing_day?.toString() ?? '',
   })
 
   const handleSelect = (c: Customer) => {
@@ -997,6 +1008,8 @@ export function CustomersManagementView({
         progress_status: '신청서작성',
         payment_status_detail: null,
         injection_cycle_months: null,
+        yearly_billing_month: null,
+        yearly_billing_day: null,
         created_at: nowIso,
         updated_at: nowIso,
       }
@@ -1126,6 +1139,9 @@ export function CustomersManagementView({
     payment_status_detail: form.payment_status_detail || null,
     // Phase 20-C / 22: 투입주기 (TEXT — 자유 표현)
     injection_cycle_months: form.injection_cycle_months?.trim() || null,
+    // Phase 29: 연간 결제 월/일 (정기딥케어 연간 전용)
+    yearly_billing_month: form.yearly_billing_month ? Number(form.yearly_billing_month) : null,
+    yearly_billing_day: form.yearly_billing_day ? Number(form.yearly_billing_day) : null,
   })
 
   const autoGenerateBillings = (customerId: string) => {
@@ -1814,6 +1830,8 @@ export function CustomersManagementView({
           progress_status: a.status ?? '신청서작성',
           payment_status_detail: null,
           injection_cycle_months: null,
+          yearly_billing_month: null,
+          yearly_billing_day: null,
           created_at: a.created_at,
           updated_at: a.created_at,
         }))
@@ -3445,15 +3463,47 @@ export function CustomersManagementView({
                         월 환산 {Math.round(((Number(form.supply_amount) || 0) + (isNoVatMethod(form.payment_method) ? 0 : (Number(form.vat) || 0))) / 12).toLocaleString('ko-KR')}원
                       </p>
                     )}
-                    {/* Phase 22 v2: 연간 결제 이력 인라인 드롭다운 — 연간 & 저장된 고객일 때 노출 */}
-                    {form.billing_cycle === '연간' && !isNew && selected && (
+                    {/* Phase 29: 결제일자 (월간: 매월 결제일 / 연간: 결제 월+일) */}
+                    {form.billing_cycle === '월간' && (
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] text-text-secondary w-20 shrink-0 inline-flex items-center gap-1">
+                          결제일자
+                          <FieldHint text="매월 청구가 도래하는 날짜 (1~31). 지정일이 되면 자동 청구 알림이 발송됩니다." />
+                        </span>
+                        <input type="number" min={1} max={31} value={form.payment_date}
+                          onChange={e => set('payment_date')(e.target.value)}
+                          placeholder="1~31"
+                          className="w-20 border border-border rounded-md px-1.5 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-brand-500 text-center text-text-primary" />
+                        <span className="text-xs text-text-tertiary">일</span>
+                      </div>
+                    )}
+                    {form.billing_cycle === '연간' && (
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] text-text-secondary w-20 shrink-0 inline-flex items-center gap-1">
+                          결제일자
+                          <FieldHint text="연간 결제가 도래하는 월·일. 지정일이 되면 자동 청구 알림이 발송됩니다." />
+                        </span>
+                        <input type="number" min={1} max={12} value={form.yearly_billing_month}
+                          onChange={e => set('yearly_billing_month')(e.target.value)}
+                          placeholder="월"
+                          className="w-14 border border-border rounded-md px-1.5 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-brand-500 text-center text-text-primary" />
+                        <span className="text-xs text-text-tertiary">월</span>
+                        <input type="number" min={1} max={31} value={form.yearly_billing_day}
+                          onChange={e => set('yearly_billing_day')(e.target.value)}
+                          placeholder="일"
+                          className="w-14 border border-border rounded-md px-1.5 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-brand-500 text-center text-text-primary" />
+                        <span className="text-xs text-text-tertiary">일</span>
+                      </div>
+                    )}
+                    {/* Phase 29: 결제 이력 인라인 드롭다운 — 월간/연간 모두 & 저장된 고객일 때 노출 */}
+                    {form.billing_cycle && !isNew && selected && (
                       <>
                         <button
                           type="button"
                           onClick={() => setShowInlineAnnualHistory(v => !v)}
                           className="w-full py-1 text-[11px] text-brand-700 font-semibold rounded-md border border-brand-200 bg-white hover:bg-brand-100 flex items-center justify-center gap-1"
                         >
-                          {showInlineAnnualHistory ? '연간 결제 이력 접기 ▲' : '연간 결제 이력 보기 ▼'}
+                          {showInlineAnnualHistory ? `${form.billing_cycle} 결제 이력 접기 ▲` : `${form.billing_cycle} 결제 이력 보기 ▼`}
                         </button>
                         {showInlineAnnualHistory && (
                           <BillingHistoryPanel

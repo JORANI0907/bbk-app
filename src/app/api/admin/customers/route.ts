@@ -34,6 +34,8 @@ const ALLOWED = [
   'progress_status', 'payment_status_detail',
   // Phase 20-C: 투입주기 (몇 개월에 1회)
   'injection_cycle_months',
+  // Phase 29: 연간 결제 월/일 (정기딥케어 연간 전용)
+  'yearly_billing_month', 'yearly_billing_day',
   // 담당 직원/작업자
   'assigned_user_id', 'assigned_worker_id',
   // 성향
