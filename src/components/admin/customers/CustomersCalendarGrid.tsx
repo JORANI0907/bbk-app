@@ -175,6 +175,7 @@ export function CustomersCalendarGrid({ onSelectApp, filterTypes, search, refetc
       let mergedCustomers: CalendarApp[] = []
       let customerAssigneeMap = new Map<string, string>()   // customer_id → assigned_user_id
       let customerMoneyMap = new Map<string, { supply_amount: number | null; vat: number | null; payment_method: string | null }>()
+      let customerTypeMap = new Map<string, string>()       // customer_id → customer_type (정기 보정용)
       if (custRes.ok) {
         const custBody = await custRes.json()
         type CustRow = {
@@ -201,6 +202,13 @@ export function CustomersCalendarGrid({ onSelectApp, filterTypes, search, refetc
           custs
             .filter(c => c.customer_type === '1회성케어' && Number(c.supply_amount ?? 0) > 0)
             .map(c => [c.id, { supply_amount: c.supply_amount, vat: c.vat, payment_method: c.payment_method } as MoneyFallback])
+        )
+        // Phase 29-B: 정기 고객의 service_type 불일치 보정 맵
+        // (방문견적·사전 1회성 작업이 나중에 정기 계약으로 전환됐을 때 앱 레코드가 '1회성케어'로 남는 경우 발생)
+        customerTypeMap = new Map(
+          custs
+            .filter(c => c.customer_type === '정기딥케어' || c.customer_type === '정기엔드케어')
+            .map(c => [c.id, c.customer_type!])
         )
         const [y, m] = monthStr.split('-').map(Number)
         const monthStart = `${monthStr}-01`
@@ -250,6 +258,11 @@ export function CustomersCalendarGrid({ onSelectApp, filterTypes, search, refetc
               payment_method: moneyFallback.payment_method ?? next.payment_method,
             }
           }
+        }
+        // Phase 29-B: 앱의 service_type이 '1회성케어'지만 고객이 정기 계약자인 경우 고객 타입으로 보정
+        if (next.service_type === '1회성케어' && next.customer_id) {
+          const actualType = customerTypeMap.get(next.customer_id)
+          if (actualType) next = { ...next, service_type: actualType }
         }
         return next
       })
