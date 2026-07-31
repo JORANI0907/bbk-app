@@ -158,20 +158,28 @@ async function sendAndLog(
   assignedName: string,
   notifyToStatus: Record<string, string>,
 ): Promise<'sent' | 'skipped_auto_off' | 'skipped_applicable_types'> {
-  void assignedName // buildVariables 미사용 이후 unused, dead-code 정리 전까지 파라미터만 유지
+  void assignedName
 
-  // 1) template 조회 → auto_used·is_active·applicable_types 검사
+  // 1) service_type 기반으로 유형별 분리 코드 결정
+  const serviceType = String(app.service_type ?? '')
+  const suffix = serviceType === '1회성케어'    ? '_1회성'
+               : serviceType === '정기딥케어'   ? '_정기딥'
+               : serviceType === '정기엔드케어' ? '_정기엔드'
+               : ''
+  const lookupCode = suffix ? `${type}${suffix}` : type
+
   const { data: tpl } = await supabase
     .from('notification_templates')
     .select('auto_used, applicable_types, is_active')
-    .eq('code', type)
+    .eq('code', lookupCode)
     .maybeSingle()
 
   if (!tpl || !tpl.is_active || !tpl.auto_used) {
     return 'skipped_auto_off'
   }
 
-  const serviceType = String(app.service_type ?? '')
+  // 유형별 분리 후 applicable_types는 단일 원소 배열 → 별도 검사 불필요
+  // (기존 공유 템플릿에 대한 하위 호환: applicable_types에 serviceType 없으면 skip)
   const applicable = (tpl.applicable_types as string[] | null) ?? []
   if (applicable.length > 0 && !applicable.includes(serviceType)) {
     return 'skipped_applicable_types'
@@ -210,8 +218,8 @@ async function sendAndLog(
     },
   }
 
-  // 3) sendByTemplate 호출 (SMS/LMS 자동 판정)
-  const result = await sendByTemplate(type, phone, context)
+  // 3) sendByTemplate 호출 (유형별 분리 코드 사용)
+  const result = await sendByTemplate(lookupCode, phone, context)
   if (!result.ok) {
     throw new Error(`SMS 발송 실패: ${result.reason}${result.details ? ` (${result.details})` : ''}`)
   }

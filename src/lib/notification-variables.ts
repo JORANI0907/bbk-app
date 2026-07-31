@@ -182,6 +182,7 @@ function isNoVat(method: string | null | undefined): boolean {
 // Phase 27-AO: 이번달일정 탭이 정기딥/정기엔드로 분리됨. 팔레트 노출은 두 유형에 동일하게 적용.
 const TAB_ALL: TemplateTab[] = ['1회성케어', '정기딥케어', '정기엔드케어', 'monthly_schedule_deep', 'monthly_schedule_end']
 const TAB_ONESHOT_MONTHLY: TemplateTab[] = ['1회성케어', 'monthly_schedule_deep', 'monthly_schedule_end']
+const TAB_NON_MONTHLY: TemplateTab[] = ['1회성케어', '정기딥케어', '정기엔드케어']
 const TAB_RECURRING: TemplateTab[] = ['정기딥케어', '정기엔드케어']
 const TAB_MONTHLY: TemplateTab[] = ['monthly_schedule_deep', 'monthly_schedule_end']
 
@@ -263,16 +264,16 @@ export const AVAILABLE_VARIABLES: VariableDef[] = [
     desc: '입금받을 계좌 (환급·페이백)',
     resolve: (c) => c.application?.account_number ?? c.customer?.account_number ?? '' },
   // 공급가액·부가세·총액·예약금·잔금 = 1회성/월간 회차별 결제
-  { label: '공급가액', category: '결제정보', scope: 'application', appliesTo: TAB_ONESHOT_MONTHLY,
+  { label: '공급가액', category: '결제정보', scope: 'application', appliesTo: TAB_NON_MONTHLY,
     desc: '부가세 제외 금액',
     resolve: (c) => fmtMoney(c.application?.supply_amount ?? c.customer?.supply_amount) },
-  { label: '부가세', category: '결제정보', scope: 'application', appliesTo: TAB_ONESHOT_MONTHLY,
+  { label: '부가세', category: '결제정보', scope: 'application', appliesTo: TAB_NON_MONTHLY,
     desc: '10% 부가세 (비과세 시 0)',
     resolve: (c) => {
       const pm = c.application?.payment_method ?? c.customer?.payment_method
       return isNoVat(pm) ? '0' : fmtMoney(c.application?.vat ?? c.customer?.vat)
     } },
-  { label: '총액', category: '결제정보', scope: 'application', appliesTo: TAB_ONESHOT_MONTHLY,
+  { label: '총액', category: '결제정보', scope: 'application', appliesTo: TAB_NON_MONTHLY,
     desc: '공급가액 + 부가세',
     resolve: (c) => {
       const s = Number(c.application?.supply_amount ?? c.customer?.supply_amount ?? 0)
