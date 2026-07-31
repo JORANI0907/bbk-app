@@ -54,7 +54,7 @@ interface Candidate {
   unissued_count?: number
 }
 
-const SERVICE_TYPES_FALLBACK = ['1회성케어', '정기딥케어', '정기엔드케어']
+const SERVICE_TYPES_FIXED = ['1회성케어', '정기딥케어', '정기엔드케어', '일반일정']
 
 // 결제방법 필터 화이트리스트 — 실제 DB에는 편차·오타 포함 다양한 값이 있지만
 // 사용자가 실제로 필터링하고 싶은 4가지만 노출
@@ -109,8 +109,8 @@ export default function TaxInvoiceDashboardPage() {
   // 필터 (다중 선택)
   const [includeIssued, setIncludeIssued] = useState(false)
   const [serviceTypes, setServiceTypes] = useState<string[]>([])
-  const [paymentMethods, setPaymentMethods] = useState<string[]>([])
-  const [customerStatuses, setCustomerStatuses] = useState<string[]>(['active', 'paused', 'terminated'])
+  const [paymentMethods, setPaymentMethods] = useState<string[]>(['현금(계산서 희망)'])
+  const [customerStatuses, setCustomerStatuses] = useState<string[]>(['active'])
 
   // 월단위 뷰 (1회성케어 시공일자 기준)
   const [viewMonth, setViewMonth] = useState<string | null>(() => {
@@ -122,8 +122,8 @@ export default function TaxInvoiceDashboardPage() {
   const [billingSelectTarget, setBillingSelectTarget] = useState<Candidate | null>(null)
   const [search, setSearch] = useState('')
 
-  // 필터 옵션 (서버에서 로드)
-  const [availableServiceTypes, setAvailableServiceTypes] = useState<string[]>(SERVICE_TYPES_FALLBACK)
+  // 필터 옵션 — 유형은 고정 리스트, 결제방법은 화이트리스트 고정
+  const availableServiceTypes = SERVICE_TYPES_FIXED
   const [availablePaymentMethods, setAvailablePaymentMethods] = useState<string[]>(ALLOWED_PAYMENT_METHODS)
 
   // 선택
@@ -176,9 +176,6 @@ export default function TaxInvoiceDashboardPage() {
       const json = await res.json()
       if (!res.ok) throw new Error(json.error ?? '조회 실패')
       setCandidates(json.candidates ?? [])
-      if (Array.isArray(json.available_service_types) && json.available_service_types.length > 0) {
-        setAvailableServiceTypes(json.available_service_types)
-      }
       if (Array.isArray(json.available_payment_methods)) {
         // 화이트리스트 교집합만 노출 (DB에 존재하는 값 중 ALLOWED_PAYMENT_METHODS 만)
         const filtered = ALLOWED_PAYMENT_METHODS.filter(m => json.available_payment_methods.includes(m))
@@ -537,11 +534,11 @@ export default function TaxInvoiceDashboardPage() {
         <div className="flex items-center gap-1.5 text-xs text-text-tertiary">
           <Filter size={12} />
           <span>필터 (중복 선택 가능)</span>
-          {(serviceTypes.length > 0 || paymentMethods.length > 0 || customerStatuses.length < 3) && (
+          {(serviceTypes.length > 0 || paymentMethods.length !== 1 || paymentMethods[0] !== '현금(계산서 희망)' || customerStatuses.length !== 1 || customerStatuses[0] !== 'active') && (
             <button type="button"
-              onClick={() => { setServiceTypes([]); setPaymentMethods([]); setCustomerStatuses(['active', 'paused', 'terminated']) }}
+              onClick={() => { setServiceTypes([]); setPaymentMethods(['현금(계산서 희망)']); setCustomerStatuses(['active']) }}
               className="ml-auto text-[11px] text-brand-600 hover:text-brand-700 underline">
-              전체 해제
+              초기화
             </button>
           )}
         </div>
