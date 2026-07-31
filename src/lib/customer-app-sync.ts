@@ -44,6 +44,7 @@ export const CUSTOMER_TO_APP_FIELD_MAP: Record<string, string> = {
   business_number:       'business_number',
   account_number:        'account_number',
   platform_nickname:     'platform_nickname',
+  customer_type:         'service_type',         // 고객 유형 변경 시 배정관리에 즉시 반영
 }
 
 /**
