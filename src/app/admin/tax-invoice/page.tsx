@@ -94,6 +94,12 @@ const FALLBACK_SUPPLIER: Supplier = {
 
 const fmtKr = (n: number) => n.toLocaleString('ko-KR')
 const fmtDate = (s: string | null) => s ? s.slice(0, 10) : '—'
+const fmtMan = (n: number) => {
+  if (n === 0) return '0'
+  if (n < 10000) return `${n.toLocaleString('ko-KR')}원`
+  const man = n / 10000
+  return Number.isInteger(man) ? `${man}만원` : `${parseFloat(man.toFixed(1))}만원`
+}
 
 export default function TaxInvoiceDashboardPage() {
   const [candidates, setCandidates] = useState<Candidate[]>([])
@@ -657,6 +663,7 @@ export default function TaxInvoiceDashboardPage() {
                   />
                 </th>
                 <th className="text-left px-3 py-2.5 text-xs font-medium text-text-secondary">유형</th>
+                <th className="text-left px-3 py-2.5 text-xs font-medium text-text-secondary">시공일자</th>
                 <th className="text-left px-3 py-2.5 text-xs font-medium text-text-secondary">업체명</th>
                 <th className="text-left px-3 py-2.5 text-xs font-medium text-text-secondary">대표자</th>
                 <th className="text-left px-3 py-2.5 text-xs font-medium text-text-secondary">사업자번호</th>
@@ -664,9 +671,8 @@ export default function TaxInvoiceDashboardPage() {
                 <th className="text-right px-3 py-2.5 text-xs font-medium text-text-secondary">공급가액</th>
                 <th className="text-right px-3 py-2.5 text-xs font-medium text-text-secondary">세액</th>
                 <th className="text-right px-3 py-2.5 text-xs font-medium text-text-secondary">합계</th>
-                <th className="text-left px-3 py-2.5 text-xs font-medium text-text-secondary">시공일자</th>
                 <th className="text-left px-3 py-2.5 text-xs font-medium text-text-secondary">상태</th>
-                <th className="w-16 py-2.5" />
+                <th className="w-28 py-2.5" />
               </tr>
             </thead>
             <tbody className="anim-stagger-fast divide-y divide-border-subtle">
@@ -695,6 +701,12 @@ export default function TaxInvoiceDashboardPage() {
                     <td className="px-3 py-2 whitespace-nowrap">
                       <SourceBadge source={c.source} label={c.service_type ?? ''} />
                     </td>
+                    <td className="px-3 py-2 text-text-tertiary whitespace-nowrap text-xs">
+                      {c.construction_date
+                        ? c.construction_date.slice(0, 10)
+                        : <span className="text-text-tertiary">—</span>
+                      }
+                    </td>
                     <td className="px-3 py-2 font-medium text-text-primary truncate max-w-[220px]">{c.business_name}</td>
                     <td className="px-3 py-2 text-text-secondary whitespace-nowrap">{c.owner_name}</td>
                     <td className="px-3 py-2 text-text-secondary tabular-nums whitespace-nowrap">
@@ -703,28 +715,14 @@ export default function TaxInvoiceDashboardPage() {
                     <td className="px-3 py-2 text-xs text-text-secondary whitespace-nowrap max-w-[160px] truncate" title={c.payment_method ?? undefined}>
                       {c.payment_method || <span className="text-text-tertiary">—</span>}
                     </td>
-                    <td className="px-3 py-2 text-right tabular-nums text-text-primary">{fmtKr(c.supply_amount)}</td>
-                    <td className="px-3 py-2 text-right tabular-nums text-text-tertiary">{fmtKr(c.vat)}</td>
+                    <td className="px-3 py-2 text-right tabular-nums text-text-primary">{fmtMan(c.supply_amount)}</td>
+                    <td className="px-3 py-2 text-right tabular-nums text-text-tertiary">{fmtMan(c.vat)}</td>
                     <td className="px-3 py-2 text-right tabular-nums font-semibold text-text-primary">{fmtKr(c.total_amount)}</td>
-                    <td className="px-3 py-2 text-text-tertiary whitespace-nowrap text-xs">
-                      {c.construction_date
-                        ? c.construction_date.slice(0, 10)
-                        : <span className="text-text-tertiary">—</span>
-                      }
-                    </td>
                     <td className="px-3 py-2">
                       <RowStatus c={c} />
                     </td>
                     <td className="pr-3 py-2 text-right">
                       <div className="flex items-center justify-end gap-1">
-                        {(!c.draft_receiver_business_type || !c.draft_receiver_business_item) && (
-                          <span
-                            className="text-[10px] px-1 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200"
-                            title="홈택스 선택 필드 (업태·종목) 미입력 — 없어도 발행은 가능하나 상세 명세를 원하면 편집에서 채우세요"
-                          >
-                            업·종
-                          </span>
-                        )}
                         {c.source === 'customer' && (c.unissued_count ?? 0) > 0 && (
                           <button type="button"
                             onClick={() => setBillingSelectTarget(c)}
