@@ -83,7 +83,7 @@ export async function GET(request: NextRequest) {
       'visit_schedule_type, visit_weekdays, visit_monthly_dates, status, unit_price, ' +
       'assigned_user_id, assigned_worker_id, billing_cycle, billing_amount'
     )
-    .in('customer_type', ['정기딥케어', '정기엔드케어'])
+    .in('customer_type', ['정기딥케어'])  // 정기엔드케어 제외 (수동 생성 전환)
     .eq('status', 'active')
     .not('visit_schedule_type', 'is', null)
     .is('deleted_at', null)
