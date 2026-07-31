@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import toast from 'react-hot-toast'
-import { X, Plus, Trash2, RotateCcw } from 'lucide-react'
+import { X, Plus, Trash2, RotateCcw, Check, CreditCard, FileCheck } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Textarea } from '@/components/ui/Textarea'
@@ -37,9 +37,16 @@ export interface CandidateSlim {
   draft_receiver_email_2?: string | null
   draft_receipt_type?: string | null
   draft_invoice_kind?: string | null
+  // 1회성케어 상태 (application 소스)
+  application_id?: string | null
+  application_status?: string | null
+  tax_invoice_issued?: boolean
 }
 
 const MAX_ITEMS = 4  // 홈택스 CSV는 슬롯 4개까지 지원
+
+// 결제완료로 간주하는 status 값 목록
+const PAYMENT_COMPLETE_STATUSES = ['결제완료', '결제완료(잔금)', '계산서발행완료']
 
 interface Supplier {
   id: string
@@ -47,16 +54,31 @@ interface Supplier {
   is_default: boolean
 }
 
+interface Schedule {
+  id: string
+  scheduled_date: string
+  payment_amount: number | null
+  status: string | null
+}
+
+interface ContractInfo {
+  monthly_price: number
+  supply_amount: number
+  vat: number
+}
+
 interface Props {
   candidate: CandidateSlim
   suppliers: Supplier[]
+  scheduleMonth?: string | null   // YYYY-MM (현재 뷰 월)
   onClose: () => void
   onSaved: () => void
+  onStatusChanged?: () => void    // 상태 토글 후 목록만 갱신, 드로어 유지
 }
 
 const fmtKr = (n: number) => n.toLocaleString('ko-KR')
 
-export function DraftEditor({ candidate, suppliers, onClose, onSaved }: Props) {
+export function DraftEditor({ candidate, suppliers, scheduleMonth, onClose, onSaved, onStatusChanged }: Props) {
   const [receiverBusinessNumber, setReceiverBusinessNumber] = useState(candidate.business_number ?? '')
   const [receiverBusinessName, setReceiverBusinessName] = useState(candidate.business_name)
   const [receiverOwnerName, setReceiverOwnerName] = useState(candidate.owner_name)
@@ -65,7 +87,6 @@ export function DraftEditor({ candidate, suppliers, onClose, onSaved }: Props) {
   const [receiverEmail2, setReceiverEmail2] = useState(candidate.draft_receiver_email_2 ?? '')
   const [receiverBusinessType, setReceiverBusinessType] = useState(candidate.draft_receiver_business_type ?? '')
   const [receiverBusinessItem, setReceiverBusinessItem] = useState(candidate.draft_receiver_business_item ?? '')
-  // 홈택스 CSV — 영수(01) / 청구(02), 기본 '01'
   const [receiptType, setReceiptType] = useState<'01' | '02'>(
     (candidate.draft_receipt_type === '02' ? '02' : '01') as '01' | '02',
   )
@@ -88,7 +109,54 @@ export function DraftEditor({ candidate, suppliers, onClose, onSaved }: Props) {
   const [saving, setSaving] = useState(false)
   const [resetting, setResetting] = useState(false)
 
-  // draft 로드 (기존 저장된 상세 필드까지 완전 로드)
+  // 정기케어: 계약 기준가 + 이번달 일정
+  const [contractInfo, setContractInfo] = useState<ContractInfo | null>(null)
+  const [schedules, setSchedules] = useState<Schedule[]>([])
+  const [schedulesLoading, setSchedulesLoading] = useState(false)
+  const [selectedScheduleId, setSelectedScheduleId] = useState('')
+
+  // 1회성케어: 로컬 상태 (즉시 반영용)
+  const [paymentComplete, setPaymentComplete] = useState(
+    PAYMENT_COMPLETE_STATUSES.includes(candidate.application_status ?? '')
+  )
+  const [invoiceIssued, setInvoiceIssued] = useState(candidate.tax_invoice_issued ?? false)
+  const [statusUpdating, setStatusUpdating] = useState(false)
+
+  // 정기케어 → 계약 기준가 + 이번달 일정 로드
+  useEffect(() => {
+    if (candidate.source !== 'customer') return
+    setSchedulesLoading(true)
+
+    const month = scheduleMonth ?? (() => {
+      const d = new Date()
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+    })()
+
+    fetch(`/api/admin/tax-invoice/customer-context?customer_id=${candidate.source_id}&month=${month}`)
+      .then(r => r.json())
+      .then(d => {
+        if (d.contract) setContractInfo(d.contract)
+        setSchedules(d.schedules ?? [])
+      })
+      .catch(() => {})
+      .finally(() => setSchedulesLoading(false))
+  }, [candidate.source, candidate.source_id, scheduleMonth])
+
+  // 계약 기준가 로드 후 → draft 없는 경우 items 자동 초기화
+  useEffect(() => {
+    if (!contractInfo) return
+    if (candidate.source !== 'customer') return
+    if (candidate.draft_items && candidate.draft_items.length > 0) return
+    setItems([{
+      name: `${candidate.service_type ?? '서비스'} - ${candidate.business_name}`,
+      qty: 1,
+      unit_price: contractInfo.supply_amount,
+      supply_amount: contractInfo.supply_amount,
+      vat: contractInfo.vat,
+    }])
+  }, [contractInfo])  // eslint-disable-line react-hooks/exhaustive-deps
+
+  // draft 로드 (기존 저장된 상세 필드까지)
   useEffect(() => {
     if (!candidate.has_draft) return
     fetch(`/api/admin/tax-invoice/drafts?source=${candidate.source}&source_id=${candidate.source_id}`)
@@ -117,7 +185,6 @@ export function DraftEditor({ candidate, suppliers, onClose, onSaved }: Props) {
     setItems(prev => prev.map((it, i) => {
       if (i !== idx) return it
       const next = { ...it, ...patch }
-      // qty·unit_price 변경 시 supply_amount·vat 자동 계산
       if ('qty' in patch || 'unit_price' in patch) {
         const q = Number(next.qty ?? 1)
         const p = Number(next.unit_price ?? 0)
@@ -137,6 +204,83 @@ export function DraftEditor({ candidate, suppliers, onClose, onSaved }: Props) {
   }
   const removeItem = (idx: number) => setItems(prev => prev.filter((_, i) => i !== idx))
 
+  // 이번달 일정 선택 → items[0] 금액 업데이트
+  const handleScheduleSelect = (scheduleId: string) => {
+    setSelectedScheduleId(scheduleId)
+    if (!scheduleId) {
+      // "계약 기준가" 복원
+      if (contractInfo) {
+        updateItemPrice(contractInfo.supply_amount, contractInfo.vat)
+      }
+      return
+    }
+    const schedule = schedules.find(s => s.id === scheduleId)
+    if (!schedule) return
+
+    if (schedule.payment_amount != null) {
+      const total = schedule.payment_amount
+      const supply = Math.round(total / 1.1)
+      const vat = total - supply
+      updateItemPrice(supply, vat)
+    } else if (contractInfo) {
+      updateItemPrice(contractInfo.supply_amount, contractInfo.vat)
+    }
+  }
+
+  const updateItemPrice = (supply: number, vat: number) => {
+    setItems(prev => prev.map((it, i) =>
+      i === 0
+        ? { ...it, unit_price: supply, supply_amount: supply, vat }
+        : it
+    ))
+  }
+
+  // 결제완료 토글 (1회성케어)
+  const handlePaymentCompleteToggle = async () => {
+    if (!candidate.application_id) return
+    const next = !paymentComplete
+    setStatusUpdating(true)
+    try {
+      const res = await fetch('/api/admin/tax-invoice/application-status', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ application_id: candidate.application_id, payment_complete: next }),
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error ?? '상태 변경 실패')
+      setPaymentComplete(next)
+      toast.success(next ? '결제완료로 변경했습니다.' : '결제완료 해제했습니다.')
+      onStatusChanged?.()
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : '상태 변경 실패')
+    } finally {
+      setStatusUpdating(false)
+    }
+  }
+
+  // 세금계산서 발행완료 토글 (1회성케어)
+  const handleInvoiceIssuedToggle = async () => {
+    if (!candidate.application_id) return
+    const next = !invoiceIssued
+    setStatusUpdating(true)
+    try {
+      const res = await fetch('/api/admin/tax-invoice/application-status', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ application_id: candidate.application_id, tax_invoice_issued: next }),
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error ?? '상태 변경 실패')
+      setInvoiceIssued(next)
+      toast.success(next ? '세금계산서 발행완료 처리했습니다.' : '발행완료 해제했습니다.')
+      onStatusChanged?.()
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : '상태 변경 실패')
+    } finally {
+      setStatusUpdating(false)
+    }
+  }
+
   const totalSupply = items.reduce((s, i) => s + Number(i.supply_amount ?? 0), 0)
   const totalVat = items.reduce((s, i) => s + Number(i.vat ?? 0), 0)
   const totalAmount = totalSupply + totalVat
@@ -145,11 +289,8 @@ export function DraftEditor({ candidate, suppliers, onClose, onSaved }: Props) {
     if (!receiverBusinessName.trim()) { toast.error('상호는 필수입니다.'); return }
     if (items.length === 0) { toast.error('품목을 1개 이상 추가하세요.'); return }
     if (items.some(i => !i.name.trim())) { toast.error('품목명이 비어있는 항목이 있습니다.'); return }
+    if (items.length > MAX_ITEMS) { toast.error(`품목은 ${MAX_ITEMS}개까지만 저장 가능합니다.`); return }
 
-    if (items.length > MAX_ITEMS) {
-      toast.error(`품목은 ${MAX_ITEMS}개까지만 저장 가능합니다.`)
-      return
-    }
     setSaving(true)
     try {
       const res = await fetch('/api/admin/tax-invoice/drafts', {
@@ -209,7 +350,10 @@ export function DraftEditor({ candidate, suppliers, onClose, onSaved }: Props) {
         <div className="sticky top-0 bg-surface border-b border-border-subtle px-5 py-3 flex items-center justify-between z-10">
           <div className="min-w-0">
             <h2 className="text-base font-bold text-text-primary truncate">{candidate.business_name} · 발행 전 편집</h2>
-            <p className="text-[11px] text-text-tertiary">{candidate.service_type ?? '—'} · {candidate.source === 'application' ? '서비스관리' : '고객관리(청구)'} </p>
+            <p className="text-[11px] text-text-tertiary">
+              {candidate.service_type ?? '—'} ·{' '}
+              {candidate.source === 'application' ? '서비스관리' : '고객관리(청구)'}
+            </p>
           </div>
           <button onClick={onClose} className="text-text-tertiary hover:text-text-primary p-1">
             <X size={18} />
@@ -218,7 +362,70 @@ export function DraftEditor({ candidate, suppliers, onClose, onSaved }: Props) {
 
         <div className="p-5 space-y-6">
 
-          {/* 공급자 프리셋 */}
+          {/* ── 결제·계산서 상태 (1회성케어 전용) ── */}
+          {candidate.source === 'application' && candidate.application_id && (
+            <Section title="결제·계산서 상태">
+              <p className="text-[11px] text-text-tertiary mb-2">
+                클릭으로 즉시 변경 — 저장 버튼 불필요, 드로어 유지
+              </p>
+              <div className="flex items-center gap-3">
+                <StatusToggleBtn
+                  icon={<CreditCard size={13} />}
+                  label="결제완료"
+                  active={paymentComplete}
+                  disabled={statusUpdating}
+                  onClick={handlePaymentCompleteToggle}
+                />
+                <StatusToggleBtn
+                  icon={<FileCheck size={13} />}
+                  label="세금계산서 발행완료"
+                  active={invoiceIssued}
+                  disabled={statusUpdating}
+                  onClick={handleInvoiceIssuedToggle}
+                />
+              </div>
+            </Section>
+          )}
+
+          {/* ── 이번달 일정 불러오기 (정기케어 전용) ── */}
+          {candidate.source === 'customer' && (
+            <Section title="이번달 일정">
+              {schedulesLoading ? (
+                <p className="text-xs text-text-tertiary">일정 로딩 중…</p>
+              ) : (
+                <>
+                  <select
+                    value={selectedScheduleId}
+                    onChange={e => handleScheduleSelect(e.target.value)}
+                    className="w-full text-sm rounded-md border border-border bg-surface px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500"
+                  >
+                    <option value="">
+                      계약 기준가 사용
+                      {contractInfo ? ` (공급가 ${fmtKr(contractInfo.supply_amount)}원)` : ''}
+                    </option>
+                    {schedules.map(s => (
+                      <option key={s.id} value={s.id}>
+                        {s.scheduled_date} · {s.status ?? '—'}
+                        {s.payment_amount != null
+                          ? ` — ${fmtKr(s.payment_amount)}원 (별도 금액)`
+                          : contractInfo
+                            ? ` — ${fmtKr(contractInfo.monthly_price)}원 (계약가)`
+                            : ''}
+                      </option>
+                    ))}
+                  </select>
+                  {schedules.length === 0 && !schedulesLoading && (
+                    <p className="text-[11px] text-text-tertiary mt-1">이번 달 등록된 일정이 없습니다.</p>
+                  )}
+                  <p className="text-[11px] text-text-tertiary mt-1">
+                    일정 선택 시 별도 금액이 있으면 그 금액, 없으면 계약 기준가로 품목 공급가액이 업데이트됩니다.
+                  </p>
+                </>
+              )}
+            </Section>
+          )}
+
+          {/* ── 공급자 프리셋 ── */}
           <Section title="공급자 프리셋">
             <select
               value={supplierId}
@@ -233,7 +440,7 @@ export function DraftEditor({ candidate, suppliers, onClose, onSaved }: Props) {
             <p className="text-[11px] text-text-tertiary mt-1">이 건에 한해서 다른 공급자로 발행할 때만 지정하세요.</p>
           </Section>
 
-          {/* 공급받는자 */}
+          {/* ── 공급받는자 ── */}
           <Section title="공급받는자 정보">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <Field label="사업자등록번호">
@@ -265,7 +472,7 @@ export function DraftEditor({ candidate, suppliers, onClose, onSaved }: Props) {
             </div>
           </Section>
 
-          {/* 품목 */}
+          {/* ── 품목 ── */}
           <Section title={`품목 (${items.length}/${MAX_ITEMS})`}>
             <p className="text-[11px] text-text-tertiary mb-2">
               홈택스 세금계산서 CSV는 한 건당 최대 {MAX_ITEMS}개 품목까지 지원됩니다.
@@ -338,35 +545,23 @@ export function DraftEditor({ candidate, suppliers, onClose, onSaved }: Props) {
             </div>
           </Section>
 
-          {/* 영수/청구 (홈택스 BG열, 필수) */}
+          {/* ── 영수/청구 ── */}
           <Section title="영수·청구 구분">
             <div className="flex items-center gap-4">
               <label className="flex items-center gap-1.5 cursor-pointer text-sm">
-                <input
-                  type="radio"
-                  name="receiptType"
-                  value="01"
-                  checked={receiptType === '01'}
-                  onChange={() => setReceiptType('01')}
-                  className="accent-brand-600"
-                />
+                <input type="radio" name="receiptType" value="01" checked={receiptType === '01'}
+                  onChange={() => setReceiptType('01')} className="accent-brand-600" />
                 영수(01) <span className="text-[11px] text-text-tertiary">대가를 받은 경우</span>
               </label>
               <label className="flex items-center gap-1.5 cursor-pointer text-sm">
-                <input
-                  type="radio"
-                  name="receiptType"
-                  value="02"
-                  checked={receiptType === '02'}
-                  onChange={() => setReceiptType('02')}
-                  className="accent-brand-600"
-                />
+                <input type="radio" name="receiptType" value="02" checked={receiptType === '02'}
+                  onChange={() => setReceiptType('02')} className="accent-brand-600" />
                 청구(02) <span className="text-[11px] text-text-tertiary">아직 못 받은 경우</span>
               </label>
             </div>
           </Section>
 
-          {/* 비고 */}
+          {/* ── 비고 ── */}
           <Section title="비고">
             <Textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2} placeholder="세금계산서 비고란에 표시할 내용 (선택)" />
           </Section>
@@ -391,6 +586,34 @@ export function DraftEditor({ candidate, suppliers, onClose, onSaved }: Props) {
   )
 }
 
+// ── 상태 토글 버튼 ─────────────────────────────────────────────
+function StatusToggleBtn({
+  icon, label, active, disabled, onClick,
+}: {
+  icon: React.ReactNode
+  label: string
+  active: boolean
+  disabled?: boolean
+  onClick: () => void
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className={`flex items-center gap-1.5 px-3 py-2 rounded-lg border text-xs font-medium transition-colors disabled:opacity-50 ${
+        active
+          ? 'bg-state-success-bg border-state-success text-state-success'
+          : 'bg-surface border-border-subtle text-text-secondary hover:border-border hover:text-text-primary'
+      }`}
+    >
+      {active ? <Check size={13} /> : icon}
+      {label}
+    </button>
+  )
+}
+
+// ── 레이아웃 헬퍼 ──────────────────────────────────────────────
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section>

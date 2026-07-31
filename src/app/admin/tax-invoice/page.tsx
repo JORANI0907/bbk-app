@@ -44,6 +44,8 @@ interface Candidate {
   draft_receiver_email_2: string | null
   draft_receipt_type: string | null
   draft_invoice_kind: string | null
+  // application 소스 전용
+  application_status?: string | null
   // customer 소스 전용
   customer_status?: 'active' | 'paused' | 'terminated'
   invoice_status?: InvoiceStatus
@@ -761,8 +763,10 @@ export default function TaxInvoiceDashboardPage() {
         <DraftEditor
           candidate={editingCandidate}
           suppliers={suppliers}
+          scheduleMonth={viewMonth}
           onClose={() => setEditingCandidate(null)}
           onSaved={() => { setEditingCandidate(null); void load() }}
+          onStatusChanged={() => void load()}
         />
       )}
 

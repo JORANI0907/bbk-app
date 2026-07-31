@@ -76,6 +76,8 @@ interface Candidate {
   draft_receiver_email_2: string | null
   draft_receipt_type: string | null
   draft_invoice_kind: string | null
+  // application 소스 전용
+  application_status?: string | null
   // customer 소스 전용
   customer_status?: 'active' | 'paused' | 'terminated'
   invoice_status?: InvoiceStatus
@@ -302,6 +304,7 @@ export async function GET(request: NextRequest) {
             draft_receiver_email_2: draft?.receiver_email_2 ?? null,
             draft_receipt_type: draft?.bill_receipt_type ?? null,
             draft_invoice_kind: draft?.invoice_kind ?? null,
+            application_status: sa.status ?? null,
           })
         }
       }
