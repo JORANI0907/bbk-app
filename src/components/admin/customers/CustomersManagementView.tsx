@@ -1190,9 +1190,22 @@ export function CustomersManagementView({
           setPendingAppId(null)
         }
       } else if (selected) {
+        // 정기 유형 변경 감지 → 기존 일정 삭제 확인 팝업
+        const prevType = selected.customer_type
+        const nextType = form.customer_type
+        const wasRegular = prevType === '정기딥케어' || prevType === '정기엔드케어'
+        const typeChanged = wasRegular && prevType !== nextType
+        let deleteSchedules = false
+        if (typeChanged) {
+          const ok = confirm(
+            `유형을 "${prevType}" → "${nextType}"으로 변경하면\n기존에 생성된 회차 일정이 모두 삭제됩니다.\n\n계속하시겠습니까?`
+          )
+          if (!ok) return
+          deleteSchedules = true
+        }
         const res = await fetch('/api/admin/customers', {
           method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id: selected.id, ...body }),
+          body: JSON.stringify({ id: selected.id, ...body, ...(deleteSchedules ? { deleteSchedules: true } : {}) }),
         })
         const data = await res.json()
         if (!res.ok) throw new Error(data.error || '저장 실패')

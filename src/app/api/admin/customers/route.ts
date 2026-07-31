@@ -478,6 +478,19 @@ export async function PATCH(request: NextRequest) {
     }
   }
 
+  // 유형 변경 시 기존 회차 일정 소프트 삭제 (정기딥/정기엔드 → 다른 유형)
+  if (rest.deleteSchedules === true) {
+    try {
+      await supabase
+        .from('service_applications')
+        .update({ deleted_at: new Date().toISOString() })
+        .eq('customer_id', id)
+        .is('deleted_at', null)
+    } catch (e) {
+      console.error('유형 변경 일정 삭제 실패:', e instanceof Error ? e.message : e)
+    }
+  }
+
   return NextResponse.json({ success: true, customer: updatedCustomer })
 }
 
