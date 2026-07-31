@@ -604,42 +604,62 @@ export default function NotificationTemplatesPage() {
       {/* 신규 템플릿 추가 모달 */}
       {addOpen && (
         <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4" onClick={() => !adding && setAddOpen(false)}>
-          <div className="bg-surface rounded-2xl max-w-md w-full p-5 space-y-3" onClick={e => e.stopPropagation()}>
-            <div>
-              <h2 className="text-lg font-bold text-text-primary">새 알림 추가</h2>
-              <p className="text-xs text-text-tertiary mt-0.5">탭 &quot;{TABS.find(t => t.key === activeTab)?.label}&quot;에 자동 배정 · 발송방식 수동(⚪)으로 생성됩니다.</p>
+          <div className="bg-surface rounded-2xl max-w-md w-full p-5 space-y-4" onClick={e => e.stopPropagation()}>
+            <h2 className="text-lg font-bold text-text-primary">새 알림 추가</h2>
+
+            {/* ① Claude Code 안내 */}
+            <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 space-y-2">
+              <p className="text-xs font-bold text-amber-900">⚡🔶 자동·반자동 알림은 Claude Code로 요청하세요</p>
+              <p className="text-xs text-amber-800 leading-relaxed">
+                발송 시점·조건 연결은 코드 변경이 필요합니다.<br />
+                Claude Code에 아래 내용을 전달하면 바로 추가됩니다.
+              </p>
+              <div className="bg-white rounded-lg border border-amber-200 px-3 py-2 text-xs text-text-primary space-y-1 leading-relaxed">
+                <p>① 알림 이름 (예: 정기방문 리마인더)</p>
+                <p>② 발송 시점·조건 (예: 방문 2일 전 오전 9시)</p>
+                <p>③ 발송 방식 — 자동 / 반자동</p>
+                <p>④ 포함할 변수 (예: 고객명, 시공일자)</p>
+              </div>
             </div>
-            <div>
-              <label className="text-xs font-medium text-text-secondary mb-1 block">코드 (영문/한글, 고유)</label>
-              <input type="text" value={addForm.code} onChange={e => setAddForm(f => ({ ...f, code: e.target.value }))}
-                placeholder="예: 특별할인알림"
-                className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" />
-            </div>
-            <div>
-              <label className="text-xs font-medium text-text-secondary mb-1 block">라벨 (관리자용 표시명)</label>
-              <input type="text" value={addForm.title} onChange={e => setAddForm(f => ({ ...f, title: e.target.value }))}
-                placeholder="예: 특별 할인 안내"
-                className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" />
-            </div>
-            <div>
-              <label className="text-xs font-medium text-text-secondary mb-1 block">카테고리 (선택)</label>
-              <select value={addForm.category} onChange={e => setAddForm(f => ({ ...f, category: e.target.value }))}
-                className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-surface focus:outline-none focus:ring-2 focus:ring-brand-500">
-                <option value="">(선택 안함)</option>
-                <option value="예약">예약</option>
-                <option value="결제">결제</option>
-                <option value="작업">작업</option>
-                <option value="A/S">A/S</option>
-                <option value="계정">계정</option>
-              </select>
-            </div>
-            <div className="flex justify-end gap-2 pt-2 border-t border-border-subtle">
-              <button onClick={() => setAddOpen(false)} disabled={adding}
-                className="px-3 py-1.5 text-sm text-text-secondary hover:bg-surface-sunken rounded-lg">취소</button>
-              <button onClick={handleAdd} disabled={adding || !addForm.code.trim() || !addForm.title.trim()}
-                className="px-4 py-1.5 text-sm bg-brand-600 text-white rounded-lg font-semibold hover:bg-brand-700 disabled:opacity-40">
-                {adding ? '생성 중...' : '생성'}
-              </button>
+
+            {/* ② 수동 템플릿 직접 생성 */}
+            <div className="rounded-xl border border-border bg-surface-sunken/40 p-4 space-y-3">
+              <p className="text-xs font-bold text-text-primary">⚪ 수동 템플릿 직접 생성</p>
+              <p className="text-[11px] text-text-tertiary -mt-1">
+                탭 &quot;{TABS.find(t => t.key === activeTab)?.label}&quot; · 발송방식 수동(미배선)으로 생성됩니다.
+              </p>
+              <div>
+                <label className="text-xs font-medium text-text-secondary mb-1 block">코드 (고유 식별자)</label>
+                <input type="text" value={addForm.code} onChange={e => setAddForm(f => ({ ...f, code: e.target.value }))}
+                  placeholder="예: 특별할인알림"
+                  className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 bg-surface" />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-text-secondary mb-1 block">라벨 (관리자용 표시명)</label>
+                <input type="text" value={addForm.title} onChange={e => setAddForm(f => ({ ...f, title: e.target.value }))}
+                  placeholder="예: 특별 할인 안내"
+                  className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 bg-surface" />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-text-secondary mb-1 block">카테고리 (선택)</label>
+                <select value={addForm.category} onChange={e => setAddForm(f => ({ ...f, category: e.target.value }))}
+                  className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-surface focus:outline-none focus:ring-2 focus:ring-brand-500">
+                  <option value="">(선택 안함)</option>
+                  <option value="예약">예약</option>
+                  <option value="결제">결제</option>
+                  <option value="작업">작업</option>
+                  <option value="A/S">A/S</option>
+                  <option value="계정">계정</option>
+                </select>
+              </div>
+              <div className="flex justify-end gap-2 pt-1">
+                <button onClick={() => setAddOpen(false)} disabled={adding}
+                  className="px-3 py-1.5 text-sm text-text-secondary hover:bg-surface-sunken rounded-lg">닫기</button>
+                <button onClick={handleAdd} disabled={adding || !addForm.code.trim() || !addForm.title.trim()}
+                  className="px-4 py-1.5 text-sm bg-brand-600 text-white rounded-lg font-semibold hover:bg-brand-700 disabled:opacity-40">
+                  {adding ? '생성 중...' : '⚪ 수동으로 생성'}
+                </button>
+              </div>
             </div>
           </div>
         </div>
