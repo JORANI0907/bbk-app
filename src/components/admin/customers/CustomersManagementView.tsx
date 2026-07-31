@@ -336,7 +336,7 @@ const PAYMENT_STATUS_DETAIL_OPTIONS = [
   { value: '카드결제 완료',  label: '카드결제 완료' },
 ] as const
 
-const PAYMENT_COMPLETE_STATUSES = ['결제완료', '결제완료(잔금)', '카드결제 완료', '계산서발행완료']
+const PAYMENT_COMPLETE_STATUSES = ['결제완료', '결제완료(잔금)', '카드결제 완료', '계산서발행완료', '비과세']
 
 // ─── 방문 주기 ────────────────────────────────────────────────
 const WEEKDAYS = [
