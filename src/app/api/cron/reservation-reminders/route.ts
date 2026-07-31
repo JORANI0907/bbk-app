@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
-import { sendAlimtalk } from '@/lib/solapi'
+import { sendAlimtalk, sendSmsOrLms } from '@/lib/solapi'
 import { sendByTemplate } from '@/lib/template-sender'
 import type { NotificationContext } from '@/lib/notification-variables'
 import { saveNotificationHistory } from '@/lib/notification'
@@ -400,6 +400,113 @@ export async function GET(request: NextRequest) {
       } catch { failed++ }
     }
     results.push({ type: '결제알림', sent, failed, skipped })
+  }
+
+  // ── 4. 정기결제알림: service_billings.due_date 기반 ─────────────────
+  //     월간 billing → 고객에게 결제방법별 정기결제알림 발송
+  //     연간 billing → 관리자(01054344877)에게 재계약 안내 SMS 발송
+  {
+    const ADMIN_PHONE = '01054344877'
+
+    type BillingRow = {
+      id: string
+      billing_type: string
+      billing_period: string
+      due_date: string
+      amount: number
+      customers: {
+        id: string
+        business_name: string
+        contact_name: string | null
+        contact_phone: string | null
+        customer_type: string | null
+        payment_method: string | null
+        account_number: string | null
+        billing_amount: number | null
+        billing_next_date: string | null
+      }
+    }
+
+    const { data: billings } = await supabase
+      .from('service_billings')
+      .select(`
+        id, billing_type, billing_period, due_date, amount,
+        customers!inner(
+          id, business_name, contact_name, contact_phone,
+          customer_type, payment_method, account_number,
+          billing_amount, billing_next_date
+        )
+      `)
+      .eq('due_date', todayKST)
+      .eq('status', 'pending')
+      .in('customers.customer_type', ['정기딥케어', '정기엔드케어'])
+
+    let sent = 0, failed = 0, skipped = 0
+
+    for (const row of (billings ?? []) as unknown as BillingRow[]) {
+      const cust = row.customers
+
+      // ── 연간: 관리자에게 재계약 안내 SMS ──
+      if (row.billing_type === 'annual') {
+        const msg = `[BBK 공간케어] 연간 계약 갱신 필요\n${cust.business_name} 고객의 연간 계약 결제일(${row.due_date})이 도래했습니다.\n재계약 진행을 확인해 주세요.`
+        try {
+          await sendSmsOrLms(ADMIN_PHONE, msg, {})
+          await supabase.from('service_billings').update({ status: 'reminded' }).eq('id', row.id)
+          sent++
+        } catch { failed++ }
+        continue
+      }
+
+      // ── 월간: 고객에게 정기결제알림 ──
+      const phone = (cust.contact_phone ?? '').replace(/-/g, '')
+      if (!phone) { skipped++; continue }
+
+      const pm = cust.payment_method ?? ''
+      const isCard = pm === '카드(온라인 간편결제)'
+      const suffix = cust.customer_type === '정기딥케어' ? '_정기딥' : '_정기엔드'
+      const templateCode = isCard ? `정기결제알림(카드)${suffix}` : `정기결제알림${suffix}`
+
+      // billing 실제 금액·결제일로 context 채우기
+      const ctx: NotificationContext = {
+        customer: {
+          business_name: cust.business_name,
+          contact_name: cust.contact_name,
+          contact_phone: cust.contact_phone,
+          payment_method: cust.payment_method,
+          account_number: cust.account_number,
+          billing_amount: row.amount,        // {{계약금액}} 소스
+          billing_next_date: row.due_date,   // {{다음결제일}} 소스
+        },
+      }
+
+      try {
+        const result = await sendByTemplate(templateCode, phone, ctx)
+        if (result.ok) {
+          await supabase.from('service_billings').update({ status: 'reminded' }).eq('id', row.id)
+          await saveNotificationHistory({
+            category: 'sms',
+            type: '정기결제알림',
+            body: result.text,
+            method: 'auto',
+            recipientType: 'customer',
+            recipientPhone: phone,
+            metadata: {
+              billing_id: row.id,
+              customer_id: cust.id,
+              business_name: cust.business_name,
+              channel: result.type,
+              source: 'cron/reservation-reminders',
+            },
+            status: 'sent',
+          })
+          sent++
+        } else {
+          skipped++
+        }
+      } catch { failed++ }
+    }
+
+    results.push({ type: '정기결제알림', sent, failed, skipped })
   }
 
   return NextResponse.json({ ok: true, date: todayKST, results })
