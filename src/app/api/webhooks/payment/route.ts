@@ -140,6 +140,7 @@ interface PaymentPayload {
 
 type AppRow = {
   id: string
+  customer_id: string | null
   business_name: string
   owner_name: string
   phone: string
@@ -197,7 +198,7 @@ export async function POST(request: NextRequest) {
     // ── 이름 매칭 ─────────────────────────────────────────────────
     const { data: apps } = await supabase
       .from('service_applications')
-      .select('id, business_name, owner_name, phone, deposit, balance, status, notification_log')
+      .select('id, customer_id, business_name, owner_name, phone, deposit, balance, status, notification_log')
       .in('status', ALL_STATUSES)
       .is('deleted_at', null)
 
@@ -234,6 +235,13 @@ export async function POST(request: NextRequest) {
         .from('service_applications')
         .update({ deposit: amount, deposit_paid_at: depositNow })
         .eq('id', app.id)
+
+      if (app.customer_id) {
+        await supabase
+          .from('customers')
+          .update({ deposit_paid_at: depositNow, payment_status_detail: '예약금 입금' })
+          .eq('id', app.customer_id)
+      }
 
       const { ok, newStatus } = await fireNotify(origin, app.id, '예약금 입금완료 알림')
 
@@ -290,6 +298,13 @@ export async function POST(request: NextRequest) {
         .from('service_applications')
         .update({ balance_paid_at: balanceNow })
         .eq('id', app.id)
+
+      if (app.customer_id) {
+        await supabase
+          .from('customers')
+          .update({ balance_paid_at: balanceNow, payment_status_detail: '결제완료(잔금)' })
+          .eq('id', app.customer_id)
+      }
 
       const { ok, newStatus } = await fireNotify(origin, app.id, '결제완료알림(잔금)')
 
