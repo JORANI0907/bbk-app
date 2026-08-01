@@ -3580,7 +3580,7 @@ export function CustomersManagementView({
                     <div className="flex justify-end gap-1.5 mt-1">
                       <button onClick={() => { setCheckedIds([selected.id]); openScheduleGenModal('cleanup') }} disabled={saving}
                         className="px-3 py-1.5 text-xs font-medium bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors disabled:opacity-50">
-                        저장
+                        수정 반영
                       </button>
                       <button onClick={() => { setCheckedIds([selected.id]); openScheduleGenModal('create') }} disabled={saving}
                         className="px-3 py-1.5 text-xs font-medium bg-white hover:bg-purple-50 text-purple-700 border border-purple-300 rounded-lg transition-colors disabled:opacity-50">
@@ -3748,7 +3748,7 @@ export function CustomersManagementView({
                     <div className="flex justify-end gap-1.5 mt-1">
                       <button onClick={() => { setCheckedIds([selected.id]); openScheduleGenModal('cleanup') }} disabled={saving}
                         className="px-3 py-1.5 text-xs font-medium bg-brand-600 hover:bg-brand-700 text-white rounded-lg transition-colors disabled:opacity-50">
-                        저장
+                        수정 반영
                       </button>
                       <button onClick={() => { setCheckedIds([selected.id]); openScheduleGenModal('create') }} disabled={saving}
                         className="px-3 py-1.5 text-xs font-medium bg-white hover:bg-brand-50 text-brand-700 border border-brand-300 rounded-lg transition-colors disabled:opacity-50">
@@ -4139,7 +4139,7 @@ export function CustomersManagementView({
             >
               {scheduleGenModal.submitting
                 ? '처리 중...'
-                : scheduleGenModal.mode === 'cleanup' ? '저장' : '생성'}
+                : scheduleGenModal.mode === 'cleanup' ? '수정 반영' : '생성'}
             </button>
           </div>
         </div>
