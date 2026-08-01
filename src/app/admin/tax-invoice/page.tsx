@@ -112,11 +112,8 @@ export default function TaxInvoiceDashboardPage() {
   const [paymentMethods, setPaymentMethods] = useState<string[]>(['현금(계산서 희망)'])
   const [customerStatuses, setCustomerStatuses] = useState<string[]>(['active'])
 
-  // 월단위 뷰 (1회성케어 시공일자 기준)
-  const [viewMonth, setViewMonth] = useState<string | null>(() => {
-    const d = new Date()
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
-  })
+  // 월단위 뷰 (1회성케어 시공일자 기준) — 기본 전체보기로 미발행 이력 전부 표시
+  const [viewMonth, setViewMonth] = useState<string | null>(null)
 
   // 기간 선택 모달 (정기케어 발행용)
   const [billingSelectTarget, setBillingSelectTarget] = useState<Candidate | null>(null)
