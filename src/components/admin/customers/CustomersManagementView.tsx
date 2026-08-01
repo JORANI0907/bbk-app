@@ -3761,7 +3761,7 @@ export function CustomersManagementView({
             {/* 저장 버튼 — worker는 읽기 전용 */}
             {!isWorker && (
               <Button onClick={handleSave} disabled={saving} size="lg" className="w-full">
-                {saving ? '저장 중...' : isNew ? '✚ 고객 추가' : <><Save size={14} /> 저장</>}
+                {saving ? (isNew ? '저장 중...' : '수정 중...') : isNew ? '✚ 고객 추가' : <><Save size={14} /> 수정</>}
               </Button>
             )}
             {/* Phase 5-G: 이력탭 모드에서 개별 되돌리기 */}
