@@ -2994,7 +2994,7 @@ export function CustomersManagementView({
                         disabled={statusToggling}
                         onClick={handlePaymentCompleteToggle}
                         className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors disabled:opacity-50 ${
-                          PAYMENT_COMPLETE_STATUSES.includes(form.payment_status_detail ?? '')
+                          PAYMENT_COMPLETE_STATUSES.includes(selected?.payment_status_detail ?? '')
                             ? 'bg-green-100 text-green-700 border-green-300'
                             : 'bg-gray-50 text-text-tertiary border-border'
                         }`}

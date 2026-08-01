@@ -57,6 +57,7 @@ export async function POST(request: NextRequest) {
   let updatedBills: string[] = []
 
   // ── 1회성케어: service_applications ──────────────────────────
+  const customerIdsFromApps: string[] = []
   if (appItems.length > 0) {
     const appIds = appItems.map(i => i.source_id)
     const { data, error } = await supabase
@@ -67,9 +68,12 @@ export async function POST(request: NextRequest) {
         status: '계산서발행완료',
       })
       .in('id', appIds)
-      .select('id')
+      .select('id, customer_id')
     if (error) return NextResponse.json({ error: `applications: ${error.message}` }, { status: 500 })
     updatedApps = (data ?? []).map(r => r.id as string)
+    for (const r of data ?? []) {
+      if (r.customer_id) customerIdsFromApps.push(r.customer_id as string)
+    }
   }
 
   // ── 정기케어: service_billings (선택된 기간 billing_ids만) ────
@@ -84,6 +88,18 @@ export async function POST(request: NextRequest) {
       .select('id')
     if (error) return NextResponse.json({ error: `billings: ${error.message}` }, { status: 500 })
     updatedBills = (data ?? []).map(r => r.id as string)
+  }
+
+  // ── customers.tax_invoice_issued 동기화 ────────────────────────
+  // - appItems: customer_id는 위에서 수집
+  // - customerItems: source_id 자체가 customer_id
+  const customerIdsFromBillings = customerItems.map(i => i.source_id)
+  const allCustomerIds = [...new Set([...customerIdsFromApps, ...customerIdsFromBillings])]
+  if (allCustomerIds.length > 0) {
+    await supabase
+      .from('customers')
+      .update({ tax_invoice_issued: true })
+      .in('id', allCustomerIds)
   }
 
   // ── 감사 로그 ─────────────────────────────────────────────────
