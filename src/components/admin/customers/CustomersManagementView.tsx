@@ -604,6 +604,7 @@ export function CustomersManagementView({
   const [showInlineEndCareHistory, setShowInlineEndCareHistory] = useState(false)
   // Phase 7-F: 1회성 embed(ServiceManagementView)에 새로고침 트리거 전달용 카운터
   const [embedRefetchKey, setEmbedRefetchKey] = useState(0)
+  const [showSaveConfirm, setShowSaveConfirm] = useState(false)
   const [loading, setLoading] = useState(true)
   // Phase 27-AW: 진입 기본값을 관리자용(1회성 + 정기딥 활성 · 미배정 비활성)으로 세팅.
   // 워커 role 확정 시 아래 useEffect에서 원래 defaults로 reset (빈 Set + 미배정 활성).
@@ -3758,11 +3759,42 @@ export function CustomersManagementView({
               />
             )}
 
-            {/* 저장 버튼 — worker는 읽기 전용 */}
+            {/* 수정 반영 버튼 — worker는 읽기 전용 */}
             {!isWorker && (
-              <Button onClick={handleSave} disabled={saving} size="lg" className="w-full">
-                {saving ? (isNew ? '저장 중...' : '수정 중...') : isNew ? '✚ 고객 추가' : <><Save size={14} /> 수정</>}
+              <Button
+                onClick={isNew ? handleSave : () => setShowSaveConfirm(true)}
+                disabled={saving}
+                size="lg"
+                className="w-full"
+              >
+                {saving ? (isNew ? '저장 중...' : '수정 중...') : isNew ? '✚ 고객 추가' : <><Save size={14} /> 수정 반영</>}
               </Button>
+            )}
+
+            {/* 수정 반영 확인 모달 */}
+            {showSaveConfirm && (
+              <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/50 p-4" onClick={() => setShowSaveConfirm(false)}>
+                <div className="bg-surface rounded-2xl shadow-modal max-w-sm w-full p-6" onClick={e => e.stopPropagation()}>
+                  <h3 className="text-base font-bold text-text-primary mb-3">수정 반영</h3>
+                  <p className="text-sm text-text-secondary leading-relaxed mb-5">
+                    기존에 만들어진 일정에 원하는 기간만큼을 변경한 내용으로 수정하는 기능입니다.
+                  </p>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setShowSaveConfirm(false)}
+                      className="flex-1 px-4 py-2 text-sm font-medium text-text-secondary border border-border rounded-lg hover:bg-surface-sunken transition-colors"
+                    >
+                      취소
+                    </button>
+                    <button
+                      onClick={() => { setShowSaveConfirm(false); handleSave() }}
+                      className="flex-1 px-4 py-2 text-sm font-medium text-white bg-brand-600 hover:bg-brand-700 rounded-lg transition-colors"
+                    >
+                      확인
+                    </button>
+                  </div>
+                </div>
+              </div>
             )}
             {/* Phase 5-G: 이력탭 모드에서 개별 되돌리기 */}
             {!isWorker && !isNew && selected && archivedView && (
