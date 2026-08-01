@@ -562,7 +562,7 @@ export default function TaxInvoiceDashboardPage() {
       {/* Table */}
       <div className="bg-surface rounded-2xl border border-border-subtle overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[1080px] text-sm">
+          <table className="w-full min-w-[1160px] text-sm">
             <thead className="bg-surface-sunken border-b border-border-subtle">
               <tr>
                 <th className="w-10 py-2.5 pl-4">
@@ -580,18 +580,19 @@ export default function TaxInvoiceDashboardPage() {
                 <th className="text-left px-3 py-2.5 text-xs font-medium text-text-secondary">대표자</th>
                 <th className="text-left px-3 py-2.5 text-xs font-medium text-text-secondary">사업자번호</th>
                 <th className="text-left px-3 py-2.5 text-xs font-medium text-text-secondary">결제방법</th>
-                <th className="text-right px-3 py-2.5 text-xs font-medium text-text-secondary">공급가액</th>
-                <th className="text-right px-3 py-2.5 text-xs font-medium text-text-secondary">세액</th>
-                <th className="text-right px-3 py-2.5 text-xs font-medium text-text-secondary">합계</th>
-                <th className="text-left px-3 py-2.5 text-xs font-medium text-text-secondary">상태</th>
+                <th className="text-right w-20 px-2 py-2.5 text-xs font-medium text-text-secondary">공급가액</th>
+                <th className="text-right w-16 px-2 py-2.5 text-xs font-medium text-text-secondary">세액</th>
+                <th className="text-right w-24 px-2 py-2.5 text-xs font-medium text-text-secondary">합계</th>
+                <th className="text-left px-3 py-2.5 text-xs font-medium text-text-secondary">계산서</th>
+                <th className="text-left px-3 py-2.5 text-xs font-medium text-text-secondary">결제</th>
                 <th className="w-20 py-2.5" />
               </tr>
             </thead>
             <tbody className="anim-stagger-fast divide-y divide-border-subtle">
               {loading ? (
-                <tr><td colSpan={12} className="py-16 text-center text-sm text-text-tertiary">로딩 중…</td></tr>
+                <tr><td colSpan={13} className="py-16 text-center text-sm text-text-tertiary">로딩 중…</td></tr>
               ) : sortedCandidates.length === 0 ? (
-                <tr><td colSpan={12} className="py-16 text-center text-sm text-text-tertiary">
+                <tr><td colSpan={13} className="py-16 text-center text-sm text-text-tertiary">
                   <FileSpreadsheet size={28} className="mx-auto opacity-30 mb-2" />
                   발행 대상이 없습니다.
                 </td></tr>
@@ -628,11 +629,14 @@ export default function TaxInvoiceDashboardPage() {
                     <td className="px-3 py-2 text-xs text-text-secondary whitespace-nowrap max-w-[160px] truncate" title={c.payment_method ?? undefined}>
                       {c.payment_method || <span className="text-text-tertiary">—</span>}
                     </td>
-                    <td className="px-3 py-2 text-right tabular-nums text-text-primary">{fmtMan(c.supply_amount)}</td>
-                    <td className="px-3 py-2 text-right tabular-nums text-text-tertiary">{fmtMan(c.vat)}</td>
-                    <td className="px-3 py-2 text-right tabular-nums font-semibold text-text-primary">{fmtKr(c.total_amount)}</td>
+                    <td className="px-2 py-2 text-right tabular-nums text-text-primary whitespace-nowrap">{fmtMan(c.supply_amount)}</td>
+                    <td className="px-2 py-2 text-right tabular-nums text-text-tertiary whitespace-nowrap">{fmtMan(c.vat)}</td>
+                    <td className="px-2 py-2 text-right tabular-nums font-semibold text-text-primary whitespace-nowrap">{fmtKr(c.total_amount)}</td>
                     <td className="px-3 py-2">
                       <RowStatus c={c} />
+                    </td>
+                    <td className="px-3 py-2">
+                      <PaymentBadge done={isPaymentDone(c)} />
                     </td>
                     <td className="pr-3 py-2 text-right">
                       <button type="button"
@@ -767,6 +771,26 @@ function SourceBadge({ label }: { label: string }) {
       {label || '—'}
     </span>
   )
+}
+
+const PAID_APP_STATUSES = new Set([
+  '결제완료', '결제완료(잔금)', '카드결제 완료', '비과세', '계산서발행완료',
+])
+
+function isPaymentDone(c: Candidate): boolean {
+  if (c.source === 'billing') return c.billing_status === 'paid'
+  return PAID_APP_STATUSES.has(c.application_status ?? '')
+}
+
+function PaymentBadge({ done }: { done: boolean }) {
+  return done
+    ? (
+      <span className="inline-flex items-center gap-1 text-[11px] text-state-success">
+        <CheckCircle2 size={11} />완료
+      </span>
+    ) : (
+      <span className="text-[11px] text-text-tertiary">미완료</span>
+    )
 }
 
 function RowStatus({ c }: { c: Candidate }) {
