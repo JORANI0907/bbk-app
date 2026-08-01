@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
-import { generateMonthlySchedule, getNextMonth, weekdayLabel } from '@/lib/schedule-generator'
+import { generateVisitSchedule, generateMonthlySchedule, getNextMonth, weekdayLabel, type VisitCycleUnit, type VisitCycleConfig } from '@/lib/schedule-generator'
 import { sendAlimtalk } from '@/lib/solapi'
 import { notifySlack } from '@/lib/slack'
 import { triggerDriveFolderCreation } from '@/lib/drive-server'
@@ -32,6 +32,13 @@ interface CustomerRow {
   special_notes: string | null
   care_scope: string | null
   customer_type: string
+  // 신형 방문주기 (Phase 37)
+  visit_cycle_unit: VisitCycleUnit | null
+  visit_cycle_value: number | null
+  visit_cycle_config: VisitCycleConfig | null
+  contract_start_date: string | null
+  contract_end_date: string | null
+  // 구형 방문주기 (legacy fallback)
   visit_schedule_type: string | null
   visit_weekdays: number[] | null
   visit_monthly_dates: number[] | null
@@ -80,12 +87,12 @@ export async function GET(request: NextRequest) {
       'platform_nickname, business_number, account_number, ' +
       'payment_method, business_hours_start, business_hours_end, elevator, building_access, parking_info, ' +
       'access_method, special_notes, care_scope, customer_type, ' +
+      'visit_cycle_unit, visit_cycle_value, visit_cycle_config, contract_start_date, contract_end_date, ' +
       'visit_schedule_type, visit_weekdays, visit_monthly_dates, status, unit_price, ' +
       'assigned_user_id, assigned_worker_id, billing_cycle, billing_amount'
     )
     .in('customer_type', ['정기딥케어'])  // 정기엔드케어 제외 (수동 생성 전환)
     .eq('status', 'active')
-    .not('visit_schedule_type', 'is', null)
     .is('deleted_at', null)
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
@@ -100,15 +107,34 @@ export async function GET(request: NextRequest) {
   }> = []
 
   for (const customer of ((customers as unknown) as CustomerRow[]) ?? []) {
-    if (!customer.visit_schedule_type) continue
+    // 신형·구형 모두 방문주기 정보 없으면 skip
+    if (!customer.visit_cycle_unit && !customer.visit_schedule_type) continue
 
-    const dates = generateMonthlySchedule(
-      year,
-      month,
-      customer.visit_schedule_type as 'weekday' | 'monthly_date',
-      customer.visit_weekdays ?? [],
-      customer.visit_monthly_dates ?? [],
-    )
+    let dates: string[]
+
+    if (customer.visit_cycle_unit) {
+      // 신형: visit_cycle_unit/value/config 기반 — 다음달 범위로 필터
+      const nextMonthStart = `${year}-${String(month).padStart(2, '0')}-01`
+      const nextMonthEnd   = `${year}-${String(month).padStart(2, '0')}-31`
+      const contractStart  = customer.contract_start_date ?? nextMonthStart
+      const allDates = generateVisitSchedule({
+        unit:          customer.visit_cycle_unit,
+        value:         customer.visit_cycle_value ?? 1,
+        config:        customer.visit_cycle_config ?? {},
+        contractStart,
+        contractEnd:   customer.contract_end_date ?? null,
+      })
+      dates = allDates.filter(d => d >= nextMonthStart && d <= nextMonthEnd)
+    } else {
+      // 구형 legacy fallback
+      dates = generateMonthlySchedule(
+        year,
+        month,
+        customer.visit_schedule_type as 'weekday' | 'monthly_date',
+        customer.visit_weekdays ?? [],
+        customer.visit_monthly_dates ?? [],
+      )
+    }
 
     if (dates.length === 0) continue
 
