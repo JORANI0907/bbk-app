@@ -17,6 +17,8 @@ import { ServiceManagementPage } from '@/components/admin/applications/ServiceMa
 import { CustomersCalendarGrid, type CalendarApp } from '@/components/admin/customers/CustomersCalendarGrid'
 import { computeAppAmount, fmtAmount } from '@/components/admin/customers/calendar-amount'
 import { TODAY_ROW_BORDER, TODAY_ROW_BG, TODAY_ROW_SHADOW } from '@/lib/ui/today-styles'
+import { VisitCycleEditor } from '@/components/admin/customers/VisitCycleEditor'
+import type { VisitCycleUnit, VisitCycleConfig } from '@/lib/schedule-generator'
 
 // ─── 타입 ─────────────────────────────────────────────────────
 type CustomerType = '1회성케어' | '정기딥케어' | '정기엔드케어' | '정기딥케어샘플' | '정기엔드케어샘플' | '일반일정'
@@ -95,6 +97,10 @@ interface Customer {
   // Phase 29: 연간 결제 월/일 (정기딥케어 연간 전용)
   yearly_billing_month: number | null
   yearly_billing_day: number | null
+  // 통합 방문주기 (Phase 37)
+  visit_cycle_unit: 'day' | 'week' | 'month' | 'quarter' | 'year' | null
+  visit_cycle_value: number | null
+  visit_cycle_config: VisitCycleConfig | null
   // 서비스관리 이관 필드 (Phase A)
   notification_log: Array<{ type: string; sent_at: string; phone?: string; method?: 'auto' | 'manual'; template_id?: string }> | null
   phone_notify_1: boolean | null
@@ -319,6 +325,10 @@ const EMPTY_FORM = {
   // Phase 29: 연간 결제 월/일 (정기딥케어 연간 전용)
   yearly_billing_month: '',
   yearly_billing_day: '',
+  // 통합 방문주기 (Phase 37)
+  visit_cycle_unit: '' as VisitCycleUnit | '',
+  visit_cycle_value: 1,
+  visit_cycle_config: {} as VisitCycleConfig,
 }
 
 // Phase 9-C: 1회성 진행상태·결제상태 옵션 (자동화 매핑과 완전 일치)
@@ -922,6 +932,10 @@ export function CustomersManagementView({
     // Phase 29: 연간 결제 월/일 (정기딥케어 연간 전용)
     yearly_billing_month: c.yearly_billing_month?.toString() ?? '',
     yearly_billing_day: c.yearly_billing_day?.toString() ?? '',
+    // 통합 방문주기 (Phase 37)
+    visit_cycle_unit: c.visit_cycle_unit ?? '',
+    visit_cycle_value: c.visit_cycle_value ?? 1,
+    visit_cycle_config: (c.visit_cycle_config ?? {}) as VisitCycleConfig,
   })
 
   const handleSelect = (c: Customer) => {
@@ -1017,6 +1031,9 @@ export function CustomersManagementView({
         injection_cycle_months: null,
         yearly_billing_month: null,
         yearly_billing_day: null,
+        visit_cycle_unit: null,
+        visit_cycle_value: null,
+        visit_cycle_config: null,
         created_at: nowIso,
         updated_at: nowIso,
       }
@@ -1149,6 +1166,10 @@ export function CustomersManagementView({
     // Phase 29: 연간 결제 월/일 (정기딥케어 연간 전용)
     yearly_billing_month: form.yearly_billing_month ? Number(form.yearly_billing_month) : null,
     yearly_billing_day: form.yearly_billing_day ? Number(form.yearly_billing_day) : null,
+    // 통합 방문주기 (Phase 37)
+    visit_cycle_unit: form.visit_cycle_unit || null,
+    visit_cycle_value: form.visit_cycle_value || 1,
+    visit_cycle_config: form.visit_cycle_config ?? {} as VisitCycleConfig,
   })
 
   const autoGenerateBillings = (customerId: string) => {
@@ -1924,6 +1945,9 @@ export function CustomersManagementView({
           injection_cycle_months: null,
           yearly_billing_month: null,
           yearly_billing_day: null,
+          visit_cycle_unit: null,
+          visit_cycle_value: null,
+          visit_cycle_config: null,
           created_at: a.created_at,
           updated_at: a.created_at,
         }))
@@ -3514,14 +3538,12 @@ export function CustomersManagementView({
                   {/* 방문 주기 */}
                   <div className="flex flex-col gap-2">
                     <p className="text-xs font-semibold text-gray-700">방문 일정</p>
-                    <VisitScheduleEditor
-                      scheduleType={form.visit_schedule_type}
-                      weekdays={visitWeekdays}
-                      monthlyDates={visitMonthlyDates}
-                      onScheduleTypeChange={set('visit_schedule_type')}
-                      onWeekdaysChange={setVisitWeekdays}
-                      onMonthlyDatesChange={setVisitMonthlyDates}
+                    <VisitCycleEditor
+                      unit={form.visit_cycle_unit}
+                      value={form.visit_cycle_value}
+                      config={form.visit_cycle_config as VisitCycleConfig}
                       color="purple"
+                      onChange={(u, v, c) => setForm(f => ({ ...f, visit_cycle_unit: u, visit_cycle_value: v, visit_cycle_config: c }))}
                     />
                   </div>
 
@@ -3676,17 +3698,15 @@ export function CustomersManagementView({
                       className="flex-1 border border-border rounded-md px-2 py-1 text-xs bg-white focus:outline-none focus:ring-1 focus:ring-sky-500" />
                   </div>
 
-                  {/* Phase 21: 방문 일정 소섹션 — 파스텔 indigo */}
+                  {/* Phase 21 / Phase 37: 방문 일정 소섹션 */}
                   <div className="bg-brand-50 border border-brand-200 rounded-lg p-3 flex flex-col gap-2">
                     <p className="text-xs font-semibold text-text-primary">방문 일정</p>
-                    <VisitScheduleEditor
-                      scheduleType={form.visit_schedule_type}
-                      weekdays={visitWeekdays}
-                      monthlyDates={visitMonthlyDates}
-                      onScheduleTypeChange={set('visit_schedule_type')}
-                      onWeekdaysChange={setVisitWeekdays}
-                      onMonthlyDatesChange={setVisitMonthlyDates}
+                    <VisitCycleEditor
+                      unit={form.visit_cycle_unit}
+                      value={form.visit_cycle_value}
+                      config={form.visit_cycle_config as VisitCycleConfig}
                       color="blue"
+                      onChange={(u, v, c) => setForm(f => ({ ...f, visit_cycle_unit: u, visit_cycle_value: v, visit_cycle_config: c }))}
                     />
                   </div>
 

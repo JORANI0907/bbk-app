@@ -71,7 +71,7 @@ export async function GET(request: NextRequest) {
     try {
       const amount = computeBillingAmountFromCustomer(c)
       const input = {
-        customerType: c.customer_type,
+        serviceType: c.customer_type,
         billingCycle: c.billing_cycle,
         contractStartDate: c.contract_start_date,
         contractEndDate: c.contract_end_date,
