@@ -95,7 +95,6 @@ export function BillingHistoryPanel({
   const [showForm, setShowForm] = useState(false)
   const [markingId, setMarkingId] = useState<string | null>(null)
   const [paidDate, setPaidDate] = useState(new Date().toISOString().slice(0, 10))
-  const [autoGenerating, setAutoGenerating] = useState(false)
   // Phase 22: 기본은 이번달(월간)/올해(연간)만 노출, 토글로 전체 보기
   const [expanded, setExpanded] = useState(false)
 
@@ -124,55 +123,6 @@ export function BillingHistoryPanel({
   }, [customerId])
 
   useEffect(() => { fetchBillings() }, [fetchBillings])
-
-  // 계약기간 기준 자동 생성
-  const handleAutoGenerate = async () => {
-    if (!contractStartDate) {
-      toast.error('계약 시작일을 먼저 설정해주세요.')
-      return
-    }
-    if (!billingAmount) {
-      toast.error('계약 금액을 먼저 설정해주세요.')
-      return
-    }
-
-    const allPeriods = calcAllPeriods(
-      customerType, billingCycle, contractStartDate, contractEndDate, paymentDay, billingAmount
-    )
-    if (allPeriods.length === 0) {
-      toast.error('생성할 청구 기간이 없습니다.')
-      return
-    }
-
-    // 이미 존재하는 기간 제외
-    const existingPeriods = new Set(billings.map(b => b.billing_period))
-    const toCreate = allPeriods.filter(p => !existingPeriods.has(p.billing_period))
-
-    if (toCreate.length === 0) {
-      toast('계약기간 내 청구가 이미 모두 등록되어 있습니다.', { icon: 'ℹ️' })
-      return
-    }
-
-    setAutoGenerating(true)
-    try {
-      let created = 0
-      for (const item of toCreate) {
-        const res = await fetch('/api/admin/billings', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ customer_id: customerId, ...item }),
-        })
-        if (res.ok) created++
-      }
-      toast.success(`${created}건의 청구가 자동 생성되었습니다.`)
-      await fetchBillings()
-      onChange?.()
-    } catch {
-      toast.error('자동 생성 중 오류가 발생했습니다.')
-    } finally {
-      setAutoGenerating(false)
-    }
-  }
 
   const openManualForm = () => {
     const existingPeriods = billings.map(b => b.billing_period)
@@ -313,13 +263,6 @@ export function BillingHistoryPanel({
 
   if (!isRegular || !billingCycle) return null
 
-  // 계약 기간 기준 미생성 건수 계산
-  const allPeriods = calcAllPeriods(
-    customerType, billingCycle, contractStartDate, contractEndDate, paymentDay, billingAmount
-  )
-  const existingPeriodSet = new Set(billings.map(b => b.billing_period))
-  const missingCount = allPeriods.filter(p => !existingPeriodSet.has(p.billing_period)).length
-
   const typeLabel = isAnnual ? '연간 결제 이력' : '월간 청구 이력'
   const headerBg = isAnnual ? 'bg-brand-50 border-brand-100' : 'bg-purple-50 border-purple-100'
   const addBtnColor = isAnnual ? 'bg-brand-600 hover:bg-brand-700' : 'bg-purple-600 hover:bg-purple-700'
@@ -347,16 +290,6 @@ export function BillingHistoryPanel({
               className="px-2.5 py-1 text-xs font-medium rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 transition-colors whitespace-nowrap"
             >
               {expanded ? '접기 ▲' : `전체 보기 (${billings.length}건) ▼`}
-            </button>
-          )}
-          {/* 계약기간 자동 생성 버튼 */}
-          {missingCount > 0 && contractStartDate && billingAmount && (
-            <button
-              onClick={handleAutoGenerate}
-              disabled={autoGenerating}
-              className="px-2.5 py-1 text-xs text-white font-medium rounded-lg transition-colors bg-gray-600 hover:bg-gray-700 disabled:opacity-60 whitespace-nowrap"
-            >
-              {autoGenerating ? '생성 중...' : `계약기간 자동생성 (${missingCount}건)`}
             </button>
           )}
           <button

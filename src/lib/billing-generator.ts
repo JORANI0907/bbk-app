@@ -32,11 +32,8 @@ export function shouldAutoGenerateBillings(input: GenerateInput): boolean {
   if (!input.contractStartDate) return false
   if (!input.billingAmount || input.billingAmount <= 0) return false
 
-  // 정기딥 월간은 방문 완료 트리거로 처리 → 여기서 생성 안 함
-  if (input.customerType === '정기딥케어' && input.billingCycle === '월간') return false
-
-  // 지원 대상: 정기딥 연간, 정기엔드 월간, 정기엔드 연간
-  if (input.customerType === '정기딥케어' && input.billingCycle === '연간') return true
+  // 지원 대상: 정기딥 월간/연간, 정기엔드 월간/연간
+  if (input.customerType === '정기딥케어') return true
   if (input.customerType === '정기엔드케어') return true
 
   return false
