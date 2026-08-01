@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import toast from 'react-hot-toast'
-import { X } from 'lucide-react'
+import { X, Info } from 'lucide-react'
 
 interface BillingRecord {
   id: string
@@ -97,6 +97,7 @@ export function BillingHistoryPanel({
   const [paidDate, setPaidDate] = useState(new Date().toISOString().slice(0, 10))
   // Phase 22: 기본은 이번달(월간)/올해(연간)만 노출, 토글로 전체 보기
   const [expanded, setExpanded] = useState(false)
+  const [showInfo, setShowInfo] = useState(false)
 
   // 신규 청구 폼
   const [newPeriod, setNewPeriod] = useState('')
@@ -281,7 +282,16 @@ export function BillingHistoryPanel({
   return (
     <div className="border border-gray-100 rounded-xl overflow-hidden">
       <div className={`flex items-center justify-between px-4 py-2.5 border-b ${headerBg}`}>
-        <p className="text-xs font-semibold text-gray-600">{typeLabel}</p>
+        <div className="flex items-center gap-1.5">
+          <p className="text-xs font-semibold text-gray-600">{typeLabel}</p>
+          <button
+            onClick={() => setShowInfo(v => !v)}
+            className="text-gray-400 hover:text-gray-600 transition-colors"
+            title="이용 안내"
+          >
+            <Info size={13} />
+          </button>
+        </div>
         <div className="flex items-center gap-1.5">
           {/* Phase 22: 전체보기 토글 (숨겨진 건이 있거나 이미 확장된 경우만) */}
           {billings.length > 0 && (hiddenCount > 0 || expanded) && (
@@ -300,6 +310,25 @@ export function BillingHistoryPanel({
           </button>
         </div>
       </div>
+
+      {/* 이용 안내 패널 */}
+      {showInfo && (
+        <div className="px-4 py-3 bg-blue-50 border-b border-blue-100 space-y-1.5">
+          <p className="text-xs font-semibold text-blue-700 mb-1">이력 섹션 이용 안내</p>
+          <div className="flex gap-2 text-xs text-blue-600">
+            <span className="shrink-0">①</span>
+            <span>계약 정보(계약 시작일·계약 금액·결제 주기)를 입력하고 <strong>저장</strong>하면 계약기간 전체 이력이 자동 생성됩니다.</span>
+          </div>
+          <div className="flex gap-2 text-xs text-blue-600">
+            <span className="shrink-0">②</span>
+            <span>각 이력에서 <strong>결제 완료 처리</strong> 버튼을 누르면 재무관리 매출에 자동 반영됩니다.</span>
+          </div>
+          <div className="flex gap-2 text-xs text-blue-600">
+            <span className="shrink-0">③</span>
+            <span>이력을 직접 추가하려면 우상단 <strong>+ 직접 추가</strong> 버튼을 사용하세요.</span>
+          </div>
+        </div>
+      )}
 
       {/* 계약기간 미설정 안내 */}
       {(!contractStartDate || !billingAmount) && billings.length === 0 && (
