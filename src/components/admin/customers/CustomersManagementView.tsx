@@ -1241,6 +1241,8 @@ export function CustomersManagementView({
             setSelectedTypes(prev => new Set([...prev, nt]))
           }
         }
+        // 저장 성공 시 캘린더 강제 재조회 (CustomersCalendarGrid는 독립 fetch — state 업데이트로는 갱신 안 됨)
+        setEmbedRefetchKey(prev => prev + 1)
         const updated = (data.customer ?? { ...selected, ...body }) as Customer
         // assigned_worker_ids는 PATCH 응답에 없음(JOIN 계산 필드) → 현재 선택 상태를 병합해 보존
         const updatedWithWorkers: Customer = { ...updated, assigned_worker_ids: customerWorkerIds }
