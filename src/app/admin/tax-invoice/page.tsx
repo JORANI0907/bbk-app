@@ -94,6 +94,7 @@ export default function TaxInvoiceDashboardPage() {
 
   const [includeIssued, setIncludeIssued] = useState(false)
   const [serviceTypes, setServiceTypes] = useState<string[]>([])
+  const [paymentMethods, setPaymentMethods] = useState<string[]>([])
   const [search, setSearch] = useState('')
 
   // 월단위 뷰 (기본: 현재 월)
@@ -147,15 +148,27 @@ export default function TaxInvoiceDashboardPage() {
 
   useEffect(() => { void load() }, [load])
 
+  const availablePaymentMethods = useMemo(() => {
+    const methods = new Set<string>()
+    candidates.forEach(c => { if (c.payment_method) methods.add(c.payment_method) })
+    return Array.from(methods).sort((a, b) => a.localeCompare(b, 'ko'))
+  }, [candidates])
+
   const filteredCandidates = useMemo(() => {
-    if (!search.trim()) return candidates
-    const q = search.trim().toLowerCase()
-    return candidates.filter(c =>
-      c.business_name.toLowerCase().includes(q) ||
-      c.owner_name.toLowerCase().includes(q) ||
-      (c.business_number ?? '').toLowerCase().includes(q)
-    )
-  }, [candidates, search])
+    let list = candidates
+    if (search.trim()) {
+      const q = search.trim().toLowerCase()
+      list = list.filter(c =>
+        c.business_name.toLowerCase().includes(q) ||
+        c.owner_name.toLowerCase().includes(q) ||
+        (c.business_number ?? '').toLowerCase().includes(q)
+      )
+    }
+    if (paymentMethods.length > 0) {
+      list = list.filter(c => c.payment_method && paymentMethods.includes(c.payment_method))
+    }
+    return list
+  }, [candidates, search, paymentMethods])
 
   // 월 필터 (effective_month 기준 — 클라이언트 사이드)
   const monthFilteredCandidates = useMemo(() => {
@@ -460,9 +473,9 @@ export default function TaxInvoiceDashboardPage() {
         <div className="flex items-center gap-1.5 text-xs text-text-tertiary">
           <Filter size={12} />
           <span>필터</span>
-          {serviceTypes.length > 0 && (
+          {(serviceTypes.length > 0 || paymentMethods.length > 0) && (
             <button type="button"
-              onClick={() => setServiceTypes([])}
+              onClick={() => { setServiceTypes([]); setPaymentMethods([]) }}
               className="ml-auto text-[11px] text-brand-600 hover:text-brand-700 underline">
               초기화
             </button>
@@ -475,6 +488,16 @@ export default function TaxInvoiceDashboardPage() {
           options={SERVICE_TYPES_FIXED}
           selected={serviceTypes}
           onToggle={(v) => setServiceTypes(prev =>
+            prev.includes(v) ? prev.filter(x => x !== v) : [...prev, v]
+          )}
+        />
+
+        {/* 결제방법 뱃지 */}
+        <FilterBadgeGroup
+          label="결제"
+          options={availablePaymentMethods}
+          selected={paymentMethods}
+          onToggle={(v) => setPaymentMethods(prev =>
             prev.includes(v) ? prev.filter(x => x !== v) : [...prev, v]
           )}
         />
