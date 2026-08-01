@@ -628,6 +628,28 @@ export function WorkPanel({ app, onUpdate, isAdmin = false }: Props) {
           )}
         </div>
       )}
+
+      {/* 발송 이력 */}
+      {(app.notification_log?.length ?? 0) > 0 && (
+        <div className="mt-4">
+          <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">발송 이력</p>
+          <div className="border border-gray-200 rounded-xl overflow-hidden">
+            <div className="max-h-40 overflow-y-auto divide-y divide-gray-100">
+              {app.notification_log!.map((log, i) => (
+                <div key={i} className="flex items-center justify-between px-3 py-2 bg-white">
+                  <span className="text-xs font-medium text-gray-800">{log.type}</span>
+                  <span className="text-xs text-gray-400">
+                    {new Date(log.sent_at).toLocaleString('ko-KR', {
+                      month: 'numeric', day: 'numeric',
+                      hour: '2-digit', minute: '2-digit',
+                    })}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   )
 }
