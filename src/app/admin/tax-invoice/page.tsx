@@ -2,20 +2,19 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import toast from 'react-hot-toast'
-import { RefreshCw, Download, Filter, Search, AlertCircle, CheckCircle2, FileSpreadsheet, Settings, Pencil, Check, Undo2, ChevronLeft, ChevronRight } from 'lucide-react'
+import { RefreshCw, Download, Filter, Search, AlertCircle, CheckCircle2, FileSpreadsheet, Settings, Pencil, Check, Undo2 } from 'lucide-react'
 import Link from 'next/link'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { DraftEditor } from './DraftEditor'
-import { BillingPeriodSelector, type BillingPeriodItem } from './BillingPeriodSelector'
 import { buildHometaxCsv, todayYmdKst, type HometaxRow, type HometaxItem } from '@/lib/hometax-csv'
 
-type Source = 'application' | 'customer'
-type InvoiceStatus = 'no_paid' | 'unissued' | 'partial' | 'all_issued'
+type Source = 'application' | 'billing'
 
 interface Candidate {
   source: Source
-  source_id: string
+  source_id: string         // application.id 또는 billing.id
+  customer_id: string | null
   service_type: string | null
   business_name: string
   business_number: string | null
@@ -27,7 +26,11 @@ interface Candidate {
   supply_amount: number
   vat: number
   total_amount: number
+  billing_id: string | null
   billing_period: string | null
+  billing_type: 'monthly' | 'annual' | null
+  display_period: string | null
+  billing_status: 'pending' | 'paid' | 'overdue' | null
   application_id: string | null
   construction_date: string | null
   created_at: string
@@ -38,32 +41,15 @@ interface Candidate {
   has_draft: boolean
   draft_supplier_id: string | null
   draft_items: Array<{ name: string; qty?: number; unit_price?: number; supply_amount?: number; vat?: number; spec?: string; remark?: string }> | null
-  // 홈택스 CSV 전용 draft 필드
   draft_receiver_business_type: string | null
   draft_receiver_business_item: string | null
   draft_receiver_email_2: string | null
   draft_receipt_type: string | null
   draft_invoice_kind: string | null
-  // application 소스 전용
   application_status?: string | null
-  // customer 소스 전용
-  customer_status?: 'active' | 'paused' | 'terminated'
-  invoice_status?: InvoiceStatus
-  billing_periods?: BillingPeriodItem[]
-  paid_count?: number
-  unissued_count?: number
 }
 
-const SERVICE_TYPES_FIXED = ['1회성케어', '정기딥케어', '정기엔드케어', '일반일정', '미배정']
-
-// 결제방법 필터 화이트리스트 — 실제 DB에는 편차·오타 포함 다양한 값이 있지만
-// 사용자가 실제로 필터링하고 싶은 4가지만 노출
-const ALLOWED_PAYMENT_METHODS = [
-  '현금(계산서 희망)',
-  '현금(비과세)',
-  '플랫폼',
-  '카드(온라인 간편결제)',
-]
+const SERVICE_TYPES_FIXED = ['1회성케어', '정기딥케어', '정기엔드케어']
 
 interface Supplier {
   id: string
@@ -78,7 +64,6 @@ interface Supplier {
   is_default: boolean
 }
 
-// 프리셋 로드 실패 시 fallback
 const FALLBACK_SUPPLIER: Supplier = {
   id: '',
   label: '기본',
@@ -106,33 +91,14 @@ export default function TaxInvoiceDashboardPage() {
   const [loading, setLoading] = useState(true)
   const [loadedAt, setLoadedAt] = useState<Date | null>(null)
 
-  // 필터 (다중 선택)
   const [includeIssued, setIncludeIssued] = useState(false)
   const [serviceTypes, setServiceTypes] = useState<string[]>([])
-  const [paymentMethods, setPaymentMethods] = useState<string[]>(['현금(계산서 희망)'])
-  const [customerStatuses, setCustomerStatuses] = useState<string[]>(['active'])
-
-  // 월단위 뷰 (1회성케어 시공일자 기준) — 기본 전체보기로 미발행 이력 전부 표시
-  const [viewMonth, setViewMonth] = useState<string | null>(null)
-
-  // 기간 선택 모달 (정기케어 발행용)
-  const [billingSelectTarget, setBillingSelectTarget] = useState<Candidate | null>(null)
   const [search, setSearch] = useState('')
 
-  // 필터 옵션 — 유형은 고정 리스트, 결제방법은 화이트리스트 고정
-  const availableServiceTypes = SERVICE_TYPES_FIXED
-  const [availablePaymentMethods, setAvailablePaymentMethods] = useState<string[]>(ALLOWED_PAYMENT_METHODS)
-
-  // 선택
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
-
-  // 편집 Drawer
   const [editingCandidate, setEditingCandidate] = useState<Candidate | null>(null)
-
-  // 발행 완료 처리 로딩
   const [markingIssued, setMarkingIssued] = useState(false)
 
-  // 공급자 프리셋
   const [suppliers, setSuppliers] = useState<Supplier[]>([])
   const [selectedSupplierId, setSelectedSupplierId] = useState<string>('')
 
@@ -141,7 +107,6 @@ export default function TaxInvoiceDashboardPage() {
     ?? suppliers[0]
     ?? FALLBACK_SUPPLIER
 
-  // 프리셋 로드
   useEffect(() => {
     fetch('/api/admin/tax-invoice/suppliers')
       .then(r => r.json())
@@ -160,25 +125,10 @@ export default function TaxInvoiceDashboardPage() {
       const params = new URLSearchParams()
       if (includeIssued) params.set('include_issued', 'true')
       if (serviceTypes.length > 0) params.set('service_type', serviceTypes.join(','))
-      if (paymentMethods.length > 0) params.set('payment_method', paymentMethods.join(','))
-      if (customerStatuses.length < 3) params.set('customer_status', customerStatuses.join(','))
-      // 월뷰 필터: 1회성케어 시공일자 기준 (정기케어는 서버에서 필터 무시)
-      if (viewMonth) {
-        const [y, mo] = viewMonth.split('-').map(Number)
-        const lastDay = new Date(y, mo, 0).getDate()
-        params.set('from', `${viewMonth}-01`)
-        params.set('to', `${viewMonth}-${String(lastDay).padStart(2, '0')}`)
-      }
       const res = await fetch(`/api/admin/tax-invoice/candidates?${params}`)
       const json = await res.json()
       if (!res.ok) throw new Error(json.error ?? '조회 실패')
       setCandidates(json.candidates ?? [])
-      if (Array.isArray(json.available_payment_methods)) {
-        // 화이트리스트 교집합만 노출 (DB에 존재하는 값 중 ALLOWED_PAYMENT_METHODS 만)
-        const filtered = ALLOWED_PAYMENT_METHODS.filter(m => json.available_payment_methods.includes(m))
-        // DB에 없어도 화이트리스트는 그대로 노출 (선택은 가능)
-        setAvailablePaymentMethods(filtered.length > 0 ? filtered : ALLOWED_PAYMENT_METHODS)
-      }
       setLoadedAt(new Date())
       setSelectedIds(new Set())
     } catch (e) {
@@ -186,7 +136,7 @@ export default function TaxInvoiceDashboardPage() {
     } finally {
       setLoading(false)
     }
-  }, [includeIssued, serviceTypes, paymentMethods, customerStatuses, viewMonth])
+  }, [includeIssued, serviceTypes])
 
   useEffect(() => { void load() }, [load])
 
@@ -200,35 +150,24 @@ export default function TaxInvoiceDashboardPage() {
     )
   }, [candidates, search])
 
-  // 1회성케어(시공일자 DESC) → 정기케어 순으로 정렬
+  // 1회성케어(시공일자 DESC) → 정기케어(기간 DESC) 순
   const sortedCandidates = useMemo(() => {
     const oneTime = filteredCandidates.filter(c => c.source === 'application')
-    const periodic = filteredCandidates.filter(c => c.source === 'customer')
+    const billings = filteredCandidates.filter(c => c.source === 'billing')
     const sortedOneTime = [...oneTime].sort((a, b) => {
       if (!a.construction_date && !b.construction_date) return 0
       if (!a.construction_date) return 1
       if (!b.construction_date) return -1
       return b.construction_date.localeCompare(a.construction_date)
     })
-    return [...sortedOneTime, ...periodic]
-  }, [filteredCandidates])
-
-  // 월 이동 헬퍼
-  const shiftMonth = (delta: number) => {
-    setViewMonth(m => {
-      if (!m) {
-        const d = new Date()
-        const base = new Date(d.getFullYear(), d.getMonth() + delta, 1)
-        return `${base.getFullYear()}-${String(base.getMonth() + 1).padStart(2, '0')}`
-      }
-      const [y, mo] = m.split('-').map(Number)
-      const next = new Date(y, mo - 1 + delta, 1)
-      return `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, '0')}`
+    const sortedBillings = [...billings].sort((a, b) => {
+      const ap = a.billing_period ?? ''
+      const bp = b.billing_period ?? ''
+      if (ap !== bp) return bp.localeCompare(ap)
+      return a.business_name.localeCompare(b.business_name, 'ko')
     })
-  }
-  const viewMonthLabel = viewMonth
-    ? `${viewMonth.slice(0, 4)}년 ${parseInt(viewMonth.slice(5, 7))}월`
-    : '전체'
+    return [...sortedOneTime, ...sortedBillings]
+  }, [filteredCandidates])
 
   const rowKey = (c: Candidate) => `${c.source}:${c.source_id}`
 
@@ -257,32 +196,35 @@ export default function TaxInvoiceDashboardPage() {
     const total = filteredCandidates.length
     const valid = filteredCandidates.filter(c => c.is_valid).length
     const missing = total - valid
-    const alreadyIssued = filteredCandidates.filter(c => c.tax_invoice_issued).length
     const sumAmount = filteredCandidates
       .filter(c => selectedIds.has(rowKey(c)))
       .reduce((s, c) => s + c.total_amount, 0)
-    return { total, valid, missing, alreadyIssued, sumAmount, selected: selectedIds.size }
+    return { total, valid, missing, sumAmount, selected: selectedIds.size }
   }, [filteredCandidates, selectedIds])
 
-  // ── 발행 완료 처리 (1회성케어 선택 항목, customer 소스는 모달에서 처리) ──
+  // ── 발행 완료 처리 ───────────────────────────────────────────
   const handleMarkIssued = async () => {
-    const selected = filteredCandidates.filter(c => selectedIds.has(rowKey(c)) && c.source === 'application')
-    if (selected.length === 0) { toast.error('먼저 1회성케어 항목을 선택하세요.'); return }
+    const selected = filteredCandidates.filter(c => selectedIds.has(rowKey(c)) && !c.tax_invoice_issued)
+    if (selected.length === 0) { toast.error('먼저 미발행 항목을 선택하세요.'); return }
     if (!confirm(`선택한 ${selected.length}건을 발행 완료 처리할까요?`)) return
 
     setMarkingIssued(true)
     try {
+      const items = selected.map(c => {
+        if (c.source === 'application') {
+          return { source: 'application' as const, source_id: c.source_id }
+        }
+        return { source: 'customer' as const, source_id: c.customer_id!, billing_ids: [c.billing_id!] }
+      })
       const res = await fetch('/api/admin/tax-invoice/mark-issued', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          items: selected.map(c => ({ source: c.source, source_id: c.source_id })),
-          supplier_id: supplier.id || null,
-        }),
+        body: JSON.stringify({ items, supplier_id: supplier.id || null }),
       })
       const json = await res.json()
       if (!res.ok) throw new Error(json.error ?? '처리 실패')
-      toast.success(`발행 완료 처리: ${json.updated_applications}건`)
+      const total = (json.updated_applications ?? 0) + (json.updated_billings ?? 0)
+      toast.success(`발행 완료 처리: ${total}건`)
       void load()
     } catch (e) {
       toast.error(e instanceof Error ? e.message : '처리 실패')
@@ -291,55 +233,32 @@ export default function TaxInvoiceDashboardPage() {
     }
   }
 
-  // ── 정기케어 기간 선택 후 발행 처리 ──────────────────────────
-  const handleBillingPeriodIssued = async (billingIds: string[]) => {
-    if (!billingSelectTarget) return
-    try {
-      const res = await fetch('/api/admin/tax-invoice/mark-issued', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          items: [{
-            source: 'customer',
-            source_id: billingSelectTarget.source_id,
-            billing_ids: billingIds,
-          }],
-          supplier_id: supplier.id || null,
-        }),
-      })
-      const json = await res.json()
-      if (!res.ok) throw new Error(json.error ?? '처리 실패')
-      toast.success(`발행 완료: ${json.updated_billings}건`)
-      setBillingSelectTarget(null)
-      void load()
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : '처리 실패')
-      throw e
-    }
-  }
-
-  // ── 발행 취소 (1회성케어만, 정기케어는 모달에서 처리) ──────
+  // ── 발행 취소 ────────────────────────────────────────────────
   const handleRevertIssued = async () => {
     const selected = filteredCandidates.filter(c =>
-      selectedIds.has(rowKey(c)) && c.tax_invoice_issued && c.source === 'application'
+      selectedIds.has(rowKey(c)) && c.tax_invoice_issued
     )
-    if (selected.length === 0) { toast.error('발행 완료 상태인 1회성케어 항목만 취소할 수 있습니다.'); return }
+    if (selected.length === 0) { toast.error('발행 완료 상태인 항목만 취소할 수 있습니다.'); return }
     const reason = prompt(`선택한 ${selected.length}건을 발행 취소할까요?\n사유(선택):`, '재발행')
     if (reason === null) return
 
     setMarkingIssued(true)
     try {
+      const items = selected.map(c => {
+        if (c.source === 'application') {
+          return { source: 'application' as const, source_id: c.source_id }
+        }
+        return { source: 'customer' as const, source_id: c.customer_id!, billing_ids: [c.billing_id!] }
+      })
       const res = await fetch('/api/admin/tax-invoice/mark-issued', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          items: selected.map(c => ({ source: c.source, source_id: c.source_id })),
-          void_reason: reason || '재발행',
-        }),
+        body: JSON.stringify({ items, void_reason: reason || '재발행' }),
       })
       const json = await res.json()
       if (!res.ok) throw new Error(json.error ?? '취소 실패')
-      toast.success(`발행 취소: ${json.reverted_applications}건`)
+      const total = (json.reverted_applications ?? 0) + (json.reverted_billings ?? 0)
+      toast.success(`발행 취소: ${total}건`)
       void load()
     } catch (e) {
       toast.error(e instanceof Error ? e.message : '취소 실패')
@@ -348,13 +267,10 @@ export default function TaxInvoiceDashboardPage() {
     }
   }
 
-  // ── CSV → Google Drive 업로드 (실패 시 로컬 다운로드 fallback) ───
+  // ── CSV → Google Drive ────────────────────────────────────────
   const handleDownloadCsv = async () => {
     const selected = filteredCandidates.filter(c => selectedIds.has(rowKey(c)))
-    if (selected.length === 0) {
-      toast.error('먼저 발행 대상을 선택하세요.')
-      return
-    }
+    if (selected.length === 0) { toast.error('먼저 발행 대상을 선택하세요.'); return }
     const invalidSelected = selected.filter(c => !c.is_valid)
     if (invalidSelected.length > 0) {
       toast.error(`필수 정보 누락 ${invalidSelected.length}건 — 편집 후 다시 시도`)
@@ -363,12 +279,11 @@ export default function TaxInvoiceDashboardPage() {
 
     const yyyymmdd = todayYmdKst()
     const rows: HometaxRow[] = selected.map(c => {
-      // 이 건에 draft.supplier_id가 지정되어 있으면 그 공급자로 override
       const rowSupplier = c.draft_supplier_id
         ? (suppliers.find(s => s.id === c.draft_supplier_id) ?? supplier)
         : supplier
 
-      // 품목: draft_items가 있으면 그대로 (최대 4개 잘라내기), 없으면 서비스유형 기반 자동 채움
+      const periodLabel = c.display_period ?? c.construction_date?.slice(0, 10) ?? ''
       const items: HometaxItem[] = (c.draft_items && c.draft_items.length > 0)
         ? c.draft_items.slice(0, 4).map(it => ({
             name: it.name,
@@ -380,7 +295,7 @@ export default function TaxInvoiceDashboardPage() {
             remark: it.remark ?? null,
           }))
         : [{
-            name: `${c.service_type ?? '청소 서비스'}${c.billing_period ? ` - ${c.billing_period}` : ''}`,
+            name: `${c.service_type ?? '청소 서비스'}${periodLabel ? ` - ${periodLabel}` : ''}`,
             qty: 1,
             unit_price: c.supply_amount,
             supply_amount: c.supply_amount,
@@ -423,19 +338,14 @@ export default function TaxInvoiceDashboardPage() {
     }
 
     const filename = `홈택스_세금계산서_${yyyymmdd}_${rows.length}건.csv`
-
-    // 로컬 다운로드 fallback 함수
     const downloadLocally = () => {
       const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' })
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
-      a.href = url
-      a.download = filename
-      a.click()
+      a.href = url; a.download = filename; a.click()
       URL.revokeObjectURL(url)
     }
 
-    // Google Drive에 Google Sheets로 저장 시도
     const uploadingToast = toast.loading('Google Sheets로 저장 중...')
     try {
       const res = await fetch('/api/admin/tax-invoice/upload-csv', {
@@ -446,19 +356,14 @@ export default function TaxInvoiceDashboardPage() {
       const json = await res.json()
       toast.dismiss(uploadingToast)
       if (!res.ok) throw new Error(json.error ?? '업로드 실패')
-
       toast.success(
         (t) => (
           <span className="flex items-center gap-2">
             <span>{rows.length}건 Google Sheets 저장 완료</span>
             {json.webViewLink && (
-              <a
-                href={json.webViewLink}
-                target="_blank"
-                rel="noreferrer"
+              <a href={json.webViewLink} target="_blank" rel="noreferrer"
                 onClick={() => toast.dismiss(t.id)}
-                className="text-brand-600 underline text-xs"
-              >
+                className="text-brand-600 underline text-xs">
                 시트 열기
               </a>
             )}
@@ -468,10 +373,8 @@ export default function TaxInvoiceDashboardPage() {
       )
     } catch (e) {
       toast.dismiss(uploadingToast)
-      const msg = e instanceof Error ? e.message : String(e)
-      // Drive 실패 시 자동 로컬 CSV 다운로드로 fallback
       downloadLocally()
-      toast.error(`Sheets 저장 실패 — 로컬 CSV로 다운로드: ${msg}`, { duration: 6000 })
+      toast.error(`Sheets 저장 실패 — 로컬 CSV로 다운로드: ${e instanceof Error ? e.message : String(e)}`, { duration: 6000 })
     }
   }
 
@@ -483,7 +386,7 @@ export default function TaxInvoiceDashboardPage() {
         <div>
           <h1 className="text-xl md:text-2xl font-bold text-text-primary tracking-tight">세금계산서 발행 대시보드</h1>
           <p className="text-xs text-text-tertiary mt-1">
-            정기엔드케어(고객관리) + 1회성·정기딥케어(서비스관리) 통합 발행 대상
+            1회성케어 · 정기딥케어 · 정기엔드케어 — 세금계산서 미발행 전체 표시
           </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
@@ -530,10 +433,10 @@ export default function TaxInvoiceDashboardPage() {
       <div className="bg-surface border border-border-subtle rounded-2xl p-4 space-y-3">
         <div className="flex items-center gap-1.5 text-xs text-text-tertiary">
           <Filter size={12} />
-          <span>필터 (중복 선택 가능)</span>
-          {(serviceTypes.length > 0 || paymentMethods.length !== 1 || paymentMethods[0] !== '현금(계산서 희망)' || customerStatuses.length !== 1 || customerStatuses[0] !== 'active') && (
+          <span>필터</span>
+          {serviceTypes.length > 0 && (
             <button type="button"
-              onClick={() => { setServiceTypes([]); setPaymentMethods(['현금(계산서 희망)']); setCustomerStatuses(['active']) }}
+              onClick={() => setServiceTypes([])}
               className="ml-auto text-[11px] text-brand-600 hover:text-brand-700 underline">
               초기화
             </button>
@@ -543,30 +446,9 @@ export default function TaxInvoiceDashboardPage() {
         {/* 서비스 유형 뱃지 */}
         <FilterBadgeGroup
           label="유형"
-          options={availableServiceTypes}
+          options={SERVICE_TYPES_FIXED}
           selected={serviceTypes}
           onToggle={(v) => setServiceTypes(prev =>
-            prev.includes(v) ? prev.filter(x => x !== v) : [...prev, v]
-          )}
-        />
-
-        {/* 결제방법 뱃지 */}
-        <FilterBadgeGroup
-          label="결제"
-          options={availablePaymentMethods}
-          selected={paymentMethods}
-          onToggle={(v) => setPaymentMethods(prev =>
-            prev.includes(v) ? prev.filter(x => x !== v) : [...prev, v]
-          )}
-        />
-
-        {/* 고객 상태 필터 (정기케어 전용) */}
-        <FilterBadgeGroup
-          label="상태"
-          options={['active', 'paused', 'terminated']}
-          selected={customerStatuses}
-          labelMap={{ active: '활성', paused: '일시중지', terminated: '해지' }}
-          onToggle={(v) => setCustomerStatuses(prev =>
             prev.includes(v) ? prev.filter(x => x !== v) : [...prev, v]
           )}
         />
@@ -607,44 +489,10 @@ export default function TaxInvoiceDashboardPage() {
         <StatCard label={`선택 (${stats.selected}건)`} value={`${fmtKr(stats.sumAmount)}원`} tone="brand" small />
       </div>
 
-      {/* 월단위 뷰 네비게이션 */}
-      <div className="flex items-center justify-between gap-3 flex-wrap">
-        <div className="flex items-center gap-1">
-          <button
-            type="button"
-            onClick={() => shiftMonth(-1)}
-            className="p-1.5 rounded-lg hover:bg-surface-sunken transition-colors text-text-secondary"
-            title="이전 달">
-            <ChevronLeft size={16} />
-          </button>
-          <span className="text-sm font-semibold text-text-primary min-w-[100px] text-center">{viewMonthLabel}</span>
-          <button
-            type="button"
-            onClick={() => shiftMonth(1)}
-            className="p-1.5 rounded-lg hover:bg-surface-sunken transition-colors text-text-secondary"
-            title="다음 달">
-            <ChevronRight size={16} />
-          </button>
-          <button
-            type="button"
-            onClick={() => setViewMonth(null)}
-            className={`ml-1 text-[11px] px-2.5 py-1 rounded-full border transition-colors ${
-              viewMonth === null
-                ? 'bg-brand-600 border-brand-600 text-white'
-                : 'bg-surface border-border text-text-secondary hover:border-brand-400 hover:text-brand-600'
-            }`}>
-            전체보기
-          </button>
-        </div>
-        <p className="text-[11px] text-text-tertiary">
-          {viewMonth ? '1회성케어는 시공일자 기준, 정기케어는 항상 하단에 표시' : '전체 조회 — 정기케어는 하단에 표시'}
-        </p>
-      </div>
-
       {/* Table */}
       <div className="bg-surface rounded-2xl border border-border-subtle overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[1120px] text-sm">
+          <table className="w-full min-w-[1080px] text-sm">
             <thead className="bg-surface-sunken border-b border-border-subtle">
               <tr>
                 <th className="w-10 py-2.5 pl-4">
@@ -657,7 +505,7 @@ export default function TaxInvoiceDashboardPage() {
                   />
                 </th>
                 <th className="text-left px-3 py-2.5 text-xs font-medium text-text-secondary">유형</th>
-                <th className="text-left px-3 py-2.5 text-xs font-medium text-text-secondary">시공일자</th>
+                <th className="text-left px-3 py-2.5 text-xs font-medium text-text-secondary">기간 / 시공일</th>
                 <th className="text-left px-3 py-2.5 text-xs font-medium text-text-secondary">업체명</th>
                 <th className="text-left px-3 py-2.5 text-xs font-medium text-text-secondary">대표자</th>
                 <th className="text-left px-3 py-2.5 text-xs font-medium text-text-secondary">사업자번호</th>
@@ -666,7 +514,7 @@ export default function TaxInvoiceDashboardPage() {
                 <th className="text-right px-3 py-2.5 text-xs font-medium text-text-secondary">세액</th>
                 <th className="text-right px-3 py-2.5 text-xs font-medium text-text-secondary">합계</th>
                 <th className="text-left px-3 py-2.5 text-xs font-medium text-text-secondary">상태</th>
-                <th className="w-28 py-2.5" />
+                <th className="w-20 py-2.5" />
               </tr>
             </thead>
             <tbody className="anim-stagger-fast divide-y divide-border-subtle">
@@ -680,25 +528,26 @@ export default function TaxInvoiceDashboardPage() {
               ) : sortedCandidates.map(c => {
                 const key = rowKey(c)
                 const isSelected = selectedIds.has(key)
-                const canSelect = c.is_valid
                 return (
                   <tr key={key} className={`transition-colors ${isSelected ? 'bg-brand-50/50' : 'hover:bg-surface-sunken'}`}>
                     <td className="py-2 pl-4">
                       <input
                         type="checkbox"
                         checked={isSelected}
-                        disabled={!canSelect}
+                        disabled={!c.is_valid}
                         onChange={() => toggleOne(c)}
                         className="accent-brand-600 disabled:opacity-30"
                       />
                     </td>
                     <td className="px-3 py-2 whitespace-nowrap">
-                      <SourceBadge source={c.source} label={c.service_type ?? ''} />
+                      <SourceBadge label={c.service_type ?? ''} />
                     </td>
                     <td className="px-3 py-2 text-text-tertiary whitespace-nowrap text-xs">
-                      {c.construction_date
-                        ? c.construction_date.slice(0, 10)
-                        : <span className="text-text-tertiary">—</span>
+                      {c.source === 'billing'
+                        ? <span className="font-medium text-text-secondary">{c.display_period}</span>
+                        : c.construction_date
+                          ? c.construction_date.slice(0, 10)
+                          : <span>—</span>
                       }
                     </td>
                     <td className="px-3 py-2 font-medium text-text-primary truncate max-w-[220px]">{c.business_name}</td>
@@ -716,27 +565,17 @@ export default function TaxInvoiceDashboardPage() {
                       <RowStatus c={c} />
                     </td>
                     <td className="pr-3 py-2 text-right">
-                      <div className="flex items-center justify-end gap-1">
-                        {c.source === 'customer' && (c.unissued_count ?? 0) > 0 && (
-                          <button type="button"
-                            onClick={() => setBillingSelectTarget(c)}
-                            className="flex items-center gap-1 text-[11px] px-2 py-1 rounded-md border border-brand-300 bg-brand-50 text-brand-700 hover:bg-brand-100 transition-colors"
-                            title="기간 선택 후 발행">
-                            <Check size={11} />발행
-                          </button>
-                        )}
-                        <button type="button"
-                          onClick={() => setEditingCandidate(c)}
-                          className={`flex items-center gap-1 text-[11px] px-2 py-1 rounded-md border transition-colors ${
-                            c.has_draft
-                              ? 'border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100'
-                              : 'border-border-subtle text-text-secondary hover:bg-surface-sunken'
-                          }`}
-                          title={c.has_draft ? '편집된 초안이 있습니다' : '발행 전 편집'}>
-                          <Pencil size={11} />
-                          {c.has_draft ? '편집됨' : '편집'}
-                        </button>
-                      </div>
+                      <button type="button"
+                        onClick={() => setEditingCandidate(c)}
+                        className={`flex items-center gap-1 text-[11px] px-2 py-1 rounded-md border transition-colors ${
+                          c.has_draft
+                            ? 'border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100'
+                            : 'border-border-subtle text-text-secondary hover:bg-surface-sunken'
+                        }`}
+                        title={c.has_draft ? '편집된 초안이 있습니다' : '발행 전 편집'}>
+                        <Pencil size={11} />
+                        {c.has_draft ? '편집됨' : '편집'}
+                      </button>
                     </td>
                   </tr>
                 )
@@ -755,26 +594,14 @@ export default function TaxInvoiceDashboardPage() {
         <DraftEditor
           candidate={editingCandidate}
           suppliers={suppliers}
-          scheduleMonth={viewMonth}
+          scheduleMonth={null}
           onClose={() => setEditingCandidate(null)}
           onSaved={() => { setEditingCandidate(null); void load() }}
           onStatusChanged={() => void load()}
         />
       )}
 
-      {/* 정기케어 기간 선택 발행 모달 */}
-      {billingSelectTarget && (
-        <BillingPeriodSelector
-          customerName={billingSelectTarget.business_name}
-          serviceType={billingSelectTarget.service_type}
-          customerId={billingSelectTarget.source_id}
-          periods={billingSelectTarget.billing_periods ?? []}
-          onClose={() => setBillingSelectTarget(null)}
-          onIssued={handleBillingPeriodIssued}
-        />
-      )}
-
-      {/* 현재 선택된 공급자 상세 미리보기 (접기 가능) */}
+      {/* 공급자 상세 */}
       <details className="bg-surface border border-border-subtle rounded-2xl">
         <summary className="cursor-pointer px-4 py-3 text-xs font-medium text-text-secondary flex items-center justify-between">
           <span>선택된 공급자 정보 · <b className="text-text-primary">{supplier.label}</b></span>
@@ -814,16 +641,12 @@ function FilterBadgeGroup({ label, options, selected, onToggle, labelMap }: {
         {options.map(opt => {
           const isSelected = selected.includes(opt)
           return (
-            <button
-              key={opt}
-              type="button"
-              onClick={() => onToggle(opt)}
+            <button key={opt} type="button" onClick={() => onToggle(opt)}
               className={`text-[11px] px-2.5 py-1 rounded-full border transition-colors whitespace-nowrap ${
                 isSelected
                   ? 'bg-brand-600 border-brand-600 text-white'
                   : 'bg-surface border-border text-text-secondary hover:border-brand-400 hover:text-brand-600'
-              }`}
-            >
+              }`}>
               {labelMap?.[opt] ?? opt}
             </button>
           )
@@ -841,8 +664,6 @@ function SupplierRow({ label, value, full }: { label: string; value: string; ful
     </div>
   )
 }
-
-// ─── 소소한 컴포넌트들 ─────────────────────────────────────
 
 function StatCard({ label, value, tone = 'default', small = false }: {
   label: string; value: number | string
@@ -864,14 +685,12 @@ function StatCard({ label, value, tone = 'default', small = false }: {
   )
 }
 
-// Phase 22 v13: 유형(service_type)만 색상 뱃지로 노출. "서비스/고객" 라벨은 제거 — source 구분은 백엔드 내부용
 const TYPE_BADGE: Record<string, string> = {
   '1회성케어':    'bg-emerald-100 text-emerald-700',
   '정기딥케어':   'bg-brand-100 text-brand-700',
   '정기엔드케어': 'bg-purple-100 text-purple-700',
-  '일반일정':     'bg-stone-100 text-stone-700',
 }
-function SourceBadge({ label }: { source: Source; label: string }) {
+function SourceBadge({ label }: { label: string }) {
   const cls = TYPE_BADGE[label] ?? 'bg-surface-sunken text-text-secondary'
   return (
     <span className={`inline-block text-[11px] px-2 py-0.5 rounded-full font-medium ${cls}`}>
@@ -881,56 +700,31 @@ function SourceBadge({ label }: { source: Source; label: string }) {
 }
 
 function RowStatus({ c }: { c: Candidate }) {
-  // 정기케어 (customer 소스) — invoice_status 기반
-  if (c.source === 'customer') {
-    if (!c.is_valid) {
-      return (
-        <span className="inline-flex items-center gap-1 text-[11px] text-state-warning" title={`누락: ${c.missing_fields.join(', ')}`}>
-          <AlertCircle size={11} />정보 누락
-        </span>
-      )
-    }
-    switch (c.invoice_status) {
-      case 'all_issued':
-        return (
-          <span className="inline-flex items-center gap-1 text-[11px] text-state-success">
-            <CheckCircle2 size={11} />발행완료
-          </span>
-        )
-      case 'partial':
-        return (
-          <span className="inline-flex items-center gap-1 text-[11px] text-state-warning">
-            <AlertCircle size={11} />{c.unissued_count}건 미발행 / {c.paid_count}건 중
-          </span>
-        )
-      case 'unissued':
-        return (
-          <span className="inline-flex items-center gap-1 text-[11px] text-state-danger">
-            <AlertCircle size={11} />{c.paid_count}건 미발행
-          </span>
-        )
-      case 'no_paid':
-      default:
-        return <span className="text-[11px] text-text-tertiary">결제이력 없음</span>
-    }
-  }
-
-  // 1회성케어 (application 소스)
   if (c.tax_invoice_issued) {
     return (
       <span className="inline-flex items-center gap-1 text-[11px] text-state-success">
         <CheckCircle2 size={11} />발행완료
-        {c.tax_invoice_issued_at && <span className="text-text-tertiary">({fmtDate(c.tax_invoice_issued_at)})</span>}
+        {c.tax_invoice_issued_at && (
+          <span className="text-text-tertiary">({fmtDate(c.tax_invoice_issued_at)})</span>
+        )}
       </span>
     )
   }
   if (!c.is_valid) {
     return (
-      <span className="inline-flex items-center gap-1 text-[11px] text-state-warning" title={`누락: ${c.missing_fields.join(', ')}`}>
+      <span className="inline-flex items-center gap-1 text-[11px] text-state-warning"
+        title={`누락: ${c.missing_fields.join(', ')}`}>
         <AlertCircle size={11} />정보 누락
       </span>
     )
   }
+  if (c.source === 'billing') {
+    if (c.billing_status === 'overdue') {
+      return <span className="text-[11px] text-state-danger">미발행 (연체)</span>
+    }
+    if (c.billing_status === 'pending') {
+      return <span className="text-[11px] text-text-tertiary">미발행 (미결제)</span>
+    }
+  }
   return <span className="text-[11px] text-text-tertiary">미발행</span>
 }
-
