@@ -4,6 +4,7 @@ import { sendAlimtalk } from '@/lib/solapi'
 import { notifySlack } from '@/lib/slack'
 import { triggerDriveFolderCreation } from '@/lib/drive-server'
 import { dispatch, lookupFranchiseHqIdsForCustomer } from '@/lib/notification-dispatcher'
+import { generateVisitSchedule, type VisitCycleUnit, type VisitCycleConfig } from '@/lib/schedule-generator'
 
 const ALIMTALK_CONFIRM_TEMPLATE = 'KA01TP260324131935207wzarljIsiyK'
 
@@ -27,9 +28,16 @@ interface CustomerRow {
   special_notes: string | null
   care_scope: string | null
   customer_type: string | null
+  // 신형 방문주기 (Phase 37)
+  visit_cycle_unit: VisitCycleUnit | null
+  visit_cycle_value: number | null
+  visit_cycle_config: VisitCycleConfig | null
+  // 구형 방문주기 (legacy fallback)
   visit_schedule_type: 'weekday' | 'monthly_date' | null
   visit_weekdays: number[] | null
   visit_monthly_dates: number[] | null
+  contract_start_date: string | null
+  contract_end_date: string | null
   unit_price: number | null
   assigned_user_id: string | null
   assigned_worker_id: string | null
@@ -114,7 +122,7 @@ export async function POST(request: NextRequest) {
   const { data: customersData, error: fetchError } = await supabase
     .from('customers')
     .select(
-      'id, business_name, contact_name, contact_phone, email, address, platform_nickname, business_number, account_number, payment_method, business_hours_start, business_hours_end, elevator, building_access, parking_info, access_method, special_notes, care_scope, customer_type, visit_schedule_type, visit_weekdays, visit_monthly_dates, unit_price, assigned_user_id, assigned_worker_id, billing_cycle, billing_amount'
+      'id, business_name, contact_name, contact_phone, email, address, platform_nickname, business_number, account_number, payment_method, business_hours_start, business_hours_end, elevator, building_access, parking_info, access_method, special_notes, care_scope, customer_type, visit_cycle_unit, visit_cycle_value, visit_cycle_config, visit_schedule_type, visit_weekdays, visit_monthly_dates, contract_start_date, contract_end_date, unit_price, assigned_user_id, assigned_worker_id, billing_cycle, billing_amount'
     )
     .in('id', customer_ids)
     .is('deleted_at', null)
@@ -139,14 +147,27 @@ export async function POST(request: NextRequest) {
 
     let scheduledDates: string[] = []
 
-    if (customer.visit_schedule_type === 'weekday' && customer.visit_weekdays?.length) {
+    if (customer.visit_cycle_unit) {
+      // 신형: visit_cycle_unit/value/config 기반 — generateVisitSchedule으로 전체 계약기간 날짜 생성 후 범위 필터
+      const contractStart = customer.contract_start_date ?? startDateStr
+      const contractEnd   = customer.contract_end_date ?? null
+      const allDates = generateVisitSchedule({
+        unit:          customer.visit_cycle_unit,
+        value:         customer.visit_cycle_value ?? 1,
+        config:        customer.visit_cycle_config ?? {},
+        contractStart,
+        contractEnd,
+      })
+      scheduledDates = allDates.filter(d => d >= startDateStr && d <= endDateStr)
+    } else if (customer.visit_schedule_type === 'weekday' && customer.visit_weekdays?.length) {
+      // 레거시 fallback: weekday
       scheduledDates = getDatesForWeekdays(year, month, customer.visit_weekdays)
+        .filter(d => d >= startDateStr && d <= endDateStr)
     } else if (customer.visit_schedule_type === 'monthly_date' && customer.visit_monthly_dates?.length) {
+      // 레거시 fallback: monthly_date
       scheduledDates = getDatesForMonthlyDates(year, month, customer.visit_monthly_dates)
+        .filter(d => d >= startDateStr && d <= endDateStr)
     }
-
-    // Phase 5-E: 시작일~종료일 범위로 필터
-    scheduledDates = scheduledDates.filter((d) => d >= startDateStr && d <= endDateStr)
 
     if (scheduledDates.length === 0) {
       results.push({ customer_id: customer.id, inserted: 0, skipped: 0 })
