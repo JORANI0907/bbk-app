@@ -2,12 +2,12 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import toast from 'react-hot-toast'
-import { X, Info } from 'lucide-react'
+import { X, Info, Pencil, Check } from 'lucide-react'
 
 interface BillingRecord {
   id: string
   customer_id: string
-  billing_type: 'monthly' | 'annual'
+  billing_type: 'monthly' | 'annual' | 'onetime'
   billing_period: string
   amount: number
   due_date: string
@@ -21,13 +21,13 @@ interface BillingRecord {
 
 interface Props {
   customerId: string
-  customerType: string        // '정기딥케어' | '정기엔드케어'
-  billingCycle: string        // '월간' | '연간'
+  customerType: string
+  billingCycle: string
   billingAmount: number | null
-  paymentDay: number | null   // 매월 결제일 (정기엔드케어)
+  paymentDay: number | null
   contractStartDate: string | null
   contractEndDate: string | null
-  onChange?: () => void       // 결제/계산서/삭제/생성 등 상태 변경 후 호출 — 부모가 리스트 뱃지 갱신
+  onChange?: () => void
 }
 
 const STATUS_STYLE: Record<BillingRecord['status'], { badge: string; label: string }> = {
@@ -39,75 +39,23 @@ const STATUS_STYLE: Record<BillingRecord['status'], { badge: string; label: stri
 const fmtDate = (d: string | null) => d ? d.slice(0, 10).replace(/-/g, '.') : '-'
 const fmt = (n: number) => n.toLocaleString('ko-KR')
 
-// 계약기간 기준으로 생성해야 할 청구 기간 목록 계산
-function calcAllPeriods(
-  customerType: string,
-  billingCycle: string,
-  contractStartDate: string | null,
-  contractEndDate: string | null,
-  paymentDay: number | null,
-  billingAmount: number | null,
-): Array<{ billing_type: 'monthly' | 'annual'; billing_period: string; due_date: string; amount: number }> {
-  if (!contractStartDate || !billingAmount) return []
-
-  const start = new Date(contractStartDate)
-  const end = contractEndDate ? new Date(contractEndDate) : new Date()
-  const day = paymentDay ?? 25
-  const results: Array<{ billing_type: 'monthly' | 'annual'; billing_period: string; due_date: string; amount: number }> = []
-
-  // Phase 22 v9: 정기딥/정기엔드 모두 billing_cycle 기준으로 월간/연간 판별
-  const isAnnual = billingCycle === '연간'
-
-  if (isAnnual) {
-    const startYear = start.getFullYear()
-    const endYear = end.getFullYear()
-    for (let y = startYear; y <= endYear; y++) {
-      const isLastYear = y === endYear
-      const dueDate = isLastYear && contractEndDate
-        ? contractEndDate.slice(0, 10)
-        : `${y}-12-31`
-      results.push({ billing_type: 'annual', billing_period: String(y), due_date: dueDate, amount: billingAmount })
-    }
-  } else {
-    // 월간: 시작월부터 종료월까지 월별 생성
-    const cursor = new Date(start.getFullYear(), start.getMonth(), 1)
-    const endCursor = new Date(end.getFullYear(), end.getMonth(), 1)
-    while (cursor <= endCursor) {
-      const y = cursor.getFullYear()
-      const m = cursor.getMonth() + 1
-      const period = `${y}-${String(m).padStart(2, '0')}`
-      const lastDay = new Date(y, m, 0).getDate()
-      const dueDay = Math.min(day, lastDay)
-      const dueDate = `${y}-${String(m).padStart(2, '0')}-${String(dueDay).padStart(2, '0')}`
-      results.push({ billing_type: 'monthly', billing_period: period, due_date: dueDate, amount: billingAmount })
-      cursor.setMonth(cursor.getMonth() + 1)
-    }
-  }
-
-  return results
-}
-
 export function BillingHistoryPanel({
-  customerId, customerType, billingCycle, billingAmount, paymentDay, contractStartDate, contractEndDate, onChange,
+  customerId, customerType, billingCycle, billingAmount, contractStartDate, onChange,
 }: Props) {
   const [billings, setBillings] = useState<BillingRecord[]>([])
   const [loading, setLoading] = useState(true)
-  const [showForm, setShowForm] = useState(false)
   const [markingId, setMarkingId] = useState<string | null>(null)
   const [paidDate, setPaidDate] = useState(new Date().toISOString().slice(0, 10))
-  // Phase 22: 기본은 이번달(월간)/올해(연간)만 노출, 토글로 전체 보기
   const [expanded, setExpanded] = useState(false)
   const [showInfo, setShowInfo] = useState(false)
 
-  // 신규 청구 폼
-  const [newPeriod, setNewPeriod] = useState('')
-  const [newDueDate, setNewDueDate] = useState('')
-  const [newAmount, setNewAmount] = useState('')
-  const [newNotes, setNewNotes] = useState('')
-  const [saving, setSaving] = useState(false)
+  // 인라인 금액/날짜 수정
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editAmount, setEditAmount] = useState('')
+  const [editDueDate, setEditDueDate] = useState('')
+  const [editSaving, setEditSaving] = useState(false)
 
-  // Phase 22 v9: 유형 관계없이 billing_cycle 기준으로 월간/연간 판별
-  const isAnnual = billingCycle === '연간'
+  const isAnnual  = billingCycle === '연간'
   const isRegular = customerType === '정기딥케어' || customerType === '정기엔드케어'
 
   const fetchBillings = useCallback(async () => {
@@ -124,58 +72,6 @@ export function BillingHistoryPanel({
   }, [customerId])
 
   useEffect(() => { fetchBillings() }, [fetchBillings])
-
-  const openManualForm = () => {
-    const existingPeriods = billings.map(b => b.billing_period)
-    const allPeriods = calcAllPeriods(
-      customerType, billingCycle, contractStartDate, contractEndDate, paymentDay, billingAmount
-    )
-    const nextMissing = allPeriods.find(p => !existingPeriods.includes(p.billing_period))
-
-    if (nextMissing) {
-      setNewPeriod(nextMissing.billing_period)
-      setNewDueDate(nextMissing.due_date)
-      setNewAmount(nextMissing.amount ? String(nextMissing.amount) : '')
-    } else {
-      setNewPeriod('')
-      setNewDueDate('')
-      setNewAmount(billingAmount ? String(billingAmount) : '')
-    }
-    setNewNotes('')
-    setShowForm(true)
-  }
-
-  const handleAdd = async () => {
-    if (!newPeriod || !newDueDate || !newAmount) {
-      toast.error('청구 기간, 결제 예정일, 금액은 필수입니다.')
-      return
-    }
-    setSaving(true)
-    try {
-      const res = await fetch('/api/admin/billings', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          customer_id: customerId,
-          billing_type: isAnnual ? 'annual' : 'monthly',
-          billing_period: newPeriod,
-          amount: Number(newAmount),
-          due_date: newDueDate,
-          notes: newNotes || null,
-        }),
-      })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || '등록 실패')
-      toast.success('청구가 등록되었습니다.')
-      setShowForm(false)
-      await fetchBillings()
-      onChange?.()
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : '등록 실패')
-    } finally {
-      setSaving(false)
-    }
-  }
 
   const handleMarkPaid = async (billing: BillingRecord) => {
     try {
@@ -211,7 +107,6 @@ export function BillingHistoryPanel({
     }
   }
 
-  // 세금계산서 발행 처리 (토글)
   const handleToggleTaxInvoice = async (billing: BillingRecord) => {
     const nextIssued = !billing.tax_invoice_issued
     try {
@@ -262,53 +157,65 @@ export function BillingHistoryPanel({
     }
   }
 
+  const openEdit = (b: BillingRecord) => {
+    setEditingId(b.id)
+    setEditAmount(String(b.amount))
+    setEditDueDate(b.due_date)
+  }
+
+  const handleSaveEdit = async (id: string) => {
+    if (!editAmount || !editDueDate) { toast.error('금액과 결제 예정일을 입력하세요.'); return }
+    setEditSaving(true)
+    try {
+      const res = await fetch('/api/admin/billings', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, amount: Number(editAmount), due_date: editDueDate }),
+      })
+      if (!res.ok) throw new Error('수정 실패')
+      toast.success('수정되었습니다.')
+      setEditingId(null)
+      await fetchBillings()
+      onChange?.()
+    } catch {
+      toast.error('수정 중 오류가 발생했습니다.')
+    } finally {
+      setEditSaving(false)
+    }
+  }
+
   if (!isRegular || !billingCycle) return null
 
-  const typeLabel = isAnnual ? '연간 결제 이력' : '월간 청구 이력'
-  const headerBg = isAnnual ? 'bg-brand-50 border-brand-100' : 'bg-purple-50 border-purple-100'
-  const addBtnColor = isAnnual ? 'bg-brand-600 hover:bg-brand-700' : 'bg-purple-600 hover:bg-purple-700'
-  const periodPlaceholder = isAnnual ? '예: 2026' : '예: 2026-04'
-  const periodHint = isAnnual ? '연도 (예: 2026)' : '연-월 (예: 2026-04)'
+  const typeLabel     = isAnnual ? '연간 결제 이력' : '월간 청구 이력'
+  const headerBg      = isAnnual ? 'bg-brand-50 border-brand-100' : 'bg-purple-50 border-purple-100'
 
-  // Phase 22: 기본 표시 기간 (연간=올해, 월간=이번달)
-  const now = new Date()
-  const currentYear = String(now.getFullYear())
+  const now          = new Date()
+  const currentYear  = String(now.getFullYear())
   const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
-  const currentKey = isAnnual ? currentYear : currentMonth
+  const currentKey   = isAnnual ? currentYear : currentMonth
   const currentLabel = isAnnual ? '올해' : '이번달'
+
   const visibleBillings = expanded ? billings : billings.filter(b => b.billing_period === currentKey)
-  const hiddenCount = billings.length - visibleBillings.length
+  const hiddenCount     = billings.length - visibleBillings.length
 
   return (
     <div className="border border-gray-100 rounded-xl overflow-hidden">
+      {/* 헤더 */}
       <div className={`flex items-center justify-between px-4 py-2.5 border-b ${headerBg}`}>
         <div className="flex items-center gap-1.5">
           <p className="text-xs font-semibold text-gray-600">{typeLabel}</p>
-          <button
-            onClick={() => setShowInfo(v => !v)}
-            className="text-gray-400 hover:text-gray-600 transition-colors"
-            title="이용 안내"
-          >
+          <button onClick={() => setShowInfo(v => !v)} className="text-gray-400 hover:text-gray-600" title="이용 안내">
             <Info size={13} />
           </button>
         </div>
-        <div className="flex items-center gap-1.5">
-          {/* Phase 22: 전체보기 토글 (숨겨진 건이 있거나 이미 확장된 경우만) */}
-          {billings.length > 0 && (hiddenCount > 0 || expanded) && (
-            <button
-              onClick={() => setExpanded(v => !v)}
-              className="px-2.5 py-1 text-xs font-medium rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 transition-colors whitespace-nowrap"
-            >
-              {expanded ? '접기 ▲' : `전체 보기 (${billings.length}건) ▼`}
-            </button>
-          )}
+        {billings.length > 0 && (hiddenCount > 0 || expanded) && (
           <button
-            onClick={openManualForm}
-            className={`px-2.5 py-1 text-xs text-white font-medium rounded-lg transition-colors ${addBtnColor}`}
+            onClick={() => setExpanded(v => !v)}
+            className="px-2.5 py-1 text-xs font-medium rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 transition-colors whitespace-nowrap"
           >
-            + 직접 추가
+            {expanded ? '접기 ▲' : `전체 보기 (${billings.length}건) ▼`}
           </button>
-        </div>
+        )}
       </div>
 
       {/* 이용 안내 패널 */}
@@ -325,7 +232,7 @@ export function BillingHistoryPanel({
           </div>
           <div className="flex gap-2 text-xs text-blue-600">
             <span className="shrink-0">③</span>
-            <span>이력을 직접 추가하려면 우상단 <strong>+ 직접 추가</strong> 버튼을 사용하세요.</span>
+            <span>금액이나 결제 예정일을 수정하려면 각 이력의 <strong>✏️ 수정</strong> 버튼을 사용하세요.</span>
           </div>
         </div>
       )}
@@ -336,60 +243,6 @@ export function BillingHistoryPanel({
           <p className="text-xs text-amber-700">
             계약 시작일과 계약 금액을 저장하면 청구 이력이 자동으로 생성됩니다.
           </p>
-        </div>
-      )}
-
-      {/* 신규 청구 직접 입력 폼 */}
-      {showForm && (
-        <div className="p-3 border-b border-gray-100 bg-gray-50 space-y-2">
-          <p className="text-xs font-semibold text-gray-700">청구 직접 추가</p>
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <label className="text-xs text-gray-500 mb-0.5 block">청구 기간 <span className="text-gray-400">({periodHint})</span></label>
-              <input
-                type="text" value={newPeriod} onChange={e => setNewPeriod(e.target.value)}
-                placeholder={periodPlaceholder}
-                className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-brand-400"
-              />
-            </div>
-            <div>
-              <label className="text-xs text-gray-500 mb-0.5 block">결제 예정일</label>
-              <input
-                type="date" value={newDueDate} onChange={e => setNewDueDate(e.target.value)}
-                className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-brand-400"
-              />
-            </div>
-          </div>
-          <div>
-            <label className="text-xs text-gray-500 mb-0.5 block">청구 금액 (원)</label>
-            <input
-              type="number" value={newAmount} onChange={e => setNewAmount(e.target.value)}
-              placeholder="0"
-              className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-brand-400"
-            />
-          </div>
-          <div>
-            <label className="text-xs text-gray-500 mb-0.5 block">메모 (선택)</label>
-            <input
-              type="text" value={newNotes} onChange={e => setNewNotes(e.target.value)}
-              placeholder="특이사항 입력"
-              className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-brand-400"
-            />
-          </div>
-          <div className="flex gap-2">
-            <button
-              onClick={handleAdd} disabled={saving}
-              className={`flex-1 py-1.5 text-xs text-white font-semibold rounded-lg transition-colors disabled:opacity-60 ${addBtnColor}`}
-            >
-              {saving ? '등록 중...' : '등록'}
-            </button>
-            <button
-              onClick={() => setShowForm(false)}
-              className="flex-1 py-1.5 text-xs text-gray-600 font-medium rounded-lg bg-gray-200 hover:bg-gray-300 transition-colors"
-            >
-              취소
-            </button>
-          </div>
         </div>
       )}
 
@@ -405,6 +258,7 @@ export function BillingHistoryPanel({
         ) : (
           visibleBillings.map(b => (
             <div key={b.id} className="p-3 space-y-1.5">
+              {/* 기간 + 상태 + 금액 행 */}
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="text-xs font-semibold text-gray-800">{b.billing_period}</span>
@@ -417,9 +271,40 @@ export function BillingHistoryPanel({
                     </span>
                   )}
                 </div>
-                <span className="text-xs font-semibold text-gray-700">{fmt(b.amount)}원</span>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs font-semibold text-gray-700">{fmt(b.amount)}원</span>
+                  {editingId !== b.id && (
+                    <button onClick={() => openEdit(b)} className="text-gray-300 hover:text-brand-500 transition-colors" title="수정">
+                      <Pencil size={12} />
+                    </button>
+                  )}
+                </div>
               </div>
 
+              {/* 인라인 수정 폼 */}
+              {editingId === b.id && (
+                <div className="flex items-center gap-1.5 pt-1">
+                  <input
+                    type="number" value={editAmount} onChange={e => setEditAmount(e.target.value)}
+                    placeholder="금액"
+                    className="w-24 border border-border rounded-md px-1.5 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-brand-400"
+                  />
+                  <span className="text-xs text-text-secondary">원</span>
+                  <input
+                    type="date" value={editDueDate} onChange={e => setEditDueDate(e.target.value)}
+                    className="flex-1 border border-border rounded-md px-1.5 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-brand-400"
+                  />
+                  <button onClick={() => handleSaveEdit(b.id)} disabled={editSaving}
+                    className="p-1 text-emerald-600 hover:text-emerald-800 disabled:opacity-50">
+                    <Check size={14} />
+                  </button>
+                  <button onClick={() => setEditingId(null)} className="p-1 text-gray-400 hover:text-gray-600">
+                    <X size={14} />
+                  </button>
+                </div>
+              )}
+
+              {/* 날짜 정보 행 */}
               <div className="flex items-center gap-3 text-xs text-gray-500 flex-wrap">
                 <span>예정: {fmtDate(b.due_date)}</span>
                 {b.paid_date && <span className="text-emerald-600">완료: {fmtDate(b.paid_date)}</span>}
@@ -428,11 +313,9 @@ export function BillingHistoryPanel({
                 )}
               </div>
 
-              {b.notes && (
-                <p className="text-xs text-gray-400 truncate">{b.notes}</p>
-              )}
+              {b.notes && <p className="text-xs text-gray-400 truncate">{b.notes}</p>}
 
-              {/* 결제 완료 처리 */}
+              {/* 미결제 액션 */}
               {b.status !== 'paid' && (
                 <div className="space-y-1.5 pt-1">
                   {markingId === b.id ? (
@@ -441,16 +324,12 @@ export function BillingHistoryPanel({
                         type="date" value={paidDate} onChange={e => setPaidDate(e.target.value)}
                         className="flex-1 border border-gray-200 rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-400"
                       />
-                      <button
-                        onClick={() => handleMarkPaid(b)}
-                        className="px-2.5 py-1 text-xs bg-emerald-600 text-white font-medium rounded-lg hover:bg-emerald-700 transition-colors whitespace-nowrap"
-                      >
+                      <button onClick={() => handleMarkPaid(b)}
+                        className="px-2.5 py-1 text-xs bg-emerald-600 text-white font-medium rounded-lg hover:bg-emerald-700 transition-colors whitespace-nowrap">
                         확인
                       </button>
-                      <button
-                        onClick={() => setMarkingId(null)}
-                        className="px-2 py-1 text-xs bg-gray-200 text-gray-600 rounded-lg hover:bg-gray-300 transition-colors"
-                      >
+                      <button onClick={() => setMarkingId(null)}
+                        className="px-2 py-1 text-xs bg-gray-200 text-gray-600 rounded-lg hover:bg-gray-300 transition-colors">
                         취소
                       </button>
                     </div>
@@ -492,6 +371,7 @@ export function BillingHistoryPanel({
                 </div>
               )}
 
+              {/* 결제완료 액션 */}
               {b.status === 'paid' && (
                 <div className="flex items-center gap-1.5 justify-between flex-wrap">
                   <button
