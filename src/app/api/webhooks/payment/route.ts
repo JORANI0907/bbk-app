@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { sendSlack } from '@/lib/slack'
 import { sendPushToUsers } from '@/lib/push'
+import { sendByTemplate } from '@/lib/template-sender'
+import { appendBothNotificationLogs } from '@/lib/notification-log'
+import { saveNotificationHistory } from '@/lib/notification'
+import type { NotificationContext } from '@/lib/notification-variables'
 
 // ─── 상태 설정 ────────────────────────────────────────────────────
 
@@ -13,40 +17,57 @@ const AMOUNT_RANGE = { MIN: 1_000, MAX: 30_000_000 } as const
 
 // ─── 이름 매칭 ────────────────────────────────────────────────────
 
+/** 공백·하이픈·중점 제거 + 소문자 정규화 */
+function normalize(s: string): string {
+  return s.replace(/[\s\-_·]/g, '').toLowerCase()
+}
+
 /**
  * 입금자명 → DB 고객명/업체명 매칭
  *
  * 지원 형식 (은행 입금자명 8-9자 잘림 허용):
- *   1. 고객명         "조동환"
- *   2. 업체명         "르비프"
- *   3. 고객명(업체명) "조동환(르비프)" or 잘린 "조동환(르비프"
- *   4. 업체명(고객명) "르비프(조동환)" or 잘린 "르비프(조동환"
+ *   1. 고객명/업체명 직접 일치
+ *   2. 정규화 후 일치 (공백·특수문자 무시)
+ *   3. 고객명(업체명) / 업체명(고객명) 괄호 형식 (잘린 경우 포함)
+ *   4. 전체 조합명 앞부분 일치
+ *   5. 업체명이 더 길고 입금자명이 앞부분인 경우 (은행 잘림)
  */
 function isNameMatch(depositor: string, ownerName: string, businessName: string): boolean {
   const d   = depositor.trim()
   const own = (ownerName   ?? '').trim()
   const biz = (businessName ?? '').trim()
-  if (!d) return false
+  if (!d || d.length < 2) return false
 
   // 직접 일치
   if (own && d === own) return true
   if (biz && d === biz) return true
 
+  // 정규화 후 일치 (공백·특수문자 제거)
+  const dn = normalize(d)
+  if (own && dn === normalize(own)) return true
+  if (biz && dn === normalize(biz)) return true
+
   // 괄호 포함 형식: "A(B..." or "A(B)"
   const pm = d.match(/^([^(（]+)[（(]([^)）]*)/)
   if (pm) {
     const before = pm[1].trim()
-    const after  = pm[2].trim()  // 잘린 경우 불완전할 수 있음
-    // 고객명(업체명...) — after가 업체명의 앞부분
+    const after  = pm[2].trim()
     if (own && before === own && biz && biz.startsWith(after)) return true
-    // 업체명(고객명...) — after가 고객명의 앞부분
     if (biz && before === biz && own && own.startsWith(after)) return true
   }
 
-  // 완전 조합명의 앞부분 일치 (잘린 형식 추가 안전망)
+  // 전체 조합명의 앞부분 일치 (잘린 형식)
   if (own && biz) {
     if (`${own}(${biz})`.startsWith(d)) return true
     if (`${biz}(${own})`.startsWith(d)) return true
+  }
+
+  // 업체명이 더 길고 입금자명이 앞부분인 경우 (은행 8자 잘림)
+  if (biz && biz.length > d.length && d.length >= 2 && biz.startsWith(d)) return true
+  // 정규화 후 업체명 앞부분 일치 (공백 포함 업체명)
+  if (biz && biz.length >= 2) {
+    const bizN = normalize(biz)
+    if (bizN.length > dn.length && dn.length >= 2 && bizN.startsWith(dn)) return true
   }
 
   return false
@@ -54,7 +75,7 @@ function isNameMatch(depositor: string, ownerName: string, businessName: string)
 
 // ─── SMS 파싱 유틸 ────────────────────────────────────────────────
 
-/** 은행 SMS에서 금액(원) 추출 — '입금' 다음 줄 쉼표 포함 숫자 형식 (예: 1,000) */
+/** 은행 SMS에서 금액(원) 추출 — '입금' 다음 줄 쉼표 포함 숫자 형식 */
 function extractAmount(text: string): number | null {
   const m = text.match(/입금[\r\n]+\s*(\d{1,3}(?:,\d{3})*)/)
   if (!m) return null
@@ -86,6 +107,10 @@ function extractDepositor(text: string): string | null {
     new RegExp(`(${nm})[（(][^)）]+[）)]`),
     // 이름 입금 (원 없는 형식 — KB 등)
     new RegExp(`(${nm})\\s+입금(?:\\s|$)`),
+    // 입금인: 이름 형식
+    new RegExp(`입금인\\s*[:\\s]\\s*(${nm})(?:\\s|$)`),
+    // 보내는 분: 이름 형식
+    new RegExp(`보내는\\s*분\\s*[:\\s]\\s*(${nm})(?:\\s|$)`),
   ]
 
   for (const p of patterns) {
@@ -98,23 +123,65 @@ function extractDepositor(text: string): string | null {
   return null
 }
 
-// ─── 헬퍼 ────────────────────────────────────────────────────────
+// ─── 알림 발송 + 이력 기록 헬퍼 ─────────────────────────────────
 
-async function fireNotify(
-  origin: string, appId: string, type: string,
-): Promise<{ ok: boolean; newStatus?: string }> {
-  try {
-    const res = await fetch(`${origin}/api/admin/notify`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ application_id: appId, type, method: 'auto' }),
-    })
-    const data = await res.json()
-    return { ok: res.ok, newStatus: data.new_status }
-  } catch {
-    return { ok: false }
+/** 발송 성공 시 service_applications + customers 알림이력 동시 기록 */
+async function sendPaymentNotify(
+  supabase: ReturnType<typeof createServiceClient>,
+  opts: {
+    templateCode: string
+    phone: string
+    appId: string
+    customerId: string | null
+    existingLog: object[]
+    context: NotificationContext
+    businessName: string
+  },
+): Promise<{ ok: boolean }> {
+  const { templateCode, phone, appId, customerId, existingLog, context, businessName } = opts
+
+  const send = await sendByTemplate(templateCode, phone, context)
+  if (!send.ok) return { ok: false }
+
+  const nowKST = new Date(Date.now() + 9 * 60 * 60 * 1000)
+  const nowIso = nowKST.toISOString().replace('Z', '+09:00')
+
+  const entry = {
+    type: templateCode,
+    sent_at: nowIso,
+    phone,
+    method: 'auto' as const,
+    template_id: send.templateId,
   }
+
+  await appendBothNotificationLogs(supabase, {
+    appId,
+    customerId,
+    existingAppLog: existingLog,
+    entry,
+  })
+
+  await saveNotificationHistory({
+    category: 'sms',
+    type: templateCode,
+    body: send.text,
+    method: 'auto',
+    recipientType: 'customer',
+    recipientPhone: phone,
+    recipientName: businessName,
+    metadata: {
+      application_id: appId,
+      business_name: businessName,
+      channel: send.type,
+      source: 'webhooks/payment',
+    },
+    status: 'sent',
+  })
+
+  return { ok: true }
 }
+
+// ─── Push 헬퍼 ────────────────────────────────────────────────────
 
 async function pushToAdmins(
   supabase: ReturnType<typeof createServiceClient>,
@@ -177,7 +244,6 @@ export async function POST(request: NextRequest) {
 
     const amount    = extractAmount(message)
     const depositor = extractDepositor(message)
-    const origin    = new URL(request.url).origin
     const supabase  = createServiceClient()
 
     // ── 파싱 실패 처리 ────────────────────────────────────────────
@@ -231,10 +297,17 @@ export async function POST(request: NextRequest) {
       const app = depositCandidates[0]
       const depositNow = new Date().toISOString()
 
-      await supabase
+      const { error: depErr } = await supabase
         .from('service_applications')
         .update({ deposit: amount, deposit_paid_at: depositNow })
         .eq('id', app.id)
+
+      if (depErr) {
+        await sendSlack(
+          `⚠️ *예약금 저장 실패*\n• 업체: ${app.business_name}\n• 금액: ${amount.toLocaleString('ko-KR')}원\n• 오류: ${depErr.message}`
+        ).catch(() => {})
+        return NextResponse.json({ error: 'deposit 저장 실패', detail: depErr.message }, { status: 500 })
+      }
 
       if (app.customer_id) {
         await supabase
@@ -243,10 +316,31 @@ export async function POST(request: NextRequest) {
           .eq('id', app.customer_id)
       }
 
-      const { ok, newStatus } = await fireNotify(origin, app.id, '예약금 입금완료 알림')
+      const existingLog = Array.isArray(app.notification_log)
+        ? (app.notification_log as object[])
+        : []
+
+      const context: NotificationContext = {
+        application: {
+          business_name: app.business_name,
+          owner_name: app.owner_name,
+          phone: app.phone,
+          deposit: amount,
+        },
+      }
+
+      const { ok } = await sendPaymentNotify(supabase, {
+        templateCode: '예약금 입금완료 알림',
+        phone: (app.phone ?? '').replace(/-/g, ''),
+        appId: app.id,
+        customerId: app.customer_id,
+        existingLog,
+        context,
+        businessName: app.business_name,
+      })
 
       await sendSlack(
-        `💰 *예약금 입금 확인*\n• 업체: ${app.business_name} (${app.owner_name})\n• 입금자: ${depositor}\n• 금액: ${amount.toLocaleString('ko-KR')}원\n• 알림: ${ok ? '✅' : '❌'} | 상태: ${newStatus ?? '-'}`
+        `💰 *예약금 입금 확인*\n• 업체: ${app.business_name} (${app.owner_name})\n• 입금자: ${depositor}\n• 금액: ${amount.toLocaleString('ko-KR')}원\n• 알림: ${ok ? '✅' : '❌'}`
       ).catch(() => {})
       await pushToAdmins(supabase, {
         title: '💰 예약금 입금 확인',
@@ -275,21 +369,35 @@ export async function POST(request: NextRequest) {
       }
 
       const app = balanceCandidates[0]
-      const dbBalance = app.balance ?? 0
+
+      // 잔금 DB 미입력 상태 — 0원 불일치 오탐 방지
+      if (app.balance === null || app.balance === 0) {
+        await sendSlack(
+          `⚠️ *잔금 DB 미입력 상태에서 입금 감지*\n• 업체: ${app.business_name} (${app.owner_name})\n• 입금액: ${amount.toLocaleString('ko-KR')}원\n• DB 잔금: 미등록 — 수동 확인 필요`
+        ).catch(() => {})
+        await pushToAdmins(supabase, {
+          title: '⚠️ 잔금 미등록 — 수동 확인',
+          body: `${app.business_name} — 입금 ${amount.toLocaleString('ko-KR')}원 / DB 잔금 미등록`,
+          url: '/admin/customers',
+        })
+        return NextResponse.json({
+          matched: 'balance', action: 'manual', reason: 'balance_not_set', paid: amount,
+        })
+      }
 
       // 금액 불일치
-      if (dbBalance !== amount) {
+      if (app.balance !== amount) {
         await sendSlack(
-          `⚠️ *잔금 불일치*\n• 업체: ${app.business_name} (${app.owner_name})\n• 입금액: ${amount.toLocaleString('ko-KR')}원\n• DB 잔금: ${dbBalance.toLocaleString('ko-KR')}원\n• 차액: ${Math.abs(dbBalance - amount).toLocaleString('ko-KR')}원`
+          `⚠️ *잔금 불일치*\n• 업체: ${app.business_name} (${app.owner_name})\n• 입금액: ${amount.toLocaleString('ko-KR')}원\n• DB 잔금: ${app.balance.toLocaleString('ko-KR')}원\n• 차액: ${Math.abs(app.balance - amount).toLocaleString('ko-KR')}원`
         ).catch(() => {})
         await pushToAdmins(supabase, {
           title: '⚠️ 잔금 금액 불일치',
-          body: `${app.business_name} — 입금 ${amount.toLocaleString('ko-KR')}원 / DB ${dbBalance.toLocaleString('ko-KR')}원`,
+          body: `${app.business_name} — 입금 ${amount.toLocaleString('ko-KR')}원 / DB ${app.balance.toLocaleString('ko-KR')}원`,
           url: '/admin/customers',
         })
         return NextResponse.json({
           matched: 'balance', action: 'manual', reason: 'amount_mismatch',
-          paid: amount, expected: dbBalance,
+          paid: amount, expected: app.balance,
         })
       }
 
@@ -306,10 +414,31 @@ export async function POST(request: NextRequest) {
           .eq('id', app.customer_id)
       }
 
-      const { ok, newStatus } = await fireNotify(origin, app.id, '결제완료알림')
+      const existingLog = Array.isArray(app.notification_log)
+        ? (app.notification_log as object[])
+        : []
+
+      const context: NotificationContext = {
+        application: {
+          business_name: app.business_name,
+          owner_name: app.owner_name,
+          phone: app.phone,
+          balance: app.balance,
+        },
+      }
+
+      const { ok } = await sendPaymentNotify(supabase, {
+        templateCode: '결제완료알림',
+        phone: (app.phone ?? '').replace(/-/g, ''),
+        appId: app.id,
+        customerId: app.customer_id,
+        existingLog,
+        context,
+        businessName: app.business_name,
+      })
 
       await sendSlack(
-        `💰 *잔금 입금 확인*\n• 업체: ${app.business_name} (${app.owner_name})\n• 입금자: ${depositor}\n• 금액: ${amount.toLocaleString('ko-KR')}원\n• 알림: ${ok ? '✅' : '❌'} | 상태: ${newStatus ?? '-'}`
+        `💰 *잔금 입금 확인*\n• 업체: ${app.business_name} (${app.owner_name})\n• 입금자: ${depositor}\n• 금액: ${amount.toLocaleString('ko-KR')}원\n• 알림: ${ok ? '✅' : '❌'}`
       ).catch(() => {})
       await pushToAdmins(supabase, {
         title: '💰 잔금 입금 확인',
