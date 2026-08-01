@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import toast from 'react-hot-toast'
-import { RefreshCw, Download, Filter, Search, AlertCircle, CheckCircle2, FileSpreadsheet, Settings, Pencil, Check, Undo2 } from 'lucide-react'
+import { RefreshCw, Download, Filter, Search, AlertCircle, CheckCircle2, FileSpreadsheet, Settings, Pencil, Check, Undo2, ChevronLeft, ChevronRight } from 'lucide-react'
 import Link from 'next/link'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
@@ -30,6 +30,7 @@ interface Candidate {
   billing_period: string | null
   billing_type: 'monthly' | 'annual' | null
   display_period: string | null
+  effective_month: string | null
   billing_status: 'pending' | 'paid' | 'overdue' | null
   application_id: string | null
   construction_date: string | null
@@ -95,6 +96,12 @@ export default function TaxInvoiceDashboardPage() {
   const [serviceTypes, setServiceTypes] = useState<string[]>([])
   const [search, setSearch] = useState('')
 
+  // 월단위 뷰 (기본: 현재 월)
+  const [viewMonth, setViewMonth] = useState<string | null>(() => {
+    const d = new Date()
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+  })
+
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [editingCandidate, setEditingCandidate] = useState<Candidate | null>(null)
   const [markingIssued, setMarkingIssued] = useState(false)
@@ -150,10 +157,16 @@ export default function TaxInvoiceDashboardPage() {
     )
   }, [candidates, search])
 
+  // 월 필터 (effective_month 기준 — 클라이언트 사이드)
+  const monthFilteredCandidates = useMemo(() => {
+    if (!viewMonth) return filteredCandidates
+    return filteredCandidates.filter(c => c.effective_month === viewMonth)
+  }, [filteredCandidates, viewMonth])
+
   // 1회성케어(시공일자 DESC) → 정기케어(기간 DESC) 순
   const sortedCandidates = useMemo(() => {
-    const oneTime = filteredCandidates.filter(c => c.source === 'application')
-    const billings = filteredCandidates.filter(c => c.source === 'billing')
+    const oneTime = monthFilteredCandidates.filter(c => c.source === 'application')
+    const billings = monthFilteredCandidates.filter(c => c.source === 'billing')
     const sortedOneTime = [...oneTime].sort((a, b) => {
       if (!a.construction_date && !b.construction_date) return 0
       if (!a.construction_date) return 1
@@ -167,7 +180,7 @@ export default function TaxInvoiceDashboardPage() {
       return a.business_name.localeCompare(b.business_name, 'ko')
     })
     return [...sortedOneTime, ...sortedBillings]
-  }, [filteredCandidates])
+  }, [monthFilteredCandidates])
 
   const rowKey = (c: Candidate) => `${c.source}:${c.source_id}`
 
@@ -180,7 +193,7 @@ export default function TaxInvoiceDashboardPage() {
     })
   }
 
-  const allSelectable = filteredCandidates.filter(c => c.is_valid)
+  const allSelectable = monthFilteredCandidates.filter(c => c.is_valid)
   const allSelected = allSelectable.length > 0 && allSelectable.every(c => selectedIds.has(rowKey(c)))
   const someSelected = allSelectable.some(c => selectedIds.has(rowKey(c)))
 
@@ -193,14 +206,27 @@ export default function TaxInvoiceDashboardPage() {
   }
 
   const stats = useMemo(() => {
-    const total = filteredCandidates.length
-    const valid = filteredCandidates.filter(c => c.is_valid).length
+    const total = monthFilteredCandidates.length
+    const valid = monthFilteredCandidates.filter(c => c.is_valid).length
     const missing = total - valid
-    const sumAmount = filteredCandidates
+    const sumAmount = monthFilteredCandidates
       .filter(c => selectedIds.has(rowKey(c)))
       .reduce((s, c) => s + c.total_amount, 0)
     return { total, valid, missing, sumAmount, selected: selectedIds.size }
-  }, [filteredCandidates, selectedIds])
+  }, [monthFilteredCandidates, selectedIds])
+
+  const viewMonthLabel = viewMonth
+    ? `${parseInt(viewMonth.split('-')[0] ?? '0', 10)}년 ${parseInt(viewMonth.split('-')[1] ?? '0', 10)}월`
+    : '전체'
+
+  const shiftMonth = (delta: number) => {
+    setViewMonth(prev => {
+      const base = prev ?? new Date().toISOString().slice(0, 7)
+      const [y, m] = base.split('-').map(Number)
+      const d = new Date(y!, (m! - 1) + delta, 1)
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+    })
+  }
 
   // ── 발행 완료 처리 ───────────────────────────────────────────
   const handleMarkIssued = async () => {
@@ -487,6 +513,27 @@ export default function TaxInvoiceDashboardPage() {
         <StatCard label="유효" value={stats.valid} tone="success" />
         <StatCard label="정보 누락" value={stats.missing} tone={stats.missing > 0 ? 'warning' : 'muted'} />
         <StatCard label={`선택 (${stats.selected}건)`} value={`${fmtKr(stats.sumAmount)}원`} tone="brand" small />
+      </div>
+
+      {/* 월단위 뷰 네비게이션 */}
+      <div className="flex items-center gap-2 flex-wrap">
+        <button type="button" onClick={() => shiftMonth(-1)}
+          className="p-1.5 rounded-lg border border-border-subtle text-text-secondary hover:bg-surface-sunken transition-colors">
+          <ChevronLeft size={15} />
+        </button>
+        <span className="text-sm font-semibold text-text-primary min-w-[110px] text-center">{viewMonthLabel}</span>
+        <button type="button" onClick={() => shiftMonth(1)}
+          className="p-1.5 rounded-lg border border-border-subtle text-text-secondary hover:bg-surface-sunken transition-colors">
+          <ChevronRight size={15} />
+        </button>
+        <button type="button" onClick={() => setViewMonth(null)}
+          className={`text-xs px-3 py-1.5 rounded-lg border transition-colors ${
+            viewMonth === null
+              ? 'bg-brand-600 border-brand-600 text-white'
+              : 'border-border-subtle text-text-secondary hover:bg-surface-sunken'
+          }`}>
+          전체보기
+        </button>
       </div>
 
       {/* Table */}
