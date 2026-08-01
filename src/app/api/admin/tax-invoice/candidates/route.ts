@@ -207,7 +207,7 @@ export async function GET(request: NextRequest) {
           payment_method, status, created_at,
           service_applications (
             id, construction_date, status, tax_invoice_issued, tax_invoice_issued_at,
-            supply_amount, vat, payment_method, created_at
+            supply_amount, vat, payment_method, created_at, deleted_at
           )
         `)
         .eq('customer_type', '1회성케어')
@@ -234,6 +234,7 @@ export async function GET(request: NextRequest) {
         vat: number | null
         payment_method: string | null
         created_at: string
+        deleted_at: string | null
       }
       interface OneTimeCust {
         id: string
@@ -250,7 +251,8 @@ export async function GET(request: NextRequest) {
       }
 
       for (const c of ((oneTimeCusts ?? []) as unknown) as OneTimeCust[]) {
-        const apps: SaRow[] = Array.isArray(c.service_applications) ? c.service_applications : []
+        const apps: SaRow[] = (Array.isArray(c.service_applications) ? c.service_applications : [])
+          .filter((sa: SaRow) => !sa.deleted_at)
 
         // 시공일자 내림차순 정렬 (null은 아래로)
         const sortedApps = [...apps].sort((a, b) => {
