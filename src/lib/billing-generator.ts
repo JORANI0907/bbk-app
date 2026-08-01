@@ -2,7 +2,7 @@
  * BBK 청구(service_billings) 자동 생성 유틸리티
  *
  * 원칙:
- * - 정기케어(딥/엔드) 모두 billing_cycle(월간/연간)만으로 청구 스케줄 계산
+ * - 정기케어(딥/엔드) 모두 billing_cycle(월간/2개월/3개월/연간)만으로 청구 스케줄 계산
  * - 유형별(딥/엔드) 분기 없음
  * - 비과세 여부는 payment_method로 자동 판별
  * - idempotent: 기존 billing_period는 스킵 (중복 방지)
@@ -11,6 +11,13 @@
  * 1. 고객 저장(PATCH) 시 autoGenerateBillings 자동 호출
  * 2. Cron 안전망 (/api/cron/billings-safety-net)
  */
+
+/** billing_cycle 문자열 → 한 주기당 월 수 */
+export function billingCycleStepMonths(cycle: string | null): number {
+  if (cycle === '2개월') return 2
+  if (cycle === '3개월') return 3
+  return 1  // '월간' 기본
+}
 
 export interface GeneratedBilling {
   billing_type:   'monthly' | 'annual' | 'onetime'
@@ -56,6 +63,7 @@ export function generateBillingSchedule(input: GenerateInput): GeneratedBilling[
 
   const results: GeneratedBilling[] = []
   const isAnnual = input.billingCycle === '연간'
+  const stepMonths = billingCycleStepMonths(input.billingCycle)
 
   if (isAnnual) {
     // 연간: 각 연도별 1건 / 첫 해 due_date=계약시작일, 이후 1월1일
@@ -74,7 +82,7 @@ export function generateBillingSchedule(input: GenerateInput): GeneratedBilling[
       })
     }
   } else {
-    // 월간: 계약기간 내 매월 payment_day에 1건
+    // 월간 / 2개월 / 3개월: stepMonths 간격으로 payment_day에 1건
     const cursor    = new Date(start.getFullYear(), start.getMonth(), 1)
     const endCursor = new Date(end.getFullYear(), end.getMonth(), 1)
     while (cursor <= endCursor) {
@@ -91,7 +99,7 @@ export function generateBillingSchedule(input: GenerateInput): GeneratedBilling[
         amount,
         service_type: sType,
       })
-      cursor.setMonth(cursor.getMonth() + 1)
+      cursor.setMonth(cursor.getMonth() + stepMonths)
     }
   }
 

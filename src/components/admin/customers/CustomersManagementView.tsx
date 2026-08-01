@@ -25,7 +25,7 @@ type CustomerType = '1회성케어' | '정기딥케어' | '정기엔드케어' |
 type CustomerStatus = 'active' | 'paused' | 'terminated'
 type CustomerDisposition = '호의' | '보통' | '주의'
 type CustomerGrade = '화이트' | '블루' | '블랙'
-type BillingCycle = '월간' | '연간'
+type BillingCycle = '월간' | '2개월' | '3개월' | '연간'
 
 interface Customer {
   id: string
@@ -435,8 +435,22 @@ function daysUntil(dateStr: string | null): number | null {
   return Math.ceil((target.getTime() - today.getTime()) / 86400000)
 }
 
+function cycleToMonths(cycle: BillingCycle): number {
+  if (cycle === '2개월') return 2
+  if (cycle === '3개월') return 3
+  if (cycle === '연간') return 12
+  return 1
+}
+
+function billingCycleLabel(cycle: BillingCycle | string | null): string {
+  if (cycle === '연간') return '연'
+  if (cycle === '2개월') return '2개월'
+  if (cycle === '3개월') return '3개월'
+  return '월'
+}
+
 function calcNextBillingDate(startDate: string, cycle: BillingCycle, prepaidPeriods = 1): string {
-  const monthsPerPeriod = cycle === '월간' ? 1 : 12
+  const monthsPerPeriod = cycleToMonths(cycle)
   const next = new Date(startDate)
   next.setMonth(next.getMonth() + monthsPerPeriod * prepaidPeriods)
   return next.toISOString().slice(0, 10)
@@ -444,7 +458,7 @@ function calcNextBillingDate(startDate: string, cycle: BillingCycle, prepaidPeri
 
 function getPrepaidMonthLabels(startDate: string, cycle: BillingCycle, prepaidPeriods: number): string {
   if (!startDate || prepaidPeriods < 1) return ''
-  const monthsPerPeriod = cycle === '월간' ? 1 : 12
+  const monthsPerPeriod = cycleToMonths(cycle)
   const labels: string[] = []
   for (let i = 0; i < prepaidPeriods; i++) {
     const d = new Date(startDate)
@@ -3428,10 +3442,10 @@ export function CustomersManagementView({
                         결제 주기
                         <FieldHint text="정기엔드케어는 구독형 서비스. 월간=매월 결제일자에 청구 도래. 연간=계약 시 1건 일괄 발행." />
                       </span>
-                      <div className="flex gap-1.5 flex-1">
-                        {(['월간', '연간'] as BillingCycle[]).map(c => (
+                      <div className="flex gap-1.5 flex-1 flex-wrap">
+                        {(['월간', '2개월', '3개월', '연간'] as BillingCycle[]).map(c => (
                           <button key={c} onClick={() => set('billing_cycle')(c)}
-                            className={`flex-1 py-1.5 text-xs rounded-lg font-medium transition-colors ${
+                            className={`flex-1 min-w-[3rem] py-1.5 text-xs rounded-lg font-medium transition-colors ${
                               form.billing_cycle === c ? 'bg-purple-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                             }`}>{c}</button>
                         ))}
@@ -3446,7 +3460,7 @@ export function CustomersManagementView({
                     <div className="grid grid-cols-2 gap-2">
                       <div>
                         <label className="text-xs text-text-secondary mb-0.5 block">
-                          공급가액 <span className="text-text-tertiary">({form.billing_cycle === '연간' ? '연간' : '월간'})</span>
+                          공급가액 <span className="text-text-tertiary">({billingCycleLabel(form.billing_cycle)})</span>
                         </label>
                         <input type="number" value={form.supply_amount} onChange={e => set('supply_amount')(e.target.value)}
                           placeholder="0"
@@ -3470,9 +3484,9 @@ export function CustomersManagementView({
                         {((Number(form.supply_amount) || 0) + (isNoVatMethod(form.payment_method) ? 0 : (Number(form.vat) || 0))).toLocaleString('ko-KR')}원
                       </span>
                     </div>
-                    {form.billing_cycle === '연간' && form.supply_amount && (
+                    {form.billing_cycle && form.billing_cycle !== '월간' && form.supply_amount && (
                       <p className="text-xs text-purple-600 bg-purple-50 rounded p-2">
-                        월 환산: {Math.round(((Number(form.supply_amount) || 0) + (isNoVatMethod(form.payment_method) ? 0 : (Number(form.vat) || 0))) / 12).toLocaleString('ko-KR')}원/월
+                        월 환산: {Math.round(((Number(form.supply_amount) || 0) + (isNoVatMethod(form.payment_method) ? 0 : (Number(form.vat) || 0))) / cycleToMonths(form.billing_cycle as BillingCycle)).toLocaleString('ko-KR')}원/월
                       </p>
                     )}
                     {/* Phase 22 v9: 정기엔드 결제 이력 인라인 드롭다운 — billing_cycle에 따라 월간/연간 이력 표시 */}
@@ -3579,10 +3593,10 @@ export function CustomersManagementView({
                         결제 주기
                         <FieldHint text="정기딥은 방문 기반 청구. 월간=그 달 첫 방문 완료 시 세금계산서 발행 후보 도래. 연간=계약 저장 시 1건 일괄 발행 (선결제)." />
                       </span>
-                      <div className="flex gap-1 flex-1">
-                        {(['월간', '연간'] as BillingCycle[]).map(c => (
+                      <div className="flex gap-1 flex-1 flex-wrap">
+                        {(['월간', '2개월', '3개월', '연간'] as BillingCycle[]).map(c => (
                           <button key={c} onClick={() => set('billing_cycle')(c)}
-                            className={`flex-1 py-1 text-xs rounded-md font-medium transition-colors ${
+                            className={`flex-1 min-w-[3rem] py-1 text-xs rounded-md font-medium transition-colors ${
                               form.billing_cycle === c ? 'bg-brand-600 text-white' : 'bg-white text-gray-600 border border-brand-100 hover:bg-brand-100'
                             }`}>{c}</button>
                         ))}
@@ -3597,7 +3611,7 @@ export function CustomersManagementView({
                     <div className="grid grid-cols-3 gap-1.5 items-end">
                       <div>
                         <label className="text-[10px] text-text-secondary block inline-flex items-center gap-1">
-                          공급가액 <span className="text-text-tertiary">({form.billing_cycle === '연간' ? '연' : '월'})</span>
+                          공급가액 <span className="text-text-tertiary">({billingCycleLabel(form.billing_cycle)})</span>
                           <FieldHint text="부가세 제외 금액. 자동 청구 생성 시 부가세 포함(supply+vat) 금액이 청구 amount로 사용됨." />
                         </label>
                         <input type="number" value={form.supply_amount} onChange={e => set('supply_amount')(e.target.value)}
@@ -3620,13 +3634,16 @@ export function CustomersManagementView({
                         </div>
                       </div>
                     </div>
-                    {form.billing_cycle === '연간' && form.supply_amount && (
+                    {form.billing_cycle && form.billing_cycle !== '월간' && form.supply_amount && (
                       <p className="text-[11px] text-brand-700 bg-brand-100 rounded px-2 py-1">
-                        월 환산 {Math.round(((Number(form.supply_amount) || 0) + (isNoVatMethod(form.payment_method) ? 0 : (Number(form.vat) || 0))) / 12).toLocaleString('ko-KR')}원
+                        {form.billing_cycle === '연간'
+                          ? `월 환산 ${Math.round(((Number(form.supply_amount) || 0) + (isNoVatMethod(form.payment_method) ? 0 : (Number(form.vat) || 0))) / 12).toLocaleString('ko-KR')}원`
+                          : `월 환산 ${Math.round(((Number(form.supply_amount) || 0) + (isNoVatMethod(form.payment_method) ? 0 : (Number(form.vat) || 0))) / cycleToMonths(form.billing_cycle as BillingCycle)).toLocaleString('ko-KR')}원`
+                        }
                       </p>
                     )}
-                    {/* Phase 29: 결제일자 (월간: 매월 결제일 / 연간: 결제 월+일) */}
-                    {form.billing_cycle === '월간' && (
+                    {/* Phase 29: 결제일자 (월간/2개월/3개월: 주기 결제일 / 연간: 결제 월+일) */}
+                    {(form.billing_cycle === '월간' || form.billing_cycle === '2개월' || form.billing_cycle === '3개월') && (
                       <div className="flex items-center gap-2">
                         <span className="text-[10px] text-text-secondary w-20 shrink-0 inline-flex items-center gap-1">
                           결제일자
