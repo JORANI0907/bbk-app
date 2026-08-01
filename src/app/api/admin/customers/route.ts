@@ -65,6 +65,7 @@ async function autoGenerateBillings(
     payment_method: string | null
     status?: string | null
   },
+  regenerate = false,
 ): Promise<{ inserted: number; skipped: number }> {
   // Phase 23: 일시정지 고객은 청구 생성 skip
   if (customer.status === 'paused') return { inserted: 0, skipped: 0 }
@@ -82,7 +83,16 @@ async function autoGenerateBillings(
   const schedule = generateBillingSchedule(input)
   if (schedule.length === 0) return { inserted: 0, skipped: 0 }
 
-  // 기존 청구 기간 조회
+  // billing 관련 필드 변경 시 pending 레코드 삭제 후 전체 재생성
+  if (regenerate) {
+    await supabase
+      .from('service_billings')
+      .delete()
+      .eq('customer_id', customer.id)
+      .eq('status', 'pending')
+  }
+
+  // 기존 청구 기간 조회 (paid/overdue 등 non-pending 레코드 보호)
   const { data: existing } = await supabase
     .from('service_billings')
     .select('billing_period')
@@ -100,6 +110,7 @@ async function autoGenerateBillings(
     amount: s.amount,
     due_date: s.due_date,
     status: 'pending' as const,
+    service_type: customer.customer_type,
   }))
 
   const { error } = await supabase.from('service_billings').insert(rows)
@@ -384,13 +395,15 @@ export async function PATCH(request: NextRequest) {
     }
   }
 
-  // Phase 22 v11: 계약 관련 필드가 변경됐거나 계약 조건이 충족되면 billings 자동 생성/추가 (idempotent)
+  // Phase 22 v11: 계약 관련 필드가 변경됐거나 계약 조건이 충족되면 billings 재생성
+  // regenerate=true: pending 레코드 삭제 후 현재 조건(billing_cycle 등)으로 전체 재생성
+  // paid/overdue 등 non-pending 레코드는 보호됨
   const billingRelevantChanged = ['billing_cycle', 'contract_start_date', 'contract_end_date',
     'payment_date', 'supply_amount', 'vat', 'billing_amount', 'payment_method', 'customer_type']
     .some(k => k in rest)
   if (billingRelevantChanged) {
     try {
-      await autoGenerateBillings(supabase, updatedCustomer)
+      await autoGenerateBillings(supabase, updatedCustomer, true)
     } catch (e) {
       console.error('billings 자동 생성 실패(PATCH):', e instanceof Error ? e.message : e)
     }

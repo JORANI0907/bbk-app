@@ -3797,7 +3797,7 @@ export function CustomersManagementView({
               />
             )}
 
-            {/* 수정 반영 버튼 — worker는 읽기 전용 */}
+            {/* 저장 버튼 — worker는 읽기 전용 */}
             {!isWorker && (
               <Button
                 onClick={isNew ? handleSave : () => setShowSaveConfirm(true)}
@@ -3805,17 +3805,17 @@ export function CustomersManagementView({
                 size="lg"
                 className="w-full"
               >
-                {saving ? (isNew ? '저장 중...' : '수정 중...') : isNew ? '✚ 고객 추가' : <><Save size={14} /> 수정 반영</>}
+                {saving ? '저장 중...' : isNew ? '✚ 고객 추가' : <><Save size={14} /> 저장</>}
               </Button>
             )}
 
-            {/* 수정 반영 확인 모달 */}
+            {/* 저장 확인 모달 */}
             {showSaveConfirm && (
               <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/50 p-4" onClick={() => setShowSaveConfirm(false)}>
                 <div className="bg-surface rounded-2xl shadow-modal max-w-sm w-full p-6" onClick={e => e.stopPropagation()}>
-                  <h3 className="text-base font-bold text-text-primary mb-3">수정 반영</h3>
+                  <h3 className="text-base font-bold text-text-primary mb-3">저장</h3>
                   <p className="text-sm text-text-secondary leading-relaxed mb-5">
-                    기존에 만들어진 일정에 원하는 기간만큼을 변경한 내용으로 수정하는 기능입니다.
+                    변경된 고객 정보를 저장하시겠습니까?
                   </p>
                   <div className="flex gap-2">
                     <button
