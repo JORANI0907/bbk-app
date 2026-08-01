@@ -180,7 +180,7 @@ export async function POST(request: NextRequest) {
       await supabase
         .from('service_applications')
         .update({ deleted_at: new Date().toISOString() })
-        .eq('business_name', customer.business_name)
+        .eq('customer_id', customer.id)
         .gte('construction_date', startDateStr)
         .lte('construction_date', endDateStr)
         .or('work_status.is.null,work_status.neq.completed')
@@ -194,7 +194,7 @@ export async function POST(request: NextRequest) {
       const { data: existingMisc } = await supabase
         .from('service_applications')
         .select('id, construction_date, work_status')
-        .eq('business_name', customer.business_name)
+        .eq('customer_id', customer.id)
         .gte('construction_date', startDateStr)
         .lte('construction_date', endDateStr)
         .is('deleted_at', null)
@@ -221,7 +221,7 @@ export async function POST(request: NextRequest) {
     const { data: existingApps } = await supabase
       .from('service_applications')
       .select('construction_date')
-      .eq('business_name', customer.business_name)
+      .eq('customer_id', customer.id)
       .in('construction_date', scheduledDates)
       .is('deleted_at', null)
 
