@@ -243,6 +243,23 @@ export function BillingHistoryPanel({
     }
   }
 
+  const handleMarkUnpaid = async (id: string) => {
+    if (!confirm('결제 완료를 취소하시겠습니까? 재무관리 매출에서도 제외됩니다.')) return
+    try {
+      const res = await fetch('/api/admin/billings', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, status: 'pending', paid_date: null }),
+      })
+      if (!res.ok) throw new Error('처리 실패')
+      toast.success('결제 취소 처리되었습니다.')
+      await fetchBillings()
+      onChange?.()
+    } catch {
+      toast.error('처리 중 오류가 발생했습니다.')
+    }
+  }
+
   // 세금계산서 발행 처리 (토글)
   const handleToggleTaxInvoice = async (billing: BillingRecord) => {
     const nextIssued = !billing.tax_invoice_issued
@@ -514,7 +531,13 @@ export function BillingHistoryPanel({
               )}
 
               {b.status === 'paid' && (
-                <div className="flex items-center gap-1.5 justify-between">
+                <div className="flex items-center gap-1.5 justify-between flex-wrap">
+                  <button
+                    onClick={() => handleMarkUnpaid(b.id)}
+                    className="py-1 px-2.5 text-xs font-medium rounded-lg border transition-colors bg-orange-50 text-orange-700 border-orange-200 hover:bg-orange-100"
+                  >
+                    결제 취소
+                  </button>
                   <button
                     onClick={() => handleToggleTaxInvoice(b)}
                     className={`flex-1 py-1 text-xs font-medium rounded-lg border transition-colors ${

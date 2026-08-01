@@ -17,10 +17,8 @@ export async function GET(request: NextRequest) {
     return m === 12 ? `${y + 1}-01-01` : `${y}-${String(m + 1).padStart(2, '0')}-01`
   })()
 
-  const [appsRes, payrollRes, fixedRes, variableRes, endCareRes, deepCareAnnualRes] = await Promise.all([
-    // 매출: 해당 월 service_applications (정기엔드케어 및 미진행 상태 제외)
-    // Phase 22 v13-c: 정기딥 연간 계약의 개별 방문 제외 위해 customers.billing_cycle JOIN → 후처리에서 필터
-    // Phase 23: customer.status='paused' 필터 (일시정지 고객 매출 제외)
+  const [appsRes, payrollRes, fixedRes, variableRes, endCareRes, deepCareRes] = await Promise.all([
+    // 매출: 해당 월 service_applications (정기딥케어·정기엔드케어 제외 — 둘 다 service_billings paid 기준으로 별도 집계)
     supabase
       .from('service_applications')
       .select('id, business_name, supply_amount, vat, payment_method, service_type, construction_date, customer_id, customers(billing_cycle, customer_type, status)')
@@ -28,6 +26,7 @@ export async function GET(request: NextRequest) {
       .lt('construction_date', nextMonth)
       .not('supply_amount', 'is', null)
       .neq('service_type', '정기엔드케어')
+      .neq('service_type', '정기딥케어')
       .not('status', 'in', '("신규","견적발송","방문견적","예약취소","예약금환급완료")')
       .is('deleted_at', null)
       .order('construction_date'),
@@ -67,18 +66,16 @@ export async function GET(request: NextRequest) {
       .neq('customers.status', 'paused')
       .is('customers.deleted_at', null),
 
-    // 정기딥케어 연간: 계약 기간이 해당 월과 겹치는 모든 고객
-    // Phase 23-b: 계약 시작 월 = 총액 계상 / 그 외 월 = 리스트 노출만 (total=0)
+    // 정기딥케어 (연간+월간 모두): service_billings에서 paid_date가 해당 월인 결제완료 이력만 집계
     supabase
-      .from('customers')
-      .select('id, business_name, billing_amount, payment_method, contract_start_date, contract_end_date')
-      .eq('customer_type', '정기딥케어')
-      .eq('billing_cycle', '연간')
-      .neq('status', 'paused')
-      .lte('contract_start_date', `${month}-31`)
-      .gte('contract_end_date', `${month}-01`)
-      .not('billing_amount', 'is', null)
-      .is('deleted_at', null),
+      .from('service_billings')
+      .select('id, amount, customer_id, paid_date, due_date, billing_period, billing_type, customers!inner(id, business_name, payment_method, customer_type, status, deleted_at)')
+      .eq('status', 'paid')
+      .gte('paid_date', `${month}-01`)
+      .lt('paid_date', nextMonth)
+      .eq('customers.customer_type', '정기딥케어')
+      .neq('customers.status', 'paused')
+      .is('customers.deleted_at', null),
   ])
 
   if (appsRes.error) return NextResponse.json({ error: appsRes.error.message }, { status: 500 })
@@ -91,21 +88,17 @@ export async function GET(request: NextRequest) {
   const payrolls = payrollRes.data ?? []
   const fixedRecords = fixedRes.data ?? []
   const variableRecords = variableRes.data ?? []
-  const deepCareAnnualCustomers = deepCareAnnualRes.data ?? []
 
   // 부가세 미적용 여부: '비과세' 또는 '미희망' 키워드 포함 시 (legacy '현금(부가세 X)' 포함)
   const isNoVat = (method: string | null) =>
     !!method && (method.includes('비과세') || method.includes('미희망') || method === '현금(부가세 X)')
 
-  // 서비스관리 매출 계산
-  // Phase 22 v13-c: 정기딥 연간 방문은 별도 deepCareAnnualItems로 계상하므로 apps에서 제외 (중복 방지)
-  // Phase 23: 일시정지(status='paused') 고객 방문도 매출에서 제외
+  // 서비스관리 매출 계산 (1회성케어 등 — 정기딥케어·정기엔드케어는 쿼리 단계에서 제외됨)
   type AppRow = typeof apps[number] & { customers?: { billing_cycle: string | null; customer_type: string | null; status: string | null } | Array<{ billing_cycle: string | null; customer_type: string | null; status: string | null }> }
   const revenueItems = (apps as AppRow[])
     .filter(a => {
       const c = Array.isArray(a.customers) ? a.customers[0] : a.customers
       if (c?.status === 'paused') return false
-      if (a.service_type === '정기딥케어' && c?.billing_cycle === '연간') return false
       return true
     })
     .map(a => {
@@ -143,26 +136,27 @@ export async function GET(request: NextRequest) {
     }
   })
 
-  // 정기딥케어 연간 매출 (Phase 23-b 하이브리드):
-  // - 계약 시작 월인 고객: 총액 계상 (billing_amount + 부가세)
-  // - 계약 진행중이지만 시작월 아님: 리스트에만 노출 (total=0 → 총액 자동 제외)
-  const deepCareAnnualItems = deepCareAnnualCustomers.map(c => {
-    const supply = c.billing_amount ?? 0
-    const vatAmt = isNoVat(c.payment_method) ? 0 : Math.round(supply * 0.1)
-    const isStartMonth = c.contract_start_date?.slice(0, 7) === month
+  // 정기딥케어 매출 (연간+월간 통합): service_billings paid_date 기준 결제완료 이력만 계상
+  type DeepCareCustomer = { id: string; business_name: string; payment_method: string | null; customer_type: string; deleted_at: string | null }
+  type DeepCareRaw = { id: string; amount: number; customer_id: string; paid_date: string | null; due_date: string | null; billing_period: string; billing_type: string; customers: DeepCareCustomer | DeepCareCustomer[] }
+  const deepCareItems = ((deepCareRes.data ?? []) as unknown as DeepCareRaw[]).map(b => {
+    const customer = Array.isArray(b.customers) ? b.customers[0] : b.customers
+    const supply = b.amount ?? 0
+    const vatAmt = isNoVat(customer?.payment_method ?? null) ? 0 : Math.round(supply * 0.1)
+    const serviceType = b.billing_type === 'annual' ? '정기딥케어(연간)' : '정기딥케어(월간)'
     return {
-      id: c.id,
-      business_name: c.business_name,
-      service_type: isStartMonth ? '정기딥케어(연간)' : '정기딥케어(연간·진행중)',
-      construction_date: c.contract_start_date,
-      supply_amount: isStartMonth ? supply : 0,
-      vat: isStartMonth ? vatAmt : 0,
-      payment_method: c.payment_method as string | null,
-      total: isStartMonth ? supply + vatAmt : 0,
+      id: b.id,
+      business_name: customer?.business_name ?? '알 수 없음',
+      service_type: serviceType,
+      construction_date: b.paid_date ?? b.due_date ?? null,
+      supply_amount: supply,
+      vat: vatAmt,
+      payment_method: customer?.payment_method ?? null,
+      total: supply + vatAmt,
     }
   })
 
-  const allRevenueItems = [...revenueItems, ...endCareItems, ...deepCareAnnualItems]
+  const allRevenueItems = [...revenueItems, ...endCareItems, ...deepCareItems]
   const revenueTotal = allRevenueItems.reduce((s, a) => s + a.total, 0)
 
   // 인건비 계산

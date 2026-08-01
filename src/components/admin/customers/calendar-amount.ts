@@ -27,7 +27,9 @@ function isNoVatMethod(method: string | null | undefined): boolean {
  * 계산 못하는 케이스는 0 (표시 안 됨).
  */
 export function computeAppAmount(app: AmountApp): number {
-  // 정기엔드케어·일반일정은 매출 계산에서 완전 제외
+  // 정기딥케어·정기엔드케어·일반일정은 고객관리 탭 집계에서 제외
+  // (정기딥/엔드케어 매출은 재무관리 탭의 결제완료 이력 기준으로만 집계)
+  if (app.service_type === '정기딥케어') return 0
   if (app.service_type === '정기엔드케어') return 0
   if (app.service_type === '일반일정') return 0
 
