@@ -1234,6 +1234,13 @@ export function CustomersManagementView({
         const data = await res.json()
         if (!res.ok) throw new Error(data.error || '저장 실패')
         toast.success('저장되었습니다.')
+        // 유형 변경 후 새 유형이 현재 필터에 없으면 자동 추가 → 저장 직후 리스트에서 사라지지 않도록
+        if (typeChanged) {
+          const nt = nextType as FilterOption
+          if (!selectedTypes.has(nt)) {
+            setSelectedTypes(prev => new Set([...prev, nt]))
+          }
+        }
         const updated = (data.customer ?? { ...selected, ...body }) as Customer
         // assigned_worker_ids는 PATCH 응답에 없음(JOIN 계산 필드) → 현재 선택 상태를 병합해 보존
         const updatedWithWorkers: Customer = { ...updated, assigned_worker_ids: customerWorkerIds }
