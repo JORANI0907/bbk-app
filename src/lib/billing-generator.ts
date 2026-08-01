@@ -12,11 +12,12 @@
  * 2. Cron 안전망 (/api/cron/billings-safety-net)
  */
 
-/** billing_cycle 문자열 → 한 주기당 월 수 */
+/** billing_cycle 문자열 → 한 주기당 월 수 ('월간'→1, 'N개월'→N, '연간'→12) */
 export function billingCycleStepMonths(cycle: string | null): number {
-  if (cycle === '2개월') return 2
-  if (cycle === '3개월') return 3
-  return 1  // '월간' 기본
+  if (!cycle || cycle === '월간') return 1
+  if (cycle === '연간') return 12
+  const m = cycle.match(/^(\d+)개월$/)
+  return m ? parseInt(m[1], 10) : 1
 }
 
 export interface GeneratedBilling {

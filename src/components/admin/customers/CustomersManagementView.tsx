@@ -25,7 +25,7 @@ type CustomerType = '1회성케어' | '정기딥케어' | '정기엔드케어' |
 type CustomerStatus = 'active' | 'paused' | 'terminated'
 type CustomerDisposition = '호의' | '보통' | '주의'
 type CustomerGrade = '화이트' | '블루' | '블랙'
-type BillingCycle = '월간' | '2개월' | '3개월' | '연간'
+type BillingCycle = string  // '월간'(=1개월) | 'N개월' (N:2~12) | '연간'
 
 interface Customer {
   id: string
@@ -435,19 +435,30 @@ function daysUntil(dateStr: string | null): number | null {
   return Math.ceil((target.getTime() - today.getTime()) / 86400000)
 }
 
-function cycleToMonths(cycle: BillingCycle): number {
-  if (cycle === '2개월') return 2
-  if (cycle === '3개월') return 3
+/** '월간'→1, '연간'→12, 'N개월'→N (1~12 전체 지원) */
+function cycleToMonths(cycle: string | null): number {
+  if (!cycle || cycle === '월간') return 1
   if (cycle === '연간') return 12
-  return 1
+  const m = cycle.match(/^(\d+)개월$/)
+  return m ? parseInt(m[1], 10) : 1
 }
 
-function billingCycleLabel(cycle: BillingCycle | string | null): string {
+/** 공급가액 옆 표시 라벨 */
+function billingCycleLabel(cycle: string | null): string {
+  if (!cycle || cycle === '월간') return '월'
   if (cycle === '연간') return '연'
-  if (cycle === '2개월') return '2개월'
-  if (cycle === '3개월') return '3개월'
-  return '월'
+  return cycle  // '2개월', '6개월' 등 그대로
 }
+
+/** 드롭다운 옵션 목록 (1~12개월 + 연간) */
+const BILLING_CYCLE_OPTIONS: { value: string; label: string }[] = [
+  { value: '월간',  label: '1개월' },
+  ...Array.from({ length: 11 }, (_, i) => ({
+    value: `${i + 2}개월`,
+    label: `${i + 2}개월`,
+  })),
+  { value: '연간', label: '연간 (선결제)' },
+]
 
 function calcNextBillingDate(startDate: string, cycle: BillingCycle, prepaidPeriods = 1): string {
   const monthsPerPeriod = cycleToMonths(cycle)
@@ -3442,14 +3453,16 @@ export function CustomersManagementView({
                         결제 주기
                         <FieldHint text="정기엔드케어는 구독형 서비스. 월간=매월 결제일자에 청구 도래. 연간=계약 시 1건 일괄 발행." />
                       </span>
-                      <div className="flex gap-1.5 flex-1 flex-wrap">
-                        {(['월간', '2개월', '3개월', '연간'] as BillingCycle[]).map(c => (
-                          <button key={c} onClick={() => set('billing_cycle')(c)}
-                            className={`flex-1 min-w-[3rem] py-1.5 text-xs rounded-lg font-medium transition-colors ${
-                              form.billing_cycle === c ? 'bg-purple-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                            }`}>{c}</button>
+                      <select
+                        value={form.billing_cycle ?? ''}
+                        onChange={e => set('billing_cycle')(e.target.value)}
+                        className="flex-1 border border-purple-200 rounded-lg px-2 py-1.5 text-xs bg-white text-text-primary focus:outline-none focus:ring-2 focus:ring-purple-400"
+                      >
+                        <option value="" disabled>선택</option>
+                        {BILLING_CYCLE_OPTIONS.map(o => (
+                          <option key={o.value} value={o.value}>{o.label}</option>
                         ))}
-                      </div>
+                      </select>
                     </div>
                     {/* 금액 섹션 */}
                     {isNoVatMethod(form.payment_method) && (
@@ -3593,14 +3606,16 @@ export function CustomersManagementView({
                         결제 주기
                         <FieldHint text="정기딥은 방문 기반 청구. 월간=그 달 첫 방문 완료 시 세금계산서 발행 후보 도래. 연간=계약 저장 시 1건 일괄 발행 (선결제)." />
                       </span>
-                      <div className="flex gap-1 flex-1 flex-wrap">
-                        {(['월간', '2개월', '3개월', '연간'] as BillingCycle[]).map(c => (
-                          <button key={c} onClick={() => set('billing_cycle')(c)}
-                            className={`flex-1 min-w-[3rem] py-1 text-xs rounded-md font-medium transition-colors ${
-                              form.billing_cycle === c ? 'bg-brand-600 text-white' : 'bg-white text-gray-600 border border-brand-100 hover:bg-brand-100'
-                            }`}>{c}</button>
+                      <select
+                        value={form.billing_cycle ?? ''}
+                        onChange={e => set('billing_cycle')(e.target.value)}
+                        className="flex-1 border border-brand-200 rounded-md px-2 py-1 text-xs bg-white text-text-primary focus:outline-none focus:ring-1 focus:ring-brand-500"
+                      >
+                        <option value="" disabled>선택</option>
+                        {BILLING_CYCLE_OPTIONS.map(o => (
+                          <option key={o.value} value={o.value}>{o.label}</option>
                         ))}
-                      </div>
+                      </select>
                     </div>
                     {/* Phase 22 v2: 연간 선결제 안내 멘트 삭제 → 대신 연간 이력 인라인 드롭다운 (컴포넌트 렌더는 아래 총액 아래에서) */}
                     {isNoVatMethod(form.payment_method) && (
@@ -3642,8 +3657,8 @@ export function CustomersManagementView({
                         }
                       </p>
                     )}
-                    {/* Phase 29: 결제일자 (월간/2개월/3개월: 주기 결제일 / 연간: 결제 월+일) */}
-                    {(form.billing_cycle === '월간' || form.billing_cycle === '2개월' || form.billing_cycle === '3개월') && (
+                    {/* Phase 29: 결제일자 (비연간 전체: 주기 결제일 / 연간: 결제 월+일) */}
+                    {form.billing_cycle && form.billing_cycle !== '연간' && (
                       <div className="flex items-center gap-2">
                         <span className="text-[10px] text-text-secondary w-20 shrink-0 inline-flex items-center gap-1">
                           결제일자
