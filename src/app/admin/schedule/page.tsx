@@ -68,6 +68,7 @@ interface Application {
   // Phase 11: 진행/결제 상태 이원화
   progress_status: string | null
   payment_status_detail: string | null
+  notification_log?: Array<{ type: string; sent_at: string; method?: 'auto' | 'manual' }> | null
 }
 
 interface User { id: string; name: string; role: string }
