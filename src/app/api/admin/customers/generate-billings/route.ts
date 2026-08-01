@@ -8,7 +8,7 @@ import {
 export async function POST(request: NextRequest) {
   const supabase = createServiceClient()
   const body = await request.json()
-  const { customer_ids }: { customer_ids: string[] } = body
+  const { customer_ids, regenerate = false }: { customer_ids: string[]; regenerate?: boolean } = body
 
   if (!Array.isArray(customer_ids) || customer_ids.length === 0) {
     return NextResponse.json({ error: 'customer_ids가 필요합니다.' }, { status: 400 })
@@ -58,6 +58,15 @@ export async function POST(request: NextRequest) {
     if (schedule.length === 0) {
       results.push({ customer_id: customer.id, inserted: 0, skipped: 0 })
       continue
+    }
+
+    // regenerate=true 면 pending 레코드 먼저 삭제 후 전체 재생성
+    if (regenerate) {
+      await supabase
+        .from('service_billings')
+        .delete()
+        .eq('customer_id', customer.id)
+        .eq('status', 'pending')
     }
 
     const { data: existingRows } = await supabase

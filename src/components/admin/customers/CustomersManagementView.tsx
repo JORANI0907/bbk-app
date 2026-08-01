@@ -1198,14 +1198,15 @@ export function CustomersManagementView({
     visit_cycle_config: form.visit_cycle_config ?? {} as VisitCycleConfig,
   })
 
-  const autoGenerateBillings = (customerId: string) => {
+  const autoGenerateBillings = (customerId: string, regenerate = false) => {
     const eligible =
-      (form.customer_type === '정기딥케어' && form.billing_cycle === '연간') ||
-      form.customer_type === '정기엔드케어'
-    if (!eligible || !form.contract_start_date || !form.billing_amount) return
+      (form.customer_type === '정기딥케어' || form.customer_type === '정기엔드케어') &&
+      !!form.contract_start_date &&
+      !!form.billing_cycle
+    if (!eligible) return
     fetch('/api/admin/customers/generate-billings', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ customer_ids: [customerId] }),
+      body: JSON.stringify({ customer_ids: [customerId], regenerate }),
     }).then(async res => {
       const data = await res.json()
       if (res.ok && data.totalInserted > 0) {
@@ -1298,7 +1299,12 @@ export function CustomersManagementView({
         setForm(toForm(updatedWithWorkers))
         setVisitWeekdays(updatedWithWorkers.visit_weekdays ?? [])
         setVisitMonthlyDates(updatedWithWorkers.visit_monthly_dates ?? [])
-        autoGenerateBillings(selected.id)
+        // billing_cycle 또는 계약 기간이 바뀐 경우 → 기존 pending 청구 삭제 후 재생성
+        const billingChanged =
+          selected.billing_cycle !== form.billing_cycle ||
+          selected.contract_start_date !== form.contract_start_date ||
+          selected.contract_end_date !== form.contract_end_date
+        autoGenerateBillings(selected.id, billingChanged)
       }
     } catch (e) {
       toast.error(e instanceof Error ? e.message : '저장 실패')
