@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { notifySlack } from '@/lib/slack'
+import { calcMonthlyDueDate, computeBillingAmountFromCustomer } from '@/lib/billing-generator'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -98,6 +99,54 @@ export async function PATCH(request: NextRequest, { params }: Params) {
         })
       }
     } catch { /* Slack 실패 무시 */ }
+
+    // 정기딥케어 월간 billing 안전망: 작업완료 시점에 해당 월 billing이 없으면 자동 생성
+    try {
+      const { data: saData } = await supabase
+        .from('service_applications')
+        .select('customer_id, construction_date, service_type')
+        .eq('id', id)
+        .single()
+
+      if (saData?.service_type === '정기딥케어' && saData?.construction_date) {
+        const { data: cust } = await supabase
+          .from('customers')
+          .select('billing_cycle, payment_date, supply_amount, vat, billing_amount, payment_method, status')
+          .eq('id', saData.customer_id)
+          .single()
+
+        if (cust?.billing_cycle === '월간' && cust?.status !== 'paused') {
+          const visitDate = new Date(saData.construction_date)
+          const y = visitDate.getFullYear()
+          const m = visitDate.getMonth() + 1
+          const period = `${y}-${String(m).padStart(2, '0')}`
+
+          const { data: existing } = await supabase
+            .from('service_billings')
+            .select('id')
+            .eq('customer_id', saData.customer_id)
+            .eq('billing_period', period)
+            .eq('billing_type', 'monthly')
+            .maybeSingle()
+
+          if (!existing) {
+            const amount = computeBillingAmountFromCustomer(cust)
+            if (amount) {
+              const dueDate = calcMonthlyDueDate(saData.construction_date, cust.payment_date)
+              await supabase.from('service_billings').insert({
+                customer_id:    saData.customer_id,
+                billing_type:   'monthly',
+                billing_period: period,
+                amount,
+                due_date:       dueDate,
+                status:         'pending',
+                service_type:   '정기딥케어',
+              })
+            }
+          }
+        }
+      }
+    } catch { /* billing 안전망 실패는 무시 */ }
 
     return NextResponse.json({ success: true })
   }
