@@ -46,6 +46,7 @@ interface Candidate {
   billing_period: string | null   // '2026-07' or '2026'
   billing_type: 'monthly' | 'annual' | null
   display_period: string | null   // '2026년 7월' or '2026년 3월 (연간)'
+  effective_month: string | null  // 'YYYY-MM' — 월 필터 기준 (클라이언트 사용)
   billing_status: 'pending' | 'paid' | 'overdue' | null
   application_id: string | null
   construction_date: string | null
@@ -217,7 +218,6 @@ export async function GET(request: NextRequest) {
         )
       `)
       .eq('customer_type', '1회성케어')
-      .neq('pipeline_status', 'inquiry')
       .is('deleted_at', null)
       .is('archived_at', null)
       .order('created_at', { ascending: false })
@@ -274,6 +274,7 @@ export async function GET(request: NextRequest) {
           billing_period: null,
           billing_type: null,
           display_period: null,
+          effective_month: sa.construction_date ? sa.construction_date.slice(0, 7) : null,
           billing_status: null,
           construction_date: sa.construction_date ?? null,
           created_at: sa.created_at,
@@ -335,7 +336,6 @@ export async function GET(request: NextRequest) {
         )
       `)
       .in('customer_type', periodicTypes)
-      .neq('pipeline_status', 'inquiry')
       .is('deleted_at', null)
       .is('archived_at', null)
       .order('created_at', { ascending: false })
@@ -372,6 +372,10 @@ export async function GET(request: NextRequest) {
         }
 
         const display_period = calcDisplayPeriod(b.billing_period, b.billing_type, b.due_date ?? null)
+        // effective_month: 월간은 billing_period 그대로, 연간은 due_date 에서 월 추출
+        const effective_month = b.billing_type === 'annual'
+          ? (b.due_date ? b.due_date.slice(0, 7) : null)
+          : b.billing_period.slice(0, 7)
 
         results.push({
           source: 'billing',
@@ -393,6 +397,7 @@ export async function GET(request: NextRequest) {
           billing_period: b.billing_period,
           billing_type: b.billing_type as 'monthly' | 'annual',
           display_period,
+          effective_month,
           billing_status: b.status as 'pending' | 'paid' | 'overdue',
           construction_date: null,
           created_at: b.created_at ?? new Date().toISOString(),
