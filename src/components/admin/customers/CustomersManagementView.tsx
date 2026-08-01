@@ -1533,11 +1533,19 @@ export function CustomersManagementView({
     if (mode === 'cleanup' && selected) {
       try {
         const body = buildBody()
-        await fetch('/api/admin/customers', {
+        const saveRes = await fetch('/api/admin/customers', {
           method: 'PATCH', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ id: selected.id, ...body }),
         })
-      } catch { /* 저장 실패 시 무시하고 진행 (사용자 인지 위해 toast만) */ }
+        if (!saveRes.ok) {
+          const errBody = await saveRes.json().catch(() => ({}))
+          toast.error(`계약 정보 저장 실패: ${errBody?.error ?? saveRes.status}`)
+          return
+        }
+      } catch (e) {
+        toast.error(`계약 정보 저장 실패: ${e instanceof Error ? e.message : String(e)}`)
+        return
+      }
     }
 
     setBulkCreating(true)

@@ -42,6 +42,8 @@ const ALLOWED = [
   'disposition',
   // 고객 등급
   'grade',
+  // Phase 37: 통합 방문주기
+  'visit_cycle_unit', 'visit_cycle_value', 'visit_cycle_config',
 ]
 
 /**
