@@ -53,20 +53,18 @@ export async function GET(request: NextRequest) {
       .eq('category', 'variable')
       .order('created_at'),
 
-    // 정기엔드케어 매출: service_billings 테이블에서 해당 월 결제완료 이력 조회
-    // Phase 22 v13: paid_date·due_date 필드도 select → 매출 상세 리스트 결제일자 노출
-    // Phase 23: status='paused' 고객 제외 (JOIN 조건 + customer.status 필터)
+    // 정기엔드케어 매출: paid_date 기준 (정기딥케어와 동일한 단일 기준 통일)
     supabase
       .from('service_billings')
-      .select('id, amount, customer_id, paid_date, due_date, customers!inner(id, business_name, payment_method, customer_type, status, deleted_at)')
-      .eq('billing_period', month)
+      .select('id, amount, customer_id, paid_date, due_date, billing_period, billing_type, customers!inner(id, business_name, payment_method, customer_type, status, deleted_at)')
       .eq('status', 'paid')
-      .eq('billing_type', 'monthly')
+      .gte('paid_date', `${month}-01`)
+      .lt('paid_date', nextMonth)
       .eq('customers.customer_type', '정기엔드케어')
       .neq('customers.status', 'paused')
       .is('customers.deleted_at', null),
 
-    // 정기딥케어 (연간+월간 모두): service_billings에서 paid_date가 해당 월인 결제완료 이력만 집계
+    // 정기딥케어 (연간+월간 모두): paid_date 기준 결제완료 이력 집계
     supabase
       .from('service_billings')
       .select('id, amount, customer_id, paid_date, due_date, billing_period, billing_type, customers!inner(id, business_name, payment_method, customer_type, status, deleted_at)')
