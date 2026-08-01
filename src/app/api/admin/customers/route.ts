@@ -70,7 +70,7 @@ async function autoGenerateBillings(
   if (customer.status === 'paused') return { inserted: 0, skipped: 0 }
   const amount = computeBillingAmountFromCustomer(customer)
   const input = {
-    customerType: customer.customer_type,
+    serviceType: customer.customer_type,
     billingCycle: customer.billing_cycle,
     contractStartDate: customer.contract_start_date,
     contractEndDate: customer.contract_end_date,
