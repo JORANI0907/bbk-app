@@ -4,6 +4,7 @@ import { sendAlimtalk, sendSmsOrLms } from '@/lib/solapi'
 import { sendByTemplate } from '@/lib/template-sender'
 import type { NotificationContext } from '@/lib/notification-variables'
 import { saveNotificationHistory } from '@/lib/notification'
+import { appendBothNotificationLogs } from '@/lib/notification-log'
 
 const CRON_SECRET = process.env.CRON_SECRET
 
@@ -234,23 +235,23 @@ async function sendAndLog(
     ? (app.notification_log as Array<{ type: string; sent_at: string; phone: string; method: string }>)
     : []
   const newEntry = { type, sent_at: nowIso, phone, method: 'auto' as const, channel: result.type }
-  const updatedLog = [newEntry, ...existLog]
 
-  const updates: Record<string, unknown> = { notification_log: updatedLog }
-  const newStatus = notifyToStatus[type]
-  if (newStatus) updates.status = newStatus
   // Phase 8-B: dual-write — 신규 두 컬럼도 함께 업데이트
+  const extraAppFields: Record<string, unknown> = {}
+  const newStatus = notifyToStatus[type]
+  if (newStatus) extraAppFields.status = newStatus
   const newProgress = NOTIFY_TO_PROGRESS_STATUS[type]
-  if (newProgress) updates.progress_status = newProgress
+  if (newProgress) extraAppFields.progress_status = newProgress
   const newPayment = NOTIFY_TO_PAYMENT_STATUS_DETAIL[type]
-  if (newPayment) updates.payment_status_detail = newPayment
+  if (newPayment) extraAppFields.payment_status_detail = newPayment
 
-  const { error } = await supabase
-    .from('service_applications')
-    .update(updates)
-    .eq('id', app.id as string)
-
-  if (error) throw new Error(`DB 업데이트 실패: ${error.message}`)
+  await appendBothNotificationLogs(supabase, {
+    appId: app.id as string,
+    customerId: app.customer_id as string | null,
+    existingAppLog: existLog,
+    entry: newEntry,
+    extraAppFields,
+  })
 
   // 수정 C: notification_history 기록 (문자알림관리 탭 표시 + Slack 로그)
   await saveNotificationHistory({

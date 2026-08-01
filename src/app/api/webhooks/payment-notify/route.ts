@@ -17,6 +17,7 @@ import { sendSMS, sendAlimtalk } from '@/lib/solapi'
 import { notifySlack } from '@/lib/slack'
 import { renderTemplate } from '@/lib/notification-renderer'
 import type { NotificationContext } from '@/lib/notification-variables'
+import { appendBothNotificationLogs } from '@/lib/notification-log'
 
 const ALIMTALK_BILLING = 'KA01TP260324125257636A2QdT1YNpL5' // 정기결제알림
 const ALIMTALK_RENEWAL = 'KA01TP260324125257737g0vuFScqrCv' // 연간계약갱신안내
@@ -44,6 +45,7 @@ interface AppRow {
   status: string
   service_type: string | null
   notification_log: NotificationLogEntry[] | null
+  customer_id: string | null
 }
 
 interface CustomerRow {
@@ -108,18 +110,6 @@ function isSameKSTDay(isoString: string, todayKST: string): boolean {
   return kst.toISOString().slice(0, 10) === todayKST
 }
 
-async function appendLog(
-  supabase: ReturnType<typeof createServiceClient>,
-  appId: string,
-  existing: NotificationLogEntry[],
-  entry: NotificationLogEntry,
-): Promise<void> {
-  await supabase
-    .from('service_applications')
-    .update({ notification_log: [entry, ...existing] })
-    .eq('id', appId)
-}
-
 export async function POST(request: NextRequest) {
   const secret = request.headers.get('x-webhook-secret')
   if (secret !== process.env.WEBHOOK_SECRET) {
@@ -167,7 +157,7 @@ export async function POST(request: NextRequest) {
       const UNPAID_STATUSES = ['작업완료', '결제']
       const { data: unpaidApps } = await supabase
         .from('service_applications')
-        .select('id, owner_name, business_name, phone, balance, account_number, construction_date, status, service_type, notification_log')
+        .select('id, owner_name, business_name, phone, balance, account_number, construction_date, status, service_type, notification_log, customer_id')
         .in('status', UNPAID_STATUSES)
         .in('service_type', ['1회성케어', '정기딥케어'])
         .is('deleted_at', null)
@@ -215,13 +205,17 @@ export async function POST(request: NextRequest) {
           }
 
           const entry: NotificationLogEntry = { type: '결제알림', sent_at: nowIso, phone, method: 'auto', template_id: ALIMTALK_BILLING }
-          // Phase 27-AQ: notification_log + linked_* 통합 UPDATE (관리자가 관리 페이지에서 지정한 상태 자동 세팅)
-          const patch: Record<string, unknown> = {
-            notification_log: [entry, ...existingLog],
-          }
-          if (linkedProgress['결제알림']) patch.progress_status = linkedProgress['결제알림']
-          if (linkedPayment['결제알림'])  patch.payment_status_detail = linkedPayment['결제알림']
-          await supabase.from('service_applications').update(patch).eq('id', app.id)
+          // Phase 27-AQ: notification_log + linked_* + customers 동기화
+          const extraAppFields: Record<string, unknown> = {}
+          if (linkedProgress['결제알림']) extraAppFields.progress_status = linkedProgress['결제알림']
+          if (linkedPayment['결제알림'])  extraAppFields.payment_status_detail = linkedPayment['결제알림']
+          await appendBothNotificationLogs(supabase, {
+            appId: app.id,
+            customerId: app.customer_id,
+            existingAppLog: existingLog,
+            entry,
+            extraAppFields,
+          })
           await notifySlack({ notifyType: '결제알림', customerName: app.owner_name ?? '', phone, businessName: app.business_name ?? '', constructionDate: app.construction_date, method: 'auto' }).catch(() => { /* 무시 */ })
           results.case1++
         } catch {

@@ -13,6 +13,7 @@ import { sendByTemplate } from '@/lib/template-sender'
 import { notifySlack } from '@/lib/slack'
 import { saveNotificationHistory } from '@/lib/notification'
 import type { NotificationContext } from '@/lib/notification-variables'
+import { appendBothNotificationLogs } from '@/lib/notification-log'
 
 // 알림 발송 대상 계약상태
 const VALID_STATUSES = ['예약확정', '배정완료', '계약완료']
@@ -31,6 +32,7 @@ interface ServiceApplication {
   status: string
   assigned_to: string | null
   notification_log: NotificationLogEntry[] | null
+  customer_id: string | null
 }
 
 interface NotificationLogEntry {
@@ -54,19 +56,6 @@ function addDays(dateStr: string, days: number): string {
   const d = new Date(`${dateStr}T00:00:00+09:00`)
   d.setDate(d.getDate() + days)
   return d.toISOString().slice(0, 10)
-}
-
-async function appendNotificationLog(
-  supabase: ReturnType<typeof createServiceClient>,
-  appId: string,
-  existingLog: NotificationLogEntry[],
-  entry: NotificationLogEntry,
-): Promise<void> {
-  const updated = [entry, ...existingLog]
-  await supabase
-    .from('service_applications')
-    .update({ notification_log: updated })
-    .eq('id', appId)
 }
 
 export async function POST(request: NextRequest) {
@@ -102,7 +91,7 @@ export async function POST(request: NextRequest) {
   // 배정완료 + 유효 상태인 신청서 조회 (오늘 + 내일)
   const { data: apps, error } = await supabase
     .from('service_applications')
-    .select('id, owner_name, business_name, phone, construction_date, business_hours_start, business_hours_end, status, assigned_to, notification_log')
+    .select('id, owner_name, business_name, phone, construction_date, business_hours_start, business_hours_end, status, assigned_to, notification_log, customer_id')
     .in('construction_date', [todayKST, tomorrowKST])
     .in('status', VALID_STATUSES)
     .not('assigned_to', 'is', null)
@@ -165,13 +154,17 @@ export async function POST(request: NextRequest) {
         method: 'auto',
         template_id: send.templateId,
       }
-      // Phase 27-AQ: notification_log 추가 + linked_* 자동 세팅 (한 번의 UPDATE로 병합)
-      const patch: Record<string, unknown> = {
-        notification_log: [entry, ...existingLog],
-      }
-      if (linkedProgress[notifyType]) patch.progress_status = linkedProgress[notifyType]
-      if (linkedPayment[notifyType])  patch.payment_status_detail = linkedPayment[notifyType]
-      await supabase.from('service_applications').update(patch).eq('id', app.id)
+      // Phase 27-AQ: notification_log + linked_* 통합 + customers 동기화
+      const extraAppFields: Record<string, unknown> = {}
+      if (linkedProgress[notifyType]) extraAppFields.progress_status = linkedProgress[notifyType]
+      if (linkedPayment[notifyType])  extraAppFields.payment_status_detail = linkedPayment[notifyType]
+      await appendBothNotificationLogs(supabase, {
+        appId: app.id,
+        customerId: app.customer_id,
+        existingAppLog: existingLog,
+        entry,
+        extraAppFields,
+      })
 
       // 수정 C: notification_history 기록 (문자알림관리 탭 표시 + Slack 로그)
       await saveNotificationHistory({
