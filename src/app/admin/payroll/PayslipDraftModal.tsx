@@ -753,6 +753,15 @@ export default function PayslipDraftModal({
                 >
                   {paying ? '처리 중...' : isPaid ? '지급 취소' : '지급완료'}
                 </Button>
+                <Button
+                  onClick={() => {
+                    if (result === null) syncFromSettings()
+                    setTab('payslip')
+                  }}
+                  className="flex-1 flex items-center justify-center gap-1 bg-indigo-600 hover:bg-indigo-700"
+                >
+                  <FileText size={13} />법정명세서
+                </Button>
               </>
             )}
             {tab === 'payslip' && payslipStep === 'input' && (
