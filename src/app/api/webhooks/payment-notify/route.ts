@@ -151,15 +151,22 @@ export async function POST(request: NextRequest) {
       results.skipped_switch_off++
     } else {
       const UNPAID_STATUSES = ['작업완료', '결제']
+      // 결제완료로 간주하는 customers.payment_status_detail 값
+      const PAID_STATUS_DETAILS = ['결제완료', '결제완료(잔금)', '카드결제 완료', '비과세', '계산서발행완료']
+
       const { data: unpaidApps } = await supabase
         .from('service_applications')
-        .select('id, owner_name, business_name, phone, balance, account_number, construction_date, status, service_type, notification_log, customer_id')
+        .select('id, owner_name, business_name, phone, balance, account_number, construction_date, status, service_type, notification_log, customer_id, customers(payment_status_detail)')
         .in('status', UNPAID_STATUSES)
         .in('service_type', ['1회성케어', '정기딥케어'])
         .is('deleted_at', null)
 
       for (const raw of (unpaidApps ?? [])) {
-        const app = raw as AppRow
+        const app = raw as AppRow & { customers: { payment_status_detail: string | null } | null }
+
+        // 고객 단위 결제완료 상태면 알림 발송 건너뜀
+        const customerPayStatus = app.customers?.payment_status_detail ?? null
+        if (customerPayStatus && PAID_STATUS_DETAILS.includes(customerPayStatus)) continue
         const phone = (app.phone ?? '').replace(/-/g, '')
         if (!phone) continue
 
