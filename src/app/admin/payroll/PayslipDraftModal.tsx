@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect, type ReactElement } from 'react'
 import toast from 'react-hot-toast'
-import { X, Calculator, Save, CheckCircle, Plus, CreditCard, FileText, ChevronDown, ChevronUp } from 'lucide-react'
+import { X, Calculator, Save, CheckCircle, Plus, CreditCard, FileText, ChevronDown, ChevronUp, RefreshCw } from 'lucide-react'
 import { Button } from '@/components/ui'
 import PayslipInputForm, { type FormState } from './PayslipInputForm'
 import PayslipPreviewPane from './PayslipPreviewPane'
@@ -105,6 +105,9 @@ const DEDUCTION_PRESETS = [
   { label: '가불 회수', amount: 0 }, { label: '지각·조퇴', amount: 0 },
   { label: '결근공제', amount: 0 },
 ]
+
+// 근로자 4대보험 부담률: 국민연금4.5% + 건강3.545% + 고용0.9%
+const INSURANCE_RATE = 0.08945
 
 // ─── ItemEditor ──────────────────────────────────────────────────────────────
 
@@ -399,6 +402,36 @@ export default function PayslipDraftModal({
     setSavedId(null)
   }, [])
 
+  // 설정 탭 값 → 법정명세서 탭 자동 동기화
+  const syncFromSettings = useCallback(() => {
+    const baseAmt = finalInput.trim() !== '' ? Number(finalInput) : autoAmount
+    const mealAmt = extraItems.find(it => it.label.includes('식대'))?.amount ?? 0
+    const carAmt = extraItems.find(it => it.label.includes('교통비'))?.amount ?? 0
+    const otherPayAmt = extraItems
+      .filter(it => !it.label.includes('식대') && !it.label.includes('교통비'))
+      .reduce((s, it) => s + (it.amount || 0), 0)
+    const otherDedAmt = extraDeductions.reduce((s, d) => s + (d.amount || 0), 0)
+
+    // 식대·교통비는 비과세 — gross-up 대상 아님
+    const taxableAmt = baseAmt + otherPayAmt
+    const grossTaxable = salaryBasis === '세후'
+      ? Math.round(taxableAmt / (1 - INSURANCE_RATE))
+      : taxableAmt
+
+    setForm(prev => ({
+      ...prev,
+      monthlyBaseSalary: grossTaxable > 0 ? String(grossTaxable) : '',
+      mealAllowance: mealAmt > 0 ? String(mealAmt) : '0',
+      carAllowance: carAmt > 0 ? String(carAmt) : '0',
+      otherTaxableAllowance: '0',
+      otherDeductions: String(otherDedAmt),
+    }))
+    setResult(null)
+    setLegalIssues(undefined)
+    setSavedId(null)
+    setPayslipStep('input')
+  }, [finalInput, autoAmount, extraItems, extraDeductions, salaryBasis])
+
   const handleCalculate = async () => {
     setCalculating(true)
     try {
@@ -505,7 +538,12 @@ export default function PayslipDraftModal({
           ]).map(t => (
             <button
               key={t.key}
-              onClick={() => setTab(t.key)}
+              onClick={() => {
+                if (t.key === 'payslip' && tab !== 'payslip' && result === null) {
+                  syncFromSettings()
+                }
+                setTab(t.key)
+              }}
               className={`flex-1 py-2 text-xs font-medium transition-colors ${
                 tab === t.key ? 'text-brand-600 border-b-2 border-brand-600' : 'text-text-secondary'
               }`}
@@ -617,11 +655,19 @@ export default function PayslipDraftModal({
           {/* ── 법정명세서 탭 ── */}
           {tab === 'payslip' && (
             <div>
-              <div className="px-4 pt-3 pb-1 flex items-center gap-2 text-[11px] text-text-tertiary">
-                <span className={payslipStep === 'input' ? 'text-brand-600 font-semibold' : ''}>① 입력</span>
-                <span>→</span>
-                <span className={payslipStep === 'preview' ? 'text-brand-600 font-semibold' : ''}>② 계산 결과</span>
-                {savedId && <><span>→</span><span className="text-emerald-600 font-semibold">③ 확정 대기</span></>}
+              <div className="px-4 pt-3 pb-1 flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 text-[11px] text-text-tertiary">
+                  <span className={payslipStep === 'input' ? 'text-brand-600 font-semibold' : ''}>① 입력</span>
+                  <span>→</span>
+                  <span className={payslipStep === 'preview' ? 'text-brand-600 font-semibold' : ''}>② 계산 결과</span>
+                  {savedId && <><span>→</span><span className="text-emerald-600 font-semibold">③ 확정 대기</span></>}
+                </div>
+                <button
+                  onClick={syncFromSettings}
+                  className="flex items-center gap-0.5 text-[11px] text-brand-600 hover:text-brand-700 shrink-0"
+                >
+                  <RefreshCw size={10} />급여설정 반영
+                </button>
               </div>
               {payslipStep === 'input' && <PayslipInputForm form={form} onChange={handleChange} />}
               {payslipStep === 'preview' && result && (
