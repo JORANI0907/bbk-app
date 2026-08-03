@@ -190,77 +190,85 @@ export default function PayslipDraftModal({
   const displayMonth = `${y}년 ${Number(m)}월`
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-surface">
-      {/* 헤더 */}
-      <div className="flex items-center gap-3 px-4 py-3 border-b border-border-subtle shrink-0">
-        <button onClick={onClose} className="p-1 rounded-lg hover:bg-surface-sunken">
-          <X size={18} className="text-text-secondary" />
-        </button>
-        <div className="flex-1 min-w-0">
-          <h2 className="text-sm font-bold text-text-primary leading-tight">{workerName}</h2>
-          <p className="text-[11px] text-text-tertiary">{displayMonth} 법정 급여명세서</p>
-        </div>
-      </div>
+    /* 백드롭 */
+    <div
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50"
+      onClick={e => { if (e.target === e.currentTarget) onClose() }}
+    >
+      {/* 모달 패널 — 모바일: 하단 시트, sm+: 중앙 모달 */}
+      <div className="bg-surface w-full sm:max-w-lg sm:mx-4 rounded-t-2xl sm:rounded-2xl shadow-modal flex flex-col max-h-[90vh]">
 
-      {/* 탭 */}
-      <div className="flex border-b border-border-subtle shrink-0">
-        {(['form', 'preview'] as const).map(t => (
-          <button
-            key={t}
-            onClick={() => { if (t === 'preview' && !result) return; setTab(t) }}
-            disabled={t === 'preview' && !result}
-            className={`flex-1 py-2 text-sm font-medium transition-colors ${
-              tab === t ? 'text-brand-600 border-b-2 border-brand-600' : 'text-text-secondary disabled:opacity-40'
-            }`}
-          >
-            {t === 'form' ? '입력' : '미리보기'}
+        {/* 헤더 */}
+        <div className="flex items-center gap-3 px-4 py-3 border-b border-border-subtle shrink-0">
+          <div className="flex-1 min-w-0">
+            <h2 className="text-sm font-bold text-text-primary leading-tight">{workerName}</h2>
+            <p className="text-[11px] text-text-tertiary">{displayMonth} 법정 급여명세서</p>
+          </div>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-surface-sunken shrink-0">
+            <X size={16} className="text-text-secondary" />
           </button>
-        ))}
-      </div>
+        </div>
 
-      {/* 콘텐츠 */}
-      <div className="flex-1 overflow-y-auto">
-        {tab === 'form' && (
-          <PayslipInputForm form={form} onChange={handleChange} />
-        )}
-        {tab === 'preview' && result && (
-          <PayslipPreviewPane result={result} legalIssues={legalIssues} />
-        )}
-      </div>
+        {/* 탭 */}
+        <div className="flex border-b border-border-subtle shrink-0">
+          {(['form', 'preview'] as const).map(t => (
+            <button
+              key={t}
+              onClick={() => { if (t === 'preview' && !result) return; setTab(t) }}
+              disabled={t === 'preview' && !result}
+              className={`flex-1 py-2 text-sm font-medium transition-colors ${
+                tab === t ? 'text-brand-600 border-b-2 border-brand-600' : 'text-text-secondary disabled:opacity-40'
+              }`}
+            >
+              {t === 'form' ? '입력' : '미리보기'}
+            </button>
+          ))}
+        </div>
 
-      {/* 푸터 액션 */}
-      <div className="border-t border-border-subtle p-4 shrink-0 flex gap-2">
-        {tab === 'form' && (
-          <Button
-            onClick={handleCalculate}
-            disabled={calculating}
-            className="flex-1 flex items-center justify-center gap-1.5"
-          >
-            <Calculator size={15} />
-            {calculating ? '계산 중...' : '계산하기'}
-          </Button>
-        )}
-        {tab === 'preview' && !savedId && (
-          <>
-            <Button variant="secondary" onClick={() => setTab('form')} className="flex-1">
-              수정
+        {/* 콘텐츠 (스크롤) */}
+        <div className="flex-1 overflow-y-auto overscroll-contain">
+          {tab === 'form' && (
+            <PayslipInputForm form={form} onChange={handleChange} />
+          )}
+          {tab === 'preview' && result && (
+            <PayslipPreviewPane result={result} legalIssues={legalIssues} />
+          )}
+        </div>
+
+        {/* 푸터 액션 */}
+        <div className="border-t border-border-subtle px-4 py-3 shrink-0 flex gap-2">
+          {tab === 'form' && (
+            <Button
+              onClick={handleCalculate}
+              disabled={calculating}
+              className="flex-1 flex items-center justify-center gap-1.5"
+            >
+              <Calculator size={15} />
+              {calculating ? '계산 중...' : '계산하기'}
             </Button>
-            <Button onClick={handleDraft} disabled={saving} className="flex-1 flex items-center justify-center gap-1.5">
-              <Save size={15} />
-              {saving ? '저장 중...' : 'DRAFT 저장'}
+          )}
+          {tab === 'preview' && !savedId && (
+            <>
+              <Button variant="secondary" onClick={() => setTab('form')} className="flex-1">
+                수정
+              </Button>
+              <Button onClick={handleDraft} disabled={saving} className="flex-1 flex items-center justify-center gap-1.5">
+                <Save size={15} />
+                {saving ? '저장 중...' : 'DRAFT 저장'}
+              </Button>
+            </>
+          )}
+          {tab === 'preview' && savedId && (
+            <Button
+              onClick={handleConfirm}
+              disabled={confirming}
+              className="flex-1 flex items-center justify-center gap-1.5 bg-emerald-600 hover:bg-emerald-700"
+            >
+              <CheckCircle size={15} />
+              {confirming ? '확정 중...' : '확정 (CONFIRMED)'}
             </Button>
-          </>
-        )}
-        {tab === 'preview' && savedId && (
-          <Button
-            onClick={handleConfirm}
-            disabled={confirming}
-            className="flex-1 flex items-center justify-center gap-1.5 bg-emerald-600 hover:bg-emerald-700"
-          >
-            <CheckCircle size={15} />
-            {confirming ? '확정 중...' : '확정 (CONFIRMED)'}
-          </Button>
-        )}
+          )}
+        </div>
       </div>
     </div>
   )
