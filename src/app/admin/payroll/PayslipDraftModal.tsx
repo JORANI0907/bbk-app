@@ -8,6 +8,7 @@ import PayslipInputForm, { type FormState } from './PayslipInputForm'
 import PayslipPreviewPane from './PayslipPreviewPane'
 import PayslipList, { type PayslipEntry } from './PayslipList'
 import PayslipDraftList, { type DraftPayslip } from './PayslipDraftList'
+import PayslipModal from './PayslipModal'
 import type { PayrollInput, PayrollResult, EmploymentType } from '@/lib/payroll/types'
 import { validatePayslipLegal } from '@/lib/payroll/validator'
 import type { LegalIssue } from '@/lib/payroll/validator'
@@ -223,6 +224,7 @@ export default function PayslipDraftModal({
   const [saving, setSaving] = useState(false)
   const [paying, setPaying] = useState(false)
   const [savingWorker, setSavingWorker] = useState(false)
+  const [showPayslipModal, setShowPayslipModal] = useState(false)
 
   // 이력 탭 (레거시 PDF 발행)
   const [payDate, setPayDate] = useState(defaultPayDate(month))
@@ -505,6 +507,7 @@ export default function PayslipDraftModal({
   // ─── JSX ─────────────────────────────────────────────────────────────────
 
   return (
+    <>
     <div
       className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50"
       onClick={e => { if (e.target === e.currentTarget) onClose() }}
@@ -754,13 +757,10 @@ export default function PayslipDraftModal({
                   {paying ? '처리 중...' : isPaid ? '지급 취소' : '지급완료'}
                 </Button>
                 <Button
-                  onClick={() => {
-                    if (result === null) syncFromSettings()
-                    setTab('payslip')
-                  }}
+                  onClick={() => setShowPayslipModal(true)}
                   className="flex-1 flex items-center justify-center gap-1 bg-indigo-600 hover:bg-indigo-700"
                 >
-                  <FileText size={13} />법정명세서
+                  <FileText size={13} />급여명세서
                 </Button>
               </>
             )}
@@ -795,5 +795,19 @@ export default function PayslipDraftModal({
         )}
       </div>
     </div>
+
+    {showPayslipModal && (
+      <PayslipModal
+        month={month}
+        displayMonth={displayMonth}
+        selectedPersons={[`${personType}:${personId}`]}
+        onClose={() => setShowPayslipModal(false)}
+        onPublished={() => {
+          onPublished()
+          setShowPayslipModal(false)
+        }}
+      />
+    )}
+  </>
   )
 }
