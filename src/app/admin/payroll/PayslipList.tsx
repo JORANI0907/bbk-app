@@ -43,7 +43,7 @@ export default function PayslipList({
   const handleToggleSent = async (p: PayslipEntry) => {
     // 미발송 → 발송 처리
     if (!p.is_sent) {
-      const ok = confirm(`${p.person_name}님에게 급여명세서를 발송 처리하시겠습니까?\n(현재는 발송 상태만 기록됩니다.)`)
+      const ok = confirm(`${p.person_name}님에게 급여명세서 안내 SMS를 발송하시겠습니까?`)
       if (!ok) return
     } else {
       const ok = confirm(`이미 발송된 명세서입니다. 발송 취소하시겠습니까?`)

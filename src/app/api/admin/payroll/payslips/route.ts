@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
+import { sendByTemplate } from '@/lib/template-sender'
+import type { NotificationContext } from '@/lib/notification-variables'
 
 /**
  * 급여명세서 발행 이력 CRUD
@@ -104,6 +106,54 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({ error: 'id가 필요합니다.' }, { status: 400 })
     }
 
+    const supabase = createServiceClient()
+
+    // 발송 처리 시 실제 SMS 전송
+    if (is_sent === true) {
+      const { data: payslip, error: fetchErr } = await supabase
+        .from('payroll_payslips')
+        .select('person_type, person_id, person_name, year_month, net_amount, pay_date')
+        .eq('id', id)
+        .single()
+
+      if (fetchErr || !payslip) {
+        return NextResponse.json({ error: '명세서를 찾을 수 없습니다.' }, { status: 404 })
+      }
+
+      // person_type에 따라 phone 조회
+      let phone: string | null = null
+      if (payslip.person_type === 'worker') {
+        const { data: worker } = await supabase
+          .from('workers')
+          .select('phone')
+          .eq('id', payslip.person_id)
+          .single()
+        phone = worker?.phone ?? null
+      } else if (payslip.person_type === 'user') {
+        const { data: user } = await supabase
+          .from('users')
+          .select('phone')
+          .eq('id', payslip.person_id)
+          .single()
+        phone = user?.phone ?? null
+      }
+
+      if (phone) {
+        const [year, mon] = (payslip.year_month as string).split('-')
+        const smsContext: NotificationContext = {
+          extra: {
+            worker_name: payslip.person_name as string,
+            payroll_month: `${year}년 ${parseInt(mon)}월`,
+            payroll_amount: `${(payslip.net_amount as number).toLocaleString('ko-KR')}원`,
+            payroll_date: payslip.pay_date
+              ? (payslip.pay_date as string).slice(0, 10).replace(/-/g, '.')
+              : '',
+          },
+        }
+        await sendByTemplate('PAYROLL_NOTIFY', phone.replace(/-/g, ''), smsContext)
+      }
+    }
+
     const updates: Record<string, unknown> = {}
     if (typeof is_sent === 'boolean') {
       updates.is_sent = is_sent
@@ -117,7 +167,6 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({ error: '업데이트할 필드가 없습니다.' }, { status: 400 })
     }
 
-    const supabase = createServiceClient()
     const { data, error } = await supabase
       .from('payroll_payslips')
       .update(updates)

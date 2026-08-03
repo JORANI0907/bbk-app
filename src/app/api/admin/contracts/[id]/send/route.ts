@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
-import { sendSMS } from '@/lib/solapi'
+import { sendByTemplate } from '@/lib/template-sender'
+import type { NotificationContext } from '@/lib/notification-variables'
 
 const SIGN_BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://bbk-app.vercel.app'
 
@@ -48,18 +49,21 @@ export async function POST(_request: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ success: false, error: updateError.message }, { status: 500 })
   }
 
-  const smsText =
-    `[BBK 공간케어] 계약서 서명 요청\n` +
-    `아래 링크에서 계약 내용을 확인하고 서명해주세요.\n` +
-    `${SIGN_BASE_URL}/sign/${token}\n` +
-    `링크 유효기간: 7일`
+  const customers = contract.customers as unknown as { business_name: string; contact_name: string | null } | null
+  const smsContext: NotificationContext = {
+    customer: {
+      business_name: customers?.business_name ?? null,
+      contact_name: customers?.contact_name ?? null,
+    },
+    extra: {
+      contract_pdf_url: `${SIGN_BASE_URL}/sign/${token}`,
+    },
+  }
 
-  try {
-    await sendSMS(phone, smsText)
-  } catch (smsError) {
-    // SMS 실패해도 상태는 이미 변경됨 — 오류만 알림
+  const result = await sendByTemplate('CONTRACT_SEND', phone.replace(/-/g, ''), smsContext)
+  if (!result.ok) {
     return NextResponse.json(
-      { success: false, error: `SMS 발송 실패: ${(smsError as Error).message}` },
+      { success: false, error: `SMS 발송 실패: ${result.reason}` },
       { status: 500 },
     )
   }
