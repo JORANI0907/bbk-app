@@ -1,11 +1,9 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
-import { CreditCard, FileText, SlidersHorizontal, ClipboardList } from 'lucide-react'
+import { useState } from 'react'
+import { CreditCard, FileText, ClipboardList } from 'lucide-react'
 import { fmt, fmtDate } from './utils'
 import PayslipList, { type PayslipEntry } from './PayslipList'
-import PayrollDetailModal from './PayrollDetailModal'
-import PayslipDraftList, { type DraftPayslip } from './PayslipDraftList'
 import PayslipDraftModal from './PayslipDraftModal'
 import type { WorkerEntry, WorkerJob, PayrollRecord } from './types'
 
@@ -32,25 +30,6 @@ export default function WorkerCard({
 }) {
   const [expanded, setExpanded] = useState(false)
   const [showModal, setShowModal] = useState(false)
-  const [showDraftModal, setShowDraftModal] = useState(false)
-  const [draftPayslips, setDraftPayslips] = useState<DraftPayslip[]>([])
-
-  const fetchDraftPayslips = useCallback(async () => {
-    try {
-      const res = await fetch(
-        `/api/admin/payroll/payslips/worker/${entry.person.id}?year_month=${month}`
-      )
-      if (!res.ok) return
-      const data = await res.json() as { payslips: DraftPayslip[] }
-      setDraftPayslips(data.payslips ?? [])
-    } catch {
-      // 조회 실패 시 무시 (기존 기능에 영향 없음)
-    }
-  }, [entry.person.id, month])
-
-  useEffect(() => {
-    void fetchDraftPayslips()
-  }, [fetchDraftPayslips])
 
   const isPaid = entry.record?.is_paid ?? false
   const finalAmount = entry.record?.final_amount ?? entry.auto_amount
@@ -64,11 +43,6 @@ export default function WorkerCard({
     return acc
   }, {})
   const sortedDates = Object.keys(jobsByDate).sort()
-
-  const displayMonth = (() => {
-    const [y, m] = month.split('-')
-    return `${y}년 ${Number(m)}월`
-  })()
 
   return (
     <>
@@ -140,7 +114,6 @@ export default function WorkerCard({
                 <p className="text-xs text-text-tertiary">
                   {workDays}일 출근 · {entry.jobs.length}건 · 자동 {fmt(entry.auto_amount)}
                 </p>
-                {/* 단가 참고 */}
                 {entry.person.employment_type === '정직원' && entry.person.avg_salary && (
                   <p className="text-[11px] text-amber-700 mt-0.5">
                     월급 참고: <span className="font-semibold">{fmt(entry.person.avg_salary)}</span>
@@ -182,17 +155,10 @@ export default function WorkerCard({
                 </button>
                 <button
                   onClick={() => setShowModal(true)}
-                  className="px-2 py-1 text-[11px] font-semibold rounded-md bg-brand-600 text-white hover:bg-brand-700 transition flex items-center gap-0.5"
-                >
-                  <SlidersHorizontal size={11} />
-                  급여설정
-                </button>
-                <button
-                  onClick={() => setShowDraftModal(true)}
                   className="px-2 py-1 text-[11px] font-semibold rounded-md bg-emerald-600 text-white hover:bg-emerald-700 transition flex items-center gap-0.5"
                 >
                   <ClipboardList size={11} />
-                  법정명세서
+                  급여관리
                 </button>
               </div>
             </div>
@@ -206,13 +172,7 @@ export default function WorkerCard({
           onDeleted={onPayslipDeleted}
         />
 
-        {/* 신규 법정 급여명세서 리스트 */}
-        <PayslipDraftList
-          payslips={draftPayslips}
-          onRefresh={fetchDraftPayslips}
-        />
-
-        {/* 일정 내역 (펼침) — 읽기 전용 */}
+        {/* 일정 내역 (펼침) */}
         {expanded && (
           <div className="border-t border-border-subtle">
             {entry.jobs.length === 0 ? (
@@ -260,40 +220,30 @@ export default function WorkerCard({
         )}
       </div>
 
-      {showDraftModal && (
+      {showModal && (
         <PayslipDraftModal
           workerId={entry.person.id}
           workerName={entry.person.name}
           workerEmploymentType={entry.person.employment_type}
           workerDayWage={entry.person.day_wage}
           month={month}
-          onClose={() => setShowDraftModal(false)}
-          onSaved={fetchDraftPayslips}
-        />
-      )}
-
-      {showModal && (
-        <PayrollDetailModal
           personType="worker"
           personId={entry.person.id}
-          personName={entry.person.name}
-          workerDbId={entry.person.id}
           phone={entry.person.phone}
           accountNumber={entry.person.account_number}
           taxType={entry.person.tax_type}
           salaryBasis={entry.person.salary_basis}
           autoAmount={entry.auto_amount}
           record={entry.record}
-          month={month}
-          displayMonth={displayMonth}
           payslips={payslips}
           onClose={() => setShowModal(false)}
-          onUpdated={record => { onUpdated(record); setShowModal(false) }}
+          onUpdated={record => onUpdated(record)}
           onPayslipUpdated={onPayslipUpdated}
           onPayslipDeleted={onPayslipDeleted}
           onPublished={onPublished}
         />
       )}
+
     </>
   )
 }

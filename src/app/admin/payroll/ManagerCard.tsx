@@ -1,11 +1,9 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
-import { CreditCard, FileText, SlidersHorizontal, ClipboardList } from 'lucide-react'
+import { useState } from 'react'
+import { CreditCard, FileText, ClipboardList } from 'lucide-react'
 import { fmt, fmtDate } from './utils'
 import PayslipList, { type PayslipEntry } from './PayslipList'
-import PayrollDetailModal from './PayrollDetailModal'
-import PayslipDraftList, { type DraftPayslip } from './PayslipDraftList'
 import PayslipDraftModal from './PayslipDraftModal'
 import type { ManagerEntry, ManagerJob, PayrollRecord } from './types'
 
@@ -32,28 +30,8 @@ export default function ManagerCard({
 }) {
   const [expanded, setExpanded] = useState(false)
   const [showModal, setShowModal] = useState(false)
-  const [showDraftModal, setShowDraftModal] = useState(false)
-  const [draftPayslips, setDraftPayslips] = useState<DraftPayslip[]>([])
 
   const workerDbId = entry.person.worker_id
-
-  const fetchDraftPayslips = useCallback(async () => {
-    if (!workerDbId) return
-    try {
-      const res = await fetch(
-        `/api/admin/payroll/payslips/worker/${workerDbId}?year_month=${month}`
-      )
-      if (!res.ok) return
-      const data = await res.json() as { payslips: DraftPayslip[] }
-      setDraftPayslips(data.payslips ?? [])
-    } catch {
-      // 조회 실패 시 무시
-    }
-  }, [workerDbId, month])
-
-  useEffect(() => {
-    void fetchDraftPayslips()
-  }, [fetchDraftPayslips])
 
   const isPaid = entry.record?.is_paid ?? false
   const finalAmount = entry.record?.final_amount ?? entry.auto_amount
@@ -67,11 +45,6 @@ export default function ManagerCard({
     return acc
   }, {})
   const sortedDates = Object.keys(jobsByDate).sort()
-
-  const displayMonth = (() => {
-    const [y, m] = month.split('-')
-    return `${y}년 ${Number(m)}월`
-  })()
 
   return (
     <>
@@ -172,19 +145,12 @@ export default function ManagerCard({
                 </button>
                 <button
                   onClick={() => setShowModal(true)}
-                  className="px-2 py-1 text-[11px] font-semibold rounded-md bg-brand-600 text-white hover:bg-brand-700 transition flex items-center gap-0.5"
-                >
-                  <SlidersHorizontal size={11} />
-                  급여설정
-                </button>
-                <button
-                  onClick={() => setShowDraftModal(true)}
                   disabled={!workerDbId}
-                  title={workerDbId ? '법정 급여명세서 발행' : 'workers 연동 후 사용 가능'}
+                  title={workerDbId ? '급여 관리' : 'workers 연동 후 사용 가능'}
                   className="px-2 py-1 text-[11px] font-semibold rounded-md bg-emerald-600 text-white hover:bg-emerald-700 transition flex items-center gap-0.5 disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   <ClipboardList size={11} />
-                  법정명세서
+                  급여관리
                 </button>
               </div>
             </div>
@@ -198,13 +164,7 @@ export default function ManagerCard({
           onDeleted={onPayslipDeleted}
         />
 
-        {/* 신규 법정 급여명세서 리스트 */}
-        <PayslipDraftList
-          payslips={draftPayslips}
-          onRefresh={fetchDraftPayslips}
-        />
-
-        {/* 일정 내역 (펼침) — 읽기 전용 */}
+        {/* 일정 내역 (펼침) */}
         {expanded && (
           <div className="border-t border-border-subtle">
             {entry.jobs.length === 0 ? (
@@ -253,35 +213,24 @@ export default function ManagerCard({
         )}
       </div>
 
-      {showDraftModal && workerDbId && (
+      {showModal && workerDbId && (
         <PayslipDraftModal
           workerId={workerDbId}
           workerName={entry.person.name}
           workerEmploymentType={null}
           workerDayWage={null}
           month={month}
-          onClose={() => setShowDraftModal(false)}
-          onSaved={fetchDraftPayslips}
-        />
-      )}
-
-      {showModal && (
-        <PayrollDetailModal
           personType="user"
           personId={entry.person.id}
-          personName={entry.person.name}
-          workerDbId={entry.person.worker_id}
           phone={entry.person.phone}
           accountNumber={entry.person.account_number}
           taxType={entry.person.tax_type}
           salaryBasis={entry.person.salary_basis}
           autoAmount={entry.auto_amount}
           record={entry.record}
-          month={month}
-          displayMonth={displayMonth}
           payslips={payslips}
           onClose={() => setShowModal(false)}
-          onUpdated={record => { onUpdated(record); setShowModal(false) }}
+          onUpdated={record => onUpdated(record)}
           onPayslipUpdated={onPayslipUpdated}
           onPayslipDeleted={onPayslipDeleted}
           onPublished={onPublished}
