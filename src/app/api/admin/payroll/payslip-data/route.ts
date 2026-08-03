@@ -239,6 +239,7 @@ export async function POST(req: NextRequest) {
         .from('service_applications')
         .select('id, business_name, service_type, construction_date, manager_pay, unit_price_per_visit')
         .eq('assigned_to', personId)
+        .is('deleted_at', null)
         .gte('construction_date', periodStart)
         .lte('construction_date', periodEnd)
         .order('construction_date')
