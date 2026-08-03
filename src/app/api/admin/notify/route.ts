@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { sendAlimtalk, sendSMS, sendSmsOrLms } from '@/lib/solapi'
+import { sendSMS } from '@/lib/solapi'
 import { sendByTemplate } from '@/lib/template-sender'
 import type { NotificationContext } from '@/lib/notification-variables'
 import { createServiceClient } from '@/lib/supabase/server'
@@ -39,31 +39,6 @@ const NOTIFY_TO_STATUS: Record<string, string> = {
 // → notification_templates.linked_progress_status / linked_payment_status 로 이관.
 // 관리자가 새 template 추가 시에도 관리 페이지 dropdown 으로 상태 연결을 지정 가능.
 // 발송 직전에 template row 를 조회해 두 필드를 읽어 자동 업데이트.
-
-// ─── 솔라피 카카오 알림톡 템플릿 ID (최신 자동화 v2) ──────────────
-const ALIMTALK_TEMPLATES: Record<string, string> = {
-  '예약확정알림':       'KA01TP260324131935207wzarljIsiyK',
-  '예약1일전알림':      'KA01TP260324131935294IPmMhH8BWA8',
-  '예약당일알림':       'KA01TP2603241319353583492vcrZ9c2',
-  '작업완료알림':               'KA01TP260324125200271OOXEk0LPiAS',
-  '작업완료알림(현금)':         'KA01TP260324125200310YfeiY0REGVv',
-  '작업완료알림(카드,플렛폼)':  'KA01TP260324132220016T20FiBMSKKA',
-  '작업완료알림(정기엔드케어)': 'KA01TP251208071633315G1wZC9a3w4F',
-  '결제알림':               'KA01TP260324125232471CIIHJKDOBsf',
-  '결제알림(현금)':         'KA01TP251127095540783njh0ig3nyjg',
-  '결제알림(카드,플렛폼)':  'KA01TP251201210650817mczUreAtEjU',
-  '결제완료알림':       'KA01TP260324125232674HVfev9PAzUe',
-  '결제완료알림(잔금)':   'KA01TP260324125232674HVfev9PAzUe',
-  '예약금 입금완료 알림': 'KA01TP260220102437819kp8ysvD4XqB',
-  '계산서발행완료알림': 'KA01TP260324125232783yjmHI9u6j6j',
-  '예약금환급완료알림': 'KA01TP260324125232819wDhAV1kuhAF',
-  '예약취소알림':       'KA01TP260324125232854lv8CCYK3Ozu',
-  'A/S방문알림':        'KA01TP260324125232887FY113tVp5zb',
-  '방문견적알림':       'KA01TP260324125232920u1LmrtqCY0P',
-  '신청서작성완료알림': 'KA01TP260225105100279pvfbwyZDT39',
-  '견적신청접수알림':   'KA01TP260514153343828rQpIWkeH7pg',
-  '계정안내알림':      'KA01TP260404141110684azipFQYSyxX',
-}
 
 // ─── 요청시간 계산: 마감시간 +1h ~ +4h ("~3시간 후") ──────────────
 // 예) 21:00 → "22:00 ~ 01:00 사이"
@@ -303,8 +278,7 @@ interface NotificationLogEntry {
   sent_at: string
   phone: string
   method: 'auto' | 'manual'
-  template_id?: string
-  channel?: 'sms' | 'lms' | 'alimtalk'
+  channel?: 'sms' | 'lms'
 }
 
 export async function POST(request: NextRequest) {
@@ -452,10 +426,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: true, new_status: null, worker_phones: sentPhones })
     }
 
-    let legacyTemplateId: string | null = ALIMTALK_TEMPLATES[type] ?? null
-    // 게이팅: legacy 카톡 매핑 OR notification_templates(code=type) 중 하나만 있으면 진행
+    // 게이팅: notification_templates(code=type) 에 등록된 활성 템플릿이 있어야 진행
     // 단, '작업완료알림'은 아래에서 세분화 후 재검증하므로 여기서 통과시킴
-    if (!legacyTemplateId && type !== '작업완료알림') {
+    if (type !== '작업완료알림') {
       const { data: dbTpl } = await supabase
         .from('notification_templates')
         .select('id, is_active')
@@ -491,16 +464,13 @@ export async function POST(request: NextRequest) {
           return NextResponse.json({ success: true, skipped: true, reason: `결제방법 '${pm}'은(는) 발송 대상이 아닙니다.` })
         }
       }
-      legacyTemplateId = ALIMTALK_TEMPLATES[type] ?? null
-      if (!legacyTemplateId) {
-        const { data: dbTpl } = await supabase
-          .from('notification_templates')
-          .select('id, is_active')
-          .eq('code', type)
-          .maybeSingle()
-        if (!dbTpl || dbTpl.is_active === false) {
-          return NextResponse.json({ error: `알 수 없는 알림 유형입니다: ${type}` }, { status: 400 })
-        }
+      const { data: dbTpl } = await supabase
+        .from('notification_templates')
+        .select('id, is_active')
+        .eq('code', type)
+        .maybeSingle()
+      if (!dbTpl || dbTpl.is_active === false) {
+        return NextResponse.json({ error: `알 수 없는 알림 유형입니다: ${type}` }, { status: 400 })
       }
     }
 
@@ -543,9 +513,8 @@ export async function POST(request: NextRequest) {
     const fallbackText = buildFallback(type, app as Record<string, unknown>)
 
     // 각 번호로 순차 발송. 하나 실패해도 나머지는 계속.
-    // Phase 25e: notification_templates code 기반 SMS 우선 → 실패 시 legacy 카톡 fallback (legacy ID 있을 때만)
     const sendErrors: string[] = []
-    const channelsUsed: Array<'sms' | 'lms' | 'alimtalk'> = []
+    const channelsUsed: Array<'sms' | 'lms'> = []
     for (const target of targets) {
       const smsResult = await sendByTemplate(type, target, {
         application: app as NotificationContext['application'],
@@ -554,19 +523,7 @@ export async function POST(request: NextRequest) {
         channelsUsed.push(smsResult.type === 'LMS' ? 'lms' : 'sms')
         continue
       }
-      if (!legacyTemplateId) {
-        sendErrors.push(`${target}: ${smsResult.reason}${smsResult.details ? ` (${smsResult.details})` : ''}`)
-        console.error(`[notify] SMS 발송 실패 (${target}): ${smsResult.reason}`)
-        continue
-      }
-      try {
-        await sendAlimtalk(target, legacyTemplateId, variables, fallbackText)
-        channelsUsed.push('alimtalk')
-      } catch (e) {
-        const msg = e instanceof Error ? e.message : String(e)
-        sendErrors.push(`${target}: ${msg}`)
-        console.error(`[notify] 알림톡 발송 실패 (${target}):`, msg)
-      }
+      sendErrors.push(`${target}: ${smsResult.reason}${smsResult.details ? ` (${smsResult.details})` : ''}`)
     }
     if (sendErrors.length === targets.length) {
       // 전체 실패 시에만 명시적 에러 반환
@@ -591,11 +548,11 @@ export async function POST(request: NextRequest) {
       const sendErrorLine = sendErrors.length > 0 ? `\n⚠️ 일부 실패: ${sendErrors.join(' / ')}` : ''
       const channelLabel = channelsUsed.length > 0
         ? channelsUsed.map(c => c.toUpperCase()).join('+')
-        : '알림톡'
+        : 'SMS'
       sendSlack([
         `📤 *알림 발송* | ${type}`,
         `업체: ${String(app.business_name ?? '-')} / 고객: ${String(app.owner_name ?? '-')} (${targetSummary})`,
-        `발송: ${method === 'manual' ? '수동' : '자동'} | 채널: ${channelLabel} | 템플릿: ${legacyTemplateId ?? `DB(${type})`}${sendErrorLine}`,
+        `발송: ${method === 'manual' ? '수동' : '자동'} | 채널: ${channelLabel} | 템플릿: DB(${type})${sendErrorLine}`,
         ``,
         `[적용 변수]`,
         varLines,
@@ -645,10 +602,9 @@ export async function POST(request: NextRequest) {
 
     // 실제 발송된 번호(들)를 기록. 두 번호 발송 시 콤마 구분.
     const sentPhoneRecord = targets.join(',')
-    const primaryChannel: 'sms' | 'lms' | 'alimtalk' = channelsUsed[0] ?? (legacyTemplateId ? 'alimtalk' : 'sms')
+    const primaryChannel: 'sms' | 'lms' = channelsUsed[0] ?? 'sms'
     const newEntry: NotificationLogEntry = {
       type, sent_at: nowIso, phone: sentPhoneRecord, method,
-      template_id: legacyTemplateId ?? undefined,
       channel: primaryChannel,
     }
     const updatedLog = [newEntry, ...existingLog]
@@ -675,10 +631,8 @@ export async function POST(request: NextRequest) {
       .eq('id', application_id)
 
     // ── 알림 이력 저장 ──────────────────────────────────────────────
-    const historyCategory: 'alimtalk' | 'sms' =
-      primaryChannel === 'alimtalk' ? 'alimtalk' : 'sms'
     await saveNotificationHistory({
-      category: historyCategory,
+      category: 'sms',
       type,
       body: `${type} 발송 완료 — ${app.owner_name ?? ''} (${sentPhoneRecord})`,
       title: type,

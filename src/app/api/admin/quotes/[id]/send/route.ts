@@ -3,15 +3,13 @@ import { tmpdir } from 'os'
 import { writeFile, unlink } from 'fs/promises'
 import { join } from 'path'
 import { notifySlack } from '@/lib/slack'
-import { sendAlimtalk } from '@/lib/solapi'
+import { sendByTemplate } from '@/lib/template-sender'
 import { createServiceClient } from '@/lib/supabase/server'
 import { renderQuotePdf, type QuotePdfData } from '@/lib/quotePdf'
 import { Resend } from 'resend'
 import { uploadQuoteToDrive } from '@/lib/driveUpload'
 
 export const maxDuration = 60
-
-const QUOTE_KAKAO_TEMPLATE_ID = 'KA01TP260219115331451o0aakYaJSp8'
 
 interface QuoteItem {
   name: string
@@ -317,31 +315,32 @@ export async function POST(
     }
   }
 
-  // ── 4. 카카오 알림톡 ────────────────────────────────────────
+  // ── 4. SMS 발송 (QUOTE_SEND 템플릿) ─────────────────────────
   // 메인 연락처(phone) + 알림수신 추가번호(phone_2) 두 곳으로 조건부 발송.
   // PDF 문서 자체에는 메인 연락처만 표시(변경 없음). 알림 발송 대상만 확장.
   const targets: string[] = []
   if (notify1 && phone) targets.push(phone)
   if (notify2 && p2) targets.push(p2)
 
-  const kakaoVars = {
-    '고객명':     owner_name        || '',
-    '업체명':     business_name     || '',
-    '견적서번호': quoteNo,
-    '시공일자':   construction_date || '',
-    '총액':       `${fmtKr(total_amount || 0)}원`,
-    '유효기간':   validUntilStr,
-    '견적서링크': pdfUrl || '',
+  const smsContext = {
+    application: {
+      owner_name,
+      business_name,
+      phone,
+      construction_date,
+    },
   }
-  const fallbackText = `[BBK 공간케어] 견적서가 발송되었습니다. 견적서 번호: ${quoteNo}`
-
   for (const target of targets) {
     try {
-      await sendAlimtalk(target, QUOTE_KAKAO_TEMPLATE_ID, kakaoVars, fallbackText)
+      const result = await sendByTemplate('QUOTE_SEND', target, smsContext)
+      if (!result.ok) {
+        softErrors.sms = softErrors.sms
+          ? `${softErrors.sms} / ${target}: ${result.reason}`
+          : `${target}: ${result.reason}`
+      }
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e)
-      softErrors.kakao = softErrors.kakao ? `${softErrors.kakao} / ${target}: ${msg}` : `${target}: ${msg}`
-      console.error(`카카오 알림톡 발송 실패 (${target}, non-critical):`, msg)
+      softErrors.sms = softErrors.sms ? `${softErrors.sms} / ${target}: ${msg}` : `${target}: ${msg}`
     }
   }
 

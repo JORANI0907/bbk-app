@@ -60,6 +60,7 @@ const TABS: Array<{ key: TabKey; label: string; filter: (t: Template) => boolean
   { key: '정기엔드케어', label: '정기엔드케어',            filter: t => t.applicable_types.includes('정기엔드케어') && t.applicable_locations.includes('customer_detail') },
   { key: 'monthly_schedule_deep', label: '이번달일정(딥)',  filter: t => t.applicable_types.includes('정기딥케어')   && t.applicable_locations.includes('monthly_schedule') },
   { key: 'monthly_schedule_end',  label: '이번달일정(엔드)',filter: t => t.applicable_types.includes('정기엔드케어') && t.applicable_locations.includes('monthly_schedule') },
+  { key: '기타', label: '기타', filter: (t: Template) => t.applicable_types.includes('기타') },
 ]
 
 const CATEGORY_COLORS: Record<string, string> = {
@@ -184,6 +185,7 @@ export default function NotificationTemplatesPage() {
         '정기엔드케어':          { scope: 'customer',    types: ['정기엔드케어'],locations: ['customer_detail'] },
         'monthly_schedule_deep': { scope: 'application', types: ['정기딥케어'],  locations: ['monthly_schedule'] },
         'monthly_schedule_end':  { scope: 'application', types: ['정기엔드케어'],locations: ['monthly_schedule'] },
+        '기타':                  { scope: 'application' as const, types: ['기타'], locations: ['general'] },
       }
       const ctx = tabCtx[activeTab]
       const res = await fetch('/api/admin/notification-templates', {

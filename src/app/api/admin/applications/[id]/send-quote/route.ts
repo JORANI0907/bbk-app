@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { notifySlack } from '@/lib/slack'
-import { sendAlimtalk } from '@/lib/solapi'
 import { createServiceClient } from '@/lib/supabase/server'
 
 // Vercel 함수 타임아웃 60초로 확장
@@ -8,7 +7,6 @@ export const maxDuration = 60
 
 const TEMPLATE_SPREADSHEET_ID = '1bwj2ncInTA9Vm8ac3J7YKrm4RYRSvpMVnYry-RJALu0'
 const PDF_FOLDER_ID = '1H0aglzaXAvliiLmQA3c8OjVRjcpAQPPn'
-const QUOTE_KAKAO_TEMPLATE_ID = 'KA01TP260219115331451o0aakYaJSp8'
 
 function toColLetter(n: number): string {
   let s = ''
@@ -304,29 +302,7 @@ export async function POST(
     console.error('[send-quote] 처리 오류:', errors.sheet)
   }
 
-  // 9. 카카오 알림톡
-  try {
-    await sendAlimtalk(
-      phone,
-      QUOTE_KAKAO_TEMPLATE_ID,
-      {
-        '고객명':    owner_name    || '',
-        '업체명':    business_name || '',
-        '견적서번호': quoteNo,
-        '시공일자':  construction_date || '',
-        '총액':      `${fmtKr(total_amount || 0)}원`,
-        '유효기간':  validUntilStr,
-        '견적서링크': pdfUrl || '',
-      },
-      `[BBK 공간케어] 견적서가 발송되었습니다. 견적서 번호: ${quoteNo}`,
-    )
-    console.log('[send-quote] 9. 카카오 알림톡 발송 완료 →', phone, '/ PDF URL:', pdfUrl)
-  } catch (e) {
-    errors.kakao = e instanceof Error ? e.message : String(e)
-    console.error('[send-quote] 카카오 발송 실패:', errors.kakao)
-  }
-
-  // 10. DB에 견적서 정보 저장 (견적서 보기 버튼 복원용)
+  // 9. DB에 견적서 정보 저장 (견적서 보기 버튼 복원용)
   try {
     const supabase = createServiceClient()
     await supabase
@@ -337,7 +313,7 @@ export async function POST(
     console.error('[send-quote] DB 저장 실패:', e)
   }
 
-  // 11. Slack
+  // 10. Slack
   await notifySlack({
     notifyType: '견적서발송',
     customerName: owner_name,

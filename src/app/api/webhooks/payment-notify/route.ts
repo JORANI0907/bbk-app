@@ -4,23 +4,19 @@
 //   Case 1: 1회성케어 + 정기딥케어(월간) — 작업완료 후 결제완료 전 매일 SMS
 // - type: "afternoon" → 14:00 KST
 //   Case 3: 정기딥케어(연간) — contract_end_date 30일 전부터 계약갱신 안내 SMS
-//   Case 4: 정기엔드케어 — payment_date 도래 후 이번 달 미결제 시 알림톡 (결제완료까지)
-//   Case 5: 정기딥케어(연간) — annual due_date 도래 후 미결제 시 알림톡 (결제완료까지)
+//   Case 4: 정기엔드케어 — payment_date 도래 후 이번 달 미결제 시 SMS (결제완료까지)
+//   Case 5: 정기딥케어(연간) — annual due_date 도래 후 미결제 시 SMS (결제완료까지)
 //
 // Phase 27-AP: 하드코딩된 SMS fallback → notification_templates 참조.
-// 알림톡 templateId 는 카카오 사전 승인된 상수라 그대로 유지.
 // 관리자가 알림 관리에서 auto_used 를 끄면 그 case 자체를 skip.
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
-import { sendSMS, sendAlimtalk } from '@/lib/solapi'
+import { sendSmsOrLms } from '@/lib/solapi'
 import { notifySlack } from '@/lib/slack'
 import { renderTemplate } from '@/lib/notification-renderer'
 import type { NotificationContext } from '@/lib/notification-variables'
 import { appendBothNotificationLogs } from '@/lib/notification-log'
-
-const ALIMTALK_BILLING = 'KA01TP260324125257636A2QdT1YNpL5' // 정기결제알림
-const ALIMTALK_RENEWAL = 'KA01TP260324125257737g0vuFScqrCv' // 연간계약갱신안내
 
 // Phase 27-AP: 각 case 가 참조할 template code
 const TEMPLATE_CODES = ['결제알림', '계약갱신알림', '정기결제알림'] as const
@@ -194,17 +190,9 @@ export async function POST(request: NextRequest) {
             },
           }
           const fallback = renderFallback('결제알림', context, hardFallback)
-          const variables = {
-            '#{고객명}': app.owner_name ?? '',
-            '#{청소비용}': balance.toLocaleString('ko-KR'),
-          }
-          try {
-            await sendAlimtalk(phone, ALIMTALK_BILLING, variables, fallback)
-          } catch {
-            await sendSMS(phone, fallback)
-          }
+          await sendSmsOrLms(phone, fallback)
 
-          const entry: NotificationLogEntry = { type: '결제알림', sent_at: nowIso, phone, method: 'auto', template_id: ALIMTALK_BILLING }
+          const entry: NotificationLogEntry = { type: '결제알림', sent_at: nowIso, phone, method: 'auto' }
           // Phase 27-AQ: notification_log + linked_* + customers 동기화
           const extraAppFields: Record<string, unknown> = {}
           if (linkedProgress['결제알림']) extraAppFields.progress_status = linkedProgress['결제알림']
@@ -265,16 +253,7 @@ export async function POST(request: NextRequest) {
             },
           }
           const fallback = renderFallback('계약갱신알림', context, hardFallback)
-          const variables = {
-            '#{고객명}': customer.contact_name ?? '',
-            '#{만료일}': customer.contract_end_date ?? '',
-            '#{잔여일}': String(daysUntilExpiry),
-          }
-          try {
-            await sendAlimtalk(phone, ALIMTALK_RENEWAL, variables, fallback)
-          } catch {
-            await sendSMS(phone, fallback)
-          }
+          await sendSmsOrLms(phone, fallback)
 
           await notifySlack({ notifyType: '연간계약만료알림', customerName: customer.contact_name ?? '', phone, businessName: customer.business_name ?? '', constructionDate: customer.contract_end_date, method: 'auto' }).catch(() => { /* 무시 */ })
           results.case3++
@@ -322,10 +301,6 @@ export async function POST(request: NextRequest) {
         try {
           const amount = b.amount ?? 0
           const contactName = customer.contact_name ?? ''
-          const variables = {
-            '#{고객명}': contactName,
-            '#{청소비용}': amount.toLocaleString('ko-KR'),
-          }
           const hardFallback = `[BBK 공간케어] ${contactName}님, ${b.due_date} 정기 결제일입니다.\n금액: ${amount.toLocaleString()}원\n문의: 031-759-4877`
           // Phase 27-AP: template body 렌더링
           const context: NotificationContext = {
@@ -339,11 +314,7 @@ export async function POST(request: NextRequest) {
           }
           const fallback = renderFallback('정기결제알림', context, hardFallback)
 
-          try {
-            await sendAlimtalk(phone, ALIMTALK_BILLING, variables, fallback)
-          } catch {
-            await sendSMS(phone, fallback)
-          }
+          await sendSmsOrLms(phone, fallback)
 
           await supabase
             .from('service_billings')
@@ -388,10 +359,6 @@ export async function POST(request: NextRequest) {
         try {
           const amount = billing.amount ?? 0
           const contactName = customer.contact_name ?? ''
-          const variables = {
-            '#{고객명}': contactName,
-            '#{청소비용}': amount.toLocaleString('ko-KR'),
-          }
           const hardFallback = `[BBK 공간케어] ${contactName}님, ${billing.due_date} 연간 결제일입니다.\n금액: ${amount.toLocaleString()}원\n문의: 031-759-4877`
           // Phase 27-AP: template body 렌더링
           const context: NotificationContext = {
@@ -406,11 +373,7 @@ export async function POST(request: NextRequest) {
           }
           const fallback = renderFallback('정기결제알림', context, hardFallback)
 
-          try {
-            await sendAlimtalk(phone, ALIMTALK_BILLING, variables, fallback)
-          } catch {
-            await sendSMS(phone, fallback)
-          }
+          await sendSmsOrLms(phone, fallback)
 
           await supabase
             .from('service_billings')

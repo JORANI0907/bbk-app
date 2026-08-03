@@ -36,6 +36,7 @@ export interface PayrollRecord {
   is_paid: boolean
   paid_at: string | null
   extra_items: ExtraPayItem[]
+  extra_deductions: ExtraPayItem[]
 }
 
 export interface ManagerEntry {

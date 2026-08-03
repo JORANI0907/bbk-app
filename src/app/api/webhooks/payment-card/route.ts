@@ -1,12 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
-import { sendAlimtalk, sendSubscriptionPromoSMS } from '@/lib/solapi'
+import { sendSmsOrLms, sendSubscriptionPromoSMS } from '@/lib/solapi'
 import { saveNotificationHistory } from '@/lib/notification'
 
 // ─── 설정 ─────────────────────────────────────────────────────────
-
-/** 카드 결제 완료 알림톡 템플릿 (결제완료알림과 동일) */
-const TEMPLATE_ID = 'KA01TP260324125232674HVfev9PAzUe'
 
 /** 카드 결제 처리 대상 상태 */
 const TARGET_STATUSES = [
@@ -107,32 +104,28 @@ export async function POST(request: NextRequest) {
 
   const app = apps[0] // 가장 최근 신청서
 
-  // ── 알림톡 발송 ───────────────────────────────────────────────
-  const fallback = `[BBK 공간케어] ${app.owner_name ?? ''}님, 카드 결제가 완료되었습니다. 감사합니다.`
+  // ── SMS 발송 ──────────────────────────────────────────────────
+  const smsText = `[BBK 공간케어] ${app.owner_name ?? ''}님, 카드 결제가 완료되었습니다. 감사합니다.`
   try {
-    await sendAlimtalk(phone, TEMPLATE_ID, {
-      '고객명':       String(app.owner_name ?? ''),
-      '사업자등록번호': String(app.business_number ?? '-'),
-      '페이백계좌번호': String(app.account_number ?? '-'),
-    }, fallback)
+    await sendSmsOrLms(phone, smsText)
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
     await saveNotificationHistory({
       category: 'payment', type: '카드결제알림',
-      body: `알림톡 발송 실패 — ${app.business_name}`,
+      body: `SMS 발송 실패 — ${app.business_name}`,
       recipientType: 'customer', recipientPhone: phoneFormatted,
       recipientName: String(app.owner_name ?? ''),
       metadata: { application_id: app.id, business_name: app.business_name },
       status: 'failed', errorMessage: msg,
     })
-    return NextResponse.json({ ok: false, reason: 'alimtalk_error' }, { status: 500, headers: CORS })
+    return NextResponse.json({ ok: false, reason: 'sms_error' }, { status: 500, headers: CORS })
   }
 
   // ── notification_log 기록 ─────────────────────────────────────
   const nowIso = new Date().toISOString()
   const existingLog: Array<{ type: string; sent_at: string; phone: string; method: string; template_id?: string }> =
     Array.isArray(app.notification_log) ? app.notification_log : []
-  const newEntry = { type: '카드결제완료알림', sent_at: nowIso, phone, method: 'auto' as const, template_id: TEMPLATE_ID }
+  const newEntry = { type: '카드결제완료알림', sent_at: nowIso, phone, method: 'auto' as const }
   await supabase
     .from('service_applications')
     .update({ notification_log: [newEntry, ...existingLog] })
@@ -140,7 +133,7 @@ export async function POST(request: NextRequest) {
 
   await saveNotificationHistory({
     category: 'payment', type: '카드결제알림',
-    body: `카드결제 알림톡 발송 완료 — ${app.business_name} (${phoneFormatted})`,
+    body: `카드결제 SMS 발송 완료 — ${app.business_name} (${phoneFormatted})`,
     title: '카드결제알림', method: 'auto',
     recipientType: 'customer',
     recipientName: String(app.owner_name ?? ''),

@@ -1,12 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { generateVisitSchedule, generateMonthlySchedule, getNextMonth, weekdayLabel, type VisitCycleUnit, type VisitCycleConfig } from '@/lib/schedule-generator'
-import { sendAlimtalk } from '@/lib/solapi'
 import { notifySlack } from '@/lib/slack'
 import { triggerDriveFolderCreation } from '@/lib/drive-server'
 import { dispatch, lookupFranchiseHqIdsForCustomer } from '@/lib/notification-dispatcher'
-
-const ALIMTALK_CONFIRM_TEMPLATE = 'KA01TP260324131935207wzarljIsiyK'
 
 const CRON_SECRET = process.env.CRON_SECRET
 
@@ -307,7 +304,7 @@ export async function GET(request: NextRequest) {
             franchiseHqIds,
             variables,
             fallbackText: fallback,
-            templateIdOverride: ALIMTALK_CONFIRM_TEMPLATE,
+  
             slack: { constructionDate: dateStr },
             method: 'auto',
             metadata: { source: 'cron/auto-schedule', business_name: customer.business_name },
@@ -320,7 +317,7 @@ export async function GET(request: NextRequest) {
                 .eq('id', app.id)
             )
           )
-          smsStatus = 'alimtalk_sent'
+          smsStatus = 'sms_sent'
         } catch (e) {
           smsStatus = `error: ${e instanceof Error ? e.message : String(e)}`
         }

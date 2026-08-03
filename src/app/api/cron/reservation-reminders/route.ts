@@ -1,22 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
-import { sendAlimtalk, sendSmsOrLms } from '@/lib/solapi'
+import { sendSmsOrLms } from '@/lib/solapi'
 import { sendByTemplate } from '@/lib/template-sender'
 import type { NotificationContext } from '@/lib/notification-variables'
 import { saveNotificationHistory } from '@/lib/notification'
 import { appendBothNotificationLogs } from '@/lib/notification-log'
 
 const CRON_SECRET = process.env.CRON_SECRET
-
-// ─── 알림톡 템플릿 ID ─────────────────────────────────────────────
-const TEMPLATES = {
-  '예약1일전알림':          'KA01TP260324131935294IPmMhH8BWA8',
-  '예약당일알림':           'KA01TP2603241319353583492vcrZ9c2',
-  '결제알림':               'KA01TP260324125232471CIIHJKDOBsf',
-  '결제알림(현금)':         'KA01TP251127095540783njh0ig3nyjg',
-  '결제알림(카드,플렛폼)':  'KA01TP251201210650817mczUreAtEjU',
-  '결제요청알림(카드)':     '',
-}
 
 // ─── 시공시간 기반 요청시간 계산: 0h ~ +2h ───────────────────────
 function calcConstructionRequestTime(timeStr: string | null | undefined): string {
@@ -39,83 +29,6 @@ function getKSTDates() {
     .toISOString()
     .slice(0, 10)
   return { todayKST, tomorrowKST }
-}
-
-// ─── 알림 유형별 변수 빌더 ────────────────────────────────────────
-function buildVariables(
-  type: keyof typeof TEMPLATES,
-  app: Record<string, unknown>,
-  assignedName: string,
-): Record<string, string> {
-  const ownerName    = String(app.owner_name ?? '')
-  const businessName = String(app.business_name ?? '')
-  const serviceType  = String(app.service_type ?? '')
-  const address      = String(app.address ?? '')
-  const date         = (app.construction_date as string | null)?.slice(0, 10) ?? ''
-  const hoursStart   = String(app.business_hours_start ?? '-')
-  const supply       = Number(app.supply_amount ?? 0)
-  const vat          = Number(app.vat ?? 0)
-  const dep          = Number(app.deposit ?? 0)
-  const total        = (supply + vat).toLocaleString('ko-KR')
-  const balance      = ((supply + vat) - dep).toLocaleString('ko-KR')
-
-  switch (type) {
-    case '예약1일전알림':
-    case '예약당일알림': {
-      const preMeetingAt    = app.pre_meeting_at as string | null | undefined
-      const constructionTime = app.construction_time as string | null | undefined
-      const meetingYN   = preMeetingAt ? '진행 예정' : '-'
-      const meetingTime = preMeetingAt
-        ? new Date(preMeetingAt.slice(0, 16)).toLocaleString('ko-KR', {
-            month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit',
-          })
-        : '-'
-      const requestTime = constructionTime
-        ? calcConstructionRequestTime(constructionTime)
-        : ''
-      return {
-        '고객명':   ownerName,
-        '상호명':   businessName,
-        '케어유형': serviceType,
-        '담당자':   assignedName || '-',
-        '주소':     address,
-        '시공일자': date,
-        '요청시간': requestTime,
-        '미팅여부': meetingYN,
-        '미팅시간': meetingTime,
-      }
-    }
-    case '결제알림':
-      return {
-        '고객명':   ownerName,
-        '청소비용': balance,
-      }
-    case '결제알림(현금)':
-      return {
-        '고객명':       ownerName,
-        '청소현금비용': balance,
-      }
-    case '결제알림(카드,플렛폼)':
-      return {
-        '고객명':       ownerName,
-        '청소카드비용': total,
-      }
-    default:
-      return { '고객명': String(app.owner_name ?? '') }
-  }
-}
-
-function buildFallback(type: keyof typeof TEMPLATES, app: Record<string, unknown>): string {
-  const name    = String(app.owner_name ?? '')
-  const bizName = String(app.business_name ?? '')
-  switch (type) {
-    case '예약1일전알림':         return `[BBK 공간케어] ${name}님, 내일 ${bizName} 방문 예정입니다.`
-    case '예약당일알림':          return `[BBK 공간케어] ${name}님, 오늘 방문 예정입니다. 준비 확인 부탁드립니다.`
-    case '결제알림':              return `[BBK 공간케어] ${name}님, 잔금 결제를 요청드립니다.`
-    case '결제알림(현금)':        return `[BBK 공간케어] ${name}님, 잔금 결제를 요청드립니다.`
-    case '결제알림(카드,플렛폼)': return `[BBK 공간케어] ${name}님, 잔금 결제를 요청드립니다.`
-    case '결제요청알림(카드)':    return `[BBK 공간케어] ${name}님, 카드 결제창이 카카오톡으로 발송됩니다.`
-  }
 }
 
 // ─── notification_log에 해당 type이 오늘 이미 발송됐는지 확인 ─────
@@ -157,7 +70,7 @@ const NOTIFY_TO_PAYMENT_STATUS_DETAIL: Record<string, string> = {
 async function sendAndLog(
   supabase: ReturnType<typeof createServiceClient>,
   app: Record<string, unknown>,
-  type: keyof typeof TEMPLATES,
+  type: string,
   assignedName: string,
   notifyToStatus: Record<string, string>,
 ): Promise<'sent' | 'skipped_auto_off' | 'skipped_applicable_types'> {
@@ -380,7 +293,7 @@ export async function GET(request: NextRequest) {
       if (!app.phone) { skipped++; continue }
 
       const pm = String(app.payment_method ?? '')
-      let billingType: keyof typeof TEMPLATES
+      let billingType: string
       if (pm === '현금(계산서 희망)') {
         billingType = '결제알림'
       } else if (pm === '현금(비과세)') {

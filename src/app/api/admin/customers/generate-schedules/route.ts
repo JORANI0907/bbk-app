@@ -1,12 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
-import { sendAlimtalk } from '@/lib/solapi'
 import { notifySlack } from '@/lib/slack'
 import { triggerDriveFolderCreation } from '@/lib/drive-server'
 import { dispatch, lookupFranchiseHqIdsForCustomer } from '@/lib/notification-dispatcher'
 import { generateVisitSchedule, type VisitCycleUnit, type VisitCycleConfig } from '@/lib/schedule-generator'
-
-const ALIMTALK_CONFIRM_TEMPLATE = 'KA01TP260324131935207wzarljIsiyK'
 
 interface CustomerRow {
   id: string
@@ -388,7 +385,7 @@ export async function POST(request: NextRequest) {
           franchiseHqIds,
           variables,
           fallbackText: fallback,
-          templateIdOverride: ALIMTALK_CONFIRM_TEMPLATE,
+
           slack: { constructionDate: dateStr },
           method: 'auto',
           metadata: { source: 'generate-schedules', business_name: customer.business_name },

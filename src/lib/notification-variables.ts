@@ -18,6 +18,7 @@ export type TemplateTab =
   | '정기엔드케어'
   | 'monthly_schedule_deep'
   | 'monthly_schedule_end'
+  | '기타'
 
 export interface VariableDef {
   label: string           // {{업체명}}의 "업체명"
@@ -136,6 +137,22 @@ export interface NotificationContext {
     payment_date?: string | null
     worker_memo?: string | null
   } | null
+  /** 기타 탭 전용 — 견적서/계약서/급여/출퇴근 */
+  extra?: {
+    quote_no?: string | null
+    quote_total?: string | null
+    quote_valid_until?: string | null
+    quote_pdf_url?: string | null
+    contract_no?: string | null
+    contract_pdf_url?: string | null
+    payroll_month?: string | null
+    payroll_amount?: string | null
+    payroll_date?: string | null
+    worker_name?: string | null
+    checkin_expected?: string | null
+    checkin_status?: string | null
+    late_minutes?: string | null
+  } | null
 }
 
 // ─── 값 포맷터 ────────────────────────────────────────
@@ -180,7 +197,7 @@ function isNoVat(method: string | null | undefined): boolean {
  * 문자알림 관리 페이지 팔레트가 자동 갱신됨.
  */
 // Phase 27-AO: 이번달일정 탭이 정기딥/정기엔드로 분리됨. 팔레트 노출은 두 유형에 동일하게 적용.
-const TAB_ALL: TemplateTab[] = ['1회성케어', '정기딥케어', '정기엔드케어', 'monthly_schedule_deep', 'monthly_schedule_end']
+const TAB_ALL: TemplateTab[] = ['1회성케어', '정기딥케어', '정기엔드케어', 'monthly_schedule_deep', 'monthly_schedule_end', '기타']
 const TAB_ONESHOT_MONTHLY: TemplateTab[] = ['1회성케어', 'monthly_schedule_deep', 'monthly_schedule_end']
 const TAB_NON_MONTHLY: TemplateTab[] = ['1회성케어', '정기딥케어', '정기엔드케어']
 const TAB_RECURRING: TemplateTab[] = ['정기딥케어', '정기엔드케어']
@@ -376,6 +393,54 @@ export const AVAILABLE_VARIABLES: VariableDef[] = [
   { label: '사진드라이브', category: '기타', scope: 'customer', appliesTo: TAB_ALL,
     desc: '작업 사진 구글드라이브 링크',
     resolve: (c) => c.application?.drive_folder_url ?? c.customer?.drive_folder_url ?? '' },
+
+  // ══════ 기타 탭 전용 변수 ══════
+  // 견적관련
+  { label: '견적서번호', category: '기타', scope: 'application', appliesTo: ['기타'],
+    desc: '견적서 고유 번호',
+    resolve: (c) => c.extra?.quote_no ?? '' },
+  { label: '견적총액', category: '결제정보', scope: 'application', appliesTo: ['기타'],
+    desc: '견적서 총 금액 (포맷 포함)',
+    resolve: (c) => c.extra?.quote_total ?? '' },
+  { label: '견적유효기간', category: '기타', scope: 'application', appliesTo: ['기타'],
+    desc: '견적서 유효 만료일',
+    resolve: (c) => c.extra?.quote_valid_until ?? '' },
+  { label: '견적서링크', category: '기타', scope: 'application', appliesTo: ['기타'],
+    desc: '견적서 PDF 링크',
+    resolve: (c) => c.extra?.quote_pdf_url ?? '' },
+
+  // 계약서관련
+  { label: '계약서번호', category: '계약정보', scope: 'customer', appliesTo: ['기타'],
+    desc: '계약서 고유 번호',
+    resolve: (c) => c.extra?.contract_no ?? '' },
+  { label: '계약서PDF링크', category: '계약정보', scope: 'customer', appliesTo: ['기타'],
+    desc: '계약서 PDF 다운로드 링크',
+    resolve: (c) => c.extra?.contract_pdf_url ?? '' },
+
+  // 급여관련
+  { label: '급여월', category: '기타', scope: 'application', appliesTo: ['기타'],
+    desc: '급여 지급 대상 월 (예: 2026년 8월)',
+    resolve: (c) => c.extra?.payroll_month ?? '' },
+  { label: '지급총액', category: '결제정보', scope: 'application', appliesTo: ['기타'],
+    desc: '실수령 급여 총액',
+    resolve: (c) => c.extra?.payroll_amount ?? '' },
+  { label: '지급일', category: '기타', scope: 'application', appliesTo: ['기타'],
+    desc: '급여 지급 예정일',
+    resolve: (c) => c.extra?.payroll_date ?? '' },
+
+  // 출퇴근관련
+  { label: '직원명', category: '일반정보', scope: 'application', appliesTo: ['기타'],
+    desc: '출퇴근 대상 직원 이름',
+    resolve: (c) => c.extra?.worker_name ?? '' },
+  { label: '출근예정시각', category: '일정정보', scope: 'application', appliesTo: ['기타'],
+    desc: '출근 예정 시각',
+    resolve: (c) => c.extra?.checkin_expected ?? '' },
+  { label: '출근상태', category: '기타', scope: 'application', appliesTo: ['기타'],
+    desc: '출근 상태 (지각/미출근 등)',
+    resolve: (c) => c.extra?.checkin_status ?? '' },
+  { label: '지각시간', category: '기타', scope: 'application', appliesTo: ['기타'],
+    desc: '지각 경과 시간 (예: 30분)',
+    resolve: (c) => c.extra?.late_minutes ?? '' },
 ]
 
 /**
