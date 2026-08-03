@@ -9,7 +9,7 @@ import { createServiceClient } from '@/lib/supabase/server'
  * 응답: 급여명세서 렌더링에 필요한 통합 JSON (인적사항 + 근무내역 + 지급/공제/실지급)
  */
 
-type TaxType = '4대보험' | '프리랜서3.3%' | '없음'
+type TaxType = '4대보험' | '2대보험' | '3대보험' | '프리랜서3.3%' | '없음'
 type SalaryBasis = '세전' | '세후'
 
 // 2026년 기준 4대보험 근로자 부담 요율 (표준)
@@ -58,6 +58,21 @@ function reverseGrossFromNet(net: number, taxType: TaxType, incomeTax: number): 
       RATE_EMPLOYMENT
     return Math.round((net + incomeTax * (1 + RATE_RESIDENT_TAX)) / (1 - totalGrossRate))
   }
+  if (taxType === '3대보험') {
+    // 국민연금 + 건강 + 장기요양 (고용보험 제외, 임원급)
+    const totalGrossRate =
+      RATE_NATIONAL_PENSION +
+      RATE_HEALTH_INSURANCE +
+      RATE_HEALTH_INSURANCE * RATE_LONGTERM_CARE
+    return Math.round((net + incomeTax * (1 + RATE_RESIDENT_TAX)) / (1 - totalGrossRate))
+  }
+  if (taxType === '2대보험') {
+    // 건강 + 장기요양만 (대표이사 법인 기준)
+    const totalGrossRate =
+      RATE_HEALTH_INSURANCE +
+      RATE_HEALTH_INSURANCE * RATE_LONGTERM_CARE
+    return Math.round((net + incomeTax * (1 + RATE_RESIDENT_TAX)) / (1 - totalGrossRate))
+  }
   return net
 }
 
@@ -77,6 +92,39 @@ function calculateDeductions(gross: number, taxType: TaxType, incomeTax: number)
       residentTax,
       businessTax: 0,
       total: nationalPension + healthInsurance + longtermCare + employmentInsurance + incomeTax + residentTax,
+    }
+  }
+  if (taxType === '3대보험') {
+    // 국민연금 + 건강 + 장기요양 (고용보험 제외)
+    const nationalPension     = Math.floor(gross * RATE_NATIONAL_PENSION  / 10) * 10
+    const healthInsurance     = Math.floor(gross * RATE_HEALTH_INSURANCE  / 10) * 10
+    const longtermCare        = Math.floor(healthInsurance * RATE_LONGTERM_CARE / 10) * 10
+    const residentTax         = Math.floor(incomeTax * RATE_RESIDENT_TAX  / 10) * 10
+    return {
+      nationalPension,
+      healthInsurance,
+      longtermCare,
+      employmentInsurance: 0,
+      incomeTax,
+      residentTax,
+      businessTax: 0,
+      total: nationalPension + healthInsurance + longtermCare + incomeTax + residentTax,
+    }
+  }
+  if (taxType === '2대보험') {
+    // 건강 + 장기요양만 (대표이사 법인 기준)
+    const healthInsurance     = Math.floor(gross * RATE_HEALTH_INSURANCE  / 10) * 10
+    const longtermCare        = Math.floor(healthInsurance * RATE_LONGTERM_CARE / 10) * 10
+    const residentTax         = Math.floor(incomeTax * RATE_RESIDENT_TAX  / 10) * 10
+    return {
+      nationalPension: 0,
+      healthInsurance,
+      longtermCare,
+      employmentInsurance: 0,
+      incomeTax,
+      residentTax,
+      businessTax: 0,
+      total: healthInsurance + longtermCare + incomeTax + residentTax,
     }
   }
   if (taxType === '프리랜서3.3%') {
@@ -223,7 +271,7 @@ export async function POST(req: NextRequest) {
     // 지급 총액 조회 (payroll_records)
     const { data: recordRow } = await supabase
       .from('payroll_records')
-      .select('auto_amount, final_amount, note, is_paid, paid_at, extra_items')
+      .select('auto_amount, final_amount, note, is_paid, paid_at, extra_items, extra_deductions')
       .eq('year_month', month)
       .eq('person_type', personType)
       .eq('person_id', personId)
@@ -285,6 +333,11 @@ export async function POST(req: NextRequest) {
     const extraItems: { label: string; amount: number }[] =
       Array.isArray(recordRow?.extra_items) ? (recordRow.extra_items as { label: string; amount: number }[]) : []
 
+    // 추가 공제 항목 (손망실, 선지급 회수 등 — netPay에서 차감됨)
+    const extraDeductions: { label: string; amount: number }[] =
+      Array.isArray(recordRow?.extra_deductions) ? (recordRow.extra_deductions as { label: string; amount: number }[]) : []
+    const extraDeductionsTotal = extraDeductions.reduce((s, d) => s + (d.amount || 0), 0)
+
     // 책정된 금액 (자동 계산 or 관리자가 조정한 최종 금액)
     const bookedAmount = recordRow?.final_amount ?? gross
     const workDays = new Set(jobs.map(j => j.date)).size
@@ -303,11 +356,11 @@ export async function POST(req: NextRequest) {
       // 2) 실지급을 bookedAmount로 정확히 맞추기 위해 gross를 (실지급 + 공제)로 고정
       computedGross = bookedAmount + approxDeductions.total
       deductions = approxDeductions
-      netPay = bookedAmount  // 사용자가 책정한 금액과 정확히 일치
+      netPay = bookedAmount - extraDeductionsTotal  // 추가 공제는 실지급에서 차감
     } else {
       computedGross = bookedAmount
       deductions = calculateDeductions(computedGross, person.taxType, incomeTax)
-      netPay = computedGross - deductions.total
+      netPay = computedGross - deductions.total - extraDeductionsTotal
     }
 
     return NextResponse.json({
@@ -316,6 +369,7 @@ export async function POST(req: NextRequest) {
         month,
         payDate: payDate ?? null,
         extraItems,
+        extraDeductions,
         person: {
           type: personType,
           id: person.id,

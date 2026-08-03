@@ -34,6 +34,7 @@ export default function WorkerCard({
   const [finalInput, setFinalInput] = useState(entry.record?.final_amount?.toString() ?? '')
   const [noteInput, setNoteInput] = useState(entry.record?.note ?? '')
   const [extraItems, setExtraItems] = useState<ExtraPayItem[]>(entry.record?.extra_items ?? [])
+  const [extraDeductions, setExtraDeductions] = useState<ExtraPayItem[]>(entry.record?.extra_deductions ?? [])
   const [saving, setSaving] = useState(false)
   const [paying, setPaying] = useState(false)
   const [jobSalaryEdits, setJobSalaryEdits] = useState<Record<string, string>>({})
@@ -72,6 +73,7 @@ export default function WorkerCard({
           final_amount: finalVal,
           note: noteInput,
           extra_items: extraItems.filter(it => it.label.trim() !== ''),
+            extra_deductions: extraDeductions.filter(d => d.label.trim() !== ''),
         }),
       })
       const data = await res.json()
@@ -281,6 +283,13 @@ export default function WorkerCard({
           </div>
 
           <ExtraItemsEditor items={extraItems} onChange={setExtraItems} />
+          <ExtraItemsEditor
+            items={extraDeductions}
+            onChange={setExtraDeductions}
+            title="추가 공제 항목"
+            hint="손망실, 선지급 회수 등 — PDF 공제내역에 표시되고 실지급액에서 차감됩니다."
+            variant="deduction"
+          />
 
           <div className="flex gap-1.5">
             <button

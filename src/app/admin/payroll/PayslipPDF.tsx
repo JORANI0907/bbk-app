@@ -31,6 +31,7 @@ export interface PayslipData {
   month: string
   payDate: string | null
   extraItems: ExtraPayItem[]
+  extraDeductions: ExtraPayItem[]
   person: {
     type: 'user' | 'worker'
     id: string
@@ -42,7 +43,7 @@ export interface PayslipData {
     position: string | null
     joinDate: string | null
     employmentType: string | null
-    taxType: '4대보험' | '프리랜서3.3%' | '없음'
+    taxType: '4대보험' | '2대보험' | '3대보험' | '프리랜서3.3%' | '없음'
     salaryBasis: '세전' | '세후'
     accountNumber: string | null
     phone: string | null
@@ -193,6 +194,9 @@ export function PayslipPDFDocument({ data }: { data: PayslipData }) {
   const p = data.person
   const workPeriod = `${data.workSummary.periodStart} ~ ${data.workSummary.periodEnd}`
 
+  const extraDeductionsTotal = (data.extraDeductions ?? []).reduce((s, d) => s + (d.amount || 0), 0)
+  const totalDeductionAmount = data.deductions.total + extraDeductionsTotal
+
   // 근무 상세를 일자별로 정렬
   const sortedJobs = [...data.jobs].sort((a, b) => a.date.localeCompare(b.date))
 
@@ -277,7 +281,7 @@ export function PayslipPDFDocument({ data }: { data: PayslipData }) {
         </View>
 
         {/* ── 공제 내역 (없으면 안내 문구) ── */}
-        {data.deductions.total > 0 ? (
+        {(data.deductions.total > 0 || extraDeductionsTotal > 0) ? (
           <View style={s.amountTable}>
             <View style={s.sectionBar}><Text style={s.sectionBarText}>공제 내역 · {p.taxType}</Text></View>
             <View style={s.amountHeaderRow}>
@@ -291,9 +295,12 @@ export function PayslipPDFDocument({ data }: { data: PayslipData }) {
             <AmountLine label="사 업 소 득 세" value={data.deductions.businessTax} hint="3%" />
             <AmountLine label="소  득  세" value={data.deductions.incomeTax} />
             <AmountLine label="지방소득세" value={data.deductions.residentTax} />
+            {(data.extraDeductions ?? []).map((item, i) => (
+              <AmountLine key={`ed-${i}`} label={item.label} value={item.amount} />
+            ))}
             <View style={s.amountTotalRow}>
               <Text style={s.amountTotalLabel}>공제 총액</Text>
-              <Text style={s.amountTotalValue}>{won(data.deductions.total)}</Text>
+              <Text style={s.amountTotalValue}>{won(totalDeductionAmount)}</Text>
             </View>
           </View>
         ) : (
