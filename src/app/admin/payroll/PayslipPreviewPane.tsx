@@ -1,21 +1,61 @@
 'use client'
 
 import type { PayrollResult } from '@/lib/payroll/types'
-import { ChevronDown, ChevronUp, AlertTriangle } from 'lucide-react'
+import type { LegalIssue } from '@/lib/payroll/validator'
+import { ChevronDown, ChevronUp, AlertTriangle, CheckCircle2, ShieldAlert } from 'lucide-react'
 import { useState } from 'react'
 
 const fmt = (n: number) => n.toLocaleString('ko-KR')
 
-interface Props {
-  result: PayrollResult
+const ITEM_LABELS: Record<number, string> = {
+  1: '①근로자 식별정보',
+  2: '②임금 지급일',
+  3: '③임금 총액',
+  4: '④구성항목별 금액',
+  5: '⑤구성항목별 계산방법',
+  6: '⑥공제항목별 금액과 합계',
 }
 
-export default function PayslipPreviewPane({ result }: Props) {
+interface Props {
+  result: PayrollResult
+  legalIssues?: LegalIssue[]
+}
+
+export default function PayslipPreviewPane({ result, legalIssues }: Props) {
   const [showEmployer, setShowEmployer] = useState(false)
+  const hasLegalCheck = legalIssues !== undefined
+  const isLegalValid = hasLegalCheck && legalIssues.length === 0
 
   return (
     <div className="p-4 space-y-4">
-      {/* 경고 */}
+      {/* 법정 필수기재사항 검증 (§48②) */}
+      {hasLegalCheck && (
+        <div className={`rounded-xl border p-3 ${isLegalValid ? 'border-emerald-200 bg-emerald-50' : 'border-red-200 bg-red-50'}`}>
+          <div className="flex items-center gap-1.5 mb-1.5">
+            {isLegalValid
+              ? <CheckCircle2 size={14} className="text-emerald-600 shrink-0" />
+              : <ShieldAlert size={14} className="text-red-600 shrink-0" />
+            }
+            <span className={`text-xs font-semibold ${isLegalValid ? 'text-emerald-700' : 'text-red-700'}`}>
+              근로기준법 §48② 법정 필수기재사항
+            </span>
+          </div>
+          {isLegalValid ? (
+            <p className="text-xs text-emerald-700">6가지 항목 모두 충족 ✓</p>
+          ) : (
+            <ul className="space-y-0.5">
+              {legalIssues.map((issue, i) => (
+                <li key={i} className="text-xs text-red-700 flex items-start gap-1">
+                  <span className="shrink-0 font-medium">{ITEM_LABELS[issue.item] ?? `${issue.item}호`}</span>
+                  <span className="text-red-600">— {issue.message}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+
+      {/* 계산 엔진 경고 */}
       {result.warnings.length > 0 && (
         <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 space-y-1">
           {result.warnings.map((w, i) => (

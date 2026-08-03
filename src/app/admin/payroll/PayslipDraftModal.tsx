@@ -7,6 +7,8 @@ import { Button } from '@/components/ui'
 import PayslipInputForm, { type FormState } from './PayslipInputForm'
 import PayslipPreviewPane from './PayslipPreviewPane'
 import type { PayrollInput, PayrollResult, EmploymentType } from '@/lib/payroll/types'
+import { validatePayslipLegal } from '@/lib/payroll/validator'
+import type { LegalIssue } from '@/lib/payroll/validator'
 
 function defaultPayDate(month: string): string {
   const [y, m] = month.split('-').map(Number)
@@ -105,6 +107,7 @@ export default function PayslipDraftModal({
     buildInitialForm(month, workerEmploymentType, workerDayWage)
   )
   const [result, setResult] = useState<PayrollResult | null>(null)
+  const [legalIssues, setLegalIssues] = useState<LegalIssue[] | undefined>(undefined)
   const [calculating, setCalculating] = useState(false)
   const [saving, setSaving] = useState(false)
   const [savedId, setSavedId] = useState<string | null>(null)
@@ -113,6 +116,7 @@ export default function PayslipDraftModal({
   const handleChange = useCallback((patch: Partial<FormState>) => {
     setForm(prev => ({ ...prev, ...patch }))
     setResult(null)
+    setLegalIssues(undefined)
     setSavedId(null)
   }, [])
 
@@ -132,6 +136,8 @@ export default function PayslipDraftModal({
       }
       if (data.data) {
         setResult(data.data)
+        const validation = validatePayslipLegal(workerName, input, data.data)
+        setLegalIssues(validation.issues)
         setTab('preview')
       }
     } catch (err) {
@@ -218,7 +224,7 @@ export default function PayslipDraftModal({
           <PayslipInputForm form={form} onChange={handleChange} />
         )}
         {tab === 'preview' && result && (
-          <PayslipPreviewPane result={result} />
+          <PayslipPreviewPane result={result} legalIssues={legalIssues} />
         )}
       </div>
 
