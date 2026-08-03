@@ -329,6 +329,12 @@ export async function POST(
       phone,
       construction_date,
     },
+    extra: {
+      quote_no: quoteNo,
+      quote_total: `${(total_amount || 0).toLocaleString('ko-KR')}원`,
+      quote_valid_until: validUntilStr,
+      quote_pdf_url: pdfUrl ?? null,
+    },
   }
   for (const target of targets) {
     try {
