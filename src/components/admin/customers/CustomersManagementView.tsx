@@ -561,6 +561,16 @@ function SelectField({ label, value, options, onChange }: {
 export interface CustomersManagementViewProps {
   embedded?: boolean
   forceCustomerType?: '1회성케어' | '정기딥케어' | '정기엔드케어' | null
+  /**
+   * 복수 유형 초기 선택 (archivedView 등에서 사용).
+   * forceCustomerType(단일)과 달리 사용자가 유형 필터 UI로 변경할 수 있다.
+   */
+  initialCustomerTypes?: Array<'1회성케어' | '정기딥케어' | '정기엔드케어' | '일반일정'>
+  /**
+   * 유형 필터 UI에 노출할 옵션 제한 (예: 이력 페이지에서는 '일반일정' 제외).
+   * 미지정 시 FILTER_OPTIONS 전체 사용.
+   */
+  visibleFilterOptions?: Array<'1회성케어' | '정기딥케어' | '정기엔드케어' | '일반일정'>
   /** Phase 4: 이력 모드 — archived 데이터만 표시 + 이관 취소 버튼 */
   archivedView?: boolean
 }
@@ -568,6 +578,8 @@ export interface CustomersManagementViewProps {
 export function CustomersManagementView({
   embedded = false,
   forceCustomerType = null,
+  initialCustomerTypes,
+  visibleFilterOptions,
   archivedView = false,
 }: CustomersManagementViewProps = {}) {
   const router = useRouter()
@@ -635,9 +647,13 @@ export function CustomersManagementView({
   // 워커 role 확정 시 아래 useEffect에서 원래 defaults로 reset (빈 Set + 미배정 활성).
   // forceCustomerType 있을 때는 그것으로 강제 (기존 동작 유지).
   const [selectedTypes, setSelectedTypes] = useState<Set<FilterOption>>(
-    () => forceCustomerType
-      ? new Set([forceCustomerType as FilterOption])
-      : new Set(['1회성케어', '정기딥케어'] as FilterOption[])
+    () => {
+      if (forceCustomerType) return new Set([forceCustomerType as FilterOption])
+      if (initialCustomerTypes && initialCustomerTypes.length > 0) {
+        return new Set(initialCustomerTypes as FilterOption[])
+      }
+      return new Set(['1회성케어', '정기딥케어'] as FilterOption[])
+    }
   )
   const [showUnassignedOnly, setShowUnassignedOnly] = useState<boolean>(
     () => !forceCustomerType && !archivedView && false  // 관리자 기본: 미배정 필터 off (유형과 상호배타)
@@ -649,7 +665,8 @@ export function CustomersManagementView({
   //   handleSelect 의 app: 프리픽스 분기에서 세팅, 신규 폼 리셋·저장 완료 시 해제.
   const [pendingAppId, setPendingAppId] = useState<string | null>(null)
   // Phase 27-AW: 뷰 모드 기본값 관리자는 '캘린더', 워커는 useEffect에서 'list'로 reset.
-  const [viewMode, setViewMode] = useState<'list' | 'calendar'>('calendar')
+  // archivedView(고객DB이력)에서는 기본 'list' — 최근 30건 우선 노출.
+  const [viewMode, setViewMode] = useState<'list' | 'calendar'>(archivedView ? 'list' : 'calendar')
   const [calendarFocus, setCalendarFocus] = useState<{ appId: string; month: string } | null>(null)
   // Phase 27-E: 이번주·이번달 매출 요약 + 주별 breakdown (리스트/캘린더 무관하게 상단 배지)
   interface WeekBreakdown { label: string; amount: number; isCurrent: boolean; startIso: string; endIso: string }
@@ -2006,18 +2023,25 @@ export function CustomersManagementView({
       }
     }
 
-    // 검색: 업체명, 고객명, 연락처, 주소, 케어범위, 계좌번호, 사업자번호
+    // 검색: DB의 모든 텍스트/숫자 필드 대상 (고객DB이력 등에서 전체 필드 검색 요구)
     if (search.trim()) {
       const q = search.trim().toLowerCase()
-      list = list.filter(c =>
-        c.business_name.toLowerCase().includes(q) ||
-        (c.contact_name ?? '').toLowerCase().includes(q) ||
-        (c.contact_phone ?? '').toLowerCase().includes(q) ||
-        (c.address ?? '').toLowerCase().includes(q) ||
-        (c.care_scope ?? '').toLowerCase().includes(q) ||
-        (c.account_number ?? '').toLowerCase().includes(q) ||
-        (c.business_number ?? '').toLowerCase().includes(q)
-      )
+      const norm = (v: unknown): string => {
+        if (v === null || v === undefined) return ''
+        if (Array.isArray(v)) return v.map(norm).join(' ')
+        if (typeof v === 'object') {
+          try { return JSON.stringify(v).toLowerCase() } catch { return '' }
+        }
+        return String(v).toLowerCase()
+      }
+      list = list.filter(c => {
+        for (const key in c) {
+          const val = (c as unknown as Record<string, unknown>)[key]
+          if (val === null || val === undefined) continue
+          if (norm(val).includes(q)) return true
+        }
+        return false
+      })
     }
     if (sortKey) {
       const COLLATOR = new Intl.Collator('ko', { sensitivity: 'variant', numeric: true, caseFirst: 'lower' })
@@ -2066,11 +2090,22 @@ export function CustomersManagementView({
   }, [customers, isAdmin, currentUserId, selectedTypes, search, sortKey, sortDir, selectedStaffId, staffList, showUnassignedOnly, pendingApplications, archivedView])
 
   // Phase 18: 유형 필터 활성 시 리스트 상단 30일치만 우선 로드 (전체는 "더 보기" 클릭)
+  // archivedView(고객DB이력): 시간대가 다양하므로 30일 window가 아닌 "최근 30건" slice.
+  //   검색어 입력 시에는 항상 전체 결과 대상 (전체 이력 검색 요구사항).
   const [showAllInFilter, setShowAllInFilter] = useState(false)
-  useEffect(() => { setShowAllInFilter(false) }, [selectedTypes])
+  useEffect(() => { setShowAllInFilter(false) }, [selectedTypes, search])
   const displayed = useMemo(() => {
-    if (showAllInFilter || selectedTypes.size === 0) return filtered
+    if (showAllInFilter) return filtered
     if (filtered.length === 0) return filtered
+    // 검색어가 있으면 전체 대상 (필터 결과 자체가 이미 검색 매칭)
+    if (search.trim().length > 0) return filtered
+
+    if (archivedView) {
+      // 이력 페이지: 최근 30건만 우선 노출
+      return filtered.slice(0, 30)
+    }
+
+    if (selectedTypes.size === 0) return filtered
     // 최상단 항목의 next_visit_date 기준 -30일 범위만
     const topRow = filtered.find(c => c.next_visit_date)
     if (!topRow?.next_visit_date) return filtered.slice(0, 100) // fallback: 상위 100건
@@ -2080,7 +2115,7 @@ export function CustomersManagementView({
       if (!c.next_visit_date) return true // 시공일자 없는 건은 항상 노출 (미정)
       return new Date(c.next_visit_date).getTime() >= cutoffTs
     })
-  }, [filtered, showAllInFilter, selectedTypes])
+  }, [filtered, showAllInFilter, selectedTypes, archivedView, search])
   const hiddenCount = filtered.length - displayed.length
 
   // Phase 6-D: 미배정 ↔ 유형 상호 배타 — 유형 클릭 시 미배정 자동 해제
@@ -2207,9 +2242,10 @@ export function CustomersManagementView({
           </select>
         </div>
 
-        {/* Phase 27-J: 유형 필터 + 미배정 + 뷰 토글을 한 줄로 통합 (라벨 축약, 토글 1개) */}
+        {/* Phase 27-J: 유형 필터 + 미배정 + 뷰 토글을 한 줄로 통합 (라벨 축약, 토글 1개).
+            forceCustomerType(단일 강제)일 때만 UI 숨김. archivedView는 복수 선택 가능하므로 노출. */}
         <div className={`flex flex-wrap items-center gap-1.5 mb-3 ${forceCustomerType ? 'hidden' : ''}`}>
-          {FILTER_OPTIONS.map(t => {
+          {(visibleFilterOptions ?? FILTER_OPTIONS).map(t => {
             const checked = selectedTypes.has(t)
             return (
               <button key={t} onClick={() => toggleType(t)}
@@ -2235,18 +2271,21 @@ export function CustomersManagementView({
             }`}>
             전체 ({typeCounts['전체'] ?? 0})
           </button>
-          {/* Phase 6-B/D: 미배정 토글 — 유형과 상호 배타 */}
-          <button onClick={toggleUnassigned}
-            className={`pill-toss px-2.5 py-1 text-xs border rounded-lg font-semibold ${
-              showUnassignedOnly
-                ? 'pill-active-toss bg-orange-500 text-white border-orange-500'
-                : 'bg-orange-50 text-orange-700 border-orange-200 hover:border-orange-400'
-            }`}
-            title="담당자 미배정 또는 1회성 시공일자 미설정 건만 표시">
-            {showUnassignedOnly && '✓ '}미배정
-          </button>
-          {/* Phase 27-J: 리스트 ↔ 캘린더 단일 토글 (누를 때마다 반대 뷰로 전환) */}
-          {!isWorker && !archivedView && (
+          {/* Phase 6-B/D: 미배정 토글 — 유형과 상호 배타. archivedView에서는 의미 없으므로 숨김. */}
+          {!archivedView && (
+            <button onClick={toggleUnassigned}
+              className={`pill-toss px-2.5 py-1 text-xs border rounded-lg font-semibold ${
+                showUnassignedOnly
+                  ? 'pill-active-toss bg-orange-500 text-white border-orange-500'
+                  : 'bg-orange-50 text-orange-700 border-orange-200 hover:border-orange-400'
+              }`}
+              title="담당자 미배정 또는 1회성 시공일자 미설정 건만 표시">
+              {showUnassignedOnly && '✓ '}미배정
+            </button>
+          )}
+          {/* Phase 27-J: 리스트 ↔ 캘린더 단일 토글 (누를 때마다 반대 뷰로 전환).
+              archivedView(고객DB이력)에서도 뷰 전환을 허용. */}
+          {!isWorker && (
             <button
               onClick={() => setViewMode(viewMode === 'list' ? 'calendar' : 'list')}
               className="ml-auto text-xs px-3 py-1 rounded-lg border transition-colors bg-surface border-border text-text-secondary hover:border-brand-400 font-medium"
@@ -2799,17 +2838,18 @@ export function CustomersManagementView({
               </tbody>
             </table>
           )}
-          {/* Phase 18: 30일 축약 로드 안내 + 더 보기 버튼 */}
+          {/* Phase 18: 30일 축약 로드 안내 + 더 보기 버튼.
+              archivedView(고객DB이력)에서는 "최근 30건" 문구로 대체. */}
           {hiddenCount > 0 && !showAllInFilter && (
             <div className="border-t border-border-subtle bg-surface-sunken/40 px-4 py-3 flex items-center justify-between">
               <span className="text-xs text-text-secondary">
-                최근 30일치만 표시 중 · <span className="font-semibold text-text-primary">{hiddenCount}건</span> 더 있음
+                {archivedView ? '최근 30건만 표시 중' : '최근 30일치만 표시 중'} · <span className="font-semibold text-text-primary">{hiddenCount}건</span> 더 있음
               </span>
               <button
                 onClick={() => setShowAllInFilter(true)}
                 className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-700 text-white transition-colors"
               >
-                전체 보기 ({filtered.length}건)
+                더보기 (전체 {filtered.length}건)
               </button>
             </div>
           )}
