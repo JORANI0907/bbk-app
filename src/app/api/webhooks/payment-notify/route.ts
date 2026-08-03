@@ -162,7 +162,7 @@ export async function POST(request: NextRequest) {
         .is('deleted_at', null)
 
       for (const raw of (unpaidApps ?? [])) {
-        const app = raw as AppRow & { customers: { payment_status_detail: string | null } | null }
+        const app = raw as unknown as AppRow & { customers: { payment_status_detail: string | null } | null }
 
         // 고객 단위 결제완료 상태면 알림 발송 건너뜀
         const customerPayStatus = app.customers?.payment_status_detail ?? null
