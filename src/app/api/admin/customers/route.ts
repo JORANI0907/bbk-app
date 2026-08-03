@@ -304,6 +304,35 @@ export async function POST(request: NextRequest) {
     console.error('billings 자동 생성 실패(POST):', e instanceof Error ? e.message : e)
   }
 
+  // 견적관리 연동: customers 만 등록되고 service_applications 가 없으면 견적관리 검색에서
+  // 잡히지 않아 성수/연남 케이스처럼 "누락된 고객" 이 발생. 신규 customer 마다 대응 신청서
+  // (source='customer_direct') 를 자동 생성해 두 테이블 정합성 유지. 견적 저장(saved_quotes)은
+  // 여전히 service_applications 만 사용하는 구조를 유지하면서, 검색·매칭만 정상화한다.
+  try {
+    await supabase.from('service_applications').insert({
+      customer_id: data.id,
+      business_name: data.business_name,
+      owner_name: data.contact_name,
+      phone: data.contact_phone,
+      phone_2: data.contact_phone_2,
+      email: data.email,
+      address: data.address,
+      business_hours_start: data.business_hours_start,
+      business_hours_end: data.business_hours_end,
+      construction_date: data.next_visit_date,
+      construction_time: data.construction_time,
+      care_scope: data.care_scope,
+      service_type: data.customer_type,
+      payment_method: data.payment_method,
+      assigned_to: data.assigned_user_id,
+      source: 'customer_direct',
+      status: '기존고객',
+      saved_quotes: [],
+    })
+  } catch (e) {
+    console.error('customer→service_applications 자동 생성 실패:', e instanceof Error ? e.message : e)
+  }
+
   return NextResponse.json({ customer: data, generatedPassword }, { status: 201 })
 }
 
