@@ -6,7 +6,8 @@ import { CreditCard, Pencil, FileText } from 'lucide-react'
 import { Button } from '@/components/ui'
 import { fmt, fmtDate } from './utils'
 import PayslipList, { type PayslipEntry } from './PayslipList'
-import type { ManagerEntry, ManagerJob, PayrollRecord } from './types'
+import ExtraItemsEditor from './ExtraItemsEditor'
+import type { ManagerEntry, ManagerJob, PayrollRecord, ExtraPayItem } from './types'
 
 export default function ManagerCard({
   entry,
@@ -32,6 +33,7 @@ export default function ManagerCard({
   const [expanded, setExpanded] = useState(false)
   const [finalInput, setFinalInput] = useState(entry.record?.final_amount?.toString() ?? '')
   const [noteInput, setNoteInput] = useState(entry.record?.note ?? '')
+  const [extraItems, setExtraItems] = useState<ExtraPayItem[]>(entry.record?.extra_items ?? [])
   const [saving, setSaving] = useState(false)
   const [paying, setPaying] = useState(false)
   const [jobPayEdits, setJobPayEdits] = useState<Record<string, string>>({})
@@ -71,6 +73,7 @@ export default function ManagerCard({
           auto_amount: entry.auto_amount,
           final_amount: finalVal,
           note: noteInput,
+          extra_items: extraItems.filter(it => it.label.trim() !== ''),
         }),
       })
       const data = await res.json()
@@ -267,6 +270,8 @@ export default function ManagerCard({
               className="flex-1 min-w-0 px-2 py-1.5 border border-border rounded-md text-xs focus:outline-none focus:ring-2 focus:ring-brand-500"
             />
           </div>
+
+          <ExtraItemsEditor items={extraItems} onChange={setExtraItems} />
 
           <div className="flex gap-1.5">
             <button

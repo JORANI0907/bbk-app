@@ -22,9 +22,15 @@ export interface PayslipJob {
   amount: number
 }
 
+export interface ExtraPayItem {
+  label: string
+  amount: number
+}
+
 export interface PayslipData {
   month: string
   payDate: string | null
+  extraItems: ExtraPayItem[]
   person: {
     type: 'user' | 'worker'
     id: string
@@ -231,6 +237,19 @@ export function PayslipPDFDocument({ data }: { data: PayslipData }) {
             <Text style={[s.amountHeaderCell, { flex: 1, textAlign: 'right', borderRight: undefined }]}>금액</Text>
           </View>
           <AmountLine label="기 본 급" value={data.gross.finalAmount} />
+          {data.extraItems.map((item, i) => (
+            <AmountLine key={i} label={item.label} value={item.amount} />
+          ))}
+          {data.extraItems.length > 0 && (
+            <View style={s.amountRow}>
+              <View style={s.amountLabelCell}>
+                <Text style={{ color: '#888', fontSize: 7.5 }}>
+                  (기본급 + 추가항목 {data.extraItems.length}건 포함)
+                </Text>
+              </View>
+              <View style={s.amountValueCell}><Text> </Text></View>
+            </View>
+          )}
           {data.gross.isNetBasis && (
             <View style={s.amountRow}>
               <View style={s.amountLabelCell}>

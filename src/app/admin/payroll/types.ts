@@ -1,5 +1,10 @@
 // 급여정산 페이지 공통 타입
 
+export interface ExtraPayItem {
+  label: string
+  amount: number
+}
+
 export interface ManagerJob {
   id: string
   assigned_to: string
@@ -30,6 +35,7 @@ export interface PayrollRecord {
   note: string | null
   is_paid: boolean
   paid_at: string | null
+  extra_items: ExtraPayItem[]
 }
 
 export interface ManagerEntry {

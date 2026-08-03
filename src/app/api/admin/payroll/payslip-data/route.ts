@@ -223,7 +223,7 @@ export async function POST(req: NextRequest) {
     // 지급 총액 조회 (payroll_records)
     const { data: recordRow } = await supabase
       .from('payroll_records')
-      .select('auto_amount, final_amount, note, is_paid, paid_at')
+      .select('auto_amount, final_amount, note, is_paid, paid_at, extra_items')
       .eq('year_month', month)
       .eq('person_type', personType)
       .eq('person_id', personId)
@@ -281,6 +281,10 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // 추가 지급 항목
+    const extraItems: { label: string; amount: number }[] =
+      Array.isArray(recordRow?.extra_items) ? (recordRow.extra_items as { label: string; amount: number }[]) : []
+
     // 책정된 금액 (자동 계산 or 관리자가 조정한 최종 금액)
     const bookedAmount = recordRow?.final_amount ?? gross
     const workDays = new Set(jobs.map(j => j.date)).size
@@ -311,6 +315,7 @@ export async function POST(req: NextRequest) {
       data: {
         month,
         payDate: payDate ?? null,
+        extraItems,
         person: {
           type: personType,
           id: person.id,

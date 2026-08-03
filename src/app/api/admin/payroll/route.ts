@@ -218,7 +218,7 @@ export async function GET(request: NextRequest) {
 export async function PATCH(request: NextRequest) {
   const supabase = createServiceClient()
   const body = await request.json()
-  const { year_month, person_type, person_id, auto_amount, final_amount, note, is_paid } = body
+  const { year_month, person_type, person_id, auto_amount, final_amount, note, is_paid, extra_items } = body
 
   if (!year_month || !person_type || !person_id) {
     return NextResponse.json({ error: 'year_month, person_type, person_id가 필요합니다.' }, { status: 400 })
@@ -235,6 +235,7 @@ export async function PATCH(request: NextRequest) {
   if (auto_amount !== undefined) upsertData.auto_amount = auto_amount
   if (final_amount !== undefined) upsertData.final_amount = final_amount === '' ? null : final_amount
   if (note !== undefined) upsertData.note = note
+  if (extra_items !== undefined) upsertData.extra_items = Array.isArray(extra_items) ? extra_items : []
   if (is_paid !== undefined) {
     upsertData.is_paid = is_paid
     upsertData.paid_at = is_paid ? new Date().toISOString() : null
