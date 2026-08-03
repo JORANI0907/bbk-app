@@ -1,5 +1,23 @@
 // 급여정산 페이지 공통 타입
 
+export type TaxType = '4대보험' | '2대보험' | '3대보험' | '프리랜서3.3%' | '없음'
+
+export interface InsuranceRates {
+  nationalPension: number       // 국민연금 (기본 4.5%)
+  healthInsurance: number       // 건강보험 (기본 3.545%)
+  longtermCare: number          // 장기요양보험 = 건강보험료의 x% (기본 12.95%)
+  employmentInsurance: number   // 고용보험 (기본 0.9%)
+  residentTax: number           // 지방소득세 = 소득세의 x% (기본 10%)
+}
+
+export const DEFAULT_INSURANCE_RATES: InsuranceRates = {
+  nationalPension: 0.045,
+  healthInsurance: 0.03545,
+  longtermCare: 0.1295,
+  employmentInsurance: 0.009,
+  residentTax: 0.1,
+}
+
 export interface ExtraPayItem {
   label: string
   amount: number
@@ -47,7 +65,7 @@ export interface ManagerEntry {
     phone: string | null
     account_number: string | null
     // workers 매핑을 통한 세금/급여기준 (매핑 없으면 null)
-    tax_type: '4대보험' | '프리랜서3.3%' | '없음' | null
+    tax_type: TaxType | null
     salary_basis: '세전' | '세후' | null
     worker_id: string | null  // 편집 대상 workers row (담당자가 workers에 매핑된 경우)
   }
@@ -66,7 +84,7 @@ export interface WorkerEntry {
     avg_salary: number | null
     phone: string | null
     account_number: string | null
-    tax_type: '4대보험' | '프리랜서3.3%' | '없음' | null
+    tax_type: TaxType | null
     salary_basis: '세전' | '세후' | null
   }
   jobs: WorkerJob[]
