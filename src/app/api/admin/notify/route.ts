@@ -719,6 +719,63 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // 리뷰 이벤트 안내 자동 후속 발송
+    // 1회성케어 작업완료 3종(정기엔드케어 제외) 발송 성공 시 이어서 리뷰 안내 LMS 발송.
+    // 실패는 원본 작업완료 발송 성공에 영향 없음.
+    if (
+      (type === '작업완료알림' ||
+        type === '작업완료알림(현금)' ||
+        type === '작업완료알림(카드,플렛폼)') &&
+      app.service_type === '1회성케어' &&
+      channelsUsed.length > 0
+    ) {
+      const reviewLog: NotificationLogEntry[] = []
+      for (const target of targets) {
+        try {
+          const result = await sendByTemplate('리뷰이벤트안내', target, {
+            application: app as NotificationContext['application'],
+          })
+          if (result.ok) {
+            reviewLog.push({
+              type: '리뷰이벤트안내',
+              sent_at: new Date().toISOString(),
+              phone: target,
+              method: 'auto',
+              channel: result.type === 'LMS' ? 'lms' : 'sms',
+            })
+          }
+        } catch { /* 리뷰 알림 실패는 무시 */ }
+      }
+
+      if (reviewLog.length > 0) {
+        const mergedLog = [...reviewLog, ...updatedLog]
+        await supabase
+          .from('service_applications')
+          .update({ notification_log: mergedLog })
+          .eq('id', application_id)
+
+        for (const entry of reviewLog) {
+          await saveNotificationHistory({
+            category: 'sms',
+            type: '리뷰이벤트안내',
+            body: '리뷰 이벤트 안내 자동 발송',
+            title: '리뷰 이벤트 안내',
+            method: 'auto',
+            recipientType: 'customer',
+            recipientName: String(app.owner_name ?? ''),
+            recipientPhone: entry.phone,
+            status: 'sent',
+            metadata: {
+              application_id,
+              business_name: app.business_name ?? '',
+              channel: entry.channel,
+              source: 'auto_review_after_completion',
+            },
+          })
+        }
+      }
+    }
+
     // Phase 27-AN: 하드코딩 자동 연쇄 삭제.
     // 이전엔 작업완료알림 발송 직후 계정안내알림을 자동으로 이어서 발송했으나,
     // "활성·자동 스위치가 유일한 결정자" 원칙에 따라 제거. 계정안내는 관리자 수동 발송
