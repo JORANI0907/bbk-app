@@ -232,6 +232,9 @@ export async function GET(request: NextRequest) {
           if (!arr.includes(wa.worker_id)) arr.push(wa.worker_id)
         }
         for (const c of customers) {
+          // 1회성/일반일정만 work_assignments 기반으로 오버라이드.
+          // 정기딥/엔드는 아래 fallback 블록에서 assigned_worker_id 단일 값을 배열로 감싸 처리.
+          if (c.customer_type !== '1회성케어' && c.customer_type !== '일반일정') continue
           const ids = customerWorkers.get(c.id) ?? []
           ;(c as Record<string, unknown>).assigned_worker_ids = ids
           // 하위호환: assigned_worker_id 첫 번째로 override (기존 필드값이 어긋난 경우 자동 정합)
