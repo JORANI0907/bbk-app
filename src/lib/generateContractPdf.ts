@@ -40,17 +40,19 @@ export async function generateContractPdf(opts: GeneratePdfOptions): Promise<str
 
   const { contractHtml, customerSignature, adminSignature, businessName, customerAgreedAt, adminSignedAt } = opts
 
-  // {{CUSTOMER_SIGNATURE}} / {{ADMIN_SIGNATURE}} 변수 치환
-  const hasSignatureVars = /\{\{(?:CUSTOMER|ADMIN)_SIGNATURE\}\}/.test(contractHtml)
+  // 서명 변수 치환: v2 한글 변수 + v1 옛 영문 변수(하위 호환)
+  const sigImg = (src: string) => src
+    ? `<img src="${src}" style="max-width:200px;max-height:80px;object-fit:contain;" />`
+    : '<span style="color:#bbb;font-size:11px;font-family:sans-serif;">(서명 없음)</span>'
+
+  const hasSignatureVars = /\{\{(?:고객서명|공급사서명|CUSTOMER_SIGNATURE|ADMIN_SIGNATURE)\}\}/.test(contractHtml)
   const resolvedHtml = contractHtml
-    .replace(/\{\{CUSTOMER_SIGNATURE\}\}/g,
-      customerSignature
-        ? `<img src="${customerSignature}" style="max-width:200px;max-height:80px;object-fit:contain;" />`
-        : '<span style="color:#bbb;font-size:11px;font-family:sans-serif;">(서명 없음)</span>')
-    .replace(/\{\{ADMIN_SIGNATURE\}\}/g,
-      adminSignature
-        ? `<img src="${adminSignature}" style="max-width:200px;max-height:80px;object-fit:contain;" />`
-        : '<span style="color:#bbb;font-size:11px;font-family:sans-serif;">(서명 없음)</span>')
+    // v2 한글 변수
+    .replace(/\{\{\s*고객서명\s*\}\}/g,   sigImg(customerSignature))
+    .replace(/\{\{\s*공급사서명\s*\}\}/g, sigImg(adminSignature))
+    // v1 옛 영문 변수 (하위 호환)
+    .replace(/\{\{CUSTOMER_SIGNATURE\}\}/g, sigImg(customerSignature))
+    .replace(/\{\{ADMIN_SIGNATURE\}\}/g,    sigImg(adminSignature))
 
   // Parse contract HTML → extract styles + body
   const parsed = new DOMParser().parseFromString(resolvedHtml, 'text/html')

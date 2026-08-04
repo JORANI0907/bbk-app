@@ -1,14 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
-import {
-  renderContract,
-  extractVariablesFromCustomer,
-  renderTemplateWithVars,
-  extractTemplateVars,
-  resolveAutoField,
-  PROCESS_AUTO_FIELDS,
-  type TemplateVarConfigMap,
-} from '@/lib/contractTemplate'
+import { renderContractPreview, type ContractCustomerInfo } from '@/lib/contractTemplate'
 import crypto from 'crypto'
 
 // GET /api/admin/contracts — 계약서 목록
@@ -36,7 +28,19 @@ export async function GET(request: NextRequest) {
   return NextResponse.json({ success: true, data })
 }
 
-// POST /api/admin/contracts — 새 계약서 생성
+/**
+ * POST /api/admin/contracts — 새 계약서 생성 (v2)
+ *
+ * payload:
+ *   {
+ *     customer_id: string,
+ *     template_id: string,
+ *     customer_info: ContractCustomerInfo,   // 모달에서 수집한 최종 값 (수정본 포함)
+ *     customer_phone: string,                // OTP 수신 번호
+ *     html_body?: string,                    // 편집기에서 수정한 최종 HTML (없으면 서버 렌더)
+ *     application_id?: string,
+ *   }
+ */
 export async function POST(request: NextRequest) {
   const supabase = createServiceClient()
 
@@ -47,118 +51,83 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: false, error: '잘못된 요청 형식입니다.' }, { status: 400 })
   }
 
-  const { customer_id, service_plan, visit_option, monthly_price, annual_price,
-    contract_start_date, contract_end_date, selected_items, customer_phone,
-    application_id, template_id, custom_vars, html_body } = body
+  const customerId = body.customer_id as string | undefined
+  const templateId = body.template_id as string | undefined
+  const customerPhone = String(body.customer_phone ?? '')
+  const applicationId = body.application_id as string | undefined
+  const htmlBody = typeof body.html_body === 'string' ? body.html_body : ''
+  const rawInfo = (body.customer_info ?? {}) as Partial<ContractCustomerInfo>
 
-  if (!customer_id) {
+  if (!customerId) {
     return NextResponse.json({ success: false, error: 'customer_id는 필수입니다.' }, { status: 400 })
   }
+  if (!templateId) {
+    return NextResponse.json({ success: false, error: '계약서 양식(template_id)이 필요합니다.' }, { status: 400 })
+  }
 
-  // 고객 정보 조회
   const { data: customer, error: customerError } = await supabase
     .from('customers')
-    .select('*')
-    .eq('id', customer_id as string)
+    .select('id, contact_phone')
+    .eq('id', customerId)
     .single()
 
   if (customerError || !customer) {
     return NextResponse.json({ success: false, error: '고객 정보를 찾을 수 없습니다.' }, { status: 404 })
   }
 
+  // customer_info 확정 (누락 필드는 빈 문자열로)
+  const customerInfo: ContractCustomerInfo = {
+    business_name:       rawInfo.business_name       ?? '',
+    contact_name:        rawInfo.contact_name        ?? '',
+    contact_phone:       rawInfo.contact_phone       ?? '',
+    address:             rawInfo.address             ?? '',
+    business_number:     rawInfo.business_number     ?? '',
+    email:               rawInfo.email               ?? '',
+    contract_start_date: rawInfo.contract_start_date ?? '',
+    contract_end_date:   rawInfo.contract_end_date   ?? '',
+    care_scope:          rawInfo.care_scope          ?? '',
+  }
+
+  // html_body 가 편집기에서 수정된 최종본 → 그대로 저장.
+  // 없으면 서버에서 템플릿 + customer_info 로 렌더.
+  let snapshot: string
+  if (htmlBody.trim()) {
+    snapshot = htmlBody
+  } else {
+    const { data: tmpl } = await supabase
+      .from('contract_templates')
+      .select('html_body')
+      .eq('id', templateId)
+      .single()
+    if (!tmpl) {
+      return NextResponse.json({ success: false, error: '양식을 찾을 수 없습니다.' }, { status: 404 })
+    }
+    snapshot = renderContractPreview(tmpl.html_body as string, customerInfo)
+  }
+
   const signingToken = crypto.randomUUID()
   const tokenExpiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
 
-  const contractRecord = {
-    customer_id,
+  const record = {
+    customer_id: customerId,
     contract_type: 'subscription',
-    monthly_price: monthly_price ?? customer.billing_amount ?? 0,
-    annual_price: annual_price ?? null,
-    start_date: contract_start_date ?? customer.contract_start_date ?? null,
-    end_date: contract_end_date ?? customer.contract_end_date ?? null,
-    selected_items: selected_items ?? [],
-    customer_phone: customer_phone ?? customer.contact_phone ?? '',
+    start_date: customerInfo.contract_start_date || null,
+    end_date: customerInfo.contract_end_date || null,
+    customer_phone: customerPhone || (customer.contact_phone as string ?? ''),
     signing_token: signingToken,
     token_expires_at: tokenExpiresAt,
     signing_status: 'draft',
-    application_id: application_id ?? null,
-    template_id: template_id ?? null,
+    application_id: applicationId ?? null,
+    template_id: templateId,
+    contract_snapshot: {
+      html: snapshot,
+      customer_info: customerInfo,   // v2 스냅샷 저장: 재발행·감사 용
+    },
   }
-
-  // contract_snapshot 생성 — template_id 있으면 DB 템플릿 사용, 없으면 기존 renderContract
-  const contractDate = new Date()
-  let snapshot: string
-
-  // 기본 변수 맵 (backward compat + fallback)
-  const defaultVars: Record<string, string> = {
-    CONTRACT_YEAR: String(contractDate.getFullYear()),
-    CONTRACT_MONTH: String(contractDate.getMonth() + 1).padStart(2, '0'),
-    CONTRACT_DAY: String(contractDate.getDate()).padStart(2, '0'),
-    CUSTOMER_BUSINESS_NAME: (customer.business_name as string | null) ?? '',
-    CUSTOMER_BUSINESS_NUMBER: (customer.business_number as string | null) ?? '',
-    CUSTOMER_OWNER_NAME: (customer.contact_name as string | null) ?? '',
-    CUSTOMER_ADDRESS: [customer.address, customer.address_detail].filter(Boolean).join(' '),
-    CUSTOMER_PHONE: (customer.contact_phone as string | null) ?? '',
-    CUSTOMER_EMAIL: (customer.email as string | null) ?? '',
-    MONTHLY_PRICE: contractRecord.monthly_price != null
-      ? (contractRecord.monthly_price as number).toLocaleString('ko-KR')
-      : '',
-    ANNUAL_PRICE: contractRecord.annual_price != null
-      ? (contractRecord.annual_price as number).toLocaleString('ko-KR')
-      : '',
-    CONTRACT_START_DATE: (contractRecord.start_date as string | null) ?? '',
-    CONTRACT_END_DATE: (contractRecord.end_date as string | null) ?? '',
-    SERVICE_SCOPE: Array.isArray(selected_items) ? (selected_items as string[]).join(', ') : '',
-    SELECTED_ITEMS_LIST:
-      Array.isArray(selected_items) && (selected_items as string[]).length > 0
-        ? `<ul>${(selected_items as string[]).map((i) => `<li>${i}</li>`).join('')}</ul>`
-        : '',
-  }
-
-  if (template_id) {
-    const { data: tmpl } = await supabase
-      .from('contract_templates')
-      .select('html_body, var_config')
-      .eq('id', template_id as string)
-      .single()
-
-    if (tmpl) {
-      const varConfigMap = (tmpl.var_config ?? {}) as TemplateVarConfigMap
-      const hasVarConfig = Object.keys(varConfigMap).length > 0
-      const vars: Record<string, string> = { ...defaultVars }
-
-      if (hasVarConfig) {
-        // var_config 있으면 각 변수를 설정대로 resolve
-        for (const varName of extractTemplateVars(tmpl.html_body)) {
-          const config = varConfigMap[varName]
-          if (!config) continue
-          if (config.mode === 'auto' && config.autoField) {
-            // 계약 과정 필드(서명, 서비스항목 등)는 스냅샷에 {{VAR}} 그대로 보존
-            if (!PROCESS_AUTO_FIELDS.has(config.autoField)) {
-              vars[varName] = resolveAutoField(config.autoField, customer, contractRecord)
-            }
-          } else if (config.mode === 'manual') {
-            vars[varName] = (custom_vars as Record<string, string>)?.[varName] ?? ''
-          }
-        }
-      } else if (custom_vars && typeof custom_vars === 'object') {
-        // var_config 없으면 old 방식 (custom_vars 직접 병합)
-        Object.assign(vars, custom_vars as Record<string, string>)
-      }
-
-      snapshot = renderTemplateWithVars(tmpl.html_body, vars)
-    } else {
-      snapshot = renderContract(extractVariablesFromCustomer(customer, contractRecord))
-    }
-  } else {
-    snapshot = renderContract(extractVariablesFromCustomer(customer, contractRecord))
-  }
-
-  const finalHtml = typeof html_body === 'string' && html_body.trim() ? html_body : snapshot
 
   const { data: created, error: insertError } = await supabase
     .from('contracts')
-    .insert({ ...contractRecord, contract_snapshot: { html: finalHtml } })
+    .insert(record)
     .select()
     .single()
 
