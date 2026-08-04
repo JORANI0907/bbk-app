@@ -114,12 +114,12 @@ export default function WorkerCard({
                 <p className="text-xs text-text-tertiary">
                   {workDays}일 출근 · {entry.jobs.length}건 · 자동 {fmt(entry.auto_amount)}
                 </p>
-                {entry.person.employment_type === '정직원' && entry.person.avg_salary && (
+                {entry.person.employment_type === 'FULL_TIME' && entry.person.avg_salary && (
                   <p className="text-[11px] text-amber-700 mt-0.5">
                     월급 참고: <span className="font-semibold">{fmt(entry.person.avg_salary)}</span>
                   </p>
                 )}
-                {entry.person.employment_type !== '정직원' && (entry.person.day_wage || entry.person.night_wage) && (
+                {entry.person.employment_type !== 'FULL_TIME' && (entry.person.day_wage || entry.person.night_wage) && (
                   <p className="text-[11px] text-amber-700 mt-0.5">
                     주간 <span className="font-semibold">{fmt(entry.person.day_wage)}</span>
                     <span className="mx-1 text-amber-300">·</span>

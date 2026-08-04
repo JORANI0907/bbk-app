@@ -2152,9 +2152,10 @@ export function CustomersManagementView({
   const isRegular = form.customer_type === '정기딥케어' || form.customer_type === '정기엔드케어'
   const isEndCare = form.customer_type === '정기엔드케어'
 
-  // Phase 2-E: 이번달 일정 아코디언에 노출할 작업자 (정직원 + 인턴 + 일용직)
+  // Phase 2-E: 이번달 일정 아코디언에 노출할 작업자 — 배정 가능한 모든 고용형태.
+  // employment_type 이 지정된(=null 아닌) 워커 전원을 포함.
   const flexibleWorkers = useMemo(() =>
-    workersList.filter(w => ['정직원', '인턴', '일용직'].includes(w.employment_type ?? '')),
+    workersList.filter(w => !!w.employment_type),
   [workersList])
   const isDipCare = form.customer_type === '정기딥케어'
   // Phase 17: 일반일정도 1회성과 동일 세부화면 사용 (시공일자·금액·진행/결제 상태 등)

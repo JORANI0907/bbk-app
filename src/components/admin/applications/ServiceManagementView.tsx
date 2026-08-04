@@ -22,6 +22,7 @@ import { getScheduleToday } from '@/lib/schedule-today'
 import { Button } from '@/components/ui'
 import { Phone, ClipboardList, Map as MapIcon, Folder, FolderOpen, FileText, PenLine, Link, Save, Megaphone, AlertTriangle, Banknote, Camera } from 'lucide-react'
 import { TimePicker24h } from '@/components/admin/TimePicker24h'
+import { EMPLOYMENT_LABEL, type EmploymentType } from '@/app/admin/workers/constants'
 
 type ServiceType = '1회성케어' | '정기딥케어' | '정기엔드케어'
 type ApplicationStatus = '신규' | '견적발송' | '예약확정' | '예약1일전' | '예약당일' | '작업완료' | '작업완료(엔드)' | '결제' | '결제완료' | '결제완료(잔금)' | '계산서발행완료' | '비과세' | '카드결제 완료' | '예약금환급완료' | '예약금 입금' | '예약취소' | 'A/S방문' | '방문견적'
@@ -1990,7 +1991,16 @@ export function ServiceManagementPage({
                         ? <p className="px-3 py-4 text-xs text-text-tertiary text-center">직원 관리에서 작업자를 먼저 추가하세요</p>
                         : workers.map(w => {
                           const checked = selectedWorkerIds.includes(w.id)
-                          const EMP_COLOR: Record<string, string> = { '정직원': 'bg-green-100 text-green-700', '인턴': 'bg-red-100 text-red-700', '일용직': 'bg-yellow-100 text-yellow-700' }
+                          const et = w.employment_type as EmploymentType | null
+                          const EMP_COLOR: Record<EmploymentType, string> = {
+                            FULL_TIME:   'bg-green-100 text-green-700',
+                            CONTRACT:    'bg-blue-100 text-blue-700',
+                            PART_TIME:   'bg-indigo-100 text-indigo-700',
+                            ULTRA_SHORT: 'bg-purple-100 text-purple-700',
+                            DAILY:       'bg-yellow-100 text-yellow-700',
+                            FREELANCER:  'bg-amber-100 text-amber-700',
+                            SUBCONTRACT: 'bg-red-100 text-red-700',
+                          }
                           return (
                             <button key={w.id} type="button"
                               onClick={() => handleWorkerToggle(w.id)}
@@ -1999,8 +2009,8 @@ export function ServiceManagementPage({
                                 {checked && '✓'}
                               </span>
                               <span className="font-medium text-text-primary flex-1">{w.name}</span>
-                              {w.employment_type && (
-                                <span className={`text-xs px-1.5 py-0.5 rounded ${EMP_COLOR[w.employment_type] ?? 'bg-surface-sunken text-text-secondary'}`}>{w.employment_type}</span>
+                              {et && (
+                                <span className={`text-xs px-1.5 py-0.5 rounded ${EMP_COLOR[et] ?? 'bg-surface-sunken text-text-secondary'}`}>{EMPLOYMENT_LABEL[et] ?? et}</span>
                               )}
                               {w.phone && <span className="text-xs text-text-tertiary">{w.phone}</span>}
                             </button>

@@ -2,12 +2,17 @@
 
 import { useState } from 'react'
 import toast from 'react-hot-toast'
-import type { Worker } from './constants'
+import { EMPLOYMENT_LABEL, EMPLOYMENT_TYPE_VALUES, type EmploymentType, type Worker } from './constants'
 
-const EMP_BADGE: Record<string, string> = {
-  '정직원': 'bg-green-100 text-green-700',
-  '인턴':   'bg-red-100 text-red-700',
-  '일용직': 'bg-yellow-100 text-yellow-700',
+// DB 값(영문 enum) → 뱃지 색상. 미매칭 값은 fallback 회색.
+const EMP_BADGE: Record<EmploymentType, string> = {
+  FULL_TIME:   'bg-green-100 text-green-700',
+  CONTRACT:    'bg-blue-100 text-blue-700',
+  PART_TIME:   'bg-indigo-100 text-indigo-700',
+  ULTRA_SHORT: 'bg-purple-100 text-purple-700',
+  DAILY:       'bg-yellow-100 text-yellow-700',
+  FREELANCER:  'bg-amber-100 text-amber-700',
+  SUBCONTRACT: 'bg-red-100 text-red-700',
 }
 
 const SKILL_BADGE: Record<string, string> = {
@@ -18,14 +23,14 @@ const SKILL_BADGE: Record<string, string> = {
 
 interface AddFormState {
   name: string
-  employment_type: string
+  employment_type: EmploymentType
   phone: string
   skill_level: string
 }
 
 const DEFAULT_ADD: AddFormState = {
   name: '',
-  employment_type: '정직원',
+  employment_type: 'FULL_TIME',
   phone: '',
   skill_level: '',
 }
@@ -122,9 +127,9 @@ export default function WorkerList({
             className="flex-1 border border-gray-200 rounded-lg px-1.5 py-1 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-brand-500"
           >
             <option value="">고용형태</option>
-            <option>정직원</option>
-            <option>인턴</option>
-            <option>일용직</option>
+            {EMPLOYMENT_TYPE_VALUES.map(v => (
+              <option key={v} value={v}>{EMPLOYMENT_LABEL[v]}</option>
+            ))}
           </select>
           <select
             value={filterSkill}
@@ -158,12 +163,12 @@ export default function WorkerList({
             />
             <select
               value={addForm.employment_type}
-              onChange={e => setAddForm(prev => ({ ...prev, employment_type: e.target.value }))}
+              onChange={e => setAddForm(prev => ({ ...prev, employment_type: e.target.value as EmploymentType }))}
               className="border border-gray-200 rounded-lg px-2 py-1.5 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-brand-500"
             >
-              <option>정직원</option>
-              <option>인턴</option>
-              <option>일용직</option>
+              {EMPLOYMENT_TYPE_VALUES.map(v => (
+                <option key={v} value={v}>{EMPLOYMENT_LABEL[v]}</option>
+              ))}
             </select>
             <input
               value={addForm.phone}
@@ -218,7 +223,7 @@ export default function WorkerList({
                     <span className="text-sm font-semibold text-gray-900 truncate">{worker.name}</span>
                     {worker.employment_type && (
                       <span className={`text-xs px-1.5 py-0.5 rounded-full shrink-0 ${EMP_BADGE[worker.employment_type] ?? 'bg-gray-100 text-gray-600'}`}>
-                        {worker.employment_type}
+                        {EMPLOYMENT_LABEL[worker.employment_type] ?? worker.employment_type}
                       </span>
                     )}
                     {worker.skill_level && (

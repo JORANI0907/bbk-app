@@ -1,5 +1,5 @@
 import { Document, Page, Text, View, StyleSheet, Image, Font } from '@react-pdf/renderer'
-import type { Worker } from './constants'
+import { EMPLOYMENT_LABEL, type Worker } from './constants'
 
 const origin = typeof window !== 'undefined' ? window.location.origin : ''
 Font.register({
@@ -167,7 +167,10 @@ export function WorkerPDFDocument({
   sections: PDFSections
 }) {
   const today = new Date().toLocaleDateString('ko-KR')
-  const isPartTime = worker.employment_type !== '정직원'
+  const isPartTime = worker.employment_type !== 'FULL_TIME'
+  const employmentLabel = worker.employment_type
+    ? (EMPLOYMENT_LABEL[worker.employment_type] ?? worker.employment_type)
+    : null
 
   const wage = isPartTime
     ? [
@@ -220,7 +223,7 @@ export function WorkerPDFDocument({
                   <Text>{worker.name}</Text>
                 </View>
                 <View style={s.labelCell}><Text>고용형태</Text></View>
-                <View style={s.valueCell}><Text>{worker.employment_type || '-'}</Text></View>
+                <View style={s.valueCell}><Text>{employmentLabel || '-'}</Text></View>
               </View>
               <Row2 l1="생년월일" v1={worker.birth_date} l2="혈  액  형" v2={worker.blood_type ? `${worker.blood_type}형` : null} />
               <Row2 l1="성    별"  v1={worker.gender}     l2="연  락  처" v2={worker.phone} />
@@ -246,7 +249,7 @@ export function WorkerPDFDocument({
                 <Row2 l1="직    책"  v1={worker.job_title}  l2="입  사  일" v2={worker.join_date || undefined} />
               </>
             ) : (
-              <Row2 l1="숙  련  도" v1={worker.skill_level} l2="고용형태" v2={worker.employment_type} />
+              <Row2 l1="숙  련  도" v1={worker.skill_level} l2="고용형태" v2={employmentLabel} />
             )}
             <Row1 label="특화작업" value={worker.specialties} />
           </View>

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, type ReactElement } from 'react'
 import toast from 'react-hot-toast'
-import type { Worker } from './constants'
+import { EMPLOYMENT_LABEL, EMPLOYMENT_TYPE_VALUES, type EmploymentType, type Worker } from './constants'
 import type { DocumentProps } from '@react-pdf/renderer'
 import type { PDFSections, WorkHistoryEntry } from './WorkerPDF'
 
@@ -12,10 +12,14 @@ interface Props {
   onWorkerDeleted: (id: string) => void
 }
 
-const EMP_BADGE: Record<string, string> = {
-  '정직원': 'bg-emerald-100 text-emerald-700',
-  '인턴':   'bg-purple-100 text-purple-700',
-  '일용직': 'bg-amber-100 text-amber-700',
+const EMP_BADGE: Record<EmploymentType, string> = {
+  FULL_TIME:   'bg-emerald-100 text-emerald-700',
+  CONTRACT:    'bg-blue-100 text-blue-700',
+  PART_TIME:   'bg-indigo-100 text-indigo-700',
+  ULTRA_SHORT: 'bg-purple-100 text-purple-700',
+  DAILY:       'bg-amber-100 text-amber-700',
+  FREELANCER:  'bg-orange-100 text-orange-700',
+  SUBCONTRACT: 'bg-rose-100 text-rose-700',
 }
 
 function Field({ label, value, onChange, type = 'text', mono, placeholder }: {
@@ -40,11 +44,13 @@ function Field({ label, value, onChange, type = 'text', mono, placeholder }: {
   )
 }
 
-function SelectField({ label, value, options, onChange }: {
+function SelectField({ label, value, options, onChange, labels }: {
   label: string
   value: string
-  options: string[]
+  options: readonly string[]
   onChange: (v: string) => void
+  /** value → 화면 표시 라벨 매핑. 없으면 value 를 그대로 표시. */
+  labels?: Record<string, string>
 }) {
   return (
     <div className="flex items-center gap-3">
@@ -55,7 +61,7 @@ function SelectField({ label, value, options, onChange }: {
         className="flex-1 border border-gray-200 rounded-md px-2.5 py-1.5 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-brand-500"
       >
         <option value="">선택</option>
-        {options.map(o => <option key={o}>{o}</option>)}
+        {options.map(o => <option key={o} value={o}>{labels?.[o] ?? o}</option>)}
       </select>
     </div>
   )
@@ -289,7 +295,8 @@ export default function WorkerDetail({ worker, onWorkerUpdated, onWorkerDeleted 
         salary_basis: form.salary_basis || '세전',
       }
 
-      const isPartTime = form.employment_type !== '정직원'
+      // FULL_TIME(정규직) 만 월급제 레이아웃(부서·직급·월급여). 그 외는 숙련도·일당 레이아웃.
+      const isPartTime = form.employment_type !== 'FULL_TIME'
       if (isPartTime) {
         body.skill_level = form.skill_level || null
         body.day_wage = form.day_wage ? Number(form.day_wage) : null
@@ -400,7 +407,7 @@ export default function WorkerDetail({ worker, onWorkerUpdated, onWorkerDeleted 
     }
   }
 
-  const isPartTime = form.employment_type !== '정직원'
+  const isPartTime = form.employment_type !== 'FULL_TIME'
 
   const sectionHasData: Record<keyof PDFSections, boolean> = {
     personal: true,
@@ -453,7 +460,7 @@ export default function WorkerDetail({ worker, onWorkerUpdated, onWorkerDeleted 
               <h2 className="text-lg font-bold text-gray-900">{worker.name}</h2>
               {worker.employment_type && (
                 <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${EMP_BADGE[worker.employment_type] ?? 'bg-gray-100 text-gray-600'}`}>
-                  {worker.employment_type}
+                  {EMPLOYMENT_LABEL[worker.employment_type] ?? worker.employment_type}
                 </span>
               )}
             </div>
@@ -481,7 +488,13 @@ export default function WorkerDetail({ worker, onWorkerUpdated, onWorkerDeleted 
           <SectionTitle icon="👤" title="인적사항" />
           <div className="flex flex-col gap-2.5">
             <Field label="이름" value={form.name} onChange={setField('name')} />
-            <SelectField label="고용형태" value={form.employment_type} options={['정직원', '인턴', '일용직']} onChange={setField('employment_type')} />
+            <SelectField
+              label="고용형태"
+              value={form.employment_type}
+              options={EMPLOYMENT_TYPE_VALUES}
+              labels={EMPLOYMENT_LABEL}
+              onChange={setField('employment_type')}
+            />
             <Field label="생년월일" value={form.birth_date} onChange={setField('birth_date')} type="date" />
             <SelectField label="성별" value={form.gender} options={['남', '여']} onChange={setField('gender')} />
             <SelectField label="혈액형" value={form.blood_type} options={['A', 'B', 'O', 'AB']} onChange={setField('blood_type')} />

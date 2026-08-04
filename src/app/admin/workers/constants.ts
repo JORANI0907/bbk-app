@@ -2,7 +2,10 @@ export const MIGRATION_SQL = `-- Run in Supabase SQL Editor
 CREATE TABLE IF NOT EXISTS workers (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name TEXT NOT NULL,
-  employment_type TEXT CHECK (employment_type IN ('정직원', '인턴', '일용직')),
+  employment_type TEXT CHECK (employment_type IN (
+    'FULL_TIME', 'CONTRACT', 'PART_TIME', 'ULTRA_SHORT',
+    'DAILY', 'FREELANCER', 'SUBCONTRACT'
+  )),
   phone TEXT,
   account_number TEXT,
   department TEXT CHECK (department IN ('본부', '딥케어', '엔드케어')),
@@ -32,10 +35,29 @@ CREATE TABLE IF NOT EXISTS work_assignments (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );`
 
+// 고용형태 enum — workers.employment_type CHECK 제약과 동일해야 함.
+// UI 라벨은 EMPLOYMENT_LABEL 을 통해 한글로 표시.
+export const EMPLOYMENT_TYPE_VALUES = [
+  'FULL_TIME', 'CONTRACT', 'PART_TIME', 'ULTRA_SHORT',
+  'DAILY', 'FREELANCER', 'SUBCONTRACT',
+] as const
+
+export type EmploymentType = typeof EMPLOYMENT_TYPE_VALUES[number]
+
+export const EMPLOYMENT_LABEL: Record<EmploymentType, string> = {
+  FULL_TIME:   '정규직',
+  CONTRACT:    '계약직',
+  PART_TIME:   '단시간(주15h↑)',
+  ULTRA_SHORT: '초단시간(주15h↓)',
+  DAILY:       '일용직',
+  FREELANCER:  '프리랜서3.3%',
+  SUBCONTRACT: '외주/도급',
+}
+
 export interface Worker {
   id: string
   name: string
-  employment_type: '정직원' | '인턴' | '일용직' | null
+  employment_type: EmploymentType | null
   phone: string | null
   account_number: string | null
   department: '본부' | '딥케어' | '엔드케어' | null
