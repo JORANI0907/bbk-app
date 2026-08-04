@@ -185,6 +185,63 @@ export async function POST(request: NextRequest) {
       status: 'sent',
     }).catch(() => {})
 
+    // 리뷰 이벤트 안내 자동 후속 발송
+    // 1회성케어 작업완료 3종(정기엔드케어 제외) 발송 성공 시 이어서 리뷰 안내 LMS 발송.
+    // 실패는 원본 작업완료 발송 성공에 영향 없음.
+    if (
+      (type === '작업완료알림' ||
+        type === '작업완료알림(현금)' ||
+        type === '작업완료알림(카드,플렛폼)') &&
+      customer.customer_type === '1회성케어' &&
+      channelsUsed.length > 0
+    ) {
+      const reviewLog: NotificationLogEntry[] = []
+      for (const target of targets) {
+        try {
+          const result = await sendByTemplate('리뷰이벤트안내', target, {
+            customer: customer as NotificationContext['customer'],
+          })
+          if (result.ok) {
+            reviewLog.push({
+              type: '리뷰이벤트안내',
+              sent_at: new Date().toISOString(),
+              phone: target,
+              method: 'auto',
+              channel: result.type === 'LMS' ? 'lms' : 'sms',
+            })
+          }
+        } catch { /* 리뷰 알림 실패는 무시 */ }
+      }
+
+      if (reviewLog.length > 0) {
+        const mergedLog = [...reviewLog, ...updatedLog]
+        await supabase
+          .from('customers')
+          .update({ notification_log: mergedLog })
+          .eq('id', customer_id)
+
+        for (const entry of reviewLog) {
+          await saveNotificationHistory({
+            category: 'sms',
+            type: '리뷰이벤트안내',
+            body: '리뷰 이벤트 안내 자동 발송',
+            title: '리뷰 이벤트 안내',
+            method: 'auto',
+            recipientType: 'customer',
+            recipientName: String(customer.contact_name ?? ''),
+            recipientPhone: entry.phone,
+            status: 'sent',
+            metadata: {
+              customer_id,
+              business_name: customer.business_name ?? '',
+              channel: entry.channel,
+              source: 'auto_review_after_completion',
+            },
+          }).catch(() => {})
+        }
+      }
+    }
+
     // Slack 리포트
     const targetSummary = targets.length > 1
       ? `${targets.join(', ')} (${targets.length}건)`
