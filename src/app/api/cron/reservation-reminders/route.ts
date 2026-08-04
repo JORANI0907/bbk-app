@@ -278,19 +278,33 @@ export async function GET(request: NextRequest) {
   //     '작업완료(엔드)'는 정기엔드케어 전용 상태 → 상태 필터에서 제외
   //     service_type 필터도 추가 안전장치로 유지
   //     공급대가(supply_amount) 0원 또는 미입력 건 발송 제외
-  //     결제완료 전까지 매일 반복 발송 (alreadySentToday로 당일 중복만 방지)
+  //     결제완료 판정: service_applications 또는 customers 어느 쪽 payment_status_detail
+  //     이라도 정산 완료 상태면 스킵 (관리자가 고객관리 UI에서 완료 처리한 케이스 방어)
   {
+    const PAID_STATUS_DETAILS = ['결제완료','결제완료(잔금)','카드결제 완료','비과세','계산서발행완료']
+
+    type AppRow = Record<string, unknown> & {
+      customers?: { payment_status_detail: string | null } | null
+    }
+
     const { data: apps } = await supabase
       .from('service_applications')
-      .select('*')
+      .select('*, customers(payment_status_detail)')
       .in('status', ['작업완료', '결제'])
       .neq('service_type', '정기엔드케어')
       .gt('supply_amount', 0)
       .is('deleted_at', null)
 
     let sent = 0, failed = 0, skipped = 0
-    for (const app of (apps ?? [])) {
+    for (const app of ((apps ?? []) as AppRow[])) {
       if (!app.phone) { skipped++; continue }
+
+      const appPay = app.payment_status_detail as string | null
+      const custPay = app.customers?.payment_status_detail ?? null
+      const isPaid =
+        (appPay && PAID_STATUS_DETAILS.includes(appPay)) ||
+        (custPay && PAID_STATUS_DETAILS.includes(custPay))
+      if (isPaid) { skipped++; continue }
 
       const pm = String(app.payment_method ?? '')
       let billingType: string
@@ -308,7 +322,7 @@ export async function GET(request: NextRequest) {
       if (alreadySentToday(log, billingType, todayKST)) { skipped++; continue }
 
       try {
-        const outcome = await sendAndLog(supabase, app as Record<string, unknown>, billingType, '-', NOTIFY_TO_STATUS)
+        const outcome = await sendAndLog(supabase, app, billingType, '-', NOTIFY_TO_STATUS)
         if (outcome === 'sent') sent++
         else skipped++
       } catch { failed++ }
