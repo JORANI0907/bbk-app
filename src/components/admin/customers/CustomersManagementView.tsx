@@ -2914,6 +2914,7 @@ export function CustomersManagementView({
                           toast.success('재개 완료')
                           setSelected(prev => prev ? { ...prev, status: 'active' } : prev)
                           setCustomers(prev => prev.map(c => c.id === selected.id ? { ...c, status: 'active' } : c))
+                          setForm(prev => ({ ...prev, status: 'active' }))
                         } catch (e) { toast.error(e instanceof Error ? e.message : '재개 실패') }
                       }}
                       className="text-[11px] font-semibold px-2 py-0.5 rounded-md border border-emerald-300 bg-white text-emerald-700 hover:bg-emerald-50"
@@ -2932,6 +2933,7 @@ export function CustomersManagementView({
                           toast.success(`일시정지 완료 (미래 일정 ${j.deleted_future_visits ?? 0}건 삭제)`)
                           setSelected(prev => prev ? { ...prev, status: 'paused' } : prev)
                           setCustomers(prev => prev.map(c => c.id === selected.id ? { ...c, status: 'paused' } : c))
+                          setForm(prev => ({ ...prev, status: 'paused' }))
                         } catch (e) { toast.error(e instanceof Error ? e.message : '일시정지 실패') }
                       }}
                       className="text-[11px] font-semibold px-2 py-0.5 rounded-md border border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
