@@ -6,7 +6,6 @@ import toast from 'react-hot-toast'
 import { Button } from '@/components/ui'
 import { Modal } from '@/components/ui'
 import { SectionHeader } from '@/components/ui'
-import { type VarConfig, type TemplateVarConfigMap } from '@/lib/contractTemplate'
 import ContractEditor from '@/components/contracts/ContractEditor'
 
 type SigningStatus = 'draft' | 'pending_customer' | 'customer_signed' | 'completed' | 'voided'
@@ -30,12 +29,13 @@ interface CustomerOption {
   business_name: string
   contact_name: string
   contact_phone: string
-  billing_amount: number | null
-  billing_cycle: string | null
-  supply_amount: string | null
-  vat: string | null
+  address: string | null
+  address_detail: string | null
+  business_number: string | null
+  email: string | null
   contract_start_date: string | null
   contract_end_date: string | null
+  care_scope: string | null
 }
 
 interface TemplateOption {
@@ -68,6 +68,26 @@ const TABS: { label: string; value: string }[] = [
   { label: '파기', value: 'voided' },
 ]
 
+/** 모달에서 수집·수정하는 인적사항 (자동 표 8필드 + OTP 번호) */
+interface ContractFormData {
+  business_name: string
+  contact_name: string
+  contact_phone: string
+  address: string
+  business_number: string
+  email: string
+  contract_start_date: string
+  contract_end_date: string
+  care_scope: string
+  otp_phone: string   // OTP 수신용 (기본은 contact_phone 과 동일)
+}
+
+const EMPTY_FORM: ContractFormData = {
+  business_name: '', contact_name: '', contact_phone: '',
+  address: '', business_number: '', email: '',
+  contract_start_date: '', contract_end_date: '', care_scope: '',
+  otp_phone: '',
+}
 
 export default function AdminContractsPage() {
   const router = useRouter()
@@ -78,28 +98,21 @@ export default function AdminContractsPage() {
   const [contractToDelete, setContractToDelete] = useState<ContractListItem | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
 
-  // 신규 계약서 폼 상태
   const [customers, setCustomers] = useState<CustomerOption[]>([])
   const [customerInputValue, setCustomerInputValue] = useState('')
   const [showCustomerDropdown, setShowCustomerDropdown] = useState(false)
   const customerDropdownRef = useRef<HTMLDivElement>(null)
+  const [selectedCustomerId, setSelectedCustomerId] = useState<string>('')
+
   const [templates, setTemplates] = useState<TemplateOption[]>([])
   const [selectedTemplateId, setSelectedTemplateId] = useState('')
-  const [formData, setFormData] = useState({
-    customer_id: '',
-    monthly_price: '',
-    annual_price: '',
-    contract_start_date: '',
-    contract_end_date: '',
-    customer_phone: '',
-    service_scope: '',
-  })
+
+  const [formData, setFormData] = useState<ContractFormData>(EMPTY_FORM)
   const [isCreating, setIsCreating] = useState(false)
-  const [templateVarConfig, setTemplateVarConfig] = useState<TemplateVarConfigMap>({})
-  const [manualVarValues, setManualVarValues] = useState<Record<string, string>>({})
   const [createStep, setCreateStep] = useState<'form' | 'preview'>('form')
   const [previewHtml, setPreviewHtml] = useState('')
   const [isPreviewLoading, setIsPreviewLoading] = useState(false)
+
   const handleCloseCreateModal = useCallback(() => {
     setShowCreateModal(false)
     setCreateStep('form')
@@ -112,9 +125,7 @@ export default function AdminContractsPage() {
       const params = activeTab !== 'all' ? `?status=${activeTab}` : ''
       const res = await fetch(`/api/admin/contracts${params}`)
       const json = await res.json()
-      if (json.success) {
-        setContracts(json.data ?? [])
-      }
+      if (json.success) setContracts(json.data ?? [])
     } catch {
       toast.error('계약서 목록을 불러오지 못했습니다.')
     } finally {
@@ -122,15 +133,12 @@ export default function AdminContractsPage() {
     }
   }, [activeTab])
 
-  useEffect(() => {
-    void fetchContracts()
-  }, [fetchContracts])
+  useEffect(() => { void fetchContracts() }, [fetchContracts])
 
   const fetchCustomers = async () => {
     try {
       const res = await fetch('/api/admin/customers')
       const json = await res.json()
-      // API는 { customers: [...] } 형태로 반환
       const list: CustomerOption[] = json.customers ?? json.data ?? []
       setCustomers(list)
     } catch {
@@ -143,14 +151,10 @@ export default function AdminContractsPage() {
       const res = await fetch('/api/admin/contract-templates')
       const json = await res.json()
       if (json.success) {
-        const active: TemplateOption[] = (json.data ?? []).filter(
-          (t: TemplateOption) => t.is_active,
-        )
+        const active: TemplateOption[] = (json.data ?? []).filter((t: TemplateOption) => t.is_active)
         setTemplates(active)
       }
-    } catch {
-      // 템플릿 로드 실패는 무시 (기본 양식 사용)
-    }
+    } catch { /* 무시 */ }
   }
 
   // 드롭다운 외부 클릭 시 닫기
@@ -168,39 +172,15 @@ export default function AdminContractsPage() {
     void fetchCustomers()
     void fetchTemplates()
     setCustomerInputValue('')
+    setSelectedCustomerId('')
     setShowCustomerDropdown(false)
     setSelectedTemplateId('')
-    setTemplateVarConfig({})
-    setManualVarValues({})
-    setFormData({
-      customer_id: '',
-      monthly_price: '',
-      annual_price: '',
-      contract_start_date: '',
-      contract_end_date: '',
-      customer_phone: '',
-      service_scope: '',
-    })
+    setFormData(EMPTY_FORM)
     setShowCreateModal(true)
   }
 
-  const handleTemplateChange = async (templateId: string) => {
-    setSelectedTemplateId(templateId)
-    setTemplateVarConfig({})
-    setManualVarValues({})
-    if (!templateId) return
-    try {
-      const res = await fetch(`/api/admin/contract-templates/${templateId}`)
-      const json = await res.json()
-      if (json.success) {
-        setTemplateVarConfig((json.data.var_config ?? {}) as TemplateVarConfigMap)
-      }
-    } catch { /* 무시 */ }
-  }
-
-  // 검색어로 필터링된 고객 목록 (고객이 이미 선택된 상태면 전체 표시)
   const filteredCustomers = customers.filter((c) => {
-    if (formData.customer_id || !customerInputValue) return true
+    if (selectedCustomerId || !customerInputValue) return true
     const q = customerInputValue.toLowerCase()
     return (
       (c.business_name ?? '').toLowerCase().includes(q) ||
@@ -209,54 +189,56 @@ export default function AdminContractsPage() {
     )
   })
 
-  const handleCustomerSelect = (customer: CustomerOption) => {
-    // 계약 주기(billing_cycle)에 해당하는 필드만 자동 채움.
-    // billing_amount 는 VAT 포함 총액이므로 /1.1 로 공급가액만 산출.
-    const isAnnual = customer.billing_cycle === '연간'
-    const isMonthly = customer.billing_cycle === '월간'
-    const toSupply = (n: number | null): number | null =>
-      (n != null && n > 0) ? Math.round(n / 1.1) : null
-    const supply = toSupply(customer.billing_amount)
-
-    setFormData((prev) => ({
-      ...prev,
-      customer_id: customer.id,
-      monthly_price: isMonthly && supply ? String(supply) : '',
-      annual_price: isAnnual && supply ? String(supply) : '',
-      contract_start_date: customer.contract_start_date ?? '',
-      contract_end_date: customer.contract_end_date ?? '',
-      customer_phone: customer.contact_phone ?? '',
-    }))
-    setCustomerInputValue(`${customer.business_name} (${customer.contact_name})`)
+  const handleCustomerSelect = (c: CustomerOption) => {
+    const address = [c.address, c.address_detail].filter(Boolean).join(' ')
+    setSelectedCustomerId(c.id)
+    setFormData({
+      business_name:       c.business_name       ?? '',
+      contact_name:        c.contact_name        ?? '',
+      contact_phone:       c.contact_phone       ?? '',
+      address,
+      business_number:     c.business_number     ?? '',
+      email:               c.email               ?? '',
+      contract_start_date: c.contract_start_date ?? '',
+      contract_end_date:   c.contract_end_date   ?? '',
+      care_scope:          c.care_scope          ?? '',
+      otp_phone:           c.contact_phone       ?? '',
+    })
+    setCustomerInputValue(`${c.business_name} (${c.contact_name})`)
     setShowCustomerDropdown(false)
   }
 
-  const buildContractPayload = () => {
-    const selectedItems = formData.service_scope.split('\n').map((l) => l.trim()).filter(Boolean)
-    return {
-      customer_id: formData.customer_id,
-      monthly_price: formData.monthly_price ? Number(formData.monthly_price) : null,
-      annual_price: formData.annual_price ? Number(formData.annual_price) : null,
-      contract_start_date: formData.contract_start_date || null,
-      contract_end_date: formData.contract_end_date || null,
-      customer_phone: formData.customer_phone,
-      selected_items: selectedItems,
-      template_id: selectedTemplateId || undefined,
-      custom_vars: Object.keys(manualVarValues).length > 0 ? manualVarValues : undefined,
-    }
-  }
+  const setField = <K extends keyof ContractFormData>(k: K) => (v: string) =>
+    setFormData(prev => ({ ...prev, [k]: v }))
+
+  const buildPayload = () => ({
+    customer_id: selectedCustomerId,
+    template_id: selectedTemplateId,
+    customer_phone: formData.otp_phone,
+    customer_info: {
+      business_name:       formData.business_name.trim(),
+      contact_name:        formData.contact_name.trim(),
+      contact_phone:       formData.contact_phone.trim(),
+      address:             formData.address.trim(),
+      business_number:     formData.business_number.trim(),
+      email:               formData.email.trim(),
+      contract_start_date: formData.contract_start_date,
+      contract_end_date:   formData.contract_end_date,
+      care_scope:          formData.care_scope.trim(),
+    },
+  })
 
   const handlePreview = async () => {
-    if (!formData.customer_id) {
-      toast.error('고객을 선택해주세요.')
-      return
-    }
+    if (!selectedCustomerId) { toast.error('고객을 선택해주세요.'); return }
+    if (!selectedTemplateId) { toast.error('계약서 양식을 선택해주세요.'); return }
+    if (!formData.business_name.trim()) { toast.error('업체명이 필요합니다.'); return }
+
     setIsPreviewLoading(true)
     try {
       const res = await fetch('/api/admin/contracts/preview', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(buildContractPayload()),
+        body: JSON.stringify(buildPayload()),
       })
       const json = await res.json()
       if (json.success) {
@@ -274,19 +256,13 @@ export default function AdminContractsPage() {
   }
 
   const handleCreate = async () => {
-    if (!formData.customer_id) {
-      toast.error('고객을 선택해주세요.')
-      return
-    }
+    if (!selectedCustomerId) { toast.error('고객을 선택해주세요.'); return }
     setIsCreating(true)
     try {
       const res = await fetch('/api/admin/contracts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...buildContractPayload(),
-          html_body: previewHtml || undefined,
-        }),
+        body: JSON.stringify({ ...buildPayload(), html_body: previewHtml || undefined }),
       })
       const json = await res.json()
       if (json.success) {
@@ -304,44 +280,6 @@ export default function AdminContractsPage() {
       setIsCreating(false)
     }
   }
-
-  const selectedCustomer = customers.find(c => c.id === formData.customer_id) ?? null
-
-  const today = new Date()
-  const varPreviewEntries = selectedTemplateId && Object.keys(templateVarConfig).length > 0
-    ? (Object.entries(templateVarConfig) as [string, VarConfig][]).map(([varName, cfg]) => {
-        let value = ''
-        if (cfg.mode === 'manual') {
-          value = manualVarValues[varName] ?? ''
-        } else if (cfg.autoField) {
-          const f = cfg.autoField
-          if (f === 'customer.business_name') value = selectedCustomer?.business_name ?? ''
-          else if (f === 'customer.contact_name') value = selectedCustomer?.contact_name ?? ''
-          else if (f === 'customer.contact_phone') value = selectedCustomer?.contact_phone ?? ''
-          else if (f === 'contract.monthly_price') value = formData.monthly_price ? `${Number(formData.monthly_price).toLocaleString()}원` : ''
-          else if (f === 'contract.annual_price') value = formData.annual_price ? `${Number(formData.annual_price).toLocaleString()}원` : ''
-          else if (f === 'contract.start_date') value = formData.contract_start_date
-          else if (f === 'contract.end_date') value = formData.contract_end_date
-          else if (f === 'system.today_year') value = String(today.getFullYear())
-          else if (f === 'system.today_month') value = String(today.getMonth() + 1).padStart(2, '0')
-          else if (f === 'system.today_day') value = String(today.getDate()).padStart(2, '0')
-          else if (f === 'contract.selected_items_list') value = formData.service_scope.trim() ? `${formData.service_scope.split('\n').filter(Boolean).length}개 항목` : ''
-        }
-        return { name: varName, label: cfg.label || varName, mode: cfg.mode, value }
-      })
-    : [
-        { name: 'CUSTOMER_BUSINESS_NAME', label: '고객사명', mode: 'auto' as const, value: selectedCustomer?.business_name ?? '' },
-        { name: 'CUSTOMER_OWNER_NAME', label: '담당자명', mode: 'auto' as const, value: selectedCustomer?.contact_name ?? '' },
-        { name: 'CUSTOMER_PHONE', label: '고객 연락처', mode: 'auto' as const, value: selectedCustomer?.contact_phone ?? '' },
-        { name: 'CONTRACT_YEAR', label: '계약 연도', mode: 'auto' as const, value: String(today.getFullYear()) },
-        { name: 'CONTRACT_MONTH', label: '계약 월', mode: 'auto' as const, value: String(today.getMonth() + 1).padStart(2, '0') },
-        { name: 'CONTRACT_DAY', label: '계약 일', mode: 'auto' as const, value: String(today.getDate()).padStart(2, '0') },
-        { name: 'MONTHLY_PRICE', label: '월 요금', mode: 'auto' as const, value: formData.monthly_price ? `${Number(formData.monthly_price).toLocaleString()}원` : '' },
-        { name: 'ANNUAL_PRICE', label: '연간 요금', mode: 'auto' as const, value: formData.annual_price ? `${Number(formData.annual_price).toLocaleString()}원` : '' },
-        { name: 'CONTRACT_START_DATE', label: '계약 시작일', mode: 'auto' as const, value: formData.contract_start_date },
-        { name: 'CONTRACT_END_DATE', label: '계약 종료일', mode: 'auto' as const, value: formData.contract_end_date },
-        { name: 'SELECTED_ITEMS_LIST', label: '서비스 항목', mode: 'auto' as const, value: formData.service_scope.trim() ? `${formData.service_scope.split('\n').filter(Boolean).length}개 항목` : '' },
-      ]
 
   const handleDeleteConfirm = async () => {
     if (!contractToDelete) return
@@ -363,15 +301,7 @@ export default function AdminContractsPage() {
     }
   }
 
-  const formatDate = (dateStr: string | null) => {
-    if (!dateStr) return '-'
-    return new Date(dateStr).toLocaleDateString('ko-KR')
-  }
-
-  const formatPrice = (price: number | null) => {
-    if (!price) return '-'
-    return `${price.toLocaleString('ko-KR')}원`
-  }
+  const formatDate = (dateStr: string | null) => dateStr ? new Date(dateStr).toLocaleDateString('ko-KR') : '-'
 
   return (
     <div className="space-y-6">
@@ -428,7 +358,7 @@ export default function AdminContractsPage() {
                     {contract.customers?.business_name ?? '고객명 없음'}
                   </p>
                   <p className="text-xs text-text-tertiary mt-1">
-                    {formatPrice(contract.monthly_price)}/월 · {formatDate(contract.start_date)} ~ {formatDate(contract.end_date)}
+                    {formatDate(contract.start_date)} ~ {formatDate(contract.end_date)}
                   </p>
                 </div>
                 <div className="flex items-center gap-2 flex-shrink-0">
@@ -440,10 +370,7 @@ export default function AdminContractsPage() {
                     {STATUS_LABELS[contract.signing_status] ?? contract.signing_status}
                   </span>
                   <button
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      setContractToDelete(contract)
-                    }}
+                    onClick={(e) => { e.stopPropagation(); setContractToDelete(contract) }}
                     className="p-1.5 rounded-lg text-text-tertiary hover:text-state-danger hover:bg-state-danger-bg transition-colors"
                     title="휴지통으로 이동"
                   >
@@ -470,55 +397,38 @@ export default function AdminContractsPage() {
               {contractToDelete?.customers?.business_name ?? '고객'} 계약서를 휴지통으로 이동하시겠습니까?
             </p>
             <p className="text-xs text-text-secondary mt-1">
-              휴지통에서 60일간 보관 후 자동 삭제됩니다. 복원은 휴지통 탭에서 가능합니다.
+              휴지통에서 60일간 보관 후 자동 삭제됩니다.
             </p>
           </div>
           <div className="flex gap-3">
-            <Button
-              variant="secondary"
-              className="flex-1"
-              onClick={() => setContractToDelete(null)}
-            >
-              취소
-            </Button>
-            <Button
-              variant="danger"
-              className="flex-1"
-              onClick={handleDeleteConfirm}
-              isLoading={isDeleting}
-            >
-              휴지통으로 이동
-            </Button>
+            <Button variant="secondary" className="flex-1" onClick={() => setContractToDelete(null)}>취소</Button>
+            <Button variant="danger" className="flex-1" onClick={handleDeleteConfirm} isLoading={isDeleting}>휴지통으로 이동</Button>
           </div>
         </div>
       </Modal>
 
-      {/* 새 계약서 작성 모달 */}
-      <Modal
-        open={showCreateModal}
-        onClose={handleCloseCreateModal}
-        title="새 계약서 작성"
-      >
-        <div className="space-y-4 pt-2">
-          {/* 템플릿 선택 */}
+      {/* 새 계약서 작성 모달 — v2 */}
+      <Modal open={showCreateModal} onClose={handleCloseCreateModal} title="새 계약서 작성">
+        <div className="space-y-5 pt-2">
+
+          {/* 1) 계약서 양식 */}
           <div>
             <label className="block text-sm font-medium text-text-primary mb-1.5">
-              계약서 양식
+              계약서 양식 <span className="text-state-danger">*</span>
             </label>
             <select
               value={selectedTemplateId}
-              onChange={(e) => void handleTemplateChange(e.target.value)}
+              onChange={(e) => setSelectedTemplateId(e.target.value)}
               className="w-full border border-border rounded-md px-3 py-2 text-sm bg-surface text-text-primary focus:outline-none focus:ring-2 focus:ring-brand-600"
             >
-              <option value="">양식 선택 안함 (기본 양식 사용)</option>
+              <option value="">양식을 선택하세요</option>
               {templates.map((tmpl) => (
-                <option key={tmpl.id} value={tmpl.id}>
-                  {tmpl.name}
-                </option>
+                <option key={tmpl.id} value={tmpl.id}>{tmpl.name}</option>
               ))}
             </select>
           </div>
 
+          {/* 2) 고객 선택 */}
           <div ref={customerDropdownRef} className="relative">
             <label className="block text-sm font-medium text-text-primary mb-1.5">
               고객 선택 <span className="text-state-danger">*</span>
@@ -529,9 +439,7 @@ export default function AdminContractsPage() {
               onChange={(e) => {
                 setCustomerInputValue(e.target.value)
                 setShowCustomerDropdown(true)
-                if (formData.customer_id) {
-                  setFormData((prev) => ({ ...prev, customer_id: '' }))
-                }
+                if (selectedCustomerId) setSelectedCustomerId('')
               }}
               onFocus={() => setShowCustomerDropdown(true)}
               placeholder="고객명·담당자·전화번호 검색"
@@ -559,165 +467,66 @@ export default function AdminContractsPage() {
                 )}
               </div>
             )}
+            <p className="text-xs text-text-tertiary mt-1">고객 선택 시 아래 인적사항이 자동 채워집니다. 이후 수정 가능.</p>
           </div>
 
+          {/* 3) 인적사항 (자동 채움 + 수정) */}
+          <div className="rounded-xl border border-border-subtle overflow-hidden">
+            <div className="px-3 py-2 bg-surface-sunken border-b border-border-subtle">
+              <p className="text-xs font-semibold text-text-secondary">인적사항 — 계약서 표에 사용됩니다</p>
+            </div>
+            <div className="p-3 grid grid-cols-2 gap-3">
+              <LabeledInput label="업체명" required value={formData.business_name} onChange={setField('business_name')} />
+              <LabeledInput label="고객명" required value={formData.contact_name} onChange={setField('contact_name')} />
+              <LabeledInput label="연락처" value={formData.contact_phone} onChange={setField('contact_phone')} placeholder="010-0000-0000" />
+              <LabeledInput label="이메일" value={formData.email} onChange={setField('email')} type="email" />
+              <LabeledInput label="사업자등록번호" value={formData.business_number} onChange={setField('business_number')} placeholder="000-00-00000" />
+              <LabeledInput label="주소" value={formData.address} onChange={setField('address')} />
+            </div>
+          </div>
+
+          {/* 4) 계약기간 */}
           <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-sm font-medium text-text-primary mb-1.5">
-                월 요금 (원)
-                <span className="ml-1.5 text-[10px] font-mono text-brand-600 bg-brand-50 px-1 py-0.5 rounded">{'{{MONTHLY_PRICE}}'}</span>
-              </label>
-              <input
-                type="number"
-                value={formData.monthly_price}
-                onChange={(e) => setFormData((prev) => ({ ...prev, monthly_price: e.target.value }))}
-                placeholder="238000"
-                className="w-full border border-border rounded-md px-3 py-2 text-sm bg-surface text-text-primary focus:outline-none focus:ring-2 focus:ring-brand-600"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-text-primary mb-1.5">
-                연간 요금 (원)
-                <span className="ml-1.5 text-[10px] font-mono text-brand-600 bg-brand-50 px-1 py-0.5 rounded">{'{{ANNUAL_PRICE}}'}</span>
-              </label>
-              <input
-                type="number"
-                value={formData.annual_price}
-                onChange={(e) => setFormData((prev) => ({ ...prev, annual_price: e.target.value }))}
-                placeholder="2856000"
-                className="w-full border border-border rounded-md px-3 py-2 text-sm bg-surface text-text-primary focus:outline-none focus:ring-2 focus:ring-brand-600"
-              />
-            </div>
+            <LabeledInput label="계약 시작일" value={formData.contract_start_date} onChange={setField('contract_start_date')} type="date" />
+            <LabeledInput label="계약 종료일" value={formData.contract_end_date} onChange={setField('contract_end_date')} type="date" />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-sm font-medium text-text-primary mb-1.5">
-                계약 시작일
-                <span className="ml-1.5 text-[10px] font-mono text-brand-600 bg-brand-50 px-1 py-0.5 rounded">{'{{CONTRACT_START_DATE}}'}</span>
-              </label>
-              <input
-                type="date"
-                value={formData.contract_start_date}
-                onChange={(e) => setFormData((prev) => ({ ...prev, contract_start_date: e.target.value }))}
-                className="w-full border border-border rounded-md px-3 py-2 text-sm bg-surface text-text-primary focus:outline-none focus:ring-2 focus:ring-brand-600"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-text-primary mb-1.5">
-                계약 종료일
-                <span className="ml-1.5 text-[10px] font-mono text-brand-600 bg-brand-50 px-1 py-0.5 rounded">{'{{CONTRACT_END_DATE}}'}</span>
-              </label>
-              <input
-                type="date"
-                value={formData.contract_end_date}
-                onChange={(e) => setFormData((prev) => ({ ...prev, contract_end_date: e.target.value }))}
-                className="w-full border border-border rounded-md px-3 py-2 text-sm bg-surface text-text-primary focus:outline-none focus:ring-2 focus:ring-brand-600"
-              />
-            </div>
-          </div>
-
+          {/* 5) 케어범위 */}
           <div>
-            <label className="block text-sm font-medium text-text-primary mb-1.5">
-              서비스 범위 (품목)
-              <span className="ml-1.5 text-[10px] font-mono text-brand-600 bg-brand-50 px-1 py-0.5 rounded">{'{{SELECTED_ITEMS_LIST}}'}</span>
-            </label>
+            <label className="block text-sm font-medium text-text-primary mb-1.5">케어범위</label>
             <textarea
-              value={formData.service_scope}
-              onChange={(e) => setFormData((prev) => ({ ...prev, service_scope: e.target.value }))}
-              placeholder={'주방후드 청소\n바닥 왁스 코팅\n에어컨 필터 세척'}
-              rows={4}
+              value={formData.care_scope}
+              onChange={(e) => setField('care_scope')(e.target.value)}
+              placeholder="예: 주방후드·바닥·에어컨 필터 청소"
+              rows={3}
               className="w-full border border-border rounded-md px-3 py-2 text-sm bg-surface text-text-primary focus:outline-none focus:ring-2 focus:ring-brand-600 resize-none leading-relaxed"
             />
-            <p className="text-xs text-text-tertiary mt-1">한 줄에 항목 하나씩 입력하세요. 계약서 본문에 목록으로 표시됩니다.</p>
           </div>
 
-          {/* 수동 입력 변수 */}
-          {Object.entries(templateVarConfig).some(([, cfg]: [string, VarConfig]) => cfg.mode === 'manual') && (
-            <div className="space-y-3 border-t border-border-subtle pt-3">
-              <p className="text-sm font-medium text-text-primary">추가 정보 입력</p>
-              {(Object.entries(templateVarConfig) as [string, VarConfig][])
-                .filter(([, cfg]) => cfg.mode === 'manual')
-                .map(([varName, cfg]) => (
-                  <div key={varName}>
-                    <label className="block text-sm font-medium text-text-primary mb-1.5">
-                      {cfg.label || varName}
-                      <span className="ml-1.5 text-xs font-normal text-text-tertiary font-mono">{`{{${varName}}}`}</span>
-                    </label>
-                    <input
-                      type="text"
-                      value={manualVarValues[varName] ?? ''}
-                      onChange={(e) => setManualVarValues(prev => ({ ...prev, [varName]: e.target.value }))}
-                      placeholder={cfg.label || varName}
-                      className="w-full border border-border rounded-md px-3 py-2 text-sm bg-surface text-text-primary focus:outline-none focus:ring-2 focus:ring-brand-600"
-                    />
-                  </div>
-                ))}
-            </div>
-          )}
-
-          {/* 변수 매핑 확인 패널 */}
-          {formData.customer_id && (
-            <div className="rounded-xl border border-border-subtle overflow-hidden">
-              <div className="px-3 py-2 bg-surface-sunken border-b border-border-subtle flex items-center justify-between">
-                <p className="text-xs font-semibold text-text-secondary">변수 매핑 확인</p>
-                <span className="text-[10px] text-text-tertiary">
-                  {varPreviewEntries.filter(e => e.value).length}/{varPreviewEntries.length} 매핑됨
-                </span>
-              </div>
-              <div className="divide-y divide-border-subtle max-h-48 overflow-y-auto">
-                {varPreviewEntries.map((entry) => (
-                  <div key={entry.name} className="flex items-center gap-2 px-3 py-1.5">
-                    <code className="text-[10px] font-mono text-brand-600 shrink-0 leading-none">
-                      {`{{${entry.name}}}`}
-                    </code>
-                    <span className="text-xs text-text-tertiary flex-1 truncate">{entry.label}</span>
-                    {entry.value ? (
-                      <span className="text-[11px] text-state-success font-medium truncate max-w-[100px] shrink-0">
-                        ✓ {entry.value}
-                      </span>
-                    ) : (
-                      <span className="text-[11px] text-state-warning shrink-0">⚠ 미입력</span>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
+          {/* 6) OTP 수신 번호 */}
           <div>
-            <label className="block text-sm font-medium text-text-primary mb-1.5">고객 전화번호 (OTP 수신)</label>
+            <label className="block text-sm font-medium text-text-primary mb-1.5">
+              OTP 수신 번호 <span className="text-text-tertiary text-xs">(연락처와 다르면 별도 입력)</span>
+            </label>
             <input
               type="tel"
-              value={formData.customer_phone}
-              onChange={(e) => setFormData((prev) => ({ ...prev, customer_phone: e.target.value }))}
+              value={formData.otp_phone}
+              onChange={(e) => setField('otp_phone')(e.target.value)}
               placeholder="010-0000-0000"
               className="w-full border border-border rounded-md px-3 py-2 text-sm bg-surface text-text-primary focus:outline-none focus:ring-2 focus:ring-brand-600"
             />
           </div>
 
           <div className="flex gap-3 pt-2">
-            <Button
-              variant="secondary"
-              className="flex-1"
-              onClick={handleCloseCreateModal}
-            >
-              취소
-            </Button>
-            <Button
-              className="flex-1"
-              onClick={handlePreview}
-              isLoading={isPreviewLoading}
-            >
-              미리보기 →
-            </Button>
+            <Button variant="secondary" className="flex-1" onClick={handleCloseCreateModal}>취소</Button>
+            <Button className="flex-1" onClick={handlePreview} isLoading={isPreviewLoading}>미리보기 →</Button>
           </div>
         </div>
       </Modal>
+
       {/* 계약서 미리보기 + 편집 오버레이 */}
       {createStep === 'preview' && (
         <div className="fixed inset-0 z-50 bg-surface flex flex-col">
-          {/* 헤더 */}
           <div className="flex items-center justify-between px-6 py-3 border-b border-border-subtle shrink-0 bg-surface">
             <button
               onClick={() => { setCreateStep('form'); setShowCreateModal(true) }}
@@ -726,16 +535,41 @@ export default function AdminContractsPage() {
               ← 수정하기
             </button>
             <p className="text-sm font-semibold text-text-primary">계약서 확인 및 편집</p>
-            <Button onClick={handleCreate} isLoading={isCreating} size="sm">
-              계약서 생성
-            </Button>
+            <Button onClick={handleCreate} isLoading={isCreating} size="sm">계약서 생성</Button>
           </div>
-          {/* 에디터 본문 */}
           <div className="flex-1 overflow-auto p-6 max-w-5xl mx-auto w-full">
             <ContractEditor value={previewHtml} onChange={setPreviewHtml} />
           </div>
         </div>
       )}
+    </div>
+  )
+}
+
+// ─── 재사용 인풋 ──────────────────────────────────────────────────
+
+function LabeledInput({
+  label, value, onChange, type = 'text', placeholder, required = false,
+}: {
+  label: string
+  value: string
+  onChange: (v: string) => void
+  type?: string
+  placeholder?: string
+  required?: boolean
+}) {
+  return (
+    <div>
+      <label className="block text-xs font-medium text-text-primary mb-1">
+        {label}{required && <span className="text-state-danger ml-0.5">*</span>}
+      </label>
+      <input
+        type={type}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        className="w-full border border-border rounded-md px-2.5 py-1.5 text-sm bg-surface text-text-primary focus:outline-none focus:ring-2 focus:ring-brand-600"
+      />
     </div>
   )
 }

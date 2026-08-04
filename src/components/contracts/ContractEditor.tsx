@@ -111,7 +111,9 @@ export default function ContractEditor({ value, onChange }: ContractEditorProps)
       StarterKit,
       Underline,
       TextAlign.configure({ types: ['heading', 'paragraph'] }),
-      Table.configure({ resizable: false }),
+      // Phase v2: 마우스로 열 너비를 조절할 수 있도록 resizable 활성화.
+      // 행 높이는 TipTap Table 확장 자체가 미지원 — 셀 내부 콘텐츠 늘어남에 따라 자동 확장.
+      Table.configure({ resizable: true, handleWidth: 5, cellMinWidth: 40 }),
       TableRow,
       TableHeader,
       TableCell,
@@ -400,6 +402,55 @@ export default function ContractEditor({ value, onChange }: ContractEditorProps)
           <div className="bg-white overflow-y-auto" style={{ maxHeight: '60vh' }}>
             <EditorContent editor={editor} />
           </div>
+          {/* TipTap 표 리사이즈 UX 스타일 — 마우스로 열 너비 조절 시 핸들 시각화 */}
+          <style jsx global>{`
+            .contract-editor-content table {
+              border-collapse: collapse;
+              table-layout: fixed;
+              width: 100%;
+              margin: 12px 0;
+              overflow: hidden;
+            }
+            .contract-editor-content td,
+            .contract-editor-content th {
+              border: 1px solid #ccc;
+              padding: 8px 12px;
+              vertical-align: top;
+              position: relative;
+              min-width: 40px;
+              box-sizing: border-box;
+            }
+            .contract-editor-content th {
+              background: #f0f2f5;
+              font-weight: 600;
+            }
+            .contract-editor-content .selectedCell:after {
+              content: '';
+              position: absolute;
+              inset: 0;
+              background: rgba(37, 99, 235, 0.12);
+              pointer-events: none;
+              z-index: 2;
+            }
+            .contract-editor-content .column-resize-handle {
+              position: absolute;
+              right: -2px;
+              top: 0;
+              bottom: 0;
+              width: 4px;
+              background: #2563eb;
+              opacity: 0.5;
+              cursor: col-resize;
+              z-index: 3;
+              pointer-events: none;
+            }
+            .contract-editor-content.resize-cursor {
+              cursor: col-resize;
+            }
+            .contract-editor-content .tableWrapper {
+              overflow-x: auto;
+            }
+          `}</style>
         </div>
       )}
 
