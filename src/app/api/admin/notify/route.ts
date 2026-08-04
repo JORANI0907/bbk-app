@@ -40,6 +40,15 @@ const NOTIFY_TO_STATUS: Record<string, string> = {
 // 관리자가 새 template 추가 시에도 관리 페이지 dropdown 으로 상태 연결을 지정 가능.
 // 발송 직전에 template row 를 조회해 두 필드를 읽어 자동 업데이트.
 
+// notification_templates.code는 서비스 타입별로 파티셔닝되어 있음:
+//   작업완료알림_1회성, 작업완료알림(카드,플렛폼)_1회성, 작업완료알림(정기엔드케어)_정기엔드 …
+// 프론트/자동화가 넘기는 baseType(예: '작업완료알림')에 아래 접미사를 붙여 DB code 를 조회.
+function serviceTypeSuffix(serviceType: string): string {
+  if (serviceType === '정기딥케어') return '_정기딥'
+  if (serviceType === '정기엔드케어') return '_정기엔드'
+  return '_1회성'
+}
+
 // ─── 요청시간 계산: 마감시간 +1h ~ +4h ("~3시간 후") ──────────────
 // 예) 21:00 → "22:00 ~ 01:00 사이"
 function calcRequestTime(endTime: string | null | undefined): string {
@@ -426,21 +435,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: true, new_status: null, worker_phones: sentPhones })
     }
 
-    // 게이팅: notification_templates(code=type) 에 등록된 활성 템플릿이 있어야 진행
-    // 단, '작업완료알림'은 아래에서 세분화 후 재검증하므로 여기서 통과시킴
-    if (type !== '작업완료알림') {
-      const { data: dbTpl } = await supabase
-        .from('notification_templates')
-        .select('id, is_active')
-        .eq('code', type)
-        .maybeSingle()
-      const hasDbTemplate = !!dbTpl && dbTpl.is_active !== false
-      if (!hasDbTemplate) {
-        return NextResponse.json({ error: `알 수 없는 알림 유형입니다: ${type}` }, { status: 400 })
-      }
-    }
-
     // 신청서 + 담당자 이름 조회 (삭제된 레코드 제외)
+    // 게이팅 판단에도 app.service_type 이 필요하므로 신청서 조회를 위로 이동.
     const { data: app } = await supabase
       .from('service_applications')
       .select('*')
@@ -450,27 +446,33 @@ export async function POST(request: NextRequest) {
 
     if (!app) return NextResponse.json({ error: '신청서를 찾을 수 없습니다.' }, { status: 404 })
 
-    // 작업완료알림: 서비스 유형 및 payment_method에 따라 알림 유형 결정
+    // 작업완료알림: 서비스 유형 및 payment_method 에 따라 baseType 결정.
+    // baseType 은 UI/상태 매핑/변수 빌드용, 접미사 붙은 templateCode 는 DB 조회용.
+    // 관리자 운영 방침: 현금(계산서 희망)·현금(비과세) 둘 다 '작업완료알림' 템플릿을 공용
+    // (작업완료알림_1회성.trigger_desc 참조). 카드/플랫폼만 별도 템플릿.
     if (type === '작업완료알림') {
       if (String(app.service_type ?? '') === '정기엔드케어') {
         type = '작업완료알림(정기엔드케어)'
       } else {
         const pm = String(app.payment_method ?? '')
-        if (pm === '현금(비과세)') {
-          type = '작업완료알림(현금)'
-        } else if (pm === '카드(온라인 간편결제)' || pm === '플랫폼') {
+        if (pm === '카드(온라인 간편결제)' || pm === '플랫폼') {
           type = '작업완료알림(카드,플렛폼)'
-        } else if (pm !== '현금(계산서 희망)') {
+        } else if (pm !== '현금(계산서 희망)' && pm !== '현금(비과세)') {
           return NextResponse.json({ success: true, skipped: true, reason: `결제방법 '${pm}'은(는) 발송 대상이 아닙니다.` })
         }
       }
+    }
+
+    // 서비스 타입 접미사(_1회성/_정기딥/_정기엔드)를 붙여 실제 DB code 로 게이팅.
+    const templateCode = type + serviceTypeSuffix(String(app.service_type ?? ''))
+    {
       const { data: dbTpl } = await supabase
         .from('notification_templates')
         .select('id, is_active')
-        .eq('code', type)
+        .eq('code', templateCode)
         .maybeSingle()
       if (!dbTpl || dbTpl.is_active === false) {
-        return NextResponse.json({ error: `알 수 없는 알림 유형입니다: ${type}` }, { status: 400 })
+        return NextResponse.json({ error: `알 수 없는 알림 유형입니다: ${templateCode}` }, { status: 400 })
       }
     }
 
@@ -513,10 +515,11 @@ export async function POST(request: NextRequest) {
     const fallbackText = buildFallback(type, app as Record<string, unknown>)
 
     // 각 번호로 순차 발송. 하나 실패해도 나머지는 계속.
+    // templateCode(접미사 붙은 코드)로 실제 template 조회. type(baseType)은 이력·상태용.
     const sendErrors: string[] = []
     const channelsUsed: Array<'sms' | 'lms'> = []
     for (const target of targets) {
-      const smsResult = await sendByTemplate(type, target, {
+      const smsResult = await sendByTemplate(templateCode, target, {
         application: app as NotificationContext['application'],
       })
       if (smsResult.ok) {
@@ -565,12 +568,11 @@ export async function POST(request: NextRequest) {
     // ── 계약상태 자동변경 (Phase 8-B: dual-write + Phase 27-AQ: template.linked_*) ──
     const newStatus = NOTIFY_TO_STATUS[type]
     // Phase 27-AQ: 하드코딩 매핑 → template row 의 linked_* 조회로 이관.
-    // 최종 type 이 결정된 후 (작업완료알림 세분화 이후) 조회. 관리자가 관리 페이지에서
-    // dropdown 으로 연결한 상태 값이 자동으로 세팅됨. 새 template 추가 시에도 즉시 반영.
+    // linked_* 는 서비스 타입별로 접미사 붙은 templateCode 기준으로 관리됨.
     const { data: linkedRow } = await supabase
       .from('notification_templates')
       .select('linked_progress_status, linked_payment_status')
-      .eq('code', type)
+      .eq('code', templateCode)
       .maybeSingle()
 
     // Phase 29-C: notification_templates에 suffix 없는 code(예약금 입금완료 알림, 결제완료알림(잔금) 등)가
