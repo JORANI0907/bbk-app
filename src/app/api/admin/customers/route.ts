@@ -551,6 +551,23 @@ export async function PATCH(request: NextRequest) {
     }
   }
 
+  // drive_folder_url 이 body 에 들어오면 미완료 service_applications 에도 자동 sync.
+  // 배정관리(WorkPanel)는 sa.drive_folder_url 을 참조하므로 고객관리에서
+  // 폴더 생성만 하고 신청서에 반영 안 되면 '드라이브 미생성' 표시 버그 발생.
+  // 기존 값이 있는 신청서는 유지 (배정자가 수동 변경한 URL 보존).
+  if ('drive_folder_url' in rest && typeof rest.drive_folder_url === 'string' && rest.drive_folder_url) {
+    try {
+      await supabase
+        .from('service_applications')
+        .update({ drive_folder_url: rest.drive_folder_url })
+        .eq('customer_id', id)
+        .is('drive_folder_url', null)
+        .is('deleted_at', null)
+    } catch (e) {
+      console.error('drive_folder_url 동기화 실패:', e instanceof Error ? e.message : e)
+    }
+  }
+
   return NextResponse.json({ success: true, customer: updatedCustomer })
 }
 
