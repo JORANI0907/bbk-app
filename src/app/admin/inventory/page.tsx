@@ -481,20 +481,20 @@ export default function AdminInventoryPage() {
   return (
     <div className="flex flex-col h-screen bg-surface-sunken overflow-hidden">
       {/* 탭 바 */}
-      <div className="flex items-center gap-1 px-4 pt-3 pb-0 bg-surface border-b border-border shrink-0">
+      <div className="flex flex-nowrap items-center gap-0.5 sm:gap-1 px-2 sm:px-4 pt-3 pb-0 bg-surface border-b border-border shrink-0">
         <button
           onClick={() => setMainTab('status')}
-          className={`px-4 py-2 text-sm font-semibold rounded-t-lg transition-colors border-b-2 ${mainTab === 'status' ? 'border-brand-600 text-brand-700' : 'border-transparent text-text-secondary hover:text-text-primary'}`}
+          className={`px-2 sm:px-4 py-2 text-xs sm:text-sm font-semibold rounded-t-lg transition-colors border-b-2 whitespace-nowrap ${mainTab === 'status' ? 'border-brand-600 text-brand-700' : 'border-transparent text-text-secondary hover:text-text-primary'}`}
         >
-          재고 현황
+          재고현황
         </button>
         {role === 'admin' && (
           <button
             onClick={() => setMainTab('logs')}
-            className={`px-4 py-2 text-sm font-semibold rounded-t-lg transition-colors border-b-2 inline-flex items-center gap-1.5 ${mainTab === 'logs' ? 'border-brand-600 text-brand-700' : 'border-transparent text-text-secondary hover:text-text-primary'}`}
+            className={`px-2 sm:px-4 py-2 text-xs sm:text-sm font-semibold rounded-t-lg transition-colors border-b-2 inline-flex items-center gap-1 sm:gap-1.5 whitespace-nowrap ${mainTab === 'logs' ? 'border-brand-600 text-brand-700' : 'border-transparent text-text-secondary hover:text-text-primary'}`}
           >
             변동내역
-            <span className="text-[10px] font-semibold bg-state-warning-bg text-state-warning px-1.5 py-0.5 rounded-full leading-none">
+            <span className="text-[9px] sm:text-[10px] font-semibold bg-state-warning-bg text-state-warning px-1 sm:px-1.5 py-0.5 rounded-full leading-none">
               관리자
             </span>
           </button>
@@ -502,10 +502,10 @@ export default function AdminInventoryPage() {
         {role === 'admin' && (
           <button
             onClick={() => setMainTab('purchase')}
-            className={`px-4 py-2 text-sm font-semibold rounded-t-lg transition-colors border-b-2 inline-flex items-center gap-1.5 ${mainTab === 'purchase' ? 'border-brand-600 text-brand-700' : 'border-transparent text-text-secondary hover:text-text-primary'}`}
+            className={`px-2 sm:px-4 py-2 text-xs sm:text-sm font-semibold rounded-t-lg transition-colors border-b-2 inline-flex items-center gap-1 sm:gap-1.5 whitespace-nowrap ${mainTab === 'purchase' ? 'border-brand-600 text-brand-700' : 'border-transparent text-text-secondary hover:text-text-primary'}`}
           >
             구입관리
-            <span className="text-[10px] font-semibold bg-state-warning-bg text-state-warning px-1.5 py-0.5 rounded-full leading-none">
+            <span className="text-[9px] sm:text-[10px] font-semibold bg-state-warning-bg text-state-warning px-1 sm:px-1.5 py-0.5 rounded-full leading-none">
               관리자
             </span>
           </button>
