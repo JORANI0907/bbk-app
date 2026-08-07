@@ -7,6 +7,7 @@ import { buildAppUpdatesFromCustomerPatch } from '@/lib/customer-app-sync'
 const ALLOWED = [
   // 일반정보
   'business_name', 'contact_name', 'contact_phone', 'contact_phone_2', 'email',
+  'phone_notify_1', 'phone_notify_2',
   'platform_nickname', 'business_number', 'account_number',
   // 작업장정보
   'address', 'address_detail',
