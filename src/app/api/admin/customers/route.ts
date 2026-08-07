@@ -568,6 +568,36 @@ export async function PATCH(request: NextRequest) {
     }
   }
 
+  // supply_amount / vat / deposit / balance 가 body 에 들어오면 미완료 sa 에도 sync.
+  // 결제알림 SMS 는 sa.balance 를 참조하므로 두 테이블 값 어긋나면 잔금 0원으로 발송되는 버그 발생.
+  // sa 의 각 필드가 0 또는 null 인 경우만 채움 (수동 편집된 개별 회차 값은 보존).
+  const moneyFieldsToSync: Record<string, unknown> = {}
+  if ('supply_amount' in rest && rest.supply_amount != null) moneyFieldsToSync.supply_amount = rest.supply_amount
+  if ('vat'           in rest && rest.vat           != null) moneyFieldsToSync.vat           = rest.vat
+  if ('deposit'       in rest && rest.deposit       != null) moneyFieldsToSync.deposit       = rest.deposit
+  if ('balance'       in rest && rest.balance       != null) moneyFieldsToSync.balance       = rest.balance
+  if (Object.keys(moneyFieldsToSync).length > 0) {
+    try {
+      const { data: relatedApps } = await supabase
+        .from('service_applications')
+        .select('id, supply_amount, vat, deposit, balance')
+        .eq('customer_id', id)
+        .is('deleted_at', null)
+      for (const app of relatedApps ?? []) {
+        const updates: Record<string, unknown> = {}
+        for (const [field, value] of Object.entries(moneyFieldsToSync)) {
+          const currentVal = (app as Record<string, unknown>)[field]
+          if (currentVal == null || currentVal === 0) updates[field] = value
+        }
+        if (Object.keys(updates).length > 0) {
+          await supabase.from('service_applications').update(updates).eq('id', app.id)
+        }
+      }
+    } catch (e) {
+      console.error('금액 필드 동기화 실패:', e instanceof Error ? e.message : e)
+    }
+  }
+
   return NextResponse.json({ success: true, customer: updatedCustomer })
 }
 
