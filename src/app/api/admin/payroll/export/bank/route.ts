@@ -71,8 +71,8 @@ export async function POST(req: NextRequest) {
         const addr = XLSX.utils.encode_cell({ r, c })
         sheet[addr] = { v, t, ...(t === 's' ? { z: '@' } : {}) }
       }
-      // A: 은행 코드 (앞에 ' 붙여서 텍스트 강제, 3자리 유지)
-      setCell(0, row.code ? `'${row.code}` : '', 's')
+      // A: 은행 코드 (텍스트 셀 포맷 `@` 로 앞의 0 자동 유지 · ' 접두사 없이 그대로 표시)
+      setCell(0, row.code, 's')
       // B: 계좌번호 (숫자만, 텍스트로 저장하여 앞자리 0 유지)
       setCell(1, row.number, 's')
       // C: 이체금액 (숫자)
