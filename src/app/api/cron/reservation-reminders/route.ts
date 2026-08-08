@@ -331,8 +331,11 @@ export async function GET(request: NextRequest) {
   }
 
   // ── 4. 정기결제알림: service_billings.due_date 기반 ─────────────────
-  //     월간 billing → 고객에게 결제방법별 정기결제알림 발송
-  //     연간 billing → 관리자(01054344877)에게 재계약 안내 SMS 발송
+  //     Phase 27-T (v11 연동): 결제일 도래 후 매일 재발송
+  //     - 조건: due_date <= today AND status='pending' (paid 되면 자동 종료)
+  //     - 중복 방지: last_notified_at 이 오늘 KST면 skip
+  //     - status='reminded' 업데이트는 연간만 유지 (관리자 SMS 1회성)
+  //     - 정기딥: 그 달의 마지막 시공(service_applications) notification_log 에도 기록 → UI 노출
   {
     const ADMIN_PHONE = '01054344877'
 
@@ -342,6 +345,7 @@ export async function GET(request: NextRequest) {
       billing_period: string
       due_date: string
       amount: number
+      last_notified_at: string | null
       customers: {
         id: string
         business_name: string
@@ -358,14 +362,14 @@ export async function GET(request: NextRequest) {
     const { data: billings } = await supabase
       .from('service_billings')
       .select(`
-        id, billing_type, billing_period, due_date, amount,
+        id, billing_type, billing_period, due_date, amount, last_notified_at,
         customers!inner(
           id, business_name, contact_name, contact_phone,
           customer_type, payment_method, account_number,
           billing_amount, billing_next_date
         )
       `)
-      .eq('due_date', todayKST)
+      .lte('due_date', todayKST)
       .eq('status', 'pending')
       .in('customers.customer_type', ['정기딥케어', '정기엔드케어'])
 
@@ -374,18 +378,28 @@ export async function GET(request: NextRequest) {
     for (const row of (billings ?? []) as unknown as BillingRow[]) {
       const cust = row.customers
 
-      // ── 연간: 관리자에게 재계약 안내 SMS ──
+      // 오늘 이미 발송한 청구는 skip (KST 기준 날짜 비교)
+      if (row.last_notified_at && row.last_notified_at.slice(0, 10) === todayKST) {
+        skipped++
+        continue
+      }
+
+      const nowKSTIso = new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().replace('Z', '+09:00')
+
+      // ── 연간: 관리자에게 재계약 안내 SMS (1회성, status='reminded' 로 종료) ──
       if (row.billing_type === 'annual') {
         const msg = `[BBK 공간케어] 연간 계약 갱신 필요\n${cust.business_name} 고객의 연간 계약 결제일(${row.due_date})이 도래했습니다.\n재계약 진행을 확인해 주세요.`
         try {
           await sendSmsOrLms(ADMIN_PHONE, msg, {})
-          await supabase.from('service_billings').update({ status: 'reminded' }).eq('id', row.id)
+          await supabase.from('service_billings')
+            .update({ status: 'reminded', last_notified_at: nowKSTIso })
+            .eq('id', row.id)
           sent++
         } catch { failed++ }
         continue
       }
 
-      // ── 월간: 고객에게 정기결제알림 ──
+      // ── 월간: 고객에게 정기결제알림 (매일 반복) ──
       const phone = (cust.contact_phone ?? '').replace(/-/g, '')
       if (!phone) { skipped++; continue }
 
@@ -410,7 +424,11 @@ export async function GET(request: NextRequest) {
       try {
         const result = await sendByTemplate(templateCode, phone, ctx)
         if (result.ok) {
-          await supabase.from('service_billings').update({ status: 'reminded' }).eq('id', row.id)
+          // 매일 반복 발송을 위해 status 는 pending 유지, last_notified_at 만 업데이트
+          await supabase.from('service_billings')
+            .update({ last_notified_at: nowKSTIso })
+            .eq('id', row.id)
+
           await saveNotificationHistory({
             category: 'sms',
             type: '정기결제알림',
@@ -427,6 +445,42 @@ export async function GET(request: NextRequest) {
             },
             status: 'sent',
           })
+
+          // 정기딥 UI 노출: 그 달 마지막 시공 행 notification_log 에도 기록
+          if (cust.customer_type === '정기딥케어') {
+            const [y, m] = row.billing_period.split('-').map(Number)
+            const monthStart = `${row.billing_period}-01`
+            const nextMonth = m === 12 ? `${y + 1}-01-01` : `${y}-${String(m + 1).padStart(2, '0')}-01`
+            const { data: latestApp } = await supabase
+              .from('service_applications')
+              .select('id, notification_log')
+              .eq('customer_id', cust.id)
+              .gte('construction_date', monthStart)
+              .lt('construction_date', nextMonth)
+              .is('deleted_at', null)
+              .order('construction_date', { ascending: false })
+              .limit(1)
+              .maybeSingle()
+
+            if (latestApp) {
+              const existLog = Array.isArray(latestApp.notification_log)
+                ? (latestApp.notification_log as Array<Record<string, unknown>>)
+                : []
+              const newEntry = {
+                type: '정기결제알림',
+                sent_at: nowKSTIso,
+                phone,
+                method: 'auto' as const,
+                channel: result.type,
+                billing_id: row.id,
+                billing_period: row.billing_period,
+              }
+              await supabase.from('service_applications')
+                .update({ notification_log: [...existLog, newEntry] })
+                .eq('id', latestApp.id)
+            }
+          }
+
           sent++
         } else {
           skipped++
