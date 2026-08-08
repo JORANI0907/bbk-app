@@ -66,48 +66,69 @@ export default function ExportModal({
   const handleExport = async () => {
     setExporting(true)
     try {
-      // 선택된 인원이 있으면 person_type별로 id 배열을 분리해 API에 전달
       const filter = selectedPersons && selectedPersons.length > 0
         ? {
             user_ids: selectedPersons.filter(k => k.startsWith('user:')).map(k => k.slice(5)),
             worker_ids: selectedPersons.filter(k => k.startsWith('worker:')).map(k => k.slice(7)),
           }
         : null
-
-      const res = await fetch('/api/admin/payroll/export', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ month, filter }),
-      })
-      if (!res.ok) {
-        const d = await res.json()
-        throw new Error(d.error ?? '엑셀 생성 실패')
-      }
-      const blob = await res.blob()
       const suffix = filter ? `_선택${selectedPersons!.length}명` : ''
-      const fileName = `BBK_급여정산_${month}${suffix}.xlsx`
 
-      if (folder) {
-        let token = accessToken
-        if (!token) {
-          await loadGoogleAPIs()
-          token = await requestGoogleToken()
-          setAccessToken(token)
+      // Drive 저장이 필요한 경우 사전에 토큰 확보
+      let token = accessToken
+      if (folder && !token) {
+        await loadGoogleAPIs()
+        token = await requestGoogleToken()
+        setAccessToken(token)
+      }
+
+      // 두 파일 (급여상세 + 급여이체) 순차 생성 · Drive + 로컬 각각 저장
+      const targets: { path: string; name: string; mime: string }[] = [
+        {
+          path: '/api/admin/payroll/export/detail',
+          name: `BBK_급여상세_${month}${suffix}.xlsx`,
+          mime: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        },
+        {
+          path: '/api/admin/payroll/export/bank',
+          name: `BBK_급여이체_${month}${suffix}.xls`,
+          mime: 'application/vnd.ms-excel',
+        },
+      ]
+
+      const driveUrls: string[] = []
+      for (const t of targets) {
+        const res = await fetch(t.path, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ month, filter }),
+        })
+        if (!res.ok) {
+          const d = await res.json().catch(() => ({}))
+          throw new Error(d.error ?? `${t.name} 생성 실패`)
         }
-        const file = new File([blob], fileName, { type: blob.type })
-        const { fileUrl } = await uploadFileToDrive(file, folder.id, fileName, token)
-        toast.success(`[${folder.name}] 에 저장되었습니다!`)
-        window.open(fileUrl, '_blank')
-      } else {
+        const blob = await res.blob()
+
+        // Drive 업로드
+        if (folder && token) {
+          const file = new File([blob], t.name, { type: t.mime })
+          const uploaded = await uploadFileToDrive(file, folder.id, t.name, token)
+          driveUrls.push(uploaded.fileUrl)
+        }
+        // 로컬 다운로드 (Drive 여부와 무관하게 항상 다운로드)
         const url = URL.createObjectURL(blob)
         const a = document.createElement('a')
         a.href = url
-        a.download = fileName
+        a.download = t.name
         a.click()
         URL.revokeObjectURL(url)
-        toast.success('엑셀 파일이 다운로드되었습니다.')
       }
 
+      if (folder && driveUrls.length > 0) {
+        toast.success(`[${folder.name}] 에 2개 파일 저장 · 로컬에도 다운로드됨`)
+      } else {
+        toast.success('급여상세·급여이체 2개 파일이 다운로드되었습니다.')
+      }
       onClose()
     } catch (err) {
       toast.error(err instanceof Error ? err.message : '저장 실패')
