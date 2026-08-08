@@ -60,7 +60,8 @@ export interface PayslipData {
   gross: {
     autoAmount: number
     bookedAmount: number
-    finalAmount: number
+    basePay: number       // 기본급 (추가 지급 항목 제외)
+    finalAmount: number   // 지급 총액 (기본급 + 추가 지급 항목)
     isAdjusted: boolean
     isNetBasis: boolean
     note: string | null
@@ -170,7 +171,7 @@ function Row2({ l1, v1, l2, v2 }: { l1: string; v1: string; l2: string; v2: stri
   )
 }
 
-// 지급/공제 라인 아이템
+// 지급/공제 라인 아이템 (§48② ⑤호 준수 - 계산근거 hint 필수)
 function AmountLine({ label, value, hint }: { label: string; value: number; hint?: string }) {
   if (value === 0) return null
   return (
@@ -184,6 +185,21 @@ function AmountLine({ label, value, hint }: { label: string; value: number; hint
       <View style={s.amountValueCell}><Text>{won(value)}</Text></View>
     </View>
   )
+}
+
+// §48② ⑤호: 지급 항목별 계산근거 (라벨 기준으로 매핑, 프리셋 외는 "관리자 지급")
+function payHintFor(label: string): string {
+  const map: Record<string, string> = {
+    '상여금': '관리자 지급 · 과세',
+    '식대': '월 20만원 이내 비과세',
+    '교통비': '월 20만원 이내 비과세',
+    '야근수당': '연장근로 시급 × 1.5',
+    '주휴수당': '주 15h 이상 유급',
+    '직책수당': '관리자 지급 · 과세',
+    '명절수당': '관리자 지급 · 과세',
+    '연장근로수당': '연장근로 시급 × 1.5',
+  }
+  return map[label] ?? '관리자 지급'
 }
 
 export function PayslipPDFDocument({ data }: { data: PayslipData }) {
@@ -240,40 +256,20 @@ export function PayslipPDFDocument({ data }: { data: PayslipData }) {
             <Text style={[s.amountHeaderCell, { flex: 2 }]}>항목</Text>
             <Text style={[s.amountHeaderCell, { flex: 1, textAlign: 'right', borderRight: undefined }]}>금액</Text>
           </View>
-          <AmountLine label="기 본 급" value={data.gross.finalAmount} />
+          <AmountLine
+            label="기 본 급"
+            value={data.gross.basePay}
+            hint={
+              data.gross.isNetBasis
+                ? `세후 ${won(data.gross.bookedAmount)} 기준 세전 역산`
+                : data.gross.isAdjusted
+                  ? `자동 ${won(data.gross.autoAmount)} → 관리자 조정`
+                  : '월 근무 · 배정 건별 자동 합산'
+            }
+          />
           {data.extraItems.map((item, i) => (
-            <AmountLine key={i} label={item.label} value={item.amount} />
+            <AmountLine key={i} label={item.label} value={item.amount} hint={payHintFor(item.label)} />
           ))}
-          {data.extraItems.length > 0 && (
-            <View style={s.amountRow}>
-              <View style={s.amountLabelCell}>
-                <Text style={{ color: '#888', fontSize: 7.5 }}>
-                  (기본급 + 추가항목 {data.extraItems.length}건 포함)
-                </Text>
-              </View>
-              <View style={s.amountValueCell}><Text> </Text></View>
-            </View>
-          )}
-          {data.gross.isNetBasis && (
-            <View style={s.amountRow}>
-              <View style={s.amountLabelCell}>
-                <Text style={{ color: '#888', fontSize: 7.5 }}>
-                  (책정된 실지급 {won(data.gross.bookedAmount)} 기준 총 지급액 역산)
-                </Text>
-              </View>
-              <View style={s.amountValueCell}><Text> </Text></View>
-            </View>
-          )}
-          {data.gross.isAdjusted && !data.gross.isNetBasis && (
-            <View style={s.amountRow}>
-              <View style={s.amountLabelCell}>
-                <Text style={{ color: '#888', fontSize: 7.5 }}>
-                  (자동 계산: {won(data.gross.autoAmount)} → 관리자 조정)
-                </Text>
-              </View>
-              <View style={s.amountValueCell}><Text> </Text></View>
-            </View>
-          )}
           <View style={s.amountTotalRow}>
             <Text style={s.amountTotalLabel}>지급 총액</Text>
             <Text style={s.amountTotalValue}>{won(data.gross.finalAmount)}</Text>
@@ -288,15 +284,15 @@ export function PayslipPDFDocument({ data }: { data: PayslipData }) {
               <Text style={[s.amountHeaderCell, { flex: 2 }]}>항목</Text>
               <Text style={[s.amountHeaderCell, { flex: 1, textAlign: 'right', borderRight: undefined }]}>금액</Text>
             </View>
-            <AmountLine label="국 민 연 금" value={data.deductions.nationalPension} hint="4.5%" />
-            <AmountLine label="건 강 보 험" value={data.deductions.healthInsurance} hint="3.545%" />
-            <AmountLine label="장기요양보험" value={data.deductions.longtermCare} hint="건강보험료의 12.95%" />
-            <AmountLine label="고 용 보 험" value={data.deductions.employmentInsurance} hint="0.9%" />
-            <AmountLine label="사 업 소 득 세" value={data.deductions.businessTax} hint="3%" />
-            <AmountLine label="소  득  세" value={data.deductions.incomeTax} />
-            <AmountLine label="지방소득세" value={data.deductions.residentTax} />
+            <AmountLine label="국 민 연 금" value={data.deductions.nationalPension} hint="지급총액 × 4.5%" />
+            <AmountLine label="건 강 보 험" value={data.deductions.healthInsurance} hint="지급총액 × 3.545%" />
+            <AmountLine label="장기요양보험" value={data.deductions.longtermCare} hint="건강보험료 × 12.95%" />
+            <AmountLine label="고 용 보 험" value={data.deductions.employmentInsurance} hint="지급총액 × 0.9%" />
+            <AmountLine label="사 업 소 득 세" value={data.deductions.businessTax} hint="지급총액 × 3%" />
+            <AmountLine label="소  득  세" value={data.deductions.incomeTax} hint="근로소득 간이세액표" />
+            <AmountLine label="지방소득세" value={data.deductions.residentTax} hint={p.taxType === '프리랜서3.3%' ? '지급총액 × 0.3%' : '소득세 × 10%'} />
             {(data.extraDeductions ?? []).map((item, i) => (
-              <AmountLine key={`ed-${i}`} label={item.label} value={item.amount} />
+              <AmountLine key={`ed-${i}`} label={item.label} value={item.amount} hint="관리자 공제" />
             ))}
             <View style={s.amountTotalRow}>
               <Text style={s.amountTotalLabel}>공제 총액</Text>

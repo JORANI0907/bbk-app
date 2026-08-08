@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
+import { computePayslip, type TaxType, type SalaryBasis } from '@/lib/payroll/payslipCalc'
 
 /**
  * 급여명세서 데이터 API
@@ -7,19 +8,8 @@ import { createServiceClient } from '@/lib/supabase/server'
  *
  * 요청: { month: "2026-07", personType: "user"|"worker", personId, payDate, incomeTax? }
  * 응답: 급여명세서 렌더링에 필요한 통합 JSON (인적사항 + 근무내역 + 지급/공제/실지급)
+ * 계산 로직은 lib/payroll/payslipCalc.ts 에 집중되어 있어 export API 등과 정합성이 보장된다.
  */
-
-type TaxType = '4대보험' | '2대보험' | '3대보험' | '프리랜서3.3%' | '없음'
-type SalaryBasis = '세전' | '세후'
-
-// 2026년 기준 4대보험 근로자 부담 요율 (표준)
-const RATE_NATIONAL_PENSION = 0.045      // 국민연금 4.5%
-const RATE_HEALTH_INSURANCE = 0.03545    // 건강보험 3.545%
-const RATE_LONGTERM_CARE    = 0.1295     // 장기요양보험 (건강보험료의 12.95%)
-const RATE_EMPLOYMENT       = 0.009      // 고용보험 0.9%
-const RATE_RESIDENT_TAX     = 0.1        // 지방소득세 (소득세의 10%)
-const RATE_FREELANCE_TAX    = 0.03       // 사업소득세 3%
-const RATE_FREELANCE_RESIDENT = 0.003    // 지방소득세 0.3%
 
 function getMonthEndDate(yearMonth: string): string {
   const [year, month] = yearMonth.split('-').map(Number)
@@ -39,121 +29,6 @@ function maskResidentNumber(rrn: string | null | undefined): string {
   return `${cleaned.slice(0, 6)}-${cleaned[6]}******`
 }
 
-/**
- * 세후 방식일 때, 책정된 net 금액으로부터 총 지급액(gross)을 역산.
- * - 프리랜서3.3%: gross = net / (1 - 0.033)
- * - 4대보험: gross = (net + incomeTax * (1 + 0.1)) / (1 - 0.09404)
- *   0.09404 = 국민연금(4.5%) + 건강보험(3.545%) + 장기요양(건강*12.95%) + 고용보험(0.9%)
- * - 없음: gross = net
- */
-function reverseGrossFromNet(net: number, taxType: TaxType, incomeTax: number): number {
-  if (taxType === '프리랜서3.3%') {
-    return Math.round(net / (1 - RATE_FREELANCE_TAX - RATE_FREELANCE_RESIDENT))
-  }
-  if (taxType === '4대보험') {
-    const totalGrossRate =
-      RATE_NATIONAL_PENSION +
-      RATE_HEALTH_INSURANCE +
-      RATE_HEALTH_INSURANCE * RATE_LONGTERM_CARE +
-      RATE_EMPLOYMENT
-    return Math.round((net + incomeTax * (1 + RATE_RESIDENT_TAX)) / (1 - totalGrossRate))
-  }
-  if (taxType === '3대보험') {
-    // 국민연금 + 건강 + 장기요양 (고용보험 제외, 임원급)
-    const totalGrossRate =
-      RATE_NATIONAL_PENSION +
-      RATE_HEALTH_INSURANCE +
-      RATE_HEALTH_INSURANCE * RATE_LONGTERM_CARE
-    return Math.round((net + incomeTax * (1 + RATE_RESIDENT_TAX)) / (1 - totalGrossRate))
-  }
-  if (taxType === '2대보험') {
-    // 건강 + 장기요양만 (대표이사 법인 기준)
-    const totalGrossRate =
-      RATE_HEALTH_INSURANCE +
-      RATE_HEALTH_INSURANCE * RATE_LONGTERM_CARE
-    return Math.round((net + incomeTax * (1 + RATE_RESIDENT_TAX)) / (1 - totalGrossRate))
-  }
-  return net
-}
-
-function calculateDeductions(gross: number, taxType: TaxType, incomeTax: number) {
-  if (taxType === '4대보험') {
-    const nationalPension = Math.floor(gross * RATE_NATIONAL_PENSION / 10) * 10
-    const healthInsurance = Math.floor(gross * RATE_HEALTH_INSURANCE / 10) * 10
-    const longtermCare = Math.floor(healthInsurance * RATE_LONGTERM_CARE / 10) * 10
-    const employmentInsurance = Math.floor(gross * RATE_EMPLOYMENT / 10) * 10
-    const residentTax = Math.floor(incomeTax * RATE_RESIDENT_TAX / 10) * 10
-    return {
-      nationalPension,
-      healthInsurance,
-      longtermCare,
-      employmentInsurance,
-      incomeTax,
-      residentTax,
-      businessTax: 0,
-      total: nationalPension + healthInsurance + longtermCare + employmentInsurance + incomeTax + residentTax,
-    }
-  }
-  if (taxType === '3대보험') {
-    // 국민연금 + 건강 + 장기요양 (고용보험 제외)
-    const nationalPension     = Math.floor(gross * RATE_NATIONAL_PENSION  / 10) * 10
-    const healthInsurance     = Math.floor(gross * RATE_HEALTH_INSURANCE  / 10) * 10
-    const longtermCare        = Math.floor(healthInsurance * RATE_LONGTERM_CARE / 10) * 10
-    const residentTax         = Math.floor(incomeTax * RATE_RESIDENT_TAX  / 10) * 10
-    return {
-      nationalPension,
-      healthInsurance,
-      longtermCare,
-      employmentInsurance: 0,
-      incomeTax,
-      residentTax,
-      businessTax: 0,
-      total: nationalPension + healthInsurance + longtermCare + incomeTax + residentTax,
-    }
-  }
-  if (taxType === '2대보험') {
-    // 건강 + 장기요양만 (대표이사 법인 기준)
-    const healthInsurance     = Math.floor(gross * RATE_HEALTH_INSURANCE  / 10) * 10
-    const longtermCare        = Math.floor(healthInsurance * RATE_LONGTERM_CARE / 10) * 10
-    const residentTax         = Math.floor(incomeTax * RATE_RESIDENT_TAX  / 10) * 10
-    return {
-      nationalPension: 0,
-      healthInsurance,
-      longtermCare,
-      employmentInsurance: 0,
-      incomeTax,
-      residentTax,
-      businessTax: 0,
-      total: healthInsurance + longtermCare + incomeTax + residentTax,
-    }
-  }
-  if (taxType === '프리랜서3.3%') {
-    // 원단위 절사 → 실무에서는 십원 단위로 절사하는 경우가 많음
-    const businessTax = Math.floor(gross * RATE_FREELANCE_TAX / 10) * 10
-    const residentTax = Math.floor(gross * RATE_FREELANCE_RESIDENT / 10) * 10
-    return {
-      nationalPension: 0,
-      healthInsurance: 0,
-      longtermCare: 0,
-      employmentInsurance: 0,
-      incomeTax: 0,
-      residentTax,
-      businessTax,
-      total: businessTax + residentTax,
-    }
-  }
-  // 없음
-  return {
-    nationalPension: 0,
-    healthInsurance: 0,
-    longtermCare: 0,
-    employmentInsurance: 0,
-    incomeTax: 0,
-    residentTax: 0,
-    businessTax: 0,
-    total: 0,
-  }
-}
 
 export async function POST(req: NextRequest) {
   try {
@@ -336,32 +211,19 @@ export async function POST(req: NextRequest) {
     // 추가 공제 항목 (손망실, 선지급 회수 등 — netPay에서 차감됨)
     const extraDeductions: { label: string; amount: number }[] =
       Array.isArray(recordRow?.extra_deductions) ? (recordRow.extra_deductions as { label: string; amount: number }[]) : []
-    const extraDeductionsTotal = extraDeductions.reduce((s, d) => s + (d.amount || 0), 0)
 
-    // 책정된 금액 (자동 계산 or 관리자가 조정한 최종 금액)
-    const bookedAmount = recordRow?.final_amount ?? gross
     const workDays = new Set(jobs.map(j => j.date)).size
 
-    // 세후 방식이면 책정 금액을 실지급액으로 정확히 고정, 총 지급액은 (실지급 + 공제)로 역산
-    // 세전 방식이면 책정 금액을 gross로 그대로 사용
-    const isNetBasis = person.salaryBasis === '세후'
-    let computedGross: number
-    let deductions: ReturnType<typeof calculateDeductions>
-    let netPay: number
-
-    if (isNetBasis) {
-      // 1) 근사 gross → 근사 공제 (표준 요율 십원 절사)
-      const approxGross = reverseGrossFromNet(bookedAmount, person.taxType, incomeTax)
-      const approxDeductions = calculateDeductions(approxGross, person.taxType, incomeTax)
-      // 2) 실지급을 bookedAmount로 정확히 맞추기 위해 gross를 (실지급 + 공제)로 고정
-      computedGross = bookedAmount + approxDeductions.total
-      deductions = approxDeductions
-      netPay = bookedAmount - extraDeductionsTotal  // 추가 공제는 실지급에서 차감
-    } else {
-      computedGross = bookedAmount
-      deductions = calculateDeductions(computedGross, person.taxType, incomeTax)
-      netPay = computedGross - deductions.total - extraDeductionsTotal
-    }
+    // 공용 계산 함수로 위임 (lib/payroll/payslipCalc.ts)
+    const calc = computePayslip({
+      autoAmount: gross,
+      finalAmount: recordRow?.final_amount ?? null,
+      extraItems,
+      extraDeductions,
+      taxType: person.taxType,
+      salaryBasis: person.salaryBasis,
+      incomeTax,
+    })
 
     return NextResponse.json({
       success: true,
@@ -397,17 +259,16 @@ export async function POST(req: NextRequest) {
         jobs,
         gross: {
           autoAmount: gross,
-          // 관리자가 급여정산 카드에서 책정한 금액 (세전이면 gross, 세후면 net)
-          bookedAmount,
-          // 실제 계산된 총 지급액 (세후일 때 역산됨)
-          finalAmount: computedGross,
-          isAdjusted: recordRow?.final_amount != null && recordRow.final_amount !== gross,
-          isNetBasis,
+          bookedAmount: calc.bookedAmount,
+          basePay: calc.basePay,
+          finalAmount: calc.grossTotal,
+          isAdjusted: calc.isAdjusted,
+          isNetBasis: calc.isNetBasis,
           note: recordRow?.note ?? null,
           isPaid: recordRow?.is_paid ?? false,
         },
-        deductions,
-        netPay,
+        deductions: calc.deductions,
+        netPay: calc.netPay,
       },
     })
   } catch (err) {
