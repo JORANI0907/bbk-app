@@ -14,6 +14,7 @@ const RATE_FIELDS: { key: keyof InsuranceRates; label: string; hint: string }[] 
   { key: 'healthInsurance',   label: '건강보험',       hint: '기준 3.545%' },
   { key: 'longtermCare',      label: '장기요양보험',   hint: '건강보험료의 % (기준 12.95%)' },
   { key: 'employmentInsurance', label: '고용보험',     hint: '기준 0.9%' },
+  { key: 'incomeTax',         label: '근로소득세',     hint: '지급총액의 % · 4대보험 인원 자동 원천 (기준 3.3%)' },
   { key: 'residentTax',       label: '지방소득세',     hint: '소득세의 % (기준 10%)' },
 ]
 

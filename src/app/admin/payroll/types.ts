@@ -8,6 +8,7 @@ export interface InsuranceRates {
   longtermCare: number          // 장기요양보험 = 건강보험료의 x% (기본 12.95%)
   employmentInsurance: number   // 고용보험 (기본 0.9%)
   residentTax: number           // 지방소득세 = 소득세의 x% (기본 10%)
+  incomeTax: number             // 근로소득세 (기본 3.3%) · 지급총액 × x%
 }
 
 export const DEFAULT_INSURANCE_RATES: InsuranceRates = {
@@ -16,6 +17,7 @@ export const DEFAULT_INSURANCE_RATES: InsuranceRates = {
   longtermCare: 0.1295,
   employmentInsurance: 0.009,
   residentTax: 0.1,
+  incomeTax: 0.033,
 }
 
 export interface ExtraPayItem {

@@ -26,7 +26,7 @@ export async function PATCH(req: Request) {
     const rates: Partial<InsuranceRates> = {}
 
     const fields: (keyof InsuranceRates)[] = [
-      'nationalPension', 'healthInsurance', 'longtermCare', 'employmentInsurance', 'residentTax',
+      'nationalPension', 'healthInsurance', 'longtermCare', 'employmentInsurance', 'residentTax', 'incomeTax',
     ]
     for (const f of fields) {
       if (typeof body[f] === 'number' && body[f] >= 0 && body[f] <= 1) {
