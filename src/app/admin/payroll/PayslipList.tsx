@@ -13,6 +13,7 @@ export interface PayslipEntry {
   pay_date: string | null
   file_url: string | null
   file_name: string | null
+  storage_path: string | null
   gross_amount: number
   deduction_amount: number
   net_amount: number
@@ -20,6 +21,11 @@ export interface PayslipEntry {
   is_sent: boolean
   sent_at: string | null
   sent_channel: string | null
+  sent_sms_at: string | null
+  sent_email_at: string | null
+  sms_recipient: string | null
+  email_recipient: string | null
+  send_error: string | null
   issued_at: string
 }
 

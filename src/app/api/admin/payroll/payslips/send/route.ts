@@ -40,6 +40,7 @@ type SendItem = {
   month: string
   fileName: string
   pdfBase64: string
+  netAmount?: number | null
 }
 
 type SendResult = {
@@ -124,6 +125,7 @@ export async function POST(req: NextRequest) {
               personName: item.personName,
               monthLabel,
               downloadUrl: signedUrl,
+              netAmount: item.netAmount ?? null,
               emailSent: r.emailSent,
             })
             r.smsSent = true
@@ -140,6 +142,7 @@ export async function POST(req: NextRequest) {
           sent_at: nowIso,
           file_url: signedUrl,
           file_name: item.fileName,
+          storage_path: objectPath,   // 재발송용
         }
         if (r.smsSent) {
           update.sent_sms_at = nowIso
