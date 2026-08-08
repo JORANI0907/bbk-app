@@ -79,23 +79,30 @@ export async function sendCompletionAlert(phone: string, customerName: string): 
 
 /**
  * 급여명세서 SMS/LMS 발송.
- * emailSent=true 이면 "이메일 발송 완료" 문구, 아니면 다운로드 링크만 안내.
+ * PDF 다운로드 링크가 본문에 포함됨. 이메일 함께 발송 여부에 따라 안내 문구 조정.
  */
 export async function sendPayslipSMS(opts: {
   toPhone: string
   personName: string
-  monthLabel: string    // "2026년 7월"
-  downloadUrl: string   // 시간 제한 signed URL
+  monthLabel: string        // "2026년 7월"
+  downloadUrl: string       // 시간 제한 signed URL (7일)
+  netAmount?: number | null // 실지급액 (있으면 안내에 포함)
   emailSent: boolean
 }): Promise<void> {
-  const suffix = opts.emailSent
-    ? '이메일로도 발송했습니다.'
-    : '등록된 이메일이 없어 SMS로만 발송했습니다.'
+  const amountLine = opts.netAmount != null && opts.netAmount > 0
+    ? `실지급액: ${opts.netAmount.toLocaleString('ko-KR')}원\n\n`
+    : ''
+  const emailLine = opts.emailSent
+    ? '📧 이메일로도 PDF가 첨부 발송되었습니다.'
+    : '📧 등록된 이메일이 없어 SMS로만 발송합니다.\n  이메일 등록을 원하시면 담당자에게 요청 바랍니다.'
   const text =
-    `[BBK 공간케어]\n${opts.personName}님, ${opts.monthLabel} 급여명세서가 도착했습니다.\n\n` +
-    `📄 다운로드: ${opts.downloadUrl}\n(링크 7일 유효)\n\n` +
-    `${suffix}\n\n문의: 031-759-4877`
-  await sendSmsOrLms(opts.toPhone, text, { subject: `${opts.monthLabel} 급여명세서` })
+    `[BBK 공간케어 급여명세서]\n\n` +
+    `${opts.personName}님, 안녕하세요.\n${opts.monthLabel} 급여명세서가 발행되었습니다.\n\n` +
+    `${amountLine}` +
+    `▼ PDF 다운로드 (7일간 유효)\n${opts.downloadUrl}\n\n` +
+    `${emailLine}\n\n` +
+    `문의: 031-759-4877\n범빌드코리아`
+  await sendSmsOrLms(opts.toPhone, text, { subject: `[BBK] ${opts.monthLabel} 급여명세서` })
 }
 
 export async function sendSubscriptionPromoSMS(phone: string, customerName: string): Promise<void> {
