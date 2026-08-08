@@ -60,6 +60,8 @@ export interface Worker {
   employment_type: EmploymentType | null
   phone: string | null
   account_number: string | null
+  bank_code: string | null
+  bank_name: string | null
   department: '본부' | '딥케어' | '엔드케어' | null
   position: string | null
   job_title: string | null

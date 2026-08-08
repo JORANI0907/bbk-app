@@ -3,7 +3,7 @@ import { createServiceClient } from '@/lib/supabase/server'
 import { updateAuthUserEmail, staffEmail } from '@/lib/auth-helpers'
 
 const ALLOWED_COLUMNS = [
-  'name', 'employment_type', 'phone', 'account_number',
+  'name', 'employment_type', 'phone', 'account_number', 'bank_code', 'bank_name',
   'department', 'position', 'job_title', 'email', 'join_date',
   'skill_level', 'specialties', 'day_wage', 'night_wage', 'avg_salary',
   'anniversary', 'hobby', 'home_address', 'emergency_contact', 'personal_id',
