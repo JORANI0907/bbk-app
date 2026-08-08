@@ -45,6 +45,10 @@ const nextConfig = {
   eslint: {
     ignoreDuringBuilds: true,
   },
+  // API 라우트가 src/lib/payroll/templates/*.xls 를 fs.readFileSync 로 로드 → Vercel 번들 포함 필요
+  outputFileTracingIncludes: {
+    '/api/admin/payroll/export/**/*': ['./src/lib/payroll/templates/**/*'],
+  },
   async rewrites() {
     return [
       { source: '/bbk-care', destination: '/form.html' },
