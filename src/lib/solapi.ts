@@ -77,6 +77,27 @@ export async function sendCompletionAlert(phone: string, customerName: string): 
   await sendSMS(phone, text)
 }
 
+/**
+ * 급여명세서 SMS/LMS 발송.
+ * emailSent=true 이면 "이메일 발송 완료" 문구, 아니면 다운로드 링크만 안내.
+ */
+export async function sendPayslipSMS(opts: {
+  toPhone: string
+  personName: string
+  monthLabel: string    // "2026년 7월"
+  downloadUrl: string   // 시간 제한 signed URL
+  emailSent: boolean
+}): Promise<void> {
+  const suffix = opts.emailSent
+    ? '이메일로도 발송했습니다.'
+    : '등록된 이메일이 없어 SMS로만 발송했습니다.'
+  const text =
+    `[BBK 공간케어]\n${opts.personName}님, ${opts.monthLabel} 급여명세서가 도착했습니다.\n\n` +
+    `📄 다운로드: ${opts.downloadUrl}\n(링크 7일 유효)\n\n` +
+    `${suffix}\n\n문의: 031-759-4877`
+  await sendSmsOrLms(opts.toPhone, text, { subject: `${opts.monthLabel} 급여명세서` })
+}
+
 export async function sendSubscriptionPromoSMS(phone: string, customerName: string): Promise<void> {
   const subject = '지금 구독하면 200만원 아낍니다.'
   const text =
