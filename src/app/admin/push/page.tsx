@@ -13,7 +13,7 @@ import { EmptyState } from '@/components/ui/EmptyState'
 
 type UserTarget = 'all' | 'admin' | 'worker' | 'customer'
 type LogStatus = 'sent' | 'failed' | 'expired'
-type PageTab = 'send' | 'rules' | 'notifications' | 'attendance'
+type PageTab = 'send' | 'rules' | 'notifications' | 'attendance' | 'payslip'
 
 type NotificationCategory = 'alimtalk' | 'sms' | 'missed_call' | 'payment' | 'system' | 'push'
 type NotificationStatus = 'sent' | 'failed'
@@ -116,6 +116,7 @@ const TABS: { value: PageTab; label: string }[] = [
   { value: 'rules', label: '자동 알림 규칙' },
   { value: 'notifications', label: '알림 이력' },
   { value: 'attendance', label: '출퇴근 알림' },
+  { value: 'payslip', label: '급여명세서' },
 ]
 
 const NOTIFICATION_CATEGORY_OPTIONS: { value: string; label: string }[] = [
@@ -767,7 +768,149 @@ export default function PushPage() {
       {activeTab === 'notifications' && <NotificationsTab />}
 
       {activeTab === 'attendance' && <AttendanceTab />}
+
+      {activeTab === 'payslip' && <PayslipSendTab />}
     </div>
+  )
+}
+
+// ─── 급여명세서 발송 탭 ──────────────────────────────────────────
+// 발송 이력을 월별로 확인하고, 재발송이 필요한 경우 급여정산 페이지로 이동을 안내.
+// 실제 발행+발송은 급여정산 페이지의 "급여명세서" 버튼 → PayslipModal에서 진행.
+
+interface PayslipHistory {
+  id: string
+  year_month: string
+  person_name: string
+  person_type: 'user' | 'worker'
+  net_amount: number
+  pay_date: string | null
+  sent_sms_at: string | null
+  sent_email_at: string | null
+  sms_recipient: string | null
+  email_recipient: string | null
+  send_error: string | null
+  issued_at: string
+}
+
+function currentYM(): string {
+  const now = new Date()
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+}
+
+function PayslipSendTab() {
+  const [month, setMonth] = useState<string>(currentYM())
+  const [items, setItems] = useState<PayslipHistory[]>([])
+  const [loading, setLoading] = useState(false)
+
+  const load = useCallback(async () => {
+    setLoading(true)
+    try {
+      const res = await fetch(`/api/admin/payroll/payslips?year_month=${month}`)
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error ?? '조회 실패')
+      setItems(json.payslips ?? [])
+    } catch {
+      setItems([])
+    } finally {
+      setLoading(false)
+    }
+  }, [month])
+
+  useEffect(() => { void load() }, [load])
+
+  const sentCount = items.filter(i => i.sent_sms_at || i.sent_email_at).length
+  const notSentCount = items.length - sentCount
+
+  return (
+    <section className="space-y-4">
+      <div className="rounded-2xl border border-brand-200 bg-brand-50 p-4">
+        <h3 className="text-sm font-bold text-brand-800 mb-1">📨 급여명세서 발송</h3>
+        <p className="text-xs text-brand-700 leading-relaxed">
+          급여명세서 <b>발행 + SMS·이메일 발송</b>은 <a href="/admin/payroll" className="underline font-semibold">급여정산 페이지</a>에서 진행합니다.<br />
+          <span className="text-brand-600">→ 인원 선택 → &quot;급여명세서&quot; 버튼 → &quot;📨 발행 후 SMS + 이메일로 자동 발송&quot; 체크</span>
+        </p>
+      </div>
+
+      {/* 월 선택 + 요약 */}
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <input
+          type="month"
+          value={month}
+          onChange={e => setMonth(e.target.value)}
+          className="px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+        />
+        <div className="flex items-center gap-3 text-xs">
+          <span className="text-text-tertiary">발송됨 <b className="text-emerald-600">{sentCount}</b></span>
+          <span className="text-text-tertiary">미발송 <b className="text-amber-600">{notSentCount}</b></span>
+          <button
+            onClick={load}
+            className="text-brand-600 hover:text-brand-700 font-medium underline underline-offset-2"
+          >
+            새로고침
+          </button>
+        </div>
+      </div>
+
+      {/* 리스트 */}
+      {loading ? (
+        <p className="text-center py-8 text-sm text-text-tertiary">불러오는 중...</p>
+      ) : items.length === 0 ? (
+        <p className="text-center py-8 text-sm text-text-tertiary">
+          {month} 발행된 급여명세서가 없습니다.
+        </p>
+      ) : (
+        <div className="rounded-2xl border border-border-subtle overflow-hidden">
+          <table className="w-full text-xs">
+            <thead className="bg-surface-sunken border-b border-border">
+              <tr>
+                <th className="text-left px-3 py-2 font-semibold text-text-secondary">이름</th>
+                <th className="text-right px-3 py-2 font-semibold text-text-secondary">실지급액</th>
+                <th className="text-center px-3 py-2 font-semibold text-text-secondary">SMS</th>
+                <th className="text-center px-3 py-2 font-semibold text-text-secondary">이메일</th>
+                <th className="text-left px-3 py-2 font-semibold text-text-secondary">발송일시</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border-subtle">
+              {items.map(it => {
+                const sms = !!it.sent_sms_at
+                const email = !!it.sent_email_at
+                const sentAt = it.sent_email_at ?? it.sent_sms_at
+                return (
+                  <tr key={it.id} className="hover:bg-surface-sunken transition-colors">
+                    <td className="px-3 py-2 text-text-primary">
+                      <span className="font-medium">{it.person_name}</span>
+                      <span className="ml-1 text-[10px] text-text-tertiary">
+                        {it.person_type === 'user' ? '담당자' : '작업자'}
+                      </span>
+                    </td>
+                    <td className="px-3 py-2 text-right tabular-nums font-medium text-text-primary">
+                      {it.net_amount.toLocaleString('ko-KR')}원
+                    </td>
+                    <td className="px-3 py-2 text-center">
+                      {sms
+                        ? <span className="text-emerald-600 font-semibold">✓</span>
+                        : <span className="text-text-tertiary">−</span>}
+                    </td>
+                    <td className="px-3 py-2 text-center">
+                      {email
+                        ? <span className="text-emerald-600 font-semibold">✓</span>
+                        : <span className="text-text-tertiary">−</span>}
+                    </td>
+                    <td className="px-3 py-2 text-text-tertiary text-[11px] tabular-nums">
+                      {sentAt ? new Date(sentAt).toLocaleString('ko-KR', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '−'}
+                      {it.send_error && (
+                        <span className="ml-1 text-red-600" title={it.send_error}>⚠</span>
+                      )}
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
   )
 }
 
