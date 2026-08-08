@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo, useCallback, type ReactElement, type ReactNode } from 'react'
+import { useState, useEffect, useMemo, useCallback, type ReactNode } from 'react'
 import toast from 'react-hot-toast'
 import {
   X, CreditCard, FileText, Plus, ChevronDown, ChevronUp,
@@ -11,16 +11,8 @@ import PayslipList, { type PayslipEntry } from './PayslipList'
 import PayslipModal from './PayslipModal'
 import type { PayrollRecord, ExtraPayItem, TaxType } from './types'
 import { computePayslip, DEFAULT_PAYSLIP_RATES, type PayslipRates } from '@/lib/payroll/payslipCalc'
-import type { DocumentProps } from '@react-pdf/renderer'
-import type { PayslipData } from './PayslipPDF'
 
 // ─── 유틸 ────────────────────────────────────────────────────────────────────
-
-function defaultPayDate(month: string): string {
-  const [y, m] = month.split('-').map(Number)
-  const next = new Date(y, m, 10)
-  return `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, '0')}-${String(next.getDate()).padStart(2, '0')}`
-}
 
 const TAX_TYPES: { value: TaxType; label: string }[] = [
   { value: '4대보험', label: '4대보험 (국민연금·건강·고용·장기요양)' },
@@ -302,57 +294,6 @@ export default function PayslipDraftModal({
     }
   }
 
-  // ── 빠른 PDF 발행 (기본 지급일 · 소득세 자동) ────────────────────────────
-  const [payDate, setPayDate] = useState(defaultPayDate(month))
-  const [publishing, setPublishing] = useState(false)
-
-  const handleQuickPublish = async () => {
-    setPublishing(true)
-    try {
-      const dataRes = await fetch('/api/admin/payroll/payslip-data', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ month, personType, personId, payDate }),
-      })
-      const dataJson = await dataRes.json()
-      if (!dataRes.ok || !dataJson.success) throw new Error(dataJson.error ?? '데이터 조회 실패')
-      const payslipData: PayslipData = dataJson.data
-
-      const [{ pdf }, { createElement }, { PayslipPDFDocument }] = await Promise.all([
-        import('@react-pdf/renderer'),
-        import('react'),
-        import('./PayslipPDF'),
-      ])
-      const elem = createElement(PayslipPDFDocument, { data: payslipData }) as ReactElement<DocumentProps>
-      const blob = await pdf(elem).toBlob()
-      const fileName = `급여명세서_${workerName}_${month}.pdf`
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url; a.download = fileName; a.click()
-      URL.revokeObjectURL(url)
-
-      const saveRes = await fetch('/api/admin/payroll/payslips', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          year_month: month, person_type: personType, person_id: personId,
-          person_name: workerName, pay_date: payDate, file_url: null, file_name: fileName,
-          gross_amount: payslipData.gross.finalAmount,
-          deduction_amount: payslipData.deductions.total,
-          net_amount: payslipData.netPay,
-          tax_type: payslipData.person.taxType,
-        }),
-      })
-      if (!saveRes.ok) throw new Error('이력 저장 실패')
-      toast.success('명세서 발행 완료')
-      onPublished()
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : '발행 실패')
-    } finally {
-      setPublishing(false)
-    }
-  }
-
   // ─── JSX ──────────────────────────────────────────────────────────────────
 
   const fmt = (n: number) => n.toLocaleString('ko-KR')
@@ -494,37 +435,7 @@ export default function PayslipDraftModal({
                 </div>
               </Section>
 
-              {/* 섹션 4 · 명세서 발행 옵션 — 접힘 기본 */}
-              <Section
-                icon={<FileText size={14} />}
-                title="빠른 PDF 발행"
-                subtitle="지급일 지정 후 이 창에서 즉시 발행"
-              >
-                <div className="space-y-2.5">
-                  <div>
-                    <label className="text-[11px] font-semibold text-text-tertiary block mb-1">지급일</label>
-                    <input
-                      type="date" value={payDate} onChange={e => setPayDate(e.target.value)}
-                      disabled={publishing}
-                      className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
-                    />
-                  </div>
-                  <div className="rounded-lg border border-border bg-surface-sunken p-2.5">
-                    <p className="text-[10px] text-text-secondary leading-snug">
-                      💡 소득세는 <b>요율 페이지의 근로소득세율({(rates.incomeTax * 100).toFixed(2)}%) × 지급총액</b>으로 자동 계산됩니다.
-                    </p>
-                  </div>
-                  <button
-                    onClick={handleQuickPublish} disabled={publishing}
-                    className="w-full py-2 text-xs font-semibold rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-60 flex items-center justify-center gap-1.5"
-                  >
-                    <FileText size={13} />
-                    {publishing ? '발행 중...' : '즉시 PDF 발행 (로컬 다운로드)'}
-                  </button>
-                </div>
-              </Section>
-
-              {/* 섹션 5 · 발행이력 — 접힘 기본 */}
+              {/* 섹션 4 · 발행이력 — 접힘 기본 */}
               <Section
                 icon={<History size={14} />}
                 title="발행 이력"
