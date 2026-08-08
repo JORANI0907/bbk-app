@@ -1054,7 +1054,37 @@
         <div class="form-group">
           <label class="form-label">계좌번호 (카드, 플랫폼 결제 시 페이백)<span class="required">*</span></label>
           <div class="form-hint">카드 or 플랫폼 결제 시 예약금 페이백을 위해 작성 바랍니다.</div>
-          <input type="text" class="form-input" id="accountNumber" placeholder="은행명 + 계좌번호 (예: 국민은행 000-000-000000)" required>
+          <div style="display:flex; gap:8px; align-items:stretch;">
+            <select class="form-input" id="bankName" required style="flex:0 0 140px; min-width:120px;">
+              <option value="">은행 선택</option>
+              <option value="국민">국민</option>
+              <option value="경남">경남</option>
+              <option value="광주">광주</option>
+              <option value="기업">기업</option>
+              <option value="농협">농협</option>
+              <option value="아이엠뱅크">아이엠뱅크</option>
+              <option value="부산">부산</option>
+              <option value="산업">산업</option>
+              <option value="저축">저축</option>
+              <option value="새마을금고">새마을금고</option>
+              <option value="수협">수협</option>
+              <option value="신한">신한</option>
+              <option value="신협">신협</option>
+              <option value="씨티">씨티</option>
+              <option value="KEB하나">KEB하나</option>
+              <option value="우리">우리</option>
+              <option value="우체국">우체국</option>
+              <option value="전북">전북</option>
+              <option value="SC">SC</option>
+              <option value="제주">제주</option>
+              <option value="HSBC">HSBC</option>
+              <option value="케이뱅크">케이뱅크</option>
+              <option value="카카오뱅크">카카오뱅크</option>
+              <option value="토스뱅크">토스뱅크</option>
+            </select>
+            <input type="text" class="form-input" id="accountNumber" placeholder="계좌번호 (예: 000-000-000000)" required style="flex:1;">
+          </div>
+          <div class="error-msg" id="bankNameError">⚠ 은행을 선택해주세요</div>
           <div class="error-msg" id="accountNumberError">⚠ 계좌번호를 입력해주세요</div>
         </div>
       </div>
@@ -1204,7 +1234,7 @@
       'ownerName', 'phone', 'emailId', 'emailDomain',
       'address', 'businessName', 'businessNumber',
       'businessHoursStart', 'businessHoursEnd',
-      'accessMethod', 'accountNumber'
+      'accessMethod', 'bankName', 'accountNumber'
     ];
     var requiredRadios = ['elevator', 'buildingAccess', 'parking', 'paymentMethod'];
     var requiredChecks = ['privacyConsent', 'serviceConsent'];
@@ -1330,7 +1360,8 @@
         {id:'phone', err:'phoneError'}, {id:'emailId', err:'emailError'},
         {id:'address', err:'addressError'}, {id:'businessName', err:'businessNameError'},
         {id:'businessNumber', err:'businessNumberError'},
-        {id:'accessMethod', err:'accessMethodError'}, {id:'accountNumber', err:'accountNumberError'}
+        {id:'accessMethod', err:'accessMethodError'},
+        {id:'bankName', err:'bankNameError'}, {id:'accountNumber', err:'accountNumberError'}
       ];
 
       textFields.forEach(function(f) {
@@ -1467,7 +1498,12 @@
         accessMethod: document.getElementById('accessMethod').value.trim(),
         parking: parkingValue,
         paymentMethod: document.querySelector('input[name="paymentMethod"]:checked').value,
-        accountNumber: document.getElementById('accountNumber').value.trim(),
+        accountNumber: (function(){
+          var bank = document.getElementById('bankName').value.trim();
+          var acct = document.getElementById('accountNumber').value.trim();
+          if (bank && acct) return bank + ' ' + acct;
+          return acct || bank;
+        })(),
         privacyConsent: document.getElementById('privacyConsent').checked,
         serviceConsent: document.getElementById('serviceConsent').checked,
         requestNotes: document.getElementById('requestNotes').value.trim()
