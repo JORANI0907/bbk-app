@@ -65,6 +65,7 @@ interface Candidate {
   draft_invoice_kind: string | null
   application_status?: string | null
   payment_status_detail?: string | null
+  customer_payment_status_detail?: string | null
 }
 
 interface DraftData {
@@ -205,6 +206,7 @@ export async function GET(request: NextRequest) {
       email: string | null
       contact_phone: string | null
       payment_method: string | null
+      payment_status_detail: string | null
       created_at: string
       service_applications: SaRow[]
     }
@@ -213,7 +215,7 @@ export async function GET(request: NextRequest) {
       .from('customers')
       .select(`
         id, business_name, business_number, contact_name, address, email, contact_phone,
-        payment_method, created_at,
+        payment_method, payment_status_detail, created_at,
         service_applications (
           id, construction_date, status, payment_status_detail,
           tax_invoice_issued, tax_invoice_issued_at,
@@ -298,6 +300,7 @@ export async function GET(request: NextRequest) {
           draft_invoice_kind: draft?.invoice_kind ?? null,
           application_status: sa.status ?? null,
           payment_status_detail: sa.payment_status_detail ?? null,
+          customer_payment_status_detail: c.payment_status_detail ?? null,
         })
       }
     }
