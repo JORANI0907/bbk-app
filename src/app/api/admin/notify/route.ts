@@ -626,6 +626,13 @@ export async function POST(request: NextRequest) {
       dbUpdates.notification_sent_at = nowIso
       dbUpdates.notification_send_at = null
     }
+    // 계산서발행완료알림 발송 시 tax_invoice 플래그 자동 세팅
+    // (수동 mark-issued 처리와 동일한 결과 → 세금계산서 발행 대시보드에서 자동 제외)
+    // 1회성케어 한정 — DB 에 정기케어용 이 알림 템플릿 없음.
+    if (type === '계산서발행완료알림') {
+      dbUpdates.tax_invoice_issued = true
+      dbUpdates.tax_invoice_issued_at = nowIso
+    }
 
     await supabase
       .from('service_applications')
