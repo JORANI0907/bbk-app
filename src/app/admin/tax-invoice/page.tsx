@@ -243,11 +243,13 @@ export default function TaxInvoiceDashboardPage() {
     })
   }
 
-  // ── 발행 완료 처리 ───────────────────────────────────────────
+  // ── 발행 완료 처리 (Phase 27-V: 반자동 계산서발행완료알림 발송 통합) ─────
   const handleMarkIssued = async () => {
     const selected = filteredCandidates.filter(c => selectedIds.has(rowKey(c)) && !c.tax_invoice_issued)
     if (selected.length === 0) { toast.error('먼저 미발행 항목을 선택하세요.'); return }
-    if (!confirm(`선택한 ${selected.length}건을 발행 완료 처리할까요?`)) return
+    if (!confirm(
+      `선택한 ${selected.length}건을 발행 완료 처리하고, 각 고객에게 세금계산서 발행 완료 알림 SMS 를 발송할까요?`,
+    )) return
 
     setMarkingIssued(true)
     try {
@@ -265,7 +267,12 @@ export default function TaxInvoiceDashboardPage() {
       const json = await res.json()
       if (!res.ok) throw new Error(json.error ?? '처리 실패')
       const total = (json.updated_applications ?? 0) + (json.updated_billings ?? 0)
-      toast.success(`발행 완료 처리: ${total}건`)
+      const sent = json.sent_notifications ?? 0
+      const failed = json.failed_notifications ?? 0
+      const notifyLine = failed > 0
+        ? ` · 알림 발송 ${sent}건 (실패 ${failed}건)`
+        : ` · 알림 발송 ${sent}건`
+      toast.success(`발행 완료 처리 ${total}건${notifyLine}`)
       void load()
     } catch (e) {
       toast.error(e instanceof Error ? e.message : '처리 실패')
