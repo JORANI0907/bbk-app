@@ -474,10 +474,11 @@ export async function POST(req: NextRequest) {
     XLSX.utils.book_append_sheet(workbook, detailSheet, '급여상세')
 
     // ─── 시트 2: 은행 급여이체 (obiz 포맷) ─────────────────────────────────
-    // A: 은행 대표코드 (3자리) · B: 계좌번호 · C: 이체금액(실지급액)
-    // D: 예금주 · E: 통장표시(급여) · F: 내 통장 메모(N월급여)
-    // G열(메모)은 선택 항목이며 빈 문자열로 넣으면 국민은행 파서가 "공백값"으로 오류 → 제외
-    // A열은 직원관리에서 지정한 bank_code 우선, 없으면 bank_name → 매핑 → 마지막으로 account_number 파싱 fallback
+    // A: 은행 대표코드 (3자리 · 앞의 0 유지를 위해 ' 접두사 + 텍스트 셀 강제)
+    // B: 계좌번호 (숫자만 · 은행명 제거)
+    // C: 이체금액(실지급액) · D: 예금주 · E: 통장표시(급여)
+    // F: "급여이체" 고정 문자열 (내 통장 메모)
+    // G: "N월급여" (메모 · 급여 월 라벨)
     const bankRows: (string | number)[][] = []
     const pushBankRow = (
       name: string,
@@ -488,13 +489,21 @@ export async function POST(req: NextRequest) {
       let number: string = opts.accountRaw ?? ''
       // bank_code 없으면 bank_name → 매핑
       if (!code && opts.bankName) code = bankNameToCode(opts.bankName) ?? ''
-      // 그마저도 없으면 레거시 account_number 앞부분 파싱 시도
+      // 그마저도 없으면 레거시 account_number 앞부분 파싱 시도 (은행명 제거 · 계좌번호 순수 숫자만)
       if (!code || !number) {
         const parsed = parseAccount(opts.accountRaw)
         if (!code && parsed.bank) code = bankNameToCode(parsed.bank) ?? ''
-        if (!number) number = parsed.number
+        if (!number || number === opts.accountRaw) number = parsed.number
       }
-      bankRows.push([code, number, amount, name, '급여', payLabel])
+      bankRows.push([
+        code ? `'${code}` : '',   // A · 앞 0 유지 위해 ' 접두사
+        number,                     // B · 계좌번호 숫자만
+        amount,                     // C · 이체금액
+        name,                       // D · 예금주
+        '급여',                     // E · 통장표시
+        '급여이체',                 // F · 내 통장 메모 (고정)
+        payLabel,                   // G · 메모 (N월급여)
+      ])
     }
     for (const d of managerDetails) {
       const entry = managerEntries.find(e => e.person.name === d.name)
@@ -516,13 +525,28 @@ export async function POST(req: NextRequest) {
     }
 
     const bankSheet = XLSX.utils.aoa_to_sheet(bankRows)
+    // A열 전체를 텍스트 셀로 강제 (엑셀이 004 를 4 로 축약하는 것 방지)
+    for (let r = 0; r < bankRows.length; r++) {
+      const addr = XLSX.utils.encode_cell({ r, c: 0 })
+      if (bankSheet[addr]) {
+        bankSheet[addr].t = 's'
+        bankSheet[addr].z = '@'
+      }
+      // B열(계좌번호)도 텍스트 셀로 강제
+      const addrB = XLSX.utils.encode_cell({ r, c: 1 })
+      if (bankSheet[addrB]) {
+        bankSheet[addrB].t = 's'
+        bankSheet[addrB].z = '@'
+      }
+    }
     bankSheet['!cols'] = [
-      { wch: 8 },   // A · 은행명
+      { wch: 8 },   // A · 은행 코드
       { wch: 22 },  // B · 계좌번호
       { wch: 12 },  // C · 이체금액
       { wch: 10 },  // D · 예금주
       { wch: 6 },   // E · 통장표시
-      { wch: 10 },  // F · 내 통장 메모
+      { wch: 10 },  // F · 내 통장 메모 (급여이체)
+      { wch: 10 },  // G · 메모 (N월급여)
     ]
     XLSX.utils.book_append_sheet(workbook, bankSheet, '급여이체')
 
