@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, type ReactElement } from 'react'
 import toast from 'react-hot-toast'
 import { EMPLOYMENT_LABEL, EMPLOYMENT_TYPE_VALUES, type EmploymentType, type Worker } from './constants'
+import { BANK_OPTIONS } from '@/lib/bankCodes'
 import type { DocumentProps } from '@react-pdf/renderer'
 import type { PDFSections, WorkHistoryEntry } from './WorkerPDF'
 
@@ -194,6 +195,8 @@ export default function WorkerDetail({ worker, onWorkerUpdated, onWorkerDeleted 
     specialties: worker.specialties ?? '',
     skill_level: worker.skill_level ?? '',
     account_number: worker.account_number ?? '',
+    bank_code: worker.bank_code ?? '',
+    bank_name: worker.bank_name ?? '',
     day_wage: worker.day_wage?.toString() ?? '',
     night_wage: worker.night_wage?.toString() ?? '',
     avg_salary: worker.avg_salary?.toString() ?? '',
@@ -230,6 +233,8 @@ export default function WorkerDetail({ worker, onWorkerUpdated, onWorkerDeleted 
       specialties: worker.specialties ?? '',
       skill_level: worker.skill_level ?? '',
       account_number: worker.account_number ?? '',
+    bank_code: worker.bank_code ?? '',
+    bank_name: worker.bank_name ?? '',
       day_wage: worker.day_wage?.toString() ?? '',
       night_wage: worker.night_wage?.toString() ?? '',
       avg_salary: worker.avg_salary?.toString() ?? '',
@@ -277,6 +282,8 @@ export default function WorkerDetail({ worker, onWorkerUpdated, onWorkerDeleted 
         blood_type: form.blood_type || null,
         home_address: form.home_address || null,
         account_number: form.account_number || null,
+        bank_code: form.bank_code || null,
+        bank_name: form.bank_name || null,
         specialties: form.specialties || null,
         anniversary: form.anniversary || null,
         hobby: form.hobby || null,
@@ -540,7 +547,40 @@ export default function WorkerDetail({ worker, onWorkerUpdated, onWorkerDeleted 
               options={['세전', '세후']}
               onChange={setField('salary_basis')}
             />
-            <Field label="계좌번호" value={form.account_number} onChange={setField('account_number')} mono placeholder="은행명 + 계좌번호" />
+            {/* 은행 · 계좌번호 (분리 입력) — 은행 선택 시 bank_code(3자리 대표코드) 자동 저장 */}
+            <div>
+              <label className="text-xs text-text-tertiary block mb-1">은행</label>
+              <select
+                value={form.bank_code}
+                onChange={e => {
+                  const code = e.target.value
+                  const opt = BANK_OPTIONS.find(b => b.code === code)
+                  setForm(prev => ({
+                    ...prev,
+                    bank_code: code,
+                    bank_name: opt?.name ?? '',
+                  }))
+                }}
+                className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+              >
+                <option value="">— 은행 선택 —</option>
+                {BANK_OPTIONS.map(b => (
+                  <option key={b.code} value={b.code}>{b.name} ({b.code})</option>
+                ))}
+              </select>
+              {form.bank_code && (
+                <p className="text-[10px] text-text-tertiary mt-1">
+                  대표코드 <span className="font-mono font-semibold text-brand-600">{form.bank_code}</span> · 급여이체 파일 A열에 자동 사용
+                </p>
+              )}
+            </div>
+            <Field
+              label="계좌번호"
+              value={form.account_number}
+              onChange={setField('account_number')}
+              mono
+              placeholder="예: 123-456-789012"
+            />
             {isPartTime ? (
               <>
                 <Field label="주간 일당" value={form.day_wage} onChange={setField('day_wage')} type="number" placeholder="원" />
