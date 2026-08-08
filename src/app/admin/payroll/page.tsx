@@ -135,6 +135,25 @@ export default function PayrollPage() {
     return keys
   }, [showManagers, showWorkers, managers, workersPayroll])
 
+  // 담당자·작업자 겸직 감지 — phone 우선, 없으면 이름 기준
+  const dualRoleKeys = useMemo(() => {
+    const keyOf = (p: { phone: string | null; name: string }) =>
+      p.phone ? `p:${p.phone}` : `n:${p.name}`
+    const managerSet = new Set(managers.map(m => keyOf(m.person)))
+    const workerSet = new Set(workersPayroll.map(w => keyOf(w.person)))
+    const dual = new Set<string>()
+    managerSet.forEach(k => { if (workerSet.has(k)) dual.add(k) })
+    return dual
+  }, [managers, workersPayroll])
+  const isDual = (p: { phone: string | null; name: string }) =>
+    dualRoleKeys.has(p.phone ? `p:${p.phone}` : `n:${p.name}`)
+  const dualRoleNames = useMemo(() => {
+    const names = new Set<string>()
+    managers.forEach(m => { if (isDual(m.person)) names.add(m.person.name) })
+    return Array.from(names)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [managers, workersPayroll, dualRoleKeys])
+
   const allVisibleSelected = visiblePersonKeys.length > 0 && visiblePersonKeys.every(k => selectedPersons.has(k))
 
   const toggleAllSelection = () => {
@@ -286,6 +305,15 @@ export default function PayrollPage() {
                     <SummaryCards entries={filteredEntries} label={filterLabel} />
                   </div>
                 )}
+                {dualRoleNames.length > 0 && personFilter === 'all' && (
+                  <div className="mb-3 flex items-start gap-1.5 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                    <span>🔗</span>
+                    <span>
+                      <b>{dualRoleNames.join(', ')}</b> 님은 담당자·작업자 두 역할로 활동 중입니다.
+                      각 카드는 <b>해당 역할의 급여만</b> 표시하며, 이체 시 두 카드를 모두 확인하세요.
+                    </span>
+                  </div>
+                )}
                 {filteredEntries.length === 0 ? (
                   <div className="text-center py-12">
                     <div className="flex justify-center mb-2"><ClipboardList size={32} /></div>
@@ -299,6 +327,7 @@ export default function PayrollPage() {
                         entry={entry}
                         month={month}
                         isSelected={selectedPersons.has(`user:${entry.person.id}`)}
+                        isDualRole={isDual(entry.person)}
                         onToggleSelect={() => togglePersonSelection('user', entry.person.id)}
                         payslips={payslips.filter(p => p.person_type === 'user' && p.person_id === entry.person.id)}
                         onPayslipUpdated={handlePayslipUpdated}
@@ -313,6 +342,7 @@ export default function PayrollPage() {
                         entry={entry}
                         month={month}
                         isSelected={selectedPersons.has(`worker:${entry.person.id}`)}
+                        isDualRole={isDual(entry.person)}
                         onToggleSelect={() => togglePersonSelection('worker', entry.person.id)}
                         payslips={payslips.filter(p => p.person_type === 'worker' && p.person_id === entry.person.id)}
                         onPayslipUpdated={handlePayslipUpdated}

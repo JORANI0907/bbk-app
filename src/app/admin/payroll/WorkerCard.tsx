@@ -11,6 +11,7 @@ export default function WorkerCard({
   entry,
   month,
   isSelected,
+  isDualRole = false,
   onToggleSelect,
   payslips,
   onPayslipUpdated,
@@ -21,6 +22,7 @@ export default function WorkerCard({
   entry: WorkerEntry
   month: string
   isSelected: boolean
+  isDualRole?: boolean
   onToggleSelect: () => void
   payslips: PayslipEntry[]
   onPayslipUpdated: (p: PayslipEntry) => void
@@ -31,11 +33,21 @@ export default function WorkerCard({
   const [expanded, setExpanded] = useState(false)
   const [showModal, setShowModal] = useState(false)
 
-  const isPaid = entry.record?.is_paid ?? false
-  const finalAmount = entry.record?.final_amount ?? entry.auto_amount
-  const isAdjusted = entry.record?.final_amount != null && entry.record.final_amount !== entry.auto_amount
-  const hasNote = !!(entry.record?.note?.trim())
+  const record = entry.record
+  const isPaid = record?.is_paid ?? false
+  const isAdjusted = record?.final_amount != null && record.final_amount !== entry.auto_amount
+  const hasNote = !!(record?.note?.trim())
   const workDays = new Set(entry.jobs.map(j => j.construction_date)).size
+
+  // 카드 우측 표시 금액: 저장된 record가 있으면 실지급 예상액, 없으면 자동 계산액
+  const extraItemsTotal = (record?.extra_items ?? []).reduce((s, it) => s + (it.amount || 0), 0)
+  const extraDedTotal = (record?.extra_deductions ?? []).reduce((s, it) => s + (it.amount || 0), 0)
+  const base = record?.final_amount ?? entry.auto_amount
+  const hasSaved = record != null
+  const netEstimate = base + extraItemsTotal - extraDedTotal
+  const displayAmount = hasSaved ? netEstimate : entry.auto_amount
+  const displayLabel = hasSaved ? '실지급 예상' : '자동 계산액'
+  const hasExtras = extraItemsTotal !== 0 || extraDedTotal !== 0
 
   const jobsByDate = entry.jobs.reduce<Record<string, WorkerJob[]>>((acc, job) => {
     if (!acc[job.construction_date]) acc[job.construction_date] = []
@@ -47,7 +59,7 @@ export default function WorkerCard({
   return (
     <>
       <div
-        className={`bg-surface rounded-xl border shadow-soft overflow-hidden transition-colors ${
+        className={`bg-surface rounded-xl border shadow-soft overflow-hidden transition-colors border-l-4 border-l-amber-500 ${
           isSelected
             ? 'border-brand-500 ring-2 ring-brand-200'
             : isPaid
@@ -70,6 +82,17 @@ export default function WorkerCard({
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-1.5 flex-wrap mb-0.5">
                   <span className="font-semibold text-text-primary">{entry.person.name}</span>
+                  <span className="text-[11px] px-1.5 py-0.5 rounded-md bg-amber-500 text-white font-bold">
+                    🔧 작업자
+                  </span>
+                  {isDualRole && (
+                    <span
+                      className="text-[11px] px-1.5 py-0.5 rounded-full bg-purple-50 text-purple-700 border border-purple-200 font-semibold"
+                      title="이 분은 담당자로도 등록되어 있습니다. 다른 카드도 확인하세요."
+                    >
+                      🔗 겸직
+                    </span>
+                  )}
                   <span className="text-xs px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-600">
                     {entry.person.employment_type ?? '기타'}
                   </span>
@@ -141,8 +164,12 @@ export default function WorkerCard({
             {/* 오른쪽: 금액 + 버튼 */}
             <div className="flex flex-col items-end shrink-0 gap-1.5">
               <div className="text-right">
-                <span className={`text-lg font-bold leading-tight ${isAdjusted ? 'text-orange-600' : 'text-text-primary'}`}>
-                  {finalAmount.toLocaleString('ko-KR')}
+                <span className="block text-[10px] text-text-tertiary leading-none mb-0.5">{displayLabel}</span>
+                <span
+                  className={`text-lg font-bold leading-tight ${isAdjusted || hasExtras ? 'text-orange-600' : 'text-text-primary'}`}
+                  title={hasSaved && hasExtras ? `조정 ${base.toLocaleString('ko-KR')} + 추가지급 ${extraItemsTotal.toLocaleString('ko-KR')} − 추가공제 ${extraDedTotal.toLocaleString('ko-KR')}` : undefined}
+                >
+                  {displayAmount.toLocaleString('ko-KR')}
                 </span>
                 <span className="text-xs text-text-tertiary ml-0.5">원</span>
               </div>
