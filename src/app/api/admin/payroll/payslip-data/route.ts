@@ -115,10 +115,10 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: '담당자를 찾을 수 없습니다.' }, { status: 404 })
       }
 
-      // users → workers 매핑이 있으면 workers의 상세 정보를 우선 사용
+      // users → workers 매핑이 있으면 workers의 상세 정보를 우선 사용 (계좌·이메일·전화도 fallback)
       const { data: linkedWorker } = await supabase
         .from('workers')
-        .select('tax_type, salary_basis, employment_type, department, position, job_title, join_date, birth_date, home_address, personal_id, resident_number')
+        .select('tax_type, salary_basis, employment_type, department, position, job_title, join_date, birth_date, home_address, personal_id, resident_number, account_number, email, phone')
         .eq('user_id', personId)
         .maybeSingle()
 
@@ -129,15 +129,15 @@ export async function POST(req: NextRequest) {
         name: data.name,
         taxType: (linkedWorker?.tax_type as TaxType) ?? '4대보험',
         salaryBasis: (linkedWorker?.salary_basis as SalaryBasis) ?? '세전',
-        accountNumber: data.account_number,
+        accountNumber: data.account_number ?? linkedWorker?.account_number ?? null,
         residentNumberMasked: maskResidentNumber(rrn),
         department: linkedWorker?.department ?? null,
         position: linkedWorker?.position ?? linkedWorker?.job_title ?? (data.role === 'admin' ? '관리자' : '직원'),
         joinDate: linkedWorker?.join_date ?? null,
         employmentType: labelEmploymentType(linkedWorker?.employment_type, data.role === 'admin' ? '관리자' : '직원'),
         birthDate: linkedWorker?.birth_date ?? null,
-        phone: data.phone,
-        email: data.email,
+        phone: data.phone ?? linkedWorker?.phone ?? null,
+        email: data.email ?? linkedWorker?.email ?? null,
         homeAddress: linkedWorker?.home_address ?? null,
       }
     } else {

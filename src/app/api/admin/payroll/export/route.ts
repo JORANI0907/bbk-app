@@ -140,8 +140,8 @@ export async function POST(req: NextRequest) {
         .order('construction_date'),
       supabase.from('users').select('id, name, role, phone, account_number, email').in('role', ['worker', 'admin']).eq('is_active', true).order('name'),
       supabase.from('workers').select('id, name, employment_type, phone, account_number, email, tax_type, salary_basis').order('name'),
-      // users 담당자용 세금 설정 조회 (workers.user_id 매핑)
-      supabase.from('workers').select('user_id, tax_type, salary_basis, employment_type').not('user_id', 'is', null),
+      // users 담당자용 세금 설정 조회 (workers.user_id 매핑) — 계좌/이메일/전화 fallback 도 함께
+      supabase.from('workers').select('user_id, tax_type, salary_basis, employment_type, account_number, email, phone').not('user_id', 'is', null),
       supabase.from('payroll_records').select('*').eq('year_month', month),
       supabase.from('unit_price_monthly').select('application_id, unit_price').eq('year_month', month),
       supabase.from('payroll_payslips').select('person_type, person_id, pay_date').eq('year_month', month),
@@ -167,14 +167,24 @@ export async function POST(req: NextRequest) {
       ...((settingsRes.data?.insurance_rates ?? {}) as Partial<PayslipRates>),
     }
 
-    // 담당자(users) → workers 매핑을 통해 taxType/basis 조회
-    const userTaxMap = new Map<string, { taxType: TaxType; salaryBasis: SalaryBasis; employmentType: string | null }>()
+    // 담당자(users) → workers 매핑을 통해 taxType/basis/계좌/이메일 조회
+    const userTaxMap = new Map<string, {
+      taxType: TaxType
+      salaryBasis: SalaryBasis
+      employmentType: string | null
+      accountNumber: string | null
+      email: string | null
+      phone: string | null
+    }>()
     for (const lw of linkedWorkers) {
       if (!lw.user_id) continue
       userTaxMap.set(lw.user_id, {
         taxType: (lw.tax_type as TaxType) ?? '4대보험',
         salaryBasis: (lw.salary_basis as SalaryBasis) ?? '세전',
         employmentType: lw.employment_type,
+        accountNumber: lw.account_number,
+        email: lw.email,
+        phone: lw.phone,
       })
     }
 
@@ -335,12 +345,14 @@ export async function POST(req: NextRequest) {
       const roleLabel = e.person.role === 'admin' ? '관리자' : '직원'
       const employmentType = linked?.employmentType ? labelEmploymentType(linked.employmentType) : roleLabel
       const payDate = payDateMap.get(`user:${e.person.id}`) ?? fallbackPayDate
+      // 계좌는 users.account_number 우선, 없으면 workers 매핑 계좌 fallback
+      const accountRaw = e.person.account_number ?? linked?.accountNumber ?? null
       return buildDetail(
         e.person.name, roleLabel, employmentType,
         linked?.taxType ?? '4대보험',
         linked?.salaryBasis ?? '세전',
         workDays, e.jobs.length, e.autoAmount, e.record,
-        e.person.account_number, payDate,
+        accountRaw, payDate,
       )
     })
 
@@ -464,7 +476,10 @@ export async function POST(req: NextRequest) {
       bankRows.push([bank, number, amount, name, '급여', payLabel, ''])
     }
     for (const d of managerDetails) {
-      const raw = managerEntries.find(e => e.person.name === d.name)?.person.account_number ?? null
+      const entry = managerEntries.find(e => e.person.name === d.name)
+      // users.account_number 우선, 없으면 workers 매핑 계좌 (4대보험 인원은 대부분 여기)
+      const linkedAcc = entry ? userTaxMap.get(entry.person.id)?.accountNumber ?? null : null
+      const raw = entry?.person.account_number ?? linkedAcc ?? null
       pushBankRow(d.name, raw, d.netPay)
     }
     for (const d of workerDetails) {

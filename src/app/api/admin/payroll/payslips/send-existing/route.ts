@@ -71,7 +71,7 @@ export async function POST(req: NextRequest) {
         }
         const signedUrl = signedRes.data.signedUrl
 
-        // 3) 인원 phone/email 조회
+        // 3) 인원 phone/email 조회 (담당자는 users → workers 매핑 fallback)
         let phone: string | null = null
         let email: string | null = null
         if (payslip.person_type === 'worker') {
@@ -83,13 +83,23 @@ export async function POST(req: NextRequest) {
           phone = data?.phone ?? null
           email = data?.email ?? null
         } else {
-          const { data } = await supabase
+          const { data: userRow } = await supabase
             .from('users')
             .select('phone, email')
             .eq('id', payslip.person_id as string)
             .single()
-          phone = data?.phone ?? null
-          email = data?.email ?? null
+          phone = userRow?.phone ?? null
+          email = userRow?.email ?? null
+          // users에 값이 없으면 workers 매핑에서 fallback
+          if (!phone || !email) {
+            const { data: linkedWorker } = await supabase
+              .from('workers')
+              .select('phone, email')
+              .eq('user_id', payslip.person_id as string)
+              .maybeSingle()
+            if (!phone) phone = linkedWorker?.phone ?? null
+            if (!email) email = linkedWorker?.email ?? null
+          }
         }
         const hasPhone = !!phone && phone.replace(/\D/g, '').length >= 9
         const hasEmail = isValidRealEmail(email)
