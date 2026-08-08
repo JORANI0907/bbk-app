@@ -25,6 +25,21 @@ function defaultPayDate(yearMonth: string): string {
   return `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, '0')}-${String(next.getDate()).padStart(2, '0')}`
 }
 
+// 고용형태 enum → 한글 라벨
+const EMPLOYMENT_TYPE_LABELS: Record<string, string> = {
+  FULL_TIME: '정규직',
+  CONTRACT: '계약직',
+  PART_TIME: '파트타임',
+  DAILY: '일용직',
+  FREELANCER: '프리랜서',
+  SUBCONTRACT: '도급',
+  ULTRA_SHORT: '초단시간',
+}
+function labelEmploymentType(raw: string | null | undefined): string {
+  if (!raw) return '-'
+  return EMPLOYMENT_TYPE_LABELS[raw] ?? raw
+}
+
 // account_number 문자열에서 은행명과 계좌번호를 분리 (예: "국민 123-45-6789" → { bank: "국민", number: "123-45-6789" })
 function parseAccount(raw: string | null): { bank: string; number: string } {
   if (!raw) return { bank: '', number: '' }
@@ -318,7 +333,7 @@ export async function POST(req: NextRequest) {
       const linked = userTaxMap.get(e.person.id)
       const workDays = new Set(e.jobs.map(j => j.construction_date)).size
       const roleLabel = e.person.role === 'admin' ? '관리자' : '직원'
-      const employmentType = linked?.employmentType ?? roleLabel
+      const employmentType = linked?.employmentType ? labelEmploymentType(linked.employmentType) : roleLabel
       const payDate = payDateMap.get(`user:${e.person.id}`) ?? fallbackPayDate
       return buildDetail(
         e.person.name, roleLabel, employmentType,
@@ -333,7 +348,7 @@ export async function POST(req: NextRequest) {
       const workDays = new Set(e.jobs.map(j => j.construction_date)).size
       const payDate = payDateMap.get(`worker:${e.person.id}`) ?? fallbackPayDate
       return buildDetail(
-        e.person.name, '작업자', e.person.employment_type ?? '-',
+        e.person.name, '작업자', labelEmploymentType(e.person.employment_type),
         (e.person.tax_type as TaxType) ?? '없음',
         (e.person.salary_basis as SalaryBasis) ?? '세전',
         workDays, e.jobs.length, e.autoAmount, e.record,

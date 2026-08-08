@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { CreditCard, FileText, ClipboardList } from 'lucide-react'
-import { fmt, fmtDate } from './utils'
+import { fmt, fmtDate, fmtEmploymentType } from './utils'
 import PayslipList, { type PayslipEntry } from './PayslipList'
 import PayslipDraftModal from './PayslipDraftModal'
 import type { WorkerEntry, WorkerJob, PayrollRecord } from './types'
@@ -94,7 +94,7 @@ export default function WorkerCard({
                     </span>
                   )}
                   <span className="text-xs px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-600">
-                    {entry.person.employment_type ?? '기타'}
+                    {fmtEmploymentType(entry.person.employment_type)}
                   </span>
                   {isPaid && (
                     <span className="text-xs px-1.5 py-0.5 rounded-full bg-state-success-bg text-state-success flex items-center gap-0.5">

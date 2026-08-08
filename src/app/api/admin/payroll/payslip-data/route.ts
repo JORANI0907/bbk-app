@@ -22,6 +22,21 @@ function generateEmployeeNumber(personId: string): string {
   return `BBK-${personId.slice(0, 4).toUpperCase()}`
 }
 
+// 고용형태 enum → 한글 라벨 (DB 저장 값은 FULL_TIME 등 영문)
+const EMPLOYMENT_TYPE_LABELS: Record<string, string> = {
+  FULL_TIME: '정규직',
+  CONTRACT: '계약직',
+  PART_TIME: '파트타임',
+  DAILY: '일용직',
+  FREELANCER: '프리랜서',
+  SUBCONTRACT: '도급',
+  ULTRA_SHORT: '초단시간',
+}
+function labelEmploymentType(raw: string | null | undefined, fallback: string | null = null): string | null {
+  if (!raw) return fallback
+  return EMPLOYMENT_TYPE_LABELS[raw] ?? raw
+}
+
 // 주민번호 뒷자리(성별 코드) 1자리만 노출하고 나머지는 마스킹
 function maskResidentNumber(rrn: string | null | undefined): string {
   if (!rrn) return '-'
@@ -119,7 +134,7 @@ export async function POST(req: NextRequest) {
         department: linkedWorker?.department ?? null,
         position: linkedWorker?.position ?? linkedWorker?.job_title ?? (data.role === 'admin' ? '관리자' : '직원'),
         joinDate: linkedWorker?.join_date ?? null,
-        employmentType: linkedWorker?.employment_type ?? (data.role === 'admin' ? '관리자' : '직원'),
+        employmentType: labelEmploymentType(linkedWorker?.employment_type, data.role === 'admin' ? '관리자' : '직원'),
         birthDate: linkedWorker?.birth_date ?? null,
         phone: data.phone,
         email: data.email,
@@ -145,7 +160,7 @@ export async function POST(req: NextRequest) {
         department: data.department,
         position: data.position ?? data.job_title,
         joinDate: data.join_date,
-        employmentType: data.employment_type,
+        employmentType: labelEmploymentType(data.employment_type),
         birthDate: data.birth_date,
         phone: data.phone,
         email: data.email,
