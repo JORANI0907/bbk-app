@@ -469,11 +469,14 @@ export async function POST(req: NextRequest) {
     XLSX.utils.book_append_sheet(workbook, detailSheet, '급여상세')
 
     // ─── 시트 2: 은행 급여이체 (obiz 포맷) ─────────────────────────────────
-    // A: 은행명 · B: 계좌번호 · C: 이체금액(실지급액) · D: 예금주 · E: 통장표시 · F: 내 메모 · G: 메모
+    // A: 은행명 · B: 계좌번호 · C: 이체금액(실지급액) · D: 예금주 · E: 통장표시 · F: 내 통장 메모
+    // G열(메모)은 선택 항목이며 빈 문자열로 넣으면 국민은행 파서가 "공백값"으로 오류를 냄 → 아예 제외
+    // F열(내 통장 메모)은 최대 6자리 (한글 3자), payLabel 이 "N월급여" 4자로 조건 만족
     const bankRows: (string | number)[][] = []
     const pushBankRow = (name: string, accRaw: string | null, amount: number) => {
       const { bank, number } = parseAccount(accRaw)
-      bankRows.push([bank, number, amount, name, '급여', payLabel, ''])
+      // 6열만 반환 (G열은 넣지 않음)
+      bankRows.push([bank, number, amount, name, '급여', payLabel])
     }
     for (const d of managerDetails) {
       const entry = managerEntries.find(e => e.person.name === d.name)
@@ -489,7 +492,12 @@ export async function POST(req: NextRequest) {
 
     const bankSheet = XLSX.utils.aoa_to_sheet(bankRows)
     bankSheet['!cols'] = [
-      { wch: 8 }, { wch: 22 }, { wch: 12 }, { wch: 10 }, { wch: 6 }, { wch: 10 }, { wch: 10 },
+      { wch: 8 },   // A · 은행명
+      { wch: 22 },  // B · 계좌번호
+      { wch: 12 },  // C · 이체금액
+      { wch: 10 },  // D · 예금주
+      { wch: 6 },   // E · 통장표시
+      { wch: 10 },  // F · 내 통장 메모
     ]
     XLSX.utils.book_append_sheet(workbook, bankSheet, '급여이체')
 
