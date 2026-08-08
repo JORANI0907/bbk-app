@@ -1,7 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { CreditCard, FileText, ClipboardList } from 'lucide-react'
+import toast from 'react-hot-toast'
+import { CreditCard, FileText, ClipboardList, Pencil, Check, X } from 'lucide-react'
 import { fmt, fmtDate, fmtEmploymentType } from './utils'
 import PayslipList, { type PayslipEntry } from './PayslipList'
 import PayslipDraftModal from './PayslipDraftModal'
@@ -18,6 +19,7 @@ export default function WorkerCard({
   onPayslipDeleted,
   onUpdated,
   onPublished,
+  onRefresh,
 }: {
   entry: WorkerEntry
   month: string
@@ -29,7 +31,43 @@ export default function WorkerCard({
   onPayslipDeleted: (id: string) => void
   onUpdated: (record: PayrollRecord) => void
   onPublished: () => void
+  onRefresh?: () => void  // 일정별 금액 편집 후 부모 데이터 재조회
 }) {
+  const [editingJobId, setEditingJobId] = useState<string | null>(null)
+  const [editValue, setEditValue] = useState('')
+  const [savingJobId, setSavingJobId] = useState<string | null>(null)
+
+  const startEditJob = (job: WorkerJob) => {
+    setEditingJobId(job.id)
+    setEditValue(String(job.salary ?? 0))
+  }
+  const cancelEditJob = () => {
+    setEditingJobId(null)
+    setEditValue('')
+  }
+  const saveEditJob = async (jobId: string) => {
+    const newSalary = Number(editValue)
+    if (!Number.isFinite(newSalary) || newSalary < 0) {
+      toast.error('올바른 금액을 입력하세요')
+      return
+    }
+    setSavingJobId(jobId)
+    try {
+      const res = await fetch('/api/admin/work-assignments', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: jobId, salary: newSalary }),
+      })
+      if (!res.ok) throw new Error((await res.json()).error ?? '저장 실패')
+      toast.success('금액이 저장되었습니다')
+      setEditingJobId(null)
+      onRefresh?.()  // 부모에서 auto_amount 재계산
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : '저장 실패')
+    } finally {
+      setSavingJobId(null)
+    }
+  }
   const [expanded, setExpanded] = useState(false)
   const [showModal, setShowModal] = useState(false)
 
@@ -221,18 +259,62 @@ export default function WorkerCard({
                         </span>
                       </div>
                       <div className="divide-y divide-border-subtle">
-                        {jobs.map(job => (
-                          <div key={job.id} className="px-3 py-1.5 flex items-center gap-2">
-                            <div className="flex-1 min-w-0">
-                              <p className="text-xs font-medium text-text-primary truncate leading-tight">
-                                {job.business_name}
-                              </p>
+                        {jobs.map(job => {
+                          const isEditing = editingJobId === job.id
+                          const isSavingThis = savingJobId === job.id
+                          return (
+                            <div key={job.id} className="px-3 py-1.5 flex items-center gap-2">
+                              <div className="flex-1 min-w-0">
+                                <p className="text-xs font-medium text-text-primary truncate leading-tight">
+                                  {job.business_name}
+                                </p>
+                              </div>
+                              {isEditing ? (
+                                <div className="flex items-center gap-1 shrink-0">
+                                  <input
+                                    type="number"
+                                    value={editValue}
+                                    onChange={e => setEditValue(e.target.value)}
+                                    onKeyDown={e => {
+                                      if (e.key === 'Enter') void saveEditJob(job.id)
+                                      if (e.key === 'Escape') cancelEditJob()
+                                    }}
+                                    disabled={isSavingThis}
+                                    autoFocus
+                                    className="w-24 px-2 py-0.5 border border-brand-400 rounded text-xs text-right focus:outline-none focus:ring-2 focus:ring-brand-500 tabular-nums"
+                                  />
+                                  <button
+                                    onClick={() => void saveEditJob(job.id)}
+                                    disabled={isSavingThis}
+                                    title="저장 (Enter)"
+                                    className="p-0.5 text-emerald-600 hover:bg-emerald-50 rounded disabled:opacity-50"
+                                  >
+                                    <Check size={13} />
+                                  </button>
+                                  <button
+                                    onClick={cancelEditJob}
+                                    disabled={isSavingThis}
+                                    title="취소 (Esc)"
+                                    className="p-0.5 text-text-tertiary hover:bg-surface-sunken rounded disabled:opacity-50"
+                                  >
+                                    <X size={13} />
+                                  </button>
+                                </div>
+                              ) : (
+                                <button
+                                  onClick={() => startEditJob(job)}
+                                  title="클릭하여 금액 수정"
+                                  className={`text-xs font-semibold shrink-0 flex items-center gap-1 px-1.5 py-0.5 rounded hover:bg-surface-sunken transition ${
+                                    (job.salary ?? 0) > 0 ? 'text-orange-600' : 'text-text-tertiary'
+                                  }`}
+                                >
+                                  {(job.salary ?? 0) > 0 ? job.salary!.toLocaleString('ko-KR') + '원' : '미설정'}
+                                  <Pencil size={9} className="opacity-40" />
+                                </button>
+                              )}
                             </div>
-                            <span className={`text-xs font-semibold shrink-0 ${(job.salary ?? 0) > 0 ? 'text-orange-600' : 'text-text-tertiary'}`}>
-                              {(job.salary ?? 0) > 0 ? job.salary!.toLocaleString('ko-KR') + '원' : '미설정'}
-                            </span>
-                          </div>
-                        ))}
+                          )
+                        })}
                       </div>
                     </div>
                   )

@@ -334,6 +334,7 @@ export default function PayrollPage() {
                         onPayslipDeleted={handlePayslipDeleted}
                         onUpdated={handleManagerRecordUpdated}
                         onPublished={fetchPayslips}
+                        onRefresh={fetchData}
                       />
                     ))}
                     {showWorkers && workersPayroll.map(entry => (
@@ -349,6 +350,7 @@ export default function PayrollPage() {
                         onPayslipDeleted={handlePayslipDeleted}
                         onUpdated={handleWorkerRecordUpdated}
                         onPublished={fetchPayslips}
+                        onRefresh={fetchData}
                       />
                     ))}
                   </div>
