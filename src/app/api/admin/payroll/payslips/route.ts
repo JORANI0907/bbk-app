@@ -54,6 +54,7 @@ export async function POST(req: NextRequest) {
       deduction_amount,
       net_amount,
       tax_type,
+      pdf_base64,   // 옵션: 있으면 Supabase Storage 에 업로드 → storage_path 저장 (재발송용)
     } = body
 
     if (!year_month || !/^\d{4}-\d{2}$/.test(year_month)) {
@@ -67,6 +68,30 @@ export async function POST(req: NextRequest) {
     }
 
     const supabase = createServiceClient()
+
+    // PDF base64 가 전달되면 Storage 에 저장 → 재발송에 필요한 storage_path 확보
+    let storagePath: string | null = null
+    let storageUrl: string | null = null
+    if (typeof pdf_base64 === 'string' && pdf_base64.length > 0) {
+      try {
+        storagePath = `${year_month}/${person_type}_${person_id}_${Date.now()}.pdf`
+        const buffer = Buffer.from(pdf_base64, 'base64')
+        const up = await supabase.storage
+          .from('payslips')
+          .upload(storagePath, buffer, { contentType: 'application/pdf', upsert: false })
+        if (up.error) throw new Error(up.error.message)
+        // 서명 URL 즉시 발급 (7일 · file_url 로 저장해서 발송 이력 이력에서 재사용)
+        const signed = await supabase.storage.from('payslips').createSignedUrl(storagePath, 60 * 60 * 24 * 7)
+        if (signed.error || !signed.data?.signedUrl) throw new Error(signed.error?.message ?? '서명 URL 실패')
+        storageUrl = signed.data.signedUrl
+      } catch (err) {
+        console.error('[payslips POST] Storage 업로드 실패:', err)
+        // 업로드 실패해도 이력 자체는 저장 (재발송만 불가)
+        storagePath = null
+        storageUrl = null
+      }
+    }
+
     const { data, error } = await supabase
       .from('payroll_payslips')
       .insert({
@@ -75,8 +100,9 @@ export async function POST(req: NextRequest) {
         person_id,
         person_name,
         pay_date: pay_date ?? null,
-        file_url: file_url ?? null,
+        file_url: file_url ?? storageUrl ?? null,   // Drive URL 우선, 없으면 서명 URL
         file_name: file_name ?? null,
+        storage_path: storagePath,
         gross_amount: gross_amount ?? 0,
         deduction_amount: deduction_amount ?? 0,
         net_amount: net_amount ?? 0,

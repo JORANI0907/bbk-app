@@ -156,7 +156,11 @@ export default function PayslipModal({
     const blob = await pdf(elem).toBlob()
     const fileName = `급여명세서_${payslipData.person.name}_${month}.pdf`
 
-    // 3. 저장 (Drive 또는 로컬)
+    // 3. base64 항상 계산 (Storage 업로드 · 재발송 · sendMode 발송 모두 활용)
+    const arrayBuf = await blob.arrayBuffer()
+    const base64 = arrayBufferToBase64(arrayBuf)
+
+    // 4. Drive 업로드 or 로컬 다운로드
     let fileUrl: string | null = null
     if (folder && token) {
       const file = new File([blob], fileName, { type: 'application/pdf' })
@@ -172,7 +176,7 @@ export default function PayslipModal({
       URL.revokeObjectURL(url)
     }
 
-    // 4. payroll_payslips 테이블에 저장 (카드에서 조회할 수 있도록)
+    // 5. payroll_payslips 테이블에 저장 (Supabase Storage 도 함께 저장 → 재발송 가능)
     const saveRes = await fetch('/api/admin/payroll/payslips', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -188,6 +192,7 @@ export default function PayslipModal({
         deduction_amount: payslipData.deductions.total,
         net_amount: payslipData.netPay,
         tax_type: payslipData.person.taxType,
+        pdf_base64: base64,   // 서버에서 Storage 업로드 → storage_path 저장
       }),
     })
     if (!saveRes.ok) {
@@ -195,13 +200,7 @@ export default function PayslipModal({
       throw new Error(err.error ?? '이력 저장 실패')
     }
 
-    // 5. base64 반환 (발송용)
-    let base64: string | null = null
-    if (opts?.returnBase64) {
-      const buf = await blob.arrayBuffer()
-      base64 = arrayBufferToBase64(buf)
-    }
-    return { fileName, base64, data: payslipData }
+    return { fileName, base64: opts?.returnBase64 ? base64 : null, data: payslipData }
   }
 
   // 발송 모드에서 사전 검증: 각 인원의 이메일/연락처 상태 분류
