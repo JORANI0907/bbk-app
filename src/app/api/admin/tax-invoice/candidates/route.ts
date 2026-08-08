@@ -64,6 +64,7 @@ interface Candidate {
   draft_receipt_type: string | null
   draft_invoice_kind: string | null
   application_status?: string | null
+  payment_status_detail?: string | null
 }
 
 interface DraftData {
@@ -186,6 +187,7 @@ export async function GET(request: NextRequest) {
       id: string
       construction_date: string | null
       status: string
+      payment_status_detail: string | null
       tax_invoice_issued: boolean
       tax_invoice_issued_at: string | null
       supply_amount: number | null
@@ -213,7 +215,8 @@ export async function GET(request: NextRequest) {
         id, business_name, business_number, contact_name, address, email, contact_phone,
         payment_method, created_at,
         service_applications (
-          id, construction_date, status, tax_invoice_issued, tax_invoice_issued_at,
+          id, construction_date, status, payment_status_detail,
+          tax_invoice_issued, tax_invoice_issued_at,
           supply_amount, vat, payment_method, created_at, deleted_at
         )
       `)
@@ -231,7 +234,11 @@ export async function GET(request: NextRequest) {
         .filter((sa: SaRow) => !sa.deleted_at)
 
       for (const sa of apps) {
-        const isIssued = sa.tax_invoice_issued === true || sa.status === '계산서발행완료'
+        // 계산서 발행 판정: 플래그 우선, status/payment_status_detail 어느 쪽이든 '계산서발행완료'면 발행 완료
+        const isIssued =
+          sa.tax_invoice_issued === true ||
+          sa.status === '계산서발행완료' ||
+          sa.payment_status_detail === '계산서발행완료'
         if (!includeIssued && isIssued) continue
 
         const draft = draftMap.get(`application:${sa.id}`)
@@ -290,6 +297,7 @@ export async function GET(request: NextRequest) {
           draft_receipt_type: draft?.bill_receipt_type ?? null,
           draft_invoice_kind: draft?.invoice_kind ?? null,
           application_status: sa.status ?? null,
+          payment_status_detail: sa.payment_status_detail ?? null,
         })
       }
     }
