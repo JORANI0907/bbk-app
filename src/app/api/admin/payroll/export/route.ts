@@ -1,6 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import * as XLSX from 'xlsx'
 import { createServiceClient } from '@/lib/supabase/server'
+import {
+  computePayslip,
+  categorizePayItems,
+  categorizeDeductionItems,
+  type TaxType,
+  type SalaryBasis,
+} from '@/lib/payroll/payslipCalc'
+
+// ─── 유틸리티 ────────────────────────────────────────────────────────────────
 
 function getMonthEndDate(yearMonth: string): string {
   const [year, month] = yearMonth.split('-').map(Number)
@@ -8,10 +17,27 @@ function getMonthEndDate(yearMonth: string): string {
   return `${yearMonth}-${String(lastDay).padStart(2, '0')}`
 }
 
-function fmtDate(s: string | null): string {
-  if (!s) return ''
-  return s.slice(5).replace('-', '/')
+function defaultPayDate(yearMonth: string): string {
+  const [year, month] = yearMonth.split('-').map(Number)
+  const next = new Date(year, month, 10)
+  return `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, '0')}-${String(next.getDate()).padStart(2, '0')}`
 }
+
+// account_number 문자열에서 은행명과 계좌번호를 분리 (예: "국민 123-45-6789" → { bank: "국민", number: "123-45-6789" })
+function parseAccount(raw: string | null): { bank: string; number: string } {
+  if (!raw) return { bank: '', number: '' }
+  const trimmed = raw.trim()
+  const idx = trimmed.search(/\s/)
+  if (idx > 0) {
+    const first = trimmed.slice(0, idx)
+    if (/^[가-힣]/.test(first)) {
+      return { bank: first, number: trimmed.slice(idx + 1).trim() }
+    }
+  }
+  return { bank: '', number: trimmed }
+}
+
+// ─── 타입 ────────────────────────────────────────────────────────────────────
 
 type AppRow = {
   id: string
@@ -33,6 +59,8 @@ type AssignRow = {
   application_id: string | null
 }
 
+type ExtraItem = { label: string; amount: number }
+
 type RecordRow = {
   id: string
   year_month: string
@@ -43,68 +71,14 @@ type RecordRow = {
   note: string | null
   is_paid: boolean
   paid_at: string | null
+  extra_items: ExtraItem[] | null
+  extra_deductions: ExtraItem[] | null
 }
 
-// ─── Excel 개인 시트 추가 ─────────────────────────────────────────────────────
-
-function addPersonSheet(
-  workbook: XLSX.WorkBook,
-  sheetName: string,
-  monthLabel: string,
-  managerJobs: AppRow[] | null,
-  workerJobs: AssignRow[] | null,
-  autoAmount: number,
-  finalAmount: number,
-  note: string | null,
-) {
-  const rows: (string | number)[][] = [
-    [`${sheetName} - ${monthLabel} 급여 상세`],
-    [],
-    ['[ 담당자로 들어간 일정 ]'],
-  ]
-
-  if (managerJobs && managerJobs.length > 0) {
-    rows.push(['날짜', '업체명', '서비스 유형', '금액'])
-    for (const job of managerJobs) {
-      rows.push([fmtDate(job.construction_date), job.business_name, job.service_type, job.resolved_pay])
-    }
-    const sub = managerJobs.reduce((s, j) => s + j.resolved_pay, 0)
-    rows.push(['담당자 소계', '', '', sub])
-  } else {
-    rows.push(['(해당 일정 없음)'])
-  }
-
-  rows.push([], ['[ 작업자로 들어간 일정 ]'])
-
-  if (workerJobs && workerJobs.length > 0) {
-    rows.push(['날짜', '업체명', '금액'])
-    for (const job of workerJobs) {
-      rows.push([fmtDate(job.construction_date), job.business_name, job.salary ?? 0])
-    }
-    const sub = workerJobs.reduce((s, j) => s + (j.salary ?? 0), 0)
-    rows.push(['작업자 소계', '', sub])
-  } else {
-    rows.push(['(해당 일정 없음)'])
-  }
-
-  rows.push([])
-
-  if (finalAmount !== autoAmount) {
-    rows.push(['자동 계산액', '', '', autoAmount])
-    rows.push(['최종 지급액 (수동 조정)', '', '', finalAmount])
-  } else {
-    rows.push(['최종 지급액', '', '', finalAmount])
-  }
-
-  if (note) {
-    rows.push(['메모', note])
-  }
-
-  const ws = XLSX.utils.aoa_to_sheet(rows)
-  ws['!cols'] = [{ wch: 12 }, { wch: 22 }, { wch: 15 }, { wch: 14 }]
-
-  // 시트 이름은 최대 31자 (Excel 제한)
-  XLSX.utils.book_append_sheet(workbook, ws, sheetName.slice(0, 31))
+type PayslipRow = {
+  person_type: string
+  person_id: string
+  pay_date: string | null
 }
 
 // ─── POST /api/admin/payroll/export ──────────────────────────────────────────
@@ -121,7 +95,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'month 파라미터가 필요합니다. (YYYY-MM)' }, { status: 400 })
     }
 
-    // 선택 인원 필터 유효성: 최소 1명 이상 있어야 필터로 인정
     const hasFilter = !!(filter && (
       (filter.user_ids && filter.user_ids.length > 0) ||
       (filter.worker_ids && filter.worker_ids.length > 0)
@@ -131,7 +104,10 @@ export async function POST(req: NextRequest) {
 
     const supabase = createServiceClient()
 
-    const [appsRes, assignRes, usersRes, workersRes, recordsRes, pricesRes] = await Promise.all([
+    const [
+      appsRes, assignRes, usersRes, workersRes,
+      linkedWorkersRes, recordsRes, pricesRes, payslipsRes,
+    ] = await Promise.all([
       supabase
         .from('service_applications')
         .select('id, assigned_to, business_name, service_type, construction_date, manager_pay, unit_price_per_visit')
@@ -145,10 +121,13 @@ export async function POST(req: NextRequest) {
         .gte('construction_date', `${month}-01`)
         .lte('construction_date', getMonthEndDate(month))
         .order('construction_date'),
-      supabase.from('users').select('id, name, role, phone, account_number').in('role', ['worker', 'admin']).eq('is_active', true).order('name'),
-      supabase.from('workers').select('id, name, employment_type, phone, account_number').order('name'),
+      supabase.from('users').select('id, name, role, phone, account_number, email').in('role', ['worker', 'admin']).eq('is_active', true).order('name'),
+      supabase.from('workers').select('id, name, employment_type, phone, account_number, email, tax_type, salary_basis').order('name'),
+      // users 담당자용 세금 설정 조회 (workers.user_id 매핑)
+      supabase.from('workers').select('user_id, tax_type, salary_basis, employment_type').not('user_id', 'is', null),
       supabase.from('payroll_records').select('*').eq('year_month', month),
       supabase.from('unit_price_monthly').select('application_id, unit_price').eq('year_month', month),
+      supabase.from('payroll_payslips').select('person_type, person_id, pay_date').eq('year_month', month),
     ])
 
     if (appsRes.error) throw new Error(appsRes.error.message)
@@ -161,9 +140,28 @@ export async function POST(req: NextRequest) {
     const assignments: AssignRow[] = assignRes.data ?? []
     const users = usersRes.data ?? []
     const workers = workersRes.data ?? []
+    const linkedWorkers = linkedWorkersRes.data ?? []
     const records: RecordRow[] = recordsRes.data ?? []
     const monthlyPriceMap = new Map<string, number>((pricesRes.data ?? []).map(p => [p.application_id, p.unit_price]))
     const recordMap = new Map<string, RecordRow>(records.map(r => [`${r.person_type}:${r.person_id}`, r]))
+
+    // 담당자(users) → workers 매핑을 통해 taxType/basis 조회
+    const userTaxMap = new Map<string, { taxType: TaxType; salaryBasis: SalaryBasis; employmentType: string | null }>()
+    for (const lw of linkedWorkers) {
+      if (!lw.user_id) continue
+      userTaxMap.set(lw.user_id, {
+        taxType: (lw.tax_type as TaxType) ?? '4대보험',
+        salaryBasis: (lw.salary_basis as SalaryBasis) ?? '세전',
+        employmentType: lw.employment_type,
+      })
+    }
+
+    // 지급일 조회 (payslips 테이블에서 발행된 pay_date가 있으면 그 값)
+    const payDateMap = new Map<string, string>()
+    for (const p of (payslipsRes.data ?? []) as PayslipRow[]) {
+      if (p.pay_date) payDateMap.set(`${p.person_type}:${p.person_id}`, p.pay_date)
+    }
+    const fallbackPayDate = defaultPayDate(month)
 
     // ── 담당자 집계 ──
     type ManagerEntry = { person: typeof users[number]; jobs: AppRow[]; autoAmount: number; record: RecordRow | undefined }
@@ -202,7 +200,6 @@ export async function POST(req: NextRequest) {
     let managerEntries = Array.from(managerMap.values())
     let workerEntries = Array.from(workerMap.values())
 
-    // 선택 인원 필터 적용 — 표시할 시트만 남김
     if (hasFilter) {
       managerEntries = managerEntries.filter(e => userIdSet.has(e.person.id))
       workerEntries = workerEntries.filter(e => workerIdSet.has(e.person.id))
@@ -210,71 +207,256 @@ export async function POST(req: NextRequest) {
 
     const [y, m] = month.split('-')
     const monthLabel = `${y}년 ${Number(m)}월`
+    const payLabel = `${Number(m)}월급여`
 
-    // ── 총계 시트 ──────────────────────────────────────────────────────────────
-    const summaryRows: (string | number)[][] = [
-      [`BBK 급여정산 현황 - ${monthLabel}`],
+    // ─── 인원별 상세 계산 (payslipCalc 공용 함수 사용) ─────────────────────
+    type DetailRow = {
+      name: string
+      roleLabel: string           // "관리자"·"직원"·"작업자"
+      employmentType: string      // 고용형태
+      taxType: TaxType
+      salaryBasis: SalaryBasis
+      workDays: number
+      jobCount: number
+      basePay: number             // 기본급
+      bonus: number               // 상여금
+      meal: number                // 식대
+      car: number                 // 교통비
+      otherAllowance: number      // 기타수당
+      otherPay: number            // 기타지급
+      grossTotal: number          // 지급합계
+      nationalPension: number
+      healthInsurance: number
+      longtermCare: number
+      employmentInsurance: number
+      incomeTax: number
+      residentTax: number
+      businessTax: number
+      extraDedTotal: number
+      deductionTotal: number      // 공제합계
+      netPay: number              // 실지급액
+      payDate: string
+      isPaid: boolean
+      account: string             // "은행 계좌"
+      note: string                // 관리자 메모 + 지급/공제 세부
+    }
+
+    const buildDetail = (
+      name: string,
+      roleLabel: string,
+      employmentType: string,
+      taxType: TaxType,
+      salaryBasis: SalaryBasis,
+      workDays: number,
+      jobCount: number,
+      autoAmount: number,
+      record: RecordRow | undefined,
+      accountRaw: string | null,
+      payDate: string,
+    ): DetailRow => {
+      const extraItems = (record?.extra_items ?? []) as ExtraItem[]
+      const extraDeductions = (record?.extra_deductions ?? []) as ExtraItem[]
+      const calc = computePayslip({
+        autoAmount,
+        finalAmount: record?.final_amount ?? null,
+        extraItems,
+        extraDeductions,
+        taxType,
+        salaryBasis,
+        incomeTax: 0, // 소득세는 별도 저장 안됨 (payslip 발행 시 지정) → 표준 0으로 계산
+      })
+      const payBucket = categorizePayItems(extraItems)
+      const dedBucket = categorizeDeductionItems(extraDeductions)
+      const parts: string[] = []
+      if (record?.note?.trim()) parts.push(`메모: ${record.note.trim()}`)
+      if (payBucket.detail.length > 0) parts.push(`지급세부: ${payBucket.detail.join(' / ')}`)
+      if (dedBucket.detail.length > 0) parts.push(`공제세부: ${dedBucket.detail.join(' / ')}`)
+
+      const { bank, number } = parseAccount(accountRaw)
+      const account = bank ? `${bank} ${number}` : number
+
+      return {
+        name,
+        roleLabel,
+        employmentType,
+        taxType,
+        salaryBasis,
+        workDays,
+        jobCount,
+        basePay: calc.basePay,
+        bonus: payBucket.bonus,
+        meal: payBucket.meal,
+        car: payBucket.car,
+        otherAllowance: payBucket.otherAllowance,
+        otherPay: payBucket.otherPay,
+        grossTotal: calc.grossTotal,
+        nationalPension: calc.deductions.nationalPension,
+        healthInsurance: calc.deductions.healthInsurance,
+        longtermCare: calc.deductions.longtermCare,
+        employmentInsurance: calc.deductions.employmentInsurance,
+        incomeTax: calc.deductions.incomeTax,
+        residentTax: calc.deductions.residentTax,
+        businessTax: calc.deductions.businessTax,
+        extraDedTotal: calc.extraDeductionsTotal,
+        deductionTotal: calc.deductions.total + calc.extraDeductionsTotal,
+        netPay: calc.netPay,
+        payDate,
+        isPaid: record?.is_paid ?? false,
+        account,
+        note: parts.join(' | '),
+      }
+    }
+
+    const managerDetails: DetailRow[] = managerEntries.map(e => {
+      const linked = userTaxMap.get(e.person.id)
+      const workDays = new Set(e.jobs.map(j => j.construction_date)).size
+      const roleLabel = e.person.role === 'admin' ? '관리자' : '직원'
+      const employmentType = linked?.employmentType ?? roleLabel
+      const payDate = payDateMap.get(`user:${e.person.id}`) ?? fallbackPayDate
+      return buildDetail(
+        e.person.name, roleLabel, employmentType,
+        linked?.taxType ?? '4대보험',
+        linked?.salaryBasis ?? '세전',
+        workDays, e.jobs.length, e.autoAmount, e.record,
+        e.person.account_number, payDate,
+      )
+    })
+
+    const workerDetails: DetailRow[] = workerEntries.map(e => {
+      const workDays = new Set(e.jobs.map(j => j.construction_date)).size
+      const payDate = payDateMap.get(`worker:${e.person.id}`) ?? fallbackPayDate
+      return buildDetail(
+        e.person.name, '작업자', e.person.employment_type ?? '-',
+        (e.person.tax_type as TaxType) ?? '없음',
+        (e.person.salary_basis as SalaryBasis) ?? '세전',
+        workDays, e.jobs.length, e.autoAmount, e.record,
+        e.person.account_number, payDate,
+      )
+    })
+
+    // ─── 시트 1: 급여명세 상세 (회계사용, 25열) ─────────────────────────────
+    const HEADERS = [
+      '성명', '역할', '고용형태', '세금유형', '급여기준',
+      '근무일수', '근무건수',
+      '기본급', '상여금', '식대', '교통비', '기타수당', '기타지급', '지급합계',
+      '국민연금', '건강보험', '장기요양', '고용보험', '소득세', '지방소득세', '사업소득세', '추가공제', '공제합계',
+      '실지급액', '지급일', '지급완료', '계좌', '비고',
+    ]
+
+    const detailToRow = (d: DetailRow): (string | number)[] => [
+      d.name, d.roleLabel, d.employmentType, d.taxType, d.salaryBasis,
+      d.workDays, d.jobCount,
+      d.basePay, d.bonus, d.meal, d.car, d.otherAllowance, d.otherPay, d.grossTotal,
+      d.nationalPension, d.healthInsurance, d.longtermCare, d.employmentInsurance,
+      d.incomeTax, d.residentTax, d.businessTax, d.extraDedTotal, d.deductionTotal,
+      d.netPay, d.payDate, d.isPaid ? '○' : '×', d.account, d.note,
+    ]
+
+    const sumBy = (rows: DetailRow[], key: keyof DetailRow) =>
+      rows.reduce((s, r) => s + (typeof r[key] === 'number' ? (r[key] as number) : 0), 0)
+
+    const totalGross = sumBy(managerDetails, 'grossTotal') + sumBy(workerDetails, 'grossTotal')
+    const totalDed = sumBy(managerDetails, 'deductionTotal') + sumBy(workerDetails, 'deductionTotal')
+    const totalNet = sumBy(managerDetails, 'netPay') + sumBy(workerDetails, 'netPay')
+    const totalHead = managerDetails.length + workerDetails.length
+
+    const detailRows: (string | number)[][] = [
+      [`BBK 급여명세 상세 - ${monthLabel}`],
+      [
+        `발행일: ${new Date().toISOString().slice(0, 10)}`,
+        `총 ${totalHead}명`,
+        `지급합계 ${totalGross.toLocaleString('ko-KR')}원`,
+        `공제합계 ${totalDed.toLocaleString('ko-KR')}원`,
+        `실지급합계 ${totalNet.toLocaleString('ko-KR')}원`,
+      ],
+      ['※ 소득세는 명세서 발행 시 개별 지정되며 본 시트에는 0으로 계산됩니다. 원천세 신고 시 별도 확인 필요.'],
       [],
     ]
 
-    if (managerEntries.length > 0) {
-      summaryRows.push(['[ 담당자 ]'])
-      summaryRows.push(['이름', '구분', '지급금액'])
-      for (const e of managerEntries) {
-        const final = e.record?.final_amount ?? e.autoAmount
-        summaryRows.push([e.person.name, e.person.role === 'admin' ? '관리자' : '직원', final])
-      }
-      const total = managerEntries.reduce((s, e) => s + (e.record?.final_amount ?? e.autoAmount), 0)
-      summaryRows.push(['담당자 합계', '', total])
-      summaryRows.push([])
+    if (managerDetails.length > 0) {
+      detailRows.push([`[ 담당자 ${managerDetails.length}명 ]`])
+      detailRows.push(HEADERS)
+      for (const d of managerDetails) detailRows.push(detailToRow(d))
+      detailRows.push([
+        '담당자 합계', '', '', '', '',
+        sumBy(managerDetails, 'workDays'), sumBy(managerDetails, 'jobCount'),
+        sumBy(managerDetails, 'basePay'), sumBy(managerDetails, 'bonus'),
+        sumBy(managerDetails, 'meal'), sumBy(managerDetails, 'car'),
+        sumBy(managerDetails, 'otherAllowance'), sumBy(managerDetails, 'otherPay'),
+        sumBy(managerDetails, 'grossTotal'),
+        sumBy(managerDetails, 'nationalPension'), sumBy(managerDetails, 'healthInsurance'),
+        sumBy(managerDetails, 'longtermCare'), sumBy(managerDetails, 'employmentInsurance'),
+        sumBy(managerDetails, 'incomeTax'), sumBy(managerDetails, 'residentTax'),
+        sumBy(managerDetails, 'businessTax'), sumBy(managerDetails, 'extraDedTotal'),
+        sumBy(managerDetails, 'deductionTotal'),
+        sumBy(managerDetails, 'netPay'), '', '', '', '',
+      ])
+      detailRows.push([])
     }
 
-    if (workerEntries.length > 0) {
-      summaryRows.push(['[ 작업자 ]'])
-      summaryRows.push(['이름', '고용형태', '지급금액'])
-      for (const e of workerEntries) {
-        const final = e.record?.final_amount ?? e.autoAmount
-        summaryRows.push([e.person.name, e.person.employment_type ?? '-', final])
-      }
-      const total = workerEntries.reduce((s, e) => s + (e.record?.final_amount ?? e.autoAmount), 0)
-      summaryRows.push(['작업자 합계', '', total])
-      summaryRows.push([])
+    if (workerDetails.length > 0) {
+      detailRows.push([`[ 작업자 ${workerDetails.length}명 ]`])
+      detailRows.push(HEADERS)
+      for (const d of workerDetails) detailRows.push(detailToRow(d))
+      detailRows.push([
+        '작업자 합계', '', '', '', '',
+        sumBy(workerDetails, 'workDays'), sumBy(workerDetails, 'jobCount'),
+        sumBy(workerDetails, 'basePay'), sumBy(workerDetails, 'bonus'),
+        sumBy(workerDetails, 'meal'), sumBy(workerDetails, 'car'),
+        sumBy(workerDetails, 'otherAllowance'), sumBy(workerDetails, 'otherPay'),
+        sumBy(workerDetails, 'grossTotal'),
+        sumBy(workerDetails, 'nationalPension'), sumBy(workerDetails, 'healthInsurance'),
+        sumBy(workerDetails, 'longtermCare'), sumBy(workerDetails, 'employmentInsurance'),
+        sumBy(workerDetails, 'incomeTax'), sumBy(workerDetails, 'residentTax'),
+        sumBy(workerDetails, 'businessTax'), sumBy(workerDetails, 'extraDedTotal'),
+        sumBy(workerDetails, 'deductionTotal'),
+        sumBy(workerDetails, 'netPay'), '', '', '', '',
+      ])
+      detailRows.push([])
     }
 
-    const grandTotal =
-      managerEntries.reduce((s, e) => s + (e.record?.final_amount ?? e.autoAmount), 0) +
-      workerEntries.reduce((s, e) => s + (e.record?.final_amount ?? e.autoAmount), 0)
-    summaryRows.push(['총 지급액', '', grandTotal])
+    detailRows.push([
+      '총 합계', '', '', '', '',
+      '', '',
+      '', '', '', '', '', '', totalGross,
+      '', '', '', '', '', '', '', '', totalDed,
+      totalNet, '', '', '', '',
+    ])
 
     const workbook = XLSX.utils.book_new()
-    const summarySheet = XLSX.utils.aoa_to_sheet(summaryRows)
-    summarySheet['!cols'] = [{ wch: 15 }, { wch: 12 }, { wch: 15 }]
-    XLSX.utils.book_append_sheet(workbook, summarySheet, '총계')
+    const detailSheet = XLSX.utils.aoa_to_sheet(detailRows)
+    detailSheet['!cols'] = [
+      { wch: 10 }, { wch: 8 }, { wch: 10 }, { wch: 12 }, { wch: 8 },
+      { wch: 8 }, { wch: 8 },
+      { wch: 12 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 12 },
+      { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 12 },
+      { wch: 12 }, { wch: 12 }, { wch: 8 }, { wch: 22 }, { wch: 40 },
+    ]
+    XLSX.utils.book_append_sheet(workbook, detailSheet, '급여상세')
 
-    // ── 개인별 시트 ──────────────────────────────────────────────────────────
-    // 시트 이름 중복 방지 (동명이인 처리)
-    const sheetNames = new Set<string>()
-    const uniqueName = (base: string) => {
-      const trimmed = base.slice(0, 28)
-      let name = trimmed
-      let count = 2
-      while (sheetNames.has(name)) {
-        name = `${trimmed}(${count++})`
-      }
-      sheetNames.add(name)
-      return name
+    // ─── 시트 2: 은행 급여이체 (obiz 포맷) ─────────────────────────────────
+    // A: 은행명 · B: 계좌번호 · C: 이체금액(실지급액) · D: 예금주 · E: 통장표시 · F: 내 메모 · G: 메모
+    const bankRows: (string | number)[][] = []
+    const pushBankRow = (name: string, accRaw: string | null, amount: number) => {
+      const { bank, number } = parseAccount(accRaw)
+      bankRows.push([bank, number, amount, name, '급여', payLabel, ''])
+    }
+    for (const d of managerDetails) {
+      const raw = managerEntries.find(e => e.person.name === d.name)?.person.account_number ?? null
+      pushBankRow(d.name, raw, d.netPay)
+    }
+    for (const d of workerDetails) {
+      const raw = workerEntries.find(e => e.person.name === d.name)?.person.account_number ?? null
+      pushBankRow(d.name, raw, d.netPay)
     }
 
-    for (const e of managerEntries) {
-      const final = e.record?.final_amount ?? e.autoAmount
-      addPersonSheet(workbook, uniqueName(e.person.name), monthLabel, e.jobs, null, e.autoAmount, final, e.record?.note ?? null)
-    }
-    for (const e of workerEntries) {
-      const final = e.record?.final_amount ?? e.autoAmount
-      addPersonSheet(workbook, uniqueName(e.person.name), monthLabel, null, e.jobs, e.autoAmount, final, e.record?.note ?? null)
-    }
+    const bankSheet = XLSX.utils.aoa_to_sheet(bankRows)
+    bankSheet['!cols'] = [
+      { wch: 8 }, { wch: 22 }, { wch: 12 }, { wch: 10 }, { wch: 6 }, { wch: 10 }, { wch: 10 },
+    ]
+    XLSX.utils.book_append_sheet(workbook, bankSheet, '급여이체')
 
-    // ── Excel 버퍼 생성 후 바로 반환 (Drive 업로드는 클라이언트에서 처리) ──────
+    // ─── 파일 반환 ─────────────────────────────────────────────────────────
     const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' }) as Buffer
     const fileName = `BBK_급여정산_${month}.xlsx`
     const encodedName = encodeURIComponent(fileName)
