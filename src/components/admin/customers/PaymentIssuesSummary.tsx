@@ -11,6 +11,10 @@ import { AlertCircle, DollarSign, FileText, CreditCard } from 'lucide-react'
  * 데이터 소스 이원화 (v9):
  * - 정기엔드케어: billings 테이블 (월/연 단위 청구 이력). 안 된 월/연도 감지
  * - 그 외 (정기딥·1회성): service_applications (일정별 진행/결제 상태)
+ *
+ * 결제 대기 판정 정확도 개선 (v11):
+ * - 정기엔드케어: due_date(결제일)가 실제로 도래한 청구만 결제 대기로 판정
+ * - 정기딥·1회성: 해당 달의 모든 시공이 '작업완료'일 때만 결제 대기로 판정 (월 단위 그룹핑)
  */
 
 interface ApplicationLite {
@@ -27,6 +31,7 @@ interface BillingLite {
   billing_type: 'monthly' | 'annual'
   status: 'pending' | 'paid' | 'overdue'
   tax_invoice_issued: boolean | null
+  due_date: string | null
 }
 
 // 결제/계산서 완결 상태들 — 이 값이면 결제 대기가 아님
@@ -115,26 +120,47 @@ export function PaymentIssuesSummary({
       if (isFuture) continue
 
       if (b.status !== 'paid') {
-        paymentPendingLabels.push(b.billing_period)
+        // v11: due_date(결제일)가 아직 도래하지 않은 청구는 결제 대기가 아님
+        const dueReached = b.due_date && b.due_date.slice(0, 10) <= todayISO
+        if (dueReached) paymentPendingLabels.push(b.billing_period)
       } else if (!b.tax_invoice_issued && !NO_INVOICE_METHODS.has(paymentMethod ?? '')) {
         invoicePendingLabels.push(b.billing_period)
       }
     }
   } else {
+    // v11: 정기딥·1회성 — 결제 대기는 '해당 달 시공이 모두 완료'된 경우에만 판정 (월 단위 그룹핑)
+    const appsByMonth = new Map<string, ApplicationLite[]>()
     for (const a of apps ?? []) {
-      // 미래 시공일정은 이슈 대상 아님
       const dateISO = a.construction_date?.slice(0, 10)
-      if (dateISO && dateISO > todayISO) continue
+      if (!dateISO) continue
+      const yearMonth = dateISO.slice(0, 7)
+      if (yearMonth > currentMonth) continue // 미래 달 시공은 제외 (현재 달 내 미래 시공은 포함 → allCompleted 판정에 반영)
+      const bucket = appsByMonth.get(yearMonth) ?? []
+      bucket.push(a)
+      appsByMonth.set(yearMonth, bucket)
+    }
 
-      const settled = a.payment_status_detail && PAYMENT_SETTLED.has(a.payment_status_detail)
-      if (a.progress_status === '작업완료' && !settled) {
-        paymentPendingLabels.push(fmtShortDate(a.construction_date))
-      } else if (
-        a.payment_status_detail &&
-        PAYMENT_PAID_NEEDS_INVOICE.has(a.payment_status_detail) &&
-        !NO_INVOICE_METHODS.has(a.payment_method ?? '')
-      ) {
-        invoicePendingLabels.push(fmtShortDate(a.construction_date))
+    for (const [yearMonth, monthApps] of appsByMonth) {
+      // 그 달의 모든 시공이 '작업완료'일 때만 결제 대기 후보
+      const allCompleted = monthApps.every(a => a.progress_status === '작업완료')
+      if (allCompleted) {
+        const anyNotSettled = monthApps.some(
+          a => !(a.payment_status_detail && PAYMENT_SETTLED.has(a.payment_status_detail)),
+        )
+        if (anyNotSettled) paymentPendingLabels.push(yearMonth)
+      }
+
+      // 계산서 대기: 개별 시공 단위 (기존 로직 유지)
+      for (const a of monthApps) {
+        const dateISO = a.construction_date?.slice(0, 10)
+        if (dateISO && dateISO > todayISO) continue // 미래 시공은 계산서 논의 대상 아님
+        if (
+          a.payment_status_detail &&
+          PAYMENT_PAID_NEEDS_INVOICE.has(a.payment_status_detail) &&
+          !NO_INVOICE_METHODS.has(a.payment_method ?? '')
+        ) {
+          invoicePendingLabels.push(fmtShortDate(a.construction_date))
+        }
       }
     }
   }
