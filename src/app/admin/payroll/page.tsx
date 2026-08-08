@@ -4,9 +4,8 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import toast from 'react-hot-toast'
-import { ChevronLeft, ChevronRight, ClipboardList, LayoutDashboard, BarChart2, FileText, Percent } from 'lucide-react'
+import { ChevronLeft, ChevronRight, ClipboardList, LayoutDashboard, BarChart2, Percent } from 'lucide-react'
 import ExportModal from './ExportModal'
-import PayslipModal from './PayslipModal'
 import ManagerCard from './ManagerCard'
 import WorkerCard from './WorkerCard'
 import SummaryCards from './SummaryCards'
@@ -33,7 +32,6 @@ export default function PayrollPage() {
   const [managers, setManagers] = useState<ManagerEntry[]>([])
   const [workersPayroll, setWorkersPayroll] = useState<WorkerEntry[]>([])
   const [showExport, setShowExport] = useState(false)
-  const [showPayslip, setShowPayslip] = useState(false)
   const [showInsuranceRate, setShowInsuranceRate] = useState(false)
   const [selectedPersons, setSelectedPersons] = useState<Set<string>>(new Set())
   const [payslips, setPayslips] = useState<PayslipEntry[]>([])
@@ -161,14 +159,6 @@ export default function PayrollPage() {
     else setSelectedPersons(new Set(visiblePersonKeys))
   }
 
-  const handleOpenPayslip = () => {
-    if (selectedCount === 0) {
-      toast.error('급여명세서를 발행할 인원을 카드에서 선택하세요.')
-      return
-    }
-    setShowPayslip(true)
-  }
-
   return (
     <div className="flex flex-col h-full overflow-hidden">
       {/* ───── 고정 헤더 (스크롤 외부) ───── */}
@@ -230,25 +220,14 @@ export default function PayrollPage() {
                 <span className="hidden sm:inline">대시보드</span>
               </Link>
               {tab === 'payroll' && (
-                <>
-                  <button
-                    onClick={() => setShowExport(true)}
-                    title="급여 지급 현황 저장"
-                    className="flex items-center gap-1 px-2 py-1.5 text-xs font-medium bg-brand-600 hover:bg-brand-700 text-white rounded-lg transition"
-                  >
-                    <BarChart2 size={13} />
-                    <span className="hidden sm:inline">현황 저장</span>
-                  </button>
-                  <button
-                    onClick={handleOpenPayslip}
-                    title="선택 인원 급여명세서 발행"
-                    disabled={selectedCount === 0}
-                    className="flex items-center gap-1 px-2 py-1.5 text-xs font-medium bg-brand-600 hover:bg-brand-700 text-white rounded-lg transition disabled:opacity-40"
-                  >
-                    <FileText size={13} />
-                    <span className="hidden sm:inline">급여명세서</span>
-                  </button>
-                </>
+                <button
+                  onClick={() => setShowExport(true)}
+                  title="급여 지급 현황 저장"
+                  className="flex items-center gap-1 px-2 py-1.5 text-xs font-medium bg-brand-600 hover:bg-brand-700 text-white rounded-lg transition"
+                >
+                  <BarChart2 size={13} />
+                  <span className="hidden sm:inline">현황 저장</span>
+                </button>
               )}
             </div>
           </div>
@@ -368,18 +347,6 @@ export default function PayrollPage() {
           displayMonth={displayMonth}
           selectedPersons={selectedCount > 0 ? Array.from(selectedPersons) : null}
           onClose={() => setShowExport(false)}
-        />
-      )}
-      {showPayslip && (
-        <PayslipModal
-          month={month}
-          displayMonth={displayMonth}
-          selectedPersons={Array.from(selectedPersons)}
-          onClose={() => setShowPayslip(false)}
-          onPublished={() => {
-            fetchPayslips()
-            setSelectedPersons(new Set())
-          }}
         />
       )}
       {showInsuranceRate && (
