@@ -330,14 +330,17 @@ export async function GET(request: NextRequest) {
     results.push({ type: '결제알림', sent, failed, skipped })
   }
 
-  // ── 4. 정기결제알림: service_billings.due_date 기반 ─────────────────
-  //     Phase 27-T (v11 연동): 결제일 도래 후 매일 재발송
-  //     - 조건: due_date <= today AND status='pending' (paid 되면 자동 종료)
-  //     - 중복 방지: last_notified_at 이 오늘 KST면 skip
-  //     - status='reminded' 업데이트는 연간만 유지 (관리자 SMS 1회성)
-  //     - 정기딥: 그 달의 마지막 시공(service_applications) notification_log 에도 기록 → UI 노출
+  // ── 4. 정기결제알림: service_billings 기반 ─────────────────
+  //     Phase 27-U (v11 완전 반영): 유형별 트리거 조건 분리
+  //     - 정기엔드케어: due_date <= today (결제일 도래 후 매일)
+  //     - 정기딥케어  : 그 달 시공(service_applications) 모두 '작업완료' 후 매일
+  //                     (PaymentIssuesSummary v11 판정과 100% 동일 조건)
+  //     - annual (재계약 안내): due_date <= today, 1회성 status='reminded' 로 종료
+  //     - 공통: status='pending' AND last_notified_at 오늘 아니면 발송
+  //     - 정기딥: 그 달의 마지막 시공 notification_log 에도 기록 → UI 노출
   {
     const ADMIN_PHONE = '01054344877'
+    const currentMonth = todayKST.slice(0, 7)   // '2026-08'
 
     type BillingRow = {
       id: string
@@ -359,6 +362,7 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // due_date 조건 제거 — 유형별 트리거는 아래에서 각자 판정
     const { data: billings } = await supabase
       .from('service_billings')
       .select(`
@@ -369,7 +373,6 @@ export async function GET(request: NextRequest) {
           billing_amount, billing_next_date
         )
       `)
-      .lte('due_date', todayKST)
       .eq('status', 'pending')
       .in('customers.customer_type', ['정기딥케어', '정기엔드케어'])
 
@@ -386,8 +389,9 @@ export async function GET(request: NextRequest) {
 
       const nowKSTIso = new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().replace('Z', '+09:00')
 
-      // ── 연간: 관리자에게 재계약 안내 SMS (1회성, status='reminded' 로 종료) ──
+      // ── 연간: 관리자에게 재계약 안내 SMS (due_date 도래 후 1회, status='reminded' 로 종료) ──
       if (row.billing_type === 'annual') {
+        if (row.due_date > todayKST) { skipped++; continue }
         const msg = `[BBK 공간케어] 연간 계약 갱신 필요\n${cust.business_name} 고객의 연간 계약 결제일(${row.due_date})이 도래했습니다.\n재계약 진행을 확인해 주세요.`
         try {
           await sendSmsOrLms(ADMIN_PHONE, msg, {})
@@ -397,6 +401,37 @@ export async function GET(request: NextRequest) {
           sent++
         } catch { failed++ }
         continue
+      }
+
+      // ── 월간 유형별 트리거 조건 판정 ─────────────────────────────
+      if (cust.customer_type === '정기엔드케어') {
+        // 정기엔드: 결제일 도래 후만 발송
+        if (row.due_date > todayKST) { skipped++; continue }
+      } else if (cust.customer_type === '정기딥케어') {
+        // 정기딥: 미래 달 청구는 제외
+        if (row.billing_period > currentMonth) { skipped++; continue }
+
+        // 그 달의 시공(service_applications) 모두 '작업완료' 여야 발송
+        const [y, m] = row.billing_period.split('-').map(Number)
+        const monthStart = `${row.billing_period}-01`
+        const nextMonth = m === 12
+          ? `${y + 1}-01-01`
+          : `${y}-${String(m + 1).padStart(2, '0')}-01`
+
+        const { data: monthApps } = await supabase
+          .from('service_applications')
+          .select('id, progress_status')
+          .eq('customer_id', cust.id)
+          .gte('construction_date', monthStart)
+          .lt('construction_date', nextMonth)
+          .is('deleted_at', null)
+
+        // 그 달에 시공 스케줄 없으면 발송 안 함 (이상 케이스, 데이터 확인 필요)
+        if (!monthApps || monthApps.length === 0) { skipped++; continue }
+
+        // 하나라도 '작업완료' 아닌 것이 있으면 발송 안 함
+        const allCompleted = monthApps.every(a => a.progress_status === '작업완료')
+        if (!allCompleted) { skipped++; continue }
       }
 
       // ── 월간: 고객에게 정기결제알림 (매일 반복) ──
