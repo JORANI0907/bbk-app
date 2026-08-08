@@ -66,7 +66,6 @@ export default function PayslipModal({
   const persons = parsePersons(selectedPersons)
 
   const [payDate, setPayDate] = useState(defaultPayDate(month))
-  const [incomeTax, setIncomeTax] = useState('0')
   const [folder, setFolder] = useState<DriveFolder | null>(null)
   const [folderLoading, setFolderLoading] = useState(true)
   const [accessToken, setAccessToken] = useState<string | null>(null)
@@ -138,7 +137,6 @@ export default function PayslipModal({
           personType: person.type,
           personId: person.id,
           payDate,
-          incomeTax: Number(incomeTax) || 0,
         }),
       })
       const dataJson = await dataRes.json()
@@ -215,7 +213,7 @@ export default function PayslipModal({
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            month, personType: p.type, personId: p.id, payDate, incomeTax: Number(incomeTax) || 0,
+            month, personType: p.type, personId: p.id, payDate,
           }),
         })
         const dataJson = await dataRes.json()
@@ -377,20 +375,10 @@ export default function PayslipModal({
               className="w-full px-3 py-2 border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-surface-sunken"
             />
           </div>
-          <div>
-            <label className="text-xs font-medium text-text-secondary block mb-1">
-              소득세 (4대보험 인원에만 적용)
-            </label>
-            <input
-              type="number"
-              value={incomeTax}
-              onChange={e => setIncomeTax(e.target.value)}
-              placeholder="0"
-              disabled={publishing}
-              className="w-full px-3 py-2 border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-surface-sunken"
-            />
-            <p className="text-[11px] text-text-tertiary mt-1">
-              ※ 프리랜서3.3% 인원은 자동으로 사업소득세 계산됩니다.
+          <div className="rounded-lg border border-border bg-surface-sunken p-3">
+            <p className="text-[11px] text-text-secondary leading-snug">
+              💡 <b>소득세는 자동 계산</b>됩니다. 4대보험 인원은 <b>요율 페이지의 근로소득세율 × 지급총액</b>,
+              프리랜서3.3% 인원은 사업소득세 3%가 자동 적용됩니다.
             </p>
           </div>
 

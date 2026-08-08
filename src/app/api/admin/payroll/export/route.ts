@@ -5,8 +5,10 @@ import {
   computePayslip,
   categorizePayItems,
   categorizeDeductionItems,
+  DEFAULT_PAYSLIP_RATES,
   type TaxType,
   type SalaryBasis,
+  type PayslipRates,
 } from '@/lib/payroll/payslipCalc'
 
 // ─── 유틸리티 ────────────────────────────────────────────────────────────────
@@ -106,7 +108,7 @@ export async function POST(req: NextRequest) {
 
     const [
       appsRes, assignRes, usersRes, workersRes,
-      linkedWorkersRes, recordsRes, pricesRes, payslipsRes,
+      linkedWorkersRes, recordsRes, pricesRes, payslipsRes, settingsRes,
     ] = await Promise.all([
       supabase
         .from('service_applications')
@@ -128,6 +130,7 @@ export async function POST(req: NextRequest) {
       supabase.from('payroll_records').select('*').eq('year_month', month),
       supabase.from('unit_price_monthly').select('application_id, unit_price').eq('year_month', month),
       supabase.from('payroll_payslips').select('person_type, person_id, pay_date').eq('year_month', month),
+      supabase.from('payroll_settings').select('insurance_rates').eq('id', 'default').maybeSingle(),
     ])
 
     if (appsRes.error) throw new Error(appsRes.error.message)
@@ -144,6 +147,10 @@ export async function POST(req: NextRequest) {
     const records: RecordRow[] = recordsRes.data ?? []
     const monthlyPriceMap = new Map<string, number>((pricesRes.data ?? []).map(p => [p.application_id, p.unit_price]))
     const recordMap = new Map<string, RecordRow>(records.map(r => [`${r.person_type}:${r.person_id}`, r]))
+    const rates: PayslipRates = {
+      ...DEFAULT_PAYSLIP_RATES,
+      ...((settingsRes.data?.insurance_rates ?? {}) as Partial<PayslipRates>),
+    }
 
     // 담당자(users) → workers 매핑을 통해 taxType/basis 조회
     const userTaxMap = new Map<string, { taxType: TaxType; salaryBasis: SalaryBasis; employmentType: string | null }>()
@@ -263,7 +270,7 @@ export async function POST(req: NextRequest) {
         extraDeductions,
         taxType,
         salaryBasis,
-        incomeTax: 0, // 소득세는 별도 저장 안됨 (payslip 발행 시 지정) → 표준 0으로 계산
+        rates,
       })
       const payBucket = categorizePayItems(extraItems)
       const dedBucket = categorizeDeductionItems(extraDeductions)
@@ -369,7 +376,7 @@ export async function POST(req: NextRequest) {
         `공제합계 ${totalDed.toLocaleString('ko-KR')}원`,
         `실지급합계 ${totalNet.toLocaleString('ko-KR')}원`,
       ],
-      ['※ 소득세는 명세서 발행 시 개별 지정되며 본 시트에는 0으로 계산됩니다. 원천세 신고 시 별도 확인 필요.'],
+      [`※ 소득세는 요율 페이지의 근로소득세율(${(rates.incomeTax * 100).toFixed(2)}%) × 지급총액으로 자동 계산됩니다.`],
       [],
     ]
 

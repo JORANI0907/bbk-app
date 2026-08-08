@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useCallback, type ReactElement, type ReactNode } from 'react'
+import { useState, useEffect, useMemo, useCallback, type ReactElement, type ReactNode } from 'react'
 import toast from 'react-hot-toast'
 import {
   X, CreditCard, FileText, Plus, ChevronDown, ChevronUp,
@@ -10,7 +10,7 @@ import { Button } from '@/components/ui'
 import PayslipList, { type PayslipEntry } from './PayslipList'
 import PayslipModal from './PayslipModal'
 import type { PayrollRecord, ExtraPayItem, TaxType } from './types'
-import { computePayslip } from '@/lib/payroll/payslipCalc'
+import { computePayslip, DEFAULT_PAYSLIP_RATES, type PayslipRates } from '@/lib/payroll/payslipCalc'
 import type { DocumentProps } from '@react-pdf/renderer'
 import type { PayslipData } from './PayslipPDF'
 
@@ -191,6 +191,15 @@ export default function PayslipDraftModal({
   const [y, m] = month.split('-')
   const displayMonth = `${y}년 ${Number(m)}월`
 
+  // 요율 로드 (실시간 요약 카드가 서버 계산과 정합)
+  const [rates, setRates] = useState<PayslipRates>(DEFAULT_PAYSLIP_RATES)
+  useEffect(() => {
+    fetch('/api/admin/payroll/insurance-rates')
+      .then(r => r.json())
+      .then(d => { if (d.rates) setRates({ ...DEFAULT_PAYSLIP_RATES, ...d.rates }) })
+      .catch(() => {})
+  }, [])
+
   // ── 실시간 계산 (payslipCalc 공용 함수) ──────────────────────────────────
   const calc = useMemo(() => computePayslip({
     autoAmount,
@@ -199,8 +208,8 @@ export default function PayslipDraftModal({
     extraDeductions: extraDeductions.filter(d => d.label.trim() !== ''),
     taxType,
     salaryBasis,
-    incomeTax: 0,
-  }), [autoAmount, finalInput, extraItems, extraDeductions, taxType, salaryBasis])
+    rates,
+  }), [autoAmount, finalInput, extraItems, extraDeductions, taxType, salaryBasis, rates])
 
   // ── 워커 설정 저장 (세금유형/기준) ──────────────────────────────────────
   const saveWorkerSettings = useCallback(async (newTax: TaxType, newBasis: '세전' | '세후') => {
@@ -293,9 +302,8 @@ export default function PayslipDraftModal({
     }
   }
 
-  // ── 빠른 PDF 발행 (기본 지급일 · 소득세 0) ───────────────────────────────
+  // ── 빠른 PDF 발행 (기본 지급일 · 소득세 자동) ────────────────────────────
   const [payDate, setPayDate] = useState(defaultPayDate(month))
-  const [incomeTax, setIncomeTax] = useState('0')
   const [publishing, setPublishing] = useState(false)
 
   const handleQuickPublish = async () => {
@@ -304,7 +312,7 @@ export default function PayslipDraftModal({
       const dataRes = await fetch('/api/admin/payroll/payslip-data', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ month, personType, personId, payDate, incomeTax: Number(incomeTax) || 0 }),
+        body: JSON.stringify({ month, personType, personId, payDate }),
       })
       const dataJson = await dataRes.json()
       if (!dataRes.ok || !dataJson.success) throw new Error(dataJson.error ?? '데이터 조회 실패')
@@ -393,7 +401,7 @@ export default function PayslipDraftModal({
                 </div>
               </div>
               <p className="text-[10px] opacity-80 text-center mt-1.5">
-                ※ 소득세는 명세서 발행 시 개별 지정 · 위 계산은 소득세 0 기준
+                ※ 소득세는 요율 페이지의 근로소득세율({(rates.incomeTax * 100).toFixed(2)}%) × 지급총액 자동 계산
               </p>
             </div>
 
@@ -490,7 +498,7 @@ export default function PayslipDraftModal({
               <Section
                 icon={<FileText size={14} />}
                 title="빠른 PDF 발행"
-                subtitle="지급일·소득세 지정 후 이 창에서 즉시 발행"
+                subtitle="지급일 지정 후 이 창에서 즉시 발행"
               >
                 <div className="space-y-2.5">
                   <div>
@@ -501,14 +509,10 @@ export default function PayslipDraftModal({
                       className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
                     />
                   </div>
-                  <div>
-                    <label className="text-[11px] font-semibold text-text-tertiary block mb-1">소득세 (4대보험 인원만)</label>
-                    <input
-                      type="number" value={incomeTax} onChange={e => setIncomeTax(e.target.value)}
-                      placeholder="0" disabled={publishing}
-                      className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
-                    />
-                    <p className="text-[10px] text-text-tertiary mt-1">※ 프리랜서3.3%는 자동 계산됩니다.</p>
+                  <div className="rounded-lg border border-border bg-surface-sunken p-2.5">
+                    <p className="text-[10px] text-text-secondary leading-snug">
+                      💡 소득세는 <b>요율 페이지의 근로소득세율({(rates.incomeTax * 100).toFixed(2)}%) × 지급총액</b>으로 자동 계산됩니다.
+                    </p>
                   </div>
                   <button
                     onClick={handleQuickPublish} disabled={publishing}

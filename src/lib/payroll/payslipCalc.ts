@@ -1,20 +1,37 @@
 /**
  * 급여명세서 · 회계 리포트 공용 계산 로직
- * payslip-data API, export API, 향후 급여관리 화면 요약 카드가 모두 이 함수를 사용해
+ * payslip-data API, export API, 급여관리 화면 요약 카드가 모두 이 함수를 사용해
  * "PDF 명세서 = 엑셀 시트 = 화면 카드" 숫자 정합성을 보장한다.
+ *
+ * 소득세(4대보험 인원)는 요율 페이지의 근로소득세율 × 지급총액으로 자동 계산된다.
+ * 실제 근로소득 간이세액표 대신 회사 정책 세율을 곱하는 단순 방식.
  */
 
 export type TaxType = '4대보험' | '2대보험' | '3대보험' | '프리랜서3.3%' | '없음'
 export type SalaryBasis = '세전' | '세후'
 
-// 2026년 기준 4대보험 근로자 부담 요율 (표준)
-export const RATE_NATIONAL_PENSION = 0.045
-export const RATE_HEALTH_INSURANCE = 0.03545
-export const RATE_LONGTERM_CARE    = 0.1295
-export const RATE_EMPLOYMENT       = 0.009
-export const RATE_RESIDENT_TAX     = 0.1
-export const RATE_FREELANCE_TAX    = 0.03
-export const RATE_FREELANCE_RESIDENT = 0.003
+// 요율 (payroll_settings.insurance_rates 에 저장)
+export interface PayslipRates {
+  nationalPension: number       // 국민연금 (기본 4.5%)
+  healthInsurance: number       // 건강보험 (기본 3.545%)
+  longtermCare: number          // 장기요양보험 (건강보험료 × %) (기본 12.95%)
+  employmentInsurance: number   // 고용보험 (기본 0.9%)
+  residentTax: number           // 지방소득세 (소득세 × %) (기본 10%)
+  incomeTax: number             // 근로소득세 (지급총액 × %) (기본 3.3%)
+}
+
+export const DEFAULT_PAYSLIP_RATES: PayslipRates = {
+  nationalPension: 0.045,
+  healthInsurance: 0.03545,
+  longtermCare: 0.1295,
+  employmentInsurance: 0.009,
+  residentTax: 0.1,
+  incomeTax: 0.033,
+}
+
+// 프리랜서 3.3% 는 고정 (요율 조정 대상 아님)
+const RATE_FREELANCE_TAX = 0.03
+const RATE_FREELANCE_RESIDENT = 0.003
 
 export interface ExtraItem {
   label: string
@@ -39,7 +56,7 @@ export interface PayslipCalcInput {
   extraDeductions: ExtraItem[]      // 추가 공제 (손망실 등)
   taxType: TaxType
   salaryBasis: SalaryBasis
-  incomeTax: number                 // 근로소득세 (4대보험 인원만 유효)
+  rates?: PayslipRates              // 요율 페이지에서 관리 (미지정 시 DEFAULT)
 }
 
 export interface PayslipCalcResult {
@@ -56,47 +73,54 @@ export interface PayslipCalcResult {
 
 /**
  * 세후 방식일 때, 책정된 net 금액으로부터 총 지급액(gross)을 역산.
- * - 프리랜서3.3%: gross = net / (1 - 0.033)
- * - 4대보험: gross = (net + incomeTax × (1 + 지방세율)) / (1 - 총공제율)
+ * 근로소득세도 gross × rate로 계산되므로 역산 공식에 포함.
+ *
+ * 세후 4대보험 gross:
+ *   gross × (1 - 국민연금 - 건강 - 건강×장기요양 - 고용 - 소득세 × (1 + 지방세)) = net
+ *   ∴ gross = net / (1 - totalRate)
  */
-export function reverseGrossFromNet(net: number, taxType: TaxType, incomeTax: number): number {
+export function reverseGrossFromNet(net: number, taxType: TaxType, rates: PayslipRates): number {
   if (taxType === '프리랜서3.3%') {
     return Math.round(net / (1 - RATE_FREELANCE_TAX - RATE_FREELANCE_RESIDENT))
   }
   if (taxType === '4대보험') {
-    const totalGrossRate =
-      RATE_NATIONAL_PENSION +
-      RATE_HEALTH_INSURANCE +
-      RATE_HEALTH_INSURANCE * RATE_LONGTERM_CARE +
-      RATE_EMPLOYMENT
-    return Math.round((net + incomeTax * (1 + RATE_RESIDENT_TAX)) / (1 - totalGrossRate))
+    const totalRate =
+      rates.nationalPension +
+      rates.healthInsurance * (1 + rates.longtermCare) +
+      rates.employmentInsurance +
+      rates.incomeTax * (1 + rates.residentTax)
+    return Math.round(net / (1 - totalRate))
   }
   if (taxType === '3대보험') {
-    const totalGrossRate =
-      RATE_NATIONAL_PENSION +
-      RATE_HEALTH_INSURANCE +
-      RATE_HEALTH_INSURANCE * RATE_LONGTERM_CARE
-    return Math.round((net + incomeTax * (1 + RATE_RESIDENT_TAX)) / (1 - totalGrossRate))
+    const totalRate =
+      rates.nationalPension +
+      rates.healthInsurance * (1 + rates.longtermCare) +
+      rates.incomeTax * (1 + rates.residentTax)
+    return Math.round(net / (1 - totalRate))
   }
   if (taxType === '2대보험') {
-    const totalGrossRate =
-      RATE_HEALTH_INSURANCE +
-      RATE_HEALTH_INSURANCE * RATE_LONGTERM_CARE
-    return Math.round((net + incomeTax * (1 + RATE_RESIDENT_TAX)) / (1 - totalGrossRate))
+    const totalRate =
+      rates.healthInsurance * (1 + rates.longtermCare) +
+      rates.incomeTax * (1 + rates.residentTax)
+    return Math.round(net / (1 - totalRate))
   }
   return net
 }
 
 /**
  * 지급총액(gross) 기준으로 세금 유형별 공제를 계산 (원단위 십원 절사).
+ * 근로소득세는 gross × rates.incomeTax 로 자동 계산.
  */
-export function calculateDeductions(gross: number, taxType: TaxType, incomeTax: number): Deductions {
+export function calculateDeductions(gross: number, taxType: TaxType, rates: PayslipRates): Deductions {
+  const floor10 = (n: number) => Math.floor(n / 10) * 10
+
   if (taxType === '4대보험') {
-    const nationalPension = Math.floor(gross * RATE_NATIONAL_PENSION / 10) * 10
-    const healthInsurance = Math.floor(gross * RATE_HEALTH_INSURANCE / 10) * 10
-    const longtermCare = Math.floor(healthInsurance * RATE_LONGTERM_CARE / 10) * 10
-    const employmentInsurance = Math.floor(gross * RATE_EMPLOYMENT / 10) * 10
-    const residentTax = Math.floor(incomeTax * RATE_RESIDENT_TAX / 10) * 10
+    const nationalPension = floor10(gross * rates.nationalPension)
+    const healthInsurance = floor10(gross * rates.healthInsurance)
+    const longtermCare = floor10(healthInsurance * rates.longtermCare)
+    const employmentInsurance = floor10(gross * rates.employmentInsurance)
+    const incomeTax = floor10(gross * rates.incomeTax)
+    const residentTax = floor10(incomeTax * rates.residentTax)
     return {
       nationalPension,
       healthInsurance,
@@ -109,10 +133,11 @@ export function calculateDeductions(gross: number, taxType: TaxType, incomeTax: 
     }
   }
   if (taxType === '3대보험') {
-    const nationalPension = Math.floor(gross * RATE_NATIONAL_PENSION / 10) * 10
-    const healthInsurance = Math.floor(gross * RATE_HEALTH_INSURANCE / 10) * 10
-    const longtermCare = Math.floor(healthInsurance * RATE_LONGTERM_CARE / 10) * 10
-    const residentTax = Math.floor(incomeTax * RATE_RESIDENT_TAX / 10) * 10
+    const nationalPension = floor10(gross * rates.nationalPension)
+    const healthInsurance = floor10(gross * rates.healthInsurance)
+    const longtermCare = floor10(healthInsurance * rates.longtermCare)
+    const incomeTax = floor10(gross * rates.incomeTax)
+    const residentTax = floor10(incomeTax * rates.residentTax)
     return {
       nationalPension,
       healthInsurance,
@@ -125,9 +150,10 @@ export function calculateDeductions(gross: number, taxType: TaxType, incomeTax: 
     }
   }
   if (taxType === '2대보험') {
-    const healthInsurance = Math.floor(gross * RATE_HEALTH_INSURANCE / 10) * 10
-    const longtermCare = Math.floor(healthInsurance * RATE_LONGTERM_CARE / 10) * 10
-    const residentTax = Math.floor(incomeTax * RATE_RESIDENT_TAX / 10) * 10
+    const healthInsurance = floor10(gross * rates.healthInsurance)
+    const longtermCare = floor10(healthInsurance * rates.longtermCare)
+    const incomeTax = floor10(gross * rates.incomeTax)
+    const residentTax = floor10(incomeTax * rates.residentTax)
     return {
       nationalPension: 0,
       healthInsurance,
@@ -140,8 +166,8 @@ export function calculateDeductions(gross: number, taxType: TaxType, incomeTax: 
     }
   }
   if (taxType === '프리랜서3.3%') {
-    const businessTax = Math.floor(gross * RATE_FREELANCE_TAX / 10) * 10
-    const residentTax = Math.floor(gross * RATE_FREELANCE_RESIDENT / 10) * 10
+    const businessTax = floor10(gross * RATE_FREELANCE_TAX)
+    const residentTax = floor10(gross * RATE_FREELANCE_RESIDENT)
     return {
       nationalPension: 0,
       healthInsurance: 0,
@@ -171,6 +197,7 @@ export function calculateDeductions(gross: number, taxType: TaxType, incomeTax: 
  * - 세전 방식: 지급총액(=기본급+상여금) 기준으로 공제 계산 → 실지급 = gross - 공제 - 추가공제
  */
 export function computePayslip(input: PayslipCalcInput): PayslipCalcResult {
+  const rates = input.rates ?? DEFAULT_PAYSLIP_RATES
   const bookedAmount = input.finalAmount ?? input.autoAmount
   const extraItemsTotal = input.extraItems.reduce((s, it) => s + (it.amount || 0), 0)
   const extraDeductionsTotal = input.extraDeductions.reduce((s, it) => s + (it.amount || 0), 0)
@@ -183,8 +210,8 @@ export function computePayslip(input: PayslipCalcInput): PayslipCalcResult {
   let netPay: number
 
   if (isNetBasis) {
-    const approxGross = reverseGrossFromNet(bookedAmount, input.taxType, input.incomeTax)
-    const approxDeductions = calculateDeductions(approxGross, input.taxType, input.incomeTax)
+    const approxGross = reverseGrossFromNet(bookedAmount, input.taxType, rates)
+    const approxDeductions = calculateDeductions(approxGross, input.taxType, rates)
     basePay = bookedAmount + approxDeductions.total
     grossTotal = basePay + extraItemsTotal
     deductions = approxDeductions
@@ -192,7 +219,7 @@ export function computePayslip(input: PayslipCalcInput): PayslipCalcResult {
   } else {
     basePay = bookedAmount
     grossTotal = basePay + extraItemsTotal
-    deductions = calculateDeductions(grossTotal, input.taxType, input.incomeTax)
+    deductions = calculateDeductions(grossTotal, input.taxType, rates)
     netPay = grossTotal - deductions.total - extraDeductionsTotal
   }
 

@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
-import { computePayslip, type TaxType, type SalaryBasis } from '@/lib/payroll/payslipCalc'
+import { computePayslip, DEFAULT_PAYSLIP_RATES, type TaxType, type SalaryBasis, type PayslipRates } from '@/lib/payroll/payslipCalc'
 
 /**
  * 급여명세서 데이터 API
  * POST /api/admin/payroll/payslip-data
  *
- * 요청: { month: "2026-07", personType: "user"|"worker", personId, payDate, incomeTax? }
+ * 요청: { month: "2026-07", personType: "user"|"worker", personId, payDate }
  * 응답: 급여명세서 렌더링에 필요한 통합 JSON (인적사항 + 근무내역 + 지급/공제/실지급)
+ * 소득세는 payroll_settings.insurance_rates.incomeTax × 지급총액으로 자동 계산.
  * 계산 로직은 lib/payroll/payslipCalc.ts 에 집중되어 있어 export API 등과 정합성이 보장된다.
  */
 
@@ -38,13 +39,11 @@ export async function POST(req: NextRequest) {
       personType,
       personId,
       payDate,
-      incomeTax = 0,
     } = body as {
       month?: string
       personType?: 'user' | 'worker'
       personId?: string
       payDate?: string
-      incomeTax?: number
     }
 
     if (!month || !/^\d{4}-\d{2}$/.test(month)) {
@@ -60,6 +59,17 @@ export async function POST(req: NextRequest) {
     const supabase = createServiceClient()
     const periodStart = `${month}-01`
     const periodEnd = getMonthEndDate(month)
+
+    // 요율 조회 (payroll_settings) — 소득세율 등 자동 계산에 사용
+    const { data: settingsRow } = await supabase
+      .from('payroll_settings')
+      .select('insurance_rates')
+      .eq('id', 'default')
+      .maybeSingle()
+    const rates: PayslipRates = {
+      ...DEFAULT_PAYSLIP_RATES,
+      ...((settingsRow?.insurance_rates ?? {}) as Partial<PayslipRates>),
+    }
 
     // 인적사항 조회
     let person: {
@@ -222,7 +232,7 @@ export async function POST(req: NextRequest) {
       extraDeductions,
       taxType: person.taxType,
       salaryBasis: person.salaryBasis,
-      incomeTax,
+      rates,
     })
 
     return NextResponse.json({
