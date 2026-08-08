@@ -4,9 +4,10 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import toast from 'react-hot-toast'
-import { ChevronLeft, ChevronRight, ClipboardList, LayoutDashboard, BarChart2, FileText, Percent } from 'lucide-react'
+import { ChevronLeft, ChevronRight, ClipboardList, LayoutDashboard, BarChart2, FileText, Send, Percent } from 'lucide-react'
 import ExportModal from './ExportModal'
 import PayslipModal from './PayslipModal'
+import SendPayslipsModal from './SendPayslipsModal'
 import ManagerCard from './ManagerCard'
 import WorkerCard from './WorkerCard'
 import SummaryCards from './SummaryCards'
@@ -34,6 +35,7 @@ export default function PayrollPage() {
   const [workersPayroll, setWorkersPayroll] = useState<WorkerEntry[]>([])
   const [showExport, setShowExport] = useState(false)
   const [showPayslip, setShowPayslip] = useState(false)
+  const [showSendPayslips, setShowSendPayslips] = useState(false)
   const [showInsuranceRate, setShowInsuranceRate] = useState(false)
   const [selectedPersons, setSelectedPersons] = useState<Set<string>>(new Set())
   const [payslips, setPayslips] = useState<PayslipEntry[]>([])
@@ -169,6 +171,22 @@ export default function PayrollPage() {
     setShowPayslip(true)
   }
 
+  const handleOpenSend = () => {
+    if (selectedCount === 0) {
+      toast.error('발송할 인원을 카드에서 선택하세요.')
+      return
+    }
+    setShowSendPayslips(true)
+  }
+
+  // key(user:id | worker:id) → 이름 매핑 (SendPayslipsModal에 전달)
+  const personNamesMap = useMemo(() => {
+    const map: Record<string, string> = {}
+    for (const m of managers) map[`user:${m.person.id}`] = m.person.name
+    for (const w of workersPayroll) map[`worker:${w.person.id}`] = w.person.name
+    return map
+  }, [managers, workersPayroll])
+
   return (
     <div className="flex flex-col h-full overflow-hidden">
       {/* ───── 고정 헤더 (스크롤 외부) ───── */}
@@ -247,6 +265,15 @@ export default function PayrollPage() {
                   >
                     <FileText size={13} />
                     <span className="hidden sm:inline">명세서 발행</span>
+                  </button>
+                  <button
+                    onClick={handleOpenSend}
+                    title="이미 발행된 명세서 중 선택 발송 (SMS + 이메일)"
+                    disabled={selectedCount === 0}
+                    className="flex items-center gap-1 px-2 py-1.5 text-xs font-medium bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition disabled:opacity-40"
+                  >
+                    <Send size={13} />
+                    <span className="hidden sm:inline">명세서 발송</span>
                   </button>
                 </>
               )}
@@ -379,6 +406,19 @@ export default function PayrollPage() {
           selectedPersons={Array.from(selectedPersons)}
           onClose={() => setShowPayslip(false)}
           onPublished={() => {
+            fetchPayslips()
+            setSelectedPersons(new Set())
+          }}
+        />
+      )}
+      {showSendPayslips && (
+        <SendPayslipsModal
+          month={month}
+          displayMonth={displayMonth}
+          selectedPersons={Array.from(selectedPersons)}
+          personNames={personNamesMap}
+          onClose={() => setShowSendPayslips(false)}
+          onSent={() => {
             fetchPayslips()
             setSelectedPersons(new Set())
           }}
