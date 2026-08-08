@@ -48,6 +48,7 @@ interface Candidate {
   draft_receipt_type: string | null
   draft_invoice_kind: string | null
   application_status?: string | null
+  payment_status_detail?: string | null
 }
 
 const SERVICE_TYPES_FIXED = ['1회성케어', '정기딥케어', '정기엔드케어']
@@ -773,13 +774,19 @@ function SourceBadge({ label }: { label: string }) {
   )
 }
 
+// PaymentIssuesSummary(고객관리) 와 동일한 완결 상태 집합 — 판정 일관성 유지
 const PAID_APP_STATUSES = new Set([
-  '결제완료', '결제완료(잔금)', '카드결제 완료', '비과세', '계산서발행완료',
+  '결제완료', '결제완료(잔금)', '계산서발행완료', '카드결제 완료', '비과세', '예약금환급완료',
 ])
 
 function isPaymentDone(c: Candidate): boolean {
   if (c.source === 'billing') return c.billing_status === 'paid'
-  return PAID_APP_STATUSES.has(c.application_status ?? '')
+  // 관리자는 payment_status_detail(결제 상세 UI)과 workflow status(운영 진행상태)를
+  // 각기 다른 화면에서 별개로 업데이트한다. 둘 중 하나라도 완결 상태이면 결제 완료로 판정.
+  return (
+    PAID_APP_STATUSES.has(c.payment_status_detail ?? '') ||
+    PAID_APP_STATUSES.has(c.application_status ?? '')
+  )
 }
 
 function PaymentBadge({ done }: { done: boolean }) {
@@ -794,6 +801,7 @@ function PaymentBadge({ done }: { done: boolean }) {
 }
 
 function RowStatus({ c }: { c: Candidate }) {
+  // 계산서 열은 계산서 상태만 표시 — 결제 상태는 별도의 PaymentBadge 열이 담당
   if (c.tax_invoice_issued) {
     return (
       <span className="inline-flex items-center gap-1 text-[11px] text-state-success">
@@ -811,14 +819,6 @@ function RowStatus({ c }: { c: Candidate }) {
         <AlertCircle size={11} />정보 누락
       </span>
     )
-  }
-  if (c.source === 'billing') {
-    if (c.billing_status === 'overdue') {
-      return <span className="text-[11px] text-state-danger">미발행 (연체)</span>
-    }
-    if (c.billing_status === 'pending') {
-      return <span className="text-[11px] text-text-tertiary">미발행 (미결제)</span>
-    }
   }
   return <span className="text-[11px] text-text-tertiary">미발행</span>
 }
