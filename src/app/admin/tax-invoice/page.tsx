@@ -49,6 +49,7 @@ interface Candidate {
   draft_invoice_kind: string | null
   application_status?: string | null
   payment_status_detail?: string | null
+  customer_payment_status_detail?: string | null
 }
 
 const SERVICE_TYPES_FIXED = ['1회성케어', '정기딥케어', '정기엔드케어']
@@ -781,11 +782,15 @@ const PAID_APP_STATUSES = new Set([
 
 function isPaymentDone(c: Candidate): boolean {
   if (c.source === 'billing') return c.billing_status === 'paid'
-  // 관리자는 payment_status_detail(결제 상세 UI)과 workflow status(운영 진행상태)를
-  // 각기 다른 화면에서 별개로 업데이트한다. 둘 중 하나라도 완결 상태이면 결제 완료로 판정.
+  // 1회성: 관리자는 3개 필드를 각기 다른 화면에서 별개로 업데이트한다.
+  // 어느 하나라도 완결 상태이면 결제 완료로 판정 (payment-reminders 크론과 동일 원칙).
+  //   1) application.payment_status_detail (신청서 결제 상세)
+  //   2) application.status                (신청서 workflow)
+  //   3) customer.payment_status_detail    (고객 레벨 결제 상세)
   return (
     PAID_APP_STATUSES.has(c.payment_status_detail ?? '') ||
-    PAID_APP_STATUSES.has(c.application_status ?? '')
+    PAID_APP_STATUSES.has(c.application_status ?? '') ||
+    PAID_APP_STATUSES.has(c.customer_payment_status_detail ?? '')
   )
 }
 
