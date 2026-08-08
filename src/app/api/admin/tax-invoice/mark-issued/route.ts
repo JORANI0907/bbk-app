@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { getServerSession } from '@/lib/session'
+import { sendByTemplate } from '@/lib/template-sender'
+import { sendSmsOrLms } from '@/lib/solapi'
+import { saveNotificationHistory } from '@/lib/notification'
+import { appendBothNotificationLogs } from '@/lib/notification-log'
+import type { NotificationContext } from '@/lib/notification-variables'
 
 export const dynamic = 'force-dynamic'
 
@@ -102,6 +107,178 @@ export async function POST(request: NextRequest) {
       .in('id', allCustomerIds)
   }
 
+  // ── Phase 27-V: 반자동 알림 발송 ────────────────────────────
+  // 유형별로 계산서발행완료알림 발송 + 이력 저장.
+  // 실패해도 DB 세팅은 유지 (사용자 결정 B: 관리자가 재발송 가능).
+  let sentNotifications = 0
+  let failedNotifications = 0
+  const nowIsoKst = new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().replace('Z', '+09:00')
+
+  // 1회성: application 소스 — sendByTemplate + appendBothNotificationLogs
+  if (updatedApps.length > 0) {
+    const { data: apps } = await supabase
+      .from('service_applications')
+      .select('id, customer_id, phone, business_name, owner_name, email, address, construction_date, payment_method, supply_amount, vat, notification_log')
+      .in('id', updatedApps)
+
+    for (const app of (apps ?? [])) {
+      const phone = String(app.phone ?? '').replace(/-/g, '')
+      if (!phone) { failedNotifications++; continue }
+
+      const context: NotificationContext = {
+        application: {
+          business_name: (app.business_name as string | null) ?? null,
+          owner_name: (app.owner_name as string | null) ?? null,
+          phone: (app.phone as string | null) ?? null,
+          email: (app.email as string | null) ?? null,
+          address: (app.address as string | null) ?? null,
+          construction_date: (app.construction_date as string | null) ?? null,
+          payment_method: (app.payment_method as string | null) ?? null,
+          supply_amount: (app.supply_amount as number | null) ?? null,
+          vat: (app.vat as number | null) ?? null,
+        },
+      }
+
+      try {
+        const result = await sendByTemplate('계산서발행완료알림_1회성', phone, context)
+        if (!result.ok) { failedNotifications++; continue }
+
+        const existLog = Array.isArray(app.notification_log)
+          ? (app.notification_log as object[])
+          : []
+        const entry = {
+          type: '계산서발행완료알림',
+          sent_at: nowIsoKst,
+          phone,
+          method: 'auto' as const,
+          channel: result.type,
+        }
+        await appendBothNotificationLogs(supabase, {
+          appId: app.id as string,
+          customerId: app.customer_id as string | null,
+          existingAppLog: existLog,
+          entry,
+        })
+        await saveNotificationHistory({
+          category: 'sms',
+          type: '계산서발행완료알림',
+          body: result.text,
+          method: 'auto',
+          recipientType: 'customer',
+          recipientPhone: phone,
+          metadata: {
+            application_id: app.id as string,
+            business_name: app.business_name as string,
+            channel: result.type,
+            source: 'admin/tax-invoice/mark-issued',
+          },
+          status: 'sent',
+        })
+        sentNotifications++
+      } catch { failedNotifications++ }
+    }
+  }
+
+  // 정기딥/정기엔드: billing 소스 — 청구별로 template body 로드 → 청구월 치환 → sendSmsOrLms
+  if (updatedBills.length > 0) {
+    const { data: bills } = await supabase
+      .from('service_billings')
+      .select(`
+        id, billing_type, billing_period,
+        customers!inner(id, business_name, contact_phone, customer_type, notification_log)
+      `)
+      .in('id', updatedBills)
+
+    type BillRow = {
+      id: string
+      billing_type: string
+      billing_period: string
+      customers: {
+        id: string
+        business_name: string
+        contact_phone: string | null
+        customer_type: string | null
+        notification_log: unknown
+      }
+    }
+
+    // 템플릿 body 캐시 (정기딥/정기엔드용, 반복 조회 방지)
+    const templateCache = new Map<string, { body: string; subject: string | null }>()
+    async function getTemplate(code: string): Promise<{ body: string; subject: string | null } | null> {
+      if (templateCache.has(code)) return templateCache.get(code)!
+      const { data } = await supabase
+        .from('notification_templates')
+        .select('body, subject')
+        .eq('code', code)
+        .maybeSingle()
+      if (!data) return null
+      const entry = { body: data.body as string, subject: (data.subject as string | null) ?? null }
+      templateCache.set(code, entry)
+      return entry
+    }
+
+    for (const row of ((bills ?? []) as unknown as BillRow[])) {
+      const cust = row.customers
+      const phone = (cust.contact_phone ?? '').replace(/-/g, '')
+      if (!phone) { failedNotifications++; continue }
+
+      const suffix = cust.customer_type === '정기딥케어' ? '_정기딥' : '_정기엔드'
+      const templateCode = `계산서발행완료알림${suffix}`
+      const tpl = await getTemplate(templateCode)
+      if (!tpl) { failedNotifications++; continue }
+
+      // 청구월 라벨: monthly '2026년 8월분', annual '2026년 (연간)'
+      const monthLabel = row.billing_type === 'annual'
+        ? `${row.billing_period}년 (연간)`
+        : `${row.billing_period.slice(0, 4)}년 ${parseInt(row.billing_period.slice(5, 7), 10)}월분`
+
+      const body = tpl.body
+        .replace(/\{\{업체명\}\}/g, cust.business_name)
+        .replace(/\{\{청구월\}\}/g, monthLabel)
+
+      try {
+        await sendSmsOrLms(phone, body, { subject: tpl.subject ?? undefined })
+
+        // customers.notification_log 에 append (세부화면 '고객 알림 발송 이력' 섹션 노출)
+        const existLog = Array.isArray(cust.notification_log)
+          ? (cust.notification_log as object[])
+          : []
+        const entry = {
+          type: '계산서발행완료알림',
+          sent_at: nowIsoKst,
+          phone,
+          method: 'auto' as const,
+          channel: 'sms',
+          billing_id: row.id,
+          billing_period: row.billing_period,
+        }
+        await supabase
+          .from('customers')
+          .update({ notification_log: [entry, ...existLog] })
+          .eq('id', cust.id)
+
+        await saveNotificationHistory({
+          category: 'sms',
+          type: '계산서발행완료알림',
+          body,
+          method: 'auto',
+          recipientType: 'customer',
+          recipientPhone: phone,
+          metadata: {
+            billing_id: row.id,
+            customer_id: cust.id,
+            business_name: cust.business_name,
+            billing_period: row.billing_period,
+            billing_type: row.billing_type,
+            source: 'admin/tax-invoice/mark-issued',
+          },
+          status: 'sent',
+        })
+        sentNotifications++
+      } catch { failedNotifications++ }
+    }
+  }
+
   // ── 감사 로그 ─────────────────────────────────────────────────
   const spreadsheetId: string = body.spreadsheet_id ?? ''
   const totalCount = updatedApps.length + updatedBills.length
@@ -139,6 +316,8 @@ export async function POST(request: NextRequest) {
     ok: true,
     updated_applications: updatedApps.length,
     updated_billings: updatedBills.length,
+    sent_notifications: sentNotifications,
+    failed_notifications: failedNotifications,
     log_id: logId,
   })
 }
