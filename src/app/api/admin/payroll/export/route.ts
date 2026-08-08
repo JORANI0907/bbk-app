@@ -10,6 +10,7 @@ import {
   type SalaryBasis,
   type PayslipRates,
 } from '@/lib/payroll/payslipCalc'
+import { bankNameToCode } from '@/lib/bankCodes'
 
 // ─── 유틸리티 ────────────────────────────────────────────────────────────────
 
@@ -138,10 +139,10 @@ export async function POST(req: NextRequest) {
         .gte('construction_date', `${month}-01`)
         .lte('construction_date', getMonthEndDate(month))
         .order('construction_date'),
-      supabase.from('users').select('id, name, role, phone, account_number, email').in('role', ['worker', 'admin']).eq('is_active', true).order('name'),
-      supabase.from('workers').select('id, name, employment_type, phone, account_number, email, tax_type, salary_basis').order('name'),
-      // users 담당자용 세금 설정 조회 (workers.user_id 매핑) — 계좌/이메일/전화 fallback 도 함께
-      supabase.from('workers').select('user_id, tax_type, salary_basis, employment_type, account_number, email, phone').not('user_id', 'is', null),
+      supabase.from('users').select('id, name, role, phone, account_number, bank_code, bank_name, email').in('role', ['worker', 'admin']).eq('is_active', true).order('name'),
+      supabase.from('workers').select('id, name, employment_type, phone, account_number, bank_code, bank_name, email, tax_type, salary_basis').order('name'),
+      // users 담당자용 세금 설정 조회 (workers.user_id 매핑) — 계좌/이메일/전화/은행 fallback 도 함께
+      supabase.from('workers').select('user_id, tax_type, salary_basis, employment_type, account_number, bank_code, bank_name, email, phone').not('user_id', 'is', null),
       supabase.from('payroll_records').select('*').eq('year_month', month),
       supabase.from('unit_price_monthly').select('application_id, unit_price').eq('year_month', month),
       supabase.from('payroll_payslips').select('person_type, person_id, pay_date').eq('year_month', month),
@@ -167,12 +168,14 @@ export async function POST(req: NextRequest) {
       ...((settingsRes.data?.insurance_rates ?? {}) as Partial<PayslipRates>),
     }
 
-    // 담당자(users) → workers 매핑을 통해 taxType/basis/계좌/이메일 조회
+    // 담당자(users) → workers 매핑을 통해 taxType/basis/계좌/은행/이메일 조회
     const userTaxMap = new Map<string, {
       taxType: TaxType
       salaryBasis: SalaryBasis
       employmentType: string | null
       accountNumber: string | null
+      bankCode: string | null
+      bankName: string | null
       email: string | null
       phone: string | null
     }>()
@@ -183,6 +186,8 @@ export async function POST(req: NextRequest) {
         salaryBasis: (lw.salary_basis as SalaryBasis) ?? '세전',
         employmentType: lw.employment_type,
         accountNumber: lw.account_number,
+        bankCode: lw.bank_code,
+        bankName: lw.bank_name,
         email: lw.email,
         phone: lw.phone,
       })
@@ -469,25 +474,45 @@ export async function POST(req: NextRequest) {
     XLSX.utils.book_append_sheet(workbook, detailSheet, '급여상세')
 
     // ─── 시트 2: 은행 급여이체 (obiz 포맷) ─────────────────────────────────
-    // A: 은행명 · B: 계좌번호 · C: 이체금액(실지급액) · D: 예금주 · E: 통장표시 · F: 내 통장 메모
-    // G열(메모)은 선택 항목이며 빈 문자열로 넣으면 국민은행 파서가 "공백값"으로 오류를 냄 → 아예 제외
-    // F열(내 통장 메모)은 최대 6자리 (한글 3자), payLabel 이 "N월급여" 4자로 조건 만족
+    // A: 은행 대표코드 (3자리) · B: 계좌번호 · C: 이체금액(실지급액)
+    // D: 예금주 · E: 통장표시(급여) · F: 내 통장 메모(N월급여)
+    // G열(메모)은 선택 항목이며 빈 문자열로 넣으면 국민은행 파서가 "공백값"으로 오류 → 제외
+    // A열은 직원관리에서 지정한 bank_code 우선, 없으면 bank_name → 매핑 → 마지막으로 account_number 파싱 fallback
     const bankRows: (string | number)[][] = []
-    const pushBankRow = (name: string, accRaw: string | null, amount: number) => {
-      const { bank, number } = parseAccount(accRaw)
-      // 6열만 반환 (G열은 넣지 않음)
-      bankRows.push([bank, number, amount, name, '급여', payLabel])
+    const pushBankRow = (
+      name: string,
+      opts: { bankCode: string | null; bankName: string | null; accountRaw: string | null },
+      amount: number,
+    ) => {
+      let code: string = opts.bankCode ?? ''
+      let number: string = opts.accountRaw ?? ''
+      // bank_code 없으면 bank_name → 매핑
+      if (!code && opts.bankName) code = bankNameToCode(opts.bankName) ?? ''
+      // 그마저도 없으면 레거시 account_number 앞부분 파싱 시도
+      if (!code || !number) {
+        const parsed = parseAccount(opts.accountRaw)
+        if (!code && parsed.bank) code = bankNameToCode(parsed.bank) ?? ''
+        if (!number) number = parsed.number
+      }
+      bankRows.push([code, number, amount, name, '급여', payLabel])
     }
     for (const d of managerDetails) {
       const entry = managerEntries.find(e => e.person.name === d.name)
-      // users.account_number 우선, 없으면 workers 매핑 계좌 (4대보험 인원은 대부분 여기)
-      const linkedAcc = entry ? userTaxMap.get(entry.person.id)?.accountNumber ?? null : null
-      const raw = entry?.person.account_number ?? linkedAcc ?? null
-      pushBankRow(d.name, raw, d.netPay)
+      const linked = entry ? userTaxMap.get(entry.person.id) : undefined
+      pushBankRow(d.name, {
+        // users → workers 매핑 fallback
+        bankCode: entry?.person.bank_code ?? linked?.bankCode ?? null,
+        bankName: entry?.person.bank_name ?? linked?.bankName ?? null,
+        accountRaw: entry?.person.account_number ?? linked?.accountNumber ?? null,
+      }, d.netPay)
     }
     for (const d of workerDetails) {
-      const raw = workerEntries.find(e => e.person.name === d.name)?.person.account_number ?? null
-      pushBankRow(d.name, raw, d.netPay)
+      const entry = workerEntries.find(e => e.person.name === d.name)
+      pushBankRow(d.name, {
+        bankCode: entry?.person.bank_code ?? null,
+        bankName: entry?.person.bank_name ?? null,
+        accountRaw: entry?.person.account_number ?? null,
+      }, d.netPay)
     }
 
     const bankSheet = XLSX.utils.aoa_to_sheet(bankRows)
