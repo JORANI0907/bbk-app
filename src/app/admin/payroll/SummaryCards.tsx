@@ -5,7 +5,15 @@ export default function SummaryCards({ entries, label }: {
   label: string
 }) {
   const autoTotal = entries.reduce((s, e) => s + e.auto_amount, 0)
-  const finalTotal = entries.reduce((s, e) => s + (e.record?.final_amount ?? e.auto_amount), 0)
+  // 개별 카드의 '실지급 예상'과 동일한 공식으로 계산:
+  //   base(final_amount ?? auto_amount) + extra_items - extra_deductions
+  // 이전에는 base만 합산해 추가 지급/공제가 누락됐음.
+  const finalTotal = entries.reduce((s, e) => {
+    const base = e.record?.final_amount ?? e.auto_amount
+    const extras = (e.record?.extra_items ?? []).reduce((a, it) => a + (it.amount || 0), 0)
+    const deducts = (e.record?.extra_deductions ?? []).reduce((a, it) => a + (it.amount || 0), 0)
+    return s + base + extras - deducts
+  }, 0)
   const paidCount = entries.filter(e => e.record?.is_paid).length
 
   return (
