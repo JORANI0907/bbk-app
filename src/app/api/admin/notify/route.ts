@@ -303,6 +303,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '필수 항목 누락' }, { status: 400 })
     }
 
+    // Phase 27-AN 이후 이번달 일정 드롭다운이 DB `notification_templates.code`(예: `예약확정알림_정기딥`)를
+    // 그대로 type 으로 넘긴다. 서버는 baseType 을 가정하고 serviceTypeSuffix() 를 다시 붙이므로
+    // `_정기딥_정기딥` 이중 접미사가 되어 template 조회 실패. → 여기서 접미사를 벗겨 baseType 으로 정규화.
+    const KNOWN_TYPE_SUFFIXES = ['_정기딥', '_정기엔드', '_1회성'] as const
+    for (const suffix of KNOWN_TYPE_SUFFIXES) {
+      if (type.endsWith(suffix)) {
+        type = type.slice(0, -suffix.length)
+        break
+      }
+    }
+
     const supabase = createServiceClient()
 
     // ── 작업자 일정 안내 SMS (별도 처리) ──────────────────────────
