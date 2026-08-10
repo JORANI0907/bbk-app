@@ -153,7 +153,17 @@ export default function FinanceDashboardPage() {
   const unpaidPayroll = useMemo(() => {
     if (!current) return { count: 0, total: 0 }
     const unpaid = current.labor.records.filter(r => !r.is_paid)
-    const total = unpaid.reduce((s, r) => s + (r.final_amount ?? r.auto_amount), 0)
+    // 급여정산 카드 '실지급 예상'과 동일 공식: base + extra_items - extra_deductions
+    const sumExtras = (arr: unknown): number =>
+      Array.isArray(arr)
+        ? arr.reduce((a, it) => a + Number((it as { amount?: number | null } | null)?.amount ?? 0), 0)
+        : 0
+    const total = unpaid.reduce((s, r) => {
+      const base = r.final_amount ?? r.auto_amount
+      const extras = sumExtras((r as { extra_items?: unknown }).extra_items)
+      const deducts = sumExtras((r as { extra_deductions?: unknown }).extra_deductions)
+      return s + base + extras - deducts
+    }, 0)
     return { count: unpaid.length, total }
   }, [current])
 
