@@ -32,9 +32,10 @@ export async function GET(request: NextRequest) {
       .order('construction_date'),
 
     // 인건비: 해당 월 payroll_records
+    // extra_items/extra_deductions까지 조회해야 급여정산 카드의 '실지급 예상'과 합계가 일치함.
     supabase
       .from('payroll_records')
-      .select('id, person_type, person_id, auto_amount, final_amount, is_paid')
+      .select('id, person_type, person_id, auto_amount, final_amount, is_paid, extra_items, extra_deductions')
       .eq('year_month', month),
 
     // 고정비
@@ -157,8 +158,17 @@ export async function GET(request: NextRequest) {
   const allRevenueItems = [...revenueItems, ...endCareItems, ...deepCareItems]
   const revenueTotal = allRevenueItems.reduce((s, a) => s + a.total, 0)
 
-  // 인건비 계산
-  const laborTotal = payrolls.reduce((s, r) => s + (r.final_amount ?? r.auto_amount), 0)
+  // 인건비 계산 — 급여정산 카드의 '실지급 예상' 공식과 동일:
+  //   base(final_amount ?? auto_amount) + extra_items - extra_deductions
+  // 이전에는 base만 합산해 추가 지급/공제가 반영되지 않아 급여정산 탭과 값이 달랐음.
+  const sumExtras = (arr: unknown): number =>
+    Array.isArray(arr)
+      ? arr.reduce((a, it) => a + Number((it as { amount?: number | null } | null)?.amount ?? 0), 0)
+      : 0
+  const laborTotal = payrolls.reduce((s, r) => {
+    const base = r.final_amount ?? r.auto_amount
+    return s + base + sumExtras(r.extra_items) - sumExtras(r.extra_deductions)
+  }, 0)
 
   // 고정비 합계
   const fixedTotal = fixedRecords.reduce((s, r) => s + Number(r.amount), 0)
