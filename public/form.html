@@ -1025,6 +1025,17 @@
         </div>
 
         <div class="form-group">
+          <label class="form-label">서비스 종류 선택<span class="required">*</span></label>
+          <select class="form-input" name="serviceType" id="serviceType" required>
+            <option value="">서비스 종류를 선택해주세요</option>
+            <option value="1회성케어">1회성 케어 (80,000원)</option>
+            <option value="정기딥케어">정기 딥케어 (60,000원)</option>
+            <option value="정기엔드케어">정기 엔드케어 (70,000원)</option>
+          </select>
+          <div class="error-msg" id="serviceTypeError">⚠ 서비스 종류를 선택해주세요</div>
+        </div>
+
+        <div class="form-group">
           <label class="form-label">결제 방법 선택<span class="required">*</span></label>
           <div class="radio-group">
             <div class="radio-option">
@@ -1153,7 +1164,33 @@
     </form>
   </div>
 
-  <div class="footer">© BUMBUILD KOREA · 범빌드코리아<br>문의사항은 언제든 연락 주세요 · 031-759-4877</div>
+  <div class="footer" style="padding:24px 20px 32px; font-size:12px; color:#94A3B8; line-height:1.7; text-align:center;">
+    <div style="margin-bottom:10px;">
+      <a href="/terms" style="color:#64748B; text-decoration:underline; margin:0 8px;">이용약관</a>
+      <span style="color:#CBD5E1;">|</span>
+      <a href="/privacy" style="color:#64748B; text-decoration:underline; margin:0 8px;">개인정보처리방침</a>
+      <span style="color:#CBD5E1;">|</span>
+      <a href="/refund" style="color:#64748B; text-decoration:underline; margin:0 8px;">환불규정</a>
+    </div>
+    <div style="border-top:1px solid #E2E8F0; padding-top:12px; margin-top:8px;">
+      <div style="font-weight:600; color:#475569; margin-bottom:4px;">범빌드코리아 (BBK 공간케어)</div>
+      <div>대표: 조동환 · 사업자등록번호: 398-81-04260</div>
+      <div>경기도 성남시 중원구 둔촌대로268번길 22, 1동 2층 201호</div>
+      <div>통신판매업 신고번호: 제 2025-경기성남중원-XXXX호 (신고 진행 중)</div>
+      <div style="margin-top:8px;">
+        전화 <a href="tel:031-759-4877" style="color:#3B82F6; text-decoration:none;">031-759-4877</a>
+        · 이메일 <a href="mailto:sunrise@bbkorea.co.kr" style="color:#3B82F6; text-decoration:none;">sunrise@bbkorea.co.kr</a>
+      </div>
+      <div style="margin-top:4px;">운영시간: 평일·토요일 09:00 - 18:00 (일요일·공휴일 휴무)</div>
+      <div style="margin-top:10px; display:inline-flex; align-items:center; gap:8px;">
+        <a href="#" onclick="window.open('https://okbfex.kbstar.com/quics?page=C021590&cc=b034066:b035526&mHValue=25a2fdfaf136fea808e1eb7aacb31051','KB_AUTHMARK','height=604,width=648,status=yes,toolbar=no,menubar=no,location=no');return false;" style="display:inline-flex; align-items:center;">
+          <img src="https://img1.kbstar.com/img/escrow/escrowcmark.gif" alt="KB국민은행 에스크로 이체 인증마크" style="height:32px;" />
+        </a>
+        <span style="font-size:11px; color:#64748B; line-height:1.3;">KB에스크로 가입 판매자<br/>(클릭 시 판매자 검증)</span>
+      </div>
+      <div style="margin-top:12px; color:#CBD5E1;">© 2025 BUMBUILD KOREA. All rights reserved.</div>
+    </div>
+  </div>
   </div><!-- /#app -->
 
   <!-- ═══════ Modal ═══════ -->
@@ -1497,6 +1534,7 @@
         buildingAccess: document.querySelector('input[name="buildingAccess"]:checked').value,
         accessMethod: document.getElementById('accessMethod').value.trim(),
         parking: parkingValue,
+        serviceType: document.getElementById('serviceType').value,
         paymentMethod: document.querySelector('input[name="paymentMethod"]:checked').value,
         accountNumber: (function(){
           var bank = document.getElementById('bankName').value.trim();
@@ -1549,7 +1587,20 @@
     // ═══════ SMS 본인인증 ═══════
     var smsToken = '';
     var smsTimerInterval = null;
-    var phoneVerified = false;
+    // 로컬 개발 환경에서는 SMS 인증 자동 통과 (반복 테스트 편의).
+    // 프로덕션(app.bbkorea.co.kr)에서는 절대 활성화 안 됨.
+    var isLocalDev = (location.hostname === 'localhost' || location.hostname === '127.0.0.1');
+    var phoneVerified = isLocalDev;
+    if (isLocalDev) {
+      // 페이지 로드 완료 후 인증완료 표시
+      window.addEventListener('DOMContentLoaded', function() {
+        var v = document.getElementById('phoneVerified');
+        if (v) {
+          v.style.display = 'block';
+          v.textContent = '✅ 로컬 개발 환경 · SMS 인증 자동 통과';
+        }
+      });
+    }
 
     function sendVerificationSMS() {
       var phone = document.getElementById('phone').value.trim();
@@ -1694,7 +1745,8 @@
     }
 
     // ═══════ 사업자등록번호 확인 ═══════
-    var bizVerified = false;
+    // 로컬 개발 환경에서는 자동 통과 (반복 테스트 편의). 프로덕션에서는 비활성.
+    var bizVerified = isLocalDev;
 
     function checkBusinessNumber() {
       var bizNum = document.getElementById('businessNumber').value.trim();

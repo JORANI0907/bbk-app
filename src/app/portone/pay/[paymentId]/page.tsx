@@ -2,13 +2,15 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { useParams, useSearchParams } from 'next/navigation'
-import { requestIssueBillingKey } from '@portone/browser-sdk/v2'
+import { requestPayment } from '@portone/browser-sdk/v2'
+import { KbEscrowBadge } from '@/components/KbEscrowBadge'
 
 type AppInfo = {
   owner_name: string
   business_name: string
   phone: string
   email: string
+  service_type?: string | null
   deposit: number
   supply_amount: number
   vat: number
@@ -32,6 +34,7 @@ export default function PortOnePayPage() {
   const paymentId    = params.paymentId as string
   const stage        = (searchParams.get('stage') ?? 'deposit') as Stage
   const appId        = searchParams.get('appId') ?? ''
+  const custId       = searchParams.get('custId') ?? ''
 
   const [app,     setApp]     = useState<AppInfo | null>(null)
   const [status,  setStatus]  = useState<'idle' | 'loading' | 'paying' | 'success' | 'error'>('loading')
@@ -50,8 +53,9 @@ export default function PortOnePayPage() {
     : Boolean(app?.balance_paid_at)
 
   useEffect(() => {
-    if (!appId) { setStatus('error'); setMessage('잘못된 접근입니다.'); return }
-    fetch(`/api/portone/pay-info?appId=${appId}`)
+    if (!appId && !custId) { setStatus('error'); setMessage('잘못된 접근입니다.'); return }
+    const q = custId ? `custId=${custId}` : `appId=${appId}`
+    fetch(`/api/portone/pay-info?${q}`)
       .then(r => r.json())
       .then(d => { setApp(d.app); setStatus('idle') })
       .catch(() => { setStatus('error'); setMessage('결제 정보를 불러오는 중 오류가 발생했습니다.') })
@@ -64,35 +68,43 @@ export default function PortOnePayPage() {
       const storeId    = process.env.NEXT_PUBLIC_PORTONE_STORE_ID ?? ''
       const channelKey = process.env.NEXT_PUBLIC_PORTONE_CHANNEL_KEY_CARD ?? ''
 
-      // Step 1: 빌링키 발급 (KG이니시스 V2는 requestIssueBillingKey 사용)
-      const result = await requestIssueBillingKey({
+      // Step 1: 완결형 원큐 결제 요청 (예약금·잔금 각각 독립된 카드 승인)
+      // KG이니시스 심사 정책: 두 결제는 서로 참조 관계 없는 독립 승인.
+      // KG이니시스는 customer.email 필수. 신청서에 이메일이 없으면 유효 형식 폴백 사용.
+      const emailToUse = (app.email && app.email.trim())
+        || `noemail-${appId.replace(/-/g, '').slice(0, 8)}@bbkorea.co.kr`
+
+      const result = await requestPayment({
         storeId,
         channelKey,
-        billingKeyMethod: 'CARD',
-        issueId: paymentId,
-        issueName: `BBK 공간케어 ${stage === 'deposit' ? '예약금' : '잔금'} 카드 등록`,
+        paymentId,
+        orderName: `BBK 공간케어 청소서비스 — ${app.business_name}`,
+        totalAmount: amount,
+        currency: 'KRW',
+        payMethod: 'CARD',
         customer: {
           fullName: app.owner_name,
           phoneNumber: app.phone.replace(/-/g, ''),
-          email: app.email,
+          email: emailToUse,
         },
       })
 
       if (!result || 'code' in result) {
         setStatus('error')
-        setMessage((result as { message?: string } | undefined)?.message ?? '카드 등록에 실패했습니다.')
+        setMessage((result as { message?: string } | undefined)?.message ?? '결제에 실패했습니다.')
         return
       }
 
-      // Step 2: 서버에 빌링키 전달 → 서버가 payWithBillingKey로 실제 청구
+      // Step 2: 서버에서 결제 상태 검증 (paymentId만 전달, 금액 위변조 방지)
+      // customer-mode(custId) 결제 링크의 경우 customerId 로 후처리 필요.
       const verifyRes = await fetch('/api/portone/complete', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           paymentId,
-          applicationId: appId,
+          applicationId: appId || undefined,
+          customerId:    custId || undefined,
           stage,
-          billingKey: (result as Record<string,unknown>).billingKey,
         }),
       })
       const verifyData = await verifyRes.json()
@@ -158,11 +170,8 @@ export default function PortOnePayPage() {
         <div className="text-center mb-8">
           <p className="text-white/50 text-xs font-mono uppercase tracking-widest mb-2">BBK 공간케어</p>
           <h1 className="text-white font-black text-2xl">
-            {stage === 'deposit' ? '예약금 결제' : '잔금 결제'}
+            {app?.service_type ? `${app.service_type} 결제` : '서비스 결제'}
           </h1>
-          {stage === 'deposit' && isCard && (
-            <p className="text-sky-300/70 text-xs mt-1.5">카드 등록 후 잔금은 작업 완료 시 자동 청구됩니다</p>
-          )}
         </div>
 
         {/* 결제 정보 카드 */}
@@ -177,8 +186,8 @@ export default function PortOnePayPage() {
               <span className="text-white text-sm font-medium">{app?.business_name ?? '-'}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-white/50 text-sm">결제 항목</span>
-              <span className="text-white text-sm font-medium">{stage === 'deposit' ? '예약금' : '잔금'}</span>
+              <span className="text-white/50 text-sm">서비스</span>
+              <span className="text-white text-sm font-medium">{app?.service_type ?? '청소 서비스'}</span>
             </div>
             <div className="flex justify-between items-baseline">
               <span className="text-white/50 text-sm">결제 금액</span>
@@ -236,13 +245,43 @@ export default function PortOnePayPage() {
                 </svg>
                 결제 처리 중...
               </span>
-            ) : `카드 등록 및 ${amount.toLocaleString('ko-KR')}원 결제`}
+            ) : `${amount.toLocaleString('ko-KR')}원 결제하기`}
           </button>
         )}
 
-        <p className="text-center text-white/30 text-xs mt-5">
-          BBK 공간케어 · 031-759-4877
-        </p>
+        {/* CS 안내 */}
+        <div className="mt-6 rounded-2xl border border-white/10 px-4 py-3 text-center"
+          style={{ background: 'rgba(255,255,255,0.04)' }}>
+          <p className="text-white/60 text-xs font-semibold mb-1">고객센터</p>
+          <p className="text-white/50 text-[11px]">
+            평일·토요일 09:00 - 18:00 (일요일·공휴일 휴무)
+          </p>
+          <p className="text-white/60 text-xs mt-1.5">
+            📞 <a href="tel:031-759-4877" className="text-sky-300 hover:text-sky-200">031-759-4877</a>
+            {' · '}
+            ✉ <a href="mailto:sunrise@bbkorea.co.kr" className="text-sky-300 hover:text-sky-200">sunrise@bbkorea.co.kr</a>
+          </p>
+          <p className="text-white/40 text-[10px] mt-2">
+            결제 취소·환불은 결제 완료 후 고객센터로 문의해주세요.
+          </p>
+        </div>
+
+        {/* 사업자 정보 */}
+        <div className="mt-3 text-center text-white/30 text-[10px] leading-relaxed">
+          <p className="font-semibold text-white/40 mb-0.5">범빌드코리아 (BBK 공간케어)</p>
+          <p>대표: 조동환 · 사업자등록번호: 398-81-04260</p>
+          <p>경기도 성남시 중원구 둔촌대로268번길 22, 1동 2층 201호</p>
+          <p>통신판매업 신고번호: 제 2025-경기성남중원-XXXX호 (신고 진행 중)</p>
+          <p className="mt-1.5">
+            <a href="/terms" className="text-white/40 hover:text-white/60 underline mx-1.5">이용약관</a>
+            <a href="/privacy" className="text-white/40 hover:text-white/60 underline mx-1.5">개인정보처리방침</a>
+            <a href="/refund" className="text-white/40 hover:text-white/60 underline mx-1.5">환불규정</a>
+          </p>
+          <p className="mt-2 text-white/25">결제 대행: 포트원(주) · KG이니시스</p>
+          <div className="mt-3 flex justify-center">
+            <KbEscrowBadge theme="dark" />
+          </div>
+        </div>
       </div>
     </div>
   )

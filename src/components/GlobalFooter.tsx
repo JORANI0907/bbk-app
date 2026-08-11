@@ -3,6 +3,8 @@
  * 모든 페이지 하단에 작은 글씨로 표시.
  * 모바일 하단 nav가 있는 페이지(고객 포털 등)는 nav 위에 표시되어야 함.
  */
+import { KbEscrowBadge } from './KbEscrowBadge'
+
 function Sep() {
   return <span className="text-border select-none" aria-hidden>|</span>
 }
@@ -50,6 +52,11 @@ export function GlobalFooter() {
             </span>
             <Sep />
             <span>주소 : 경기도 성남시 중원구 둔촌대로268번길 22, 201호</span>
+          </div>
+
+          {/* KB에스크로 인증마크 */}
+          <div className="pt-2">
+            <KbEscrowBadge theme="light" />
           </div>
 
           {/* Copyright */}
