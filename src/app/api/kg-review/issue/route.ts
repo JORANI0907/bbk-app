@@ -25,7 +25,8 @@ const APP_BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.bbkorea.co.
 
 // 심사용 상품 카탈로그. 클라이언트에서 productCode 만 전달하고 서버가 금액을 확정.
 // BBK 실제 서비스 안내 요금표 기준.
-export const KG_REVIEW_PRODUCTS = {
+// (Next.js Route 파일은 HTTP method 외 export 금지 → 로컬 상수로 유지)
+const KG_REVIEW_PRODUCTS = {
   'deep-monthly-1': {
     serviceType: '정기딥케어',
     label:       '정기 딥 케어 · 월 1회 기본형',
@@ -48,7 +49,7 @@ export const KG_REVIEW_PRODUCTS = {
   },
 } as const
 
-export type KgReviewProductCode = keyof typeof KG_REVIEW_PRODUCTS
+type KgReviewProductCode = keyof typeof KG_REVIEW_PRODUCTS
 
 export async function POST(request: NextRequest) {
   try {
