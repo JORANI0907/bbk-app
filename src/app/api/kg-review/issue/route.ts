@@ -23,6 +23,33 @@ import {
  */
 const APP_BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.bbkorea.co.kr'
 
+// 심사용 상품 카탈로그. 클라이언트에서 productCode 만 전달하고 서버가 금액을 확정.
+// BBK 실제 서비스 안내 요금표 기준.
+export const KG_REVIEW_PRODUCTS = {
+  'deep-monthly-1': {
+    serviceType: '정기딥케어',
+    label:       '정기 딥 케어 · 월 1회 기본형',
+    amount:      150000,
+  },
+  'deep-monthly-2': {
+    serviceType: '정기딥케어',
+    label:       '정기 딥 케어 · 월 2회 기본형',
+    amount:      270000,
+  },
+  'end-basic': {
+    serviceType: '정기엔드케어',
+    label:       '정기 엔드 케어 · 기본형',
+    amount:      100000,
+  },
+  'end-extended': {
+    serviceType: '정기엔드케어',
+    label:       '정기 엔드 케어 · 확장형',
+    amount:      180000,
+  },
+} as const
+
+export type KgReviewProductCode = keyof typeof KG_REVIEW_PRODUCTS
+
 export async function POST(request: NextRequest) {
   try {
     if (!isPortOneEnabled()) {
@@ -34,23 +61,24 @@ export async function POST(request: NextRequest) {
       ownerName?: string
       phone?: string
       email?: string
-      serviceType?: string
-      amount?: number
+      productCode?: string
     }
 
     const businessName = String(body.businessName ?? '').trim()
     const ownerName    = String(body.ownerName ?? '').trim()
     const phone        = String(body.phone ?? '').replace(/-/g, '')
     const email        = String(body.email ?? '').trim()
-    const serviceType  = String(body.serviceType ?? '1회성케어')
-    const amount       = Number(body.amount ?? 88000)
+    const productCode  = String(body.productCode ?? '') as KgReviewProductCode
 
     if (!businessName || !ownerName || !phone || !email) {
       return NextResponse.json({ error: '상호명·담당자명·연락처·이메일은 필수입니다.' }, { status: 400 })
     }
-    if (amount < 1000) {
-      return NextResponse.json({ error: '결제금액이 너무 낮습니다. (최소 1,000원)' }, { status: 400 })
+
+    const product = KG_REVIEW_PRODUCTS[productCode]
+    if (!product) {
+      return NextResponse.json({ error: '유효하지 않은 상품 코드입니다.' }, { status: 400 })
     }
+    const { serviceType, amount, label: productLabel } = product
 
     const supabase = createServiceClient()
 
@@ -67,7 +95,7 @@ export async function POST(request: NextRequest) {
         owner_name:       ownerName,
         phone,
         email,
-        address:          '심사용 (KG이니시스 review)',
+        address:          `심사용 (KG이니시스 review) · 상품: ${productLabel}`,
         service_type:     serviceType,
         payment_method:   '카드(온라인 간편결제)',
         supply_amount:    supplyAmount,
