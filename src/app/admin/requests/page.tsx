@@ -312,15 +312,17 @@ function AdminRequestView() {
         ) : filtered.length === 0 ? (
           <div className="flex items-center justify-center h-40 text-text-tertiary text-sm">요청이 없습니다.</div>
         ) : (
+          // Phase 27-BG: min-w-[560px] 제거로 모바일 강제 스크롤 방지.
+          //   카테고리·날짜는 저우선순위라 sm 미만에선 숨김(hidden sm:table-cell) → 모바일 3열(요청자·내용·상태).
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[560px] text-sm">
+            <table className="w-full text-sm">
               <thead>
                 <tr className="bg-surface-sunken border-b border-border-subtle">
                   <th className="text-left px-4 py-3 font-medium text-text-secondary whitespace-nowrap">요청자</th>
-                  <th className="text-left px-4 py-3 font-medium text-text-secondary whitespace-nowrap">카테고리</th>
+                  <th className="text-left px-4 py-3 font-medium text-text-secondary whitespace-nowrap hidden sm:table-cell">카테고리</th>
                   <th className="text-left px-4 py-3 font-medium text-text-secondary whitespace-nowrap">내용</th>
                   <th className="text-left px-4 py-3 font-medium text-text-secondary whitespace-nowrap w-20">상태</th>
-                  <th className="text-left px-4 py-3 font-medium text-text-secondary whitespace-nowrap w-24">날짜</th>
+                  <th className="text-left px-4 py-3 font-medium text-text-secondary whitespace-nowrap w-24 hidden sm:table-cell">날짜</th>
                 </tr>
               </thead>
               <tbody>
@@ -338,7 +340,7 @@ function AdminRequestView() {
                         <p className="font-medium text-text-primary">{req.requester_name}</p>
                       </div>
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-3 hidden sm:table-cell">
                       <span className="text-xs bg-surface-sunken text-text-secondary px-2 py-0.5 rounded-full">
                         {ALL_CATEGORY_LABELS[req.category] ?? req.category}
                       </span>
@@ -354,7 +356,7 @@ function AdminRequestView() {
                         {STATUS_LABELS[req.status]}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-text-tertiary text-xs">
+                    <td className="px-4 py-3 text-text-tertiary text-xs hidden sm:table-cell">
                       {new Date(req.created_at).toLocaleDateString('ko-KR')}
                     </td>
                   </tr>
