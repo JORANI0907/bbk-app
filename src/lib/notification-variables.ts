@@ -100,6 +100,7 @@ export interface NotificationContext {
     phone_2?: string | null
     email?: string | null
     address?: string | null
+    service_type?: string | null
     // 일정정보
     construction_date?: string | null
     construction_time?: string | null
@@ -127,6 +128,7 @@ export interface NotificationContext {
     access_method?: string | null
     drive_folder_url?: string | null
     request_notes?: string | null
+    customer_memo?: string | null
   } | null
   /** 이번달 일정(service_schedules) — 회차별 시공/결제 정보 */
   schedule?: {
@@ -179,9 +181,13 @@ function fmtWeekdays(days: string[] | null | undefined): string {
   if (!days || days.length === 0) return ''
   return days.join(',')
 }
+// Phase 27-BD: 다른 5개 파일(finance / CustomersManagementView / ServiceManagementView /
+//   calendar-amount)의 isNoVatMethod와 정합. 이전엔 이 파일만 '카드(온라인 간편결제)' 와 '플랫폼'
+//   도 부가세 미적용으로 취급해 {{총액}} SMS가 신청서 UI·재무 표시값보다 부가세만큼 적게 나가는
+//   금액 정합성 사고 발생(자동테스트업체 재현). 정책: 총액=공급가액+부가세, 결제 방법 무관.
 function isNoVat(method: string | null | undefined): boolean {
   if (!method) return false
-  return method.includes('비과세') || method === '현금(부가세 X)' || method === '카드(온라인 간편결제)' || method === '플랫폼'
+  return method.includes('비과세') || method.includes('미희망') || method === '현금(부가세 X)'
 }
 
 /**
@@ -217,6 +223,9 @@ export const AVAILABLE_VARIABLES: VariableDef[] = [
   { label: '연락처', category: '일반정보', scope: 'customer', appliesTo: TAB_ALL,
     desc: '고객 대표 전화번호',
     resolve: (c) => c.application?.phone ?? c.customer?.contact_phone ?? '' },
+  { label: '서비스종류', category: '일반정보', scope: 'application', appliesTo: TAB_ALL,
+    desc: '1회성케어 · 정기딥케어 · 정기엔드케어',
+    resolve: (c) => c.application?.service_type ?? '' },
   { label: '추가연락처', category: '일반정보', scope: 'customer', appliesTo: TAB_ALL,
     desc: '보조 전화번호',
     resolve: (c) => c.application?.phone_2 ?? c.customer?.contact_phone_2 ?? '' },
@@ -385,8 +394,8 @@ export const AVAILABLE_VARIABLES: VariableDef[] = [
     desc: '전원 콘센트 위치',
     resolve: (c) => c.customer?.power_location ?? '' },
   { label: '특이사항', category: '기타', scope: 'customer', appliesTo: TAB_ALL,
-    desc: '현장 특이사항 메모',
-    resolve: (c) => c.customer?.special_notes ?? '' },
+    desc: '현장 특이사항 메모 (작업완료 시 관리자가 남긴 고객 전달 메모 포함)',
+    resolve: (c) => c.application?.customer_memo ?? c.customer?.special_notes ?? '' },
   { label: '고객요청사항', category: '기타', scope: 'application', appliesTo: TAB_ONESHOT_MONTHLY,
     desc: '고객이 남긴 요청/메모',
     resolve: (c) => c.application?.request_notes ?? '' },
