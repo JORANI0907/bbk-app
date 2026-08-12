@@ -955,8 +955,9 @@ function AdminTableView() {
                   )}
                   <th className="text-left px-3 py-3 font-medium text-text-secondary whitespace-nowrap min-w-[100px]">출근</th>
                   <th className="text-left px-3 py-3 font-medium text-text-secondary whitespace-nowrap min-w-[100px]">퇴근</th>
-                  <th className="text-left px-3 py-3 font-medium text-text-secondary whitespace-nowrap min-w-[90px]">근무시간</th>
-                  <th className="text-left px-3 py-3 font-medium text-text-secondary min-w-[140px]">메모</th>
+                  {/* Phase 27-BG: 근무시간·메모는 저우선순위라 모바일에선 숨김. 데스크톱(md+)만 노출. */}
+                  <th className="text-left px-3 py-3 font-medium text-text-secondary whitespace-nowrap min-w-[90px] hidden md:table-cell">근무시간</th>
+                  <th className="text-left px-3 py-3 font-medium text-text-secondary min-w-[140px] hidden md:table-cell">메모</th>
                 </tr>
               </thead>
               <tbody>
@@ -979,8 +980,8 @@ function AdminTableView() {
                         {showNameColumn && <td className="px-3 py-2.5 text-text-tertiary">-</td>}
                         <td className="px-3 py-2.5 text-text-tertiary">-</td>
                         <td className="px-3 py-2.5 text-text-tertiary">-</td>
-                        <td className="px-3 py-2.5 text-text-tertiary">-</td>
-                        <td className="px-3 py-2.5 text-text-tertiary">-</td>
+                        <td className="px-3 py-2.5 text-text-tertiary hidden md:table-cell">-</td>
+                        <td className="px-3 py-2.5 text-text-tertiary hidden md:table-cell">-</td>
                       </tr>
                     )
                   }
@@ -1042,13 +1043,13 @@ function AdminTableView() {
                         ) : <span className="text-text-tertiary text-sm">-</span>}
                       </td>
 
-                      {/* 근무시간 */}
-                      <td className="px-3 py-2.5 text-text-secondary text-sm whitespace-nowrap">
+                      {/* 근무시간 — 모바일 숨김 (헤더와 대칭) */}
+                      <td className="px-3 py-2.5 text-text-secondary text-sm whitespace-nowrap hidden md:table-cell">
                         {formatDuration(rec.clock_in, rec.clock_out)}
                       </td>
 
-                      {/* 메모 */}
-                      <td className="px-3 py-2.5 min-w-[140px]">
+                      {/* 메모 — 모바일 숨김 (헤더와 대칭) */}
+                      <td className="px-3 py-2.5 min-w-[140px] hidden md:table-cell">
                         {editingNoteId === rec.id ? (
                           <div className="flex gap-1 items-center">
                             <input
