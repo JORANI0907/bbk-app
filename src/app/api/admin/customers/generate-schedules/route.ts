@@ -23,6 +23,9 @@ interface CustomerRow {
   parking_info: string | null
   access_method: string | null
   special_notes: string | null
+  // Phase 27-BC: 마스터 UI 라벨 "관리자 요청사항" / "관리자메모" → 회차 생성 시 초기 복사에 사용
+  admin_notes: string | null
+  notes: string | null
   care_scope: string | null
   customer_type: string | null
   // 신형 방문주기 (Phase 37)
@@ -119,7 +122,7 @@ export async function POST(request: NextRequest) {
   const { data: customersData, error: fetchError } = await supabase
     .from('customers')
     .select(
-      'id, business_name, contact_name, contact_phone, email, address, platform_nickname, business_number, account_number, payment_method, business_hours_start, business_hours_end, elevator, building_access, parking_info, access_method, special_notes, care_scope, customer_type, visit_cycle_unit, visit_cycle_value, visit_cycle_config, visit_schedule_type, visit_weekdays, visit_monthly_dates, contract_start_date, contract_end_date, unit_price, assigned_user_id, assigned_worker_id, billing_cycle, billing_amount'
+      'id, business_name, contact_name, contact_phone, email, address, platform_nickname, business_number, account_number, payment_method, business_hours_start, business_hours_end, elevator, building_access, parking_info, access_method, special_notes, admin_notes, notes, care_scope, customer_type, visit_cycle_unit, visit_cycle_value, visit_cycle_config, visit_schedule_type, visit_weekdays, visit_monthly_dates, contract_start_date, contract_end_date, unit_price, assigned_user_id, assigned_worker_id, billing_cycle, billing_amount'
     )
     .in('id', customer_ids)
     .is('deleted_at', null)
@@ -262,6 +265,12 @@ export async function POST(request: NextRequest) {
       access_method: customer.access_method || null,
       request_notes: customer.special_notes || null,
       care_scope: customer.care_scope || null,
+      // Phase 27-BC: 회차 생성 시점 마스터 스냅샷 초기 복사.
+      //   이후 마스터 편집으로는 이 필드가 덮이지 않음(customer-app-sync 매핑 제외 처리).
+      //   admin_request_notes ← customer.admin_notes (마스터 UI 라벨: "관리자 요청사항")
+      //   admin_notes         ← customer.notes       (마스터 UI 라벨: "관리자메모")
+      admin_request_notes: customer.admin_notes || null,
+      admin_notes: customer.notes || null,
       service_type: customer.customer_type,
       assigned_to: customer.assigned_user_id || null,
       unit_price_per_visit: isAnnual ? null : (customer.unit_price || null),
@@ -269,7 +278,8 @@ export async function POST(request: NextRequest) {
       payment_status_detail: preSettledPayment,
       construction_date: date,
       status: '예약확정',
-      admin_notes: `고객 DB 자동 일정 생성 (${label})`,
+      // 시스템 태그는 감사·디버깅용 internal_memo 로 이동해 사용자 필드(admin_notes) 오염 방지.
+      internal_memo: `고객 DB 자동 일정 생성 (${label})`,
     }))
 
     const { data: inserted, error: insertError } = await supabase
