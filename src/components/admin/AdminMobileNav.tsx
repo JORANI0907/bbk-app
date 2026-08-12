@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useState, useCallback } from 'react'
 import type { ReactNode } from 'react'
-import { Home, Building2, Users, TrendingUp, Settings, Trash2, X } from 'lucide-react'
+import { Home, Building2, Users, TrendingUp, Settings, Trash2, X, Activity } from 'lucide-react'
 import { useModalBackButton } from '@/hooks/useModalBackButton'
 
 // ─── 메뉴 구조 (Sidebar와 동일) ────────────────────────────────
@@ -16,10 +16,13 @@ type NavItem = NavLeaf | NavGroup
 const NAV_ITEMS: NavItem[] = [
   { type: 'leaf', href: '/admin', label: '홈', icon: <Home size={16} />, roles: ['admin', 'worker'] },
   {
+    // Phase 27-BI: 데스크톱 Sidebar와 동일하게 admin 그룹 children 정합 (모바일에서 접근 불가하던 항목 추가)
     type: 'group', label: '영업관리', icon: <Building2 size={16} />, roles: ['admin'],
     children: [
       { href: '/admin/schedule', label: '배정관리', badgeKey: 'schedule' },
       { href: '/admin/customers', label: '고객관리' },
+      { href: '/admin/customer-history', label: '고객DB이력' },
+      { href: '/admin/franchise-hq', label: '프렌차이즈 본사' },
       { href: '/admin/quotes', label: '견적관리' },
       { href: '/admin/contracts', label: '계약서 관리' },
       { href: '/admin/reports', label: '월간보고서' },
@@ -39,6 +42,7 @@ const NAV_ITEMS: NavItem[] = [
       { href: '/admin/attendance', label: '출퇴근관리' },
       { href: '/admin/workers', label: '직원관리' },
       { href: '/admin/incidents', label: '경위서' },
+      { href: '/admin/claims', label: '고객 클레임' },
       { href: '/admin/inventory', label: '재고관리', badgeKey: 'inventory' },
       { href: '/admin/requests', label: '요청관리', badgeKey: 'requests' },
     ],
@@ -59,12 +63,24 @@ const NAV_ITEMS: NavItem[] = [
       { href: '/admin/finance', label: '재무 대시보드' },
       { href: '/admin/finance/details', label: '매출매입 상세' },
       { href: '/admin/payroll', label: '급여정산' },
+      { href: '/admin/tax-invoice', label: '세금계산서 발행' },
+    ],
+  },
+  {
+    // Phase 27-BI: 운영 그룹 신규 추가 (desktop Sidebar와 정합)
+    type: 'group', label: '운영', icon: <Activity size={16} />, roles: ['admin'],
+    children: [
+      { href: '/admin/ops/settings/intent', label: '대표 의도' },
+      { href: '/admin/ops/settings/metrics', label: '지표 설정' },
+      { href: '/admin/ops/settings/functions', label: '기능 담당' },
+      { href: '/admin/ops/interviews', label: '분기 면담' },
     ],
   },
   {
     type: 'group', label: '앱관리', icon: <Settings size={16} />, roles: ['admin'],
     children: [
       { href: '/admin/notices', label: '공지·이벤트관리', badgeKey: 'notices' },
+      { href: '/admin/events', label: '혜택 페이지 관리' },
       { href: '/admin/automation', label: '자동화관리' },
       { href: '/admin/notification-templates', label: '문자알림 관리' },
       { href: '/admin/push', label: '앱알림 관리' },
