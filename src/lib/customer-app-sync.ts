@@ -36,8 +36,10 @@ export const CUSTOMER_TO_APP_FIELD_MAP: Record<string, string> = {
   building_access:       'building_access',
   access_method:         'access_method',
   parking_info:          'parking',              // 이름 다름
-  special_notes:         'request_notes',        // 이름 다름 (신청서에선 "고객 요청사항")
-  admin_notes:           'admin_request_notes',  // 이름 다름 (신청서에선 "관리자 요청")
+  // Phase 27-BC: 고객/관리자 요청 필드는 회차별 독립 편집이 원칙 —
+  //   생성 시점에만 마스터 값을 복사(cron/auto-schedule + generate-schedules)하고,
+  //   이후 마스터 편집이 회차 값을 덮어쓰지 않도록 sync 매핑에서 제외.
+  //   special_notes → request_notes, admin_notes → admin_request_notes 두 항목이 대상.
   construction_time:     'construction_time',
   business_name:         'business_name',
   email:                 'email',
