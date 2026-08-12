@@ -464,6 +464,11 @@ export async function POST(request: NextRequest) {
     if (type === '작업완료알림') {
       if (String(app.service_type ?? '') === '정기엔드케어') {
         type = '작업완료알림(정기엔드케어)'
+      } else if (String(app.service_type ?? '') === '정기딥케어') {
+        // Phase 27-BF: 정기딥케어는 결제방법 무관하게 통합 template 하나만 사용.
+        //   회차별 결제 안내가 불필요(월간 정기딥은 cron 자동결제·연간 정기딥은 선결제)하므로
+        //   정기엔드와 동일 패턴(감사·사진 위주)의 단일 template로 통합.
+        type = '작업완료알림(정기딥케어)'
       } else {
         const pm = String(app.payment_method ?? '')
         if (pm === '카드(온라인 간편결제)' || pm === '플랫폼') {
@@ -632,7 +637,8 @@ export async function POST(request: NextRequest) {
       type === '작업완료알림' ||
       type === '작업완료알림(현금)' ||
       type === '작업완료알림(카드,플렛폼)' ||
-      type === '작업완료알림(정기엔드케어)'
+      type === '작업완료알림(정기엔드케어)' ||
+      type === '작업완료알림(정기딥케어)'
     ) {
       dbUpdates.notification_sent_at = nowIso
       dbUpdates.notification_send_at = null
@@ -717,7 +723,8 @@ export async function POST(request: NextRequest) {
       type === '작업완료알림' ||
       type === '작업완료알림(현금)' ||
       type === '작업완료알림(카드,플렛폼)' ||
-      type === '작업완료알림(정기엔드케어)'
+      type === '작업완료알림(정기엔드케어)' ||
+      type === '작업완료알림(정기딥케어)'
     ) {
       const internalMemo = String(app.internal_memo ?? '').trim()
       const businessName = String(app.business_name ?? '')
