@@ -113,6 +113,9 @@ interface Customer {
   deposit_paid_at: string | null
   balance_paid_at: string | null
   billing_key: string | null
+  virtual_account_number: string | null
+  virtual_account_bank: string | null
+  virtual_account_expired_at: string | null
   created_at: string
   updated_at: string
 }
@@ -1067,6 +1070,7 @@ export function CustomersManagementView({
         deposit_payment_url: null, balance_payment_url: null,
         deposit_portone_id: null, balance_portone_id: null,
         deposit_paid_at: null, balance_paid_at: null,
+        virtual_account_number: null, virtual_account_bank: null, virtual_account_expired_at: null,
         billing_key: null,
         progress_status: '신청서작성',
         payment_status_detail: null,
@@ -1996,6 +2000,7 @@ export function CustomersManagementView({
           deposit_portone_id: null, balance_portone_id: null,
           deposit_paid_at: null, balance_paid_at: null,
           billing_key: null,
+          virtual_account_number: null, virtual_account_bank: null, virtual_account_expired_at: null,
           progress_status: a.status ?? '신청서작성',
           payment_status_detail: null,
           tax_invoice_issued: null,
@@ -2308,10 +2313,13 @@ export function CustomersManagementView({
           )}
         </div>
 
-        {/* 액션 바 — Phase 6-H: embed 활성 시 숨김 (embed 뷰가 자체 액션바 사용) */}
+        {/* 액션 바 — Phase 6-H: embed 활성 시 숨김 (embed 뷰가 자체 액션바 사용).
+            Phase 27-BE: 모바일 반응형 — flex-wrap + 카운트 w-full sm:flex-1 로
+            모바일에선 카운트가 첫 줄 단독, 버튼 5개는 다음 줄로 자연 wrap.
+            데스크톱(sm+)은 기존 한 줄 배치 유지. */}
         {checkedIds.length > 0 && !isEmbedActive && (
-          <div className="mb-3 flex items-center gap-2 bg-brand-600 text-white px-4 py-2.5 rounded-xl shadow-sm">
-            <span className="text-sm font-semibold flex-1">{checkedIds.length}건 선택됨</span>
+          <div className="mb-3 flex flex-wrap items-center gap-2 bg-brand-600 text-white px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl shadow-sm">
+            <span className="text-sm font-semibold w-full sm:w-auto sm:flex-1">{checkedIds.length}건 선택됨</span>
             <button onClick={() => setCheckedIds([])}
               className="text-xs text-brand-200 hover:text-white px-2 py-1 rounded transition-colors">
               선택 해제
@@ -2876,7 +2884,14 @@ export function CustomersManagementView({
 
           {/* 헤더 */}
           <div className="p-4 border-b border-border-subtle flex items-center justify-between sticky top-0 bg-surface z-10">
-            <h2 className="font-bold text-text-primary break-words">{isNew ? '새 고객 추가' : selected?.business_name}</h2>
+            <div className="min-w-0">
+              <h2 className="font-bold text-text-primary break-words">{isNew ? '새 고객 추가' : selected?.business_name}</h2>
+              {!isNew && selected?.created_at && (
+                <p className="text-[11px] text-text-tertiary mt-0.5">
+                  접수: {new Date(selected.created_at).toLocaleString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                </p>
+              )}
+            </div>
             <div className="flex items-center gap-1.5 shrink-0">
               <button onClick={closeDetail} className="text-text-tertiary hover:text-text-secondary text-lg leading-none">✕</button>
             </div>
@@ -2989,89 +3004,19 @@ export function CustomersManagementView({
               </div>
             </div>
 
-            {/* Phase 7-I / Phase 9-C / Phase 17: 1회성·일반일정 공통 계약 정보 — 시공일자 + 진행상태 + 결제상태 */}
+            {/* 시공일자 — 인라인 컴팩트 (헤더 카드 제거, 도움말은 ⓘ 툴팁으로 접혀 있음) */}
             {!isWorker && isOnceCare && (
-              <div className="rounded-xl border border-gray-200 overflow-hidden">
-                <div className="bg-gray-50 px-4 py-2.5 border-b border-gray-200">
-                  <p className="text-xs font-semibold text-text-primary">{form.customer_type === '일반일정' ? '일반일정 정보' : '1회성케어 계약 정보'}</p>
-                </div>
-                <div className="p-4 flex flex-col gap-3">
-                  {/* Phase 27-AG: 1회성·일반일정은 이번달 일정 섹션이 없으므로 세부화면 상단에서 직접 편집.
-                      저장 시 서버(PATCH /api/admin/customers)가 linked application 의 construction_date 도
-                      함께 동기화 → customer.next_visit_date 와 application.construction_date 어긋나지 않음.
-                      정기딥/엔드는 이 섹션 자체가 렌더 안 됨 (isOnceCare gate) → 이번달 일정 섹션에서 편집. */}
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-text-secondary w-24 shrink-0">시공일자</span>
-                    <input
-                      type="date"
-                      value={form.next_visit_date}
-                      onChange={e => set('next_visit_date')(e.target.value)}
-                      className="flex-1 border border-border rounded-lg px-2 py-1.5 text-xs text-text-primary focus:outline-none focus:ring-2 focus:ring-brand-500 bg-surface"
-                    />
-                  </div>
-                  {/* Phase 9-C: 진행상태 (자동화: 알림 발송 시 자동 세팅. 수동 편집도 가능) */}
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-text-secondary w-24 shrink-0">진행상태</span>
-                    <select
-                      value={form.progress_status}
-                      onChange={e => set('progress_status')(e.target.value)}
-                      className="flex-1 border border-border rounded-lg px-2 py-1.5 text-xs text-text-primary focus:outline-none focus:ring-2 focus:ring-brand-500 bg-surface"
-                    >
-                      <option value="">(미정)</option>
-                      {PROGRESS_STATUS_OPTIONS.map(v => (
-                        <option key={v} value={v}>{v}</option>
-                      ))}
-                    </select>
-                  </div>
-                  {/* Phase 9-C: 결제상태 (비과세는 DB '비과세' 값 유지, 라벨만 '비과세 결제') */}
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-text-secondary w-24 shrink-0">결제상태</span>
-                    <select
-                      value={form.payment_status_detail}
-                      onChange={e => set('payment_status_detail')(e.target.value)}
-                      className="flex-1 border border-border rounded-lg px-2 py-1.5 text-xs text-text-primary focus:outline-none focus:ring-2 focus:ring-brand-500 bg-surface"
-                    >
-                      <option value="">(미정)</option>
-                      {PAYMENT_STATUS_DETAIL_OPTIONS.map(o => (
-                        <option key={o.value} value={o.value}>{o.label}</option>
-                      ))}
-                    </select>
-                  </div>
-                  {/* 즉시 토글 버튼 — 클릭만으로 저장, 세부화면 유지 */}
-                  {!isNew && (
-                    <div className="flex items-center gap-2 pt-0.5">
-                      <button
-                        type="button"
-                        disabled={statusToggling}
-                        onClick={handlePaymentCompleteToggle}
-                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors disabled:opacity-50 ${
-                          PAYMENT_COMPLETE_STATUSES.includes(selected?.payment_status_detail ?? '')
-                            ? 'bg-green-100 text-green-700 border-green-300'
-                            : 'bg-gray-50 text-text-tertiary border-border'
-                        }`}
-                      >
-                        <CreditCard className="w-3.5 h-3.5" />
-                        결제완료
-                      </button>
-                      <button
-                        type="button"
-                        disabled={statusToggling}
-                        onClick={handleInvoiceIssuedToggle}
-                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors disabled:opacity-50 ${
-                          form.tax_invoice_issued === true
-                            ? 'bg-blue-100 text-blue-700 border-blue-300'
-                            : 'bg-gray-50 text-text-tertiary border-border'
-                        }`}
-                      >
-                        <FileCheck className="w-3.5 h-3.5" />
-                        세금계산서 발행완료
-                      </button>
-                    </div>
-                  )}
-                  <p className="text-[11px] text-text-tertiary break-keep">
-                    시공일자를 지정하면 미배정 목록에서 자동으로 빠지고 시공일자 기준 정렬에 반영됩니다. 진행·결제 상태는 알림 발송 시 자동 업데이트되며 수동 편집도 가능합니다.
-                  </p>
-                </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-text-secondary w-24 shrink-0 inline-flex items-center gap-1">
+                  시공일자
+                  <FieldHint text="시공일자를 지정하면 미배정 목록에서 자동으로 빠지고 시공일자 기준 정렬에 반영됩니다." />
+                </span>
+                <input
+                  type="date"
+                  value={form.next_visit_date}
+                  onChange={e => set('next_visit_date')(e.target.value)}
+                  className="flex-1 border border-border rounded-lg px-2 py-1.5 text-xs text-text-primary focus:outline-none focus:ring-2 focus:ring-brand-500 bg-surface"
+                />
               </div>
             )}
             {isNew && !isWorker && isDipCare && (
@@ -3439,59 +3384,152 @@ export function CustomersManagementView({
               </div>
             )}
 
-            {/* ── 포트원 결제 — 1회성케어 + 카드 간편결제 (Phase A-4 이관) ── */}
-            {!isWorker && isOnceCare && form.payment_method === '카드(온라인 간편결제)' && selected && !isNew && (
-              <div className="rounded-xl border border-brand-200 overflow-hidden">
-                <div className="bg-brand-50 px-4 py-2.5 border-b border-brand-200">
-                  <p className="text-xs font-semibold text-brand-800">포트원 결제</p>
-                </div>
-                <div className="p-4 space-y-2">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-text-secondary w-20 shrink-0">예약금</span>
-                    <div className="flex flex-1 gap-1">
-                      {selected.deposit_paid_at ? (
-                        <div className="flex-1 border border-border-subtle rounded-lg px-2 py-1.5 text-xs text-state-success bg-state-success-bg">✅ 예약금 결제완료</div>
-                      ) : selected.deposit_payment_url ? (
-                        <>
+            {/* ── 포트원 결제 — 1회성케어 카드+계좌 통합, 예약금·잔금 대칭 UX (Phase 5-F) ── */}
+            {!isWorker && isOnceCare && (form.payment_method === '카드(온라인 간편결제)' || form.payment_method === '현금(계산서 희망)') && selected && !isNew && (() => {
+              const isVbank = form.payment_method === '현금(계산서 희망)'
+              const deposit = Number(form.deposit ?? 0)
+              const supply  = Number(form.supply_amount ?? 0)
+              const vat     = Number(form.vat ?? 0)
+              const balance = Math.max(0, supply + vat - deposit)
+              const fmtTs = (ts?: string | null) => {
+                if (!ts) return ''
+                const d = new Date(ts)
+                return `${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+              }
+              const urlSuffix = (u: string) => u.split('/').slice(-1)[0]?.slice(0, 24) ?? ''
+              return (
+                <div className="rounded-xl border border-brand-200 overflow-hidden">
+                  <div className="bg-brand-50 px-4 py-2.5 border-b border-brand-200">
+                    <p className="text-xs font-semibold text-brand-800">포트원 결제</p>
+                  </div>
+                  <div className="p-4 space-y-2">
+                    {/* 예약금 */}
+                    <div className="flex items-start gap-2">
+                      <span className="text-xs text-text-secondary w-20 shrink-0 mt-1.5">
+                        예약금
+                        {deposit > 0 ? <span className="block text-[10px] text-text-tertiary font-mono">{deposit.toLocaleString('ko-KR')}원</span> : null}
+                      </span>
+                      <div className="flex flex-1 flex-col gap-1">
+                        {selected.deposit_paid_at ? (
+                          <div className="flex items-center gap-1">
+                            <div className="flex-1 border border-state-success-bg rounded-lg px-2 py-1.5 text-xs text-state-success bg-state-success-bg">
+                              ✅ 결제완료 · {fmtTs(selected.deposit_paid_at)}
+                            </div>
+                            {selected.deposit_payment_url && (
+                              <button
+                                onClick={() => { navigator.clipboard.writeText(selected.deposit_payment_url!); toast.success('예약금 결제링크 복사됨') }}
+                                className="px-2 py-1.5 text-xs bg-surface-sunken rounded-lg hover:bg-border border border-border-subtle"
+                                title="결제링크 복사 (재전송용)"
+                              >
+                                📋
+                              </button>
+                            )}
+                          </div>
+                        ) : selected.deposit_payment_url ? (
+                          <div className="flex items-center gap-1">
+                            <button
+                              onClick={() => { navigator.clipboard.writeText(selected.deposit_payment_url!); toast.success('예약금 결제링크 복사됨') }}
+                              className="flex-1 border border-border rounded-lg px-2 py-1.5 text-xs font-mono text-text-secondary text-left truncate hover:bg-surface-sunken"
+                              title="클릭 시 복사"
+                            >
+                              📋 {urlSuffix(selected.deposit_payment_url)}…
+                            </button>
+                            <button onClick={() => handleSendPaymentLink('deposit')} disabled={sendingPaymentLink} className="px-2 py-1.5 text-xs bg-surface-sunken rounded-lg hover:bg-border border border-border-subtle" title="링크 재생성">
+                              <ClipboardList size={14} />
+                            </button>
+                          </div>
+                        ) : (() => {
+                          // Bug A fix: 버튼 활성화는 DB(selected.deposit) 기준.
+                          // form.deposit 만 편집하고 저장 안 하면 서버는 stale DB값으로
+                          // "예약금 0원" 에러. 사용자에게 저장 필요 힌트 노출.
+                          const dbDeposit = Number(selected.deposit ?? 0)
+                          const needsSave = deposit > 0 && dbDeposit === 0
+                          return (
+                            <div className="flex flex-col gap-1">
+                              <Button onClick={() => handleSendPaymentLink('deposit')} disabled={sendingPaymentLink || !dbDeposit} className="flex-1 bg-brand-600 hover:bg-brand-700 text-white text-xs">
+                                {sendingPaymentLink ? '생성 중...' : '🔗 예약금 링크 생성 · 복사'}
+                              </Button>
+                              {needsSave && (
+                                <p className="text-[10px] text-amber-600 leading-tight">💡 예약금 저장 후 링크 생성이 가능합니다.</p>
+                              )}
+                            </div>
+                          )
+                        })()}
+                        {/* 가상계좌 정보 (현금 · 미결제 시) */}
+                        {isVbank && selected.virtual_account_number && !selected.deposit_paid_at && (
                           <button
-                            onClick={() => { navigator.clipboard.writeText(selected.deposit_payment_url!); toast.success('예약금 결제링크 복사됨') }}
-                            className="flex-1 border border-border rounded-lg px-2 py-1.5 text-xs font-mono text-text-secondary text-left truncate hover:bg-surface-sunken"
+                            onClick={() => {
+                              navigator.clipboard.writeText(`${selected.virtual_account_bank ?? ''} ${selected.virtual_account_number ?? ''}`)
+                              toast.success('가상계좌 정보 복사됨')
+                            }}
+                            className="border border-amber-200 rounded-lg px-2 py-1.5 text-xs text-amber-800 bg-amber-50 text-left hover:bg-amber-100"
+                            title="클릭 시 복사"
                           >
-                            {selected.deposit_payment_url.split('/').slice(-1)[0]?.slice(0, 24)}…
+                            🏦 {selected.virtual_account_bank} {selected.virtual_account_number}
+                            {selected.virtual_account_expired_at ? <span className="ml-2 text-amber-600">(기한 {fmtTs(selected.virtual_account_expired_at)})</span> : null}
                           </button>
-                          <button onClick={() => handleSendPaymentLink('deposit')} disabled={sendingPaymentLink} className="px-2 py-1.5 text-xs bg-surface-sunken rounded-lg hover:bg-border border border-border-subtle" title="링크 재생성">
-                            <ClipboardList size={14} />
-                          </button>
-                        </>
-                      ) : (
-                        <Button onClick={() => handleSendPaymentLink('deposit')} disabled={sendingPaymentLink || !form.deposit} className="flex-1 bg-brand-600 hover:bg-brand-700 text-white text-xs">
-                          {sendingPaymentLink ? '생성 중...' : '예약금 링크 생성 · 복사'}
-                        </Button>
-                      )}
+                        )}
+                      </div>
                     </div>
+                    {/* 잔금 */}
+                    <div className="flex items-start gap-2">
+                      <span className="text-xs text-text-secondary w-20 shrink-0 mt-1.5">
+                        잔금
+                        {balance > 0 ? <span className="block text-[10px] text-text-tertiary font-mono">{balance.toLocaleString('ko-KR')}원</span> : null}
+                      </span>
+                      <div className="flex flex-1 gap-1">
+                        {selected.balance_paid_at ? (
+                          <>
+                            <div className="flex-1 border border-state-success-bg rounded-lg px-2 py-1.5 text-xs text-state-success bg-state-success-bg">
+                              ✅ 결제완료 · {fmtTs(selected.balance_paid_at)}
+                            </div>
+                            {selected.balance_payment_url && (
+                              <button
+                                onClick={() => { navigator.clipboard.writeText(selected.balance_payment_url!); toast.success('잔금 결제링크 복사됨') }}
+                                className="px-2 py-1.5 text-xs bg-surface-sunken rounded-lg hover:bg-border border border-border-subtle"
+                                title="결제링크 복사 (재전송용)"
+                              >
+                                📋
+                              </button>
+                            )}
+                          </>
+                        ) : selected.balance_payment_url ? (
+                          <>
+                            <button
+                              onClick={() => { navigator.clipboard.writeText(selected.balance_payment_url!); toast.success('잔금 결제링크 복사됨') }}
+                              className="flex-1 border border-border rounded-lg px-2 py-1.5 text-xs font-mono text-text-secondary text-left truncate hover:bg-surface-sunken"
+                              title="클릭 시 복사"
+                            >
+                              📋 {urlSuffix(selected.balance_payment_url)}…
+                            </button>
+                            <button onClick={() => handleSendPaymentLink('balance')} disabled={sendingPaymentLink} className="px-2 py-1.5 text-xs bg-surface-sunken rounded-lg hover:bg-border border border-border-subtle" title="링크 재생성">
+                              <ClipboardList size={14} />
+                            </button>
+                          </>
+                        ) : selected.billing_key ? (
+                          <Button onClick={handleChargeBalance} disabled={chargingBalance} className="flex-1 bg-brand-600 hover:bg-brand-700 text-white text-xs">
+                            {chargingBalance ? '청구 중...' : '잔금 자동 청구 (빌링키)'}
+                          </Button>
+                        ) : selected.deposit_paid_at && balance > 0 ? (
+                          <Button onClick={() => handleSendPaymentLink('balance')} disabled={sendingPaymentLink} className="flex-1 bg-brand-600 hover:bg-brand-700 text-white text-xs">
+                            {sendingPaymentLink ? '생성 중...' : '🔗 잔금 링크 생성 · 복사'}
+                          </Button>
+                        ) : (
+                          <div className="flex-1 border border-border-subtle rounded-lg px-2 py-1.5 text-xs text-text-tertiary bg-surface-sunken">
+                            {balance <= 0 ? '견적(공급가액·부가세) 확정 필요' : '예약금 결제 후 활성화'}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    {selected.billing_key && !selected.balance_paid_at && (
+                      <div className="px-3 py-2 bg-emerald-50 border border-emerald-200 rounded-lg">
+                        <p className="text-xs text-emerald-700">카드 등록됨 · 잔금 즉시 청구 가능 (정기케어 트랙)</p>
+                      </div>
+                    )}
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-text-secondary w-20 shrink-0">잔금</span>
-                    <div className="flex flex-1 gap-1">
-                      {selected.balance_paid_at ? (
-                        <div className="flex-1 border border-border-subtle rounded-lg px-2 py-1.5 text-xs text-state-success bg-state-success-bg">✅ 잔금 결제완료</div>
-                      ) : selected.billing_key ? (
-                        <Button onClick={handleChargeBalance} disabled={chargingBalance} className="flex-1 bg-brand-600 hover:bg-brand-700 text-white text-xs">
-                          {chargingBalance ? '청구 중...' : '잔금 자동 청구'}
-                        </Button>
-                      ) : (
-                        <div className="flex-1 border border-border-subtle rounded-lg px-2 py-1.5 text-xs text-text-tertiary bg-surface-sunken">예약금 결제 후 활성화</div>
-                      )}
-                    </div>
-                  </div>
-                  {selected.billing_key && !selected.balance_paid_at && (
-                    <div className="px-3 py-2 bg-emerald-50 border border-emerald-200 rounded-lg">
-                      <p className="text-xs text-emerald-700">카드 등록됨 · 잔금 즉시 청구 가능</p>
-                    </div>
-                  )}
                 </div>
-              </div>
-            )}
+              )
+            })()}
 
             {/* Phase 7-I: 1회성 시공일자 섹션은 폼 최상단(유형 선택 아래)으로 이동됨 — 여기 자리는 제거 */}
 
@@ -3848,16 +3886,91 @@ export function CustomersManagementView({
               />
             )}
 
-            {/* 저장 버튼 — worker는 읽기 전용 */}
+            {/* ── 상태 정보 (저장 버튼 바로 위) — 1회성·일반일정 전용 ─── */}
+            {!isWorker && isOnceCare && !isNew && (
+              <div className="rounded-2xl border border-brand-100 overflow-hidden bg-gradient-to-br from-brand-50/40 to-transparent">
+                <div className="bg-brand-50/60 px-4 py-2.5 border-b border-brand-100">
+                  <p className="text-xs font-semibold text-brand-800">상태 정보</p>
+                </div>
+                <div className="p-4 space-y-3">
+                  {/* 진행상태·결제상태 좌우 배치 */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="flex flex-col gap-1">
+                      <span className="text-[11px] text-text-secondary font-medium">진행상태</span>
+                      <select
+                        value={form.progress_status}
+                        onChange={e => set('progress_status')(e.target.value)}
+                        className="w-full border border-border rounded-lg px-2 py-1.5 text-xs text-text-primary focus:outline-none focus:ring-2 focus:ring-brand-500 bg-surface"
+                      >
+                        <option value="">(미정)</option>
+                        {PROGRESS_STATUS_OPTIONS.map(v => (
+                          <option key={v} value={v}>{v}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <span className="text-[11px] text-text-secondary font-medium">결제상태</span>
+                      <select
+                        value={form.payment_status_detail}
+                        onChange={e => set('payment_status_detail')(e.target.value)}
+                        className="w-full border border-border rounded-lg px-2 py-1.5 text-xs text-text-primary focus:outline-none focus:ring-2 focus:ring-brand-500 bg-surface"
+                      >
+                        <option value="">(미정)</option>
+                        {PAYMENT_STATUS_DETAIL_OPTIONS.map(o => (
+                          <option key={o.value} value={o.value}>{o.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                  {/* 결제완료 · 세금계산서 발행 토글 (좌우 배치) */}
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      disabled={statusToggling}
+                      onClick={handlePaymentCompleteToggle}
+                      className={`flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium border transition-all duration-150 ease-out hover:-translate-y-0.5 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed ${
+                        PAYMENT_COMPLETE_STATUSES.includes(selected?.payment_status_detail ?? '')
+                          ? 'bg-emerald-100 text-emerald-700 border-emerald-200 shadow-sm hover:shadow-md hover:bg-emerald-200'
+                          : 'bg-gray-50 text-text-tertiary border-border hover:bg-gray-100 hover:shadow-sm'
+                      }`}
+                    >
+                      <CreditCard className="w-3.5 h-3.5" />
+                      결제완료
+                    </button>
+                    <button
+                      type="button"
+                      disabled={statusToggling}
+                      onClick={handleInvoiceIssuedToggle}
+                      className={`flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium border transition-all duration-150 ease-out hover:-translate-y-0.5 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed ${
+                        form.tax_invoice_issued === true
+                          ? 'bg-sky-100 text-sky-700 border-sky-200 shadow-sm hover:shadow-md hover:bg-sky-200'
+                          : 'bg-gray-50 text-text-tertiary border-border hover:bg-gray-100 hover:shadow-sm'
+                      }`}
+                    >
+                      <FileCheck className="w-3.5 h-3.5" />
+                      세금계산서 발행
+                    </button>
+                  </div>
+                  <p className="text-[11px] text-text-tertiary break-keep leading-relaxed">
+                    진행·결제 상태는 알림 발송 시 자동 업데이트되며 수동 편집도 가능합니다.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* 저장 버튼 — 토스 스타일 파스텔 + hover 음영 (worker는 읽기 전용) */}
             {!isWorker && (
-              <Button
+              <button
                 onClick={isNew ? handleSave : () => setShowSaveConfirm(true)}
                 disabled={saving}
-                size="lg"
-                className="w-full"
+                className={`w-full flex items-center justify-center gap-1.5 py-3 rounded-2xl text-sm font-semibold transition-all duration-150 ease-out active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed ${
+                  isNew
+                    ? 'bg-emerald-100 text-emerald-800 border border-emerald-200 hover:bg-emerald-200 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-emerald-100/60'
+                    : 'bg-brand-100 text-brand-800 border border-brand-200 hover:bg-brand-200 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-brand-100/60'
+                }`}
               >
-                {saving ? '저장 중...' : isNew ? '✚ 고객 추가' : <><Save size={14} /> 저장</>}
-              </Button>
+                {saving ? '저장 중...' : isNew ? <>✚ 고객 추가</> : <><Save size={16} /> 저장</>}
+              </button>
             )}
 
             {/* 저장 확인 모달 */}
