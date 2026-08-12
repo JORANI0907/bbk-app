@@ -656,6 +656,27 @@ export async function POST(request: NextRequest) {
       .update(dbUpdates)
       .eq('id', application_id)
 
+    // Phase 27-BH: customer.notification_log 동기화.
+    //   관리자 세부화면의 "알림 이력" 섹션은 customer.notification_log 만 읽는데
+    //   admin/notify(WorkPanel·이번달 일정 아코디언)는 지금까지 application 쪽만 저장해서
+    //   1회성 마스터 화면에서 이력이 비어보이던 문제 해결. 실패해도 main 발송에 영향 없도록 격리.
+    if (app.customer_id) {
+      try {
+        const { data: cust } = await supabase
+          .from('customers')
+          .select('notification_log')
+          .eq('id', app.customer_id)
+          .maybeSingle()
+        const existingCustLog: NotificationLogEntry[] = Array.isArray(cust?.notification_log)
+          ? (cust!.notification_log as NotificationLogEntry[])
+          : []
+        await supabase
+          .from('customers')
+          .update({ notification_log: [newEntry, ...existingCustLog] })
+          .eq('id', app.customer_id)
+      } catch { /* customer 로그 동기화 실패는 조용히 무시 */ }
+    }
+
     // ── 알림 이력 저장 ──────────────────────────────────────────────
     await saveNotificationHistory({
       category: 'sms',
