@@ -98,7 +98,8 @@ export default function IntentEditPage() {
         </button>
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
+      {/* Phase 27-BE: 연도·날짜 인풋이 모바일에서 좁아지지 않도록 1단으로 시작 */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
           <label className={LABEL}>연도</label>
           <input type="number" className={INPUT} value={form.year} onChange={e => update('year', Number(e.target.value))} />
