@@ -69,8 +69,10 @@ export default function MetricsSettingsPage() {
 
       <div className="bg-surface border border-border-subtle rounded-2xl overflow-hidden divide-y divide-border-subtle">
         {metrics.map(m => (
-          <div key={m.key} className="p-3 flex items-center gap-3 flex-wrap">
-            <div className="min-w-0 flex-1">
+          // Phase 27-BE: 모바일에서 라벨은 첫 줄 단독, 컨트롤 3종(활성·대시보드·목표)은
+          //   다음 줄로 자연 wrap. 데스크톱(sm+)은 기존 한 줄 배치 유지.
+          <div key={m.key} className="p-3 flex flex-wrap items-center gap-3">
+            <div className="min-w-0 w-full sm:w-auto sm:flex-1">
               <p className="text-sm font-semibold text-text-primary truncate">{m.label}</p>
               <p className="text-xs text-text-tertiary">{m.function_code} · {m.cycle} · {m.calculation}</p>
             </div>
