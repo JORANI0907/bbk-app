@@ -98,7 +98,7 @@ export default function RefundPage() {
         <p className="text-white/40 text-xs">문의: 031-759-4877 | sunrise@bbkorea.co.kr</p>
         <p className="text-white/40 text-xs mt-1">범빌드코리아 | 대표: 조동환 | 사업자등록번호: 398-81-04260</p>
         <p className="text-white/40 text-xs mt-1">경기도 성남시 중원구 둔촌대로268번길 22, 1동 2층 201호</p>
-        <p className="text-white/40 text-xs mt-1">통신판매업 신고번호: 제 2025-경기성남중원-XXXX호 (신고 진행 중)</p>
+        <p className="text-white/40 text-xs mt-1">통신판매업 신고번호: 제 2026-성남중원-0489호</p>
         <div className="mt-3">
           <KbEscrowBadge theme="dark" />
         </div>

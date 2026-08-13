@@ -173,7 +173,7 @@ export default function KgReviewFormPage() {
           <p className="text-white/50 font-semibold mb-1">범빌드코리아 주식회사 (BBK 공간케어)</p>
           <p>대표이사: 조동환 · 사업자등록번호: 398-81-04260</p>
           <p>경기도 성남시 중원구 둔촌대로268번길 22, 1동 2층 201호</p>
-          <p>통신판매업 신고번호: 제 2025-경기성남중원-XXXX호 (신고 진행 중)</p>
+          <p>통신판매업 신고번호: 제 2026-성남중원-0489호</p>
           <p className="mt-2">결제 대행: 포트원(주) · KG이니시스 (테스트 채널)</p>
         </div>
       </div>

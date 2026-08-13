@@ -271,7 +271,7 @@ export default function PortOnePayPage() {
           <p className="font-semibold text-white/40 mb-0.5">범빌드코리아 (BBK 공간케어)</p>
           <p>대표: 조동환 · 사업자등록번호: 398-81-04260</p>
           <p>경기도 성남시 중원구 둔촌대로268번길 22, 1동 2층 201호</p>
-          <p>통신판매업 신고번호: 제 2025-경기성남중원-XXXX호 (신고 진행 중)</p>
+          <p>통신판매업 신고번호: 제 2026-성남중원-0489호</p>
           <p className="mt-1.5">
             <a href="/terms" className="text-white/40 hover:text-white/60 underline mx-1.5">이용약관</a>
             <a href="/privacy" className="text-white/40 hover:text-white/60 underline mx-1.5">개인정보처리방침</a>
