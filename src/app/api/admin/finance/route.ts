@@ -142,7 +142,10 @@ export async function GET(request: NextRequest) {
     const customer = Array.isArray(b.customers) ? b.customers[0] : b.customers
     const supply = b.amount ?? 0
     const vatAmt = isNoVat(customer?.payment_method ?? null) ? 0 : Math.round(supply * 0.1)
-    const serviceType = b.billing_type === 'annual' ? '정기딥케어(연간)' : '정기딥케어(월간)'
+    // Phase 27-BK: UI 탭 라벨(SERVICE_TYPES='정기딥케어')과 정합. 이전 '정기딥케어(월간)'
+    //   라벨은 필터 정확 매치 실패로 매출 리스트에서 4건이 필터링되어 0원으로 잘못 표시됨.
+    //   연간만 별도 탭이 있어 자연스럽게 월간은 순수 '정기딥케어' 로 반환하면 됨.
+    const serviceType = b.billing_type === 'annual' ? '정기딥케어(연간)' : '정기딥케어'
     return {
       id: b.id,
       business_name: customer?.business_name ?? '알 수 없음',
