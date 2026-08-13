@@ -306,7 +306,11 @@ export async function POST(request: NextRequest) {
         customer_id: customer.id,
         service_type: customer.customer_type,
       }))
-      await supabase.from('work_assignments').insert(workerRows)
+      // Phase 27-BJ: (worker_id, application_id) 유니크 제약과 정합 —
+      //   회차 재생성·중복 클릭 시 중복 삽입 방지 (급여정산 중복 표시 재발 방지).
+      await supabase
+        .from('work_assignments')
+        .upsert(workerRows, { onConflict: 'worker_id,application_id', ignoreDuplicates: true })
     }
 
     // assigned_to가 있으면 service_schedules에도 자동 생성
