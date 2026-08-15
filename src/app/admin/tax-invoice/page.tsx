@@ -679,7 +679,12 @@ export default function TaxInvoiceDashboardPage() {
                           : <span>—</span>
                       }
                     </td>
-                    <td className="px-3 py-2 font-medium text-text-primary truncate max-w-[220px]">{c.business_name}</td>
+                    <td className="px-3 py-2 max-w-[220px]">
+                      <div className="font-medium text-text-primary truncate">{c.business_name}</div>
+                      {c.phone && (
+                        <div className="text-xs text-text-tertiary truncate">{c.phone}</div>
+                      )}
+                    </td>
                     <td className="px-3 py-2 text-text-secondary whitespace-nowrap">{c.owner_name}</td>
                     <td className="px-3 py-2 text-text-secondary tabular-nums whitespace-nowrap">
                       {c.business_number || <span className="text-state-danger text-xs">누락</span>}
