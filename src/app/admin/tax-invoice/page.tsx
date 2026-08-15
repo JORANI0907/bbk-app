@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import toast from 'react-hot-toast'
-import { RefreshCw, Download, Filter, Search, AlertCircle, CheckCircle2, FileSpreadsheet, Settings, Pencil, Check, Undo2, ChevronLeft, ChevronRight } from 'lucide-react'
+import { RefreshCw, Download, Filter, Search, AlertCircle, CheckCircle2, FileSpreadsheet, Settings, Pencil, Check, Undo2, ChevronLeft, ChevronRight, Banknote } from 'lucide-react'
 import Link from 'next/link'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
@@ -50,6 +50,7 @@ interface Candidate {
   application_status?: string | null
   payment_status_detail?: string | null
   customer_payment_status_detail?: string | null
+  account_number?: string | null
 }
 
 const SERVICE_TYPES_FIXED = ['1회성케어', '정기딥케어', '정기엔드케어']
@@ -315,6 +316,40 @@ export default function TaxInvoiceDashboardPage() {
     }
   }
 
+  // ── 예약금 이체 xls ───────────────────────────────────────────
+  const handleExportDepositTransfer = async () => {
+    const loadingToast = toast.loading('예약금 이체 파일 생성 중...')
+    try {
+      const res = await fetch('/api/admin/tax-invoice/deposit-transfer', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      })
+      if (!res.ok) {
+        const json = (await res.json()) as { error?: string }
+        throw new Error(json.error ?? '파일 생성 실패')
+      }
+      const skippedCount = Number(res.headers.get('X-Skipped-Count') ?? '0')
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      const disposition = res.headers.get('Content-Disposition') ?? ''
+      const match = /filename\*=UTF-8''(.+)/.exec(disposition)
+      a.download = match ? decodeURIComponent(match[1]) : '예약금이체.xls'
+      a.click()
+      URL.revokeObjectURL(url)
+      toast.dismiss(loadingToast)
+      toast.success('예약금 이체 파일 다운로드 완료')
+      if (skippedCount > 0) {
+        toast.error(`${skippedCount}건 계좌 파싱 실패로 제외됨`, { duration: 6000 })
+      }
+    } catch (e) {
+      toast.dismiss(loadingToast)
+      toast.error(e instanceof Error ? e.message : '다운로드 실패')
+    }
+  }
+
   // ── CSV → Google Drive ────────────────────────────────────────
   const handleDownloadCsv = async () => {
     const selected = filteredCandidates.filter(c => selectedIds.has(rowKey(c)))
@@ -438,12 +473,13 @@ export default function TaxInvoiceDashboardPage() {
           </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
+          {/* 공급자 선택 + 관리 */}
           <div className="flex items-center gap-1.5">
-            <label className="text-[11px] text-text-tertiary uppercase tracking-wide">공급자</label>
+            <label className="text-[11px] text-text-tertiary uppercase tracking-wide shrink-0">공급자</label>
             <select
               value={selectedSupplierId}
               onChange={e => setSelectedSupplierId(e.target.value)}
-              className="text-sm rounded-md border border-border bg-surface px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 max-w-[200px] truncate"
+              className="h-8 text-sm rounded-md border border-border bg-surface px-2.5 focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 max-w-[180px] truncate"
             >
               {suppliers.length === 0 && <option value="">기본 (fallback)</option>}
               {suppliers.map(s => (
@@ -452,25 +488,38 @@ export default function TaxInvoiceDashboardPage() {
                 </option>
               ))}
             </select>
+            <Link href="/admin/tax-invoice/suppliers"
+              className="inline-flex items-center gap-1 h-8 px-3 py-1.5 text-sm rounded-lg font-medium hover:bg-surface-sunken text-text-secondary transition-colors">
+              <Settings size={12} />관리
+            </Link>
           </div>
-          <Link href="/admin/tax-invoice/suppliers"
-            className="flex items-center gap-1 text-xs text-brand-600 hover:text-brand-700 font-medium underline px-1">
-            <Settings size={11} />관리
-          </Link>
+
+          <div className="w-px h-6 bg-border-subtle" />
+
+          {/* 계산서 저장 + 예약금 이체 */}
           <Button size="sm" onClick={handleDownloadCsv}
             disabled={selectedIds.size === 0}
-            className="flex items-center gap-1.5"
+            className="flex items-center gap-1.5 h-8"
             title="Google Drive '세금계산서' 폴더에 Google Sheets로 저장 (실패 시 로컬 CSV 다운로드 fallback)">
-            <Download size={13} />Sheets 저장 ({selectedIds.size})
+            <Download size={13} />계산서{selectedIds.size > 0 ? ` (${selectedIds.size})` : ''}
           </Button>
+          <Button size="sm" variant="secondary" onClick={handleExportDepositTransfer}
+            className="flex items-center gap-1.5 h-8"
+            title="카드(온라인 간편결제) 고객 전체 예약금 8만원 이체 파일 다운로드">
+            <Banknote size={13} />예약금이체
+          </Button>
+
+          <div className="w-px h-6 bg-border-subtle" />
+
+          {/* 발행 완료 + 취소 */}
           <Button size="sm" variant="secondary" onClick={handleMarkIssued}
             disabled={selectedIds.size === 0 || markingIssued}
-            className="flex items-center gap-1.5 text-state-success">
+            className="flex items-center gap-1.5 h-8 text-state-success">
             <Check size={13} />발행 완료
           </Button>
           <Button size="sm" variant="secondary" onClick={handleRevertIssued}
             disabled={selectedIds.size === 0 || markingIssued}
-            className="flex items-center gap-1.5 text-state-danger"
+            className="flex items-center gap-1.5 h-8 text-state-danger"
             title="발행 완료 상태를 취소 (재발행 필요 시)">
             <Undo2 size={13} />취소
           </Button>
