@@ -2674,10 +2674,10 @@ export function CustomersManagementView({
                                 <>
                                   {/* 결제방법 */}
                                   <td className="px-3 py-3 text-xs text-text-secondary whitespace-nowrap">{c.payment_method ?? '-'}</td>
-                                  {/* 총액 — 만원 단위 압축 표시 */}
+                                  {/* 총액 — 만원 단위 압축 표시 (소수점 1자리까지 유지: 195,800 → "19.6만원") */}
                                   <td className="px-3 py-3 text-xs font-mono font-semibold text-text-primary whitespace-nowrap w-16">
                                     {total > 0
-                                      ? <>{total >= 10000 ? `${Math.floor(total / 10000)}만` : total.toLocaleString('ko-KR')}<span className="text-text-tertiary font-normal">원</span></>
+                                      ? <>{total >= 10000 ? `${(total / 10000).toFixed(1).replace(/\.0$/, '')}만` : total.toLocaleString('ko-KR')}<span className="text-text-tertiary font-normal">원</span></>
                                       : <span className="text-text-tertiary">-</span>}
                                   </td>
                                 </>
