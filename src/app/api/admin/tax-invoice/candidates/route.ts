@@ -66,6 +66,7 @@ interface Candidate {
   application_status?: string | null
   payment_status_detail?: string | null
   customer_payment_status_detail?: string | null
+  account_number: string | null
 }
 
 interface DraftData {
@@ -208,6 +209,7 @@ export async function GET(request: NextRequest) {
       payment_method: string | null
       payment_status_detail: string | null
       created_at: string
+      account_number: string | null
       service_applications: SaRow[]
     }
 
@@ -215,7 +217,7 @@ export async function GET(request: NextRequest) {
       .from('customers')
       .select(`
         id, business_name, business_number, contact_name, address, email, contact_phone,
-        payment_method, payment_status_detail, created_at,
+        payment_method, payment_status_detail, created_at, account_number,
         service_applications (
           id, construction_date, status, payment_status_detail,
           tax_invoice_issued, tax_invoice_issued_at,
@@ -301,6 +303,7 @@ export async function GET(request: NextRequest) {
           application_status: sa.status ?? null,
           payment_status_detail: sa.payment_status_detail ?? null,
           customer_payment_status_detail: c.payment_status_detail ?? null,
+          account_number: c.account_number ?? null,
         })
       }
     }
@@ -333,6 +336,7 @@ export async function GET(request: NextRequest) {
       customer_type: string | null
       payment_method: string | null
       created_at: string
+      account_number: string | null
       service_billings: BillingRow[]
     }
 
@@ -340,7 +344,7 @@ export async function GET(request: NextRequest) {
       .from('customers')
       .select(`
         id, business_name, business_number, contact_name, address, email, contact_phone,
-        customer_type, payment_method, created_at,
+        customer_type, payment_method, created_at, account_number,
         service_billings (
           id, billing_period, billing_type, amount, status, due_date,
           tax_invoice_issued, tax_invoice_issued_date, created_at
@@ -423,6 +427,7 @@ export async function GET(request: NextRequest) {
           draft_receiver_email_2: draft?.receiver_email_2 ?? null,
           draft_receipt_type: draft?.bill_receipt_type ?? null,
           draft_invoice_kind: draft?.invoice_kind ?? null,
+          account_number: c.account_number ?? null,
         })
       }
     }
