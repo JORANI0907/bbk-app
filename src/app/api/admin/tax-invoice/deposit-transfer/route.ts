@@ -28,31 +28,21 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = (await req.json().catch(() => ({}))) as { ids?: string[] }
-    const ids = Array.isArray(body.ids) && body.ids.length > 0 ? body.ids : null
+    const ids = Array.isArray(body.ids) ? body.ids.filter(Boolean) : []
+
+    if (ids.length === 0) {
+      return NextResponse.json({ error: '이체 대상 customer_id를 지정해야 합니다.' }, { status: 400 })
+    }
 
     const supabase = createServiceClient()
 
-    // customers 테이블에서 카드결제 대상 조회
-    let query = supabase
+    // 선택된 customer_id만 조회 (카드결제 아닌 고객은 후단 필터에서 skip)
+    const { data, error } = await supabase
       .from('customers')
       .select('business_name, contact_name, payment_method, account_number')
-      .eq('payment_method', CARD_PAYMENT_METHOD)
+      .in('id', ids)
       .is('deleted_at', null)
       .is('archived_at', null)
-
-    if (ids) {
-      // ids는 source_id (application.id 또는 billing.id) — customer 단위로 필터 불가.
-      // 단, 호출부가 customer_id를 넘기는 경우도 고려해 id 필터 적용.
-      query = supabase
-        .from('customers')
-        .select('business_name, contact_name, payment_method, account_number')
-        .eq('payment_method', CARD_PAYMENT_METHOD)
-        .is('deleted_at', null)
-        .is('archived_at', null)
-        .in('id', ids)
-    }
-
-    const { data, error } = await query
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 })

@@ -318,12 +318,20 @@ export default function TaxInvoiceDashboardPage() {
 
   // ── 예약금 이체 xls ───────────────────────────────────────────
   const handleExportDepositTransfer = async () => {
+    const selected = filteredCandidates.filter(c => selectedIds.has(rowKey(c)))
+    if (selected.length === 0) { toast.error('먼저 이체 대상을 선택하세요.'); return }
+    const customerIds = Array.from(
+      new Set(selected.map(c => c.customer_id).filter((id): id is string => !!id)),
+    )
+    if (customerIds.length === 0) {
+      toast.error('선택된 항목에 연결된 고객이 없습니다.'); return
+    }
     const loadingToast = toast.loading('예약금 이체 파일 생성 중...')
     try {
       const res = await fetch('/api/admin/tax-invoice/deposit-transfer', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({}),
+        body: JSON.stringify({ ids: customerIds }),
       })
       if (!res.ok) {
         const json = (await res.json()) as { error?: string }

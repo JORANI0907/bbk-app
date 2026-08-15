@@ -43,10 +43,6 @@ function buildCell(v: string | number, t: 's' | 'n'): XLSX.CellObject {
 export async function buildDepositTransferXls(
   candidates: DepositCandidate[],
 ): Promise<DepositTransferResult> {
-  const cardCandidates = candidates.filter(
-    c => c.payment_method === CARD_PAYMENT_METHOD,
-  )
-
   const skipped: SkipRecord[] = []
 
   type TransferRow = {
@@ -57,7 +53,14 @@ export async function buildDepositTransferXls(
 
   const rows: TransferRow[] = []
 
-  for (const c of cardCandidates) {
+  for (const c of candidates) {
+    if (c.payment_method !== CARD_PAYMENT_METHOD) {
+      skipped.push({
+        business_name: c.business_name,
+        reason: `카드(온라인 간편결제) 아님 (${c.payment_method ?? '-'})`,
+      })
+      continue
+    }
     if (!c.account_number?.trim()) {
       skipped.push({ business_name: c.business_name, reason: '계좌번호 없음' })
       continue
