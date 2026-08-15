@@ -84,7 +84,6 @@ export async function POST(req: NextRequest) {
         'Content-Type': 'application/vnd.ms-excel',
         'Content-Disposition': `attachment; filename*=UTF-8''${encodeURIComponent(fileName)}`,
         'X-Skipped-Count': String(skipped.length),
-        'X-Skipped-Details': JSON.stringify(skipped),
       },
     })
   } catch (err) {
