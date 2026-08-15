@@ -24,7 +24,7 @@ export async function POST(
   }
 
   // 복제본 생성 — 원본과 완전히 무관한 별도 레코드
-  // 초기화: 시스템 필드(id/created_at/updated_at), 외부 리소스 링크, 포털 계정, 상태 이력
+  // 초기화: 시스템 필드(id/created_at/updated_at), 외부 리소스 링크, 포털 계정, 상태 이력, 알림 이력
   const {
     id: _omitId,
     created_at: _omitCreatedAt,
@@ -44,6 +44,12 @@ export async function POST(
     payment_status: null,
     // 소프트 삭제 흔적 제거
     deleted_at: null,
+    // 알림 이력·파이프라인/진행/결제 상세 상태 초기화 — 원본과 무관한 신규 계약이므로 전부 리셋
+    notification_log: null,
+    pipeline_status: 'inquiry',
+    progress_status: null,
+    payment_status_detail: null,
+    tax_invoice_issued: null,
   }
 
   const { data: inserted, error: insertError } = await supabase
@@ -54,6 +60,33 @@ export async function POST(
 
   if (insertError) {
     return NextResponse.json({ error: insertError.message }, { status: 500 })
+  }
+
+  // 짝이 되는 service_applications 자동 생성 (POST /api/admin/customers 와 동일한 패턴).
+  // 없으면 캘린더·배정관리·worker_ids 동기화 등 downstream 로직이 linked app 을 못 찾아 동작하지 않음.
+  try {
+    await supabase.from('service_applications').insert({
+      customer_id: inserted.id,
+      business_name: inserted.business_name,
+      owner_name: inserted.contact_name,
+      phone: inserted.contact_phone,
+      phone_2: inserted.contact_phone_2,
+      email: inserted.email,
+      address: inserted.address,
+      business_hours_start: inserted.business_hours_start,
+      business_hours_end: inserted.business_hours_end,
+      construction_date: inserted.next_visit_date,
+      construction_time: inserted.construction_time,
+      care_scope: inserted.care_scope,
+      service_type: inserted.customer_type,
+      payment_method: inserted.payment_method,
+      assigned_to: inserted.assigned_user_id,
+      source: 'customer_direct',
+      status: '기존고객',
+      saved_quotes: [],
+    })
+  } catch (e) {
+    console.error('duplicate customer→service_applications 자동 생성 실패:', e instanceof Error ? e.message : e)
   }
 
   return NextResponse.json({ customer: inserted })
