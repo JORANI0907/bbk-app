@@ -627,5 +627,14 @@ export async function DELETE(request: NextRequest) {
     .eq('customer_id', id)
     .is('deleted_at', null)
 
+  // 연결된 service_applications도 cascade 소프트 삭제.
+  // 누락 시 캘린더가 orphan 앱을 계속 표시하고, 클릭하면 customers 리스트에서 못 찾아
+  // "이 회차의 고객 정보를 찾을 수 없습니다" 토스트가 발생함.
+  await supabase
+    .from('service_applications')
+    .update({ deleted_at: now })
+    .eq('customer_id', id)
+    .is('deleted_at', null)
+
   return NextResponse.json({ success: true })
 }
