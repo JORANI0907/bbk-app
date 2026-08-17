@@ -152,6 +152,14 @@ export async function GET(request: NextRequest) {
   const todayKST = getKSTToday()
   const supabase = createServiceClient()
 
+  // 일시정지(status='paused') 고객 ID 세트 — 알림 대상 제외용.
+  const { data: pausedRows } = await supabase
+    .from('customers')
+    .select('id')
+    .eq('status', 'paused')
+    .is('deleted_at', null)
+  const pausedCustomerIds = new Set((pausedRows ?? []).map(c => c.id as string))
+
   // 결제알림 오후 재발송 (독촉).
   // 오전 06:00 발송 이력이 있어도 오후 슬롯(12:00 이후)에 미발송이면 발송.
   // 결제완료 판정: service_applications 또는 customers 어느 쪽 payment_status_detail 이라도
@@ -173,6 +181,7 @@ export async function GET(request: NextRequest) {
   let sent = 0, failed = 0, skipped = 0
   for (const app of ((apps ?? []) as AppRow[])) {
     if (!app.phone) { skipped++; continue }
+    if (app.customer_id && pausedCustomerIds.has(app.customer_id as string)) { skipped++; continue }
 
     const appPay = app.payment_status_detail as string | null
     const custPay = app.customers?.payment_status_detail ?? null
