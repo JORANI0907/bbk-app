@@ -196,6 +196,15 @@ export async function GET(request: NextRequest) {
   const { todayKST, tomorrowKST } = getKSTDates()
   const supabase = createServiceClient()
 
+  // 일시정지(status='paused') 고객 ID 세트 — 모든 알림 섹션에서 skip 대상.
+  // 진입점에서 1회 조회 후 각 루프에서 참조 (섹션별 재조회 방지).
+  const { data: pausedRows } = await supabase
+    .from('customers')
+    .select('id')
+    .eq('status', 'paused')
+    .is('deleted_at', null)
+  const pausedCustomerIds = new Set((pausedRows ?? []).map(c => c.id as string))
+
   const NOTIFY_TO_STATUS: Record<string, string> = {
     '예약1일전알림':          '예약1일전',
     '예약당일알림':           '예약당일',
@@ -233,6 +242,7 @@ export async function GET(request: NextRequest) {
     let sent = 0, failed = 0, skipped = 0
     for (const app of (apps ?? [])) {
       if (!app.phone) { skipped++; continue }
+      if (app.customer_id && pausedCustomerIds.has(app.customer_id as string)) { skipped++; continue }
       const log = Array.isArray(app.notification_log) ? app.notification_log : []
       if (alreadySentToday(log, '예약1일전알림', todayKST)) { skipped++; continue }
 
@@ -261,6 +271,7 @@ export async function GET(request: NextRequest) {
     let sent = 0, failed = 0, skipped = 0
     for (const app of (apps ?? [])) {
       if (!app.phone) { skipped++; continue }
+      if (app.customer_id && pausedCustomerIds.has(app.customer_id as string)) { skipped++; continue }
       const log = Array.isArray(app.notification_log) ? app.notification_log : []
       if (alreadySentToday(log, '예약당일알림', todayKST)) { skipped++; continue }
 
@@ -298,6 +309,7 @@ export async function GET(request: NextRequest) {
     let sent = 0, failed = 0, skipped = 0
     for (const app of ((apps ?? []) as AppRow[])) {
       if (!app.phone) { skipped++; continue }
+      if (app.customer_id && pausedCustomerIds.has(app.customer_id as string)) { skipped++; continue }
 
       const appPay = app.payment_status_detail as string | null
       const custPay = app.customers?.payment_status_detail ?? null
@@ -380,6 +392,9 @@ export async function GET(request: NextRequest) {
 
     for (const row of (billings ?? []) as unknown as BillingRow[]) {
       const cust = row.customers
+
+      // 일시정지 고객은 정기결제알림 대상에서 제외
+      if (pausedCustomerIds.has(cust.id)) { skipped++; continue }
 
       // 오늘 이미 발송한 청구는 skip (KST 기준 날짜 비교)
       if (row.last_notified_at && row.last_notified_at.slice(0, 10) === todayKST) {
