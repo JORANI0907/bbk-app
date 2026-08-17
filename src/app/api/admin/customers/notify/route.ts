@@ -106,6 +106,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '고객을 찾을 수 없습니다.' }, { status: 404 })
     }
 
+    // 일시정지 상태 고객은 알림 대상에서 제외 (자동·수동 모두 동일 정책).
+    // 재개 후 다시 시도하도록 안내.
+    if (customer.status === 'paused') {
+      return NextResponse.json(
+        { error: '일시정지 중인 고객은 알림을 발송할 수 없습니다. 재개 후 다시 시도해주세요.' },
+        { status: 400 },
+      )
+    }
+
     // 발송 대상: phone_notify_1/2 규칙 (기본값 true, 명시적 false만 제외)
     const phone = String(customer.contact_phone ?? '').replace(/-/g, '')
     const phone2 = String(customer.contact_phone_2 ?? '').replace(/-/g, '')
