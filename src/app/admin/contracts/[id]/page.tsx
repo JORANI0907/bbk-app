@@ -8,6 +8,7 @@ import { Modal } from '@/components/ui'
 import { SectionHeader } from '@/components/ui'
 import SignaturePad, { type SignaturePadHandle } from '@/components/contracts/SignaturePad'
 import { StampUpload } from '@/components/contracts/StampUpload'
+import ContractEditor from '@/components/contracts/ContractEditor'
 import { generateContractPdf } from '@/lib/generateContractPdf'
 
 type SigningStatus = 'draft' | 'pending_customer' | 'customer_signed' | 'completed' | 'voided'
@@ -79,6 +80,11 @@ export default function AdminContractDetailPage() {
 
   const sigPadRef = useRef<SignaturePadHandle | null>(null)
   const [supplierStamp, setSupplierStamp] = useState<string | null>(null)
+
+  // 초안 계약서 본문 수정 모드
+  const [isEditing, setIsEditing] = useState(false)
+  const [editHtml, setEditHtml] = useState('')
+  const [isSavingEdit, setIsSavingEdit] = useState(false)
 
   const fetchContract = useCallback(async () => {
     setIsLoading(true)
@@ -201,6 +207,45 @@ export default function AdminContractDetailPage() {
     }
   }
 
+  const handleStartEdit = () => {
+    // 서명 플레이스홀더가 치환되지 않은 원본 snapshot HTML을 편집기에 로드
+    setEditHtml(contract?.contract_snapshot?.html ?? '')
+    setIsEditing(true)
+  }
+
+  const handleCancelEdit = () => {
+    setIsEditing(false)
+    setEditHtml('')
+  }
+
+  const handleSaveEdit = async () => {
+    if (!editHtml.trim()) {
+      toast.error('계약서 내용이 비어 있습니다.')
+      return
+    }
+    setIsSavingEdit(true)
+    try {
+      const res = await fetch(`/api/admin/contracts/${contractId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ html_body: editHtml }),
+      })
+      const json = await res.json()
+      if (json.success) {
+        toast.success('계약서가 수정되었습니다.')
+        setIsEditing(false)
+        setEditHtml('')
+        void fetchContract()
+      } else {
+        toast.error(json.error ?? '수정에 실패했습니다.')
+      }
+    } catch {
+      toast.error('오류가 발생했습니다.')
+    } finally {
+      setIsSavingEdit(false)
+    }
+  }
+
   const formatDateTime = (dateStr: string | null) => {
     if (!dateStr) return '-'
     return new Date(dateStr).toLocaleString('ko-KR', {
@@ -265,12 +310,26 @@ export default function AdminContractDetailPage() {
       </div>
 
       <div className="flex flex-col xl:flex-row gap-6">
-        {/* 계약서 미리보기 */}
+        {/* 계약서 미리보기 / 편집 */}
         <div className="flex-1 bg-surface rounded-2xl shadow-soft border border-border-subtle overflow-hidden">
-          <div className="p-4 border-b border-border-subtle">
-            <p className="text-sm font-medium text-text-secondary">계약서 미리보기</p>
+          <div className="p-4 border-b border-border-subtle flex items-center justify-between gap-3">
+            <p className="text-sm font-medium text-text-secondary">
+              {isEditing ? '계약서 편집 중' : '계약서 미리보기'}
+            </p>
+            {contract.signing_status === 'draft' && !isEditing && (
+              <button
+                onClick={handleStartEdit}
+                className="text-xs font-medium text-brand-600 hover:underline"
+              >
+                ✏️ 수정하기
+              </button>
+            )}
           </div>
-          {snapshotHtml ? (
+          {isEditing ? (
+            <div className="p-4 max-h-[75vh] overflow-auto">
+              <ContractEditor value={editHtml} onChange={setEditHtml} />
+            </div>
+          ) : snapshotHtml ? (
             <iframe
               srcDoc={snapshotHtml}
               className="w-full"
@@ -321,8 +380,27 @@ export default function AdminContractDetailPage() {
             </div>
 
             {/* 액션 버튼 */}
-            {!isVoided && (
+            {isEditing ? (
               <div className="pt-2 space-y-2">
+                <Button className="w-full" onClick={handleSaveEdit} isLoading={isSavingEdit}>
+                  저장하기
+                </Button>
+                <Button
+                  variant="secondary"
+                  className="w-full"
+                  onClick={handleCancelEdit}
+                  disabled={isSavingEdit}
+                >
+                  취소
+                </Button>
+              </div>
+            ) : !isVoided && (
+              <div className="pt-2 space-y-2">
+                {contract.signing_status === 'draft' && (
+                  <Button variant="secondary" className="w-full" onClick={handleStartEdit}>
+                    수정하기
+                  </Button>
+                )}
                 {(contract.signing_status === 'draft' || contract.signing_status === 'pending_customer') && (
                   <Button className="w-full" onClick={() => setShowSendModal(true)}>
                     {contract.signing_status === 'draft' ? '서명 요청 발송' : '서명 링크 재발송'}

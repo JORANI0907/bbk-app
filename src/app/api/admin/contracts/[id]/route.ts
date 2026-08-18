@@ -37,10 +37,9 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
 export async function PATCH(request: NextRequest, { params }: RouteParams) {
   const supabase = createServiceClient()
 
-  // 현재 상태 확인
   const { data: existing, error: fetchError } = await supabase
     .from('contracts')
-    .select('id, signing_status, customer_id')
+    .select('id, signing_status, customer_id, contract_snapshot')
     .eq('id', params.id)
     .single()
 
@@ -67,21 +66,38 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     if (key in body) updates[key] = body[key]
   }
 
-  if (Object.keys(updates).length === 0) {
+  // html_body: 편집기에서 수정한 최종 HTML을 snapshot에 직접 반영
+  const htmlBody = typeof body.html_body === 'string' ? body.html_body : null
+
+  if (Object.keys(updates).length === 0 && !htmlBody) {
     return NextResponse.json({ success: false, error: '수정할 필드가 없습니다.' }, { status: 400 })
   }
 
-  // snapshot 재생성
-  const { data: customer } = await supabase
-    .from('customers')
-    .select('*')
-    .eq('id', existing.customer_id as string)
-    .single()
+  // EDITABLE_FIELDS 가 바뀌었을 때만 snapshot 재렌더
+  if (Object.keys(updates).length > 0) {
+    const { data: customer } = await supabase
+      .from('customers')
+      .select('*')
+      .eq('id', existing.customer_id as string)
+      .single()
 
-  if (customer) {
-    const merged = { ...existing, ...updates }
-    const variables = extractVariablesFromCustomer(customer, merged)
-    updates.contract_snapshot = { html: renderContract(variables) }
+    if (customer) {
+      const merged = { ...existing, ...updates }
+      const variables = extractVariablesFromCustomer(customer, merged)
+      updates.contract_snapshot = { html: renderContract(variables) }
+    }
+  }
+
+  // html_body 가 함께 넘어오면 최우선으로 snapshot.html 을 덮어씀
+  // (customer_info 등 스냅샷의 다른 키는 보존)
+  if (htmlBody) {
+    const prevSnapshot = (existing.contract_snapshot ?? {}) as Record<string, unknown>
+    const rerendered = updates.contract_snapshot as { html?: string } | undefined
+    updates.contract_snapshot = {
+      ...prevSnapshot,
+      ...(rerendered ?? {}),
+      html: htmlBody,
+    }
   }
 
   const { error: updateError } = await supabase
