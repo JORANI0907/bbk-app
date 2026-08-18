@@ -292,9 +292,9 @@ export async function GET(request: NextRequest) {
   //     결제완료 판정: service_applications 또는 customers 어느 쪽 payment_status_detail
   //     이라도 정산 완료 상태면 스킵 (관리자가 고객관리 UI에서 완료 처리한 케이스 방어)
   {
-    // 결제완료 판정: '계산서발행완료'는 실제 입금과 무관 (세금계산서만 발행된 상태) → PAID 제외.
-    // 시간 필터(construction_date >= today - 21일)로 과거 누적 잔여물 원천 차단.
-    // 실제 입금 timestamp(payment_confirmed_at, balance_paid_at) 있으면 완료로 취급.
+    // 판정 규칙 (단순): 세부화면의 '결제완료' 버튼이 눌렸는가 = payment_status_detail 이 완료 값인가.
+    //   - '계산서발행완료'는 세금계산서 발행만 된 상태로 결제 여부와 무관 → PAID 판정 제외.
+    //   - 21일 시간 필터는 과거 관행으로 누적된 '계산서발행완료' 건이 재발송되는 사고 방지용 안전장치.
     const PAID_STATUS_DETAILS = ['결제완료','결제완료(잔금)','카드결제 완료','비과세']
 
     // KST 기준 21일 전 날짜
@@ -314,8 +314,6 @@ export async function GET(request: NextRequest) {
       .gt('supply_amount', 0)
       .is('deleted_at', null)
       .gte('construction_date', cutoffDate)
-      .is('payment_confirmed_at', null)
-      .is('balance_paid_at', null)
 
     let sent = 0, failed = 0, skipped = 0
     for (const app of ((apps ?? []) as AppRow[])) {
