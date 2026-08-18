@@ -16,7 +16,16 @@ interface BillingRecord {
   notes: string | null
   tax_invoice_issued: boolean | null
   tax_invoice_issued_date: string | null
+  billing_timing: 'prepaid' | 'postpaid' | null
   created_at: string
+}
+
+/** '2026-07' → '7월', '2026' → '2026년' */
+function periodToLabel(period: string): string {
+  if (/^\d{4}-\d{2}$/.test(period)) {
+    return `${parseInt(period.slice(5, 7), 10)}월`
+  }
+  return `${period}년`
 }
 
 interface Props {
@@ -265,6 +274,11 @@ export function BillingHistoryPanel({
                   <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium ${STATUS_STYLE[b.status].badge}`}>
                     {STATUS_STYLE[b.status].label}
                   </span>
+                  {b.billing_timing === 'postpaid' && (
+                    <span className="text-xs px-1.5 py-0.5 rounded-full font-medium bg-indigo-100 text-indigo-700">
+                      후납
+                    </span>
+                  )}
                   {b.tax_invoice_issued && (
                     <span className="text-xs px-1.5 py-0.5 rounded-full font-medium bg-brand-100 text-brand-700">
                       계산서완료
@@ -307,6 +321,9 @@ export function BillingHistoryPanel({
               {/* 날짜 정보 행 */}
               <div className="flex items-center gap-3 text-xs text-gray-500 flex-wrap">
                 <span>예정: {fmtDate(b.due_date)}</span>
+                {b.billing_timing === 'postpaid' && (
+                  <span className="text-indigo-600">{periodToLabel(b.billing_period)} 서비스분</span>
+                )}
                 {b.paid_date && <span className="text-emerald-600">완료: {fmtDate(b.paid_date)}</span>}
                 {b.tax_invoice_issued_date && (
                   <span className="text-brand-600">계산서: {fmtDate(b.tax_invoice_issued_date)}</span>

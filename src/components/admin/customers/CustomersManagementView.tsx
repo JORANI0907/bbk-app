@@ -26,6 +26,7 @@ type CustomerStatus = 'active' | 'paused' | 'terminated'
 type CustomerDisposition = '호의' | '보통' | '주의'
 type CustomerGrade = '화이트' | '블루' | '블랙'
 type BillingCycle = string  // '월간'(=1개월) | 'N개월' (N:2~12) | '연간'
+type BillingTiming = 'prepaid' | 'postpaid'  // 선납 / 후납
 
 interface Customer {
   id: string
@@ -54,6 +55,7 @@ interface Customer {
   customer_type: CustomerType | null
   status: CustomerStatus | null
   billing_cycle: BillingCycle | null
+  billing_timing: BillingTiming | null
   billing_amount: number | null
   billing_start_date: string | null
   billing_next_date: string | null
@@ -298,6 +300,7 @@ const EMPTY_FORM = {
   grade: '' as CustomerGrade | '',
   pipeline_status: 'inquiry',
   billing_cycle: '월간' as BillingCycle,
+  billing_timing: 'prepaid' as BillingTiming,
   billing_amount: '',
   supply_amount: '',
   vat: '',
@@ -946,6 +949,7 @@ export function CustomersManagementView({
     grade: (c.grade ?? '') as CustomerGrade | '',
     pipeline_status: c.pipeline_status ?? 'inquiry',
     billing_cycle: c.billing_cycle ?? '월간',
+    billing_timing: (c.billing_timing ?? 'prepaid') as BillingTiming,
     billing_amount: c.billing_amount?.toString() ?? '',
     supply_amount: c.supply_amount?.toString() ?? '',
     vat: c.vat?.toString() ?? '',
@@ -1048,7 +1052,7 @@ export function CustomersManagementView({
         pipeline_status: '',
         customer_type: (app.service_type as CustomerType) ?? '1회성케어',
         status: 'active',
-        billing_cycle: null, billing_amount: null, billing_start_date: null, billing_next_date: null,
+        billing_cycle: null, billing_timing: 'prepaid', billing_amount: null, billing_start_date: null, billing_next_date: null,
         contract_start_date: null, contract_end_date: null,
         unit_price: null, visit_interval_days: null,
         next_visit_date: app.construction_date ?? null,
@@ -1167,6 +1171,7 @@ export function CustomersManagementView({
     status: form.status,
     pipeline_status: form.pipeline_status || 'inquiry',
     billing_cycle: form.billing_cycle || null,
+    billing_timing: form.billing_timing || 'prepaid',
     supply_amount: form.supply_amount ? Number(form.supply_amount) : null,
     vat: (() => {
       if (isNoVatMethod(form.payment_method)) return 0
@@ -1320,9 +1325,10 @@ export function CustomersManagementView({
         setForm(toForm(updatedWithWorkers))
         setVisitWeekdays(updatedWithWorkers.visit_weekdays ?? [])
         setVisitMonthlyDates(updatedWithWorkers.visit_monthly_dates ?? [])
-        // billing_cycle 또는 계약 기간이 바뀐 경우 → 기존 pending 청구 삭제 후 재생성
+        // billing_cycle/timing 또는 계약 기간이 바뀐 경우 → 기존 pending 청구 삭제 후 재생성
         const billingChanged =
           selected.billing_cycle !== form.billing_cycle ||
+          (selected.billing_timing ?? 'prepaid') !== (form.billing_timing || 'prepaid') ||
           selected.contract_start_date !== form.contract_start_date ||
           selected.contract_end_date !== form.contract_end_date
         autoGenerateBillings(selected.id, billingChanged)
@@ -1976,7 +1982,7 @@ export function CustomersManagementView({
           pipeline_status: '',
           customer_type: (a.service_type as CustomerType) ?? '1회성케어',
           status: 'active',
-          billing_cycle: null, billing_amount: null, billing_start_date: null, billing_next_date: null,
+          billing_cycle: null, billing_timing: 'prepaid', billing_amount: null, billing_start_date: null, billing_next_date: null,
           contract_start_date: null, contract_end_date: null,
           unit_price: a.unit_price_per_visit ?? null,
           visit_interval_days: null,
@@ -3559,6 +3565,20 @@ export function CustomersManagementView({
                         ))}
                       </select>
                     </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-text-secondary w-24 shrink-0 inline-flex items-center gap-1">
+                        결제 방식
+                        <FieldHint text="선납=서비스 사이클과 같은 달에 결제일 도래. 후납=사이클 종료일(계약시작일+K사이클-1일)에 결제일 도래. 예) 7/18 계약 월간 후납 → 8/17, 9/17 …" />
+                      </span>
+                      <select
+                        value={form.billing_timing ?? 'prepaid'}
+                        onChange={e => set('billing_timing')(e.target.value as BillingTiming)}
+                        className="flex-1 border border-purple-200 rounded-lg px-2 py-1.5 text-xs bg-white text-text-primary focus:outline-none focus:ring-2 focus:ring-purple-400"
+                      >
+                        <option value="prepaid">선납</option>
+                        <option value="postpaid">후납</option>
+                      </select>
+                    </div>
                     {/* 금액 섹션 */}
                     {isNoVatMethod(form.payment_method) && (
                       <div className="px-3 py-2 bg-amber-50 border border-amber-200 rounded-lg">
@@ -3710,6 +3730,20 @@ export function CustomersManagementView({
                         {BILLING_CYCLE_OPTIONS.map(o => (
                           <option key={o.value} value={o.value}>{o.label}</option>
                         ))}
+                      </select>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-text-secondary w-20 shrink-0 inline-flex items-center gap-1">
+                        결제 방식
+                        <FieldHint text="선납=서비스 사이클과 같은 달 결제. 후납=사이클 종료일(계약시작일+K사이클-1일) 결제. 예) 7/18 계약 월간 후납 → 8/17, 9/17 …" />
+                      </span>
+                      <select
+                        value={form.billing_timing ?? 'prepaid'}
+                        onChange={e => set('billing_timing')(e.target.value as BillingTiming)}
+                        className="flex-1 border border-brand-200 rounded-md px-2 py-1 text-xs bg-white text-text-primary focus:outline-none focus:ring-1 focus:ring-brand-500"
+                      >
+                        <option value="prepaid">선납</option>
+                        <option value="postpaid">후납</option>
                       </select>
                     </div>
                     {/* Phase 22 v2: 연간 선결제 안내 멘트 삭제 → 대신 연간 이력 인라인 드롭다운 (컴포넌트 렌더는 아래 총액 아래에서) */}

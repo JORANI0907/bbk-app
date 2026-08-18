@@ -27,6 +27,7 @@ interface CustomerRow {
   id: string
   customer_type: string | null
   billing_cycle: string | null
+  billing_timing: 'prepaid' | 'postpaid' | null
   contract_start_date: string | null
   contract_end_date: string | null
   payment_date: number | null
@@ -50,7 +51,7 @@ export async function GET(request: NextRequest) {
   // Phase 23: status='paused' 고객은 자동 청구 생성 skip
   const { data: customers, error: cErr } = await supabase
     .from('customers')
-    .select('id, customer_type, billing_cycle, contract_start_date, contract_end_date, payment_date, supply_amount, vat, billing_amount, payment_method, business_name')
+    .select('id, customer_type, billing_cycle, billing_timing, contract_start_date, contract_end_date, payment_date, supply_amount, vat, billing_amount, payment_method, business_name')
     .in('customer_type', ['정기딥케어', '정기엔드케어'])
     .neq('status', 'paused')
     .is('deleted_at', null)
@@ -70,6 +71,7 @@ export async function GET(request: NextRequest) {
   for (const c of (customers ?? []) as CustomerRow[]) {
     try {
       const amount = computeBillingAmountFromCustomer(c)
+      const timing = c.billing_timing ?? 'prepaid'
       const input = {
         serviceType: c.customer_type,
         billingCycle: c.billing_cycle,
@@ -77,6 +79,7 @@ export async function GET(request: NextRequest) {
         contractEndDate: c.contract_end_date,
         paymentDay: c.payment_date,
         billingAmount: amount,
+        billingTiming: timing,
       }
 
       // === Case A: 계약기간 기반 자동생성 (정기딥연간·정기엔드월/연간) ===
@@ -98,6 +101,7 @@ export async function GET(request: NextRequest) {
               due_date: s.due_date,
               status: 'pending' as const,
               notes: 'cron 안전망 자동 생성',
+              billing_timing: timing,
             }))
           if (toInsert.length > 0) {
             const { error: iErr } = await supabase.from('service_billings').insert(toInsert)
@@ -108,7 +112,9 @@ export async function GET(request: NextRequest) {
       }
 
       // === Case B: 정기딥 월간 — 완료 방문 발생한 달 청구 확보 ===
-      if (c.customer_type === '정기딥케어' && c.billing_cycle === '월간' && amount && amount > 0) {
+      // 후납은 Case A(계약기간 자동생성)에서 이미 처리되므로 skip
+      // (방문일 기반 due_date 계산은 후납 규칙(계약시작일+K사이클-1일)과 불일치)
+      if (c.customer_type === '정기딥케어' && c.billing_cycle === '월간' && amount && amount > 0 && timing !== 'postpaid') {
         // 최근 6개월 내 완료 방문 조회 (오래된 legacy 백필용)
         const sixMonthsAgo = new Date()
         sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6)
@@ -148,6 +154,7 @@ export async function GET(request: NextRequest) {
               due_date: dueDate,
               status: 'pending',
               notes: 'cron 안전망 방문기반 자동 생성',
+              billing_timing: 'prepaid',
             })
             if (iErr) results.errors.push({ customer_id: c.id, error: iErr.message })
             else results.visitInserted += 1

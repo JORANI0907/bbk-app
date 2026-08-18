@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) {
 
   const { data: customersData, error: fetchError } = await supabase
     .from('customers')
-    .select('id, customer_type, billing_cycle, supply_amount, vat, billing_amount, payment_method, payment_date, contract_start_date, contract_end_date, status')
+    .select('id, customer_type, billing_cycle, billing_timing, supply_amount, vat, billing_amount, payment_method, payment_date, contract_start_date, contract_end_date, status')
     .in('id', customer_ids)
     .is('deleted_at', null)
 
@@ -26,6 +26,7 @@ export async function POST(request: NextRequest) {
     id: string
     customer_type: string | null
     billing_cycle: string | null
+    billing_timing: 'prepaid' | 'postpaid' | null
     supply_amount: number | null
     vat: number | null
     billing_amount: number | null
@@ -46,6 +47,7 @@ export async function POST(request: NextRequest) {
     }
 
     const amount = computeBillingAmountFromCustomer(customer)
+    const timing = customer.billing_timing ?? 'prepaid'
     const schedule = generateBillingSchedule({
       serviceType:       customer.customer_type,
       billingCycle:      customer.billing_cycle,
@@ -53,6 +55,7 @@ export async function POST(request: NextRequest) {
       contractEndDate:   customer.contract_end_date,
       paymentDay:        customer.payment_date,
       billingAmount:     amount,
+      billingTiming:     timing,
     })
 
     if (schedule.length === 0) {
@@ -93,6 +96,7 @@ export async function POST(request: NextRequest) {
       due_date:       p.due_date,
       status:         'pending',
       service_type:   customer.customer_type,
+      billing_timing: timing,
     }))
 
     const { data: inserted, error: insertError } = await supabase

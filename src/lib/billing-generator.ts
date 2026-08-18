@@ -20,12 +20,15 @@ export function billingCycleStepMonths(cycle: string | null): number {
   return m ? parseInt(m[1], 10) : 1
 }
 
+export type BillingTiming = 'prepaid' | 'postpaid'
+
 export interface GeneratedBilling {
-  billing_type:   'monthly' | 'annual' | 'onetime'
-  billing_period: string   // 월간: '2026-04', 연간: '2026', 1회성: '2026-08-01'
-  due_date:       string   // YYYY-MM-DD
-  amount:         number
-  service_type?:  string   // 결과에 포함 (DB INSERT 시 활용)
+  billing_type:    'monthly' | 'annual' | 'onetime'
+  billing_period:  string   // 월간: '2026-04', 연간: '2026', 1회성: '2026-08-01'
+  due_date:        string   // YYYY-MM-DD
+  amount:          number
+  service_type?:   string   // 결과에 포함 (DB INSERT 시 활용)
+  billing_timing?: BillingTiming
 }
 
 export interface GenerateInput {
@@ -33,8 +36,39 @@ export interface GenerateInput {
   billingCycle:      string | null  // '월간' | '연간'
   contractStartDate: string | null  // YYYY-MM-DD
   contractEndDate:   string | null  // YYYY-MM-DD
-  paymentDay:        number | null  // 결제일 (1~31)
+  paymentDay:        number | null  // 결제일 (1~31, 선납일 때만 사용)
   billingAmount:     number | null  // 청구액 (부가세 포함)
+  billingTiming?:    BillingTiming  // 'prepaid'(선납) | 'postpaid'(후납), 기본 'prepaid'
+}
+
+/** 목표 월 말일로 clamp 하면서 개월 수 더하기 (JS Date 오버플로우 방지) */
+function addMonthsClamped(base: Date, months: number): Date {
+  const y = base.getFullYear()
+  const m = base.getMonth() + months
+  const targetY = y + Math.floor(m / 12)
+  const targetM = ((m % 12) + 12) % 12
+  const targetLastDay = new Date(targetY, targetM + 1, 0).getDate()
+  const targetDay = Math.min(base.getDate(), targetLastDay)
+  return new Date(targetY, targetM, targetDay)
+}
+
+function toISODate(d: Date): string {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
+/**
+ * K번째(1-based) 사이클의 후납 due_date 계산
+ * = 계약 시작일 + K사이클 - 1일 (사이클 종료일 = 다음 사이클 전일)
+ * 예: start=2026-07-18, K=1, step=1  →  2026-08-17
+ *     start=2026-01-31, K=1, step=1  →  2026-02-27 (2월 말일 clamp)
+ */
+function computePostpaidDueDate(start: Date, cycleIdx: number, stepMonths: number): string {
+  const next = addMonthsClamped(start, cycleIdx * stepMonths)
+  next.setDate(next.getDate() - 1)
+  return toISODate(next)
 }
 
 const REGULAR_TYPES = new Set(['정기딥케어', '정기엔드케어'])
@@ -52,6 +86,10 @@ export function shouldAutoGenerateBillings(input: GenerateInput): boolean {
 
 /**
  * 계약 기간 전체에 대해 billings 레코드 목록 생성
+ *
+ * 선납(prepaid): 사이클 시작월의 payment_day 가 due_date
+ * 후납(postpaid): 사이클 종료일(= 다음 사이클 시작 전일)이 due_date
+ *   예) 계약 2026-07-18 · 월간 후납 → 첫 due_date = 2026-08-17
  */
 export function generateBillingSchedule(input: GenerateInput): GeneratedBilling[] {
   if (!shouldAutoGenerateBillings(input)) return []
@@ -61,44 +99,62 @@ export function generateBillingSchedule(input: GenerateInput): GeneratedBilling[
   const amount = input.billingAmount!
   const day    = input.paymentDay ?? 25
   const sType  = input.serviceType ?? undefined
+  const timing: BillingTiming = input.billingTiming ?? 'prepaid'
 
   const results: GeneratedBilling[] = []
   const isAnnual = input.billingCycle === '연간'
   const stepMonths = billingCycleStepMonths(input.billingCycle)
 
   if (isAnnual) {
-    // 연간: 각 연도별 1건 / 첫 해 due_date=계약시작일, 이후 1월1일
+    // 연간: 각 연도별 1건
+    // - 선납: 첫 해 계약시작일, 이후 1월1일
+    // - 후납: 계약시작일 + K년 - 1일 (예: 2026-07-18 시작 → 2027-07-17, 2028-07-17, ...)
     const startYear = start.getFullYear()
     const endYear   = end.getFullYear()
+    let cycleIdx = 0
     for (let y = startYear; y <= endYear; y++) {
-      const dueDate = y === startYear
-        ? input.contractStartDate!.slice(0, 10)
-        : `${y}-01-01`
+      cycleIdx++
+      const dueDate = timing === 'postpaid'
+        ? computePostpaidDueDate(start, cycleIdx, 12)
+        : (y === startYear
+            ? input.contractStartDate!.slice(0, 10)
+            : `${y}-01-01`)
       results.push({
         billing_type: 'annual',
         billing_period: String(y),
         due_date: dueDate,
         amount,
         service_type: sType,
+        billing_timing: timing,
       })
     }
   } else {
-    // 월간 / 2개월 / 3개월: stepMonths 간격으로 payment_day에 1건
+    // 월간 / 2개월 / 3개월: stepMonths 간격으로 1건
     const cursor    = new Date(start.getFullYear(), start.getMonth(), 1)
     const endCursor = new Date(end.getFullYear(), end.getMonth(), 1)
+    let cycleIdx = 0
     while (cursor <= endCursor) {
+      cycleIdx++
       const y = cursor.getFullYear()
       const m = cursor.getMonth() + 1
-      const period  = `${y}-${String(m).padStart(2, '0')}`
-      const lastDay = new Date(y, m, 0).getDate()
-      const dueDay  = Math.min(day, lastDay)
-      const dueDate = `${y}-${String(m).padStart(2, '0')}-${String(dueDay).padStart(2, '0')}`
+      const period = `${y}-${String(m).padStart(2, '0')}`
+
+      let dueDate: string
+      if (timing === 'postpaid') {
+        dueDate = computePostpaidDueDate(start, cycleIdx, stepMonths)
+      } else {
+        const lastDay = new Date(y, m, 0).getDate()
+        const dueDay  = Math.min(day, lastDay)
+        dueDate = `${y}-${String(m).padStart(2, '0')}-${String(dueDay).padStart(2, '0')}`
+      }
+
       results.push({
         billing_type: 'monthly',
         billing_period: period,
         due_date: dueDate,
         amount,
         service_type: sType,
+        billing_timing: timing,
       })
       cursor.setMonth(cursor.getMonth() + stepMonths)
     }
