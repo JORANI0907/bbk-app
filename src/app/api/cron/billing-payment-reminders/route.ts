@@ -45,8 +45,8 @@ interface CustomerInfo {
   id: string
   business_name: string | null
   business_number: string | null
-  owner_name: string | null
-  phone: string | null
+  contact_name: string | null
+  contact_phone: string | null
   address: string | null
   payment_method: string | null
   customer_type: string | null
@@ -87,7 +87,7 @@ export async function GET(request: NextRequest) {
     .from('service_billings')
     .select(`
       id, customer_id, billing_period, amount, due_date, billing_timing,
-      customers(id, business_name, business_number, owner_name, phone, address,
+      customers(id, business_name, business_number, contact_name, contact_phone, address,
                 payment_method, customer_type, status, notification_log)
     `)
     .eq('status', 'pending')
@@ -102,7 +102,7 @@ export async function GET(request: NextRequest) {
     const c = row.customers
     if (!c) { skipped++; continue }
     if (c.status === 'paused') { skipped++; continue }
-    if (!c.phone) { skipped++; continue }
+    if (!c.contact_phone) { skipped++; continue }
 
     const base = pickTemplateBase(c.payment_method)
     if (!base) { skipped++; continue }
@@ -121,13 +121,13 @@ export async function GET(request: NextRequest) {
       continue
     }
 
-    const phone = String(c.phone).replace(/-/g, '')
+    const phone = String(c.contact_phone).replace(/-/g, '')
     const context: NotificationContext = {
       application: {
         business_name:   c.business_name,
         business_number: c.business_number,
-        owner_name:      c.owner_name,
-        phone:           c.phone,
+        owner_name:      c.contact_name,
+        phone:           c.contact_phone,
         address:         c.address,
         payment_method:  c.payment_method,
         // 청구 정보 매핑 (템플릿에서 supply_amount / construction_date 변수로 참조)
