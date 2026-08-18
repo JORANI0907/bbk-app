@@ -45,6 +45,8 @@ interface Props {
   filterSpecialty: string
   showAddForm: boolean
   canAdd?: boolean
+  /** 관리자 여부. false 면 이름/사진/연락처만 노출하고 고용형태·숙련도·특기 및 관련 필터 숨김. */
+  canViewAll?: boolean
   onSearchChange: (v: string) => void
   onFilterTypeChange: (v: string) => void
   onFilterSkillChange: (v: string) => void
@@ -57,7 +59,7 @@ interface Props {
 export default function WorkerList({
   workers, selectedId, loading,
   search, filterType, filterSkill, filterSpecialty,
-  showAddForm, canAdd = false,
+  showAddForm, canAdd = false, canViewAll = false,
   onSearchChange, onFilterTypeChange, onFilterSkillChange, onFilterSpecialtyChange,
   onSelectWorker, onShowAddForm, onWorkerAdded,
 }: Props) {
@@ -119,35 +121,39 @@ export default function WorkerList({
           className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-xs mb-2 focus:outline-none focus:ring-2 focus:ring-brand-500"
         />
 
-        {/* Filters */}
-        <div className="flex gap-1 mb-1">
-          <select
-            value={filterType}
-            onChange={e => onFilterTypeChange(e.target.value)}
-            className="flex-1 border border-gray-200 rounded-lg px-1.5 py-1 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-brand-500"
-          >
-            <option value="">고용형태</option>
-            {EMPLOYMENT_TYPE_VALUES.map(v => (
-              <option key={v} value={v}>{EMPLOYMENT_LABEL[v]}</option>
-            ))}
-          </select>
-          <select
-            value={filterSkill}
-            onChange={e => onFilterSkillChange(e.target.value)}
-            className="flex-1 border border-gray-200 rounded-lg px-1.5 py-1 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-brand-500"
-          >
-            <option value="">능력</option>
-            <option>상</option>
-            <option>중</option>
-            <option>하</option>
-          </select>
-        </div>
-        <input
-          value={filterSpecialty}
-          onChange={e => onFilterSpecialtyChange(e.target.value)}
-          placeholder="특화작업 검색"
-          className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-brand-500"
-        />
+        {/* Filters — 관리자만 노출 (고용형태·능력·특화작업은 민감 정보) */}
+        {canViewAll && (
+          <>
+            <div className="flex gap-1 mb-1">
+              <select
+                value={filterType}
+                onChange={e => onFilterTypeChange(e.target.value)}
+                className="flex-1 border border-gray-200 rounded-lg px-1.5 py-1 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-brand-500"
+              >
+                <option value="">고용형태</option>
+                {EMPLOYMENT_TYPE_VALUES.map(v => (
+                  <option key={v} value={v}>{EMPLOYMENT_LABEL[v]}</option>
+                ))}
+              </select>
+              <select
+                value={filterSkill}
+                onChange={e => onFilterSkillChange(e.target.value)}
+                className="flex-1 border border-gray-200 rounded-lg px-1.5 py-1 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-brand-500"
+              >
+                <option value="">능력</option>
+                <option>상</option>
+                <option>중</option>
+                <option>하</option>
+              </select>
+            </div>
+            <input
+              value={filterSpecialty}
+              onChange={e => onFilterSpecialtyChange(e.target.value)}
+              placeholder="특화작업 검색"
+              className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-brand-500"
+            />
+          </>
+        )}
       </div>
 
       {/* Add form (inline) — 관리자 전용 */}
@@ -221,19 +227,21 @@ export default function WorkerList({
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5 mb-0.5">
                     <span className="text-sm font-semibold text-gray-900 truncate">{worker.name}</span>
-                    {worker.employment_type && (
+                    {/* 고용형태·숙련도 배지는 관리자만 노출 */}
+                    {canViewAll && worker.employment_type && (
                       <span className={`text-xs px-1.5 py-0.5 rounded-full shrink-0 ${EMP_BADGE[worker.employment_type] ?? 'bg-gray-100 text-gray-600'}`}>
                         {EMPLOYMENT_LABEL[worker.employment_type] ?? worker.employment_type}
                       </span>
                     )}
-                    {worker.skill_level && (
+                    {canViewAll && worker.skill_level && (
                       <span className={`text-xs px-1.5 py-0.5 rounded-full shrink-0 ${SKILL_BADGE[worker.skill_level] ?? 'bg-gray-100 text-gray-600'}`}>
                         {worker.skill_level}
                       </span>
                     )}
                   </div>
                   <p className="text-xs text-gray-500 truncate">{worker.phone ?? '-'}</p>
-                  {worker.specialties && (
+                  {/* 특기(특화작업) 텍스트는 관리자만 노출 */}
+                  {canViewAll && worker.specialties && (
                     <p className="text-xs text-gray-400 truncate">{worker.specialties}</p>
                   )}
                 </div>

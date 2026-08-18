@@ -171,6 +171,7 @@ export default function WorkersPage() {
             onFilterSkillChange={setFilterSkill}
             onFilterSpecialtyChange={setFilterSpecialty}
             canAdd={userRole === 'admin'}
+            canViewAll={userRole === 'admin'}
             onSelectWorker={userRole === 'worker' ? () => {} : handleSelectWorker}
             onShowAddForm={userRole === 'worker' ? () => {} : setShowAddForm}
             onWorkerAdded={handleWorkerAdded}
