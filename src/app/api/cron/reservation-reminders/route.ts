@@ -316,6 +316,9 @@ export async function GET(request: NextRequest) {
       .gt('supply_amount', 0)
       .is('deleted_at', null)
       .gte('construction_date', cutoffDate)
+      // balance_paid_at 이 세팅됐으면 잔금 입금 완료 → skip.
+      // payment_status_detail 이 '결제'로 남아있어도 balance_paid_at 이 있으면 실제 결제완료.
+      .is('balance_paid_at', null)
 
     let sent = 0, failed = 0, skipped = 0
     for (const app of ((apps ?? []) as AppRow[])) {
