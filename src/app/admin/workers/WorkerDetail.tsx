@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, type ReactElement } from 'react'
 import toast from 'react-hot-toast'
 import { EMPLOYMENT_LABEL, EMPLOYMENT_TYPE_VALUES, type EmploymentType, type Worker } from './constants'
 import { BANK_OPTIONS } from '@/lib/bankCodes'
+import { WorkerDocumentSection } from '@/components/workers/WorkerDocumentSection'
 import type { DocumentProps } from '@react-pdf/renderer'
 import type { PDFSections, WorkHistoryEntry } from './WorkerPDF'
 
@@ -656,6 +657,13 @@ export default function WorkerDetail({ worker, onWorkerUpdated, onWorkerDeleted 
               onChange={setField('bank_copy_submitted')}
             />
           </div>
+
+          {/* 서류 요청·수집 (SMS 링크 발송 → 직원 업로드) */}
+          <WorkerDocumentSection
+            workerId={worker.id}
+            workerName={worker.name}
+            workerPhone={worker.phone}
+          />
         </div>
 
         {/* ── 섹션 6: 보호 정보 (접이식) ── */}
