@@ -292,8 +292,7 @@ export async function GET(request: NextRequest) {
   //     결제완료 판정: service_applications 또는 customers 어느 쪽 payment_status_detail
   //     이라도 정산 완료 상태면 스킵 (관리자가 고객관리 UI에서 완료 처리한 케이스 방어)
   {
-    // '계산서발행완료'는 결제와 무관 (세금계산서 발행만 된 상태이며 실제 입금은 별개) → 결제완료로 취급하지 않음.
-    const PAID_STATUS_DETAILS = ['결제완료','결제완료(잔금)','카드결제 완료','비과세']
+    const PAID_STATUS_DETAILS = ['결제완료','결제완료(잔금)','카드결제 완료','비과세','계산서발행완료']
 
     type AppRow = Record<string, unknown> & {
       customers?: { payment_status_detail: string | null } | null
@@ -302,8 +301,7 @@ export async function GET(request: NextRequest) {
     const { data: apps } = await supabase
       .from('service_applications')
       .select('*, customers(payment_status_detail)')
-      // '계산서발행완료' 는 세금계산서 발행만 된 상태 → 실제 결제 안 됐으면 알림 계속 발송
-      .in('status', ['작업완료', '결제', '계산서발행완료'])
+      .in('status', ['작업완료', '결제'])
       .neq('service_type', '정기엔드케어')
       .gt('supply_amount', 0)
       .is('deleted_at', null)
