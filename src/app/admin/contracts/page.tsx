@@ -98,6 +98,9 @@ export default function AdminContractsPage() {
   const [contractToDelete, setContractToDelete] = useState<ContractListItem | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
 
+  const [contractToDuplicate, setContractToDuplicate] = useState<ContractListItem | null>(null)
+  const [isDuplicating, setIsDuplicating] = useState(false)
+
   const [customers, setCustomers] = useState<CustomerOption[]>([])
   const [customerInputValue, setCustomerInputValue] = useState('')
   const [showCustomerDropdown, setShowCustomerDropdown] = useState(false)
@@ -301,6 +304,28 @@ export default function AdminContractsPage() {
     }
   }
 
+  const handleDuplicateConfirm = async () => {
+    if (!contractToDuplicate) return
+    setIsDuplicating(true)
+    try {
+      const res = await fetch(`/api/admin/contracts/${contractToDuplicate.id}/duplicate`, {
+        method: 'POST',
+      })
+      const json = await res.json()
+      if (json.success) {
+        toast.success('계약서가 복제되었습니다.')
+        setContractToDuplicate(null)
+        router.push(`/admin/contracts/${json.data.id}`)
+      } else {
+        toast.error(json.error ?? '복제에 실패했습니다.')
+      }
+    } catch {
+      toast.error('오류가 발생했습니다.')
+    } finally {
+      setIsDuplicating(false)
+    }
+  }
+
   const formatDate = (dateStr: string | null) => dateStr ? new Date(dateStr).toLocaleDateString('ko-KR') : '-'
 
   return (
@@ -370,6 +395,15 @@ export default function AdminContractsPage() {
                     {STATUS_LABELS[contract.signing_status] ?? contract.signing_status}
                   </span>
                   <button
+                    onClick={(e) => { e.stopPropagation(); setContractToDuplicate(contract) }}
+                    className="p-1.5 rounded-lg text-text-tertiary hover:text-brand-600 hover:bg-surface-sunken transition-colors"
+                    title="계약서 복제"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                    </svg>
+                  </button>
+                  <button
                     onClick={(e) => { e.stopPropagation(); setContractToDelete(contract) }}
                     className="p-1.5 rounded-lg text-text-tertiary hover:text-state-danger hover:bg-state-danger-bg transition-colors"
                     title="휴지통으로 이동"
@@ -403,6 +437,33 @@ export default function AdminContractsPage() {
           <div className="flex gap-3">
             <Button variant="secondary" className="flex-1" onClick={() => setContractToDelete(null)}>취소</Button>
             <Button variant="danger" className="flex-1" onClick={handleDeleteConfirm} isLoading={isDeleting}>휴지통으로 이동</Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* 계약서 복제 확인 모달 */}
+      <Modal
+        open={contractToDuplicate !== null}
+        onClose={() => setContractToDuplicate(null)}
+        title="계약서 복제"
+      >
+        <div className="space-y-4 pt-2">
+          <div className="p-4 bg-surface-sunken rounded-xl border border-border-subtle">
+            <p className="text-sm font-medium text-text-primary">
+              <strong>{contractToDuplicate?.customers?.business_name ?? '고객'}</strong> 계약서를 복제하시겠습니까?
+            </p>
+            <p className="text-xs text-text-secondary mt-1 leading-relaxed">
+              계약 내용은 그대로 승계되며, 새 <strong>초안</strong> 상태로 생성됩니다.
+              서명·서명 링크·PDF 등은 초기화됩니다.
+            </p>
+          </div>
+          <div className="flex gap-3">
+            <Button variant="secondary" className="flex-1" onClick={() => setContractToDuplicate(null)}>
+              취소
+            </Button>
+            <Button className="flex-1" onClick={handleDuplicateConfirm} isLoading={isDuplicating}>
+              복제하기
+            </Button>
           </div>
         </div>
       </Modal>

@@ -86,6 +86,9 @@ export default function AdminContractDetailPage() {
   const [editHtml, setEditHtml] = useState('')
   const [isSavingEdit, setIsSavingEdit] = useState(false)
 
+  const [showDuplicateModal, setShowDuplicateModal] = useState(false)
+  const [isDuplicating, setIsDuplicating] = useState(false)
+
   const fetchContract = useCallback(async () => {
     setIsLoading(true)
     try {
@@ -204,6 +207,27 @@ export default function AdminContractDetailPage() {
       toast.error('오류가 발생했습니다.')
     } finally {
       setIsVoiding(false)
+    }
+  }
+
+  const handleDuplicate = async () => {
+    setIsDuplicating(true)
+    try {
+      const res = await fetch(`/api/admin/contracts/${contractId}/duplicate`, {
+        method: 'POST',
+      })
+      const json = await res.json()
+      if (json.success) {
+        toast.success('계약서가 복제되었습니다.')
+        setShowDuplicateModal(false)
+        router.push(`/admin/contracts/${json.data.id}`)
+      } else {
+        toast.error(json.error ?? '복제에 실패했습니다.')
+      }
+    } catch {
+      toast.error('오류가 발생했습니다.')
+    } finally {
+      setIsDuplicating(false)
     }
   }
 
@@ -394,19 +418,19 @@ export default function AdminContractDetailPage() {
                   취소
                 </Button>
               </div>
-            ) : !isVoided && (
+            ) : (
               <div className="pt-2 space-y-2">
-                {contract.signing_status === 'draft' && (
+                {!isVoided && contract.signing_status === 'draft' && (
                   <Button variant="secondary" className="w-full" onClick={handleStartEdit}>
                     수정하기
                   </Button>
                 )}
-                {(contract.signing_status === 'draft' || contract.signing_status === 'pending_customer') && (
+                {!isVoided && (contract.signing_status === 'draft' || contract.signing_status === 'pending_customer') && (
                   <Button className="w-full" onClick={() => setShowSendModal(true)}>
                     {contract.signing_status === 'draft' ? '서명 요청 발송' : '서명 링크 재발송'}
                   </Button>
                 )}
-                {contract.signing_status === 'customer_signed' && (
+                {!isVoided && contract.signing_status === 'customer_signed' && (
                   <Button className="w-full" onClick={() => setShowAdminSignModal(true)}>
                     최종 확인 완료
                   </Button>
@@ -421,13 +445,23 @@ export default function AdminContractDetailPage() {
                     <Button variant="secondary" className="w-full">PDF 다운로드</Button>
                   </a>
                 )}
+                {/* 복제하기 — 파기 포함 모든 상태에서 노출 */}
                 <Button
-                  variant="danger"
+                  variant="secondary"
                   className="w-full"
-                  onClick={() => setShowVoidModal(true)}
+                  onClick={() => setShowDuplicateModal(true)}
                 >
-                  계약 파기
+                  이 계약서 복제
                 </Button>
+                {!isVoided && (
+                  <Button
+                    variant="danger"
+                    className="w-full"
+                    onClick={() => setShowVoidModal(true)}
+                  >
+                    계약 파기
+                  </Button>
+                )}
               </div>
             )}
 
@@ -597,6 +631,33 @@ export default function AdminContractDetailPage() {
             </Button>
             <Button variant="danger" className="flex-1" onClick={handleVoid} isLoading={isVoiding}>
               파기 확인
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* 계약서 복제 확인 모달 */}
+      <Modal
+        open={showDuplicateModal}
+        onClose={() => setShowDuplicateModal(false)}
+        title="계약서 복제"
+      >
+        <div className="space-y-4 pt-2">
+          <div className="p-4 bg-surface-sunken rounded-xl border border-border-subtle">
+            <p className="text-sm font-medium text-text-primary">
+              <strong>{contract.customers?.business_name ?? '고객'}</strong> 계약서를 복제하시겠습니까?
+            </p>
+            <p className="text-xs text-text-secondary mt-1 leading-relaxed">
+              계약 내용은 그대로 승계되며, 새 <strong>초안</strong> 상태로 생성됩니다.
+              서명·서명 링크·PDF 등은 초기화됩니다.
+            </p>
+          </div>
+          <div className="flex gap-3">
+            <Button variant="secondary" className="flex-1" onClick={() => setShowDuplicateModal(false)}>
+              취소
+            </Button>
+            <Button className="flex-1" onClick={handleDuplicate} isLoading={isDuplicating}>
+              복제하기
             </Button>
           </div>
         </div>
