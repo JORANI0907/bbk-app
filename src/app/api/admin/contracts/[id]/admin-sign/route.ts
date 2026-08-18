@@ -140,6 +140,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     // 관리자 서명 블록: 플레이스홀더가 하나라도 빠져 있으면 계약서 하단에 자동 추가
     const missing = !hasAdminSigPlaceholder || !hasSupplierStampPlaceholder
     const adminBlockHtml = missing ? `
+<!-- BBK_BLOCK_START:admin-signature -->
 <div style="margin-top:24px;padding:20px;border:1px solid #d1d5db;border-radius:8px;background:#f9fafb;page-break-inside:avoid;">
   <p style="font-weight:bold;color:#111827;margin:0 0 12px;font-size:13px;">■ 공급사(범빌드코리아) 서명 · 직인</p>
   <table style="width:100%;border-collapse:collapse;font-size:12px;">
@@ -160,7 +161,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       <td style="padding:8px;vertical-align:middle;color:#374151;">${now}</td>
     </tr>
   </table>
-</div>`.trim() : ''
+</div>
+<!-- BBK_BLOCK_END:admin-signature -->`.trim() : ''
 
     const finalHtml = missing ? `${htmlAfterVars}\n${adminBlockHtml}` : htmlAfterVars
 

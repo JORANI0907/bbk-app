@@ -145,6 +145,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
   // (스냅샷 HTML만으로도 서명·성명·직인이 완전히 보이도록 보장)
   const missingSignatureFields = !hasSignaturePlaceholder || !hasSignerNamePlaceholder || !hasStampPlaceholder
   const customerSignatureBlockHtml = missingSignatureFields ? `
+<!-- BBK_BLOCK_START:customer-signature -->
 <div style="margin-top:24px;padding:20px;border:1px solid #d1d5db;border-radius:8px;background:#fafafa;page-break-inside:avoid;">
   <p style="font-weight:bold;color:#111827;margin:0 0 12px;font-size:13px;">■ 고객 서명 · 직인</p>
   <table style="width:100%;border-collapse:collapse;font-size:12px;">
@@ -167,7 +168,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       </td>
     </tr>
   </table>
-</div>`.trim() : ''
+</div>
+<!-- BBK_BLOCK_END:customer-signature -->`.trim() : ''
 
   // 확약 사항 박스: 고객이 체크한 3개 항목(제8조, 제14조, 대표자 본인 확약) 을 계약서 본문 하단에 박제.
   // 변조 방지를 위해 문구는 서버 상수로 고정. 서명일시·IP 도 함께 기록.
@@ -177,6 +179,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     '계약 대표자 본인이 직접 서명, 직인 하였습니다. (대표자가 아닌 경우 계약은 무효처리되며 모든 책임은 계약자 본인에게 있습니다)',
   ]
   const agreementBoxHtml = `
+<!-- BBK_BLOCK_START:customer-agreement -->
 <div style="margin-top:32px;padding:16px 18px;border:2px solid #e11d48;border-radius:8px;background:#fef2f2;page-break-inside:avoid;">
   <p style="font-weight:bold;color:#e11d48;margin:0 0 6px;font-size:13px;">■ 고객 확약 사항</p>
   <p style="font-size:11px;color:#6b7280;margin:0 0 10px;">아래 사항은 고객이 서명 시 모두 확인·동의한 내용이며, 계약의 일부로 편입됩니다.</p>
@@ -186,7 +189,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
   <p style="font-size:10px;color:#6b7280;margin:0;border-top:1px dashed #fecaca;padding-top:8px;">
     서명일시: ${now} · IP: ${clientIp}
   </p>
-</div>`.trim()
+</div>
+<!-- BBK_BLOCK_END:customer-agreement -->`.trim()
 
   const htmlAfterVars = Object.keys(injectVars).length > 0
     ? renderTemplateWithVars(currentHtml, injectVars)
