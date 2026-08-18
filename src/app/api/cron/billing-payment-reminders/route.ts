@@ -51,6 +51,7 @@ interface CustomerInfo {
   payment_method: string | null
   customer_type: string | null
   status: string | null
+  auto_notification_paused: boolean | null
   notification_log: Array<{ type: string; sent_at: string }> | null
 }
 
@@ -88,7 +89,7 @@ export async function GET(request: NextRequest) {
     .select(`
       id, customer_id, billing_period, amount, due_date, billing_timing,
       customers(id, business_name, business_number, contact_name, contact_phone, address,
-                payment_method, customer_type, status, notification_log)
+                payment_method, customer_type, status, auto_notification_paused, notification_log)
     `)
     .eq('status', 'pending')
     .lte('due_date', todayKST)
@@ -102,6 +103,8 @@ export async function GET(request: NextRequest) {
     const c = row.customers
     if (!c) { skipped++; continue }
     if (c.status === 'paused') { skipped++; continue }
+    // 자동 알림 전면 중단 고객은 skip (예: 월말 일괄 정산)
+    if (c.auto_notification_paused === true) { skipped++; continue }
     if (!c.contact_phone) { skipped++; continue }
 
     const base = pickTemplateBase(c.payment_method)

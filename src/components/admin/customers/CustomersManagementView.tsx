@@ -57,6 +57,8 @@ interface Customer {
   billing_cycle: BillingCycle | null
   billing_timing: BillingTiming | null
   billing_amount: number | null
+  auto_notification_paused: boolean | null
+  auto_notification_pause_reason: string | null
   billing_start_date: string | null
   billing_next_date: string | null
   contract_start_date: string | null
@@ -302,6 +304,8 @@ const EMPTY_FORM = {
   billing_cycle: '월간' as BillingCycle,
   billing_timing: 'prepaid' as BillingTiming,
   billing_amount: '',
+  auto_notification_paused: false,
+  auto_notification_pause_reason: '',
   supply_amount: '',
   vat: '',
   deposit: '',
@@ -953,6 +957,8 @@ export function CustomersManagementView({
     billing_cycle: c.billing_cycle ?? '월간',
     billing_timing: (c.billing_timing ?? 'prepaid') as BillingTiming,
     billing_amount: c.billing_amount?.toString() ?? '',
+    auto_notification_paused: c.auto_notification_paused ?? false,
+    auto_notification_pause_reason: c.auto_notification_pause_reason ?? '',
     supply_amount: c.supply_amount?.toString() ?? '',
     vat: c.vat?.toString() ?? '',
     deposit: c.deposit?.toString() ?? '',
@@ -1055,6 +1061,7 @@ export function CustomersManagementView({
         customer_type: (app.service_type as CustomerType) ?? '1회성케어',
         status: 'active',
         billing_cycle: null, billing_timing: 'prepaid', billing_amount: null, billing_start_date: null, billing_next_date: null,
+        auto_notification_paused: false, auto_notification_pause_reason: null,
         contract_start_date: null, contract_end_date: null,
         unit_price: null, visit_interval_days: null,
         next_visit_date: app.construction_date ?? null,
@@ -1174,6 +1181,8 @@ export function CustomersManagementView({
     pipeline_status: form.pipeline_status || 'inquiry',
     billing_cycle: form.billing_cycle || null,
     billing_timing: form.billing_timing || 'prepaid',
+    auto_notification_paused: !!form.auto_notification_paused,
+    auto_notification_pause_reason: form.auto_notification_pause_reason?.trim() || null,
     supply_amount: form.supply_amount ? Number(form.supply_amount) : null,
     vat: (() => {
       if (isNoVatMethod(form.payment_method)) return 0
@@ -1985,6 +1994,7 @@ export function CustomersManagementView({
           customer_type: (a.service_type as CustomerType) ?? '1회성케어',
           status: 'active',
           billing_cycle: null, billing_timing: 'prepaid', billing_amount: null, billing_start_date: null, billing_next_date: null,
+        auto_notification_paused: false, auto_notification_pause_reason: null,
           contract_start_date: null, contract_end_date: null,
           unit_price: a.unit_price_per_visit ?? null,
           visit_interval_days: null,
@@ -3316,6 +3326,31 @@ export function CustomersManagementView({
                     <option value="카드(온라인 간편결제)">카드(온라인 간편결제)</option>
                     <option value="플랫폼">플랫폼</option>
                   </select>
+                </div>
+                {/* 자동 알림 중단 옵션 */}
+                <div className={`rounded-lg border p-2 ${form.auto_notification_paused ? 'bg-amber-50 border-amber-300' : 'bg-surface-sunken border-border'}`}>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={!!form.auto_notification_paused}
+                      onChange={e => setForm(prev => ({ ...prev, auto_notification_paused: e.target.checked }))}
+                      className="w-4 h-4 accent-amber-600"
+                    />
+                    <span className="text-xs font-semibold text-text-primary inline-flex items-center gap-1">
+                      🔕 자동 알림 전면 중단
+                      <FieldHint text="이 고객에게는 모든 자동 알림(예약/결제/청구 등)을 발송하지 않습니다. 예: 월말 일괄 정산으로 별도 관리하는 고객." />
+                    </span>
+                  </label>
+                  {form.auto_notification_paused && (
+                    <div className="mt-2">
+                      <input
+                        value={form.auto_notification_pause_reason ?? ''}
+                        onChange={e => setForm(prev => ({ ...prev, auto_notification_pause_reason: e.target.value }))}
+                        placeholder="중단 사유 (예: 월말 일괄 정산)"
+                        className="w-full border border-amber-300 rounded-lg px-2 py-1.5 text-xs bg-white text-text-primary focus:outline-none focus:ring-2 focus:ring-amber-400"
+                      />
+                    </div>
+                  )}
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="text-xs text-text-secondary w-20 shrink-0">계좌번호</span>

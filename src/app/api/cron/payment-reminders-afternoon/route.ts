@@ -152,11 +152,14 @@ export async function GET(request: NextRequest) {
   const todayKST = getKSTToday()
   const supabase = createServiceClient()
 
-  // 일시정지(status='paused') 고객 ID 세트 — 알림 대상 제외용.
+  // 알림 대상 제외 고객 ID 세트:
+  //  - status='paused': 서비스 자체 일시정지
+  //  - auto_notification_paused=true: 서비스는 정상이지만 자동 알림만 중단
+  //    (예: 월말 일괄 정산으로 별도 관리하는 고객)
   const { data: pausedRows } = await supabase
     .from('customers')
     .select('id')
-    .eq('status', 'paused')
+    .or('status.eq.paused,auto_notification_paused.eq.true')
     .is('deleted_at', null)
   const pausedCustomerIds = new Set((pausedRows ?? []).map(c => c.id as string))
 

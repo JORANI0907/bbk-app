@@ -25,6 +25,8 @@ const ALLOWED = [
   'customer_type', 'status', 'pipeline_status',
   'billing_cycle', 'billing_timing', 'billing_amount',
   'billing_start_date', 'billing_next_date',
+  // 자동 알림 전면 중단 옵션
+  'auto_notification_paused', 'auto_notification_pause_reason',
   'contract_start_date', 'contract_end_date',
   'visit_interval_days', 'next_visit_date',
   'visit_schedule_type', 'visit_weekdays', 'visit_monthly_dates',
