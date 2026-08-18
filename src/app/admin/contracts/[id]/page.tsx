@@ -34,6 +34,7 @@ interface ContractDetail {
   customer_signer_name: string | null
   customer_stamp: string | null
   admin_signature: string | null
+  supplier_stamp: string | null
   signed_pdf_url: string | null
   voided_at: string | null
   void_reason: string | null
@@ -322,7 +323,10 @@ export default function AdminContractDetailPage() {
       contract.customer_stamp
         ? `<img src="${contract.customer_stamp}" style="display:block;max-width:100px;max-height:100px;object-fit:contain;" alt="고객사 직인" />`
         : SIG_PLACEHOLDER('(고객사 직인)', 80, 80))
-    .replace(/\{\{SUPPLIER_STAMP\}\}/g, SIG_PLACEHOLDER('(공급사 직인)', 80, 80))
+    .replace(/\{\{SUPPLIER_STAMP\}\}/g,
+      contract.supplier_stamp
+        ? `<img src="${contract.supplier_stamp}" style="display:block;max-width:100px;max-height:100px;object-fit:contain;" alt="공급사 직인" />`
+        : SIG_PLACEHOLDER('(공급사 직인)', 80, 80))
   const isVoided = contract.signing_status === 'voided'
 
   return (
@@ -553,11 +557,26 @@ export default function AdminContractDetailPage() {
                   <span className="text-text-tertiary text-xs block">관리자 최종 확인</span>
                   <span className="text-text-primary">{formatDateTime(contract.admin_signed_at)}</span>
                   {contract.admin_signature && (
-                    <img
-                      src={contract.admin_signature}
-                      alt="관리자 서명"
-                      className="mt-1 max-h-12 border border-border rounded-md bg-white"
-                    />
+                    <div className="mt-1">
+                      <span className="text-xs text-text-tertiary block mb-0.5">서명</span>
+                      <img
+                        src={contract.admin_signature}
+                        alt="관리자 서명"
+                        className="max-h-12 border border-border rounded-md bg-white cursor-pointer"
+                        onClick={() => window.open(contract.admin_signature!, '_blank')}
+                      />
+                    </div>
+                  )}
+                  {contract.supplier_stamp && (
+                    <div className="mt-1">
+                      <span className="text-xs text-text-tertiary block mb-0.5">공급사 직인</span>
+                      <img
+                        src={contract.supplier_stamp}
+                        alt="공급사 직인"
+                        className="max-h-20 max-w-20 border border-border rounded-md bg-white object-contain cursor-pointer"
+                        onClick={() => window.open(contract.supplier_stamp!, '_blank')}
+                      />
+                    </div>
                   )}
                 </div>
               )}
