@@ -420,11 +420,21 @@ export default function AdminContractDetailPage() {
               </div>
             ) : (
               <div className="pt-2 space-y-2">
+                {/* 1) 이 계약서 복제 — 파기 포함 모든 상태에서 노출 */}
+                <Button
+                  variant="secondary"
+                  className="w-full"
+                  onClick={() => setShowDuplicateModal(true)}
+                >
+                  이 계약서 복제
+                </Button>
+                {/* 2) 수정하기 — 초안 상태에서만 */}
                 {!isVoided && contract.signing_status === 'draft' && (
                   <Button variant="secondary" className="w-full" onClick={handleStartEdit}>
                     수정하기
                   </Button>
                 )}
+                {/* 3) 서명 요청 발송 / 재발송 / 최종 확인 / PDF */}
                 {!isVoided && (contract.signing_status === 'draft' || contract.signing_status === 'pending_customer') && (
                   <Button className="w-full" onClick={() => setShowSendModal(true)}>
                     {contract.signing_status === 'draft' ? '서명 요청 발송' : '서명 링크 재발송'}
@@ -445,14 +455,7 @@ export default function AdminContractDetailPage() {
                     <Button variant="secondary" className="w-full">PDF 다운로드</Button>
                   </a>
                 )}
-                {/* 복제하기 — 파기 포함 모든 상태에서 노출 */}
-                <Button
-                  variant="secondary"
-                  className="w-full"
-                  onClick={() => setShowDuplicateModal(true)}
-                >
-                  이 계약서 복제
-                </Button>
+                {/* 4) 계약 파기 — 파기되지 않은 경우에만 */}
                 {!isVoided && (
                   <Button
                     variant="danger"
