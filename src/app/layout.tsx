@@ -14,19 +14,48 @@ const notoSansKR = Noto_Sans_KR({
   display: 'swap',
 })
 
+const SITE_URL = 'https://app.bbkorea.co.kr'
+const SITE_TITLE = 'BBK 공간케어'
+const SITE_DESCRIPTION =
+  '범빌드코리아 공간케어 관리 앱. 상업용 주방·시설 청소 서비스 관리, 작업자 배정, 정기 케어 스케줄을 한 곳에서.'
+const OG_IMAGE = '/icons/icon-512x512.png'
+
 export const metadata: Metadata = {
-  title: 'BBK 공간케어',
-  description: 'BBK 공간케어 청소 서비스 앱',
+  metadataBase: new URL(SITE_URL),
+  title: SITE_TITLE,
+  description: SITE_DESCRIPTION,
   manifest: '/manifest.json',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
-    title: 'BBK 공간케어',
+    title: SITE_TITLE,
     startupImage: '/icons/icon-192x192.png',
   },
   icons: {
     icon: '/icons/icon-192x192.png',
     apple: '/icons/icon-192x192.png',
+  },
+  openGraph: {
+    type: 'website',
+    url: SITE_URL,
+    siteName: SITE_TITLE,
+    title: SITE_TITLE,
+    description: SITE_DESCRIPTION,
+    locale: 'ko_KR',
+    images: [
+      {
+        url: OG_IMAGE,
+        width: 512,
+        height: 512,
+        alt: 'BBK 공간케어 로고',
+      },
+    ],
+  },
+  twitter: {
+    card: 'summary',
+    title: SITE_TITLE,
+    description: SITE_DESCRIPTION,
+    images: [OG_IMAGE],
   },
   other: {
     'mobile-web-app-capable': 'yes',
