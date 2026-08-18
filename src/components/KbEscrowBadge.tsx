@@ -45,6 +45,8 @@ export function KbEscrowBadge({ theme = 'light', showLabel = true }: Props) {
           alt="KB국민은행 에스크로 이체 인증마크"
           width={70}
           height={30}
+          loading="lazy"
+          decoding="async"
           className="h-8 w-auto"
         />
       </button>
