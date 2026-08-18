@@ -56,9 +56,19 @@ export function DocumentRequestModal({ open, onClose, workerId, workerName, defa
     }
   }
 
+  // 모달이 열릴 때마다 (또는 대상 직원이 바뀔 때마다) state 완전 초기화.
+  // useState 초기값은 첫 렌더에만 적용되므로 명시적 리셋 필수 —
+  // 그렇지 않으면 A 직원 모달을 열었다 닫고 B 직원 모달을 열 때 A 의 전화번호/선택이 남아있음.
   useEffect(() => {
-    if (open) fetchTypes()
-  }, [open])
+    if (open) {
+      fetchTypes()
+      setOtpPhone(defaultOtpPhone)
+      setMessageBody(DEFAULT_SMS_TEMPLATE)
+      setEditMode(false)
+      // selections 은 fetchTypes 성공 시 새로 세팅되므로 여기서 별도 처리 불필요
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, workerId, defaultOtpPhone])
 
   const typeMap = useMemo(() => {
     const m = new Map<string, DocumentTypeItem>()
