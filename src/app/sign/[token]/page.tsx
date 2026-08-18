@@ -125,11 +125,12 @@ export default function SignContractPage() {
   }
 
   const handleNextToOtp = () => {
-    if (hasSignerName && (!signerNamePadRef.current || signerNamePadRef.current.isEmpty())) {
+    // 서명·성명·직인은 템플릿의 플레이스홀더 유무와 무관하게 항상 필수
+    if (!signerNamePadRef.current || signerNamePadRef.current.isEmpty()) {
       setSigError('성명란에 성함을 손으로 써주세요.')
       return
     }
-    if (hasCustomerSignature && (!sigPadRef.current || sigPadRef.current.isEmpty())) {
+    if (!sigPadRef.current || sigPadRef.current.isEmpty()) {
       setSigError('서명란에 서명을 그려주세요.')
       return
     }
@@ -142,8 +143,8 @@ export default function SignContractPage() {
       return
     }
     setSigError('')
-    setSignerName(hasSignerName ? (signerNamePadRef.current?.toDataURL() ?? '') : '')
-    setSignatureDataUrl(hasCustomerSignature ? (sigPadRef.current?.toDataURL() ?? '') : '')
+    setSignerName(signerNamePadRef.current?.toDataURL() ?? '')
+    setSignatureDataUrl(sigPadRef.current?.toDataURL() ?? '')
     setModalStep('otp')
   }
 
@@ -261,9 +262,6 @@ export default function SignContractPage() {
   const canSign = article8 && article14
   const rawContractHtml = contractData?.html ?? ''
   const contractDisplayHtml = injectProcessFieldPlaceholders(rawContractHtml)
-  // 템플릿에 어떤 서명 변수가 있는지 감지
-  const hasCustomerSignature = rawContractHtml.includes('{{CUSTOMER_SIGNATURE}}')
-  const hasSignerName = rawContractHtml.includes('{{CUSTOMER_SIGNER_NAME}}')
 
   return (
     <div className="min-h-screen bg-surface-sunken">
@@ -396,50 +394,46 @@ export default function SignContractPage() {
         title={modalStep === 'signature' ? '서명' : '본인 인증'}
         description={
           modalStep === 'signature'
-            ? (hasSignerName || hasCustomerSignature ? '아래 서명란을 직접 작성해주세요.' : '직인 첨부 후 본인 인증을 진행해주세요.')
+            ? '아래 서명란을 직접 작성하고 직인을 첨부해주세요.'
             : '계약서 서명을 위해 전화번호로 인증번호를 발송합니다.'
         }
       >
         {modalStep === 'signature' ? (
           <div className="space-y-4 pt-1">
-            {hasSignerName && (
-              <div>
-                <label className="block text-sm font-medium text-text-primary mb-1">
-                  성명 <span className="text-state-danger">*</span>
-                </label>
-                <p className="text-xs text-text-tertiary mb-2">아래 칸에 성함을 직접 손으로 써주세요</p>
-                <SignaturePad ref={signerNamePadRef} />
-                <div className="flex justify-end mt-1">
-                  <button
-                    type="button"
-                    onClick={() => { signerNamePadRef.current?.clear(); setSigError('') }}
-                    className="text-xs text-text-tertiary hover:text-text-secondary transition-colors"
-                  >
-                    다시 쓰기
-                  </button>
-                </div>
+            <div>
+              <label className="block text-sm font-medium text-text-primary mb-1">
+                성명 <span className="text-state-danger">*</span>
+              </label>
+              <p className="text-xs text-text-tertiary mb-2">아래 칸에 성함을 직접 손으로 써주세요</p>
+              <SignaturePad ref={signerNamePadRef} />
+              <div className="flex justify-end mt-1">
+                <button
+                  type="button"
+                  onClick={() => { signerNamePadRef.current?.clear(); setSigError('') }}
+                  className="text-xs text-text-tertiary hover:text-text-secondary transition-colors"
+                >
+                  다시 쓰기
+                </button>
               </div>
-            )}
-            {hasCustomerSignature && (
-              <div>
-                <label className="block text-sm font-medium text-text-primary mb-1">
-                  서명 <span className="text-state-danger">*</span>
-                </label>
-                <p className="text-xs text-text-tertiary mb-2">아래 칸에 서명을 그려주세요</p>
-                <SignaturePad ref={sigPadRef} />
-                <div className="flex justify-end mt-1">
-                  <button
-                    type="button"
-                    onClick={() => sigPadRef.current?.clear()}
-                    className="text-xs text-text-tertiary hover:text-text-secondary transition-colors"
-                  >
-                    다시 그리기
-                  </button>
-                </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-text-primary mb-1">
+                서명 <span className="text-state-danger">*</span>
+              </label>
+              <p className="text-xs text-text-tertiary mb-2">아래 칸에 서명을 그려주세요</p>
+              <SignaturePad ref={sigPadRef} />
+              <div className="flex justify-end mt-1">
+                <button
+                  type="button"
+                  onClick={() => sigPadRef.current?.clear()}
+                  className="text-xs text-text-tertiary hover:text-text-secondary transition-colors"
+                >
+                  다시 그리기
+                </button>
               </div>
-            )}
+            </div>
 
-            <div className={hasSignerName || hasCustomerSignature ? 'border-t border-border-subtle pt-4' : ''}>
+            <div className="border-t border-border-subtle pt-4">
               <StampUpload
                 label={<>고객사 직인 <span className="text-state-danger">*</span></>}
                 hint="직인 이미지를 첨부해주세요. 이미지는 자동으로 2MB 이하로 압축됩니다."

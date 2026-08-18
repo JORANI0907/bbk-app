@@ -32,6 +32,7 @@ interface ContractDetail {
   contract_snapshot: { html?: string } | null
   customer_signature: string | null
   customer_signer_name: string | null
+  customer_stamp: string | null
   admin_signature: string | null
   signed_pdf_url: string | null
   voided_at: string | null
@@ -146,9 +147,12 @@ export default function AdminContractDetailPage() {
       const supplierStampHtml = supplierStamp
         ? `<img src="${supplierStamp}" style="display:block;max-width:100px;max-height:100px;object-fit:contain;" alt="공급사 직인" />`
         : stampFallback('(직인 없음)')
+      const customerStampHtml = contract?.customer_stamp
+        ? `<img src="${contract.customer_stamp}" style="display:block;max-width:100px;max-height:100px;object-fit:contain;" alt="고객사 직인" />`
+        : stampFallback('(직인 없음)')
       const htmlForPdf = rawHtml
         .replace(/\{\{SUPPLIER_STAMP\}\}/g, supplierStampHtml)
-        .replace(/\{\{CUSTOMER_STAMP\}\}/g, stampFallback('(직인 없음)'))
+        .replace(/\{\{CUSTOMER_STAMP\}\}/g, customerStampHtml)
 
       const pdfBase64 = await generateContractPdf({
         contractHtml: htmlForPdf,
@@ -313,8 +317,11 @@ export default function AdminContractDetailPage() {
       contract.customer_signer_name
         ? `<img src="${contract.customer_signer_name}" style="display:inline-block;max-width:160px;max-height:40px;object-fit:contain;vertical-align:middle;margin:4px 0;" />`
         : SIG_PLACEHOLDER('(서명자 성명)', 120, 40))
-    // 직인 플레이스홀더 — 스냅샷에 이미 주입됐으면 그대로, 아직 {{}} 남아 있으면 빈 박스
-    .replace(/\{\{CUSTOMER_STAMP\}\}/g, SIG_PLACEHOLDER('(고객사 직인)', 80, 80))
+    // 직인 플레이스홀더 — DB에 customer_stamp 가 있으면 그것으로 치환, 없으면 빈 박스
+    .replace(/\{\{CUSTOMER_STAMP\}\}/g,
+      contract.customer_stamp
+        ? `<img src="${contract.customer_stamp}" style="display:block;max-width:100px;max-height:100px;object-fit:contain;" alt="고객사 직인" />`
+        : SIG_PLACEHOLDER('(고객사 직인)', 80, 80))
     .replace(/\{\{SUPPLIER_STAMP\}\}/g, SIG_PLACEHOLDER('(공급사 직인)', 80, 80))
   const isVoided = contract.signing_status === 'voided'
 
@@ -523,7 +530,19 @@ export default function AdminContractDetailPage() {
                       <img
                         src={contract.customer_signature}
                         alt="고객 서명"
-                        className="max-h-12 border border-border rounded-md bg-white"
+                        className="max-h-12 border border-border rounded-md bg-white cursor-pointer"
+                        onClick={() => window.open(contract.customer_signature!, '_blank')}
+                      />
+                    </div>
+                  )}
+                  {contract.customer_stamp && (
+                    <div className="mt-1">
+                      <span className="text-xs text-text-tertiary block mb-0.5">직인</span>
+                      <img
+                        src={contract.customer_stamp}
+                        alt="고객사 직인"
+                        className="max-h-20 max-w-20 border border-border rounded-md bg-white object-contain cursor-pointer"
+                        onClick={() => window.open(contract.customer_stamp!, '_blank')}
                       />
                     </div>
                   )}
