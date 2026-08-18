@@ -71,10 +71,8 @@ export async function POST(request: NextRequest) {
         tax_invoice_issued: true,
         tax_invoice_issued_at: issuedAtIso,
         status: '계산서발행완료',
-        // 알림 발송 경로(api/admin/notify)와 dual-write 정합성 유지 —
-        // 계산서발행완료알림 발송 시 payment_status_detail도 동일하게 세팅되므로
-        // 수동 발행완료 버튼에서도 동일하게 세팅해야 세부화면 결제상태 필드가 동기화됨.
-        payment_status_detail: '계산서발행완료',
+        // 세금계산서 발행은 결제 전에도 가능 → payment_status_detail 은 건드리지 않음.
+        // 실제 결제완료는 별도 '결제완료' 버튼으로 처리해야 함.
       })
       .in('id', appIds)
       .select('id, customer_id')

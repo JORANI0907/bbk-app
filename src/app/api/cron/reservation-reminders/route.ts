@@ -295,9 +295,9 @@ export async function GET(request: NextRequest) {
     // 판정 규칙 (단순): 세부화면의 '결제완료' 버튼이 눌렸는가 = payment_status_detail 이 완료 값인가.
     //   - '계산서발행완료'는 세금계산서 발행만 된 상태로 결제 여부와 무관 → PAID 판정 제외.
     //   - 21일 시간 필터는 과거 관행으로 누적된 '계산서발행완료' 건이 재발송되는 사고 방지용 안전장치.
-    // UI 의 PAYMENT_COMPLETE_STATUSES 와 동일하게 유지 (계산서발행완료 포함).
-    // 세금계산서 발행 시 UI 상 결제완료 버튼이 활성화되므로 크론도 같은 규칙으로 skip.
-    const PAID_STATUS_DETAILS = ['결제완료','결제완료(잔금)','카드결제 완료','비과세','계산서발행완료']
+    // 세금계산서 발행은 결제 전에도 가능 → '계산서발행완료' 는 결제완료 상태에서 제외.
+    // UI 의 PAYMENT_COMPLETE_STATUSES 와 동일.
+    const PAID_STATUS_DETAILS = ['결제완료','결제완료(잔금)','카드결제 완료','비과세']
 
     // KST 기준 21일 전 날짜
     const cutoffDate = new Date(Date.now() + 9 * 60 * 60 * 1000 - 21 * 24 * 60 * 60 * 1000)
