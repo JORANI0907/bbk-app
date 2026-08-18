@@ -292,7 +292,14 @@ export async function GET(request: NextRequest) {
   //     결제완료 판정: service_applications 또는 customers 어느 쪽 payment_status_detail
   //     이라도 정산 완료 상태면 스킵 (관리자가 고객관리 UI에서 완료 처리한 케이스 방어)
   {
-    const PAID_STATUS_DETAILS = ['결제완료','결제완료(잔금)','카드결제 완료','비과세','계산서발행완료']
+    // 결제완료 판정: '계산서발행완료'는 실제 입금과 무관 (세금계산서만 발행된 상태) → PAID 제외.
+    // 시간 필터(construction_date >= today - 21일)로 과거 누적 잔여물 원천 차단.
+    // 실제 입금 timestamp(payment_confirmed_at, balance_paid_at) 있으면 완료로 취급.
+    const PAID_STATUS_DETAILS = ['결제완료','결제완료(잔금)','카드결제 완료','비과세']
+
+    // KST 기준 21일 전 날짜
+    const cutoffDate = new Date(Date.now() + 9 * 60 * 60 * 1000 - 21 * 24 * 60 * 60 * 1000)
+      .toISOString().slice(0, 10)
 
     type AppRow = Record<string, unknown> & {
       customers?: { payment_status_detail: string | null } | null
@@ -301,10 +308,14 @@ export async function GET(request: NextRequest) {
     const { data: apps } = await supabase
       .from('service_applications')
       .select('*, customers(payment_status_detail)')
-      .in('status', ['작업완료', '결제'])
+      // 세금계산서 발행 후에도 실제 결제 안 됐으면 알림 계속
+      .in('status', ['작업완료', '결제', '계산서발행완료'])
       .neq('service_type', '정기엔드케어')
       .gt('supply_amount', 0)
       .is('deleted_at', null)
+      .gte('construction_date', cutoffDate)
+      .is('payment_confirmed_at', null)
+      .is('balance_paid_at', null)
 
     let sent = 0, failed = 0, skipped = 0
     for (const app of ((apps ?? []) as AppRow[])) {
