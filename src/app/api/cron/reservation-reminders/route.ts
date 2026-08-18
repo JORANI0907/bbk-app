@@ -312,7 +312,9 @@ export async function GET(request: NextRequest) {
       .select('*, customers(payment_status_detail)')
       // 세금계산서 발행 후에도 실제 결제 안 됐으면 알림 계속
       .in('status', ['작업완료', '결제', '계산서발행완료'])
-      .neq('service_type', '정기엔드케어')
+      // 1회성케어 전용. 정기딥/정기엔드는 service_billings 기반의
+      // billing-payment-reminders 크론이 담당하므로 여기서 제외.
+      .eq('service_type', '1회성케어')
       .gt('supply_amount', 0)
       .is('deleted_at', null)
       .gte('construction_date', cutoffDate)
