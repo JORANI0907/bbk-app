@@ -23,7 +23,7 @@ const ALLOWED = [
   'unit_price', 'deposit', 'supply_amount', 'vat', 'balance',
   // 계약/정기 정보
   'customer_type', 'status', 'pipeline_status',
-  'billing_cycle', 'billing_amount',
+  'billing_cycle', 'billing_timing', 'billing_amount',
   'billing_start_date', 'billing_next_date',
   'contract_start_date', 'contract_end_date',
   'visit_interval_days', 'next_visit_date',
@@ -59,6 +59,7 @@ async function autoGenerateBillings(
     id: string
     customer_type: string | null
     billing_cycle: string | null
+    billing_timing?: 'prepaid' | 'postpaid' | null
     contract_start_date: string | null
     contract_end_date: string | null
     payment_date: number | null
@@ -73,6 +74,7 @@ async function autoGenerateBillings(
   // Phase 23: 일시정지 고객은 청구 생성 skip
   if (customer.status === 'paused') return { inserted: 0, skipped: 0 }
   const amount = computeBillingAmountFromCustomer(customer)
+  const timing = customer.billing_timing ?? 'prepaid'
   const input = {
     serviceType: customer.customer_type,
     billingCycle: customer.billing_cycle,
@@ -80,6 +82,7 @@ async function autoGenerateBillings(
     contractEndDate: customer.contract_end_date,
     paymentDay: customer.payment_date,
     billingAmount: amount,
+    billingTiming: timing,
   }
   if (!shouldAutoGenerateBillings(input)) return { inserted: 0, skipped: 0 }
 
@@ -114,6 +117,7 @@ async function autoGenerateBillings(
     due_date: s.due_date,
     status: 'pending' as const,
     service_type: customer.customer_type,
+    billing_timing: timing,
   }))
 
   const { error } = await supabase.from('service_billings').insert(rows)
@@ -433,7 +437,7 @@ export async function PATCH(request: NextRequest) {
   // Phase 22 v11: 계약 관련 필드가 변경됐거나 계약 조건이 충족되면 billings 재생성
   // regenerate=true: pending 레코드 삭제 후 현재 조건(billing_cycle 등)으로 전체 재생성
   // paid/overdue 등 non-pending 레코드는 보호됨
-  const billingRelevantChanged = ['billing_cycle', 'contract_start_date', 'contract_end_date',
+  const billingRelevantChanged = ['billing_cycle', 'billing_timing', 'contract_start_date', 'contract_end_date',
     'payment_date', 'supply_amount', 'vat', 'billing_amount', 'payment_method', 'customer_type']
     .some(k => k in rest)
   if (billingRelevantChanged) {
