@@ -80,11 +80,36 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
   try {
     await sendOTP(normalizedPhone, otp)
   } catch (smsError) {
+    const errMsg = smsError instanceof Error ? smsError.message : String(smsError)
+    console.error('[CONTRACT_OTP] SMS 발송 실패', {
+      contractId: contract.id,
+      phone: normalizedPhone,
+      error: errMsg,
+    })
+    await supabase.from('notification_history').insert({
+      category: 'sms',
+      type: '계약서OTP',
+      method: 'auto',
+      recipient_phone: normalizedPhone,
+      status: 'failed',
+      error_message: errMsg,
+      metadata: { contract_id: contract.id, purpose: 'contract_sign_otp' },
+    })
     return NextResponse.json(
-      { success: false, error: `SMS 발송에 실패했습니다: ${(smsError as Error).message}` },
+      { success: false, error: `SMS 발송에 실패했습니다: ${errMsg}` },
       { status: 500 },
     )
   }
+
+  // 성공 로그 (본문은 OTP 노출 방지를 위해 제외)
+  await supabase.from('notification_history').insert({
+    category: 'sms',
+    type: '계약서OTP',
+    method: 'auto',
+    recipient_phone: normalizedPhone,
+    status: 'sent',
+    metadata: { contract_id: contract.id, purpose: 'contract_sign_otp' },
+  })
 
   return NextResponse.json({ success: true, message: '인증번호가 발송되었습니다.' })
 }

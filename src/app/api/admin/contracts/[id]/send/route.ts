@@ -60,13 +60,49 @@ export async function POST(_request: NextRequest, { params }: RouteParams) {
     },
   }
 
-  const result = await sendByTemplate('CONTRACT_SEND', phone.replace(/-/g, ''), smsContext)
+  const normalizedPhone = phone.replace(/-/g, '')
+  const result = await sendByTemplate('CONTRACT_SEND', normalizedPhone, smsContext)
+
   if (!result.ok) {
+    // 실패 로그 남기기 (진단·감사용)
+    const errorMsg = result.details ? `${result.reason}: ${result.details}` : result.reason
+    console.error('[CONTRACT_SEND] SMS 발송 실패', {
+      contractId: params.id,
+      phone: normalizedPhone,
+      reason: result.reason,
+      details: result.details,
+    })
+    await supabase.from('notification_history').insert({
+      category: 'sms',
+      type: '계약서서명링크',
+      method: 'manual',
+      recipient_phone: normalizedPhone,
+      recipient_name: customers?.contact_name ?? customers?.business_name ?? null,
+      status: 'failed',
+      error_message: errorMsg,
+      metadata: { contract_id: params.id, template_code: 'CONTRACT_SEND' },
+    })
+
     return NextResponse.json(
-      { success: false, error: `SMS 발송 실패: ${result.reason}` },
+      {
+        success: false,
+        error: `SMS 발송 실패 (${result.reason})${result.details ? ` — ${result.details}` : ''}`,
+      },
       { status: 500 },
     )
   }
+
+  // 성공 로그
+  await supabase.from('notification_history').insert({
+    category: 'sms',
+    type: '계약서서명링크',
+    method: 'manual',
+    recipient_phone: normalizedPhone,
+    recipient_name: customers?.contact_name ?? customers?.business_name ?? null,
+    body: result.text,
+    status: 'sent',
+    metadata: { contract_id: params.id, template_id: result.templateId, sms_type: result.type },
+  })
 
   return NextResponse.json({ success: true, message: 'SMS가 발송되었습니다.' })
 }
