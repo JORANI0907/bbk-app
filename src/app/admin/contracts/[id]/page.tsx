@@ -142,18 +142,37 @@ export default function AdminContractDetailPage() {
       const rawHtml = contract?.contract_snapshot?.html ?? ''
       const businessName = contract?.customers?.business_name ?? ''
 
-      // PDF 생성 전 아직 남아있는 직인 플레이스홀더 치환
+      // PDF 생성 전 아직 남아있는 서명·직인 플레이스홀더 치환 (v1 영문 + v2 한글 양쪽)
       const stampFallback = (label: string) =>
         `<div style="display:block;width:80px;height:80px;border:1px dashed #bbb;border-radius:6px;text-align:center;line-height:80px;color:#ccc;font-size:11px;font-family:sans-serif;">${label}</div>`
-      const supplierStampHtml = supplierStamp
+      const sigFallback = (label: string, w = 200, h = 80) =>
+        `<div style="display:block;width:${w}px;height:${h}px;border:1px dashed #bbb;border-radius:6px;text-align:center;line-height:${h}px;color:#ccc;font-size:11px;font-family:sans-serif;">${label}</div>`
+      const supplierStampImg = supplierStamp
         ? `<img src="${supplierStamp}" style="display:block;max-width:100px;max-height:100px;object-fit:contain;" alt="공급사 직인" />`
         : stampFallback('(직인 없음)')
-      const customerStampHtml = contract?.customer_stamp
+      const customerStampImg = contract?.customer_stamp
         ? `<img src="${contract.customer_stamp}" style="display:block;max-width:100px;max-height:100px;object-fit:contain;" alt="고객사 직인" />`
         : stampFallback('(직인 없음)')
+      const adminSigImg = `<img src="${adminSig}" style="display:block;max-width:200px;max-height:80px;object-fit:contain;margin:8px 0;" alt="공급사 서명" />`
+      const customerSigImg = contract?.customer_signature
+        ? `<img src="${contract.customer_signature}" style="display:block;max-width:200px;max-height:80px;object-fit:contain;margin:8px 0;" alt="고객 서명" />`
+        : sigFallback('(고객 서명 없음)')
+      const customerSignerNameImg = contract?.customer_signer_name
+        ? `<img src="${contract.customer_signer_name}" style="display:inline-block;max-width:160px;max-height:40px;object-fit:contain;vertical-align:middle;margin:4px 0;" alt="서명자 성명" />`
+        : sigFallback('(성명 없음)', 120, 40)
       const htmlForPdf = rawHtml
-        .replace(/\{\{SUPPLIER_STAMP\}\}/g, supplierStampHtml)
-        .replace(/\{\{CUSTOMER_STAMP\}\}/g, customerStampHtml)
+        // v1 영문 변수
+        .replace(/\{\{SUPPLIER_STAMP\}\}/g, supplierStampImg)
+        .replace(/\{\{CUSTOMER_STAMP\}\}/g, customerStampImg)
+        .replace(/\{\{ADMIN_SIGNATURE\}\}/g, adminSigImg)
+        .replace(/\{\{CUSTOMER_SIGNATURE\}\}/g, customerSigImg)
+        .replace(/\{\{CUSTOMER_SIGNER_NAME\}\}/g, customerSignerNameImg)
+        // v2 한글 변수
+        .replace(/\{\{\s*공급사직인\s*\}\}/g, supplierStampImg)
+        .replace(/\{\{\s*고객사직인\s*\}\}/g, customerStampImg)
+        .replace(/\{\{\s*공급사서명\s*\}\}/g, adminSigImg)
+        .replace(/\{\{\s*고객서명\s*\}\}/g, customerSigImg)
+        .replace(/\{\{\s*고객성명\s*\}\}/g, customerSignerNameImg)
 
       const pdfBase64 = await generateContractPdf({
         contractHtml: htmlForPdf,
@@ -304,29 +323,38 @@ export default function AdminContractDetailPage() {
 
   const SIG_PLACEHOLDER = (label: string, w = 180, h = 60) =>
     `<div style="display:block;width:${w}px;height:${h}px;margin:8px 0;border:1px dashed #bbb;border-radius:6px;text-align:center;line-height:${h}px;color:#ccc;font-size:11px;font-family:sans-serif;">${label}</div>`
+
+  // 서명·직인 이미지 조각 (있으면 이미지, 없으면 dashed placeholder)
+  const customerSignatureHtml = contract.customer_signature
+    ? `<img src="${contract.customer_signature}" style="display:block;max-width:200px;max-height:80px;object-fit:contain;margin:8px 0;" alt="고객 서명" />`
+    : SIG_PLACEHOLDER('(고객 서명)')
+  const adminSignatureHtml = contract.admin_signature
+    ? `<img src="${contract.admin_signature}" style="display:block;max-width:200px;max-height:80px;object-fit:contain;margin:8px 0;" alt="공급사 서명" />`
+    : SIG_PLACEHOLDER('(공급사 서명)')
+  const customerSignerNameHtml = contract.customer_signer_name
+    ? `<img src="${contract.customer_signer_name}" style="display:inline-block;max-width:160px;max-height:40px;object-fit:contain;vertical-align:middle;margin:4px 0;" alt="서명자 성명" />`
+    : SIG_PLACEHOLDER('(서명자 성명)', 120, 40)
+  const customerStampHtml = contract.customer_stamp
+    ? `<img src="${contract.customer_stamp}" style="display:block;max-width:100px;max-height:100px;object-fit:contain;" alt="고객사 직인" />`
+    : SIG_PLACEHOLDER('(고객사 직인)', 80, 80)
+  const supplierStampHtml = contract.supplier_stamp
+    ? `<img src="${contract.supplier_stamp}" style="display:block;max-width:100px;max-height:100px;object-fit:contain;" alt="공급사 직인" />`
+    : SIG_PLACEHOLDER('(공급사 직인)', 80, 80)
+
   const rawSnapshot = contract.contract_snapshot?.html ?? ''
   const snapshotHtml = rawSnapshot
-    .replace(/\{\{CUSTOMER_SIGNATURE\}\}/g,
-      contract.customer_signature
-        ? `<img src="${contract.customer_signature}" style="display:block;max-width:200px;max-height:80px;object-fit:contain;margin:8px 0;" />`
-        : SIG_PLACEHOLDER('(고객 서명)'))
-    .replace(/\{\{ADMIN_SIGNATURE\}\}/g,
-      contract.admin_signature
-        ? `<img src="${contract.admin_signature}" style="display:block;max-width:200px;max-height:80px;object-fit:contain;margin:8px 0;" />`
-        : SIG_PLACEHOLDER('(관리자 서명)'))
-    .replace(/\{\{CUSTOMER_SIGNER_NAME\}\}/g,
-      contract.customer_signer_name
-        ? `<img src="${contract.customer_signer_name}" style="display:inline-block;max-width:160px;max-height:40px;object-fit:contain;vertical-align:middle;margin:4px 0;" />`
-        : SIG_PLACEHOLDER('(서명자 성명)', 120, 40))
-    // 직인 플레이스홀더 — DB에 customer_stamp 가 있으면 그것으로 치환, 없으면 빈 박스
-    .replace(/\{\{CUSTOMER_STAMP\}\}/g,
-      contract.customer_stamp
-        ? `<img src="${contract.customer_stamp}" style="display:block;max-width:100px;max-height:100px;object-fit:contain;" alt="고객사 직인" />`
-        : SIG_PLACEHOLDER('(고객사 직인)', 80, 80))
-    .replace(/\{\{SUPPLIER_STAMP\}\}/g,
-      contract.supplier_stamp
-        ? `<img src="${contract.supplier_stamp}" style="display:block;max-width:100px;max-height:100px;object-fit:contain;" alt="공급사 직인" />`
-        : SIG_PLACEHOLDER('(공급사 직인)', 80, 80))
+    // v1 영문 변수 (하위 호환)
+    .replace(/\{\{CUSTOMER_SIGNATURE\}\}/g, customerSignatureHtml)
+    .replace(/\{\{ADMIN_SIGNATURE\}\}/g, adminSignatureHtml)
+    .replace(/\{\{CUSTOMER_SIGNER_NAME\}\}/g, customerSignerNameHtml)
+    .replace(/\{\{CUSTOMER_STAMP\}\}/g, customerStampHtml)
+    .replace(/\{\{SUPPLIER_STAMP\}\}/g, supplierStampHtml)
+    // v2 한글 변수 (신규 템플릿)
+    .replace(/\{\{\s*고객서명\s*\}\}/g, customerSignatureHtml)
+    .replace(/\{\{\s*공급사서명\s*\}\}/g, adminSignatureHtml)
+    .replace(/\{\{\s*고객성명\s*\}\}/g, customerSignerNameHtml)
+    .replace(/\{\{\s*고객사직인\s*\}\}/g, customerStampHtml)
+    .replace(/\{\{\s*공급사직인\s*\}\}/g, supplierStampHtml)
   const isVoided = contract.signing_status === 'voided'
 
   return (

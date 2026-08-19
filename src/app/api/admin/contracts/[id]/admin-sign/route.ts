@@ -117,54 +117,27 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     }
   }
 
-  // 스냅샷에 관리자 서명·공급사 직인 반영
-  // 1) 플레이스홀더가 있으면 치환
-  // 2) 하나라도 빠져 있으면 계약서 하단에 자동 서명 블록 첨부
+  // 스냅샷에 관리자 서명·공급사 직인 반영 (v1 영문 + v2 한글 양쪽 지원)
   {
     const currentHtml = (contract.contract_snapshot as { html?: string } | null)?.html ?? ''
+
+    // 이미지 HTML 조각 (본문 인라인 치환용)
+    const adminSigImg = `<img src="${adminSignature}" style="display:block;max-width:200px;max-height:80px;object-fit:contain;margin:8px 0;" alt="관리자 서명" />`
+    const supplierStampImg = `<img src="${supplierStamp}" style="display:block;max-width:100px;max-height:100px;object-fit:contain;" alt="공급사 직인" />`
+
+    // v1 영문 변수 치환
     const injectVars: Record<string, string> = {}
-    const hasAdminSigPlaceholder = currentHtml.includes('{{ADMIN_SIGNATURE}}')
-    const hasSupplierStampPlaceholder = currentHtml.includes('{{SUPPLIER_STAMP}}')
+    if (currentHtml.includes('{{ADMIN_SIGNATURE}}')) injectVars.ADMIN_SIGNATURE = adminSigImg
+    if (currentHtml.includes('{{SUPPLIER_STAMP}}')) injectVars.SUPPLIER_STAMP = supplierStampImg
 
-    if (hasAdminSigPlaceholder) {
-      injectVars.ADMIN_SIGNATURE = `<img src="${adminSignature}" style="display:block;max-width:200px;max-height:80px;object-fit:contain;margin:8px 0;" alt="관리자 서명" />`
-    }
-    if (hasSupplierStampPlaceholder) {
-      injectVars.SUPPLIER_STAMP = `<img src="${supplierStamp}" style="display:block;max-width:100px;max-height:100px;object-fit:contain;" alt="공급사 직인" />`
-    }
-
-    const htmlAfterVars = Object.keys(injectVars).length > 0
+    const htmlAfterV1 = Object.keys(injectVars).length > 0
       ? renderTemplateWithVars(currentHtml, injectVars)
       : currentHtml
 
-    // 관리자 서명 블록: 플레이스홀더가 하나라도 빠져 있으면 계약서 하단에 자동 추가
-    const missing = !hasAdminSigPlaceholder || !hasSupplierStampPlaceholder
-    const adminBlockHtml = missing ? `
-<!-- BBK_BLOCK_START:admin-signature -->
-<div style="margin-top:24px;padding:20px;border:1px solid #d1d5db;border-radius:8px;background:#f9fafb;page-break-inside:avoid;">
-  <p style="font-weight:bold;color:#111827;margin:0 0 12px;font-size:13px;">■ 공급사(범빌드코리아) 서명 · 직인</p>
-  <table style="width:100%;border-collapse:collapse;font-size:12px;">
-    <tr>
-      <td style="padding:8px;vertical-align:middle;width:80px;color:#6b7280;">서명</td>
-      <td style="padding:8px;vertical-align:middle;">
-        <img src="${adminSignature}" style="max-height:60px;max-width:200px;display:inline-block;vertical-align:middle;" alt="관리자 서명" />
-      </td>
-    </tr>
-    <tr>
-      <td style="padding:8px;vertical-align:middle;color:#6b7280;">직인</td>
-      <td style="padding:8px;vertical-align:middle;">
-        <img src="${supplierStamp}" style="max-height:90px;max-width:90px;display:inline-block;vertical-align:middle;object-fit:contain;" alt="공급사 직인" />
-      </td>
-    </tr>
-    <tr>
-      <td style="padding:8px;vertical-align:middle;color:#6b7280;">확인일시</td>
-      <td style="padding:8px;vertical-align:middle;color:#374151;">${now}</td>
-    </tr>
-  </table>
-</div>
-<!-- BBK_BLOCK_END:admin-signature -->`.trim() : ''
-
-    const finalHtml = missing ? `${htmlAfterVars}\n${adminBlockHtml}` : htmlAfterVars
+    // v2 한글 변수 치환 (공급사서명 = 관리자 서명 이미지)
+    const finalHtml = htmlAfterV1
+      .replace(/\{\{\s*공급사서명\s*\}\}/g, adminSigImg)
+      .replace(/\{\{\s*공급사직인\s*\}\}/g, supplierStampImg)
 
     if (finalHtml !== currentHtml) {
       // 스냅샷의 다른 키(customer_info 등)는 보존하기 위해 spread 병합

@@ -122,54 +122,30 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ success: false, error: updateError.message }, { status: 500 })
   }
 
-  // 스냅샷에 성명·서명·직인 변수 치환 (존재하는 변수만)
+  // 스냅샷에 성명·서명·직인 변수 치환 (v1 영문 + v2 한글 양쪽 지원)
   const snapshot = contract.contract_snapshot as { html?: string } | null
   const currentHtml = snapshot?.html ?? ''
+
+  // 이미지 HTML 조각 (본문 인라인 치환용)
+  const signerNameImg = `<img src="${customerSignerName}" style="max-height:40px;max-width:160px;display:inline-block;vertical-align:middle;" alt="서명자 성명" />`
+  const signatureImg = `<img src="${customerSignature}" style="max-height:80px;max-width:200px;display:block;object-fit:contain;margin:8px 0;" alt="고객 서명" />`
+  const stampImg = `<img src="${customerStamp}" style="display:block;max-width:100px;max-height:100px;object-fit:contain;" alt="고객사 직인" />`
+
+  // v1 영문 변수 치환
   const injectVars: Record<string, string> = {}
+  if (currentHtml.includes('{{CUSTOMER_SIGNER_NAME}}')) injectVars.CUSTOMER_SIGNER_NAME = signerNameImg
+  if (currentHtml.includes('{{CUSTOMER_SIGNATURE}}')) injectVars.CUSTOMER_SIGNATURE = signatureImg
+  if (currentHtml.includes('{{CUSTOMER_STAMP}}')) injectVars.CUSTOMER_STAMP = stampImg
 
-  const hasSignerNamePlaceholder = currentHtml.includes('{{CUSTOMER_SIGNER_NAME}}')
-  const hasSignaturePlaceholder = currentHtml.includes('{{CUSTOMER_SIGNATURE}}')
-  const hasStampPlaceholder = currentHtml.includes('{{CUSTOMER_STAMP}}')
+  const htmlAfterV1 = Object.keys(injectVars).length > 0
+    ? renderTemplateWithVars(currentHtml, injectVars)
+    : currentHtml
 
-  if (hasSignerNamePlaceholder) {
-    injectVars.CUSTOMER_SIGNER_NAME = `<img src="${customerSignerName}" style="max-height:40px;max-width:160px;display:inline-block;vertical-align:middle;" alt="서명자 성명" />`
-  }
-  if (hasSignaturePlaceholder) {
-    injectVars.CUSTOMER_SIGNATURE = `<img src="${customerSignature}" style="max-height:80px;max-width:200px;display:block;object-fit:contain;margin:8px 0;" alt="고객 서명" />`
-  }
-  if (hasStampPlaceholder) {
-    injectVars.CUSTOMER_STAMP = `<img src="${customerStamp}" style="display:block;max-width:100px;max-height:100px;object-fit:contain;" alt="고객사 직인" />`
-  }
-
-  // 템플릿에 서명 관련 플레이스홀더가 하나라도 빠져 있으면 → 계약서 하단에 별도 서명 블록 자동 추가.
-  // (스냅샷 HTML만으로도 서명·성명·직인이 완전히 보이도록 보장)
-  const missingSignatureFields = !hasSignaturePlaceholder || !hasSignerNamePlaceholder || !hasStampPlaceholder
-  const customerSignatureBlockHtml = missingSignatureFields ? `
-<!-- BBK_BLOCK_START:customer-signature -->
-<div style="margin-top:24px;padding:20px;border:1px solid #d1d5db;border-radius:8px;background:#fafafa;page-break-inside:avoid;">
-  <p style="font-weight:bold;color:#111827;margin:0 0 12px;font-size:13px;">■ 고객 서명 · 직인</p>
-  <table style="width:100%;border-collapse:collapse;font-size:12px;">
-    <tr>
-      <td style="padding:8px;vertical-align:middle;width:80px;color:#6b7280;">성명</td>
-      <td style="padding:8px;vertical-align:middle;">
-        <img src="${customerSignerName}" style="max-height:40px;max-width:180px;display:inline-block;vertical-align:middle;" alt="서명자 성명" />
-      </td>
-    </tr>
-    <tr>
-      <td style="padding:8px;vertical-align:middle;color:#6b7280;">서명</td>
-      <td style="padding:8px;vertical-align:middle;">
-        <img src="${customerSignature}" style="max-height:60px;max-width:200px;display:inline-block;vertical-align:middle;" alt="고객 서명" />
-      </td>
-    </tr>
-    <tr>
-      <td style="padding:8px;vertical-align:middle;color:#6b7280;">직인</td>
-      <td style="padding:8px;vertical-align:middle;">
-        <img src="${customerStamp}" style="max-height:90px;max-width:90px;display:inline-block;vertical-align:middle;object-fit:contain;" alt="고객사 직인" />
-      </td>
-    </tr>
-  </table>
-</div>
-<!-- BBK_BLOCK_END:customer-signature -->`.trim() : ''
+  // v2 한글 변수 치환 (renderTemplateWithVars 는 [A-Z0-9_]+ 만 매칭하므로 별도 정규식으로 처리)
+  const htmlAfterVars = htmlAfterV1
+    .replace(/\{\{\s*고객성명\s*\}\}/g, signerNameImg)
+    .replace(/\{\{\s*고객서명\s*\}\}/g, signatureImg)
+    .replace(/\{\{\s*고객사직인\s*\}\}/g, stampImg)
 
   // 확약 사항 박스: 고객이 체크한 3개 항목(제8조, 제14조, 대표자 본인 확약) 을 계약서 본문 하단에 박제.
   // 변조 방지를 위해 문구는 서버 상수로 고정. 서명일시·IP 도 함께 기록.
@@ -192,10 +168,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 </div>
 <!-- BBK_BLOCK_END:customer-agreement -->`.trim()
 
-  const htmlAfterVars = Object.keys(injectVars).length > 0
-    ? renderTemplateWithVars(currentHtml, injectVars)
-    : currentHtml
-  const finalHtml = `${htmlAfterVars}\n${customerSignatureBlockHtml}\n${agreementBoxHtml}`
+  const finalHtml = `${htmlAfterVars}\n${agreementBoxHtml}`
 
   await supabase
     .from('contracts')
