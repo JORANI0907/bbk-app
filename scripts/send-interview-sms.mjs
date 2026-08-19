@@ -13,7 +13,7 @@ if (!apiKey || !apiSecret || !from) {
 const service = new SolapiMessageService(apiKey, apiSecret)
 
 const PLACE = '경기 성남시 중원구 둔촌대로268번길 22 (하대원동) 201호'
-const CONTACT = '010-5434-4877'
+const CONTACT = '1522-9597'
 const DEADLINE = '5월 12일(월) 12시'
 
 const applicants = [

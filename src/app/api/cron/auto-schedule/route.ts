@@ -63,7 +63,7 @@ function buildSmsMessage(
     `[BBK 공간케어] ${contact_name ?? ''}님, ${business_name}의 ${month}월 방문 일정을 안내드립니다.\n` +
     `방문일: ${dateStr}\n` +
     `일정 변경을 원하시면 고객 포털에서 요청해주세요.\n` +
-    `문의: 010-5434-4877`
+    `문의: 1522-9597`
   )
 }
 

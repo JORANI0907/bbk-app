@@ -85,7 +85,7 @@ export default async function CustomerCareManualPage() {
       ))}
 
       <p className="text-center text-xs text-text-tertiary pb-2 break-keep">
-        케어매뉴얼 변경 문의: <span className="text-text-secondary font-medium">010-5434-4877</span>
+        케어매뉴얼 변경 문의: <span className="text-text-secondary font-medium">1522-9597</span>
       </p>
     </div>
   )

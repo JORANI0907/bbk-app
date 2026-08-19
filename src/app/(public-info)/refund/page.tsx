@@ -37,7 +37,7 @@ const sections = [
   {
     title: '4. 환불 처리 절차',
     content: `[환불 요청 방법]
-• 전화: 010-5434-4877 (평일·토요일 09:00 - 18:00)
+• 전화: 1522-9597 (평일·토요일 09:00 - 18:00)
 • 이메일: sunrise@bbkorea.co.kr
 • 카카오상담: http://pf.kakao.com/_JTNxin
 
@@ -95,7 +95,7 @@ export default function RefundPage() {
         className="rounded-2xl border border-white/10 p-4"
         style={{ background: 'rgba(255,255,255,0.05)' }}
       >
-        <p className="text-white/40 text-xs">문의: 010-5434-4877 | sunrise@bbkorea.co.kr</p>
+        <p className="text-white/40 text-xs">문의: 1522-9597 | sunrise@bbkorea.co.kr</p>
         <p className="text-white/40 text-xs mt-1">범빌드코리아 | 대표: 조동환 | 사업자등록번호: 398-81-04260</p>
         <p className="text-white/40 text-xs mt-1">경기도 성남시 중원구 둔촌대로268번길 22, 1동 2층 201호</p>
         <p className="text-white/40 text-xs mt-1">통신판매업 신고번호: 제 2026-성남중원-0489호</p>

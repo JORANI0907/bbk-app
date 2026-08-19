@@ -3,7 +3,7 @@ import { SolapiMessageService } from 'solapi'
 
 const apiKey    = process.env.SOLAPI_API_KEY
 const apiSecret = process.env.SOLAPI_API_SECRET
-const from      = process.env.SOLAPI_SENDER_NUMBER   // 010-5434-4877
+const from      = process.env.SOLAPI_SENDER_NUMBER   // 1522-9597
 
 if (!apiKey || !apiSecret || !from) {
   console.error('❌ Solapi 환경변수 누락 (SOLAPI_API_KEY / SOLAPI_API_SECRET / SOLAPI_SENDER_NUMBER)')
@@ -53,7 +53,7 @@ BBK 공간케어입니다.
 app.bbkorea.co.kr/quote
 
 감사합니다.
-BBK 코리아 ☎ 010-5434-4877`
+BBK 코리아 ☎ 1522-9597`
 }
 
 let successCount = 0

@@ -181,7 +181,7 @@ export default function LoginPage() {
 
               <p className="text-center text-xs text-white/50 pt-1">
                 로그인 정보는{' '}
-                <span className="text-sky-300 font-medium">010-5434-4877</span>로 문의하세요
+                <span className="text-sky-300 font-medium">1522-9597</span>로 문의하세요
               </p>
             </div>
           </div>

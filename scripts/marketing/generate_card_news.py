@@ -315,7 +315,7 @@ def build_cta_card(cta: dict) -> str:
   <div class="cta-title">{title}</div>
   <div class="cta-body">{body}</div>
   <div class="contact">
-    <div class="contact-chip">📞 010-5434-4877</div>
+    <div class="contact-chip">📞 1522-9597</div>
     <div class="contact-chip">💬 카톡채널: BBK</div>
   </div>
   <div class="brand-bar"><span class="logo">BBK 공간케어</span><span class="page">5 / 5</span></div>

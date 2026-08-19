@@ -67,8 +67,8 @@ export default async function CustomerGuidePage() {
             <div className="flex-1">
               <p className="text-xs font-semibold text-text-secondary mb-1">연락처</p>
               <div className="flex flex-col gap-0.5">
-                <a href="tel:01054344877" className="text-sm font-semibold text-text-primary hover:text-brand-600 transition-colors">
-                  010-5434-4877
+                <a href="tel:15229597" className="text-sm font-semibold text-text-primary hover:text-brand-600 transition-colors">
+                  1522-9597
                 </a>
               </div>
             </div>
@@ -213,7 +213,7 @@ export default async function CustomerGuidePage() {
             <p className="text-xs text-text-secondary mt-1 leading-normal">
               방문일 <span className="font-semibold text-text-primary">7일 전</span>까지 가능합니다.
               <br />
-              이내 변경은 고객센터(<span className="text-text-secondary font-medium">010-5434-4877</span>)로 직접 연락 바랍니다.
+              이내 변경은 고객센터(<span className="text-text-secondary font-medium">1522-9597</span>)로 직접 연락 바랍니다.
             </p>
           </div>
           {upcomingSchedules.length > 0 ? (

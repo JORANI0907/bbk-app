@@ -255,7 +255,7 @@ def build_checklist_prompt(content: dict, char: str, platform: str) -> str:
     contact_block = f"""
 ■ 하단 연락처 / 푸터
   배경: 다크네이비 그라디언트
-  전화: 📞 {cta.get('text', '010-5434-4877')}
+  전화: 📞 {cta.get('text', '1522-9597')}
   웹사이트: {cta.get('website', 'bbkorea.co.kr')}
   우측: BUMBUILDKOREA 로고 (흰색)
 """
@@ -321,7 +321,7 @@ def build_detail_prompt(content: dict, char: str, platform: str) -> str:
     contact_block = f"""
 ■ 하단 푸터
   배경: 다크네이비 그라디언트
-  좌측: 📞 {cta.get('text', '010-5434-4877')} / {cta.get('website', 'bbkorea.co.kr')}
+  좌측: 📞 {cta.get('text', '1522-9597')} / {cta.get('website', 'bbkorea.co.kr')}
   우측: BBK 로고 (흰색 굵은 고딕)
 """
 
@@ -368,7 +368,7 @@ def build_steps_prompt(content: dict, char: str, platform: str) -> str:
     contact_block = f"""
 ■ 하단 푸터
   배경: 다크네이비 그라디언트
-  📞 {cta.get('text', '010-5434-4877')} / {cta.get('website', 'bbkorea.co.kr')}
+  📞 {cta.get('text', '1522-9597')} / {cta.get('website', 'bbkorea.co.kr')}
   BBK 로고
 """
 
@@ -414,7 +414,7 @@ def build_info_prompt(content: dict, char: str, platform: str) -> str:
 
     contact_block = f"""
 ■ 하단 푸터
-  📞 {cta.get('text', '010-5434-4877')} / {cta.get('website', 'bbkorea.co.kr')}
+  📞 {cta.get('text', '1522-9597')} / {cta.get('website', 'bbkorea.co.kr')}
   BBK 로고
 """
 

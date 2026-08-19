@@ -38,7 +38,7 @@ export function GlobalFooter() {
           <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
             <span>
               대표전화 :{' '}
-              <a href="tel:01054344877" className="hover:text-text-secondary">010-5434-4877</a>
+              <a href="tel:15229597" className="hover:text-text-secondary">1522-9597</a>
             </span>
             <Sep />
             <span>

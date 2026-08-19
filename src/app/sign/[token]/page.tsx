@@ -221,7 +221,7 @@ export default function SignContractPage() {
             서명 링크의 유효기간(7일)이 지났습니다.<br />
             담당자에게 연락하여 링크 재발송을 요청해주세요.
           </p>
-          <p className="text-sm text-text-tertiary">010-5434-4877</p>
+          <p className="text-sm text-text-tertiary">1522-9597</p>
         </div>
       </div>
     )
@@ -238,7 +238,7 @@ export default function SignContractPage() {
             담당자가 최종 확인 후 계약이 성립됩니다.
           </p>
           <p className="text-xs text-text-tertiary">
-            문의: 010-5434-4877 / sunrise@bbkorea.co.kr
+            문의: 1522-9597 / sunrise@bbkorea.co.kr
           </p>
         </div>
       </div>
@@ -252,7 +252,7 @@ export default function SignContractPage() {
           <AlertTriangle size={40} className="mx-auto text-state-warning" />
           <h1 className="text-lg font-bold text-text-primary">접근할 수 없습니다</h1>
           <p className="text-sm text-text-secondary leading-relaxed">{errorMessage}</p>
-          <p className="text-xs text-text-tertiary">010-5434-4877</p>
+          <p className="text-xs text-text-tertiary">1522-9597</p>
         </div>
       </div>
     )

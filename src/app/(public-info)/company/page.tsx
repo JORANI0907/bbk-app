@@ -16,7 +16,7 @@ const businessInfo: InfoRow[] = [
   { label: '법인 사업자등록번호', value: '398-81-04260' },
   { label: '통신판매업 신고번호', value: '제 2026-성남중원-0489호' },
   { label: '사업장 주소',         value: '경기도 성남시 중원구 둔촌대로268번길 22, 2층 201호' },
-  { label: '대표전화',            value: '010-5434-4877' },
+  { label: '대표전화',            value: '1522-9597' },
   { label: '이메일',              value: 'sunrise@bbkorea.co.kr' },
   { label: '운영시간',            value: '평일·토요일 09:00 – 18:00 (일요일·공휴일 휴무)' },
 ]

@@ -101,7 +101,7 @@ export async function sendPayslipSMS(opts: {
     `${amountLine}` +
     `▼ PDF 다운로드 (7일간 유효)\n${opts.downloadUrl}\n\n` +
     `${emailLine}\n\n` +
-    `문의: 010-5434-4877\n범빌드코리아`
+    `문의: 1522-9597\n범빌드코리아`
   await sendSmsOrLms(opts.toPhone, text, { subject: `[BBK] ${opts.monthLabel} 급여명세서` })
 }
 
@@ -120,7 +120,7 @@ export async function sendSubscriptionPromoSMS(phone: string, customerName: stri
     `─────────────────────────\n\n` +
     `매월 전문 관리로 처음처럼 깨끗한\n주방을 유지해보세요.\n\n` +
     `공간케어 서비스 자세히보기 👉 https://bbkorea.co.kr/\n\n` +
-    `📞 010-5434-4877\n` +
+    `📞 1522-9597\n` +
     `💬 카카오톡 채팅: http://pf.kakao.com/_JTNxin/chat\n\n` +
     `무료수신거부 080-500-4233`
 

@@ -44,7 +44,7 @@ export default function DemoGuidePage() {
           <div className="flex items-center justify-between">
             <span className="text-text-tertiary">연락처</span>
             <div className="flex flex-col items-end">
-              <a href="tel:01054344877" className="font-semibold text-text-primary">010-5434-4877</a>
+              <a href="tel:15229597" className="font-semibold text-text-primary">1522-9597</a>
             </div>
           </div>
           <div className="flex items-center justify-between">
@@ -79,7 +79,7 @@ export default function DemoGuidePage() {
             <br />
             ※ 모든 금액은 부가세(VAT 10%) 포함 기준입니다.
             <br />
-            ※ 예약 및 상세 견적은 전화(010-5434-4877) 또는 이메일로 문의해 주세요.
+            ※ 예약 및 상세 견적은 전화(1522-9597) 또는 이메일로 문의해 주세요.
           </p>
         </div>
       </section>

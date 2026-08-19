@@ -65,13 +65,13 @@ const sections = [
 
 요청 방법: 아래 연락처로 문의하시면 지체 없이 처리합니다.
 이메일: sunrise@bbkorea.co.kr
-전화: 010-5434-4877`,
+전화: 1522-9597`,
   },
   {
     title: '7. 개인정보 보호책임자',
     content: `성명: 조동환 (대표)
 소속: 범빌드코리아
-전화: 010-5434-4877
+전화: 1522-9597
 이메일: sunrise@bbkorea.co.kr`,
   },
   {
@@ -104,7 +104,7 @@ export default function PrivacyPage() {
         className="rounded-2xl border border-white/10 p-4"
         style={{ background: 'rgba(255,255,255,0.05)' }}
       >
-        <p className="text-white/40 text-xs">문의: 010-5434-4877 | sunrise@bbkorea.co.kr</p>
+        <p className="text-white/40 text-xs">문의: 1522-9597 | sunrise@bbkorea.co.kr</p>
         <p className="text-white/40 text-xs mt-1">범빌드코리아 | 사업자등록번호: 398-81-04260</p>
         <p className="text-white/40 text-xs mt-1">경기도 성남시 중원구 둔촌대로268번길 22, 1동 2층 201호</p>
       </div>

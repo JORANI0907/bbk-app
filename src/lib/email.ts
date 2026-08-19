@@ -48,7 +48,7 @@ export async function sendPayslipEmail(opts: {
       ${opts.downloadUrl ? `<p><a href="${opts.downloadUrl}" style="display:inline-block;padding:10px 18px;background:#1a3a5c;color:#fff;border-radius:8px;text-decoration:none;font-weight:600;">웹에서 다운로드</a></p>` : ''}
       <hr style="border:none;border-top:1px solid #eee;margin:24px 0;" />
       <p style="font-size:12px;color:#999;">
-        문의: 010-5434-4877 / sunrise@bbkorea.co.kr<br>
+        문의: 1522-9597 / sunrise@bbkorea.co.kr<br>
         범빌드코리아 (BBK Korea)
       </p>
     </div>

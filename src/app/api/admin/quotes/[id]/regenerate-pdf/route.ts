@@ -180,7 +180,7 @@ export async function POST(
     companyName:    settings?.company_name    ?? 'BBK 공간케어',
     companyCeo:     settings?.company_ceo     ?? '박범건',
     companyBizNo:   settings?.company_biz_no  ?? '298-78-00455',
-    companyPhone:   settings?.company_phone   ?? '010-5434-4877',
+    companyPhone:   settings?.company_phone   ?? '1522-9597',
     companyAddress: settings?.company_address ?? '경기도 성남시',
     bankName:          settings?.bank_name           ?? undefined,
     bankAccountNumber: settings?.bank_account_number ?? undefined,

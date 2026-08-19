@@ -84,7 +84,7 @@ const sections = [
 법인 사업자등록번호: 398-81-04260
 개인사업자등록번호: 298-78-00455
 주소: 경기도 성남시 중원구 둔촌대로268번길 22, 1동 2층 201호
-전화: 010-5434-4877
+전화: 1522-9597
 이메일: sunrise@bbkorea.co.kr
 통신판매업 신고번호: 제 2026-성남중원-0489호
 호스팅: Vercel Inc.
@@ -115,7 +115,7 @@ export default function TermsPage() {
         className="rounded-2xl border border-white/10 p-4"
         style={{ background: 'rgba(255,255,255,0.05)' }}
       >
-        <p className="text-white/40 text-xs">문의: 010-5434-4877 | sunrise@bbkorea.co.kr</p>
+        <p className="text-white/40 text-xs">문의: 1522-9597 | sunrise@bbkorea.co.kr</p>
         <p className="text-white/40 text-xs mt-1">범빌드코리아 | 대표: 조동환 | 사업자등록번호: 398-81-04260</p>
         <p className="text-white/40 text-xs mt-1">경기도 성남시 중원구 둔촌대로268번길 22, 1동 2층 201호</p>
         <div className="mt-3">

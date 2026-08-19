@@ -138,7 +138,7 @@ export default function PortOnePayPage() {
         <div className="text-center">
           <p className="text-red-400 font-semibold mb-2">오류</p>
           <p className="text-white/60 text-sm">{message}</p>
-          <p className="text-white/40 text-xs mt-4">문의: 010-5434-4877</p>
+          <p className="text-white/40 text-xs mt-4">문의: 1522-9597</p>
         </div>
       </div>
     )
@@ -157,7 +157,7 @@ export default function PortOnePayPage() {
           <p className="text-white/60 text-sm">
             {alreadyPaid ? '이미 결제가 완료된 건입니다.' : message}
           </p>
-          <p className="text-white/40 text-xs mt-4">BBK 공간케어 · 010-5434-4877</p>
+          <p className="text-white/40 text-xs mt-4">BBK 공간케어 · 1522-9597</p>
         </div>
       </div>
     )
@@ -257,7 +257,7 @@ export default function PortOnePayPage() {
             평일·토요일 09:00 - 18:00 (일요일·공휴일 휴무)
           </p>
           <p className="text-white/60 text-xs mt-1.5">
-            📞 <a href="tel:010-5434-4877" className="text-sky-300 hover:text-sky-200">010-5434-4877</a>
+            📞 <a href="tel:1522-9597" className="text-sky-300 hover:text-sky-200">1522-9597</a>
             {' · '}
             ✉ <a href="mailto:sunrise@bbkorea.co.kr" className="text-sky-300 hover:text-sky-200">sunrise@bbkorea.co.kr</a>
           </p>
