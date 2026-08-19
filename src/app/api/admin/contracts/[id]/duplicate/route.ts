@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
+import { restoreSignaturePlaceholders } from '@/lib/contractTemplate'
 import crypto from 'crypto'
 
 type RouteParams = { params: { id: string } }
@@ -40,17 +41,24 @@ function sanitizeSnapshotForDuplicate(html: string): string {
   sanitized = truncateBeforeSignature(sanitized, '■ 고객 서명 · 직인')
   sanitized = truncateBeforeSignature(sanitized, '■ 공급사(범빌드코리아) 서명')
 
-  // 3) 서명 이미지 → 원본 플레이스홀더 복원 (계약서 본문 내 치환된 것)
+  // 3) 서명 이미지(complete 상태 원본) → v2 한글 변수로 복원.
+  //    v1 영문 변수가 아니라 v2 로 되돌려야 신규 계약서 흐름(저장/서명/렌더)과 정합.
+  //    ⚠️ 공급사 서명 이미지는 alt="공급사 서명"(신규) 또는 alt="관리자 서명"(구버전) 두 형태.
   const altToPlaceholder: Array<[RegExp, string]> = [
-    [/<img\b[^>]*\balt="고객 서명"[^>]*\/?>/g, '{{CUSTOMER_SIGNATURE}}'],
-    [/<img\b[^>]*\balt="서명자 성명"[^>]*\/?>/g, '{{CUSTOMER_SIGNER_NAME}}'],
-    [/<img\b[^>]*\balt="고객사 직인"[^>]*\/?>/g, '{{CUSTOMER_STAMP}}'],
-    [/<img\b[^>]*\balt="관리자 서명"[^>]*\/?>/g, '{{ADMIN_SIGNATURE}}'],
-    [/<img\b[^>]*\balt="공급사 직인"[^>]*\/?>/g, '{{SUPPLIER_STAMP}}'],
+    [/<img\b[^>]*\balt="고객 서명"[^>]*\/?>/g,   '{{고객서명}}'],
+    [/<img\b[^>]*\balt="서명자 성명"[^>]*\/?>/g, '{{고객성명}}'],
+    [/<img\b[^>]*\balt="고객사 직인"[^>]*\/?>/g, '{{고객사직인}}'],
+    [/<img\b[^>]*\balt="공급사 서명"[^>]*\/?>/g, '{{공급사서명}}'],
+    [/<img\b[^>]*\balt="관리자 서명"[^>]*\/?>/g, '{{공급사서명}}'],
+    [/<img\b[^>]*\balt="공급사 직인"[^>]*\/?>/g, '{{공급사직인}}'],
   ]
   for (const [pattern, placeholder] of altToPlaceholder) {
     sanitized = sanitized.replace(pattern, placeholder)
   }
+
+  // 4) draft 상태 원본이면 서명 이미지 대신 dashed <span> 이 있을 수 있음 →
+  //    이것도 v2 변수로 복원해 신규 흐름과 정합.
+  sanitized = restoreSignaturePlaceholders(sanitized)
 
   return sanitized.trim()
 }
