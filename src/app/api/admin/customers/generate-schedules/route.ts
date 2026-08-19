@@ -174,17 +174,103 @@ export async function POST(request: NextRequest) {
       continue
     }
 
-    // Phase 5-C: regenerate 모드 — startDate~endDate 미완료 일정 먼저 soft-delete
-    // (work_status='completed'인 것은 이력 보존 목적으로 유지)
+    // regenerate 모드 = "수정 반영":
+    //   1) 기간 내 미완료 회차 중 새 방문일정 날짜와 겹치는 것 → 마스터 필드 재복사 (UPDATE)
+    //   2) 겹치지 않는 미완료 회차 → soft-delete (기존 동작)
+    //   3) 새 방문일정 중 회차 없는 날짜 → 아래 INSERT 로직에서 신규 생성
+    //   4) 완료된 회차(work_status='completed')는 이력 보존 위해 손대지 않음
     if (regenerate) {
-      await supabase
+      // 기간 내 미완료 회차 조회
+      const { data: existingApps } = await supabase
         .from('service_applications')
-        .update({ deleted_at: new Date().toISOString() })
+        .select('id, construction_date, business_name')
         .eq('customer_id', customer.id)
         .gte('construction_date', startDateStr)
         .lte('construction_date', endDateStr)
-        .or('work_status.is.null,work_status.neq.completed')
         .is('deleted_at', null)
+        .or('work_status.is.null,work_status.neq.completed')
+
+      const scheduledSet = new Set(scheduledDates)
+      const toKeepIds: string[] = []
+      const toDeleteIds: string[] = []
+      const keptApps: Array<{ id: string; construction_date: string; business_name: string }> = []
+      for (const app of existingApps ?? []) {
+        if (!app.id || !app.construction_date) continue
+        if (scheduledSet.has(app.construction_date)) {
+          toKeepIds.push(app.id)
+          keptApps.push({
+            id: app.id,
+            construction_date: app.construction_date,
+            business_name: app.business_name ?? customer.business_name,
+          })
+        } else {
+          toDeleteIds.push(app.id)
+        }
+      }
+
+      // 1) 겹치지 않는 미완료 회차 삭제
+      if (toDeleteIds.length > 0) {
+        await supabase
+          .from('service_applications')
+          .update({ deleted_at: new Date().toISOString() })
+          .in('id', toDeleteIds)
+      }
+
+      // 2) 유지되는 회차의 마스터 필드 재복사 (스냅샷 갱신)
+      if (toKeepIds.length > 0) {
+        const isAnnualForResync = customer.billing_cycle === '연간'
+        const resyncSupply =
+          !isAnnualForResync && customer.customer_type === '정기딥케어' && customer.billing_cycle === '월간'
+            ? (customer.billing_amount || null)
+            : null
+
+        const resyncFields = {
+          business_name: customer.business_name,
+          owner_name: customer.contact_name || customer.business_name,
+          phone: customer.contact_phone || '',
+          email: customer.email || null,
+          platform_nickname: customer.platform_nickname || null,
+          business_number: customer.business_number || null,
+          account_number: customer.account_number || null,
+          address: customer.address || '',
+          payment_method: customer.payment_method || null,
+          business_hours_start: customer.business_hours_start || null,
+          business_hours_end: customer.business_hours_end || null,
+          elevator: customer.elevator || null,
+          building_access: customer.building_access || null,
+          parking: customer.parking_info || null,
+          access_method: customer.access_method || null,
+          request_notes: customer.special_notes || null,
+          care_scope: customer.care_scope || null,
+          admin_request_notes: customer.admin_notes || null,
+          admin_notes: customer.notes || null,
+          service_type: customer.customer_type,
+          assigned_to: customer.assigned_user_id || null,
+          unit_price_per_visit: isAnnualForResync ? null : (customer.unit_price || null),
+          supply_amount: resyncSupply,
+        }
+        await supabase
+          .from('service_applications')
+          .update(resyncFields)
+          .in('id', toKeepIds)
+
+        // 3) work_assignments 재배정: 기존 배정 삭제 후 마스터 assigned_worker_id 로 재삽입
+        //    회차별 다중 배정도 마스터 기준으로 초기화 (수정 반영 의도상 정상)
+        await supabase.from('work_assignments').delete().in('application_id', toKeepIds)
+        if (customer.assigned_worker_id) {
+          const workerRows = keptApps.map((app) => ({
+            worker_id: customer.assigned_worker_id!,
+            application_id: app.id,
+            construction_date: app.construction_date.slice(0, 10),
+            business_name: app.business_name,
+            customer_id: customer.id,
+            service_type: customer.customer_type,
+          }))
+          await supabase
+            .from('work_assignments')
+            .upsert(workerRows, { onConflict: 'worker_id,application_id', ignoreDuplicates: true })
+        }
+      }
     }
 
     // Phase 5-D: cleanup_only 모드 — 새 방문일정에 없는 미완료 일정만 삭제, INSERT 스킵
