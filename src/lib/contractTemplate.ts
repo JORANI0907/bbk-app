@@ -161,6 +161,50 @@ export function renderContractPreview(
   return renderContractV2(htmlBody, customerInfo, {}, today)
 }
 
+/**
+ * 스냅샷 저장용 렌더 — 인적사항표와 오늘날짜만 치환하고, 서명·직인·성명 변수는
+ * 그대로 유지한다. 이후 고객 서명(agree route) / 관리자 최종 확인(admin-sign route)
+ * 시점에 실제 이미지로 치환된다.
+ *
+ * ⚠️ 절대 renderContractV2/renderContractPreview 로 저장하지 말 것.
+ *    저장 시점에는 서명 자산이 없어 서명 변수가 dashed placeholder 로 박제되고,
+ *    이후 서명이 완료돼도 치환할 자리가 사라진다.
+ */
+export function renderContractForStorage(
+  htmlBody: string,
+  customerInfo: ContractCustomerInfo,
+  today: Date = new Date(),
+): string {
+  let rendered = htmlBody
+
+  // 인적사항표 (마커 있으면 그 자리, 없으면 </body> 직전)
+  const infoTableHtml = buildCustomerInfoTable(customerInfo)
+  const markerPattern = /\{\{\s*인적사항표\s*\}\}/g
+  if (markerPattern.test(rendered)) {
+    rendered = rendered.replace(markerPattern, infoTableHtml)
+  } else if (/<\/body>/i.test(rendered)) {
+    rendered = rendered.replace(/<\/body>/i, `${infoTableHtml}\n</body>`)
+  } else {
+    rendered = rendered + '\n' + infoTableHtml
+  }
+
+  // 오늘날짜만 치환. 서명·직인·성명 변수는 손대지 않는다.
+  rendered = rendered.replace(/\{\{\s*오늘날짜\s*\}\}/g, escapeHtml(formatToday(today)))
+
+  // 옛 v1 영문 변수 중 서명·직인 관련이 아닌 것만 빈 문자열로 (하위 호환).
+  // {{CUSTOMER_SIGNATURE}}, {{CUSTOMER_STAMP}}, {{ADMIN_SIGNATURE}}, {{SUPPLIER_STAMP}},
+  // {{CUSTOMER_SIGNER_NAME}} 은 남겨둔다.
+  const preservedV1 = new Set([
+    'CUSTOMER_SIGNATURE', 'CUSTOMER_STAMP', 'ADMIN_SIGNATURE',
+    'SUPPLIER_STAMP', 'CUSTOMER_SIGNER_NAME',
+  ])
+  rendered = rendered.replace(/\{\{([A-Z0-9_]+)\}\}/g, (match, key) => (
+    preservedV1.has(key) ? match : ''
+  ))
+
+  return rendered
+}
+
 // ─── 편집기 변수 카탈로그 (하드코딩 — DB 폴백용) ────────────────────
 
 export interface EditorVariable {

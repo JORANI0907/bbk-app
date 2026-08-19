@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
-import { renderContractPreview, type ContractCustomerInfo } from '@/lib/contractTemplate'
+import { renderContractForStorage, type ContractCustomerInfo } from '@/lib/contractTemplate'
 import crypto from 'crypto'
 
 // GET /api/admin/contracts — 계약서 목록
@@ -102,7 +102,7 @@ export async function POST(request: NextRequest) {
     if (!tmpl) {
       return NextResponse.json({ success: false, error: '양식을 찾을 수 없습니다.' }, { status: 404 })
     }
-    snapshot = renderContractPreview(tmpl.html_body as string, customerInfo)
+    snapshot = renderContractForStorage(tmpl.html_body as string, customerInfo)
   }
 
   const signingToken = crypto.randomUUID()
