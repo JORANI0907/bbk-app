@@ -22,6 +22,8 @@ interface CustomerData {
   billing_next_date: string | null
   billing_cycle: string | null
   billing_amount: number | null
+  supply_amount: number | null
+  vat: number | null
   care_scope: string | null
   next_visit_date: string | null
   visit_interval_days: number | null
@@ -73,7 +75,7 @@ export default async function CustomerMyPage() {
     .select(
       'id, business_name, contact_name, contact_phone, address, address_detail, ' +
       'business_number, customer_type, status, ' +
-      'contract_start_date, contract_end_date, billing_next_date, billing_cycle, billing_amount, ' +
+      'contract_start_date, contract_end_date, billing_next_date, billing_cycle, billing_amount, supply_amount, vat, ' +
       'care_scope, next_visit_date, visit_interval_days'
     )
     .eq('user_id', session.userId)
@@ -170,9 +172,21 @@ export default async function CustomerMyPage() {
             {customer.billing_cycle && (
               <InfoRow label="청구 주기" value={billingCycleLabel[customer.billing_cycle] ?? customer.billing_cycle} />
             )}
+            {customer.supply_amount != null && (
+              <InfoRow
+                label="공급가액"
+                value={`${Number(customer.supply_amount).toLocaleString()}원`}
+              />
+            )}
+            {customer.vat != null && (
+              <InfoRow
+                label="부가세"
+                value={`${Number(customer.vat).toLocaleString()}원`}
+              />
+            )}
             {customer.billing_amount != null && (
               <InfoRow
-                label="청구 금액"
+                label="총액"
                 value={`${Number(customer.billing_amount).toLocaleString()}원`}
               />
             )}

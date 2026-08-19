@@ -271,15 +271,6 @@ export default async function CustomerScheduleDetailPage({ params }: PageProps) 
   const paymentInfo = s.payment_status ? PAYMENT_STATUS_LABELS[s.payment_status] : null
   const fullAddress = customer ? [customer.address, customer.address_detail].filter(Boolean).join(' ') : null
 
-  // 금액: application에 supply_amount가 있으면 우선, 없으면 payment_amount
-  const quotedTotal   = application && application.supply_amount != null
-    ? (application.supply_amount + (application.vat ?? 0))
-    : null
-  const supplyAmount  = application?.supply_amount ?? null
-  const vatAmount     = application?.vat ?? null
-  const deposit       = application?.deposit ?? null
-  const balance       = application?.balance ?? null
-
   // 드라이브 링크: application 우선, 없으면 customer
   const driveFolderUrl = application?.drive_folder_url ?? customer?.drive_folder_url ?? null
 
@@ -440,46 +431,6 @@ export default async function CustomerScheduleDetailPage({ params }: PageProps) 
                 <span className="text-sm text-text-primary font-medium">{item.name}</span>
               </div>
             ))}
-          </div>
-        </section>
-      )}
-
-      {/* ── 금액 정보 ── */}
-      {(quotedTotal != null || s.payment_amount != null) && (
-        <section className="bg-surface rounded-2xl border border-border-subtle shadow-soft overflow-hidden">
-          <div className="px-5 py-3 border-b border-border-subtle">
-            <h2 className="text-sm font-bold text-text-primary">금액 정보</h2>
-          </div>
-          <div className="px-5 py-4 flex flex-col gap-2.5">
-            {/* 견적 기준 금액 (application에서) */}
-            {supplyAmount != null && (
-              <InfoRow label="공급가액" value={`${supplyAmount.toLocaleString()}원`} />
-            )}
-            {vatAmount != null && (
-              <InfoRow label="부가세" value={`${vatAmount.toLocaleString()}원`} />
-            )}
-            {quotedTotal != null && (
-              <div className="flex items-start gap-3 pt-1.5 border-t border-border-subtle">
-                <span className="text-xs text-text-tertiary w-20 shrink-0 pt-0.5">합계</span>
-                <span className="text-lg font-bold text-text-primary">{quotedTotal.toLocaleString()}원</span>
-              </div>
-            )}
-            {deposit != null && deposit > 0 && (
-              <InfoRow label="예약금" value={`${deposit.toLocaleString()}원`} />
-            )}
-            {balance != null && balance > 0 && (
-              <InfoRow label="잔금" value={`${balance.toLocaleString()}원`} />
-            )}
-            {/* service_schedules 기준 청구액 */}
-            {s.payment_amount != null && quotedTotal == null && (
-              <div className="flex items-start gap-3">
-                <span className="text-xs text-text-tertiary w-20 shrink-0 pt-0.5">청구 금액</span>
-                <span className="text-xl font-bold text-text-primary">{Number(s.payment_amount).toLocaleString()}원</span>
-              </div>
-            )}
-            {s.payment_amount != null && quotedTotal != null && (
-              <InfoRow label="청구 금액" value={`${Number(s.payment_amount).toLocaleString()}원`} />
-            )}
           </div>
         </section>
       )}
