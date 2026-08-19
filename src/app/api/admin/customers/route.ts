@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { createAuthUser, updateAuthUserEmailAndPassword, updateAuthUserEmail, customerEmail } from '@/lib/auth-helpers'
 import { generateBillingSchedule, computeBillingAmountFromCustomer, shouldAutoGenerateBillings } from '@/lib/billing-generator'
-import { buildAppUpdatesFromCustomerPatch } from '@/lib/customer-app-sync'
 
 const ALLOWED = [
   // 일반정보
@@ -418,23 +417,10 @@ export async function PATCH(request: NextRequest) {
     }
   }
 
-  // Phase 27-AY: customer 편집 시 service_applications 스냅샷 필드 일괄 동기화.
-  // 매핑은 lib/customer-app-sync.ts 의 CUSTOMER_TO_APP_FIELD_MAP 중앙 관리.
-  // 새 필드 sync 필요 시 그 파일에만 한 줄 추가하면 여기 로직 자동 반영됨.
-  // 배정관리·캘린더·재무·급여 등 service_applications 를 읽는 모든 화면에 즉시 반영.
-  // deleted_at IS NULL 조건: 삭제된 일정(위에서 처리)은 동기화 대상에서 제외.
-  const appUpdates = buildAppUpdatesFromCustomerPatch(rest)
-  if (Object.keys(appUpdates).length > 0) {
-    try {
-      await supabase
-        .from('service_applications')
-        .update(appUpdates)
-        .eq('customer_id', id)
-        .is('deleted_at', null)
-    } catch (e) {
-      console.error('신청서 스냅샷 동기화 실패:', e instanceof Error ? e.message : e)
-    }
-  }
+  // customer → service_applications 자동 필드 sync 는 전면 폐지.
+  //   마스터 편집이 기존 회차 일정에 영향을 주면 업무량·정산이 왜곡됨.
+  //   회차 일정은 생성 시점(generate-schedules)의 스냅샷을 유지하고,
+  //   개별 회차 수정은 이번달 일정 섹션의 아코디언에서만 수행.
 
   // Phase 22 v11: 계약 관련 필드가 변경됐거나 계약 조건이 충족되면 billings 재생성
   // regenerate=true: pending 레코드 삭제 후 현재 조건(billing_cycle 등)으로 전체 재생성
@@ -447,161 +433,6 @@ export async function PATCH(request: NextRequest) {
       await autoGenerateBillings(supabase, updatedCustomer, true)
     } catch (e) {
       console.error('billings 자동 생성 실패(PATCH):', e instanceof Error ? e.message : e)
-    }
-  }
-
-  // Phase 27-AR: 담당자(assigned_user_id) 변경을 linked application(1:1 또는 다건)의 assigned_to 로 자동 동기화.
-  // 이전에 캘린더뷰가 service_applications.assigned_to 를 기준으로 잡음 제거(assigned_to NULL 자동 배제)하는
-  // 로직 때문에, customers 만 담당자 지정하고 신청서엔 반영 안 되어 캘린더에서 사라지던 이슈 해결.
-  if ('assigned_user_id' in rest) {
-    try {
-      const targetUserId = (rest.assigned_user_id as string | null) || null
-      await supabase
-        .from('service_applications')
-        .update({ assigned_to: targetUserId })
-        .eq('customer_id', id)
-        .is('deleted_at', null)
-        .is('archived_at', null)
-    } catch (e) {
-      console.error('담당자 application 동기화 실패:', e instanceof Error ? e.message : e)
-    }
-  }
-
-  // Phase 27-AT: 금액(supply_amount/vat/payment_method) 을 linked application 으로 자동 동기화.
-  // 1회성케어만 대상 — 정기딥/정기엔드는 회차별 금액이 다를 수 있어 무조건 동기화하면 캘린더 다중 카운트 발생.
-  // 캘린더뷰(computeAppAmount) 가 service_applications 의 supply_amount 를 기준으로 하기 때문에
-  // customers 만 금액 수정하고 신청서에는 반영 안 되면 일일 합계에 0으로 잡히던 이슈 해결.
-  if (updatedCustomer.customer_type === '1회성케어') {
-    const amountRelevantChanged = ['supply_amount', 'vat', 'payment_method'].some(k => k in rest)
-    if (amountRelevantChanged) {
-      try {
-        const patch: Record<string, unknown> = {}
-        if ('supply_amount' in rest) patch.supply_amount = rest.supply_amount
-        if ('vat' in rest) patch.vat = rest.vat
-        if ('payment_method' in rest) patch.payment_method = rest.payment_method
-        await supabase
-          .from('service_applications')
-          .update(patch)
-          .eq('customer_id', id)
-          .is('deleted_at', null)
-          .is('archived_at', null)
-      } catch (e) {
-        console.error('금액 application 동기화 실패:', e instanceof Error ? e.message : e)
-      }
-    }
-  }
-
-  // Phase 27-AG: 1회성·일반일정은 이번달 일정 섹션이 없어 시공일자를 세부화면 상단에서 직접 편집.
-  // 이 경우 next_visit_date 변경을 linked application 의 construction_date 로 자동 동기화.
-  // Fix: .limit(1) + order로 최신 앱 1개만 사용 (반복 방문 고객의 다수 앱 문제 해결).
-  const isOneShot = updatedCustomer.customer_type === '1회성케어' || updatedCustomer.customer_type === '일반일정'
-  if ('next_visit_date' in rest && isOneShot) {
-    try {
-      const { data: linkedApps } = await supabase
-        .from('service_applications')
-        .select('id, construction_date')
-        .eq('customer_id', id)
-        .is('deleted_at', null)
-        .is('archived_at', null)
-        .order('created_at', { ascending: false })
-        .limit(1)
-      if (linkedApps && linkedApps.length === 1) {
-        const targetApp = linkedApps[0]
-        const newDate = (rest.next_visit_date as string | null) || null
-        if (targetApp.construction_date !== newDate) {
-          await supabase.from('service_applications').update({ construction_date: newDate }).eq('id', targetApp.id)
-        }
-      }
-    } catch (e) {
-      console.error('시공일자 application 동기화 실패:', e instanceof Error ? e.message : e)
-    }
-  }
-
-  // Phase 27-AH: worker_ids 배열이 들어오면 linked application 의 work_assignments 다중 배정 동기화.
-  // 1회성/일반일정에서 다중 작업자 배정 지원 — 정기는 이번달 일정 섹션에서 회차별 배정.
-  // Fix: .limit(1) + order로 최신 앱 사용, construction_date 없으면 next_visit_date 폴백.
-  if ('worker_ids' in rest && Array.isArray(rest.worker_ids) && isOneShot) {
-    try {
-      const workerIds = (rest.worker_ids as unknown[])
-        .filter((x): x is string => typeof x === 'string' && x.trim().length > 0)
-      const nextVisitDate = (rest.next_visit_date as string | null) || null
-      const { data: linkedApps } = await supabase
-        .from('service_applications')
-        .select('id, construction_date, business_name')
-        .eq('customer_id', id)
-        .is('deleted_at', null)
-        .is('archived_at', null)
-        .order('created_at', { ascending: false })
-        .limit(1)
-      if (linkedApps && linkedApps.length === 1) {
-        const app = linkedApps[0]
-        // construction_date 없으면 next_visit_date 폴백 (work_assignments NOT NULL 제약 대응)
-        const effectiveDate = app.construction_date ?? nextVisitDate
-        await supabase.from('work_assignments').delete().eq('application_id', app.id)
-        if (workerIds.length > 0 && effectiveDate && app.business_name) {
-          const rows = workerIds.map(wid => ({
-            worker_id: wid,
-            application_id: app.id,
-            construction_date: effectiveDate,
-            business_name: app.business_name,
-          }))
-          await supabase.from('work_assignments').insert(rows)
-        }
-        // customer.assigned_worker_id 도 첫 번째 로 동기화 (하위호환)
-        await supabase
-          .from('customers')
-          .update({ assigned_worker_id: workerIds[0] ?? null })
-          .eq('id', id)
-      }
-    } catch (e) {
-      console.error('worker_ids 동기화 실패:', e instanceof Error ? e.message : e)
-    }
-  }
-
-  // drive_folder_url 이 body 에 들어오면 미완료 service_applications 에도 자동 sync.
-  // 배정관리(WorkPanel)는 sa.drive_folder_url 을 참조하므로 고객관리에서
-  // 폴더 생성만 하고 신청서에 반영 안 되면 '드라이브 미생성' 표시 버그 발생.
-  // 기존 값이 있는 신청서는 유지 (배정자가 수동 변경한 URL 보존).
-  if ('drive_folder_url' in rest && typeof rest.drive_folder_url === 'string' && rest.drive_folder_url) {
-    try {
-      await supabase
-        .from('service_applications')
-        .update({ drive_folder_url: rest.drive_folder_url })
-        .eq('customer_id', id)
-        .is('drive_folder_url', null)
-        .is('deleted_at', null)
-    } catch (e) {
-      console.error('drive_folder_url 동기화 실패:', e instanceof Error ? e.message : e)
-    }
-  }
-
-  // supply_amount / vat / deposit / balance 가 body 에 들어오면 미완료 sa 에도 sync.
-  // 결제알림 SMS 는 sa.balance 를 참조하므로 두 테이블 값 어긋나면 잔금 0원으로 발송되는 버그 발생.
-  // sa 의 각 필드가 0 또는 null 인 경우만 채움 (수동 편집된 개별 회차 값은 보존).
-  const moneyFieldsToSync: Record<string, unknown> = {}
-  if ('supply_amount' in rest && rest.supply_amount != null) moneyFieldsToSync.supply_amount = rest.supply_amount
-  if ('vat'           in rest && rest.vat           != null) moneyFieldsToSync.vat           = rest.vat
-  if ('deposit'       in rest && rest.deposit       != null) moneyFieldsToSync.deposit       = rest.deposit
-  if ('balance'       in rest && rest.balance       != null) moneyFieldsToSync.balance       = rest.balance
-  if (Object.keys(moneyFieldsToSync).length > 0) {
-    try {
-      const { data: relatedApps } = await supabase
-        .from('service_applications')
-        .select('id, supply_amount, vat, deposit, balance')
-        .eq('customer_id', id)
-        .is('deleted_at', null)
-      for (const app of relatedApps ?? []) {
-        const updates: Record<string, unknown> = {}
-        for (const [field, value] of Object.entries(moneyFieldsToSync)) {
-          const currentVal = (app as Record<string, unknown>)[field]
-          if (currentVal == null || currentVal === 0) updates[field] = value
-        }
-        if (Object.keys(updates).length > 0) {
-          await supabase.from('service_applications').update(updates).eq('id', app.id)
-        }
-      }
-    } catch (e) {
-      console.error('금액 필드 동기화 실패:', e instanceof Error ? e.message : e)
     }
   }
 
