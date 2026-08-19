@@ -2,8 +2,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { sendSMS } from '@/lib/solapi'
 import { sendSlack } from '@/lib/slack'
-import { sendContractCompletedEmails } from '@/lib/email'
 import { renderTemplateWithVars } from '@/lib/contractTemplate'
+import { renderTemplate } from '@/lib/notification-renderer'
+import type { NotificationContext } from '@/lib/notification-variables'
 
 type RouteParams = { params: { id: string } }
 
@@ -83,37 +84,32 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ success: false, error: updateError.message }, { status: 500 })
   }
 
-  const customer = contract.customers as { business_name?: string; contact_name?: string; email?: string | null } | null
+  const customer = contract.customers as { business_name?: string; contact_name?: string } | null
   const businessName = customer?.business_name ?? '고객'
-  const rawEmail = (customer?.email as string | null) ?? null
-  // 포털 가상 이메일·형식 오류 이메일은 발송 대상에서 제외
-  const customerEmail = rawEmail &&
-    !rawEmail.endsWith('@bbkorea.app') &&
-    !rawEmail.endsWith('@bbkorea.co.kr') &&
-    !rawEmail.endsWith('@bbkorea.hq') &&
-    /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(rawEmail)
-    ? rawEmail
-    : null
 
-  // 이메일 발송 (실패해도 계약 완료는 유지)
-  if (pdfBase64) {
-    try {
-      await sendContractCompletedEmails({ customerEmail, businessName, pdfBase64 })
-    } catch (e) {
-      console.error('[admin-sign] 이메일 발송 실패:', e)
-    }
-  }
-
-  // 고객 완료 SMS
+  // 고객 완료 SMS — notification_templates 의 CONTRACT_COMPLETE 로드해 변수 치환 후 발송.
+  // 문구는 문자알림관리 > 기타 탭에서 관리자가 언제든 수정 가능. PDF 링크는 signed URL.
+  // 관리자에게는 아무것도 발송하지 않음 (앱에서 확인 가능).
   const phone = contract.customer_phone as string | null
-  if (phone) {
+  if (phone && pdfUrl) {
     try {
-      await sendSMS(
-        phone,
-        `[BBK 공간케어] ${businessName}님, 계약서 서명이 최종 완료되었습니다.\n계약서는 작성하신 이메일로 발송되었습니다. * 이메일 : ${customerEmail ?? '-'}`,
-      )
-    } catch {
-      // SMS 실패는 무시
+      const { data: template } = await supabase
+        .from('notification_templates')
+        .select('body, is_active')
+        .eq('code', 'CONTRACT_COMPLETE')
+        .maybeSingle()
+
+      if (template?.is_active && template.body) {
+        const context: NotificationContext = {
+          customer: { business_name: businessName },
+          extra: { contract_pdf_url: pdfUrl },
+        }
+        await sendSMS(phone, renderTemplate(template.body, context))
+      } else {
+        console.warn('[admin-sign] CONTRACT_COMPLETE 템플릿 없음/비활성 — SMS 건너뜀')
+      }
+    } catch (e) {
+      console.error('[admin-sign] 완료 SMS 발송 실패:', e)
     }
   }
 
