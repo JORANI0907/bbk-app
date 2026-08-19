@@ -162,6 +162,42 @@ export function renderContractPreview(
 }
 
 /**
+ * 저장 전 sanitize — 편집기·미리보기 API 등에서 렌더된 dashed placeholder <span> 을
+ * 원본 v2 한글 변수({{고객서명}}, {{고객사직인}}, {{공급사서명}}, {{공급사직인}}) 로
+ * 되돌린다. 이후 서명 완료 시점에 실제 이미지로 정상 치환되도록 보장.
+ *
+ * 왜 필요한가:
+ *   계약서 생성 화면(admin/contracts/page.tsx) 이 preview API 결과(=서명 변수가 dashed
+ *   로 이미 치환된 HTML) 를 html_body 로 전송한다. 서버가 그대로 저장하면 서명 자리가
+ *   dashed 텍스트로 박제되어 서명 이미지를 박을 곳이 사라진다.
+ *
+ * 여러 화면에서 서로 다른 저장 API 를 호출하므로, 저장 진입점(POST /contracts,
+ * PATCH /contracts/[id]) 에서 반드시 이 함수를 통과시킨다.
+ */
+export function restoreSignaturePlaceholders(html: string): string {
+  if (!html) return html
+  // 계약서 dashed <span> 4종 (renderContractV2 의 signatureImg/stampImg 출력물).
+  // style 문자열 안의 특수문자 그대로 매칭하려고 정규식은 최소 이스케이프만 사용.
+  return html
+    .replace(
+      /<span style="display:inline-block;min-width:200px;height:80px;line-height:80px;text-align:center;color:#bbb;font-size:11px;border:1px dashed #ddd;border-radius:4px;">\(고객 서명\)<\/span>/g,
+      '{{고객서명}}',
+    )
+    .replace(
+      /<span style="display:inline-block;min-width:200px;height:80px;line-height:80px;text-align:center;color:#bbb;font-size:11px;border:1px dashed #ddd;border-radius:4px;">\(공급사 서명\)<\/span>/g,
+      '{{공급사서명}}',
+    )
+    .replace(
+      /<span style="display:inline-block;width:80px;height:80px;line-height:80px;text-align:center;color:#bbb;font-size:10px;border:1px dashed #ddd;border-radius:4px;">\(고객사 직인\)<\/span>/g,
+      '{{고객사직인}}',
+    )
+    .replace(
+      /<span style="display:inline-block;width:80px;height:80px;line-height:80px;text-align:center;color:#bbb;font-size:10px;border:1px dashed #ddd;border-radius:4px;">\(공급사 직인\)<\/span>/g,
+      '{{공급사직인}}',
+    )
+}
+
+/**
  * 스냅샷 저장용 렌더 — 인적사항표와 오늘날짜만 치환하고, 서명·직인·성명 변수는
  * 그대로 유지한다. 이후 고객 서명(agree route) / 관리자 최종 확인(admin-sign route)
  * 시점에 실제 이미지로 치환된다.

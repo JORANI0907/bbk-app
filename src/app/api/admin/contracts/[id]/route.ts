@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
-import { renderContract, extractVariablesFromCustomer } from '@/lib/contractTemplate'
+import { renderContract, extractVariablesFromCustomer, restoreSignaturePlaceholders } from '@/lib/contractTemplate'
 
 type RouteParams = { params: { id: string } }
 
@@ -90,13 +90,15 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
   // html_body 가 함께 넘어오면 최우선으로 snapshot.html 을 덮어씀
   // (customer_info 등 스냅샷의 다른 키는 보존)
+  // ⚠️ 편집기가 서명 변수를 dashed placeholder 로 이미 렌더링한 상태로 보내오는
+  //    경우가 있어, 저장 직전 반드시 sanitize 하여 v2 변수로 되돌린다.
   if (htmlBody) {
     const prevSnapshot = (existing.contract_snapshot ?? {}) as Record<string, unknown>
     const rerendered = updates.contract_snapshot as { html?: string } | undefined
     updates.contract_snapshot = {
       ...prevSnapshot,
       ...(rerendered ?? {}),
-      html: htmlBody,
+      html: restoreSignaturePlaceholders(htmlBody),
     }
   }
 

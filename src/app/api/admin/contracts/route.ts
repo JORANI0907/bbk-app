@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
-import { renderContractForStorage, type ContractCustomerInfo } from '@/lib/contractTemplate'
+import { renderContractForStorage, restoreSignaturePlaceholders, type ContractCustomerInfo } from '@/lib/contractTemplate'
 import crypto from 'crypto'
 
 // GET /api/admin/contracts — 계약서 목록
@@ -90,9 +90,11 @@ export async function POST(request: NextRequest) {
 
   // html_body 가 편집기에서 수정된 최종본 → 그대로 저장.
   // 없으면 서버에서 템플릿 + customer_info 로 렌더.
+  // ⚠️ preview API/편집기가 서명 변수를 dashed placeholder 로 이미 렌더링한 상태로
+  //    보내오는 경우가 있어, 저장 직전 반드시 sanitize 하여 v2 변수로 되돌린다.
   let snapshot: string
   if (htmlBody.trim()) {
-    snapshot = htmlBody
+    snapshot = restoreSignaturePlaceholders(htmlBody)
   } else {
     const { data: tmpl } = await supabase
       .from('contract_templates')
