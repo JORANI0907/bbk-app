@@ -7,7 +7,7 @@ const DEFAULTS = {
   company_name:        'BBK 공간케어',
   company_ceo:         '박범건',
   company_biz_no:      '298-78-00455',
-  company_phone:       '031-759-4877',
+  company_phone:       '010-5434-4877',
   company_address:     '경기도 성남시',
   valid_days:          5,
   seal_image_url:      null as string | null,

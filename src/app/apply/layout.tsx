@@ -16,7 +16,7 @@ export default function ApplyLayout({ children }: { children: ReactNode }) {
       <main className="max-w-lg mx-auto px-4 py-6">{children}</main>
       <footer className="max-w-lg mx-auto px-4 py-8 text-center space-y-1">
         <p className="text-[11px] text-gray-400">범빌드코리아 주식회사 · 대표자: 조동환 · 사업자번호: 398-81-04260</p>
-        <p className="text-[11px] text-gray-400">문의: 031-759-4877</p>
+        <p className="text-[11px] text-gray-400">문의: 010-5434-4877</p>
       </footer>
     </div>
   )

@@ -84,8 +84,8 @@ export default async function CustomerServicesPage() {
           <p className="text-sm font-semibold text-brand-700">서비스 문의</p>
           <p className="text-xs text-brand-600 mt-0.5">
             원하시는 항목이 없거나 궁금한 사항은{' '}
-            <a href="tel:0317594877" className="font-bold underline">
-              031-759-4877
+            <a href="tel:01054344877" className="font-bold underline">
+              010-5434-4877
             </a>
             로 문의해주세요.
           </p>

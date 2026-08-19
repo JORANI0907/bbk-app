@@ -41,7 +41,7 @@ export default function EventsLayout({ children }: { children: React.ReactNode }
       <footer className="bg-white border-t border-[#c7eaf7] py-6 px-4 mt-8">
         <div className="max-w-3xl mx-auto">
           <p className="text-xs text-gray-400 text-center">
-            © 2026 범빌드코리아 | 사업자번호: 398-81-04260 | 문의: 031-759-4877
+            © 2026 범빌드코리아 | 사업자번호: 398-81-04260 | 문의: 010-5434-4877
           </p>
           <div className="flex justify-center gap-4 mt-2">
             <Link href="/terms" className="text-xs text-gray-400 hover:text-gray-600">이용약관</Link>

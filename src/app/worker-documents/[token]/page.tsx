@@ -356,7 +356,7 @@ function StatusCard({ icon, title, children }: { icon: React.ReactNode; title: s
         <div className="mx-auto">{icon}</div>
         <h1 className="text-lg font-bold text-text-primary">{title}</h1>
         <p className="text-sm text-text-secondary leading-relaxed">{children}</p>
-        <p className="text-xs text-text-tertiary">문의: 031-759-4877</p>
+        <p className="text-xs text-text-tertiary">문의: 010-5434-4877</p>
       </div>
     </div>
   )

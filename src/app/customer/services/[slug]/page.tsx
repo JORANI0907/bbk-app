@@ -109,12 +109,12 @@ export default async function ServiceDetailPage({ params }: Props) {
 
       {/* 문의 CTA */}
       <a
-        href="tel:0317594877"
+        href="tel:01054344877"
         className="btn-toss-primary flex items-center justify-between bg-brand-600 rounded-2xl px-5 py-4"
       >
         <div>
           <p className="text-sm font-bold text-white">{item.name} 청소 문의하기</p>
-          <p className="text-xs text-white/80 mt-0.5">031-759-4877</p>
+          <p className="text-xs text-white/80 mt-0.5">010-5434-4877</p>
         </div>
         <svg
           viewBox="0 0 24 24"

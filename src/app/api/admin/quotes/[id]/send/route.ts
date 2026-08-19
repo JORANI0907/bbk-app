@@ -177,7 +177,7 @@ export async function POST(
     companyName:    company_name    || 'BBK 공간케어',
     companyCeo:     company_ceo     || '박범건',
     companyBizNo:   company_biz_no  || '298-78-00455',
-    companyPhone:   company_phone   || '031-759-4877',
+    companyPhone:   company_phone   || '010-5434-4877',
     companyAddress: company_address || '경기도 성남시',
     // 계좌
     bankName:          bank_name           || undefined,

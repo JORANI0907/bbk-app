@@ -414,7 +414,7 @@ def build_bbk_checklist(content: dict, char_url: str | None, preset: dict) -> st
   <div class="content-area">{items_html}</div>
   {warning_html}{cta_html}
   <div class="footer">
-    <div><div class="footer-info">📞 {cta.get('text','031-759-4877')}</div>
+    <div><div class="footer-info">📞 {cta.get('text','010-5434-4877')}</div>
     <div class="footer-web">{cta.get('website','bbkorea.co.kr')}</div></div>
     <div class="footer-logo">BBK</div>
   </div>
@@ -497,7 +497,7 @@ def build_bbk_steps(content: dict, char_url: str | None, preset: dict) -> str:
   <div class="content-area">{steps_html}</div>
   {note_html}
   <div class="footer">
-    <div><div class="footer-info">📞 {cta.get('text','031-759-4877')}</div>
+    <div><div class="footer-info">📞 {cta.get('text','010-5434-4877')}</div>
     <div class="footer-web">{cta.get('website','bbkorea.co.kr')}</div></div>
     <div class="footer-logo">BBK</div>
   </div>
@@ -576,7 +576,7 @@ def build_bbk_info(content: dict, char_url: str | None, preset: dict) -> str:
   <div class="cards-grid">{cards_html}</div>
   {f'<div style="background:{BBK["navy_mid"]};border-radius:14px;padding:14px 20px;margin:0 44px 12px;color:white;font-size:15px;font-weight:500;display:flex;align-items:center;gap:12px;"><span style=\\"font-size:20px;flex-shrink:0\\">💡</span><span>{note}</span></div>' if note else ''}
   <div class="footer">
-    <div><div class="footer-info">📞 {cta.get('text','031-759-4877')}</div>
+    <div><div class="footer-info">📞 {cta.get('text','010-5434-4877')}</div>
     <div class="footer-web">{cta.get('website','bbkorea.co.kr')}</div></div>
     <div class="footer-logo">BBK</div>
   </div>
@@ -743,7 +743,7 @@ def build_bbk_detail(content: dict, char_url: str | None, preset: dict) -> str:
   {char_html}
   {speech_html}
   <div class="footer">
-    <div><div class="footer-info">📞 {cta.get('text','031-759-4877')}</div>
+    <div><div class="footer-info">📞 {cta.get('text','010-5434-4877')}</div>
     <div class="footer-web">{cta.get('website','bbkorea.co.kr')}</div></div>
     <div class="footer-logo">BBK</div>
   </div>
@@ -790,7 +790,7 @@ REFUND_DATA: dict = {
         "환불 금액 확인 → 영업일 기준 1~2일 이내 안내",
         "환불 완료 → 영업일 기준 3~5일 이내 입금",
     ],
-    "contact": {"phone1": "010-5434-4877", "phone2": "031-759-4877", "kakao": "BBK 범빌드코리아", "hours": "09:00 ~ 19:00"},
+    "contact": {"phone1": "010-5434-4877", "phone2": "", "kakao": "BBK 범빌드코리아", "hours": "09:00 ~ 19:00"},
     "footer":  {"logo": "BUMBUILDKOREA", "tagline": "국가 인증 위생관리업 등록 업체", "note": "본 규정은 서비스 약관에 준하며 사전 고지 없이 변경될 수 있습니다"},
 }
 

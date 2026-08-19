@@ -184,7 +184,7 @@ export async function POST(request: NextRequest) {
         try {
           const balance = app.balance ?? 0
           const account = app.account_number ?? ''
-          const hardFallback = `[BBK 공간케어] ${app.owner_name}님, 잔금 ${balance.toLocaleString()}원 결제를 요청드립니다.\n계좌: ${account} 문의: 031-759-4877`
+          const hardFallback = `[BBK 공간케어] ${app.owner_name}님, 잔금 ${balance.toLocaleString()}원 결제를 요청드립니다.\n계좌: ${account} 문의: 010-5434-4877`
           // Phase 27-AP: template body 로 SMS fallback 대체. 알림톡 실패 시 관리자가 편집한 문구가 나감.
           const context: NotificationContext = {
             application: {
@@ -247,7 +247,7 @@ export async function POST(request: NextRequest) {
         if (!phone) continue
 
         try {
-          const hardFallback = `[BBK 공간케어] ${customer.contact_name}님, 연간 계약 만료가 ${daysUntilExpiry}일 후(${customer.contract_end_date})입니다.\n연장 관련 문의: 031-759-4877`
+          const hardFallback = `[BBK 공간케어] ${customer.contact_name}님, 연간 계약 만료가 ${daysUntilExpiry}일 후(${customer.contract_end_date})입니다.\n연장 관련 문의: 010-5434-4877`
           // Phase 27-AP: template body 렌더링
           const context: NotificationContext = {
             customer: {
@@ -308,7 +308,7 @@ export async function POST(request: NextRequest) {
         try {
           const amount = b.amount ?? 0
           const contactName = customer.contact_name ?? ''
-          const hardFallback = `[BBK 공간케어] ${contactName}님, ${b.due_date} 정기 결제일입니다.\n금액: ${amount.toLocaleString()}원\n문의: 031-759-4877`
+          const hardFallback = `[BBK 공간케어] ${contactName}님, ${b.due_date} 정기 결제일입니다.\n금액: ${amount.toLocaleString()}원\n문의: 010-5434-4877`
           // Phase 27-AP: template body 렌더링
           const context: NotificationContext = {
             customer: {
@@ -366,7 +366,7 @@ export async function POST(request: NextRequest) {
         try {
           const amount = billing.amount ?? 0
           const contactName = customer.contact_name ?? ''
-          const hardFallback = `[BBK 공간케어] ${contactName}님, ${billing.due_date} 연간 결제일입니다.\n금액: ${amount.toLocaleString()}원\n문의: 031-759-4877`
+          const hardFallback = `[BBK 공간케어] ${contactName}님, ${billing.due_date} 연간 결제일입니다.\n금액: ${amount.toLocaleString()}원\n문의: 010-5434-4877`
           // Phase 27-AP: template body 렌더링
           const context: NotificationContext = {
             customer: {

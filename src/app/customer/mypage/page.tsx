@@ -185,7 +185,7 @@ export default async function CustomerMyPage() {
       )}
 
       <p className="text-center text-xs text-text-tertiary pb-2">
-        정보 변경은 담당자(<span className="text-text-secondary font-medium">031-759-4877</span>)에게 문의하세요.
+        정보 변경은 담당자(<span className="text-text-secondary font-medium">010-5434-4877</span>)에게 문의하세요.
       </p>
 
       {/* 로그아웃 */}

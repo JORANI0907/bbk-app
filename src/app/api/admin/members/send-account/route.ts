@@ -24,7 +24,7 @@ export async function POST(request: NextRequest) {
 
     const loginId = phone
     const loginPw = user.password_hint ?? (user.role === 'customer' ? phone : `${phone}bbk`)
-    const smsText = `[BBK 공간케어] ${user.name}님, 계정 정보를 안내드립니다.\nID: ${loginId}\nPW: ${loginPw}\n앱 설치: https://app.bbkorea.co.kr\n문의: 031-759-4877`
+    const smsText = `[BBK 공간케어] ${user.name}님, 계정 정보를 안내드립니다.\nID: ${loginId}\nPW: ${loginPw}\n앱 설치: https://app.bbkorea.co.kr\n문의: 010-5434-4877`
 
     const channel = 'SMS'
     await sendSMS(phone, smsText)

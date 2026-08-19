@@ -96,7 +96,7 @@ export default function EndcarePage() {
         <p className="text-gray-500 text-sm leading-relaxed">
           담당자가 확인 후 영업일 기준 1일 이내<br />연락드리겠습니다.
         </p>
-        <p className="mt-6 text-xs text-gray-400">문의: 031-759-4877</p>
+        <p className="mt-6 text-xs text-gray-400">문의: 010-5434-4877</p>
       </div>
     )
   }

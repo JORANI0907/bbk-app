@@ -3,7 +3,7 @@ import crypto from 'crypto'
 
 const SOLAPI_API_KEY = process.env.SOLAPI_API_KEY ?? 'NCS62LDUONLPJ5VJ'
 const SOLAPI_API_SECRET = process.env.SOLAPI_API_SECRET ?? '8C5OWUCIT3HW4J0YGBT3GHEJSW6P8T4Q'
-const SOLAPI_SENDER = process.env.SOLAPI_SENDER ?? '0317594877'
+const SOLAPI_SENDER = process.env.SOLAPI_SENDER ?? '01054344877'
 
 function generateSignature() {
   const date = new Date().toISOString()
