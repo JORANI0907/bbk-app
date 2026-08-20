@@ -525,15 +525,19 @@ function ExpandedEditor({ merged, users, workers, update, status, isDirty, onSav
             ))}
           </select>
         </div>
-        <div>
-          <p className={labelCls}>공급가액</p>
-          <input
-            type="number"
-            value={merged.supply_amount ?? ''}
-            onChange={e => update('supply_amount', e.target.value ? Number(e.target.value) : null)}
-            className={inputCls}
-          />
-        </div>
+        {/* 공급가액: 정기케어는 마스터 DB 기준(결제 시 조정) → 회차별 필드 제거.
+            1회성/일반일정만 회차별 금액 입력. */}
+        {customerType !== '정기딥케어' && customerType !== '정기엔드케어' && (
+          <div>
+            <p className={labelCls}>공급가액</p>
+            <input
+              type="number"
+              value={merged.supply_amount ?? ''}
+              onChange={e => update('supply_amount', e.target.value ? Number(e.target.value) : null)}
+              className={inputCls}
+            />
+          </div>
+        )}
       </div>
 
       {/* 케어범위 */}

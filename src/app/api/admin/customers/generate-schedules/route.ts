@@ -321,10 +321,9 @@ export async function POST(request: NextRequest) {
     }
 
     const isAnnual = customer.billing_cycle === '연간'
-    const supplyAmount =
-      !isAnnual && customer.customer_type === '정기딥케어' && customer.billing_cycle === '월간'
-        ? (customer.billing_amount || null)
-        : null
+    // 정기딥/정기엔드 매출은 결제 시점의 service_billings.amount 기준으로 산정됨.
+    // 회차별 supply_amount 는 UI/집계에서 사용하지 않으므로 null 고정 (지금 대로 유지되어도 무해).
+    const supplyAmount: number | null = null
 
     // Phase 22 v7: 정기딥 연간은 계약 시 선결제·세금계산서 일괄 발행 → 각 방문 결제상태 자동 세팅
     const preSettledPayment =

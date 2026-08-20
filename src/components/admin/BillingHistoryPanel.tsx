@@ -55,6 +55,8 @@ export function BillingHistoryPanel({
   const [loading, setLoading] = useState(true)
   const [markingId, setMarkingId] = useState<string | null>(null)
   const [paidDate, setPaidDate] = useState(new Date().toISOString().slice(0, 10))
+  // 결제 완료 처리 시 실제 결제 금액(마스터 총액이 기본값, 필요시 수정)
+  const [paidAmount, setPaidAmount] = useState<string>('')
   const [expanded, setExpanded] = useState(false)
   const [showInfo, setShowInfo] = useState(false)
 
@@ -83,15 +85,22 @@ export function BillingHistoryPanel({
   useEffect(() => { fetchBillings() }, [fetchBillings])
 
   const handleMarkPaid = async (billing: BillingRecord) => {
+    // 사용자 입력 금액이 있으면 그 값으로, 없으면 기존 amount 유지
+    const parsedAmount = paidAmount.trim() === '' ? billing.amount : Number(paidAmount)
+    if (isNaN(parsedAmount) || parsedAmount < 0) {
+      toast.error('금액을 정확히 입력하세요.')
+      return
+    }
     try {
       const res = await fetch('/api/admin/billings', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: billing.id, status: 'paid', paid_date: paidDate }),
+        body: JSON.stringify({ id: billing.id, status: 'paid', paid_date: paidDate, amount: parsedAmount }),
       })
       if (!res.ok) throw new Error('처리 실패')
       toast.success('결제 완료로 처리되었습니다.')
       setMarkingId(null)
+      setPaidAmount('')
       await fetchBillings()
       onChange?.()
     } catch {
@@ -336,24 +345,46 @@ export function BillingHistoryPanel({
               {b.status !== 'paid' && (
                 <div className="space-y-1.5 pt-1">
                   {markingId === b.id ? (
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="date" value={paidDate} onChange={e => setPaidDate(e.target.value)}
-                        className="flex-1 border border-gray-200 rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-400"
-                      />
-                      <button onClick={() => handleMarkPaid(b)}
-                        className="px-2.5 py-1 text-xs bg-emerald-600 text-white font-medium rounded-lg hover:bg-emerald-700 transition-colors whitespace-nowrap">
-                        확인
-                      </button>
-                      <button onClick={() => setMarkingId(null)}
-                        className="px-2 py-1 text-xs bg-gray-200 text-gray-600 rounded-lg hover:bg-gray-300 transition-colors">
-                        취소
-                      </button>
+                    <div className="space-y-1.5 border border-emerald-200 bg-emerald-50/60 rounded-lg p-2">
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="flex flex-col gap-0.5">
+                          <label className="text-[10px] font-semibold text-emerald-800">결제일</label>
+                          <input
+                            type="date" value={paidDate} onChange={e => setPaidDate(e.target.value)}
+                            className="border border-emerald-200 rounded px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-400"
+                          />
+                        </div>
+                        <div className="flex flex-col gap-0.5">
+                          <label className="text-[10px] font-semibold text-emerald-800">금액 (기본: 마스터 총액)</label>
+                          <input
+                            type="number" value={paidAmount} onChange={e => setPaidAmount(e.target.value)}
+                            placeholder={fmt(b.amount)}
+                            className="border border-emerald-200 rounded px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-400"
+                          />
+                        </div>
+                      </div>
+                      <p className="text-[10px] text-emerald-700 leading-tight">
+                        이 결제일·금액이 매출 페이지에 반영됩니다. 금액 미입력 시 기본값({fmt(b.amount)}원) 사용.
+                      </p>
+                      <div className="flex gap-1.5">
+                        <button onClick={() => handleMarkPaid(b)}
+                          className="flex-1 px-2.5 py-1 text-xs bg-emerald-600 text-white font-medium rounded-lg hover:bg-emerald-700 transition-colors">
+                          결제 완료 처리
+                        </button>
+                        <button onClick={() => { setMarkingId(null); setPaidAmount('') }}
+                          className="px-3 py-1 text-xs bg-gray-200 text-gray-600 rounded-lg hover:bg-gray-300 transition-colors">
+                          취소
+                        </button>
+                      </div>
                     </div>
                   ) : (
                     <div className="flex gap-1.5 flex-wrap">
                       <button
-                        onClick={() => { setMarkingId(b.id); setPaidDate(new Date().toISOString().slice(0, 10)) }}
+                        onClick={() => {
+                          setMarkingId(b.id)
+                          setPaidDate(new Date().toISOString().slice(0, 10))
+                          setPaidAmount('')  // 빈값이면 기본값(b.amount) 사용
+                        }}
                         className="flex-1 py-1 text-xs bg-emerald-50 text-emerald-700 font-medium rounded-lg border border-emerald-200 hover:bg-emerald-100 transition-colors"
                       >
                         결제 완료 처리
