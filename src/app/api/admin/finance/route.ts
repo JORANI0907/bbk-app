@@ -27,7 +27,9 @@ export async function GET(request: NextRequest) {
       .not('supply_amount', 'is', null)
       .neq('service_type', '정기엔드케어')
       .neq('service_type', '정기딥케어')
-      .not('status', 'in', '("신규","견적발송","방문견적","예약취소","예약금환급완료")')
+      // 예약금환급완료는 결제방식(총액 결제 후 예약금만 환급) 이라 매출로 계상 필요.
+      // 신규/견적발송/방문견적/예약취소만 매출 제외.
+      .not('status', 'in', '("신규","견적발송","방문견적","예약취소")')
       .is('deleted_at', null)
       .order('construction_date'),
 
