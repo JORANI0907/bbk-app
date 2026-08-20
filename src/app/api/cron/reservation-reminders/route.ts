@@ -515,6 +515,16 @@ export async function GET(request: NextRequest) {
             status: 'sent',
           })
 
+          const newEntry = {
+            type: '정기결제알림',
+            sent_at: nowKSTIso,
+            phone,
+            method: 'auto' as const,
+            channel: result.type,
+            billing_id: row.id,
+            billing_period: row.billing_period,
+          }
+
           // 정기딥 UI 노출: 그 달 마지막 시공 행 notification_log 에도 기록
           if (cust.customer_type === '정기딥케어') {
             const [y, m] = row.billing_period.split('-').map(Number)
@@ -535,20 +545,25 @@ export async function GET(request: NextRequest) {
               const existLog = Array.isArray(latestApp.notification_log)
                 ? (latestApp.notification_log as Array<Record<string, unknown>>)
                 : []
-              const newEntry = {
-                type: '정기결제알림',
-                sent_at: nowKSTIso,
-                phone,
-                method: 'auto' as const,
-                channel: result.type,
-                billing_id: row.id,
-                billing_period: row.billing_period,
-              }
               await supabase.from('service_applications')
                 .update({ notification_log: [...existLog, newEntry] })
                 .eq('id', latestApp.id)
             }
           }
+
+          // 고객관리 마스터 DB 알림이력 노출: customers.notification_log 갱신
+          // (정기딥·정기엔드 공통 — ScheduleAccordionRow 는 customers.notification_log 만 읽음)
+          const { data: custRow } = await supabase
+            .from('customers')
+            .select('notification_log')
+            .eq('id', cust.id)
+            .single()
+          const existCustLog = Array.isArray(custRow?.notification_log)
+            ? (custRow.notification_log as Array<Record<string, unknown>>)
+            : []
+          await supabase.from('customers')
+            .update({ notification_log: [newEntry, ...existCustLog] })
+            .eq('id', cust.id)
 
           sent++
         } else {
