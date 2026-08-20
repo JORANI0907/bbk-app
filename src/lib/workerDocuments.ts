@@ -86,7 +86,10 @@ export const DOCUMENT_TYPE_MAP: Record<WorkerDocumentType, WorkerDocumentTypeDef
   }, {} as Record<WorkerDocumentType, WorkerDocumentTypeDef>)
 
 export function getDocumentLabel(type: WorkerDocumentType, customLabel?: string | null): string {
-  if (type === 'other' && customLabel && customLabel.trim()) return customLabel.trim()
+  // 요청 시점에 저장된 라벨(document_label)이 있으면 무조건 우선 사용.
+  // 관리자가 마스터에서 커스터마이징한 라벨은 request_items.document_label 에 스냅샷 저장되므로,
+  // 여기서 하드코딩된 DOCUMENT_TYPE_MAP 라벨을 쓰면 커스텀 라벨이 무시됨.
+  if (customLabel && customLabel.trim()) return customLabel.trim()
   return DOCUMENT_TYPE_MAP[type]?.label ?? type
 }
 

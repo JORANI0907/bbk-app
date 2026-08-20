@@ -67,6 +67,8 @@ export function WorkerDocumentSection({ workerId, workerName, workerPhone }: Pro
   const [requests, setRequests] = useState<DocumentRequest[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
+  // 회차 탭 필터 (선택된 요청 ID). null = 전체(하위호환)
+  const [selectedRequestId, setSelectedRequestId] = useState<string | null>(null)
 
   const APP_URL =
     typeof window !== 'undefined' && window.location.origin
@@ -78,7 +80,15 @@ export function WorkerDocumentSection({ workerId, workerName, workerPhone }: Pro
     try {
       const res = await fetch(`/api/admin/workers/${workerId}/document-requests`)
       const json = await res.json()
-      if (json.success) setRequests(json.data ?? [])
+      if (json.success) {
+        const list: DocumentRequest[] = json.data ?? []
+        setRequests(list)
+        // 최신 회차(created_at DESC 첫 항목)를 기본 선택
+        setSelectedRequestId(prev => {
+          if (prev && list.some(r => r.id === prev)) return prev
+          return list[0]?.id ?? null
+        })
+      }
     } catch {
       toast.error('서류 요청 이력을 불러오지 못했습니다.')
     } finally {
@@ -123,7 +133,47 @@ export function WorkerDocumentSection({ workerId, workerName, workerPhone }: Pro
         </div>
       ) : (
         <div className="space-y-2">
-          {requests.map(req => {
+          {/* 회차 탭 필터 — 최신순으로 정렬된 requests 를 역순 인덱싱해 1회차부터 라벨링 */}
+          {requests.length > 1 && (() => {
+            const total = requests.length
+            return (
+              <div className="flex gap-1 flex-wrap pb-1 border-b border-border-subtle">
+                {requests.map((req, idx) => {
+                  const roundNumber = total - idx  // requests 는 최신 DESC → 첫 항목이 마지막 회차
+                  const dateLabel = new Date(req.created_at).toLocaleDateString('ko-KR', {
+                    month: '2-digit', day: '2-digit',
+                  }).replace(/\.\s?/g, '.').replace(/\.$/, '')
+                  const isActive = selectedRequestId === req.id
+                  const isExpired = new Date(req.token_expires_at) < new Date() && req.status !== 'submitted'
+                  const statusDot = req.status === 'submitted'
+                    ? 'bg-state-success'
+                    : isExpired
+                      ? 'bg-text-tertiary'
+                      : 'bg-state-warning'
+                  return (
+                    <button
+                      key={req.id}
+                      onClick={() => setSelectedRequestId(req.id)}
+                      className={`flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded-md font-medium transition-colors ${
+                        isActive
+                          ? 'bg-brand-600 text-white'
+                          : 'bg-surface border border-border text-text-secondary hover:bg-surface-sunken'
+                      }`}
+                    >
+                      <span className={`w-1.5 h-1.5 rounded-full ${isActive ? 'bg-white' : statusDot}`} />
+                      {roundNumber}회차 · {dateLabel}
+                    </button>
+                  )
+                })}
+              </div>
+            )
+          })()}
+
+          {/* 선택된 회차만 렌더링 (하위호환: selectedRequestId 없으면 전체) */}
+          {(selectedRequestId
+            ? requests.filter(r => r.id === selectedRequestId)
+            : requests
+          ).map(req => {
             const uploadedCount = req.worker_document_request_items.filter(it => it.uploaded_at).length
             const totalCount = req.worker_document_request_items.length
             const expired = new Date(req.token_expires_at) < new Date() && req.status !== 'submitted'
