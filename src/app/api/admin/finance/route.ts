@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
     return m === 12 ? `${y + 1}-01-01` : `${y}-${String(m + 1).padStart(2, '0')}-01`
   })()
 
-  const [appsRes, payrollRes, fixedRes, variableRes, endCareRes, deepCareRes] = await Promise.all([
+  const [appsRes, payrollRes, fixedRes, variableRes, endCareRes, deepCareRes, pendingRes] = await Promise.all([
     // 매출: 해당 월 service_applications (정기딥케어·정기엔드케어 제외 — 둘 다 service_billings paid 기준으로 별도 집계)
     supabase
       .from('service_applications')
@@ -77,6 +77,18 @@ export async function GET(request: NextRequest) {
       .eq('customers.customer_type', '정기딥케어')
       .neq('customers.status', 'paused')
       .is('customers.deleted_at', null),
+
+    // 미집계 회차 (status='신규' 1회성케어): 매출 페이지 상단 배너 알림용
+    // 시공일 지남/미래로 분류해서 대표 확인 유도
+    supabase
+      .from('service_applications')
+      .select('id, business_name, supply_amount, vat, payment_method, service_type, construction_date, status')
+      .gte('construction_date', `${month}-01`)
+      .lt('construction_date', nextMonth)
+      .eq('service_type', '1회성케어')
+      .eq('status', '신규')
+      .is('deleted_at', null)
+      .order('construction_date'),
   ])
 
   if (appsRes.error) return NextResponse.json({ error: appsRes.error.message }, { status: 500 })
@@ -89,6 +101,7 @@ export async function GET(request: NextRequest) {
   const payrolls = payrollRes.data ?? []
   const fixedRecords = fixedRes.data ?? []
   const variableRecords = variableRes.data ?? []
+  const pendingApps = pendingRes.data ?? []
 
   // 부가세 미적용 여부: '비과세' 또는 '미희망' 키워드 포함 시 (legacy '현금(부가세 X)' 포함)
   const isNoVat = (method: string | null) =>
@@ -196,12 +209,43 @@ export async function GET(request: NextRequest) {
   // 순이익
   const netProfit = revenueTotal - laborTotal - fixedTotal - variableTotal
 
+  // 미집계 회차 분류 (status='신규' 1회성케어)
+  // - past_due: 시공일이 오늘 이하 → 대표 확인 후 상태 변경 필요
+  // - future:   시공일이 미래 → 정상 (아직 시공 안 함)
+  const todayISO = new Date().toISOString().slice(0, 10)
+  type PendingApp = {
+    id: string
+    business_name: string
+    construction_date: string | null
+    supply_amount: number | null
+    vat: number | null
+    payment_method: string | null
+    status: string
+  }
+  const pendingPastDue: Array<PendingApp & { total: number }> = []
+  const pendingFuture:  Array<PendingApp & { total: number }> = []
+  for (const p of pendingApps as PendingApp[]) {
+    const supply = Number(p.supply_amount ?? 0)
+    const vatAmt = isNoVat(p.payment_method) ? 0 : Number(p.vat ?? 0)
+    const total  = supply + vatAmt
+    const bucket = p.construction_date && p.construction_date.slice(0, 10) <= todayISO
+      ? pendingPastDue
+      : pendingFuture
+    bucket.push({ ...p, total })
+  }
+  const pastDueTotal = pendingPastDue.reduce((s, a) => s + a.total, 0)
+  const futureTotal  = pendingFuture.reduce((s, a) => s + a.total, 0)
+
   return NextResponse.json({
     revenue: { total: revenueTotal, items: allRevenueItems },
     labor: { total: laborTotal, records: payrolls },
     fixed: { total: fixedTotal, records: fixedRecords },
     variable: { total: variableTotal, records: variableRecords },
     net_profit: netProfit,
+    pending_revenue: {
+      past_due: { count: pendingPastDue.length, total: pastDueTotal, items: pendingPastDue },
+      future:   { count: pendingFuture.length,  total: futureTotal,  items: pendingFuture  },
+    },
   })
 }
 

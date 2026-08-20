@@ -29,12 +29,27 @@ interface FinanceRecord {
   group_name: string | null
 }
 
+interface PendingApp {
+  id: string
+  business_name: string
+  construction_date: string | null
+  supply_amount: number | null
+  vat: number | null
+  payment_method: string | null
+  status: string
+  total: number
+}
+
 interface FinanceData {
   revenue: { total: number; items: RevenueItem[] }
   labor: { total: number; records: unknown[] }
   fixed: { total: number; records: FinanceRecord[] }
   variable: { total: number; records: FinanceRecord[] }
   net_profit: number
+  pending_revenue?: {
+    past_due: { count: number; total: number; items: PendingApp[] }
+    future:   { count: number; total: number; items: PendingApp[] }
+  }
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -541,6 +556,46 @@ export default function FinancePage() {
                   <Download size={14} className="inline mr-1" />카드내역 불러오기
                 </Button>
               </div>
+            )}
+
+            {/* 미집계 회차 배너 — 매출 탭에서만 표시. 시공일 지난 신규 회차가 있을 때 강조 */}
+            {section === 'revenue' && data.pending_revenue && (
+              (data.pending_revenue.past_due.count > 0 || data.pending_revenue.future.count > 0) && (
+                <div className="max-w-2xl mx-auto w-full space-y-2">
+                  {data.pending_revenue.past_due.count > 0 && (
+                    <div className="bg-red-50 border border-red-200 rounded-xl p-3">
+                      <div className="flex items-start gap-2">
+                        <span className="text-red-600 text-sm">⚠️</span>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-bold text-red-800">
+                            시공일 지남 · 신규 상태 {data.pending_revenue.past_due.count}건 (총 {fmt(data.pending_revenue.past_due.total)}원)
+                          </p>
+                          <p className="text-[11px] text-red-700 mt-0.5 leading-relaxed">
+                            이미 시공한 회차일 수 있습니다. 상태를 결제완료 등으로 변경하면 매출에 반영됩니다.
+                          </p>
+                          <div className="mt-1.5 space-y-0.5">
+                            {data.pending_revenue.past_due.items.slice(0, 5).map(p => (
+                              <p key={p.id} className="text-[11px] text-red-700 truncate">
+                                • <span className="font-medium">{p.business_name}</span> · {fmtDate(p.construction_date)} · {p.payment_method ?? '-'} · <span className="font-mono">{fmt(p.total)}원</span>
+                              </p>
+                            ))}
+                            {data.pending_revenue.past_due.count > 5 && (
+                              <p className="text-[11px] text-red-600 font-medium">외 {data.pending_revenue.past_due.count - 5}건</p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  {data.pending_revenue.future.count > 0 && (
+                    <div className="bg-surface-sunken border border-border-subtle rounded-xl px-3 py-2">
+                      <p className="text-[11px] text-text-secondary">
+                        📅 시공일 미래 · 신규 상태 <span className="font-semibold">{data.pending_revenue.future.count}건</span> (총 <span className="font-mono">{fmt(data.pending_revenue.future.total)}원</span>) — 아직 시공 전이라 매출 미집계 (정상)
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )
             )}
 
             {/* 매출 섹션 — 매출 탭에서만 표시 */}
