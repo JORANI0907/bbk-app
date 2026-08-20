@@ -121,8 +121,14 @@ export async function GET(request: NextRequest) {
   type EndCareRaw = { id: string; amount: number; customer_id: string; paid_date: string | null; due_date: string | null; customers: EndCareCustomer | EndCareCustomer[] }
   const endCareItems = ((endCareRes.data ?? []) as unknown as EndCareRaw[]).map(b => {
     const customer = Array.isArray(b.customers) ? b.customers[0] : b.customers
-    const supply = b.amount ?? 0
-    const vatAmt = isNoVat(customer?.payment_method ?? null) ? 0 : Math.round(supply * 0.1)
+    // service_billings.amount 는 마스터 billing_amount(총액=공급대가) 복사값.
+    // 결제방법에 따라 총액을 공급가액/부가세로 역분해:
+    //   - 비과세: 공급가액 = amount, 부가세 = 0
+    //   - 세금계산서/카드: 공급가액 = amount ÷ 1.1, 부가세 = amount - 공급가액
+    const total = b.amount ?? 0
+    const noVat = isNoVat(customer?.payment_method ?? null)
+    const supply = noVat ? total : Math.round(total / 1.1)
+    const vatAmt = noVat ? 0 : total - supply
     return {
       id: b.id,
       business_name: customer?.business_name ?? '알 수 없음',
@@ -131,7 +137,7 @@ export async function GET(request: NextRequest) {
       supply_amount: supply,
       vat: vatAmt,
       payment_method: customer?.payment_method ?? null,
-      total: supply + vatAmt,
+      total,
     }
   })
 
@@ -140,8 +146,14 @@ export async function GET(request: NextRequest) {
   type DeepCareRaw = { id: string; amount: number; customer_id: string; paid_date: string | null; due_date: string | null; billing_period: string; billing_type: string; customers: DeepCareCustomer | DeepCareCustomer[] }
   const deepCareItems = ((deepCareRes.data ?? []) as unknown as DeepCareRaw[]).map(b => {
     const customer = Array.isArray(b.customers) ? b.customers[0] : b.customers
-    const supply = b.amount ?? 0
-    const vatAmt = isNoVat(customer?.payment_method ?? null) ? 0 : Math.round(supply * 0.1)
+    // service_billings.amount 는 마스터 billing_amount(총액=공급대가) 복사값.
+    // 결제방법에 따라 총액을 공급가액/부가세로 역분해:
+    //   - 비과세: 공급가액 = amount, 부가세 = 0
+    //   - 세금계산서/카드: 공급가액 = amount ÷ 1.1, 부가세 = amount - 공급가액
+    const total = b.amount ?? 0
+    const noVat = isNoVat(customer?.payment_method ?? null)
+    const supply = noVat ? total : Math.round(total / 1.1)
+    const vatAmt = noVat ? 0 : total - supply
     // Phase 27-BK: UI 탭 라벨(SERVICE_TYPES='정기딥케어')과 정합. 이전 '정기딥케어(월간)'
     //   라벨은 필터 정확 매치 실패로 매출 리스트에서 4건이 필터링되어 0원으로 잘못 표시됨.
     //   연간만 별도 탭이 있어 자연스럽게 월간은 순수 '정기딥케어' 로 반환하면 됨.
@@ -154,7 +166,7 @@ export async function GET(request: NextRequest) {
       supply_amount: supply,
       vat: vatAmt,
       payment_method: customer?.payment_method ?? null,
-      total: supply + vatAmt,
+      total,
     }
   })
 
