@@ -225,8 +225,18 @@ export default function WorkerList({
                   }
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-1.5 mb-0.5">
+                  <div className="flex items-center gap-1.5 mb-0.5 flex-wrap">
                     <span className="text-sm font-semibold text-gray-900 truncate">{worker.name}</span>
+                    {/* 앱 계정 미연결 경고 — 관리자만 노출.
+                        user_id 가 없으면 고객관리 담당자 드롭다운에 뜨지 않아 배정 불가. */}
+                    {canViewAll && !worker.user_id && (
+                      <span
+                        className="text-xs px-1.5 py-0.5 rounded-full shrink-0 bg-red-100 text-red-700 border border-red-200"
+                        title="앱 계정이 아직 연결되지 않았습니다. 회원관리에서 계정 생성 후 세부화면 '앱 계정 연결'에서 연결해야 담당자로 배정 가능합니다."
+                      >
+                        ⚠ 계정 미연결
+                      </span>
+                    )}
                     {/* 고용형태·숙련도 배지는 관리자만 노출 */}
                     {canViewAll && worker.employment_type && (
                       <span className={`text-xs px-1.5 py-0.5 rounded-full shrink-0 ${EMP_BADGE[worker.employment_type] ?? 'bg-gray-100 text-gray-600'}`}>
