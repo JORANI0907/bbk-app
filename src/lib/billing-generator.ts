@@ -187,7 +187,13 @@ export function calcMonthlyDueDate(visitDate: string | Date, paymentDay: number 
 const NO_VAT_METHODS = new Set(['현금(비과세)', '카드(온라인 간편결제)', '플랫폼'])
 
 /**
- * customers row에서 청구액 계산 (supply + vat 우선, 없으면 billing_amount)
+ * customers row에서 청구액 계산.
+ *   billing_amount(마스터 UI에서 결제방법·부가세 반영해 산정된 최종 총액)를 최우선 반환.
+ *   billing_amount 가 없을 때만 supply + vat fallback 계산.
+ *
+ *   과거 버전은 supply + vat 을 먼저 계산했는데, NO_VAT_METHODS 에 '카드(온라인 간편결제)'·
+ *   '플랫폼' 이 포함되어 있어 카드 결제 시 부가세를 뺀 공급가액만 저장되는 문제 발생.
+ *   (예: 신전떡볶이 마스터 198,000 → 청구서 amount 180,000 으로 저장됨)
  */
 export function computeBillingAmountFromCustomer(customer: {
   supply_amount?:  number | null
@@ -195,10 +201,10 @@ export function computeBillingAmountFromCustomer(customer: {
   billing_amount?: number | null
   payment_method?: string | null
 }): number | null {
+  if (customer.billing_amount) return Number(customer.billing_amount)
   const noVat = NO_VAT_METHODS.has(customer.payment_method ?? '')
   const s = Number(customer.supply_amount ?? 0)
   const v = noVat ? 0 : Number(customer.vat ?? 0)
   if (s > 0) return s + v
-  if (customer.billing_amount) return Number(customer.billing_amount)
   return null
 }
