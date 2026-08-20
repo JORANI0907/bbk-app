@@ -2152,11 +2152,15 @@ export function CustomersManagementView({
     })
   }
 
-  // 미배정 토글 — 미배정 활성화 시 유형 필터 자동 클리어 (전체 유형에서 미배정만)
+  // 미배정 토글 — 미배정 활성화 시 유형 필터 자동 클리어 + 리스트 뷰로 전환
+  // (캘린더 뷰에서는 미배정 건이 시공일자 없어 잘 안 보이므로 리스트가 실무에 적합)
   const toggleUnassigned = () => {
     setShowUnassignedOnly(prev => {
       const next = !prev
-      if (next) setSelectedTypes(new Set())
+      if (next) {
+        setSelectedTypes(new Set())
+        setViewMode('list')
+      }
       return next
     })
   }
