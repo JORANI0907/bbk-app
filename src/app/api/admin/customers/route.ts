@@ -417,10 +417,40 @@ export async function PATCH(request: NextRequest) {
     }
   }
 
-  // customer → service_applications 자동 필드 sync 는 전면 폐지.
+  // customer → service_applications 자동 필드 sync 는 정기딥/정기엔드에는 여전히 폐지.
   //   마스터 편집이 기존 회차 일정에 영향을 주면 업무량·정산이 왜곡됨.
   //   회차 일정은 생성 시점(generate-schedules)의 스냅샷을 유지하고,
   //   개별 회차 수정은 이번달 일정 섹션의 아코디언에서만 수행.
+  //
+  // 예외: 1회성케어·일반일정은 원칙상 customer 1건 = 신청서 1건 구조라
+  //   담당자·시공일자가 마스터와 어긋나면 배정관리에서 매칭 실패 →
+  //   customer:접두사 마킹 → 편집 불가로 고객관리로 튕겨나감.
+  //   open 상태(결제·작업완료 전) 신청서만 좁게 sync.
+  const oneShotSyncable =
+    updatedCustomer.customer_type === '1회성케어' ||
+    updatedCustomer.customer_type === '일반일정'
+  const oneShotFieldsChanged =
+    'assigned_user_id' in rest || 'next_visit_date' in rest
+  if (oneShotSyncable && oneShotFieldsChanged) {
+    try {
+      const appUpdates: Record<string, unknown> = {}
+      if ('assigned_user_id' in rest) appUpdates.assigned_to = rest.assigned_user_id
+      if ('next_visit_date' in rest) appUpdates.construction_date = rest.next_visit_date
+      if (Object.keys(appUpdates).length > 0) {
+        await supabase
+          .from('service_applications')
+          .update(appUpdates)
+          .eq('customer_id', id)
+          .is('deleted_at', null)
+          .in('status', ['신규', '예약확정', '예약1일전', '예약당일', '기존고객'])
+      }
+    } catch (e) {
+      console.error(
+        '1회성/일반일정 customer→service_applications sync 실패:',
+        e instanceof Error ? e.message : e,
+      )
+    }
+  }
 
   // Phase 22 v11: 계약 관련 필드가 변경됐거나 계약 조건이 충족되면 billings 재생성
   // regenerate=true: pending 레코드 삭제 후 현재 조건(billing_cycle 등)으로 전체 재생성
