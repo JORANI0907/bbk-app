@@ -9,6 +9,10 @@ import {
 type RouteParams = { params: { id: string } }
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.bbkorea.co.kr'
+// 직원 서류 업로드 SMS URL 전용 도메인. PWA(app.bbkorea.co.kr)와 분리해
+// 앱 설치된 직원 폰에서 딥링크로 앱이 열리는 문제를 우회한다.
+// 미설정 시 APP_URL 로 fallback → 기존 동작 유지.
+const DOCUMENT_URL = process.env.NEXT_PUBLIC_DOCUMENT_URL ?? APP_URL
 
 interface RequestItemInput {
   document_type: string
@@ -148,7 +152,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
   // SMS 본문 렌더링
   const documentList = itemRows.map((it, i) => `${i + 1}. ${it.document_label}`).join('\n')
-  const url = `${APP_URL}/worker-documents/${created.token}`
+  const url = `${DOCUMENT_URL}/worker-documents/${created.token}`
   const workerName = (worker.name as string) || '직원'
 
   const renderedBody = body.message_body?.trim()
