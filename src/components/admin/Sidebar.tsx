@@ -4,7 +4,7 @@ import type { ReactNode } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useState, useCallback } from 'react'
-import { Trash2, Home, Building2, Users, TrendingUp, Settings, LogOut, Activity, HelpCircle } from 'lucide-react'
+import { Trash2, Home, Building2, Users, TrendingUp, Settings, LogOut, Activity, HelpCircle, Map as MapIcon } from 'lucide-react'
 import { OpsHelpSheet } from '@/components/admin/ops/OpsHelpSheet'
 
 // ─── 타입 ─────────────────────────────────────────────────────
@@ -55,8 +55,9 @@ const NAV_ITEMS: NavItem[] = [
     roles: ['worker'],
     children: [
       { href: '/admin/schedule', label: '배정관리', badgeKey: 'schedule' },
-      { href: '/admin/customers', label: '고객관리' },
-      // Phase 27-N: 직원 포털에서 고객DB이력 메뉴 숨김 (관리자 전용 데이터)
+      // 직원은 배정관리에서만 자기 배정 건을 보도록 하고 고객관리 마스터는 관리자 전용.
+      // 마스터 DB를 직원이 직접 클릭하면 배정관리 라우팅과 어긋나 고객관리로 튕겨나가는
+      // 사고를 방지하기 위해 워커 사이드바에서 고객관리 메뉴 제거.
     ],
   },
   {
@@ -66,6 +67,7 @@ const NAV_ITEMS: NavItem[] = [
     roles: ['admin'],
     children: [
       { href: '/admin/live', label: '오늘의 현장 (라이브)' },
+      { href: '/admin/map', label: '지도 대시보드' },
       { href: '/admin/attendance', label: '출퇴근관리' },
       { href: '/admin/workers', label: '직원관리' },
       { href: '/admin/incidents', label: '경위서', badgeKey: 'incidents' },
