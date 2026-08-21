@@ -27,7 +27,10 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   const supabase = createServiceClient()
   const body = await request.json()
-  const { customer_id, billing_type, billing_period, amount, due_date, notes } = body
+  const {
+    customer_id, billing_type, billing_period, amount, due_date,
+    notes, billing_timing, service_type,
+  } = body
 
   if (!customer_id || !billing_type || !billing_period || !amount || !due_date) {
     return NextResponse.json({ error: '필수 항목(customer_id, billing_type, billing_period, amount, due_date)이 누락되었습니다.' }, { status: 400 })
@@ -37,9 +40,25 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "billing_type은 'monthly' 또는 'annual'이어야 합니다." }, { status: 400 })
   }
 
+  if (billing_timing && !['prepaid', 'postpaid'].includes(billing_timing)) {
+    return NextResponse.json({ error: "billing_timing은 'prepaid' 또는 'postpaid'이어야 합니다." }, { status: 400 })
+  }
+
+  const insertPayload: Record<string, unknown> = {
+    customer_id,
+    billing_type,
+    billing_period,
+    amount: Number(amount),
+    due_date,
+    notes: notes || null,
+    status: 'pending',
+  }
+  if (billing_timing) insertPayload.billing_timing = billing_timing
+  if (service_type)   insertPayload.service_type   = service_type
+
   const { data, error } = await supabase
     .from('service_billings')
-    .insert({ customer_id, billing_type, billing_period, amount: Number(amount), due_date, notes: notes || null })
+    .insert(insertPayload)
     .select()
     .single()
 

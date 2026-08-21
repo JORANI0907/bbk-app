@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import toast from 'react-hot-toast'
-import { X, Info, Pencil, Check } from 'lucide-react'
+import { X, Info, Pencil, Check, Plus } from 'lucide-react'
+import { BillingAddModal } from '@/components/admin/BillingAddModal'
 
 interface BillingRecord {
   id: string
@@ -36,6 +37,7 @@ interface Props {
   paymentDay: number | null
   contractStartDate: string | null
   contractEndDate: string | null
+  billingTiming?: 'prepaid' | 'postpaid'  // 수동 추가 모달의 기본 선납/후납 값
   onChange?: () => void
 }
 
@@ -49,7 +51,8 @@ const fmtDate = (d: string | null) => d ? d.slice(0, 10).replace(/-/g, '.') : '-
 const fmt = (n: number) => n.toLocaleString('ko-KR')
 
 export function BillingHistoryPanel({
-  customerId, customerType, billingCycle, billingAmount, contractStartDate, onChange,
+  customerId, customerType, billingCycle, billingAmount, contractStartDate,
+  billingTiming = 'prepaid', onChange,
 }: Props) {
   const [billings, setBillings] = useState<BillingRecord[]>([])
   const [loading, setLoading] = useState(true)
@@ -65,6 +68,9 @@ export function BillingHistoryPanel({
   const [editAmount, setEditAmount] = useState('')
   const [editDueDate, setEditDueDate] = useState('')
   const [editSaving, setEditSaving] = useState(false)
+
+  // 수동 추가 모달
+  const [showAddModal, setShowAddModal] = useState(false)
 
   const isAnnual  = billingCycle === '연간'
   const isRegular = customerType === '정기딥케어' || customerType === '정기엔드케어'
@@ -226,14 +232,24 @@ export function BillingHistoryPanel({
             <Info size={13} />
           </button>
         </div>
-        {billings.length > 0 && (hiddenCount > 0 || expanded) && (
+        <div className="flex items-center gap-1.5">
+          {billings.length > 0 && (hiddenCount > 0 || expanded) && (
+            <button
+              onClick={() => setExpanded(v => !v)}
+              className="px-2.5 py-1 text-xs font-medium rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 transition-colors whitespace-nowrap"
+            >
+              {expanded ? '접기 ▲' : `전체 보기 (${billings.length}건) ▼`}
+            </button>
+          )}
           <button
-            onClick={() => setExpanded(v => !v)}
-            className="px-2.5 py-1 text-xs font-medium rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 transition-colors whitespace-nowrap"
+            onClick={() => setShowAddModal(true)}
+            className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-lg border border-brand-300 bg-brand-50 text-brand-700 hover:bg-brand-100 transition-colors whitespace-nowrap"
+            title="청구 이력 수동 추가"
           >
-            {expanded ? '접기 ▲' : `전체 보기 (${billings.length}건) ▼`}
+            <Plus size={12} />
+            청구 추가
           </button>
-        )}
+        </div>
       </div>
 
       {/* 이용 안내 패널 */}
@@ -450,6 +466,20 @@ export function BillingHistoryPanel({
           ))
         )}
       </div>
+
+      <BillingAddModal
+        open={showAddModal}
+        onClose={() => setShowAddModal(false)}
+        customerId={customerId}
+        customerType={customerType}
+        billingCycle={billingCycle}
+        defaultAmount={billingAmount}
+        defaultTiming={billingTiming}
+        onSuccess={() => {
+          void fetchBillings()
+          onChange?.()
+        }}
+      />
     </div>
   )
 }

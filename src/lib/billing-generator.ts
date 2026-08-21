@@ -97,7 +97,8 @@ export function generateBillingSchedule(input: GenerateInput): GeneratedBilling[
   const start  = new Date(input.contractStartDate!)
   const end    = input.contractEndDate ? new Date(input.contractEndDate) : new Date()
   const amount = input.billingAmount!
-  const day    = input.paymentDay ?? 25
+  // 결제일자 비어있으면 계약일의 일을 기본값으로 (기존: 하드코딩 25일)
+  const day    = input.paymentDay ?? start.getDate()
   const sType  = input.serviceType ?? undefined
   const timing: BillingTiming = input.billingTiming ?? 'prepaid'
 
@@ -141,7 +142,20 @@ export function generateBillingSchedule(input: GenerateInput): GeneratedBilling[
 
       let dueDate: string
       if (timing === 'postpaid') {
-        dueDate = computePostpaidDueDate(start, cycleIdx, stepMonths)
+        // 후납: 결제일자 필드가 있으면 "사이클 종료 다음달의 결제일자"로 계산
+        //  월간(stepMonths=1)  예) 계약 2026-08-21, payment_day=25 → 첫 due_date = 2026-09-25
+        //  3개월(stepMonths=3) 예) 계약 2026-01, payment_day=25 → 첫 due_date = 2026-04-25
+        // 결제일자 필드 비어있으면 기존 로직(계약시작일 + K사이클 - 1일) 유지
+        if (input.paymentDay) {
+          const nextMonthIdx = cursor.getMonth() + stepMonths      // 0-based
+          const nextY = cursor.getFullYear() + Math.floor(nextMonthIdx / 12)
+          const nextM = (((nextMonthIdx % 12) + 12) % 12) + 1       // 1-based
+          const lastDay = new Date(nextY, nextM, 0).getDate()
+          const dueDay  = Math.min(input.paymentDay, lastDay)
+          dueDate = `${nextY}-${String(nextM).padStart(2, '0')}-${String(dueDay).padStart(2, '0')}`
+        } else {
+          dueDate = computePostpaidDueDate(start, cycleIdx, stepMonths)
+        }
       } else {
         const lastDay = new Date(y, m, 0).getDate()
         const dueDay  = Math.min(day, lastDay)
