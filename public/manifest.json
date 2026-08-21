@@ -4,6 +4,9 @@
   "description": "범빌드코리아 통합 서비스 앱",
   "start_url": "/",
   "display": "standalone",
+  "launch_handler": {
+    "client_mode": ["navigate-existing", "auto"]
+  },
   "background_color": "#ffffff",
   "theme_color": "#2AABE2",
   "orientation": "portrait",
