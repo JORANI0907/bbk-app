@@ -12,6 +12,7 @@ import { useDriveFolder } from '@/hooks/useDriveFolder'
 import { CustomerAccountLink } from '@/components/admin/CustomerAccountLink'
 import { FieldHint } from '@/components/ui/FieldHint'
 import { MonthlyScheduleSection } from '@/components/admin/customers/MonthlyScheduleSection'
+import { ContractScheduleSection } from '@/components/admin/customers/ContractScheduleSection'
 import { PaymentIssuesSummary } from '@/components/admin/customers/PaymentIssuesSummary'
 import { ServiceManagementPage } from '@/components/admin/applications/ServiceManagementView'
 import { CustomersCalendarGrid, type CalendarApp } from '@/components/admin/customers/CustomersCalendarGrid'
@@ -1367,6 +1368,50 @@ export function CustomersManagementView({
       toast.success(isComplete ? '결제완료 취소됨' : '결제완료 처리됨')
     } catch (e) {
       toast.error(e instanceof Error ? e.message : '저장 실패')
+    } finally { setStatusToggling(false) }
+  }
+
+  // 1회성케어 전용 — 예약확정 버튼 토글.
+  // 활성화 시 예약확정알림 SMS 발송 + customer.progress_status + 짝 신청서 status 를
+  // '예약확정' 으로 세팅. 그 순간부터 다음날 06:00 cron 이 자동으로 예약1일전/당일 알림 발송.
+  const handleReservationConfirmToggle = async () => {
+    if (!selected || statusToggling) return
+    const isConfirmed = form.progress_status === '예약확정'
+
+    if (isConfirmed) {
+      if (!confirm('예약확정을 취소하시겠습니까?\n\n이미 발송된 알림은 취소되지 않습니다.\n진행상태만 이전으로 되돌립니다.')) return
+      setStatusToggling(true)
+      try {
+        const res = await fetch('/api/admin/customers', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: selected.id, progress_status: '기존고객' }),
+        })
+        if (!res.ok) throw new Error('저장 실패')
+        setForm(prev => ({ ...prev, progress_status: '기존고객' }))
+        setSelected(prev => prev ? { ...prev, progress_status: '기존고객' } : prev)
+        setCustomers(prev => prev.map(c => c.id === selected.id ? { ...c, progress_status: '기존고객' } : c))
+        toast.success('예약확정 취소됨')
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : '저장 실패')
+      } finally { setStatusToggling(false) }
+      return
+    }
+
+    if (!confirm('예약확정 알림을 발송하시겠습니까?\n\n고객에게 SMS 가 즉시 발송되며,\n앞으로 예약1일전·예약당일 알림도 자동 발송됩니다.')) return
+    setStatusToggling(true)
+    try {
+      const res = await fetch(`/api/admin/customers/${selected.id}/confirm-reservation`, {
+        method: 'POST',
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error ?? '발송 실패')
+      setForm(prev => ({ ...prev, progress_status: '예약확정' }))
+      setSelected(prev => prev ? { ...prev, progress_status: '예약확정' } : prev)
+      setCustomers(prev => prev.map(c => c.id === selected.id ? { ...c, progress_status: '예약확정' } : c))
+      toast.success(`예약확정 알림 발송 완료 (${data.channel})`)
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : '발송 실패')
     } finally { setStatusToggling(false) }
   }
 
@@ -3906,9 +3951,8 @@ export function CustomersManagementView({
                       className="flex-1 border border-border rounded-md px-2 py-1 text-xs bg-white focus:outline-none focus:ring-1 focus:ring-sky-500" />
                   </div>
 
-                  {/* Phase 21 / Phase 37: 방문 일정 소섹션 */}
+                  {/* Phase 21 / Phase 37: 방문 일정 소섹션 (헤더+ⓘ는 VisitCycleEditor 내부) */}
                   <div className="bg-brand-50 border border-brand-200 rounded-lg p-3 flex flex-col gap-2">
-                    <p className="text-xs font-semibold text-text-primary">방문 일정</p>
                     <VisitCycleEditor
                       unit={form.visit_cycle_unit}
                       value={form.visit_cycle_value}
@@ -3949,10 +3993,22 @@ export function CustomersManagementView({
               />
             )}
 
-            {/* Phase 2: 이번달 일정 (정기딥/엔드 고객만 노출, 저장 버튼 바로 위)
-                Phase 27: 캘린더에서 진입 시 focus된 회차 아코디언 자동 확장 + 해당 월로 이동
-                Phase 27-I: worker에겐 완전 블라인드 */}
-            {!isWorker && selected && !isNew && (form.customer_type === '정기딥케어' || form.customer_type === '정기엔드케어') && (
+            {/* 일정 섹션 (정기딥/엔드 고객만 노출, worker에겐 블라인드)
+                - 정기딥케어: 월 1~2회라 계약기간 전체 조망이 유리 → ContractScheduleSection
+                - 정기엔드케어: 월 다회 방문 → 기존 이번달 일정 (MonthlyScheduleSection) */}
+            {!isWorker && selected && !isNew && form.customer_type === '정기딥케어' && (
+              <ContractScheduleSection
+                customerId={selected.id}
+                businessName={form.business_name}
+                phone={form.contact_phone}
+                users={usersList.filter(u => u.role === 'admin' || u.role === 'worker')}
+                workers={flexibleWorkers}
+                focusApplicationId={calendarFocus?.appId}
+                parentDriveFolderUrl={selected.drive_folder_url ?? null}
+                customerType={form.customer_type}
+              />
+            )}
+            {!isWorker && selected && !isNew && form.customer_type === '정기엔드케어' && (
               <MonthlyScheduleSection
                 customerId={selected.id}
                 businessName={form.business_name}
@@ -4002,8 +4058,24 @@ export function CustomersManagementView({
                       </select>
                     </div>
                   </div>
-                  {/* 결제완료 · 세금계산서 발행 토글 (좌우 배치) */}
-                  <div className="grid grid-cols-2 gap-2">
+                  {/* 예약확정 · 결제완료 · 세금계산서 발행 토글 (3열 배치)
+                      예약확정 버튼: 클릭 시 예약확정알림 SMS 발송 + status='예약확정' 저장.
+                      그 후 06:00 cron 이 자동으로 예약1일전/예약당일 알림 발송. */}
+                  <div className="grid grid-cols-3 gap-2">
+                    <button
+                      type="button"
+                      disabled={statusToggling}
+                      onClick={handleReservationConfirmToggle}
+                      className={`flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium border transition-all duration-150 ease-out hover:-translate-y-0.5 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed ${
+                        form.progress_status === '예약확정'
+                          ? 'bg-blue-100 text-blue-700 border-blue-200 shadow-sm hover:shadow-md hover:bg-blue-200'
+                          : 'bg-gray-50 text-text-tertiary border-border hover:bg-gray-100 hover:shadow-sm'
+                      }`}
+                      title="예약확정 알림 SMS 발송 + 진행상태를 예약확정으로 저장. 다음날부터 예약1일전/당일 알림 자동 발송."
+                    >
+                      <Calendar className="w-3.5 h-3.5" />
+                      예약확정
+                    </button>
                     <button
                       type="button"
                       disabled={statusToggling}

@@ -1,15 +1,16 @@
 'use client'
 
+import { useState } from 'react'
+import { Info } from 'lucide-react'
 import type { VisitCycleUnit, VisitCycleConfig } from '@/lib/schedule-generator'
 
 const WEEKDAY_LABELS = ['일', '월', '화', '수', '목', '금', '토']
 
+// 실사용 옵션 (분기/연간은 실무 사용 사례 없어 제거; 필요 시 월간 매 3/12개월마다로 대체)
 const UNIT_OPTIONS: { key: VisitCycleUnit; label: string }[] = [
-  { key: 'day',     label: '매일' },
-  { key: 'week',    label: '주간' },
-  { key: 'month',   label: '월간' },
-  { key: 'quarter', label: '분기' },
-  { key: 'year',    label: '연간' },
+  { key: 'day',   label: '매일' },
+  { key: 'week',  label: '주간' },
+  { key: 'month', label: '월간' },
 ]
 
 interface Props {
@@ -24,6 +25,8 @@ export function VisitCycleEditor({ unit, value, config, color = 'blue', onChange
   const active    = color === 'purple' ? 'bg-purple-600 text-white' : 'bg-brand-600 text-white'
   const ringColor = color === 'purple' ? 'focus:ring-purple-400' : 'focus:ring-brand-400'
   const textColor = color === 'purple' ? 'text-purple-700' : 'text-brand-700'
+
+  const [showHelp, setShowHelp] = useState(false)
 
   const setUnit  = (u: VisitCycleUnit) => onChange(u, value, {})
   const setValue = (v: number)          => onChange(unit as VisitCycleUnit, v, config)
@@ -42,6 +45,61 @@ export function VisitCycleEditor({ unit, value, config, color = 'blue', onChange
 
   return (
     <div className="flex flex-col gap-2.5">
+      {/* 헤더: 타이틀 + 사용법 안내 토글 */}
+      <div className="flex items-center gap-1.5">
+        <p className="text-xs font-semibold text-text-primary">방문 일정</p>
+        <button
+          type="button"
+          onClick={() => setShowHelp(v => !v)}
+          className="text-text-tertiary hover:text-text-primary transition-colors"
+          title="사용법 보기"
+        >
+          <Info size={13} />
+        </button>
+      </div>
+
+      {/* 사용법 안내 (Info 아이콘 클릭 시 펼침) */}
+      {showHelp && (
+        <div className="bg-blue-50 border border-blue-100 rounded-lg px-3 py-2.5 space-y-2 text-xs text-blue-900 leading-relaxed">
+          <p className="font-semibold text-blue-800">방문 일정 사용법</p>
+
+          <div className="space-y-1">
+            <p><span className="font-semibold">① 주기 단위 선택</span> — 매일 / 주간 / 월간 중 하나</p>
+            <p><span className="font-semibold">② 반복 간격 설정</span> — &quot;매 N __마다&quot; 입력</p>
+            <ul className="pl-4 list-disc space-y-0.5 text-blue-700">
+              <li>매 1개월마다 = 매월</li>
+              <li>매 2주마다 = 격주</li>
+              <li>매 3개월마다 = 3개월 간격 (분기)</li>
+              <li>매 12개월마다 = 매년</li>
+            </ul>
+            <p><span className="font-semibold">③ 세부 옵션</span></p>
+            <ul className="pl-4 list-disc space-y-0.5 text-blue-700">
+              <li>주간: 방문 요일 선택 (여러 개 가능)</li>
+              <li>월간: 방문 날짜 선택 (여러 개 가능)</li>
+            </ul>
+          </div>
+
+          <div className="bg-amber-50 border border-amber-200 rounded-md px-2.5 py-1.5 text-amber-900">
+            <p className="font-semibold mb-0.5">⚠️ 중요 — 계약 시작 월 기준</p>
+            <p className="text-amber-800">
+              &quot;매 N개월마다&quot;는 <strong>계약 시작 월부터 N개월 간격</strong>으로 방문 예정을 만듭니다.
+            </p>
+            <ul className="pl-4 list-disc mt-1 space-y-0.5 text-amber-800">
+              <li>8월 계약 + 매 3개월마다 → 8, 11, 2, 5월 방문</li>
+              <li>1월 계약 + 매 3개월마다 → 1, 4, 7, 10월 방문</li>
+            </ul>
+          </div>
+
+          <div className="pt-1 border-t border-blue-100">
+            <p className="font-semibold">④ 하단 버튼</p>
+            <ul className="pl-4 list-disc space-y-0.5 text-blue-700">
+              <li><strong>수정 반영</strong>: 기존 일정 갱신</li>
+              <li><strong>생성</strong>: 신규 일정 생성</li>
+            </ul>
+          </div>
+        </div>
+      )}
+
       {/* 주기 단위 선택 */}
       <div className="flex gap-1">
         {UNIT_OPTIONS.map(({ key, label }) => (
@@ -65,59 +123,6 @@ export function VisitCycleEditor({ unit, value, config, color = 'blue', onChange
           <span className="text-xs text-text-secondary shrink-0">
             {{ day: '일마다', week: '주마다', month: '개월마다' }[unit]}
           </span>
-        </div>
-      )}
-
-      {/* 분기 — 분기 내 몇 번째 달 + 날짜 */}
-      {unit === 'quarter' && (
-        <div className="flex flex-col gap-1.5">
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-text-secondary w-24 shrink-0">분기 내 달</span>
-            <div className="flex gap-1">
-              {[0, 1, 2].map(offset => (
-                <button key={offset} type="button"
-                  onClick={() => setConfig({ ...config, month_offset: offset })}
-                  className={`px-3 py-1 text-xs rounded-md font-medium transition-colors ${
-                    (config.month_offset ?? 0) === offset ? active : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                  }`}>
-                  {['첫째 달', '둘째 달', '셋째 달'][offset]}
-                </button>
-              ))}
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-text-secondary w-24 shrink-0">방문 날짜</span>
-            <input type="number" min={1} max={31}
-              value={config.date ?? ''}
-              onChange={e => setConfig({ ...config, date: parseInt(e.target.value) || 1 })}
-              placeholder="1~31"
-              className={`w-16 border border-border rounded-md px-2 py-1 text-xs text-center focus:outline-none focus:ring-1 ${ringColor}`} />
-            <span className="text-xs text-text-secondary">일</span>
-          </div>
-        </div>
-      )}
-
-      {/* 연간 — 방문 월 + 날짜 */}
-      {unit === 'year' && (
-        <div className="flex flex-col gap-1.5">
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-text-secondary w-24 shrink-0">방문 월</span>
-            <input type="number" min={1} max={12}
-              value={config.month ?? ''}
-              onChange={e => setConfig({ ...config, month: parseInt(e.target.value) || 1 })}
-              placeholder="1~12"
-              className={`w-16 border border-border rounded-md px-2 py-1 text-xs text-center focus:outline-none focus:ring-1 ${ringColor}`} />
-            <span className="text-xs text-text-secondary">월</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-text-secondary w-24 shrink-0">방문 날짜</span>
-            <input type="number" min={1} max={31}
-              value={config.date ?? ''}
-              onChange={e => setConfig({ ...config, date: parseInt(e.target.value) || 1 })}
-              placeholder="1~31"
-              className={`w-16 border border-border rounded-md px-2 py-1 text-xs text-center focus:outline-none focus:ring-1 ${ringColor}`} />
-            <span className="text-xs text-text-secondary">일</span>
-          </div>
         </div>
       )}
 
@@ -171,13 +176,6 @@ function buildPreviewLabel(unit: VisitCycleUnit, value: number, config: VisitCyc
   if (unit === 'month') {
     const dText = dates.length > 0 ? dates.sort((a,b)=>a-b).join('·') + '일' : '날짜 미선택'
     return value === 1 ? `매월 ${dText} 방문` : `매 ${value}개월마다 ${dText} 방문`
-  }
-  if (unit === 'quarter') {
-    const offsetLabel = ['첫째 달', '둘째 달', '셋째 달'][config.month_offset ?? 0]
-    return `매 분기 ${offsetLabel} ${config.date ?? '?'}일 방문`
-  }
-  if (unit === 'year') {
-    return `매년 ${config.month ?? '?'}월 ${config.date ?? '?'}일 방문`
   }
   return ''
 }
