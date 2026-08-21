@@ -38,9 +38,10 @@ export async function POST(
     drive_folder_url: null,
     // 포털 계정은 절대 공유 금지 — 새 고객이므로 신규 발급 필요
     user_id: null,
-    // 다음 방문·결제 스케줄도 초기화 (새 고객이 별도 스케줄 잡음)
-    next_visit_date: null,
-    billing_next_date: null,
+    // next_visit_date / billing_next_date 는 원본 값을 유지.
+    // 리셋하면 짝 service_applications 의 construction_date 도 NULL 이 되어
+    // 배정관리 미노출 + work_assignments 저장 실패로 이어짐.
+    // 새 스케줄이면 사용자가 UI 에서 지우거나 갱신하면 됨.
     payment_status: null,
     // 소프트 삭제 흔적 제거
     deleted_at: null,
