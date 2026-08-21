@@ -2522,9 +2522,12 @@ export function CustomersManagementView({
                         <td colSpan={99} className="px-3 py-1.5">
                           <div className="flex items-center justify-between gap-3">
                             <span className="text-[11px] font-semibold text-emerald-900">📅 {weekInfo.label} 주간</span>
-                            <span className={`text-xs font-bold tabular-nums ${weekInfo.amount > 0 ? 'text-emerald-800' : 'text-text-tertiary'}`}>
-                              {weekInfo.amount > 0 ? fmtAmount(weekInfo.amount) : '금액 없음'}
-                            </span>
+                            {/* 워커에게는 주간 매출 금액 숨김 (관리자 전용 정보) */}
+                            {!isWorker && (
+                              <span className={`text-xs font-bold tabular-nums ${weekInfo.amount > 0 ? 'text-emerald-800' : 'text-text-tertiary'}`}>
+                                {weekInfo.amount > 0 ? fmtAmount(weekInfo.amount) : '금액 없음'}
+                              </span>
+                            )}
                           </div>
                         </td>
                       </tr>
@@ -3683,6 +3686,7 @@ export function CustomersManagementView({
                             paymentDay={form.payment_date ? Number(form.payment_date) : null}
                             contractStartDate={form.contract_start_date || null}
                             contractEndDate={form.contract_end_date || null}
+                            billingTiming={form.billing_timing ?? 'prepaid'}
                             onChange={refetchLatestBillings}
                           />
                         )}
@@ -3882,6 +3886,7 @@ export function CustomersManagementView({
                             paymentDay={form.payment_date ? Number(form.payment_date) : null}
                             contractStartDate={form.contract_start_date || null}
                             contractEndDate={form.contract_end_date || null}
+                            billingTiming={form.billing_timing ?? 'prepaid'}
                             onChange={refetchLatestBillings}
                           />
                         )}
