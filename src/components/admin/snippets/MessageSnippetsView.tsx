@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import toast from 'react-hot-toast'
-import { Search, Copy, Pencil, Trash2, Plus, Users, X, Star, Eye } from 'lucide-react'
+import { Search, Copy, Pencil, Trash2, Plus, Users, X, Star, Eye, Settings, ArrowRight } from 'lucide-react'
 
 interface Snippet {
   id: string
@@ -51,10 +51,14 @@ export function MessageSnippetsView() {
 
   // form state
   const [formCategory, setFormCategory] = useState('기타')
+  const [formNewCategory, setFormNewCategory] = useState('')  // '__new__' 모드일 때
   const [formTitle, setFormTitle] = useState('')
   const [formBody, setFormBody] = useState('')
   const [formWorkerVisible, setFormWorkerVisible] = useState(false)
   const [saving, setSaving] = useState(false)
+
+  // 카테고리 관리 모달
+  const [showCategoryMgr, setShowCategoryMgr] = useState(false)
 
   const isAdmin = me?.role === 'admin'
 
@@ -88,6 +92,7 @@ export function MessageSnippetsView() {
   const openNew = () => {
     setEditing(null)
     setFormCategory('기타')
+    setFormNewCategory('')
     setFormTitle('')
     setFormBody('')
     setFormWorkerVisible(false)
@@ -96,6 +101,7 @@ export function MessageSnippetsView() {
   const openEdit = (s: Snippet) => {
     setEditing(s)
     setFormCategory(s.category)
+    setFormNewCategory('')
     setFormTitle(s.title)
     setFormBody(s.body)
     setFormWorkerVisible(s.worker_visible)
@@ -103,6 +109,14 @@ export function MessageSnippetsView() {
   }
 
   const handleSave = async () => {
+    // '__new__' 모드면 텍스트 입력값 사용, 아니면 select 값
+    const categoryFinal = formCategory === '__new__'
+      ? formNewCategory.trim()
+      : formCategory
+    if (formCategory === '__new__' && !categoryFinal) {
+      toast.error('새 카테고리 이름을 입력하세요.')
+      return
+    }
     if (!formTitle.trim()) { toast.error('제목을 입력하세요.'); return }
     if (!formBody.trim()) { toast.error('본문을 입력하세요.'); return }
     setSaving(true)
@@ -115,7 +129,7 @@ export function MessageSnippetsView() {
         method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          category: formCategory,
+          category: categoryFinal,
           title: formTitle,
           body: formBody,
           worker_visible: formWorkerVisible,
@@ -129,6 +143,26 @@ export function MessageSnippetsView() {
     } catch (e) {
       toast.error(e instanceof Error ? e.message : '저장 실패')
     } finally { setSaving(false) }
+  }
+
+  // 카테고리 병합/삭제 (delete = 기타로 병합)
+  const handleCategoryMerge = async (from: string, to: string) => {
+    const label = to === '기타' ? `"${from}" 카테고리를 삭제하시겠습니까?\n\n이 카테고리의 모든 문구가 "기타" 로 이동됩니다.` : `"${from}" 을(를) "${to}" 로 이름 변경/병합하시겠습니까?`
+    if (!confirm(label)) return
+    try {
+      const res = await fetch('/api/admin/message-snippets/rename-category', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ from, to }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error ?? '실패')
+      toast.success(`${data.updated}건 이동됨`)
+      if (category === from) setCategory('all')
+      reload()
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : '실패')
+    }
   }
 
   const handleDelete = async (s: Snippet) => {
@@ -194,12 +228,21 @@ export function MessageSnippetsView() {
           </p>
         </div>
         {isAdmin && (
-          <button
-            onClick={openNew}
-            className="flex items-center gap-1.5 px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white text-sm font-semibold rounded-lg transition-colors"
-          >
-            <Plus size={16} /> 새 문구
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowCategoryMgr(true)}
+              className="flex items-center gap-1.5 px-3 py-2 bg-surface border border-border hover:border-brand-400 text-text-secondary text-sm font-semibold rounded-lg transition-colors"
+              title="카테고리 이름 변경·삭제"
+            >
+              <Settings size={14} /> 카테고리 관리
+            </button>
+            <button
+              onClick={openNew}
+              className="flex items-center gap-1.5 px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white text-sm font-semibold rounded-lg transition-colors"
+            >
+              <Plus size={16} /> 새 문구
+            </button>
+          </div>
         )}
       </div>
 
@@ -343,6 +386,77 @@ export function MessageSnippetsView() {
         </div>
       )}
 
+      {/* 카테고리 관리 모달 (admin only) — 이름 변경·삭제.
+          삭제 = 해당 카테고리의 모든 문구를 '기타' 로 병합 (안전). */}
+      {showCategoryMgr && isAdmin && (
+        <div
+          className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4"
+          onClick={() => setShowCategoryMgr(false)}
+        >
+          <div
+            className="bg-white rounded-2xl max-w-md w-full max-h-[80vh] flex flex-col shadow-pop"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between p-4 border-b border-border">
+              <h2 className="text-lg font-bold text-text-primary">카테고리 관리</h2>
+              <button
+                onClick={() => setShowCategoryMgr(false)}
+                className="p-1 text-text-tertiary hover:text-text-primary"
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <div className="p-4 space-y-3 overflow-y-auto flex-1">
+              <p className="text-xs text-text-secondary leading-relaxed break-keep">
+                신규 카테고리 추가는 [새 문구] 등록 모달에서 &quot;+ 새 카테고리 추가&quot; 로 만드세요.
+                삭제하면 해당 카테고리 문구가 모두 &quot;기타&quot; 로 이동합니다.
+              </p>
+              {categoryOptions.length === 0 ? (
+                <p className="text-sm text-text-tertiary text-center py-4">카테고리가 없습니다.</p>
+              ) : (
+                <ul className="space-y-1.5">
+                  {categoryOptions.map(cat => {
+                    const count = snippets.filter(s => s.category === cat).length
+                    return (
+                      <li key={cat} className="flex items-center justify-between gap-2 px-3 py-2 border border-border rounded-lg bg-surface">
+                        <div className="flex items-center gap-2 flex-1 min-w-0">
+                          <span className="text-sm font-semibold text-text-primary truncate">{cat}</span>
+                          <span className="text-[11px] text-text-tertiary shrink-0">{count}건</span>
+                        </div>
+                        <div className="flex items-center gap-1 shrink-0">
+                          <button
+                            onClick={() => {
+                              const newName = prompt(`"${cat}" 을(를) 어떤 이름으로 바꿀까요?`, cat)
+                              if (newName && newName.trim() && newName.trim() !== cat) {
+                                handleCategoryMerge(cat, newName.trim())
+                              }
+                            }}
+                            className="p-1.5 text-text-secondary hover:text-brand-600 hover:bg-brand-50 rounded transition-colors"
+                            title="이름 변경 (같은 이름 입력 시 병합)"
+                          >
+                            <Pencil size={13} />
+                          </button>
+                          {cat !== '기타' && (
+                            <button
+                              onClick={() => handleCategoryMerge(cat, '기타')}
+                              className="p-1.5 text-red-600 hover:bg-red-50 rounded transition-colors inline-flex items-center gap-1"
+                              title="삭제 (기타 로 병합)"
+                            >
+                              <ArrowRight size={12} />
+                              <Trash2 size={13} />
+                            </button>
+                          )}
+                        </div>
+                      </li>
+                    )
+                  })}
+                </ul>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Phase 2: 미리보기 모달 — 긴 문구 전체 확인 + 복사 */}
       {preview && (
         <div
@@ -407,16 +521,36 @@ export function MessageSnippetsView() {
 
             <div className="space-y-1">
               <label className="text-xs font-semibold text-text-secondary">카테고리</label>
-              <input
-                value={formCategory}
-                onChange={e => setFormCategory(e.target.value)}
-                list="snippet-categories"
-                className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
-                placeholder="예약, 결제, 작업, 클레임 등"
-              />
-              <datalist id="snippet-categories">
-                {categoryOptions.map(c => <option key={c} value={c} />)}
-              </datalist>
+              {formCategory === '__new__' ? (
+                <div className="flex gap-1.5">
+                  <input
+                    value={formNewCategory}
+                    onChange={e => setFormNewCategory(e.target.value)}
+                    autoFocus
+                    className="flex-1 px-3 py-2 border border-brand-400 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+                    placeholder="새 카테고리 이름"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => { setFormCategory(categoryOptions[0] ?? '기타'); setFormNewCategory('') }}
+                    className="px-3 py-2 border border-border rounded-lg text-xs text-text-secondary hover:bg-gray-50"
+                  >
+                    취소
+                  </button>
+                </div>
+              ) : (
+                <select
+                  value={formCategory}
+                  onChange={e => {
+                    if (e.target.value === '__new__') setFormNewCategory('')
+                    setFormCategory(e.target.value)
+                  }}
+                  className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 bg-surface"
+                >
+                  {categoryOptions.map(c => <option key={c} value={c}>{c}</option>)}
+                  <option value="__new__">+ 새 카테고리 추가</option>
+                </select>
+              )}
             </div>
 
             <div className="space-y-1">
