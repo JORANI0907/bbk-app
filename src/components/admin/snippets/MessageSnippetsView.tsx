@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import toast from 'react-hot-toast'
-import { Search, Copy, Pencil, Trash2, Plus, Users, X } from 'lucide-react'
+import { Search, Copy, Pencil, Trash2, Plus, Users, X, Star, Eye } from 'lucide-react'
 
 interface Snippet {
   id: string
@@ -12,6 +12,7 @@ interface Snippet {
   worker_visible: boolean
   usage_count: number
   last_used_at: string | null
+  is_favorite: boolean
   created_at: string
   updated_at: string
 }
@@ -46,6 +47,7 @@ export function MessageSnippetsView() {
   const [category, setCategory] = useState<string>('all')
   const [showForm, setShowForm] = useState(false)
   const [editing, setEditing] = useState<Snippet | null>(null)
+  const [preview, setPreview] = useState<Snippet | null>(null)
 
   // form state
   const [formCategory, setFormCategory] = useState('기타')
@@ -135,6 +137,20 @@ export function MessageSnippetsView() {
     if (!res.ok) { toast.error('삭제 실패'); return }
     toast.success('삭제됨')
     reload()
+  }
+
+  const handleToggleFavorite = async (s: Snippet) => {
+    // 낙관적 업데이트 (즉시 UI 반영, 실패 시 롤백)
+    const next = !s.is_favorite
+    setSnippets(prev => prev.map(x => x.id === s.id ? { ...x, is_favorite: next } : x))
+    try {
+      const method = next ? 'POST' : 'DELETE'
+      const res = await fetch(`/api/admin/message-snippets/${s.id}/favorite`, { method })
+      if (!res.ok) throw new Error()
+    } catch {
+      setSnippets(prev => prev.map(x => x.id === s.id ? { ...x, is_favorite: s.is_favorite } : x))
+      toast.error('즐겨찾기 저장 실패')
+    }
   }
 
   const handleCopy = async (s: Snippet) => {
@@ -245,7 +261,9 @@ export function MessageSnippetsView() {
           {snippets.map(s => (
             <div
               key={s.id}
-              className="bg-surface border border-border rounded-2xl p-4 shadow-soft hover:shadow-card transition-shadow"
+              className={`bg-surface border rounded-2xl p-4 shadow-soft hover:shadow-card transition-shadow ${
+                s.is_favorite ? 'border-amber-300 bg-amber-50/30' : 'border-border'
+              }`}
             >
               <div className="flex items-start justify-between gap-2 mb-2">
                 <div className="flex items-center gap-1.5 flex-wrap">
@@ -263,17 +281,43 @@ export function MessageSnippetsView() {
                     </span>
                   )}
                 </div>
+                {/* Phase 2: 즐겨찾기 별표 (admin/worker 모두 가능) */}
+                <button
+                  onClick={() => handleToggleFavorite(s)}
+                  className="p-1 text-text-tertiary hover:text-amber-500 transition-colors shrink-0"
+                  title={s.is_favorite ? '즐겨찾기 해제' : '즐겨찾기 추가'}
+                >
+                  <Star
+                    size={16}
+                    className={s.is_favorite ? 'fill-amber-400 text-amber-500' : ''}
+                  />
+                </button>
               </div>
-              <p className="text-sm font-semibold text-text-primary mb-1.5 break-keep">{s.title}</p>
-              <p className="text-xs text-text-secondary whitespace-pre-wrap break-keep line-clamp-4 mb-3">
-                {s.body}
-              </p>
+              {/* 카드 본문 클릭 시 미리보기 모달 (긴 문구 판별용) */}
+              <button
+                onClick={() => setPreview(s)}
+                className="w-full text-left group"
+              >
+                <p className="text-sm font-semibold text-text-primary mb-1.5 break-keep group-hover:text-brand-700 transition-colors">
+                  {s.title}
+                </p>
+                <p className="text-xs text-text-secondary whitespace-pre-wrap break-keep line-clamp-4 mb-3">
+                  {s.body}
+                </p>
+              </button>
               <div className="flex items-center gap-1.5">
                 <button
                   onClick={() => handleCopy(s)}
                   className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-brand-600 hover:bg-brand-700 text-white text-xs font-semibold rounded-lg transition-colors"
                 >
                   <Copy size={13} /> 복사
+                </button>
+                <button
+                  onClick={() => setPreview(s)}
+                  className="p-2 border border-border rounded-lg text-text-secondary hover:bg-gray-50 transition-colors"
+                  title="전체 보기"
+                >
+                  <Eye size={13} />
                 </button>
                 {isAdmin && (
                   <>
@@ -296,6 +340,52 @@ export function MessageSnippetsView() {
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Phase 2: 미리보기 모달 — 긴 문구 전체 확인 + 복사 */}
+      {preview && (
+        <div
+          className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4"
+          onClick={() => setPreview(null)}
+        >
+          <div
+            className="bg-white rounded-2xl max-w-lg w-full max-h-[80vh] flex flex-col shadow-pop"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between p-4 border-b border-border">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-brand-50 text-brand-700 border border-brand-100">
+                  {preview.category}
+                </span>
+                {preview.worker_visible && (
+                  <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 inline-flex items-center gap-1">
+                    <Users size={10} /> 직원 공유
+                  </span>
+                )}
+                <span className="text-sm font-bold text-text-primary">{preview.title}</span>
+              </div>
+              <button
+                onClick={() => setPreview(null)}
+                className="p-1 text-text-tertiary hover:text-text-primary shrink-0"
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <div className="p-4 overflow-y-auto flex-1">
+              <p className="text-sm text-text-primary whitespace-pre-wrap break-keep leading-relaxed">
+                {preview.body}
+              </p>
+            </div>
+            <div className="p-4 border-t border-border">
+              <button
+                onClick={() => { handleCopy(preview); setPreview(null) }}
+                className="w-full py-2.5 bg-brand-600 hover:bg-brand-700 text-white text-sm font-semibold rounded-lg transition-colors flex items-center justify-center gap-2"
+              >
+                <Copy size={14} /> 복사
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

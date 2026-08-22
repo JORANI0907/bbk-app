@@ -24,7 +24,9 @@ export async function GET(request: NextRequest) {
     .from('message_snippets')
     .select('*')
     .is('deleted_at', null)
-    .order('category', { ascending: true })
+    // Phase 2: 자주 쓴 것 우선, 최근 사용 순 정렬 (즐겨찾기는 클라이언트에서 최상단 재정렬)
+    .order('usage_count', { ascending: false })
+    .order('last_used_at', { ascending: false, nullsFirst: false })
     .order('title', { ascending: true })
 
   // 워커는 공유 플래그가 있는 것만
@@ -41,10 +43,29 @@ export async function GET(request: NextRequest) {
     query = query.or(`title.ilike.%${search}%,body.ilike.%${search}%`)
   }
 
-  const { data, error } = await query
+  const { data: snippets, error } = await query
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  return NextResponse.json({ snippets: data ?? [] })
+  // 현재 사용자 즐겨찾기 조회 (병렬)
+  const { data: favs } = await supabase
+    .from('message_snippet_favorites')
+    .select('snippet_id')
+    .eq('user_id', session.userId)
+
+  const favSet = new Set((favs ?? []).map(f => f.snippet_id as string))
+  const enriched = (snippets ?? []).map(s => ({
+    ...s,
+    is_favorite: favSet.has(s.id as string),
+  }))
+
+  // 즐겨찾기 최상단 정렬 (usage_count 정렬은 각 그룹 내에서 유지)
+  enriched.sort((a, b) => {
+    if (a.is_favorite && !b.is_favorite) return -1
+    if (!a.is_favorite && b.is_favorite) return 1
+    return 0
+  })
+
+  return NextResponse.json({ snippets: enriched })
 }
 
 export async function POST(request: NextRequest) {
