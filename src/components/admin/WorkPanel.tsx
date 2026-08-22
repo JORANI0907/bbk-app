@@ -50,6 +50,8 @@ interface WorkApp {
   internal_memo: string | null
   notification_sent_at: string | null
   drive_folder_url: string | null
+  // 폴더 저장 이원화 방어: service_applications 에 없어도 customer 마스터 에 있으면 폴백.
+  customer?: { drive_folder_url?: string | null } | null
   business_name: string
   owner_name: string
   service_type?: string | null
@@ -323,23 +325,29 @@ export function WorkPanel({ app, onUpdate, isAdmin = false }: Props) {
           <div className="bg-brand-50 border border-brand-200 rounded-2xl p-4 space-y-3">
             <p className="text-xs font-bold text-brand-700">작업 내용</p>
 
-            {/* 사진 업로드 체크 */}
+            {/* 사진 업로드 체크
+                사진보기 버튼(schedule/page.tsx:467)과 동일하게 customer 폴백을 사용.
+                폴더 URL이 service_applications 에 안 저장되고 customers 에만 있는
+                케이스(사용자 UI 직접 편집 등)에서도 정상 링크가 뜨도록 방어. */}
             <div className="bg-white rounded-xl p-3 space-y-2">
               <p className="text-xs font-semibold text-gray-600">사진 업로드 확인</p>
-              {app.drive_folder_url ? (
-                <a
-                  href={app.drive_folder_url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="flex items-center justify-center gap-2 w-full py-2.5 bg-brand-600 hover:bg-brand-700 active:bg-brand-800 text-white font-bold text-sm rounded-xl transition-colors"
-                >
-                  <Folder size={15} /> 사진 올리기
-                </a>
-              ) : (
-                <div className="flex items-center justify-center gap-2 w-full py-2.5 bg-gray-200 text-gray-400 font-bold text-sm rounded-xl select-none">
-                  <Folder size={15} /> 드라이브 폴더 미생성
-                </div>
-              )}
+              {(() => {
+                const folderUrl = app.drive_folder_url ?? app.customer?.drive_folder_url ?? null
+                return folderUrl ? (
+                  <a
+                    href={folderUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex items-center justify-center gap-2 w-full py-2.5 bg-brand-600 hover:bg-brand-700 active:bg-brand-800 text-white font-bold text-sm rounded-xl transition-colors"
+                  >
+                    <Folder size={15} /> 사진 올리기
+                  </a>
+                ) : (
+                  <div className="flex items-center justify-center gap-2 w-full py-2.5 bg-gray-200 text-gray-400 font-bold text-sm rounded-xl select-none">
+                    <Folder size={15} /> 드라이브 폴더 미생성
+                  </div>
+                )
+              })()}
               <p className="text-xs text-gray-400">Drive에서 전/후 사진 업로드 후 체크해주세요.</p>
               <div className="space-y-1.5">
                 <label className="flex items-center gap-2 cursor-pointer">
