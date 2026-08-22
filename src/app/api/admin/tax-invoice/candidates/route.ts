@@ -277,7 +277,12 @@ export async function GET(request: NextRequest) {
           address,
           email,
           phone: c.contact_phone ?? null,
-          payment_method: sa.payment_method ?? c.payment_method ?? null,
+          // 발행 완료된 회차는 발행 시점 스냅샷(sa.payment_method) 유지 → 세무 기록 무결성.
+          // 미발행 회차는 마스터(c.payment_method) 우선 → 고객관리 탭에서 결제방법 변경 시
+          // 즉시 계산서 발행 탭에 반영됨. supply/vat 금액은 스냅샷 그대로 (표기만 동기화).
+          payment_method: isIssued
+            ? (sa.payment_method ?? c.payment_method ?? null)
+            : (c.payment_method ?? sa.payment_method ?? null),
           supply_amount: supply,
           vat,
           total_amount: supply + vat,

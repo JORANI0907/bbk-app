@@ -105,7 +105,11 @@ export async function POST(request: NextRequest) {
   if (allCustomerIds.length > 0) {
     await supabase
       .from('customers')
-      .update({ tax_invoice_issued: true })
+      .update({
+        tax_invoice_issued: true,
+        // 마스터 진행상태 배지도 함께 동기화 → 고객관리 탭에서 즉시 확인 가능
+        progress_status: '계산서발행완료',
+      })
       .in('id', allCustomerIds)
   }
 
@@ -353,8 +357,9 @@ export async function PATCH(request: NextRequest) {
     .flatMap(i => i.billing_ids ?? [])
     .filter(Boolean)
 
+  const revertedCustomerIds: string[] = []
   if (appIds.length > 0) {
-    await supabase
+    const { data } = await supabase
       .from('service_applications')
       .update({
         tax_invoice_issued: false,
@@ -364,6 +369,10 @@ export async function PATCH(request: NextRequest) {
         payment_status_detail: '결제완료',
       })
       .in('id', appIds)
+      .select('customer_id')
+    for (const r of data ?? []) {
+      if (r.customer_id) revertedCustomerIds.push(r.customer_id as string)
+    }
   }
 
   if (allBillingIds.length > 0) {
@@ -374,6 +383,22 @@ export async function PATCH(request: NextRequest) {
         tax_invoice_issued_date: null,
       })
       .in('id', allBillingIds)
+  }
+
+  // customers.progress_status·tax_invoice_issued 되돌림
+  // - appItems 의 customer_id 는 위에서 수집, customerItems 의 source_id 는 곧 customer_id
+  const customerIdsFromBillingRevert = items
+    .filter(i => i.source === 'customer')
+    .map(i => i.source_id)
+  const allRevertCustomerIds = [...new Set([...revertedCustomerIds, ...customerIdsFromBillingRevert])]
+  if (allRevertCustomerIds.length > 0) {
+    await supabase
+      .from('customers')
+      .update({
+        tax_invoice_issued: false,
+        progress_status: '결제완료',
+      })
+      .in('id', allRevertCustomerIds)
   }
 
   // 관련 최근 로그 무효화
