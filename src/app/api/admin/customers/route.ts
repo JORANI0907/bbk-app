@@ -430,12 +430,16 @@ export async function PATCH(request: NextRequest) {
     updatedCustomer.customer_type === '1회성케어' ||
     updatedCustomer.customer_type === '일반일정'
   const oneShotFieldsChanged =
-    'assigned_user_id' in rest || 'next_visit_date' in rest
+    'assigned_user_id' in rest ||
+    'next_visit_date' in rest ||
+    'drive_folder_url' in rest
   if (oneShotSyncable && oneShotFieldsChanged) {
     try {
       const appUpdates: Record<string, unknown> = {}
       if ('assigned_user_id' in rest) appUpdates.assigned_to = rest.assigned_user_id
       if ('next_visit_date' in rest) appUpdates.construction_date = rest.next_visit_date
+      // drive_folder_url 도 마스터 편집 시 짝 신청서에 동기화 (사진올리기 폴백과 정합)
+      if ('drive_folder_url' in rest) appUpdates.drive_folder_url = rest.drive_folder_url
       if (Object.keys(appUpdates).length > 0) {
         await supabase
           .from('service_applications')
@@ -447,6 +451,51 @@ export async function PATCH(request: NextRequest) {
     } catch (e) {
       console.error(
         '1회성/일반일정 customer→service_applications sync 실패:',
+        e instanceof Error ? e.message : e,
+      )
+    }
+  }
+
+  // Phase 27-AH sync: 1회성/일반일정 마스터에서 worker_ids 편집 시 짝 신청서의
+  // work_assignments 를 재구성. 그동안 customers PATCH 가 worker_ids 를 무시해서
+  // UI 상태만 바뀌고 DB 에는 저장 안 되던 광범위 버그를 근본 해결.
+  //
+  // 정기딥/엔드는 이번달 일정 아코디언(MonthlyScheduleSection)에서 회차별로
+  // 직접 배정하므로 여기서는 스킵.
+  if (oneShotSyncable && Array.isArray((rest as Record<string, unknown>).worker_ids)) {
+    const workerIds = ((rest as Record<string, unknown>).worker_ids as unknown[])
+      .filter((v): v is string => typeof v === 'string' && v.length > 0)
+    try {
+      const { data: openApp } = await supabase
+        .from('service_applications')
+        .select('id, construction_date, business_name')
+        .eq('customer_id', id)
+        .is('deleted_at', null)
+        .in('status', ['신규', '예약확정', '예약1일전', '예약당일', '기존고객'])
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+
+      if (openApp && openApp.construction_date && openApp.business_name) {
+        // 기존 배정 전량 삭제 후 새로 삽입 (multi-set replace)
+        await supabase
+          .from('work_assignments')
+          .delete()
+          .eq('application_id', openApp.id)
+
+        if (workerIds.length > 0) {
+          const rows = workerIds.map(worker_id => ({
+            worker_id,
+            application_id: openApp.id,
+            construction_date: openApp.construction_date,
+            business_name: openApp.business_name,
+          }))
+          await supabase.from('work_assignments').insert(rows)
+        }
+      }
+    } catch (e) {
+      console.error(
+        '1회성/일반일정 worker_ids sync 실패:',
         e instanceof Error ? e.message : e,
       )
     }
