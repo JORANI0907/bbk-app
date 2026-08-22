@@ -125,6 +125,15 @@ export async function POST(
       .eq('business_name', customer.business_name)
       .is('drive_folder_url', null)
 
+    // customers 마스터에도 저장 (미설정일 때만) — 사진보기/올리기 폴백용.
+    // 이 곳 저장이 빠져 있어서 신청서만 채워지고 마스터는 계속 비어 있는
+    // 이원화 사고가 반복됐음. 두 곳 모두 저장해 정합성 유지.
+    await supabase
+      .from('customers')
+      .update({ drive_folder_url: folderUrl })
+      .eq('id', customerId)
+      .is('drive_folder_url', null)
+
     return NextResponse.json({
       folder_id: created.id,
       folder_name: folderName,
