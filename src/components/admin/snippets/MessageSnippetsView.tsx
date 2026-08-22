@@ -1,0 +1,385 @@
+'use client'
+
+import { useEffect, useMemo, useState } from 'react'
+import toast from 'react-hot-toast'
+import { Search, Copy, Pencil, Trash2, Plus, Users, X } from 'lucide-react'
+
+interface Snippet {
+  id: string
+  category: string
+  title: string
+  body: string
+  worker_visible: boolean
+  usage_count: number
+  last_used_at: string | null
+  created_at: string
+  updated_at: string
+}
+
+interface Me {
+  userId: string
+  role: 'admin' | 'worker' | string
+  name: string
+}
+
+// 카테고리 기본 후보 (자유 확장 가능 — API 는 자유 텍스트로 저장)
+const DEFAULT_CATEGORIES = ['예약', '결제', '작업', '클레임', 'A/S', '기타']
+
+function relTime(ts: string | null): string {
+  if (!ts) return '-'
+  const diff = Date.now() - new Date(ts).getTime()
+  const day = 86_400_000
+  if (diff < day) return '오늘'
+  if (diff < 2 * day) return '어제'
+  const d = Math.floor(diff / day)
+  if (d < 30) return `${d}일 전`
+  const mo = Math.floor(d / 30)
+  if (mo < 12) return `${mo}달 전`
+  return `${Math.floor(mo / 12)}년 전`
+}
+
+export function MessageSnippetsView() {
+  const [me, setMe] = useState<Me | null>(null)
+  const [snippets, setSnippets] = useState<Snippet[]>([])
+  const [loading, setLoading] = useState(true)
+  const [search, setSearch] = useState('')
+  const [category, setCategory] = useState<string>('all')
+  const [showForm, setShowForm] = useState(false)
+  const [editing, setEditing] = useState<Snippet | null>(null)
+
+  // form state
+  const [formCategory, setFormCategory] = useState('기타')
+  const [formTitle, setFormTitle] = useState('')
+  const [formBody, setFormBody] = useState('')
+  const [formWorkerVisible, setFormWorkerVisible] = useState(false)
+  const [saving, setSaving] = useState(false)
+
+  const isAdmin = me?.role === 'admin'
+
+  // me 조회 (역할 확인)
+  useEffect(() => {
+    fetch('/api/auth/me')
+      .then(r => r.json())
+      .then(d => setMe(d.user ?? null))
+      .catch(() => setMe(null))
+  }, [])
+
+  // 목록 조회
+  const reload = () => {
+    setLoading(true)
+    const params = new URLSearchParams()
+    if (category !== 'all') params.set('category', category)
+    if (search.trim()) params.set('search', search.trim())
+    fetch(`/api/admin/message-snippets?${params}`)
+      .then(r => r.json())
+      .then(d => setSnippets(d.snippets ?? []))
+      .catch(() => setSnippets([]))
+      .finally(() => setLoading(false))
+  }
+
+  useEffect(() => {
+    reload()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [category, search])
+
+  // 등록/수정 모달 열기
+  const openNew = () => {
+    setEditing(null)
+    setFormCategory('기타')
+    setFormTitle('')
+    setFormBody('')
+    setFormWorkerVisible(false)
+    setShowForm(true)
+  }
+  const openEdit = (s: Snippet) => {
+    setEditing(s)
+    setFormCategory(s.category)
+    setFormTitle(s.title)
+    setFormBody(s.body)
+    setFormWorkerVisible(s.worker_visible)
+    setShowForm(true)
+  }
+
+  const handleSave = async () => {
+    if (!formTitle.trim()) { toast.error('제목을 입력하세요.'); return }
+    if (!formBody.trim()) { toast.error('본문을 입력하세요.'); return }
+    setSaving(true)
+    try {
+      const url = editing
+        ? `/api/admin/message-snippets/${editing.id}`
+        : '/api/admin/message-snippets'
+      const method = editing ? 'PATCH' : 'POST'
+      const res = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          category: formCategory,
+          title: formTitle,
+          body: formBody,
+          worker_visible: formWorkerVisible,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error ?? '저장 실패')
+      toast.success(editing ? '수정 완료' : '등록 완료')
+      setShowForm(false)
+      reload()
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : '저장 실패')
+    } finally { setSaving(false) }
+  }
+
+  const handleDelete = async (s: Snippet) => {
+    if (!confirm(`"${s.title}" 을(를) 삭제하시겠습니까?\n삭제 후 복구는 관리자에게 요청해야 합니다.`)) return
+    const res = await fetch(`/api/admin/message-snippets/${s.id}`, { method: 'DELETE' })
+    if (!res.ok) { toast.error('삭제 실패'); return }
+    toast.success('삭제됨')
+    reload()
+  }
+
+  const handleCopy = async (s: Snippet) => {
+    try {
+      await navigator.clipboard.writeText(s.body)
+      toast.success('클립보드에 복사됨')
+      // 통계 갱신 (실패해도 UX 영향 없음)
+      fetch(`/api/admin/message-snippets/${s.id}/copy`, { method: 'POST' })
+        .then(r => r.json())
+        .then(d => {
+          if (d.usage_count) {
+            setSnippets(prev => prev.map(x =>
+              x.id === s.id
+                ? { ...x, usage_count: d.usage_count, last_used_at: new Date().toISOString() }
+                : x,
+            ))
+          }
+        })
+        .catch(() => {})
+    } catch {
+      toast.error('복사 실패 — 브라우저 권한을 확인하세요.')
+    }
+  }
+
+  // 카테고리 옵션 (기본 + DB 에 있는 것 합집합)
+  const categoryOptions = useMemo(() => {
+    const set = new Set<string>(DEFAULT_CATEGORIES)
+    snippets.forEach(s => set.add(s.category))
+    return Array.from(set).sort()
+  }, [snippets])
+
+  return (
+    <div className="p-6 max-w-6xl mx-auto space-y-5">
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div>
+          <h1 className="text-2xl font-bold text-text-primary">문자 단축어</h1>
+          <p className="text-sm text-text-secondary mt-1">
+            {isAdmin
+              ? '자주 쓰는 문구를 등록해 복사·붙여넣기로 재사용하세요. "직원 공유" 체크한 문구는 직원 포털에도 노출됩니다.'
+              : '관리자가 공유한 문구만 표시됩니다. 복사해서 사용하세요.'}
+          </p>
+        </div>
+        {isAdmin && (
+          <button
+            onClick={openNew}
+            className="flex items-center gap-1.5 px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white text-sm font-semibold rounded-lg transition-colors"
+          >
+            <Plus size={16} /> 새 문구
+          </button>
+        )}
+      </div>
+
+      {!isAdmin && (
+        <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 text-xs text-blue-800">
+          👥 이 페이지는 관리자가 <b>직원 공유</b> 로 지정한 문구만 표시됩니다.
+        </div>
+      )}
+
+      {/* 검색바 */}
+      <div className="relative">
+        <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-tertiary" />
+        <input
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          placeholder="제목·본문 검색"
+          className="w-full pl-10 pr-4 py-2.5 border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 bg-surface"
+        />
+      </div>
+
+      {/* 카테고리 탭 */}
+      <div className="flex items-center gap-1.5 flex-wrap">
+        <button
+          onClick={() => setCategory('all')}
+          className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${
+            category === 'all'
+              ? 'bg-brand-600 text-white border-brand-600'
+              : 'bg-surface text-text-secondary border-border hover:border-brand-400'
+          }`}
+        >
+          전체
+        </button>
+        {categoryOptions.map(c => (
+          <button
+            key={c}
+            onClick={() => setCategory(c)}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${
+              category === c
+                ? 'bg-brand-600 text-white border-brand-600'
+                : 'bg-surface text-text-secondary border-border hover:border-brand-400'
+            }`}
+          >
+            {c}
+          </button>
+        ))}
+      </div>
+
+      {/* 리스트 */}
+      {loading ? (
+        <div className="text-center py-12 text-sm text-text-tertiary">불러오는 중...</div>
+      ) : snippets.length === 0 ? (
+        <div className="text-center py-12 text-sm text-text-tertiary">
+          {search || category !== 'all'
+            ? '조건에 맞는 문구가 없습니다.'
+            : isAdmin ? '아직 등록된 문구가 없습니다. [새 문구] 로 첫 문구를 만들어보세요.' : '공유된 문구가 아직 없습니다.'}
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          {snippets.map(s => (
+            <div
+              key={s.id}
+              className="bg-surface border border-border rounded-2xl p-4 shadow-soft hover:shadow-card transition-shadow"
+            >
+              <div className="flex items-start justify-between gap-2 mb-2">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-brand-50 text-brand-700 border border-brand-100">
+                    {s.category}
+                  </span>
+                  {s.worker_visible && (
+                    <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 inline-flex items-center gap-1">
+                      <Users size={10} /> 직원 공유
+                    </span>
+                  )}
+                  {s.usage_count > 0 && (
+                    <span className="text-[11px] text-text-tertiary">
+                      {s.usage_count}회 · {relTime(s.last_used_at)}
+                    </span>
+                  )}
+                </div>
+              </div>
+              <p className="text-sm font-semibold text-text-primary mb-1.5 break-keep">{s.title}</p>
+              <p className="text-xs text-text-secondary whitespace-pre-wrap break-keep line-clamp-4 mb-3">
+                {s.body}
+              </p>
+              <div className="flex items-center gap-1.5">
+                <button
+                  onClick={() => handleCopy(s)}
+                  className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-brand-600 hover:bg-brand-700 text-white text-xs font-semibold rounded-lg transition-colors"
+                >
+                  <Copy size={13} /> 복사
+                </button>
+                {isAdmin && (
+                  <>
+                    <button
+                      onClick={() => openEdit(s)}
+                      className="p-2 border border-border rounded-lg text-text-secondary hover:bg-gray-50 transition-colors"
+                      title="수정"
+                    >
+                      <Pencil size={13} />
+                    </button>
+                    <button
+                      onClick={() => handleDelete(s)}
+                      className="p-2 border border-border rounded-lg text-red-600 hover:bg-red-50 transition-colors"
+                      title="삭제"
+                    >
+                      <Trash2 size={13} />
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* 등록/수정 모달 */}
+      {showForm && isAdmin && (
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-lg w-full p-5 space-y-4 shadow-pop">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-bold text-text-primary">
+                {editing ? '문구 수정' : '새 문구 등록'}
+              </h2>
+              <button
+                onClick={() => setShowForm(false)}
+                className="p-1 text-text-tertiary hover:text-text-primary"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-text-secondary">카테고리</label>
+              <input
+                value={formCategory}
+                onChange={e => setFormCategory(e.target.value)}
+                list="snippet-categories"
+                className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+                placeholder="예약, 결제, 작업, 클레임 등"
+              />
+              <datalist id="snippet-categories">
+                {categoryOptions.map(c => <option key={c} value={c} />)}
+              </datalist>
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-text-secondary">제목</label>
+              <input
+                value={formTitle}
+                onChange={e => setFormTitle(e.target.value)}
+                className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+                placeholder="예: 예약 확정 안내"
+              />
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-text-secondary">본문</label>
+              <textarea
+                value={formBody}
+                onChange={e => setFormBody(e.target.value)}
+                rows={7}
+                className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 resize-none font-mono"
+                placeholder="복사해서 붙여넣을 문구 전체"
+              />
+            </div>
+
+            <label className="flex items-center gap-2 cursor-pointer bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2">
+              <input
+                type="checkbox"
+                checked={formWorkerVisible}
+                onChange={e => setFormWorkerVisible(e.target.checked)}
+                className="w-4 h-4 rounded"
+              />
+              <Users size={14} className="text-emerald-700" />
+              <span className="text-sm font-semibold text-emerald-800">직원 포털에도 공유</span>
+              <span className="text-xs text-emerald-700">— 체크 시 직원도 조회·복사 가능</span>
+            </label>
+
+            <div className="flex items-center gap-2 pt-2">
+              <button
+                onClick={() => setShowForm(false)}
+                className="flex-1 py-2.5 border border-border rounded-lg text-sm font-semibold text-text-secondary hover:bg-gray-50"
+              >
+                취소
+              </button>
+              <button
+                onClick={handleSave}
+                disabled={saving}
+                className="flex-1 py-2.5 bg-brand-600 hover:bg-brand-700 text-white rounded-lg text-sm font-semibold disabled:opacity-50"
+              >
+                {saving ? '저장 중...' : editing ? '수정' : '등록'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}

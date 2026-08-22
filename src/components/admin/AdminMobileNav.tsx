@@ -25,6 +25,7 @@ const NAV_ITEMS: NavItem[] = [
       { href: '/admin/franchise-hq', label: '프렌차이즈 본사' },
       { href: '/admin/quotes', label: '견적관리' },
       { href: '/admin/contracts', label: '계약서 관리' },
+      { href: '/admin/snippets', label: '문자 단축어' },
       { href: '/admin/reports', label: '월간보고서' },
     ],
   },
@@ -33,6 +34,8 @@ const NAV_ITEMS: NavItem[] = [
     children: [
       { href: '/admin/schedule', label: '배정관리', badgeKey: 'schedule' },
       { href: '/admin/customers', label: '고객관리' },
+      // 워커도 문자 단축어 접근 허용 — API 가 worker_visible=true 만 필터.
+      { href: '/admin/snippets', label: '문자 단축어' },
     ],
   },
   {
