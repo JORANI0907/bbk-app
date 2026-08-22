@@ -93,6 +93,7 @@ export default function AdminContractsPage() {
   const router = useRouter()
   const [contracts, setContracts] = useState<ContractListItem[]>([])
   const [activeTab, setActiveTab] = useState('all')
+  const [partyType, setPartyType] = useState<'customer' | 'worker'>('customer')
   const [isLoading, setIsLoading] = useState(true)
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [contractToDelete, setContractToDelete] = useState<ContractListItem | null>(null)
@@ -125,8 +126,10 @@ export default function AdminContractsPage() {
   const fetchContracts = useCallback(async () => {
     setIsLoading(true)
     try {
-      const params = activeTab !== 'all' ? `?status=${activeTab}` : ''
-      const res = await fetch(`/api/admin/contracts${params}`)
+      const qs = new URLSearchParams()
+      if (activeTab !== 'all') qs.set('status', activeTab)
+      qs.set('party_type', partyType)
+      const res = await fetch(`/api/admin/contracts?${qs}`)
       const json = await res.json()
       if (json.success) setContracts(json.data ?? [])
     } catch {
@@ -134,7 +137,7 @@ export default function AdminContractsPage() {
     } finally {
       setIsLoading(false)
     }
-  }, [activeTab])
+  }, [activeTab, partyType])
 
   useEffect(() => { void fetchContracts() }, [fetchContracts])
 
@@ -343,7 +346,31 @@ export default function AdminContractsPage() {
         }
       />
 
-      {/* 탭 */}
+      {/* 대상 유형 탭 (고객 계약 / 직원 근로계약) */}
+      <div className="inline-flex gap-1 bg-surface-sunken rounded-xl p-1">
+        <button
+          onClick={() => setPartyType('customer')}
+          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+            partyType === 'customer'
+              ? 'bg-brand-600 text-white'
+              : 'text-text-secondary hover:text-text-primary'
+          }`}
+        >
+          🏢 고객 계약
+        </button>
+        <button
+          onClick={() => setPartyType('worker')}
+          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+            partyType === 'worker'
+              ? 'bg-brand-600 text-white'
+              : 'text-text-secondary hover:text-text-primary'
+          }`}
+        >
+          👥 직원 근로계약
+        </button>
+      </div>
+
+      {/* 상태 필터 탭 */}
       <div className="flex gap-1 bg-surface-sunken rounded-xl p-1 w-fit">
         {TABS.map((tab) => (
           <button
@@ -359,6 +386,15 @@ export default function AdminContractsPage() {
           </button>
         ))}
       </div>
+
+      {/* 직원 계약 탭인데 아직 UI 미구현 안내 */}
+      {partyType === 'worker' && (
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-800">
+          👷 <b>직원 근로계약 UI는 준비 중입니다.</b> 백엔드·DB·탭 필터는 완성됐고,
+          직원 선택·정보 자동 채움 폼은 다음 배포에서 추가 예정입니다.
+          지금은 기존 직원 계약(있다면) 목록만 표시됩니다.
+        </div>
+      )}
 
       {/* 목록 */}
       {isLoading ? (

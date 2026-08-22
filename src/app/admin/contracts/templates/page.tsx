@@ -50,11 +50,14 @@ const DEFAULT_HTML_BODY = `<!DOCTYPE html>
 </body>
 </html>`
 
+type PartyType = 'customer' | 'worker'
+
 interface TemplateListItem {
   id: string
   name: string
   description: string
   is_active: boolean
+  party_type?: PartyType
   created_at: string
   updated_at: string
 }
@@ -67,11 +70,12 @@ export default function ContractTemplatesPage() {
   const [duplicatingId, setDuplicatingId] = useState<string | null>(null)
   const [downloadingId, setDownloadingId] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<SubTab>('templates')
+  const [partyType, setPartyType] = useState<PartyType>('customer')
 
   const fetchTemplates = useCallback(async () => {
     setIsLoading(true)
     try {
-      const res = await fetch('/api/admin/contract-templates')
+      const res = await fetch(`/api/admin/contract-templates?party_type=${partyType}`)
       const json = await res.json()
       if (json.success) {
         setTemplates(json.data ?? [])
@@ -81,7 +85,7 @@ export default function ContractTemplatesPage() {
     } finally {
       setIsLoading(false)
     }
-  }, [])
+  }, [partyType])
 
   useEffect(() => {
     void fetchTemplates()
@@ -94,10 +98,11 @@ export default function ContractTemplatesPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          name: '새 계약서 양식',
+          name: partyType === 'worker' ? '새 근로계약서 양식' : '새 계약서 양식',
           description: '',
           html_body: DEFAULT_HTML_BODY,
           is_active: true,
+          party_type: partyType,
         }),
       })
       const json = await res.json()
@@ -201,6 +206,32 @@ export default function ContractTemplatesPage() {
           변수 관리
         </button>
       </div>
+
+      {/* 대상 유형 탭 (양식 목록일 때만) */}
+      {activeTab === 'templates' && (
+        <div className="inline-flex gap-1 bg-surface-sunken rounded-lg p-1">
+          <button
+            onClick={() => setPartyType('customer')}
+            className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${
+              partyType === 'customer'
+                ? 'bg-brand-600 text-white'
+                : 'text-text-secondary hover:text-text-primary'
+            }`}
+          >
+            🏢 고객용
+          </button>
+          <button
+            onClick={() => setPartyType('worker')}
+            className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${
+              partyType === 'worker'
+                ? 'bg-brand-600 text-white'
+                : 'text-text-secondary hover:text-text-primary'
+            }`}
+          >
+            👥 직원용 (근로계약)
+          </button>
+        </div>
+      )}
 
       {activeTab === 'variables' ? (
         <VariablesTab />
