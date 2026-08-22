@@ -20,7 +20,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
   const { data: contract, error } = await supabase
     .from('contracts')
-    .select('id, signing_status, token_expires_at, otp_code, otp_expires_at, subscription_plan, contract_snapshot, customers(business_name, contact_name)')
+    .select('id, signing_status, token_expires_at, otp_code, otp_expires_at, subscription_plan, contract_snapshot, customer_phone, customers(business_name, contact_name)')
     .eq('signing_token', params.token)
     .single()
 
@@ -40,7 +40,6 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
   }
 
   let body: {
-    phone?: string
     otp?: string
     article8Agree?: boolean
     article14Agree?: boolean
@@ -54,10 +53,20 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ success: false, error: '잘못된 요청 형식입니다.' }, { status: 400 })
   }
 
-  const { phone, otp, article8Agree, article14Agree, customerSignature, customerSignerName, customerStamp } = body
+  const { otp, article8Agree, article14Agree, customerSignature, customerSignerName, customerStamp } = body
 
-  if (!phone || !otp) {
-    return NextResponse.json({ success: false, error: '전화번호와 인증번호는 필수입니다.' }, { status: 400 })
+  if (!otp) {
+    return NextResponse.json({ success: false, error: '인증번호는 필수입니다.' }, { status: 400 })
+  }
+
+  // OTP 수신 번호는 계약서 생성 시 등록한 contract.customer_phone 강제 사용.
+  // 다른 사람 번호로 인증하는 것을 원천 차단.
+  const registeredPhone = contract.customer_phone as string | null
+  if (!registeredPhone) {
+    return NextResponse.json(
+      { success: false, error: '계약서에 OTP 수신 연락처가 등록되어 있지 않습니다. 관리자에게 문의해주세요.' },
+      { status: 400 },
+    )
   }
 
   if (!article8Agree || !article14Agree) {
@@ -75,7 +84,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ success: false, error: '고객사 직인 이미지가 필요합니다.' }, { status: 400 })
   }
 
-  const normalizedPhone = phone.replace(/-/g, '')
+  const normalizedPhone = registeredPhone.replace(/-/g, '')
 
   // OTP 검증: 인메모리 먼저, 없으면 DB fallback
   let otpValid = false

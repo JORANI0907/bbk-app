@@ -9,7 +9,7 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
 
   const { data: contract, error } = await supabase
     .from('contracts')
-    .select('id, signing_status, token_expires_at, contract_snapshot, subscription_plan, visit_frequency, start_date, end_date, customers(business_name)')
+    .select('id, signing_status, token_expires_at, contract_snapshot, subscription_plan, visit_frequency, start_date, end_date, customer_phone, customers(business_name)')
     .eq('signing_token', params.token)
     .single()
 
@@ -47,6 +47,9 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
       contractStartDate: contract.start_date,
       contractEndDate: contract.end_date,
       businessName: (contract.customers as { business_name?: string } | null)?.business_name,
+      // 관리자가 계약서 생성 시 등록한 OTP 수신 번호. UI에서 편집 불가로 표시하고
+      // 서버 send-otp/agree 도 이 값을 강제 사용 (다른 번호 입력 방지).
+      customerPhone: contract.customer_phone as string | null,
     },
   })
 }

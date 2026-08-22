@@ -18,6 +18,8 @@ interface ContractData {
   contractStartDate: string | null
   contractEndDate: string | null
   businessName: string | null
+  /** 관리자가 계약서 생성 시 등록한 OTP 수신 번호 (편집 불가) */
+  customerPhone: string | null
 }
 
 type PageState = 'loading' | 'ready' | 'signed' | 'error' | 'expired'
@@ -69,6 +71,10 @@ export default function SignContractPage() {
             setPageState('signed')
           } else {
             setContractData(json.data)
+            // 관리자 등록 번호를 phone state 에 자동 세팅 → UI 는 read-only 로 표시
+            if (json.data.customerPhone) {
+              setPhone(json.data.customerPhone)
+            }
             setPageState('ready')
           }
         } else {
@@ -499,17 +505,17 @@ export default function SignContractPage() {
               </div>
             )}
 
-            {/* 전화번호 */}
+            {/* 전화번호 — 관리자가 계약서 생성 시 등록한 번호 고정 (편집 불가) */}
             <div>
-              <label className="block text-sm font-medium text-text-primary mb-1.5">전화번호</label>
+              <label className="block text-sm font-medium text-text-primary mb-1.5">
+                OTP 수신 전화번호
+              </label>
               <div className="flex gap-2">
                 <input
                   type="tel"
                   value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  placeholder="010-0000-0000"
-                  className="flex-1 border border-border rounded-md px-3 py-2 text-sm bg-surface text-text-primary focus:outline-none focus:ring-2 focus:ring-brand-600"
-                  disabled={otpSent && cooldown > 0}
+                  readOnly
+                  className="flex-1 border border-border rounded-md px-3 py-2 text-sm bg-surface-sunken text-text-primary focus:outline-none cursor-not-allowed"
                 />
                 <Button
                   size="sm"
@@ -521,6 +527,9 @@ export default function SignContractPage() {
                   {cooldown > 0 ? `${cooldown}초` : otpSent ? '재발송' : '인증번호 발송'}
                 </Button>
               </div>
+              <p className="text-xs text-text-tertiary mt-1.5">
+                계약서 발송 시 등록된 번호로만 인증번호가 발송됩니다.
+              </p>
             </div>
 
             {/* OTP */}

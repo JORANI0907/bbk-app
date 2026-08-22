@@ -28,19 +28,23 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ success: false, error: '서명할 수 없는 상태입니다.' }, { status: 400 })
   }
 
-  let body: { phone?: string }
+  // 요청 body 는 무시. OTP 수신 번호는 계약서 생성 시 관리자가 등록한
+  // contract.customer_phone 을 강제 사용한다 (다른 번호로 OTP 받는 것 방지).
   try {
-    body = await request.json()
+    await request.json().catch(() => ({}))
   } catch {
-    return NextResponse.json({ success: false, error: '잘못된 요청 형식입니다.' }, { status: 400 })
+    // body 없어도 통과 (더 이상 phone 을 body 에서 받지 않음)
   }
 
-  const { phone } = body
-  if (!phone) {
-    return NextResponse.json({ success: false, error: '전화번호는 필수입니다.' }, { status: 400 })
+  const registeredPhone = contract.customer_phone as string | null
+  if (!registeredPhone) {
+    return NextResponse.json(
+      { success: false, error: '계약서에 OTP 수신 연락처가 등록되어 있지 않습니다. 관리자에게 문의해주세요.' },
+      { status: 400 },
+    )
   }
 
-  const normalizedPhone = phone.replace(/-/g, '')
+  const normalizedPhone = registeredPhone.replace(/-/g, '')
 
   // Rate limit 체크
   const rateLimitSecs = otpStore.isRateLimited(normalizedPhone)
