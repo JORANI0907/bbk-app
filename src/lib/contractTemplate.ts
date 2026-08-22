@@ -176,8 +176,9 @@ export function renderContractPreview(
  */
 export function restoreSignaturePlaceholders(html: string): string {
   if (!html) return html
-  // 계약서 dashed <span> 4종 (renderContractV2 의 signatureImg/stampImg 출력물).
+  // 계약서 dashed <span> 5종 (renderContractV2 의 signatureImg/stampImg 출력물).
   // style 문자열 안의 특수문자 그대로 매칭하려고 정규식은 최소 이스케이프만 사용.
+  // injectProcessFieldPlaceholders 가 (서명자 성명) 도 dashed 로 렌더링하므로 함께 복원.
   return html
     .replace(
       /<span style="display:inline-block;min-width:200px;height:80px;line-height:80px;text-align:center;color:#bbb;font-size:11px;border:1px dashed #ddd;border-radius:4px;">\(고객 서명\)<\/span>/g,
@@ -194,6 +195,10 @@ export function restoreSignaturePlaceholders(html: string): string {
     .replace(
       /<span style="display:inline-block;width:80px;height:80px;line-height:80px;text-align:center;color:#bbb;font-size:10px;border:1px dashed #ddd;border-radius:4px;">\(공급사 직인\)<\/span>/g,
       '{{공급사직인}}',
+    )
+    .replace(
+      /<span style="display:inline-block;min-width:120px;height:40px;line-height:40px;text-align:center;color:#bbb;font-size:11px;border:1px dashed #ddd;border-radius:4px;">\(서명자 성명\)<\/span>/g,
+      '{{고객성명}}',
     )
 }
 

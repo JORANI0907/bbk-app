@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
-import { renderContractPreview, type ContractCustomerInfo } from '@/lib/contractTemplate'
+import { renderContractForStorage, type ContractCustomerInfo } from '@/lib/contractTemplate'
 
 /**
  * POST /api/admin/contracts/preview
@@ -74,6 +74,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: false, error: '양식을 찾을 수 없습니다.' }, { status: 404 })
   }
 
-  const html = renderContractPreview(tmpl.html_body as string, customerInfo)
+  // ⚠️ renderContractPreview 대신 renderContractForStorage 사용.
+  // preview 결과가 그대로 편집기 초기 콘텐츠 → 저장 페이로드로 흘러가므로,
+  // 서명 변수({{공급사서명}} 등)를 dashed placeholder 로 치환하면 스냅샷에 박제되어 사라짐.
+  // renderContractForStorage 는 인적사항표·오늘날짜만 채우고 서명 변수는 원본 유지.
+  const html = renderContractForStorage(tmpl.html_body as string, customerInfo)
   return NextResponse.json({ success: true, data: { html } })
 }
