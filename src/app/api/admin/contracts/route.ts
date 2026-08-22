@@ -4,19 +4,25 @@ import { renderContractForStorage, restoreSignaturePlaceholders, type ContractCu
 import crypto from 'crypto'
 
 // GET /api/admin/contracts — 계약서 목록
+// ?party_type=customer|worker 로 대상 유형 필터
 export async function GET(request: NextRequest) {
   const supabase = createServiceClient()
   const { searchParams } = new URL(request.url)
   const status = searchParams.get('status')
+  const partyType = searchParams.get('party_type')
 
   let query = supabase
     .from('contracts')
-    .select('*, customers(business_name, contact_name, contact_phone, email)')
+    .select('*, customers(business_name, contact_name, contact_phone, email), workers(name, phone, employment_type, position, department)')
     .is('deleted_at', null)
     .order('created_at', { ascending: false })
 
   if (status && status !== 'all') {
     query = query.eq('signing_status', status)
+  }
+
+  if (partyType === 'customer' || partyType === 'worker') {
+    query = query.eq('party_type', partyType)
   }
 
   const { data, error } = await query
@@ -52,30 +58,53 @@ export async function POST(request: NextRequest) {
   }
 
   const customerId = body.customer_id as string | undefined
+  const workerId = body.worker_id as string | undefined
   const templateId = body.template_id as string | undefined
   const customerPhone = String(body.customer_phone ?? '')
   const applicationId = body.application_id as string | undefined
   const htmlBody = typeof body.html_body === 'string' ? body.html_body : ''
   const rawInfo = (body.customer_info ?? {}) as Partial<ContractCustomerInfo>
+  const workerInfo = (body.worker_info ?? {}) as Record<string, unknown>
 
-  if (!customerId) {
-    return NextResponse.json({ success: false, error: 'customer_id는 필수입니다.' }, { status: 400 })
+  // XOR: customer_id 또는 worker_id 중 정확히 하나만 제공되어야 함
+  if ((!customerId && !workerId) || (customerId && workerId)) {
+    return NextResponse.json(
+      { success: false, error: 'customer_id 또는 worker_id 중 정확히 하나만 지정하세요.' },
+      { status: 400 },
+    )
   }
   if (!templateId) {
     return NextResponse.json({ success: false, error: '계약서 양식(template_id)이 필요합니다.' }, { status: 400 })
   }
 
-  const { data: customer, error: customerError } = await supabase
-    .from('customers')
-    .select('id, contact_phone')
-    .eq('id', customerId)
-    .single()
+  const partyType: 'customer' | 'worker' = workerId ? 'worker' : 'customer'
 
-  if (customerError || !customer) {
-    return NextResponse.json({ success: false, error: '고객 정보를 찾을 수 없습니다.' }, { status: 404 })
+  // 대상 존재 확인 (customer 또는 worker)
+  let signerPhone = ''
+  if (partyType === 'customer' && customerId) {
+    const { data: customer, error: customerError } = await supabase
+      .from('customers')
+      .select('id, contact_phone')
+      .eq('id', customerId)
+      .single()
+    if (customerError || !customer) {
+      return NextResponse.json({ success: false, error: '고객 정보를 찾을 수 없습니다.' }, { status: 404 })
+    }
+    signerPhone = customerPhone || (customer.contact_phone as string ?? '')
+  } else if (partyType === 'worker' && workerId) {
+    const { data: worker, error: workerError } = await supabase
+      .from('workers')
+      .select('id, phone')
+      .eq('id', workerId)
+      .single()
+    if (workerError || !worker) {
+      return NextResponse.json({ success: false, error: '직원 정보를 찾을 수 없습니다.' }, { status: 404 })
+    }
+    signerPhone = customerPhone || (worker.phone as string ?? '')
   }
 
-  // customer_info 확정 (누락 필드는 빈 문자열로)
+  // customer_info 확정 (누락 필드는 빈 문자열로) — 직원 계약도 렌더러 재사용 위해
+  // 동일 스키마를 씀. contact_name 에는 직원명이 들어감.
   const customerInfo: ContractCustomerInfo = {
     business_name:       rawInfo.business_name       ?? '',
     contact_name:        rawInfo.contact_name        ?? '',
@@ -111,11 +140,13 @@ export async function POST(request: NextRequest) {
   const tokenExpiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
 
   const record = {
-    customer_id: customerId,
+    party_type: partyType,
+    customer_id: partyType === 'customer' ? customerId : null,
+    worker_id: partyType === 'worker' ? workerId : null,
     contract_type: 'subscription',
     start_date: customerInfo.contract_start_date || null,
     end_date: customerInfo.contract_end_date || null,
-    customer_phone: customerPhone || (customer.contact_phone as string ?? ''),
+    customer_phone: signerPhone,
     signing_token: signingToken,
     token_expires_at: tokenExpiresAt,
     signing_status: 'draft',
@@ -123,7 +154,9 @@ export async function POST(request: NextRequest) {
     template_id: templateId,
     contract_snapshot: {
       html: snapshot,
-      customer_info: customerInfo,   // v2 스냅샷 저장: 재발행·감사 용
+      customer_info: customerInfo,   // v2 스냅샷 (직원 계약도 이 필드 재사용)
+      // 직원 계약이면 worker_info 도 함께 저장 (감사·재발행용 원본)
+      ...(partyType === 'worker' ? { worker_info: workerInfo } : {}),
     },
   }
 
