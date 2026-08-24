@@ -150,6 +150,8 @@ export async function POST(request: NextRequest) {
     'unit_price_per_visit', 'deposit', 'supply_amount', 'vat', 'balance', 'manager_pay',
     // 기타
     'service_type', 'admin_notes', 'disposition',
+    // Batch A-2 후속: 유입 채널 (관리자 수동 등록 시 드롭다운 선택)
+    'acquisition_source',
   ]
   // Phase 8-C: 신규 신청 유입 시 progress_status='신청서작성' 초기값 세팅
   // (기존 status='신규'는 자동화 backward-compat 위해 유지)
@@ -219,6 +221,8 @@ export async function PATCH(request: NextRequest) {
     'progress_status', 'payment_status_detail',
     // pending 신청서 → 고객 등록 완료 시 연결
     'customer_id',
+    // Batch A-2 후속: 유입 채널 수동 수정 허용
+    'acquisition_source',
   ]
   const updates: Record<string, unknown> = {}
   for (const key of ALLOWED) {
