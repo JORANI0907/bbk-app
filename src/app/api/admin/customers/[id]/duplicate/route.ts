@@ -1,6 +1,41 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 
+// 복제 시 원본에서 "한 번만" 가져올 텍스트 정보 목록 (화이트리스트).
+// 여기에 없는 필드는 자동으로 초기값이 되어 원본과 완전히 분리된다.
+// 라이브성 필드(구글폴더 URL, 알림이력, 결제상태, 결제이력, 계약이력 등)는 이 목록에서 제외.
+const CUSTOMER_SNAPSHOT_FIELDS = [
+  // 사업장 기본 정보
+  'business_name', 'business_number',
+  'address', 'address_detail', 'latitude', 'longitude',
+  // 연락처
+  'contact_name', 'contact_phone', 'contact_phone_2', 'email',
+  'platform_nickname',
+  // 현장 접근 정보
+  'door_password', 'gas_location', 'power_location', 'parking_info', 'special_notes',
+  'elevator', 'building_access', 'access_method',
+  // 운영시간·시공시간
+  'business_hours_start', 'business_hours_end', 'construction_time',
+  // 계약 설정(텍스트성 - 정기 계약 조건은 신규 계약에도 유지)
+  'customer_type', 'payment_method', 'account_number',
+  'care_scope', 'care_manual', 'notes', 'admin_notes',
+  'grade', 'disposition',
+  'tax_invoice_required',
+  // 방문 스케줄 설정(계약 조건)
+  'visit_schedule_type', 'visit_weekdays', 'visit_monthly_dates',
+  'schedule_generation_day', 'visit_cycle', 'visit_cycle_unit',
+  'visit_cycle_value', 'visit_cycle_config', 'visit_monthly_count',
+  'visit_count_per_month', 'visit_interval_days',
+  'circulation_type', 'visit_option', 'rotation_type', 'injection_cycle_months',
+  // 결제 조건 설정(금액 자체, 아직 발생하지 않은 청구 규칙)
+  'unit_price', 'billing_amount', 'billing_cycle', 'billing_day',
+  'billing_monthly_amount', 'billing_yearly_amount', 'billing_unit_price',
+  'billing_trigger', 'billing_timing', 'billing_paid_months',
+  'yearly_billing_month', 'yearly_billing_day', 'payment_date',
+  // 알림 수신 동의(전화번호별 스위치)
+  'phone_notify_1', 'phone_notify_2',
+] as const
+
 export async function POST(
   _request: NextRequest,
   { params }: { params: { id: string } }
@@ -23,39 +58,19 @@ export async function POST(
     return NextResponse.json({ error: '원본 데이터를 찾을 수 없습니다.' }, { status: 404 })
   }
 
-  // 복제본 생성 — 원본과 완전히 무관한 별도 레코드
-  // 초기화: 시스템 필드(id/created_at/updated_at), 외부 리소스 링크, 포털 계정, 상태 이력, 알림 이력
-  const {
-    id: _omitId,
-    created_at: _omitCreatedAt,
-    updated_at: _omitUpdatedAt,
-    ...rest
-  } = original as Record<string, unknown>
-
-  const duplicate: Record<string, unknown> = {
-    ...rest,
-    // 외부 리소스 링크 초기화 (원본과 무관하게)
-    drive_folder_url: null,
-    // 포털 계정은 절대 공유 금지 — 새 고객이므로 신규 발급 필요
-    user_id: null,
-    // next_visit_date / billing_next_date 는 원본 값을 유지.
-    // 리셋하면 짝 service_applications 의 construction_date 도 NULL 이 되어
-    // 배정관리 미노출 + work_assignments 저장 실패로 이어짐.
-    // 새 스케줄이면 사용자가 UI 에서 지우거나 갱신하면 됨.
-    payment_status: null,
-    // 소프트 삭제 흔적 제거
-    deleted_at: null,
-    // 알림 이력·파이프라인/진행/결제 상세 상태 초기화 — 원본과 무관한 신규 계약이므로 전부 리셋
-    notification_log: null,
-    pipeline_status: 'inquiry',
-    progress_status: null,
-    payment_status_detail: null,
-    tax_invoice_issued: null,
+  // 화이트리스트 스냅샷 — 명시된 텍스트 필드만 원본에서 복사.
+  // 나머지(구글폴더 URL·알림이력·결제상태·PortOne ID·서명 이력·계약기간·다음 방문일·다음 결제일 등)는 자동 초기화.
+  const snapshot: Record<string, unknown> = {}
+  for (const key of CUSTOMER_SNAPSHOT_FIELDS) {
+    if (key in original) snapshot[key] = (original as Record<string, unknown>)[key]
   }
+
+  // 신규 계약의 초기 파이프라인 상태
+  snapshot.pipeline_status = 'inquiry'
 
   const { data: inserted, error: insertError } = await supabase
     .from('customers')
-    .insert(duplicate)
+    .insert(snapshot)
     .select()
     .single()
 
@@ -63,8 +78,9 @@ export async function POST(
     return NextResponse.json({ error: insertError.message }, { status: 500 })
   }
 
-  // 짝이 되는 service_applications 자동 생성 (POST /api/admin/customers 와 동일한 패턴).
-  // 없으면 캘린더·배정관리·worker_ids 동기화 등 downstream 로직이 linked app 을 못 찾아 동작하지 않음.
+  // 짝이 되는 service_applications 자동 생성.
+  // status는 '예약확정'으로 부여 → 서비스관리 리스트에 정상 노출됨.
+  // 금액 필드(deposit/supply_amount/vat/balance)는 명시적으로 0으로 초기화 → 관리자가 신규 회차 금액을 다시 입력해야 함.
   try {
     await supabase.from('service_applications').insert({
       customer_id: inserted.id,
@@ -76,15 +92,19 @@ export async function POST(
       address: inserted.address,
       business_hours_start: inserted.business_hours_start,
       business_hours_end: inserted.business_hours_end,
-      construction_date: inserted.next_visit_date,
       construction_time: inserted.construction_time,
       care_scope: inserted.care_scope,
       service_type: inserted.customer_type,
       payment_method: inserted.payment_method,
-      assigned_to: inserted.assigned_user_id,
+      account_number: inserted.account_number,
       source: 'customer_direct',
-      status: '기존고객',
+      status: '예약확정',
       saved_quotes: [],
+      // 금액은 신규 회차마다 다르므로 명시적 초기화 (관리자가 반드시 입력)
+      deposit: 0,
+      supply_amount: 0,
+      vat: 0,
+      balance: 0,
     })
   } catch (e) {
     console.error('duplicate customer→service_applications 자동 생성 실패:', e instanceof Error ? e.message : e)
