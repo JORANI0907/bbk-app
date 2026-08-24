@@ -951,10 +951,15 @@ export default function SchedulePage() {
   const fetchMonthData = useCallback(async (month: string) => {
     setLoading(true)
     try {
+      // 성능 최적화:
+      // - applications: fields=slim 로 45개 필드만 (jsonb 무거운 것 제외)
+      // - customers: 이 화면은 1회성케어 중 해당 월에 시공 예정인 고객만 필요 →
+      //   customer_type=1회성케어 & visit_date_range=YYYY-MM 로 서버에서 필터
+      //   (기존: 552명 전체 → 이제: 5~20명)
       const [appRes, assRes, custRes] = await Promise.all([
-        fetch(`/api/admin/applications?month=${month}`),
+        fetch(`/api/admin/applications?month=${month}&fields=slim`),
         fetch(`/api/admin/work-assignments?month=${month}`),
-        fetch('/api/admin/customers'),
+        fetch(`/api/admin/customers?customer_type=1회성케어&visit_date_range=${month}&fields=slim`),
       ])
       const appData = await appRes.json()
       const assData = await assRes.json()
