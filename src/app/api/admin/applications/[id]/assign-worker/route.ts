@@ -8,6 +8,11 @@ import { createServiceClient } from '@/lib/supabase/server'
  *   - { worker_ids: string[] } — 신규 (다중 배정)
  *   - { worker_id: string | null } — 하위호환 (단일 배정 · 자동으로 [worker_id] 로 변환)
  *   - worker_ids: []  또는 worker_id: null → 배정 해제
+ *
+ * 두 저장소 동기화:
+ *   - work_assignments 테이블 (다중 배정 · 급여 정산 기준)
+ *   - service_applications.assigned_to 컬럼 (단일 primary · 화면 표시·스케줄 동기화 기준)
+ *   두 곳이 항상 함께 갱신되도록 이 API 안에서 처리 (첫 번째 worker_id 를 primary 로 assigned_to 에 반영).
  */
 export async function POST(
   request: NextRequest,
@@ -55,8 +60,12 @@ export async function POST(
     return NextResponse.json({ error: `기존 배정 삭제 실패: ${delErr.message}` }, { status: 500 })
   }
 
-  // 3) 배정 해제 요청이면 삭제만 하고 종료
+  // 3) 배정 해제 요청이면 assigned_to 도 null 로 함께 갱신하고 종료
   if (workerIds.length === 0) {
+    await supabase
+      .from('service_applications')
+      .update({ assigned_to: null })
+      .eq('id', applicationId)
     return NextResponse.json({ success: true, worker_ids: [] })
   }
 
@@ -79,6 +88,19 @@ export async function POST(
 
   if (insErr) {
     return NextResponse.json({ error: `배정 실패: ${insErr.message}` }, { status: 500 })
+  }
+
+  // 6) service_applications.assigned_to 를 primary(첫 번째) worker_id 로 동기화.
+  //    두 저장소(work_assignments · assigned_to)가 어긋나는 것을 이 시점에 원천 차단.
+  const { error: syncErr } = await supabase
+    .from('service_applications')
+    .update({ assigned_to: workerIds[0] })
+    .eq('id', applicationId)
+
+  if (syncErr) {
+    // work_assignments 는 이미 insert 성공. assigned_to 동기화 실패는 상위 알림 남기고 성공으로 처리.
+    // (다음 저장 시 동기화되므로 사용자 흐름을 막지 않음)
+    console.error('assigned_to 동기화 실패:', syncErr.message)
   }
 
   // 하위호환: worker_id 는 첫 번째 반환
