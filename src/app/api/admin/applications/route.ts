@@ -3,6 +3,34 @@ import { createServiceClient } from '@/lib/supabase/server'
 import { sendSlack } from '@/lib/slack'
 import { computeBillingAmountFromCustomer, toMonthlyPeriod, calcMonthlyDueDate } from '@/lib/billing-generator'
 
+// 배정관리/캘린더 등 리스트 뷰에서 실제로 렌더링·조작되는 필드만 (약 45개).
+// 무거운 jsonb(quote_items, quote_log, saved_quotes, spare_data, recommended_services 등)와
+// 잘 안 쓰는 필드(notion_page_id, gcal_event_id, worker_pay 등)를 제외해 응답 크기 축소.
+// 세부/편집이 필요한 경우 `fields=slim` 파라미터를 넘기지 않으면 기존과 동일하게 `*` 반환.
+const APP_FIELDS_SLIM = [
+  'id', 'created_at', 'submitted_at',
+  'business_name', 'owner_name', 'phone', 'phone_2', 'phone_notify_1', 'phone_notify_2', 'email',
+  'business_name', 'business_number', 'address',
+  'status', 'service_type', 'work_status',
+  'assigned_to', 'customer_id',
+  'construction_date', 'construction_time',
+  'business_hours_start', 'business_hours_end',
+  'elevator', 'building_access', 'parking', 'access_method',
+  'payment_method', 'account_number',
+  'supply_amount', 'vat', 'deposit', 'balance',
+  'care_scope', 'request_notes', 'admin_request_notes',
+  'customer_memo', 'internal_memo',
+  'drive_folder_url', 'disposition',
+  'progress_status', 'payment_status', 'payment_status_detail',
+  'notification_send_at', 'notification_sent_at',
+  'work_started_at', 'work_completed_at', 'completed_at',
+  'pre_meeting_at', 'pre_meeting_done',
+  'condition_score', 'worker_planned_departure', 'worker_plan_note',
+  'deposit_paid_at', 'balance_paid_at',
+  'archived_at', 'deleted_at',
+  'notification_log',
+].filter((v, i, a) => a.indexOf(v) === i).join(', ') // 중복 제거
+
 export async function GET(request: NextRequest) {
   const supabase = createServiceClient()
   const { searchParams } = new URL(request.url)
@@ -16,10 +44,15 @@ export async function GET(request: NextRequest) {
   const businessName = searchParams.get('business_name')
   // Phase 4: 이관 필터 (활성/이관됨/전체)
   const archived = searchParams.get('archived')
+  // 성능 최적화: fields=slim 이면 리스트 필드만 반환 (기본은 * 유지 → 하위호환)
+  const useSlim = searchParams.get('fields') === 'slim'
+  const selectClause = useSlim
+    ? `${APP_FIELDS_SLIM}, customer:customers(drive_folder_url)`
+    : '*, customer:customers(drive_folder_url)'
 
   let query = supabase
     .from('service_applications')
-    .select('*, customer:customers(drive_folder_url)')
+    .select(selectClause)
     .is('deleted_at', null)
     .order('construction_date', { ascending: true })
 
@@ -65,7 +98,9 @@ export async function GET(request: NextRequest) {
   // Phase 27-AC: 각 application 에 배정된 모든 작업자 id 배열로 병합 (다중 배정 지원).
   // - assigned_worker_ids: string[]  (신규, 다중)
   // - assigned_worker_id: string | null  (하위호환, 첫 번째 id — 기존 UI·필터·payroll 이 참조 중)
-  const apps = data ?? []
+  // 동적 select 문자열 사용으로 Supabase 타입 추론이 실패 → 명시적 캐스트
+  type AppRow = Record<string, unknown> & { id: string }
+  const apps = (data ?? []) as unknown as AppRow[]
   if (apps.length > 0) {
     const appIds = apps.map(a => a.id)
     const { data: assignments } = await supabase
