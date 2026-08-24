@@ -634,7 +634,8 @@ export function ServiceManagementPage({
   // 신규 일정 생성 모달
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [creating, setCreating] = useState(false)
-  const [newForm, setNewForm] = useState({ business_name: '', owner_name: '', phone: '', address: '', service_type: '' })
+  // Batch A-2 후속: 유입 채널 필드 추가 (관리자 수동 등록 시 선택)
+  const [newForm, setNewForm] = useState({ business_name: '', owner_name: '', phone: '', address: '', service_type: '', acquisition_source: '' })
 
   const vatManual = useRef(false)
 
@@ -997,6 +998,7 @@ export function ServiceManagementPage({
         address: newForm.address.trim(),
       }
       if (newForm.service_type) body.service_type = newForm.service_type
+      if (newForm.acquisition_source) body.acquisition_source = newForm.acquisition_source
       const res = await fetch('/api/admin/applications', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1006,7 +1008,7 @@ export function ServiceManagementPage({
       if (!res.ok) throw new Error(data.error || '생성 실패')
       toast.success('신규 일정이 생성됐습니다.')
       setShowCreateModal(false)
-      setNewForm({ business_name: '', owner_name: '', phone: '', address: '', service_type: '' })
+      setNewForm({ business_name: '', owner_name: '', phone: '', address: '', service_type: '', acquisition_source: '' })
       setSelected(data as Application)
       await fetchAll()
     } catch (e) {
@@ -1496,12 +1498,31 @@ export function ServiceManagementPage({
                   {SERVICE_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
                 </select>
               </div>
+              <div>
+                <label className="text-xs font-semibold text-text-secondary mb-1 block">유입 채널 (선택)</label>
+                <select
+                  value={newForm.acquisition_source}
+                  onChange={e => setNewForm(f => ({ ...f, acquisition_source: e.target.value }))}
+                  className="w-full border border-border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 bg-surface"
+                >
+                  <option value="">선택 안 함</option>
+                  <option value="soomgo">숨고</option>
+                  <option value="naver">네이버</option>
+                  <option value="kakao">카카오</option>
+                  <option value="instagram">인스타그램</option>
+                  <option value="danggeun">당근</option>
+                  <option value="offline">오프라인/명함</option>
+                  <option value="direct">직접입력/지인 소개</option>
+                  <option value="etc">기타</option>
+                </select>
+                <p className="mt-1 text-[10px] text-text-tertiary">신규 문의 지표 채널 분포에 반영됩니다</p>
+              </div>
             </div>
             <div className="flex gap-2 mt-5">
               <Button variant="primary" className="flex-1" onClick={handleCreateApplication} disabled={creating}>
                 {creating ? '생성 중...' : '생성'}
               </Button>
-              <Button variant="secondary" className="flex-1" onClick={() => { setShowCreateModal(false); setNewForm({ business_name: '', owner_name: '', phone: '', address: '', service_type: '' }) }}>
+              <Button variant="secondary" className="flex-1" onClick={() => { setShowCreateModal(false); setNewForm({ business_name: '', owner_name: '', phone: '', address: '', service_type: '', acquisition_source: '' }) }}>
                 취소
               </Button>
             </div>
