@@ -46,9 +46,9 @@ const METRIC_DESCRIPTIONS: Record<string, string> = {
   days_since_training: '마지막 안전교육 이후 며칠 지났는지 (낮을수록 좋음)',
   notice_rate: '매주 금요일 3줄 공지 발행 이행률 (규정 제7조)',
   meeting_rate: '매달 월간 회의 개최 이행률',
-  revenue_onetime_rate: '이달 1회성케어 매출이 목표 대비 몇 % 달성됐는지',
-  revenue_deep_rate: '이달 정기딥케어 매출(월간+연간 통합)이 목표 대비 몇 % 달성됐는지',
-  revenue_end_rate: '이달 정기엔드케어 매출이 목표 대비 몇 % 달성됐는지',
+  revenue_onetime_rate: '이달 1회성케어 매출 금액 (목표는 원 단위 입력, 달성률은 대시보드에서 자동 %)',
+  revenue_deep_rate: '이달 정기딥케어 매출 금액 (월간+연간 통합, 목표는 원 단위 입력)',
+  revenue_end_rate: '이달 정기엔드케어 매출 금액 (목표는 원 단위 입력)',
 }
 
 // 각 지표별 상세 측정 방법 매뉴얼
@@ -81,18 +81,18 @@ const METRIC_MANUALS: Record<string, MetricManual> = {
   },
   revenue_onetime_rate: {
     source: 'service_applications 테이블',
-    logic: '이달 시공완료된 1회성케어 건의 (공급가액 + 부가세) 합계 ÷ 목표값 × 100',
-    notes: '/admin/finance/details 페이지의 1회성케어 매출과 동일 기준. 목표값은 위 입력창에 원 단위로 입력.',
+    logic: '이달 시공완료된 1회성케어 건의 (공급가액 + 부가세) 합계를 원 단위로 계산',
+    notes: '/admin/finance/details 페이지의 1회성케어 매출과 동일 기준. 목표(원)를 위 입력창에 넣으면 대시보드에서 실적 원 + 달성률(%)이 함께 표시됨.',
   },
   revenue_deep_rate: {
     source: 'service_billings + customers 테이블',
-    logic: '이달 결제완료(paid_date)된 정기딥케어 청구 금액 합계 ÷ 목표값 × 100. 월간+연간 통합.',
-    notes: '결제완료 시점 기준이라 시공 시점과 다를 수 있음. finance/details 페이지와 동일 기준.',
+    logic: '이달 결제완료(paid_date)된 정기딥케어 청구 금액 합계를 원 단위로 계산. 월간+연간 통합.',
+    notes: '결제완료 시점 기준이라 시공 시점과 다를 수 있음. finance/details 페이지와 동일 기준. 목표는 월간 매출 원 단위.',
   },
   revenue_end_rate: {
     source: 'service_billings + customers 테이블',
-    logic: '이달 결제완료(paid_date)된 정기엔드케어 청구 금액 합계 ÷ 목표값 × 100',
-    notes: '결제완료 시점 기준. finance/details 페이지와 동일 기준.',
+    logic: '이달 결제완료(paid_date)된 정기엔드케어 청구 금액 합계를 원 단위로 계산',
+    notes: '결제완료 시점 기준. finance/details 페이지와 동일 기준. 목표는 월간 매출 원 단위.',
   },
   // ── 수기입력 지표 (manual) ───────────────────────────────
   jobs_backlog: {
