@@ -174,6 +174,22 @@ async function createPortalAccount(
   return password
 }
 
+// 리스트 화면에서 실제로 렌더링되는 필드만 (약 25개). 세부창은 별도 API([id]/route.ts) 사용.
+// 하위호환: page 파라미터 없으면 기존 FULL 필드 그대로 반환.
+const FIELDS_SLIM = [
+  'id', 'business_name', 'contact_name', 'contact_phone', 'contact_phone_2',
+  'phone_notify_1', 'phone_notify_2',
+  'address', 'customer_type', 'status', 'pipeline_status',
+  'disposition', 'grade', 'billing_cycle', 'billing_timing', 'billing_amount',
+  'next_visit_date', 'construction_time',
+  'progress_status', 'payment_status_detail', 'payment_method',
+  'assigned_user_id', 'assigned_worker_id',
+  'archived_at', 'auto_notification_paused',
+  'created_at', 'updated_at',
+].join(', ')
+
+const FIELDS_FULL = 'id, business_name, contact_name, contact_phone, contact_phone_2, email, address, address_detail, business_number, account_number, platform_nickname, payment_method, elevator, building_access, access_method, business_hours_start, business_hours_end, door_password, parking_info, special_notes, care_scope, pipeline_status, customer_type, status, disposition, grade, billing_cycle, billing_timing, billing_amount, supply_amount, vat, deposit, balance, billing_start_date, billing_next_date, contract_start_date, contract_end_date, unit_price, visit_interval_days, next_visit_date, visit_schedule_type, visit_weekdays, visit_monthly_dates, visit_cycle_unit, visit_cycle_value, visit_cycle_config, yearly_billing_month, yearly_billing_day, notes, rotation_type, visit_count_per_month, payment_status, payment_date, schedule_generation_day, assigned_user_id, assigned_worker_id, user_id, account_user_id, progress_status, payment_status_detail, tax_invoice_issued, injection_cycle_months, drive_folder_url, notification_log, phone_notify_1, phone_notify_2, construction_time, admin_notes, archived_at, archived_by, auto_notification_paused, created_at, updated_at'
+
 export async function GET(request: NextRequest) {
   const supabase = createServiceClient()
   const { searchParams } = new URL(request.url)
@@ -181,14 +197,48 @@ export async function GET(request: NextRequest) {
   // Phase 4: 이관 필터 — 기본은 활성(archived_at IS NULL), 'true'면 이관됨만, 'all'이면 전체
   const archived = searchParams.get('archived')
 
+  // 성능 최적화 파라미터 (있으면 페이지네이션 모드, 없으면 기존 동작 유지)
+  const pageParam = searchParams.get('page')
+  const paginationMode = pageParam !== null
+  const page = Math.max(1, parseInt(pageParam ?? '1', 10) || 1)
+  const limit = Math.min(200, Math.max(1, parseInt(searchParams.get('limit') ?? '50', 10) || 50))
+  const search = (searchParams.get('search') ?? '').trim()
+  const customerTypeFilter = searchParams.get('customer_type') // '1회성케어' | '정기딥케어' | '정기엔드케어' | null
+  const visitDateRange = searchParams.get('visit_date_range') // 'YYYY-MM' → next_visit_date 그 달만
+  const fieldsMode = searchParams.get('fields') // 'slim' 강제 지정 가능
+
+  // 페이지네이션 모드거나 명시적으로 slim 요청 시 슬림 필드만
+  const useSlim = paginationMode || fieldsMode === 'slim'
+
   let query = supabase
     .from('customers')
-    .select('id, business_name, contact_name, contact_phone, contact_phone_2, email, address, address_detail, business_number, account_number, platform_nickname, payment_method, elevator, building_access, access_method, business_hours_start, business_hours_end, door_password, parking_info, special_notes, care_scope, pipeline_status, customer_type, status, disposition, grade, billing_cycle, billing_timing, billing_amount, supply_amount, vat, deposit, balance, billing_start_date, billing_next_date, contract_start_date, contract_end_date, unit_price, visit_interval_days, next_visit_date, visit_schedule_type, visit_weekdays, visit_monthly_dates, visit_cycle_unit, visit_cycle_value, visit_cycle_config, yearly_billing_month, yearly_billing_day, notes, rotation_type, visit_count_per_month, payment_status, payment_date, schedule_generation_day, assigned_user_id, assigned_worker_id, user_id, account_user_id, progress_status, payment_status_detail, tax_invoice_issued, injection_cycle_months, drive_folder_url, notification_log, phone_notify_1, phone_notify_2, construction_time, admin_notes, archived_at, archived_by, created_at, updated_at')
+    .select(useSlim ? FIELDS_SLIM : FIELDS_FULL, paginationMode ? { count: 'exact' } : undefined)
     .is('deleted_at', null)
     .order('business_name', { ascending: true })
 
   if (subscriptionOnly) {
     query = query.in('customer_type', ['정기딥케어', '정기엔드케어'])
+  }
+
+  if (customerTypeFilter) {
+    query = query.eq('customer_type', customerTypeFilter)
+  }
+
+  if (search) {
+    // 상호명 또는 대표자명 또는 전화번호 부분일치 (하이픈 제거 대응)
+    const raw = search.replace(/-/g, '')
+    query = query.or(
+      `business_name.ilike.%${search}%,contact_name.ilike.%${search}%,contact_phone.ilike.%${raw}%`
+    )
+  }
+
+  if (visitDateRange && /^\d{4}-\d{2}$/.test(visitDateRange)) {
+    const [y, m] = visitDateRange.split('-').map(Number)
+    const monthStart = `${visitDateRange}-01`
+    const nextMonth = m === 12
+      ? `${y + 1}-01-01`
+      : `${y}-${String(m + 1).padStart(2, '0')}-01`
+    query = query.gte('next_visit_date', monthStart).lt('next_visit_date', nextMonth)
   }
 
   if (archived === 'true') {
@@ -197,13 +247,26 @@ export async function GET(request: NextRequest) {
     query = query.is('archived_at', null)
   }
 
-  const { data, error } = await query
+  // 페이지네이션 range 적용
+  if (paginationMode) {
+    const from = (page - 1) * limit
+    const to = from + limit - 1
+    query = query.range(from, to)
+  }
+
+  const { data, error, count } = await query
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
   // Phase 27-AH: 각 customer 에 assigned_worker_ids: string[] 배열 병합 (다중 작업자 지원).
   // 1회성/일반일정은 linked application 의 work_assignments 전체를, 정기는 customer 대표 worker 만.
   // 첫 번째 id 는 하위호환용 assigned_worker_id 와 정합 유지.
-  const customers = data ?? []
+  // FIELDS_SLIM/FULL 이 동적 문자열이라 Supabase 타입 추론이 실패 → 명시적 캐스트 (실제 필드는 select 문에 정의됨)
+  type CustomerRow = Record<string, unknown> & {
+    id: string
+    customer_type?: string | null
+    assigned_worker_id?: string | null
+  }
+  const customers = (data ?? []) as unknown as CustomerRow[]
   if (customers.length > 0) {
     const oneShotIds = customers
       .filter(c => c.customer_type === '1회성케어' || c.customer_type === '일반일정')
@@ -256,6 +319,12 @@ export async function GET(request: NextRequest) {
     }
   }
 
+  // 페이지네이션 응답: total/hasMore 포함. 아니면 기존 형식 유지 (하위호환)
+  if (paginationMode) {
+    const total = count ?? 0
+    const hasMore = page * limit < total
+    return NextResponse.json({ customers, total, page, limit, hasMore })
+  }
   return NextResponse.json({ customers })
 }
 
