@@ -846,7 +846,7 @@ function SourceBadge({ label }: { label: string }) {
 
 // PaymentIssuesSummary(고객관리) 와 동일한 완결 상태 집합 — 판정 일관성 유지
 const PAID_APP_STATUSES = new Set([
-  '결제완료', '결제완료(잔금)', '계산서발행완료', '카드결제 완료', '비과세', '예약금환급완료',
+  '결제완료', '계산서발행완료', '카드결제 완료', '비과세', '예약금환급완료',
 ])
 
 function isPaymentDone(c: Candidate): boolean {

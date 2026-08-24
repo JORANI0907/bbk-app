@@ -25,7 +25,7 @@ import { TimePicker24h } from '@/components/admin/TimePicker24h'
 import { EMPLOYMENT_LABEL, type EmploymentType } from '@/app/admin/workers/constants'
 
 type ServiceType = '1회성케어' | '정기딥케어' | '정기엔드케어'
-type ApplicationStatus = '신규' | '견적발송' | '예약확정' | '예약1일전' | '예약당일' | '작업완료' | '작업완료(엔드)' | '결제' | '결제완료' | '결제완료(잔금)' | '계산서발행완료' | '비과세' | '카드결제 완료' | '예약금환급완료' | '예약금 입금' | '예약취소' | 'A/S방문' | '방문견적'
+type ApplicationStatus = '신규' | '견적발송' | '예약확정' | '예약1일전' | '예약당일' | '작업완료' | '작업완료(엔드)' | '결제' | '결제완료' | '계산서발행완료' | '비과세' | '카드결제 완료' | '예약금환급완료' | '예약금 입금' | '예약취소' | 'A/S방문' | '방문견적'
 
 interface User { id: string; name: string; role: string }
 interface Worker { id: string; name: string; employment_type: string | null; phone: string | null; account_number: string | null }
@@ -93,25 +93,29 @@ type SortDir = 'asc' | 'desc'
 // Phase 4: 서비스관리 탭에서 1회성은 완전 제거 (고객관리 탭으로 이동)
 // 다만 forceServiceType='1회성케어'로 embed되는 경우(예: 고객관리 1회성 서브탭)에는 여전히 표시
 const SERVICE_TYPES: ServiceType[] = ['정기딥케어', '정기엔드케어']
+// 색상 정책 (사용자 지시):
+// - 진행상태(예약확정/작업완료 등)는 색상 관여 없음 → 회색·투명 계열
+// - 결제상태 4구분: 노랑(예약금 입금) / 주황(결제) / 초록(결제완료) / 파랑(완료 종결)
 const STATUS_CONFIG: Record<ApplicationStatus, { color: string; badge: string; dot: string; row: string }> = {
-  '신규':          { color: 'bg-brand-500 text-white',    badge: 'bg-brand-100 text-brand-700 ring-brand-300',   dot: 'bg-brand-500',  row: 'bg-brand-50' },
-  '견적발송':      { color: 'bg-brand-500 text-white',   badge: 'bg-brand-100 text-brand-700 ring-indigo-300', dot: 'bg-brand-500', row: 'bg-brand-50' },
-  '예약확정':      { color: 'bg-green-600 text-white',    badge: 'bg-green-100 text-green-800 ring-green-300',    dot: 'bg-green-600',  row: 'bg-green-50' },
-  '예약1일전':     { color: 'bg-brand-500 text-white',    badge: 'bg-brand-100 text-brand-700 ring-brand-300',   dot: 'bg-brand-500',  row: 'bg-brand-50' },
-  '예약당일':      { color: 'bg-brand-600 text-white',    badge: 'bg-brand-100 text-brand-800 ring-brand-300',   dot: 'bg-brand-600',  row: 'bg-brand-50' },
-  '작업완료':      { color: 'bg-orange-500 text-white',   badge: 'bg-orange-100 text-orange-700 ring-orange-300', dot: 'bg-orange-500', row: 'bg-orange-50' },
-  '작업완료(엔드)': { color: 'bg-orange-600 text-white', badge: 'bg-orange-100 text-orange-800 ring-orange-300', dot: 'bg-orange-600', row: 'bg-orange-50' },
-  '결제':          { color: 'bg-orange-400 text-white',   badge: 'bg-orange-100 text-orange-600 ring-orange-200', dot: 'bg-orange-400', row: 'bg-amber-50' },
-  '결제완료':       { color: 'bg-gray-500 text-white',     badge: 'bg-surface-sunken text-text-secondary ring-gray-300',        dot: 'bg-gray-500',   row: 'bg-surface-sunken' },
-  '결제완료(잔금)': { color: 'bg-emerald-600 text-white', badge: 'bg-emerald-100 text-emerald-700 ring-emerald-300', dot: 'bg-emerald-600', row: 'bg-emerald-50' },
-  '계산서발행완료': { color: 'bg-gray-300 text-gray-700', badge: 'bg-surface-sunken text-text-tertiary ring-gray-200',         dot: 'bg-gray-300',   row: 'bg-surface' },
-  '비과세':         { color: 'bg-gray-300 text-gray-700', badge: 'bg-surface-sunken text-text-tertiary ring-gray-200',         dot: 'bg-gray-300',   row: 'bg-surface' },
-  '카드결제 완료':  { color: 'bg-gray-300 text-gray-700', badge: 'bg-surface-sunken text-text-tertiary ring-gray-200',         dot: 'bg-gray-300',   row: 'bg-surface' },
-  '예약금환급완료': { color: 'bg-gray-300 text-gray-700', badge: 'bg-surface-sunken text-text-tertiary ring-gray-200',       dot: 'bg-gray-300',   row: 'bg-surface' },
-  '예약금 입금':   { color: 'bg-brand-600 text-white',    badge: 'bg-brand-100 text-brand-700 ring-teal-300',      dot: 'bg-brand-600',   row: 'bg-brand-50' },
-  '예약취소':      { color: 'bg-gray-400 text-white',     badge: 'bg-surface-sunken text-text-secondary ring-gray-300',      dot: 'bg-gray-400',   row: 'bg-surface-sunken' },
-  'A/S방문':       { color: 'bg-gray-400 text-white',     badge: 'bg-surface-sunken text-text-secondary ring-gray-300',      dot: 'bg-gray-400',   row: 'bg-surface-sunken' },
-  '방문견적':      { color: 'bg-gray-400 text-white',     badge: 'bg-surface-sunken text-text-secondary ring-gray-300',      dot: 'bg-gray-400',   row: 'bg-surface-sunken' },
+  // ── 진행상태 (색상 관여 X · 중립 회색) ─────────────────────────
+  '신규':           { color: 'bg-gray-400 text-white', badge: 'bg-surface-sunken text-text-secondary ring-gray-300', dot: 'bg-gray-400', row: 'bg-surface' },
+  '견적발송':       { color: 'bg-gray-400 text-white', badge: 'bg-surface-sunken text-text-secondary ring-gray-300', dot: 'bg-gray-400', row: 'bg-surface' },
+  '예약확정':       { color: 'bg-gray-400 text-white', badge: 'bg-surface-sunken text-text-secondary ring-gray-300', dot: 'bg-gray-400', row: 'bg-surface' },
+  '예약1일전':      { color: 'bg-gray-400 text-white', badge: 'bg-surface-sunken text-text-secondary ring-gray-300', dot: 'bg-gray-400', row: 'bg-surface' },
+  '예약당일':       { color: 'bg-gray-400 text-white', badge: 'bg-surface-sunken text-text-secondary ring-gray-300', dot: 'bg-gray-400', row: 'bg-surface' },
+  '작업완료':       { color: 'bg-gray-400 text-white', badge: 'bg-surface-sunken text-text-secondary ring-gray-300', dot: 'bg-gray-400', row: 'bg-surface' },
+  '작업완료(엔드)': { color: 'bg-gray-400 text-white', badge: 'bg-surface-sunken text-text-secondary ring-gray-300', dot: 'bg-gray-400', row: 'bg-surface' },
+  '예약취소':       { color: 'bg-gray-400 text-white', badge: 'bg-surface-sunken text-text-secondary ring-gray-300', dot: 'bg-gray-400', row: 'bg-surface' },
+  'A/S방문':        { color: 'bg-gray-400 text-white', badge: 'bg-surface-sunken text-text-secondary ring-gray-300', dot: 'bg-gray-400', row: 'bg-surface' },
+  '방문견적':       { color: 'bg-gray-400 text-white', badge: 'bg-surface-sunken text-text-secondary ring-gray-300', dot: 'bg-gray-400', row: 'bg-surface' },
+  // ── 결제상태 (4구분) ────────────────────────────────────────────
+  '예약금 입금':    { color: 'bg-amber-500 text-white',   badge: 'bg-amber-100 text-amber-700 ring-amber-300',       dot: 'bg-amber-500',   row: 'bg-amber-50'   }, // 1번 노랑
+  '결제':           { color: 'bg-orange-500 text-white',  badge: 'bg-orange-100 text-orange-700 ring-orange-300',    dot: 'bg-orange-500',  row: 'bg-orange-50'  }, // 2번 주황
+  '결제완료':       { color: 'bg-emerald-500 text-white', badge: 'bg-emerald-100 text-emerald-700 ring-emerald-300', dot: 'bg-emerald-500', row: 'bg-emerald-50' }, // 3번 초록
+  '계산서발행완료': { color: 'bg-blue-500 text-white',    badge: 'bg-blue-100 text-blue-700 ring-blue-300',          dot: 'bg-blue-500',    row: 'bg-blue-50'    }, // 4번 파랑
+  '예약금환급완료': { color: 'bg-blue-500 text-white',    badge: 'bg-blue-100 text-blue-700 ring-blue-300',          dot: 'bg-blue-500',    row: 'bg-blue-50'    }, // 4번 파랑
+  '비과세':         { color: 'bg-blue-500 text-white',    badge: 'bg-blue-100 text-blue-700 ring-blue-300',          dot: 'bg-blue-500',    row: 'bg-blue-50'    }, // 4번 파랑
+  '카드결제 완료':  { color: 'bg-blue-500 text-white',    badge: 'bg-blue-100 text-blue-700 ring-blue-300',          dot: 'bg-blue-500',    row: 'bg-blue-50'    }, // 4번 파랑
 }
 const NOTIFICATION_TYPES = [
   '예약확정알림', '예약1일전알림', '예약당일알림',

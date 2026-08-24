@@ -253,41 +253,39 @@ const DISPOSITION_STYLE: Record<string, { badge: string; label: string }> = {
   '블랙':  { badge: 'bg-state-danger-bg text-state-danger',  label: '블랙' },  // 하위호환
 }
 
-// Phase 13: 고객관리 색상 규칙 재조정
-// 진행상태 = 좌측 border-l-4 색 (상태축)
+// 색상 정책: 진행상태는 색상 관여 없음 (border 구조만 유지, 색은 투명).
+// 결제상태만 4구분 색상 사용: 노랑(입금)/주황(결제)/초록(결제완료)/파랑(완료종결).
 const PROGRESS_ROW_BORDER: Record<string, string> = {
-  '신청서작성': 'border-l-gray-400',
-  '예약확정':   'border-l-blue-500',
-  '예약1일전':  'border-l-amber-500',
-  '예약당일':   'border-l-orange-500',
-  '작업완료':   'border-l-emerald-500',
-  '예약취소':   'border-l-red-500',
-  'A/S방문':    'border-l-violet-500',
-  '방문견적':   'border-l-cyan-500',
+  '신청서작성': 'border-l-transparent',
+  '예약확정':   'border-l-transparent',
+  '예약1일전':  'border-l-transparent',
+  '예약당일':   'border-l-transparent',
+  '작업완료':   'border-l-transparent',
+  '예약취소':   'border-l-transparent',
+  'A/S방문':    'border-l-transparent',
+  '방문견적':   'border-l-transparent',
 }
 
-// 결제상태 = 행 전체 배경 (파스텔톤 · 사용자 지시)
+// 결제상태 = 행 전체 배경 (파스텔) — 4구분
 const PAYMENT_ROW_BG: Record<string, string> = {
   '예약금 입금':      'bg-amber-50',
   '결제':             'bg-orange-50',
   '결제완료':         'bg-emerald-50',
-  '결제완료(잔금)':   'bg-emerald-100',
-  '계산서발행완료':   'bg-brand-50',
-  '예약금환급완료':   'bg-gray-100',
-  '비과세':           'bg-brand-50',
-  '카드결제 완료':    'bg-brand-50',
+  '계산서발행완료':   'bg-blue-50',
+  '예약금환급완료':   'bg-blue-50',
+  '비과세':           'bg-blue-50',
+  '카드결제 완료':    'bg-blue-50',
 }
 
-// 결제상태 = 우측 뱃지 dot 색 (금전축 · 세밀)
+// 결제상태 = 우측 뱃지 dot 색 — 4구분
 const PAYMENT_STATUS_DOT: Record<string, string> = {
-  '예약금 입금':      'bg-amber-400',
+  '예약금 입금':      'bg-amber-500',
   '결제':             'bg-orange-500',
   '결제완료':         'bg-emerald-500',
-  '결제완료(잔금)':   'bg-emerald-600',
-  '계산서발행완료':   'bg-brand-500',
-  '예약금환급완료':   'bg-gray-400',
-  '비과세':           'bg-brand-500',
-  '카드결제 완료':    'bg-brand-500',
+  '계산서발행완료':   'bg-blue-500',
+  '예약금환급완료':   'bg-blue-500',
+  '비과세':           'bg-blue-500',
+  '카드결제 완료':    'bg-blue-500',
 }
 
 const EMPTY_FORM = {
@@ -352,16 +350,14 @@ const PAYMENT_STATUS_DETAIL_OPTIONS = [
   { value: '예약금 입금',    label: '예약금 입금' },
   { value: '결제',           label: '결제' },
   { value: '결제완료',       label: '결제완료' },
-  { value: '결제완료(잔금)', label: '결제완료(잔금)' },
   { value: '계산서발행완료', label: '계산서발행완료' },
   { value: '예약금환급완료', label: '예약금환급완료' },
   { value: '비과세',         label: '비과세 결제' }, // DB값은 '비과세' 유지
   { value: '카드결제 완료',  label: '카드결제 완료' },
 ] as const
 
-// 세금계산서 발행은 결제 전에도 가능 → '계산서발행완료' 는 결제완료 상태에서 제외.
-// 결제완료 버튼은 payment_status_detail 이 실제 결제완료 값일 때만 활성화.
-const PAYMENT_COMPLETE_STATUSES = ['결제완료', '결제완료(잔금)', '카드결제 완료', '비과세']
+// 결제완료 버튼 활성화 조건 — payment_status_detail 이 실제 결제완료 값일 때.
+const PAYMENT_COMPLETE_STATUSES = ['결제완료', '카드결제 완료', '비과세']
 
 // ─── 방문 주기 ────────────────────────────────────────────────
 const WEEKDAYS = [

@@ -45,7 +45,6 @@ const LINKED_PAYMENT_OPTIONS = [
   { value: '예약금 입금',    label: '예약금 입금' },
   { value: '결제',           label: '결제' },
   { value: '결제완료',       label: '결제완료' },
-  { value: '결제완료(잔금)', label: '결제완료(잔금)' },
   { value: '계산서발행완료', label: '계산서발행완료' },
   { value: '예약금환급완료', label: '예약금환급완료' },
   { value: '비과세',         label: '비과세 결제' },

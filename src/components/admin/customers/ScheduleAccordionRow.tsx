@@ -65,10 +65,9 @@ export const PAYMENT_STATUS_DETAIL_OPTIONS = [
   { value: '예약금 입금',    label: '예약금 입금' },
   { value: '결제',           label: '결제' },
   { value: '결제완료',       label: '결제완료' },
-  { value: '결제완료(잔금)', label: '결제완료(잔금)' },
   { value: '계산서발행완료', label: '계산서발행완료' },
   { value: '예약금환급완료', label: '예약금환급완료' },
-  { value: '비과세',         label: '비과세 결제' }, // 사용자 지시: DB 값은 '비과세' 유지, 라벨만 '비과세 결제'
+  { value: '비과세',         label: '비과세 결제' }, // DB값은 '비과세' 유지, 라벨만 '비과세 결제'
   { value: '카드결제 완료',  label: '카드결제 완료' },
 ] as const
 

@@ -196,28 +196,27 @@ const SERVICE_TYPE_ROW_BG: Record<string, string> = {
   '일반일정':   'bg-stone-50', // Phase 17
 }
 
-// Phase 11 (v2): 진행상태 = 좌측 border-l-4 색 (상태축 · 중간 신호)
+// 진행상태는 색상 관여 없음 (border 구조만 유지, 색은 투명)
 const PROGRESS_ROW_BORDER: Record<string, string> = {
-  '신청서작성': 'border-l-gray-400',
-  '예약확정':   'border-l-blue-500',
-  '예약1일전':  'border-l-amber-500',
-  '예약당일':   'border-l-orange-500',
-  '작업완료':   'border-l-emerald-500',
-  '예약취소':   'border-l-red-500',
-  'A/S방문':    'border-l-violet-500',
-  '방문견적':   'border-l-cyan-500',
+  '신청서작성': 'border-l-transparent',
+  '예약확정':   'border-l-transparent',
+  '예약1일전':  'border-l-transparent',
+  '예약당일':   'border-l-transparent',
+  '작업완료':   'border-l-transparent',
+  '예약취소':   'border-l-transparent',
+  'A/S방문':    'border-l-transparent',
+  '방문견적':   'border-l-transparent',
 }
 
-// Phase 11: 결제상태 = 뱃지 dot (금전축)
+// 결제상태 = 뱃지 dot (4구분: 노랑/주황/초록/파랑)
 const PAYMENT_STATUS_DOT: Record<string, string> = {
-  '예약금 입금':      'bg-amber-400',
+  '예약금 입금':      'bg-amber-500',
   '결제':             'bg-orange-500',
   '결제완료':         'bg-emerald-500',
-  '결제완료(잔금)':   'bg-emerald-600',
-  '계산서발행완료':   'bg-brand-500',
-  '예약금환급완료':   'bg-gray-400',
-  '비과세':           'bg-brand-500',
-  '카드결제 완료':    'bg-brand-500',
+  '계산서발행완료':   'bg-blue-500',
+  '예약금환급완료':   'bg-blue-500',
+  '비과세':           'bg-blue-500',
+  '카드결제 완료':    'bg-blue-500',
 }
 
 const SERVICE_TYPE_OPTIONS = ['전체보기', '1회성케어', '정기딥케어', '정기엔드케어', '일반일정']

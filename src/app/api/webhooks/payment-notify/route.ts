@@ -152,7 +152,7 @@ export async function POST(request: NextRequest) {
     } else {
       const UNPAID_STATUSES = ['작업완료', '결제']
       // 결제완료로 간주하는 customers.payment_status_detail 값
-      const PAID_STATUS_DETAILS = ['결제완료', '결제완료(잔금)', '카드결제 완료', '비과세', '계산서발행완료']
+      const PAID_STATUS_DETAILS = ['결제완료', '카드결제 완료', '비과세', '계산서발행완료']
 
       const { data: unpaidApps } = await supabase
         .from('service_applications')

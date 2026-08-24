@@ -173,7 +173,7 @@ export async function POST(request: NextRequest) {
       // 이미 결제완료 상태면 덮어쓰지 않음.
       // Why: '결제 요청 알림' 등이 재발송될 때 payment_status_detail 이 '결제' 로 뒤집혀
       // 결제완료 버튼이 풀리고 리마인더 크론이 다시 잡아 무한 리마인더가 발생하던 버그 방지.
-      const PAID_STATUSES = ['결제완료', '결제완료(잔금)', '카드결제 완료', '비과세']
+      const PAID_STATUSES = ['결제완료', '카드결제 완료', '비과세']
       const currentPayment = (customer.payment_status_detail as string | null) ?? ''
       if (!PAID_STATUSES.includes(currentPayment)) {
         dbUpdates.payment_status_detail = linkedPayment

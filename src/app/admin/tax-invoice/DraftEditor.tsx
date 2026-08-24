@@ -46,7 +46,7 @@ export interface CandidateSlim {
 const MAX_ITEMS = 4  // 홈택스 CSV는 슬롯 4개까지 지원
 
 // 결제완료로 간주하는 status 값 목록
-const PAYMENT_COMPLETE_STATUSES = ['결제완료', '결제완료(잔금)', '계산서발행완료']
+const PAYMENT_COMPLETE_STATUSES = ['결제완료', '계산서발행완료']
 
 interface Supplier {
   id: string

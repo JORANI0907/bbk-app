@@ -171,7 +171,7 @@ export async function GET(request: NextRequest) {
   //   - 21일 시간 필터는 과거 관행으로 누적된 '계산서발행완료' 건이 재발송되는 사고 방지용 안전장치.
   // 세금계산서 발행은 결제 전에도 가능 → '계산서발행완료' 는 결제완료 상태에서 제외.
   // UI 의 PAYMENT_COMPLETE_STATUSES 와 동일.
-  const PAID_STATUS_DETAILS = ['결제완료','결제완료(잔금)','카드결제 완료','비과세']
+  const PAID_STATUS_DETAILS = ['결제완료','카드결제 완료','비과세']
 
   // KST 기준 21일 전 날짜
   const cutoffDate = new Date(Date.now() + 9 * 60 * 60 * 1000 - 21 * 24 * 60 * 60 * 1000)

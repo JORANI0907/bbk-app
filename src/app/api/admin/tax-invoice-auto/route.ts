@@ -14,7 +14,7 @@ const SUPPLIER_FALLBACK = {
 } as const
 
 // 대상 상태 / 결제방법
-const TARGET_STATUSES = ['결제완료', '결제완료(잔금)']
+const TARGET_STATUSES = ['결제완료']
 const TARGET_PAYMENT_METHODS = ['현금(계산서 희망)', '현금(계산서)']
 
 const CRON_SECRET = process.env.CRON_SECRET
