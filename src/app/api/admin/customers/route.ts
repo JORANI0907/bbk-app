@@ -174,17 +174,36 @@ async function createPortalAccount(
   return password
 }
 
-// 리스트 화면에서 실제로 렌더링되는 필드만 (약 25개). 세부창은 별도 API([id]/route.ts) 사용.
-// 하위호환: page 파라미터 없으면 기존 FULL 필드 그대로 반환.
+// 리스트 화면 카드에서 실제로 렌더링·판독되는 필드 세트.
+// 케어범위·총액·계산서발행상태·계약기간·방문주기·방문일정 등 리스트 UI 에 표시되는
+// 값이 비어 보이지 않도록 포함. 세부창 편집 전용의 무거운 필드/개인정보/jsonb 만 제외.
+// 하위호환: page/fields 파라미터 없으면 기존 FULL 필드 그대로 반환.
 const FIELDS_SLIM = [
+  // 기본 식별·연락처 (리스트 표시)
   'id', 'business_name', 'contact_name', 'contact_phone', 'contact_phone_2',
   'phone_notify_1', 'phone_notify_2',
-  'address', 'customer_type', 'status', 'pipeline_status',
-  'disposition', 'grade', 'billing_cycle', 'billing_timing', 'billing_amount',
-  'next_visit_date', 'construction_time',
-  'progress_status', 'payment_status_detail', 'payment_method',
-  'assigned_user_id', 'assigned_worker_id',
+  'address',
+  // 유형·상태·성향 (뱃지)
+  'customer_type', 'status', 'pipeline_status', 'disposition', 'grade',
+  'progress_status', 'payment_status_detail',
   'archived_at', 'auto_notification_paused',
+  // 시공정보 (리스트에 표시되는 케어범위)
+  'care_scope',
+  // 결제·금액 (리스트에 총액·잔금 표시)
+  'payment_method', 'supply_amount', 'vat', 'deposit', 'balance',
+  'tax_invoice_issued',
+  // 방문/계약 (계약기간·방문주기·다음 결제일 표시)
+  'billing_cycle', 'billing_timing', 'billing_amount',
+  'billing_start_date', 'billing_next_date',
+  'contract_start_date', 'contract_end_date',
+  'visit_interval_days', 'visit_schedule_type', 'visit_weekdays', 'visit_monthly_dates',
+  'rotation_type', 'visit_count_per_month',
+  'next_visit_date', 'construction_time',
+  // 담당자
+  'assigned_user_id', 'assigned_worker_id',
+  // 최근 알림 이력 (리스트 인라인 표시용) — 배열이지만 대부분 몇 개 안 됨
+  'notification_log',
+  // 메타
   'created_at', 'updated_at',
 ].join(', ')
 
