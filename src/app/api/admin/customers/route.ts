@@ -199,6 +199,10 @@ const FIELDS_SLIM = [
   'visit_interval_days', 'visit_schedule_type', 'visit_weekdays', 'visit_monthly_dates',
   'rotation_type', 'visit_count_per_month',
   'next_visit_date', 'construction_time',
+  // 통합 방문주기 (Phase 37) — 초기값 { }/1 이 있어 lazy merge 로직으로는
+  // full 값이 안 덮여져 방문일정 섹션이 자꾸 초기화되던 문제 해결.
+  'visit_cycle_unit', 'visit_cycle_value', 'visit_cycle_config',
+  'yearly_billing_month', 'yearly_billing_day', 'injection_cycle_months',
   // 담당자
   'assigned_user_id', 'assigned_worker_id',
   // 최근 알림 이력 (리스트 인라인 표시용) — 배열이지만 대부분 몇 개 안 됨
