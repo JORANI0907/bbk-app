@@ -510,12 +510,14 @@ export async function PATCH(request: NextRequest) {
       // drive_folder_url 도 마스터 편집 시 짝 신청서에 동기화 (사진올리기 폴백과 정합)
       if ('drive_folder_url' in rest) appUpdates.drive_folder_url = rest.drive_folder_url
       if (Object.keys(appUpdates).length > 0) {
+        // 작업완료·결제 상태도 포함 — 사후 담당자/시공일자 정정을 허용해야
+        // 이미 완료된 건의 배정 오류를 관리자가 수정할 수 있다.
         await supabase
           .from('service_applications')
           .update(appUpdates)
           .eq('customer_id', id)
           .is('deleted_at', null)
-          .in('status', ['신규', '예약확정', '예약1일전', '예약당일', '기존고객'])
+          .in('status', ['신규', '예약확정', '예약1일전', '예약당일', '기존고객', '작업완료', '결제'])
       }
     } catch (e) {
       console.error(
@@ -535,12 +537,14 @@ export async function PATCH(request: NextRequest) {
     const workerIds = ((rest as Record<string, unknown>).worker_ids as unknown[])
       .filter((v): v is string => typeof v === 'string' && v.length > 0)
     try {
+      // 작업완료·결제 상태도 포함 — 이미 완료된 회차의 담당자 정정을 허용.
+      // (급여 재계산은 관리자가 급여관리에서 별도로 확인)
       const { data: openApp } = await supabase
         .from('service_applications')
         .select('id, construction_date, business_name')
         .eq('customer_id', id)
         .is('deleted_at', null)
-        .in('status', ['신규', '예약확정', '예약1일전', '예약당일', '기존고객'])
+        .in('status', ['신규', '예약확정', '예약1일전', '예약당일', '기존고객', '작업완료', '결제'])
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle()
