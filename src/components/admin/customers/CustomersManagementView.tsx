@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, useMemo, Fragment } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef, Fragment } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import toast from 'react-hot-toast'
 import { useModalBackButton } from '@/hooks/useModalBackButton'
@@ -765,9 +765,11 @@ export function CustomersManagementView({
 
   const fetchAll = useCallback(async () => {
     setLoading(true)
+    // 성능: 리스트에 쓰는 25개 필드만 받아 응답 크기 절반 이하로 축소.
+    // 세부창 진입 시 handleSelect 에서 /api/admin/customers/[id] 로 전체 필드 재fetch.
     const url = archivedView
-      ? '/api/admin/customers?archived=true'
-      : '/api/admin/customers'
+      ? '/api/admin/customers?archived=true&fields=slim'
+      : '/api/admin/customers?fields=slim'
     // Phase 27-L: 이번달·다음달 신청서 fetch → customer_id NULL 인 것을 pendings 로 병합
     // (기존 Phase 7-D 의 `status=신규 & assigned_to=null` 조건은 이미 배정·진행된 신청서를
     //  누락시켜 캘린더 대비 리스트가 비는 gap 을 만들었음)
@@ -1025,6 +1027,21 @@ export function CustomersManagementView({
     setPrepaidPeriods(1)
     // Phase A-3: 알림 발송 이력 로딩
     setNotifyLogs((c.notification_log ?? []).map(dbLogToNotifyLog))
+
+    // 성능: 리스트는 fields=slim 으로 25개만 받아왔으므로, 세부창 편집용 전체 필드를 lazy fetch.
+    // 이미 온 slim 데이터로 즉시 세부창을 띄운 뒤, 백그라운드에서 전체 데이터로 form 을 덮어써 편집 준비.
+    fetch(`/api/admin/customers/${c.id}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(j => {
+        if (!j?.customer) return
+        const full = j.customer as Customer
+        // 세부창을 다른 고객으로 이미 이동했으면 무시
+        setSelected(prev => (prev && prev.id === full.id) ? { ...prev, ...full } : prev)
+        setForm(prev => ({ ...toForm(full), ...prev }))  // 사용자가 입력 중이면 그 값 우선
+        setCustomers(prev => prev.map(x => x.id === full.id ? { ...x, ...full } : x))
+        setNotifyLogs((full.notification_log ?? []).map(dbLogToNotifyLog))
+      })
+      .catch(() => {}) // 실패해도 slim 데이터로 계속 작동
   }
 
   // Phase 27: 캘린더에서 회차 선택 → 리스트 클릭과 완전히 동일한 세부화면 오픈 + 캘린더 focus 저장
@@ -2186,6 +2203,30 @@ export function CustomersManagementView({
   }, [filtered, showAllInFilter, selectedTypes, archivedView, search])
   const hiddenCount = filtered.length - displayed.length
 
+  // 성능: 첫 진입 시 상위 N행만 렌더 → 스크롤 하단 감지 시 50개씩 자동 확장 (윈도우드 렌더).
+  // 552행 전부 DOM에 그리지 않아 초기 페인트 시간 대폭 단축. displayed 변경 시 캡 리셋.
+  const RENDER_INITIAL = 80
+  const RENDER_STEP = 50
+  const [renderCap, setRenderCap] = useState(RENDER_INITIAL)
+  useEffect(() => { setRenderCap(RENDER_INITIAL) }, [displayed])
+  const visibleRows = useMemo(
+    () => displayed.slice(0, renderCap),
+    [displayed, renderCap],
+  )
+  const sentinelRef = useRef<HTMLTableRowElement | null>(null)
+  useEffect(() => {
+    const el = sentinelRef.current
+    if (!el) return
+    if (renderCap >= displayed.length) return
+    const io = new IntersectionObserver(entries => {
+      if (entries.some(e => e.isIntersecting)) {
+        setRenderCap(prev => Math.min(prev + RENDER_STEP, displayed.length))
+      }
+    }, { rootMargin: '400px' })
+    io.observe(el)
+    return () => io.disconnect()
+  }, [renderCap, displayed.length])
+
   // Phase 6-D: 미배정 ↔ 유형 상호 배타 — 유형 클릭 시 미배정 자동 해제
   const toggleType = (t: FilterOption) => {
     if (showUnassignedOnly) setShowUnassignedOnly(false)
@@ -2524,7 +2565,7 @@ export function CustomersManagementView({
                     }
                     return -1
                   }
-                  return displayed.map(c => {
+                  return visibleRows.map(c => {
                   const rawType = c.customer_type ?? '1회성케어'
                   const type: CustomerType = (rawType in TYPE_STYLE ? rawType : '1회성케어') as CustomerType
                   const tStyle = TYPE_STYLE[type] ?? TYPE_STYLE['1회성케어']
@@ -2914,6 +2955,14 @@ export function CustomersManagementView({
                   )
                 })
                 })()}
+                {/* 성능: 스크롤 하단 도달 감지용 sentinel — visibleRows 가 아직 다 렌더 안 됐으면 추가 로드 트리거 */}
+                {renderCap < displayed.length && (
+                  <tr ref={sentinelRef} aria-hidden="true">
+                    <td colSpan={99} className="py-3 text-center text-xs text-text-tertiary">
+                      {displayed.length - renderCap}건 더 불러오는 중…
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           )}
