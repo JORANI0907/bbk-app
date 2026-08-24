@@ -7,11 +7,17 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
 
-    const { owner_name, business_name, phone, phone_2, address, service_type, care_scope, request_notes, email, business_number } = body
+    const { owner_name, business_name, phone, phone_2, address, service_type, care_scope, request_notes, email, business_number, acquisition_source } = body
 
     if (!owner_name || !phone || !address || !service_type) {
       return NextResponse.json({ error: '이름, 연락처, 주소, 서비스 유형은 필수입니다.' }, { status: 400 })
     }
+
+    // 유입 채널 화이트리스트 검증 (알 수 없는 값은 null 저장, 오염 방지)
+    const ACQ_SOURCES = ['soomgo', 'naver', 'kakao', 'instagram', 'danggeun', 'offline', 'direct', 'etc']
+    const normalizedSource = typeof acquisition_source === 'string' && ACQ_SOURCES.includes(acquisition_source)
+      ? acquisition_source
+      : null
 
     // 업체명이 폼에서 넘어오면 우선 사용, 없으면 owner_name으로 fallback (NOT NULL 제약)
     const resolvedBusinessName = typeof business_name === 'string' && business_name.trim()
@@ -54,6 +60,7 @@ export async function POST(request: NextRequest) {
         status: '신규',
         progress_status: '신청서작성', // Phase 8-C
         customer_id: autoLinkedCustomerId, // Phase 27-Y: 자동 매칭된 경우만 세팅
+        acquisition_source: normalizedSource, // Batch A-2: 유입 채널
       })
       .select()
       .single()
