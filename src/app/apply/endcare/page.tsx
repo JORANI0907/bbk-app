@@ -1,7 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import toast, { Toaster } from 'react-hot-toast'
+
+// Batch A-2: 유입 채널 자동 추적 (URL의 ?source= 캡처 → 신청서 접수 시 함께 저장)
+const ACQ_SOURCES = ['soomgo', 'naver', 'kakao', 'instagram', 'danggeun', 'offline', 'direct', 'etc'] as const
 
 const BUSINESS_TYPES = ['음식점', '카페', '편의점', '학교/학원', '호텔/숙박', '사무실', '기타']
 const VISIT_FREQS = ['주1회', '주2회', '주3회', '주4회', '주5회', '주6회', '주7회']
@@ -28,6 +31,20 @@ export default function EndcarePage() {
   const [selectedOptions, setSelectedOptions] = useState<string[]>([])
   const [loading, setLoading] = useState(false)
   const [submitted, setSubmitted] = useState(false)
+  const [acquisitionSource, setAcquisitionSource] = useState<string | null>(null)
+
+  // URL 쿼리 ?source= 를 캡처. sessionStorage 로 페이지 내비게이션 후에도 유지.
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const urlSource = new URLSearchParams(window.location.search).get('source')
+    if (urlSource && (ACQ_SOURCES as readonly string[]).includes(urlSource)) {
+      setAcquisitionSource(urlSource)
+      sessionStorage.setItem('bbk_acquisition_source', urlSource)
+    } else {
+      const stored = sessionStorage.getItem('bbk_acquisition_source')
+      if (stored && (ACQ_SOURCES as readonly string[]).includes(stored)) setAcquisitionSource(stored)
+    }
+  }, [])
 
   function toggleBizType(t: string) {
     setBusinessTypes(prev => prev.includes(t) ? prev.filter(x => x !== t) : [...prev, t])
@@ -72,6 +89,7 @@ export default function EndcarePage() {
           ...form,
           service_type: '정기엔드케어',
           care_scope: buildCareScope() || null,
+          acquisition_source: acquisitionSource,
         }),
       })
       const data = await res.json()
