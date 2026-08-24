@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, useMemo, useRef, Fragment } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef, useDeferredValue, Fragment } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import toast from 'react-hot-toast'
 import { useModalBackButton } from '@/hooks/useModalBackButton'
@@ -18,6 +18,7 @@ import { ServiceManagementPage } from '@/components/admin/applications/ServiceMa
 import { CustomersCalendarGrid, type CalendarApp } from '@/components/admin/customers/CustomersCalendarGrid'
 import { computeAppAmount, fmtAmount } from '@/components/admin/customers/calendar-amount'
 import { TODAY_ROW_BORDER, TODAY_ROW_BG, TODAY_ROW_SHADOW } from '@/lib/ui/today-styles'
+import { readCache, writeCache } from '@/lib/browser-cache'
 import { VisitCycleEditor } from '@/components/admin/customers/VisitCycleEditor'
 import type { VisitCycleUnit, VisitCycleConfig } from '@/lib/schedule-generator'
 
@@ -668,6 +669,9 @@ export function CustomersManagementView({
     () => !forceCustomerType && !archivedView && false  // 관리자 기본: 미배정 필터 off (유형과 상호배타)
   )
   const [search, setSearch] = useState('')
+  // 성능: 검색어를 useDeferredValue 로 감싸 타이핑 시 리스트 필터링을 렌더 우선순위 뒤로 미룸
+  // → 타자를 빠르게 쳐도 input 반응성이 유지되고, 필터링은 브라우저가 여유 있을 때 실행
+  const deferredSearch = useDeferredValue(search)
   const [selected, setSelected] = useState<Customer | null>(null)
   const [isNew, setIsNew] = useState(false)
   // Phase 27-AB: pending 신청서 세부화면 진입 여부 (자동 발송 이력 감사 패널 노출 조건)
@@ -760,7 +764,17 @@ export function CustomersManagementView({
   }
 
   const fetchAll = useCallback(async () => {
-    setLoading(true)
+    // 성능: 캐시가 있으면 즉시 화면에 뿌리고 백그라운드에서 최신 데이터로 교체
+    // → 재접속 시 로딩 대기 시간이 체감상 0
+    const cacheKey = archivedView ? 'customers-list-archived' : 'customers-list-active'
+    const cached = readCache<{ customers: Customer[]; pendings: unknown[] }>(cacheKey, 60 * 60 * 1000) // 1시간 TTL
+    if (cached) {
+      setCustomers(cached.customers)
+      setPendingApplications((cached.pendings ?? []) as Parameters<typeof setPendingApplications>[0])
+      setLoading(false) // 캐시로 이미 표시했으니 스피너 안 보임
+    } else {
+      setLoading(true)
+    }
     // 성능: 리스트에 쓰는 25개 필드만 받아 응답 크기 절반 이하로 축소.
     // 세부창 진입 시 handleSelect 에서 /api/admin/customers/[id] 로 전체 필드 재fetch.
     const url = archivedView
@@ -782,13 +796,16 @@ export function CustomersManagementView({
       archivedView ? Promise.resolve(null) : fetch(`/api/admin/applications?month=${nextMonth}`),
     ])
     const data = await customersRes.json()
-    setCustomers(data.customers ?? [])
+    const freshCustomers = data.customers ?? []
+    setCustomers(freshCustomers)
+    let freshPendings: unknown[] = []
     if (appsThisRes && appsNextRes) {
       try {
         const [j1, j2] = await Promise.all([appsThisRes.json(), appsNextRes.json()])
         const merged = [...(j1.applications ?? []), ...(j2.applications ?? [])]
         // customer 미등록 신청서만 pendings 로 (customer 등록된 회차는 customers 리스트에서 표시)
         const orphaned = merged.filter((a: { customer_id: string | null }) => !a.customer_id)
+        freshPendings = orphaned
         setPendingApplications(orphaned)
       } catch {
         setPendingApplications([])
@@ -797,6 +814,8 @@ export function CustomersManagementView({
       setPendingApplications([])
     }
     setLoading(false)
+    // 성능: 다음 접속 시 즉시 표시할 수 있도록 결과를 캐시에 저장
+    writeCache(cacheKey, { customers: freshCustomers, pendings: freshPendings })
   }, [archivedView])
 
   // Phase 27-E: 이번달 매출 fetch + 이번주 슬라이스 + 이번달 주별 breakdown (뷰 모드 무관)
@@ -2105,8 +2124,9 @@ export function CustomersManagementView({
     }
 
     // 검색: DB의 모든 텍스트/숫자 필드 대상 (고객DB이력 등에서 전체 필드 검색 요구)
-    if (search.trim()) {
-      const q = search.trim().toLowerCase()
+    // 성능: search 대신 deferredSearch 사용 → 타이핑 반응성 유지
+    if (deferredSearch.trim()) {
+      const q = deferredSearch.trim().toLowerCase()
       const norm = (v: unknown): string => {
         if (v === null || v === undefined) return ''
         if (Array.isArray(v)) return v.map(norm).join(' ')
@@ -2168,7 +2188,7 @@ export function CustomersManagementView({
     }
 
     return list
-  }, [customers, isAdmin, currentUserId, selectedTypes, search, sortKey, sortDir, selectedStaffId, staffList, showUnassignedOnly, pendingApplications, archivedView])
+  }, [customers, isAdmin, currentUserId, selectedTypes, deferredSearch, sortKey, sortDir, selectedStaffId, staffList, showUnassignedOnly, pendingApplications, archivedView])
 
   // Phase 18: 유형 필터 활성 시 리스트 상단 30일치만 우선 로드 (전체는 "더 보기" 클릭)
   // archivedView(고객DB이력): 시간대가 다양하므로 30일 window가 아닌 "최근 30건" slice.
@@ -2473,7 +2493,21 @@ export function CustomersManagementView({
         {/* 목록 (검색창은 필터 위로 이동됨) */}
         <div className="bg-surface rounded-2xl border border-border shadow-soft overflow-auto flex-1 min-h-[320px]">
           {loading ? (
-            <div className="py-20 text-center text-text-tertiary text-sm">불러오는 중...</div>
+            /* 성능 UX: 텍스트 스피너 대신 회색 카드 스켈레톤을 8개 그려 "빠르다"는 체감 제공 */
+            <div className="divide-y divide-border-subtle animate-pulse">
+              {Array.from({ length: 8 }).map((_, i) => (
+                <div key={i} className="flex items-center gap-4 px-4 py-4">
+                  <div className="h-4 w-4 rounded bg-surface-sunken" />
+                  <div className="h-4 w-24 rounded bg-surface-sunken" />
+                  <div className="flex-1 min-w-0">
+                    <div className="h-4 w-40 rounded bg-surface-sunken mb-1.5" />
+                    <div className="h-3 w-32 rounded bg-surface-sunken" />
+                  </div>
+                  <div className="h-6 w-16 rounded-full bg-surface-sunken" />
+                  <div className="h-4 w-20 rounded bg-surface-sunken" />
+                </div>
+              ))}
+            </div>
           ) : filtered.length === 0 ? (
             <div className="py-20 text-center text-text-tertiary text-sm">{search ? `"${search}" 검색 결과 없음` : '고객이 없습니다.'}</div>
           ) : (
