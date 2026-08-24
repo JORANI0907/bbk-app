@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef, useDeferredValue } from 'react'
 import { useRouter } from 'next/navigation'
 import toast from 'react-hot-toast'
 
@@ -12,6 +12,7 @@ import { MapSelectorModal } from '@/components/MapSelectorModal'
 import { Button } from '@/components/ui'
 import { Phone, Map, Camera, ClipboardList, Calendar } from 'lucide-react'
 import { getScheduleToday } from '@/lib/schedule-today'
+import { readCache, writeCache } from '@/lib/browser-cache'
 import {
   TODAY_ROW_BORDER, TODAY_ROW_BG, TODAY_ROW_SHADOW,
   TODAY_CELL_BG, TODAY_CELL_SHADOW, TODAY_CIRCLE, TODAY_BADGE,
@@ -751,6 +752,8 @@ export default function SchedulePage() {
   // Phase 24: 유형 필터 다중 선택 (빈 배열 = 전체). 작업상태·결제상태 필터 제거
   const [serviceTypeFilters, setServiceTypeFilters] = useState<string[]>([])
   const [search, setSearch] = useState('')
+  // 성능: 검색어를 useDeferredValue 로 감싸 타이핑 반응성 유지 (필터링은 렌더 우선순위 뒤로 미룸)
+  const deferredSearch = useDeferredValue(search)
   const [selected, setSelectedRaw] = useState<Application | null>(null)
   // Phase 9-E: customer 접두사 아이템은 배정관리에서 편집 불가 → 고객관리로 라우팅
   const setSelected = useCallback((app: Application | null | ((prev: Application | null) => Application | null)) => {
@@ -948,7 +951,18 @@ export default function SchedulePage() {
   // - customers 테이블에만 있는 신규 1회성(신규 등록 후 service_applications 없는 건)도 캘린더에 표시
   // - business_name + next_visit_date 조합으로 중복 제거
   const fetchMonthData = useCallback(async (month: string) => {
-    setLoading(true)
+    // 성능: 캐시가 있으면 즉시 뿌리고 백그라운드에서 최신값 교체
+    const cacheKey = `schedule-month-${month}`
+    const cached = readCache<{ applications: Application[]; assignments: WorkAssignment[] }>(
+      cacheKey, 30 * 60 * 1000, // 30분 TTL
+    )
+    if (cached) {
+      setApplications(cached.applications)
+      setAllAssignments(cached.assignments)
+      setLoading(false)
+    } else {
+      setLoading(true)
+    }
     try {
       // 성능 최적화:
       // - applications: fields=slim 로 45개 필드만 (jsonb 무거운 것 제외)
@@ -1071,12 +1085,19 @@ export default function SchedulePage() {
           payment_status_detail: c.payment_status_detail,
         }))
 
-      setApplications([...appsFromServer, ...oneTimeFromCustomers])
-      setAllAssignments(assData.assignments ?? [])
+      const freshApps = [...appsFromServer, ...oneTimeFromCustomers]
+      const freshAssignments = assData.assignments ?? []
+      setApplications(freshApps)
+      setAllAssignments(freshAssignments)
+      // 성능: 다음 월 이동 시 즉시 표시하기 위해 캐시에 저장
+      writeCache(cacheKey, { applications: freshApps, assignments: freshAssignments })
     } catch {
       toast.error('일정 로드 실패')
-      setApplications([])
-      setAllAssignments([])
+      if (!cached) {
+        setApplications([])
+        setAllAssignments([])
+      }
+      // 캐시가 있으면 fetch 실패해도 캐시 데이터 유지
     } finally {
       setLoading(false)
     }
@@ -1152,8 +1173,9 @@ export default function SchedulePage() {
     }
 
     // 검색
-    if (search.trim()) {
-      const q = search.trim().toLowerCase()
+    // 성능: search 대신 deferredSearch 사용
+    if (deferredSearch.trim()) {
+      const q = deferredSearch.trim().toLowerCase()
       apps = apps.filter(a =>
         a.business_name.toLowerCase().includes(q) ||
         a.owner_name.toLowerCase().includes(q) ||
@@ -1174,7 +1196,7 @@ export default function SchedulePage() {
         : ''
       return bKey.localeCompare(aKey)
     })
-  }, [applications, personFilter, workerFilter, serviceTypeFilters, isAdmin, currentUser, appWorkerMap, userIdToWorkerId, workers, refLoaded, search])
+  }, [applications, personFilter, workerFilter, serviceTypeFilters, isAdmin, currentUser, appWorkerMap, userIdToWorkerId, workers, refLoaded, deferredSearch])
 
   const allDates = useMemo(() => {
     const dateSet = new Set<string>()
@@ -1434,8 +1456,22 @@ export default function SchedulePage() {
 
       {/* ── 컨텐츠 ── */}
       {loading || !refLoaded ? (
-        <div className="flex-1 flex items-center justify-center">
-          <LoadingSpinner />
+        /* 성능 UX: 스피너 대신 회색 카드 스켈레톤을 6개 그려 로딩 시 "빠르다"는 체감 제공 */
+        <div className="flex-1 bg-surface rounded-xl border border-border overflow-auto min-h-0 pb-2 md:pb-0 animate-pulse">
+          <div className="divide-y divide-border-subtle">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="flex items-center gap-4 px-4 py-4">
+                <div className="h-4 w-14 rounded bg-surface-sunken" />
+                <div className="h-4 w-32 rounded bg-surface-sunken" />
+                <div className="flex-1 min-w-0">
+                  <div className="h-4 w-48 rounded bg-surface-sunken mb-1.5" />
+                  <div className="h-3 w-36 rounded bg-surface-sunken" />
+                </div>
+                <div className="h-4 w-16 rounded bg-surface-sunken" />
+                <div className="h-4 w-20 rounded bg-surface-sunken" />
+              </div>
+            ))}
+          </div>
         </div>
       ) : viewMode === 'list' ? (
 
