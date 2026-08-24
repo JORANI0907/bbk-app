@@ -46,6 +46,132 @@ const METRIC_DESCRIPTIONS: Record<string, string> = {
   days_since_training: '마지막 안전교육 이후 며칠 지났는지 (낮을수록 좋음)',
   notice_rate: '매주 금요일 3줄 공지 발행 이행률 (규정 제7조)',
   meeting_rate: '매달 월간 회의 개최 이행률',
+  revenue_onetime_rate: '이달 1회성케어 매출이 목표 대비 몇 % 달성됐는지',
+  revenue_deep_rate: '이달 정기딥케어 매출(월간+연간 통합)이 목표 대비 몇 % 달성됐는지',
+  revenue_end_rate: '이달 정기엔드케어 매출이 목표 대비 몇 % 달성됐는지',
+}
+
+// 각 지표별 상세 측정 방법 매뉴얼
+interface MetricManual {
+  source: string
+  logic: string
+  inputLocation?: string
+  inputLink?: string
+  notes?: string
+}
+
+const METRIC_MANUALS: Record<string, MetricManual> = {
+  // ── 자동 지표 (auto) ─────────────────────────────────────
+  new_inquiries: {
+    source: 'service_applications 테이블 (온라인 신청서)',
+    logic: '이달 신규 접수된 신청서 건수 (created_at 기준)',
+    notes: '유입 채널은 신청서 URL의 ?source= 파라미터로 자동 감지됩니다. 예: /apply?source=soomgo → 숨고 유입',
+  },
+  daily_check_rate: {
+    source: 'service_applications 테이블',
+    logic: '오늘 시공완료(work_completed_at)된 작업 중 관리자가 반응(admin_reacted_by)한 비율',
+    notes: '규정 제6조: 대표는 오늘 완료된 작업에 반드시 확인 반응을 남겨야 함',
+  },
+  claims_count: {
+    source: 'claims 테이블',
+    logic: '이달 occurred_at(발생일)이 있는 클레임 카운트',
+    inputLocation: '/admin/claims',
+    inputLink: '/admin/claims',
+    notes: '재청소하러 갔으면 is_rework 체크 필요 (별도 재작업 지표에도 반영됨)',
+  },
+  revenue_onetime_rate: {
+    source: 'service_applications 테이블',
+    logic: '이달 시공완료된 1회성케어 건의 (공급가액 + 부가세) 합계 ÷ 목표값 × 100',
+    notes: '/admin/finance/details 페이지의 1회성케어 매출과 동일 기준. 목표값은 위 입력창에 원 단위로 입력.',
+  },
+  revenue_deep_rate: {
+    source: 'service_billings + customers 테이블',
+    logic: '이달 결제완료(paid_date)된 정기딥케어 청구 금액 합계 ÷ 목표값 × 100. 월간+연간 통합.',
+    notes: '결제완료 시점 기준이라 시공 시점과 다를 수 있음. finance/details 페이지와 동일 기준.',
+  },
+  revenue_end_rate: {
+    source: 'service_billings + customers 테이블',
+    logic: '이달 결제완료(paid_date)된 정기엔드케어 청구 금액 합계 ÷ 목표값 × 100',
+    notes: '결제완료 시점 기준. finance/details 페이지와 동일 기준.',
+  },
+  // ── 수기입력 지표 (manual) ───────────────────────────────
+  jobs_backlog: {
+    source: '월간 회의 폼 수기입력',
+    logic: '대표님이 매달 회의 때 "지금 계약은 됐는데 아직 시공 안 한 건수"를 직접 입력',
+    inputLocation: '월간 회의 (/admin/ops/meetings)',
+    inputLink: '/admin/ops/meetings',
+  },
+  ontime_rate: {
+    source: '월간 회의 폼 수기입력',
+    logic: '이달 완료된 시공 중 약속 날짜에 정확히 완료한 비율을 대표님이 판단해 입력',
+    inputLocation: '월간 회의',
+    inputLink: '/admin/ops/meetings',
+  },
+  rework_count: {
+    source: 'claims 테이블',
+    logic: '이달 발생한 클레임 중 is_rework=true 카운트',
+    inputLocation: '/admin/claims',
+    inputLink: '/admin/claims',
+    notes: '재청소 갔을 때 반드시 클레임 등록 + 재작업 체크',
+  },
+  churn_count: {
+    source: '월간 회의 폼 수기입력',
+    logic: '이달 정기 계약을 해지한 고객 수를 대표님이 직접 입력',
+    inputLocation: '월간 회의',
+    inputLink: '/admin/ops/meetings',
+  },
+  renewal_rate: {
+    source: '월간 회의 폼 수기입력 (분기별)',
+    logic: '분기 내 계약 만료 고객 중 재계약한 비율',
+    inputLocation: '월간 회의',
+    inputLink: '/admin/ops/meetings',
+  },
+  cash_balance: {
+    source: 'cash_snapshots 테이블 (매주 수기)',
+    logic: '대표님이 매주 한 번 통장 잔액을 수기 입력',
+    inputLocation: '현금 스냅샷',
+    inputLink: '/admin/ops/cash',
+  },
+  receivables_90: {
+    source: 'cash_snapshots 테이블 (매주 수기)',
+    logic: '90일 이상 지난 미수금을 대표님이 수기 입력',
+    inputLocation: '현금 스냅샷',
+    inputLink: '/admin/ops/cash',
+  },
+  next30_outflow: {
+    source: 'cash_snapshots 테이블 (매주 수기)',
+    logic: '앞으로 30일 안에 나갈 지출 예정액을 대표님이 수기 입력',
+    inputLocation: '현금 스냅샷',
+    inputLink: '/admin/ops/cash',
+  },
+  bep_progress: {
+    source: '미구현 (BEP 자동 계산 시스템 없음)',
+    logic: '손익 자동 집계 시스템이 구축되면 활성화 예정',
+  },
+  contract_coverage: {
+    source: '미구현 (workers 테이블 계약서 필드 필요)',
+    logic: '근로계약서 관리 시스템이 구축되면 활성화 예정',
+  },
+  safe_days: {
+    source: 'company_intent.safe_days_start_date',
+    logic: '무사고 시작일부터 오늘까지 일수 자동 계산',
+  },
+  days_since_training: {
+    source: '미구현 (안전교육 이력 시스템 필요)',
+    logic: '교육 이력 시스템 구축 후 활성화 예정',
+  },
+  notice_rate: {
+    source: 'weekly_notices 테이블',
+    logic: '이번 주 발행분 존재 여부 (있으면 100%, 없으면 0%)',
+    inputLocation: '주간 공지',
+    inputLink: '/admin/ops/notices',
+  },
+  meeting_rate: {
+    source: 'monthly_meetings 테이블',
+    logic: '이달 회의 held_at 존재 여부',
+    inputLocation: '월간 회의',
+    inputLink: '/admin/ops/meetings',
+  },
 }
 
 // 기능 코드 → 한글 이름 매핑
@@ -172,6 +298,33 @@ export default function MetricsSettingsPage() {
                 <p className="text-xs text-text-secondary mt-1 leading-relaxed break-keep">
                   {METRIC_DESCRIPTIONS[m.key]}
                 </p>
+              )}
+              {METRIC_MANUALS[m.key] && (
+                <details className="mt-2 group">
+                  <summary className="text-xs text-brand-600 cursor-pointer hover:underline select-none list-none flex items-center gap-1">
+                    <span className="group-open:rotate-90 transition-transform inline-block">▶</span>
+                    측정 방법 자세히 보기
+                  </summary>
+                  <div className="mt-2 p-3 bg-surface-sunken rounded-lg text-xs text-text-secondary space-y-1.5 leading-relaxed">
+                    <p><b className="text-text-primary">📍 데이터 소스</b> : {METRIC_MANUALS[m.key].source}</p>
+                    <p><b className="text-text-primary">🧮 계산 로직</b> : {METRIC_MANUALS[m.key].logic}</p>
+                    {METRIC_MANUALS[m.key].inputLocation && (
+                      <p>
+                        <b className="text-text-primary">✍️ 입력 위치</b> :{' '}
+                        {METRIC_MANUALS[m.key].inputLink ? (
+                          <Link href={METRIC_MANUALS[m.key].inputLink!} className="text-brand-600 hover:underline">
+                            {METRIC_MANUALS[m.key].inputLocation} →
+                          </Link>
+                        ) : (
+                          METRIC_MANUALS[m.key].inputLocation
+                        )}
+                      </p>
+                    )}
+                    {METRIC_MANUALS[m.key].notes && (
+                      <p className="text-text-tertiary italic">💡 {METRIC_MANUALS[m.key].notes}</p>
+                    )}
+                  </div>
+                </details>
               )}
             </div>
 
