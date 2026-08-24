@@ -1052,7 +1052,20 @@ export function CustomersManagementView({
         const full = j.customer as Customer
         // 세부창을 다른 고객으로 이미 이동했으면 무시
         setSelected(prev => (prev && prev.id === full.id) ? { ...prev, ...full } : prev)
-        setForm(prev => ({ ...toForm(full), ...prev }))  // 사용자가 입력 중이면 그 값 우선
+        // 사용자가 이미 입력한 값(prev에 실값이 있음)은 보존하고,
+        // slim 에 없어서 빈 상태로 있던 필드만 full 로 채운다.
+        // (기존 { ...toForm(full), ...prev } 방식은 slim의 빈 문자열이 full의 실제값을 덮어써 필드가 사라지는 사고 유발)
+        setForm(prev => {
+          const fullForm = toForm(full)
+          const merged: Record<string, unknown> = { ...prev }
+          for (const [k, v] of Object.entries(fullForm)) {
+            const cur = merged[k]
+            if (cur === '' || cur === null || cur === undefined) {
+              merged[k] = v
+            }
+          }
+          return merged as typeof prev
+        })
         setCustomers(prev => prev.map(x => x.id === full.id ? { ...x, ...full } : x))
         setNotifyLogs((full.notification_log ?? []).map(dbLogToNotifyLog))
       })
