@@ -167,10 +167,11 @@ export default function MembersPage() {
   const handleApprove = async (user: User) => {
     setApprovingId(user.id)
     try {
+      // approved_at 을 함께 세팅해 이후 비활성화해도 승인대기로 재분류되지 않도록 함
       const res = await fetch('/api/admin/users', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: user.id, is_active: true }),
+        body: JSON.stringify({ id: user.id, is_active: true, approved_at: new Date().toISOString() }),
       })
       if (res.ok) { toast.success(`${user.name} 계정이 승인되었습니다.`); fetchUsers() }
     } finally { setApprovingId(null) }
@@ -373,7 +374,10 @@ export default function MembersPage() {
     ? !!users.find(u => u.role === 'customer' && normalizePhone(u.phone ?? '') === normalizedFormPhone)
     : false
 
-  const pendingWorkers = users.filter(u => u.role === 'worker' && !u.is_active)
+  // 승인대기 = 워커 & 비활성 & 아직 승인된 적 없음(approved_at NULL).
+  // 관리자가 승인 후 나중에 비활성화한 계정은 approved_at 이 있으므로 승인대기에서 제외된다
+  // → 아래 일반 목록에서 "비활성" 뱃지로 표시됨.
+  const pendingWorkers = users.filter(u => u.role === 'worker' && !u.is_active && !u.approved_at)
 
   // 검색어 정규화 — 공백 제거·소문자·전화번호 하이픈 제거로 관용도 확보
   const normalizedQuery = searchQuery.trim().toLowerCase()
@@ -392,7 +396,9 @@ export default function MembersPage() {
     return false
   }
 
-  const baseVisible = users.filter(u => u.is_active || u.role !== 'worker')
+  // 일반 목록: 승인대기 상태(워커 & 비활성 & 미승인)만 상단 배너로 분리하고 나머지 전부 노출.
+  // 관리자가 나중에 비활성화한 워커도 여기 그대로 남아 "비활성" 뱃지로 표시됨.
+  const baseVisible = users.filter(u => !(u.role === 'worker' && !u.is_active && !u.approved_at))
   const filtered = (filterRole === 'all'
     ? baseVisible
     : baseVisible.filter(u => u.role === filterRole)
