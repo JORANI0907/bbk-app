@@ -1,8 +1,13 @@
 /**
- * Batch C-4: 워커용 정기관리 API
+ * Batch B-후속-9: 워커 장비관리보고 API (다중 보고 지원)
  *
- * GET  /api/worker/regular-care?week=YYYY-MM-DD  → 해당 주 내 제출 이력 조회 (본인만)
- * POST /api/worker/regular-care                  → 이번 주 사진 제출 (본인만, 중복 시 upsert)
+ * GET  /api/worker/regular-care                  → 이번주 내 보고 리스트 (최신순)
+ * GET  /api/worker/regular-care?history=true     → 최근 12주 내 보고 리스트
+ * POST /api/worker/regular-care                  → 매번 새 레코드 INSERT (하루에 여러 번 가능)
+ * DELETE /api/worker/regular-care?id=xxx         → 개별 보고 삭제 (본인 소유만)
+ *
+ * 제약 해제: (worker_id, week_start) UNIQUE 삭제됨 (2026-08-26)
+ * 이유: 한 명이 여러 업장 관리 시 하루에도 여러 번 사진 보고 필요
  */
 
 import { NextRequest, NextResponse } from 'next/server'
@@ -28,31 +33,34 @@ export async function GET(request: NextRequest) {
 
   const supabase = createServiceClient()
   const isHistory = request.nextUrl.searchParams.get('history') === 'true'
+  const weekStart = getWeekStartMonday(getKstToday())
 
-  // B-후속-1: 이력 조회 모드 — 최근 12주 이력 리스트 반환
   if (isHistory) {
-    const limit = Math.min(Number(request.nextUrl.searchParams.get('limit') ?? 12), 52)
+    // 최근 12주 (오늘 기준 12주 전 월요일부터)
+    const limit = Math.min(Number(request.nextUrl.searchParams.get('limit') ?? 100), 300)
+    const twelveWeeksAgo = new Date()
+    twelveWeeksAgo.setUTCDate(twelveWeeksAgo.getUTCDate() - 84)
+    const cutoff = twelveWeeksAgo.toISOString().slice(0, 10)
     const { data, error } = await supabase
       .from('equipment_care_records')
       .select('*')
       .eq('worker_id', session.userId)
-      .order('week_start', { ascending: false })
+      .gte('week_start', cutoff)
+      .order('submitted_at', { ascending: false })
       .limit(limit)
     if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 })
     return NextResponse.json({ ok: true, history: data ?? [] })
   }
 
-  // 기본: 특정 주 조회
-  const week = request.nextUrl.searchParams.get('week') ?? getWeekStartMonday(getKstToday())
+  // 기본: 이번주 내 모든 레코드
   const { data, error } = await supabase
     .from('equipment_care_records')
     .select('*')
     .eq('worker_id', session.userId)
-    .eq('week_start', week)
-    .maybeSingle()
-
+    .eq('week_start', weekStart)
+    .order('submitted_at', { ascending: false })
   if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 })
-  return NextResponse.json({ ok: true, record: data, week_start: week })
+  return NextResponse.json({ ok: true, records: data ?? [], week_start: weekStart })
 }
 
 export async function POST(request: NextRequest) {
@@ -61,7 +69,7 @@ export async function POST(request: NextRequest) {
 
   const body = await request.json().catch(() => ({}))
 
-  // B-후속-5: photo_urls 배열 우선 처리 (최대 3장). 하위호환으로 photo_url 단일 값도 지원.
+  // photo_urls 배열 우선. 하위호환으로 photo_url 단일도 허용.
   const rawUrls: unknown = body.photo_urls
   const singleUrl = typeof body.photo_url === 'string' ? body.photo_url.trim() : ''
   let photoUrls: string[] = []
@@ -77,26 +85,39 @@ export async function POST(request: NextRequest) {
   const weekStart = getWeekStartMonday(getKstToday())
   const supabase = createServiceClient()
 
-  // 같은 주에 이미 제출 있으면 upsert (사진 교체 허용)
+  // B-후속-9: upsert → insert (매번 새 레코드)
   const { data, error } = await supabase
     .from('equipment_care_records')
-    .upsert({
+    .insert({
       worker_id: session.userId,
       week_start: weekStart,
-      photo_url: photoUrls[0], // 하위호환: 첫 번째 사진
-      photo_urls: photoUrls,    // 정본 배열
-      photo_file_id: typeof body.photo_file_id === 'string' ? body.photo_file_id : null,
+      photo_url: photoUrls[0], // 하위호환
+      photo_urls: photoUrls,
       notes: typeof body.notes === 'string' ? body.notes : null,
       submitted_at: new Date().toISOString(),
-      // 재제출 시 검토 상태 리셋
-      reviewed_by: null,
-      reviewed_at: null,
-      review_status: null,
-      review_notes: null,
-    }, { onConflict: 'worker_id,week_start' })
+    })
     .select('*')
     .single()
 
   if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 })
   return NextResponse.json({ ok: true, record: data })
+}
+
+export async function DELETE(request: NextRequest) {
+  const session = getServerSession()
+  if (!session) return NextResponse.json({ ok: false, error: '인증 필요' }, { status: 401 })
+
+  const id = request.nextUrl.searchParams.get('id')
+  if (!id) return NextResponse.json({ ok: false, error: 'id 필수' }, { status: 400 })
+
+  const supabase = createServiceClient()
+  // 본인 소유만 삭제 가능
+  const { error } = await supabase
+    .from('equipment_care_records')
+    .delete()
+    .eq('id', id)
+    .eq('worker_id', session.userId)
+
+  if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 })
+  return NextResponse.json({ ok: true })
 }
