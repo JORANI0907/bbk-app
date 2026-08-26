@@ -49,6 +49,8 @@ const METRIC_DESCRIPTIONS: Record<string, string> = {
   revenue_onetime_rate: '이달 1회성케어 매출 금액 (목표는 원 단위 입력, 달성률은 대시보드에서 자동 %)',
   revenue_deep_rate: '이달 정기딥케어 매출 금액 (월간+연간 통합, 목표는 원 단위 입력)',
   revenue_end_rate: '이달 정기엔드케어 매출 금액 (목표는 원 단위 입력)',
+  attendance_rate: '이달 배정된 근무 중 실제 출근한 비율 (배정 대비 출근율)',
+  ontime_work_rate: '이달 배정 시공 시간의 ±30분 이내 출근한 비율 (정시 출근율)',
 }
 
 // 각 지표별 상세 측정 방법 매뉴얼
@@ -93,6 +95,20 @@ const METRIC_MANUALS: Record<string, MetricManual> = {
     source: 'service_billings + customers 테이블',
     logic: '이달 결제완료(paid_date)된 정기엔드케어 청구 금액 합계를 원 단위로 계산',
     notes: '결제완료 시점 기준. finance/details 페이지와 동일 기준. 목표는 월간 매출 원 단위.',
+  },
+  attendance_rate: {
+    source: 'work_assignments + attendance 테이블',
+    logic: '이달 배정된 work_assignments 건수 중 해당 (worker_id, construction_date)에 clock_in 이 있는 비율',
+    inputLocation: '/admin/attendance',
+    inputLink: '/admin/attendance',
+    notes: '배정 없는 날은 분모에서 제외 (근무 예정일만 대상). 대시보드에 직원별 출근 일수도 함께 표시됨.',
+  },
+  ontime_work_rate: {
+    source: 'work_assignments + service_applications + attendance',
+    logic: '이달 배정 중 service_applications.construction_time 이 있는 건에 한해, clock_in 이 예정시각 ±30분 이내면 정시로 판정',
+    inputLocation: '/admin/attendance',
+    inputLink: '/admin/attendance',
+    notes: '시공 시간(construction_time)이 등록되지 않은 배정은 판정 대상에서 제외됩니다. 신청서에 시공 시간을 꼭 입력하세요.',
   },
   // ── 수기입력 지표 (manual) ───────────────────────────────
   jobs_backlog: {
