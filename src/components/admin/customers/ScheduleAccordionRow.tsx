@@ -382,7 +382,12 @@ function ExpandedEditor({ merged, users, workers, update, status, isDirty, onSav
   async function handleCreateChildFolder() {
     if (driveCreating) return
     const bizName = parentBusinessName?.trim() || merged.business_name?.trim() || '업체'
-    const date = merged.construction_date?.slice(0, 10) || new Date().toISOString().slice(0, 10)
+    // 시공일자 미지정 시 폴더 생성 거부 (과거엔 오늘 날짜로 조용히 대체되던 버그 fix — 2026-08-26)
+    const date = merged.construction_date?.slice(0, 10)
+    if (!date) {
+      toast.error('시공일자가 설정되지 않아 폴더를 만들 수 없습니다. 먼저 시공일자를 입력하고 저장해주세요.', { duration: 6000 })
+      return
+    }
     setDriveCreating(true)
     try {
       const token = await requestGoogleToken()
