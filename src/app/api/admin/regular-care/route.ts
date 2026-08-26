@@ -1,12 +1,15 @@
 /**
- * Batch C-4: 관리자용 정기관리 API
+ * Batch B-후속-10: 관리자 장비관리보고 API (다중 보고 지원)
  *
  * GET  /api/admin/regular-care?week=YYYY-MM-DD
- *   → 해당 주 전 작업자 진행 현황 (제출 완료 + 미제출자 함께 반환)
+ *   → 해당 주 전 작업자 진행 현황 + 각 워커의 이번주 모든 보고 리스트
+ *   응답: {
+ *     total_workers, submitted_count, pct,
+ *     list: [{ worker_id, worker_name, worker_phone, submitted, submitted_count, records: [...] }]
+ *   }
  *
  * PATCH /api/admin/regular-care
- *   body: { id, review_status: 'approved' | 'need_recheck', review_notes? }
- *   → 관리자 검토 상태 업데이트
+ *   → 개별 레코드 검토 상태 업데이트
  */
 
 import { NextRequest, NextResponse } from 'next/server'
@@ -33,6 +36,18 @@ function getKstToday(): string {
   return kst.toISOString().slice(0, 10)
 }
 
+interface CareRow {
+  id: string
+  worker_id: string
+  week_start: string
+  photo_url: string
+  photo_urls: string[] | null
+  notes: string | null
+  submitted_at: string
+  review_status: 'approved' | 'need_recheck' | null
+  review_notes: string | null
+}
+
 export async function GET(request: NextRequest) {
   const guard = requireAdmin()
   if (!guard.ok) return NextResponse.json({ ok: false, error: guard.error }, { status: guard.status })
@@ -48,26 +63,29 @@ export async function GET(request: NextRequest) {
     .eq('is_active', true)
     .order('name', { ascending: true })
 
-  // 해당 주 제출된 기록 조회
+  // 해당 주 모든 레코드 조회 (최신순)
   const { data: records } = await supabase
     .from('equipment_care_records')
     .select('*')
     .eq('week_start', week)
+    .order('submitted_at', { ascending: false })
 
-  const recordByWorker = new Map<string, typeof records extends (infer R)[] | null ? R : never>()
-  for (const r of records ?? []) {
-    recordByWorker.set(r.worker_id as string, r)
+  // 워커별 그룹핑
+  const recordsByWorker = new Map<string, CareRow[]>()
+  for (const r of (records ?? []) as CareRow[]) {
+    if (!recordsByWorker.has(r.worker_id)) recordsByWorker.set(r.worker_id, [])
+    recordsByWorker.get(r.worker_id)!.push(r)
   }
 
-  // 워커별 통합 리스트 (제출 완료 + 미제출자)
   const list = (workers ?? []).map(w => {
-    const rec = recordByWorker.get(w.id) ?? null
+    const recs = recordsByWorker.get(w.id) ?? []
     return {
       worker_id: w.id,
       worker_name: w.name,
       worker_phone: w.phone,
-      submitted: !!rec,
-      record: rec,
+      submitted: recs.length > 0,
+      submitted_count: recs.length,
+      records: recs,
     }
   })
 
