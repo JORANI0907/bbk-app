@@ -255,7 +255,9 @@ export async function GET(request: NextRequest) {
               business_hours_start?: string | null
               business_hours_end?: string | null
             }) => ({
+              // Rename-A: worker_id → assigned_user_id 로 점진 교체 중 (dual-write)
               worker_id: app.assigned_to,
+              assigned_user_id: app.assigned_to,
               scheduled_date: app.construction_date.slice(0, 10),
               scheduled_time_start: toTime(customer.business_hours_start, '09:00:00'),
               scheduled_time_end: toTime(customer.business_hours_end, '18:00:00'),
