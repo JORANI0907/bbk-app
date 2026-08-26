@@ -930,9 +930,10 @@ function AdminTableView() {
 
   const showNameColumn = !selectedWorkerId
 
-  // A-3: 고용형태 필터 적용된 workers 리스트 (all 은 TERMINATED 제외)
+  // A-3: 고용형태 필터 적용된 workers 리스트
+  // '전체'는 말소(TERMINATED)와 일용직(DAILY) 자동 제외 — 두 유형은 명시적 버튼 선택 시에만 노출.
   const filteredWorkers = workers.filter(w => {
-    if (employmentFilter === 'all') return w.employment_type !== 'TERMINATED'
+    if (employmentFilter === 'all') return w.employment_type !== 'TERMINATED' && w.employment_type !== 'DAILY'
     return w.employment_type === employmentFilter
   })
 
