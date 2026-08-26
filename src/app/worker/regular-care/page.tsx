@@ -8,6 +8,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import toast, { Toaster } from 'react-hot-toast'
 import { Camera, RefreshCw, CheckCircle2, AlertCircle } from 'lucide-react'
+import { resizeImageToUnder } from '@/lib/image-resize'
 
 interface CareRecord {
   id: string
@@ -55,14 +56,21 @@ export default function WorkerRegularCarePage() {
   useEffect(() => { load() }, [load])
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-    if (file.size > 10 * 1024 * 1024) {
-      toast.error('파일 크기는 10MB 이하여야 합니다.')
+    const original = e.target.files?.[0]
+    if (!original) return
+    if (original.size > 20 * 1024 * 1024) {
+      toast.error('파일 크기는 20MB 이하여야 합니다.')
       return
     }
     setUploading(true)
     try {
+      // Batch B-2: 업로드 전 자동 2MB 이하로 리사이즈 (클라이언트 side)
+      const file = await resizeImageToUnder(original, 2 * 1024 * 1024)
+      if (file.size < original.size) {
+        const savedKb = Math.round((original.size - file.size) / 1024)
+        if (savedKb > 100) toast.success(`사진 크기 자동 조정: -${savedKb}KB`, { duration: 2000 })
+      }
+
       // 1) 사진 업로드
       const fd = new FormData()
       fd.append('photo', file)
@@ -116,8 +124,8 @@ export default function WorkerRegularCarePage() {
       <Toaster position="top-center" />
 
       <div className="text-center pt-2">
-        <h1 className="text-xl font-bold text-text-primary">🧰 정기관리</h1>
-        <p className="text-xs text-text-tertiary mt-1">이번 주 장비·도구 정리 상태를 사진으로 남겨주세요</p>
+        <h1 className="text-xl font-bold text-text-primary">🧰 장비관리보고</h1>
+        <p className="text-xs text-text-tertiary mt-1">이번 주 사용한 장비 사진을 1장 보고해주세요</p>
         {weekStart && <p className="text-xs text-brand-600 font-medium mt-1">{fmtWeek(weekStart)}</p>}
       </div>
 
