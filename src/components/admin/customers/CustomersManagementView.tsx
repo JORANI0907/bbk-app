@@ -7,7 +7,7 @@ import { useModalBackButton } from '@/hooks/useModalBackButton'
 import { MapSelectorModal } from '@/components/MapSelectorModal'
 import { BillingHistoryPanel } from '@/components/admin/BillingHistoryPanel'
 import { Button } from '@/components/ui'
-import { Phone, ClipboardList, Map, Banknote, Save, Megaphone, Calendar, BookOpen, Archive, Trash2, Copy, Folder, FolderOpen, FolderPlus, CreditCard, FileCheck } from 'lucide-react'
+import { Phone, ClipboardList, Map, Banknote, Save, Megaphone, Calendar, BookOpen, Archive, Trash2, Copy, Folder, FolderOpen, FolderPlus, CreditCard, FileCheck, ChevronDown } from 'lucide-react'
 import { useDriveFolder } from '@/hooks/useDriveFolder'
 import { CustomerAccountLink } from '@/components/admin/CustomerAccountLink'
 import { FieldHint } from '@/components/ui/FieldHint'
@@ -706,8 +706,22 @@ export function CustomersManagementView({
   const [sortKey, setSortKey] = useState<string | null>(null)
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
   const [visitWeekdays, setVisitWeekdays] = useState<number[]>([])
-  // Phase 27-AH: 1회성·일반일정 세부화면 다중 작업자 배정용 state (chip UI)
+  // 세부화면 다중 작업자 배정 state (드롭다운 UI)
   const [customerWorkerIds, setCustomerWorkerIds] = useState<string[]>([])
+  const [workerDropdownOpen, setWorkerDropdownOpen] = useState(false)
+  const workerDropdownRef = useRef<HTMLDivElement>(null)
+
+  // 작업자 드롭다운 외부 클릭 시 닫기
+  useEffect(() => {
+    if (!workerDropdownOpen) return
+    const handler = (e: MouseEvent) => {
+      if (workerDropdownRef.current && !workerDropdownRef.current.contains(e.target as Node)) {
+        setWorkerDropdownOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [workerDropdownOpen])
   // Phase 27-AI: customer 마스터 Drive 폴더 훅
   const customerDrive = useDriveFolder({
     businessName: selected?.business_name ?? '',
@@ -3211,36 +3225,67 @@ export function CustomersManagementView({
                   ))}
                 </select>
               </div>
-              {/* Phase 27-AH: 작업자 다중 선택 chip UI (1회성·일반일정 = customer 단일 회차이므로 여기서 편집).
-                  정기딥/엔드 는 이번달 일정 섹션의 회차별 chip UI 로 관리 — 여기 chip 은 참고용. */}
+              {/* 작업자 다중 선택 — 접힘 상태 요약, 클릭 시 드롭다운 팝오버. 복수 선택 유지, 스크롤 가능. */}
               <div className="flex items-start gap-2">
                 <span className="text-xs text-text-secondary w-24 shrink-0 pt-1.5">작업자 (복수)</span>
-                <div className="flex-1">
-                  <div className="flex flex-wrap gap-1.5 min-h-[34px] items-center px-2 py-1.5 border border-border rounded-md bg-surface">
-                    {workersList.length === 0 && <span className="text-xs text-text-tertiary px-1">등록된 작업자 없음</span>}
-                    {workersList.map(w => {
-                      const selected = customerWorkerIds.includes(w.id)
-                      return (
-                        <button
-                          key={w.id}
-                          type="button"
-                          onClick={() => {
-                            setCustomerWorkerIds(prev => selected ? prev.filter(id => id !== w.id) : [...prev, w.id])
-                          }}
-                          className={`text-xs px-2 py-1 rounded-full border transition-colors ${
-                            selected
-                              ? 'bg-brand-600 text-white border-brand-600 hover:bg-brand-700'
-                              : 'bg-surface text-text-secondary border-border hover:bg-surface-sunken'
-                          }`}
-                        >
-                          {selected && <span className="mr-1">✓</span>}
-                          {w.name}
-                        </button>
-                      )
-                    })}
-                  </div>
-                  {customerWorkerIds.length > 1 && (
-                    <p className="text-[10px] text-text-tertiary mt-1">{customerWorkerIds.length}명 배정됨</p>
+                <div className="flex-1 relative" ref={workerDropdownRef}>
+                  {(() => {
+                    const selectedNames = customerWorkerIds
+                      .map(id => workersList.find(w => w.id === id)?.name)
+                      .filter((n): n is string => !!n)
+                    const summary = selectedNames.length === 0
+                      ? '작업자 선택'
+                      : selectedNames.length <= 2
+                        ? selectedNames.join(', ')
+                        : `${selectedNames[0]}, ${selectedNames[1]} 외 ${selectedNames.length - 2}명`
+                    return (
+                      <button
+                        type="button"
+                        onClick={() => setWorkerDropdownOpen(v => !v)}
+                        className="w-full flex items-center justify-between gap-2 px-2 py-1.5 border border-border rounded-md bg-surface text-xs text-left hover:bg-surface-sunken transition-colors"
+                      >
+                        <span className={`truncate ${customerWorkerIds.length === 0 ? 'text-text-tertiary' : 'text-text-primary'}`}>
+                          {summary}
+                        </span>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          {customerWorkerIds.length > 0 && (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-brand-100 text-brand-700 font-semibold">
+                              {customerWorkerIds.length}명
+                            </span>
+                          )}
+                          <ChevronDown className={`w-3.5 h-3.5 text-text-tertiary transition-transform ${workerDropdownOpen ? 'rotate-180' : ''}`} />
+                        </div>
+                      </button>
+                    )
+                  })()}
+                  {workerDropdownOpen && (
+                    <div className="absolute z-20 mt-1 left-0 right-0 max-h-64 overflow-y-auto bg-surface border border-border rounded-md shadow-lg py-1">
+                      {workersList.length === 0 ? (
+                        <p className="text-xs text-text-tertiary px-3 py-2">등록된 작업자 없음</p>
+                      ) : (
+                        workersList.map(w => {
+                          const selected = customerWorkerIds.includes(w.id)
+                          return (
+                            <label
+                              key={w.id}
+                              className={`flex items-center gap-2 px-3 py-2 text-xs cursor-pointer hover:bg-surface-sunken transition-colors ${selected ? 'bg-brand-50' : ''}`}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={selected}
+                                onChange={() => {
+                                  setCustomerWorkerIds(prev => selected ? prev.filter(id => id !== w.id) : [...prev, w.id])
+                                }}
+                                className="accent-brand-600 shrink-0"
+                              />
+                              <span className={selected ? 'text-brand-700 font-medium' : 'text-text-primary'}>
+                                {w.name}
+                              </span>
+                            </label>
+                          )
+                        })
+                      )}
+                    </div>
                   )}
                 </div>
               </div>

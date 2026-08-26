@@ -27,10 +27,22 @@ export async function GET(
     return NextResponse.json({ error: '고객을 찾을 수 없습니다.' }, { status: 404 })
   }
 
-  // 다중 작업자 병합 (리스트 API 와 동일 로직)
+  // 다중 작업자 병합 우선순위:
+  //  1) customers.assigned_worker_ids (DB 컬럼) 에 값이 있으면 그대로 사용 (Phase 옵션 A).
+  //  2) 1회성/일반일정: linked application 의 work_assignments 로 계산.
+  //  3) 그 외: assigned_worker_id 단수 값을 배열로 감싸 fallback.
   const customerType = customer.customer_type
+  const dbIds = Array.isArray(customer.assigned_worker_ids) ? (customer.assigned_worker_ids as string[]) : []
   const assignedWorkerIds: string[] = []
-  if (customerType === '1회성케어' || customerType === '일반일정') {
+
+  if (dbIds.length > 0) {
+    // DB 배열 컬럼 우선
+    for (const id of dbIds) {
+      if (typeof id === 'string' && id.length > 0 && !assignedWorkerIds.includes(id)) {
+        assignedWorkerIds.push(id)
+      }
+    }
+  } else if (customerType === '1회성케어' || customerType === '일반일정') {
     const { data: apps } = await supabase
       .from('service_applications')
       .select('id')

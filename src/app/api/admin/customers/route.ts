@@ -39,7 +39,8 @@ const ALLOWED = [
   // Phase 29: 연간 결제 월/일 (정기딥케어 연간 전용)
   'yearly_billing_month', 'yearly_billing_day',
   // 담당 직원/작업자
-  'assigned_user_id', 'assigned_worker_id',
+  // assigned_worker_ids: text[] 다중 작업자 배열 (신규). PATCH 시 [0] 을 assigned_worker_id 로 자동 동기화.
+  'assigned_user_id', 'assigned_worker_id', 'assigned_worker_ids',
   // 성향
   'disposition',
   // 고객 등급
@@ -203,15 +204,15 @@ const FIELDS_SLIM = [
   // full 값이 안 덮여져 방문일정 섹션이 자꾸 초기화되던 문제 해결.
   'visit_cycle_unit', 'visit_cycle_value', 'visit_cycle_config',
   'yearly_billing_month', 'yearly_billing_day', 'injection_cycle_months',
-  // 담당자
-  'assigned_user_id', 'assigned_worker_id',
+  // 담당자 (assigned_worker_ids 우선, assigned_worker_id 는 하위호환)
+  'assigned_user_id', 'assigned_worker_id', 'assigned_worker_ids',
   // 최근 알림 이력 (리스트 인라인 표시용) — 배열이지만 대부분 몇 개 안 됨
   'notification_log',
   // 메타
   'created_at', 'updated_at',
 ].join(', ')
 
-const FIELDS_FULL = 'id, business_name, contact_name, contact_phone, contact_phone_2, email, address, address_detail, business_number, account_number, platform_nickname, payment_method, elevator, building_access, access_method, business_hours_start, business_hours_end, door_password, parking_info, special_notes, care_scope, pipeline_status, customer_type, status, disposition, grade, billing_cycle, billing_timing, billing_amount, supply_amount, vat, deposit, balance, billing_start_date, billing_next_date, contract_start_date, contract_end_date, unit_price, visit_interval_days, next_visit_date, visit_schedule_type, visit_weekdays, visit_monthly_dates, visit_cycle_unit, visit_cycle_value, visit_cycle_config, yearly_billing_month, yearly_billing_day, notes, rotation_type, visit_count_per_month, payment_status, payment_date, schedule_generation_day, assigned_user_id, assigned_worker_id, user_id, account_user_id, progress_status, payment_status_detail, tax_invoice_issued, injection_cycle_months, drive_folder_url, notification_log, phone_notify_1, phone_notify_2, construction_time, admin_notes, archived_at, archived_by, auto_notification_paused, created_at, updated_at'
+const FIELDS_FULL = 'id, business_name, contact_name, contact_phone, contact_phone_2, email, address, address_detail, business_number, account_number, platform_nickname, payment_method, elevator, building_access, access_method, business_hours_start, business_hours_end, door_password, parking_info, special_notes, care_scope, pipeline_status, customer_type, status, disposition, grade, billing_cycle, billing_timing, billing_amount, supply_amount, vat, deposit, balance, billing_start_date, billing_next_date, contract_start_date, contract_end_date, unit_price, visit_interval_days, next_visit_date, visit_schedule_type, visit_weekdays, visit_monthly_dates, visit_cycle_unit, visit_cycle_value, visit_cycle_config, yearly_billing_month, yearly_billing_day, notes, rotation_type, visit_count_per_month, payment_status, payment_date, schedule_generation_day, assigned_user_id, assigned_worker_id, assigned_worker_ids, user_id, account_user_id, progress_status, payment_status_detail, tax_invoice_issued, injection_cycle_months, drive_folder_url, notification_log, phone_notify_1, phone_notify_2, construction_time, admin_notes, archived_at, archived_by, auto_notification_paused, created_at, updated_at'
 
 export async function GET(request: NextRequest) {
   const supabase = createServiceClient()
@@ -280,14 +281,14 @@ export async function GET(request: NextRequest) {
   const { data, error, count } = await query
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  // Phase 27-AH: 각 customer 에 assigned_worker_ids: string[] 배열 병합 (다중 작업자 지원).
-  // 1회성/일반일정은 linked application 의 work_assignments 전체를, 정기는 customer 대표 worker 만.
+  // 각 customer 에 assigned_worker_ids: string[] 배열 병합 (다중 작업자 지원).
+  // 우선순위: DB 컬럼 assigned_worker_ids > 1회성/일반일정 work_assignments JOIN > assigned_worker_id 단수.
   // 첫 번째 id 는 하위호환용 assigned_worker_id 와 정합 유지.
-  // FIELDS_SLIM/FULL 이 동적 문자열이라 Supabase 타입 추론이 실패 → 명시적 캐스트 (실제 필드는 select 문에 정의됨)
   type CustomerRow = Record<string, unknown> & {
     id: string
     customer_type?: string | null
     assigned_worker_id?: string | null
+    assigned_worker_ids?: string[] | null
   }
   const customers = (data ?? []) as unknown as CustomerRow[]
   if (customers.length > 0) {
@@ -324,19 +325,21 @@ export async function GET(request: NextRequest) {
           if (!arr.includes(wa.worker_id)) arr.push(wa.worker_id)
         }
         for (const c of customers) {
-          // 1회성/일반일정만 work_assignments 기반으로 오버라이드.
-          // 정기딥/엔드는 아래 fallback 블록에서 assigned_worker_id 단일 값을 배열로 감싸 처리.
           if (c.customer_type !== '1회성케어' && c.customer_type !== '일반일정') continue
+          // 우선: DB 컬럼 assigned_worker_ids 에 값이 있으면 그대로 유지 (Phase 옵션 A).
+          const existing = c.assigned_worker_ids
+          if (Array.isArray(existing) && existing.length > 0) continue
+          // 없으면 work_assignments JOIN 결과로 오버라이드
           const ids = customerWorkers.get(c.id) ?? []
           ;(c as Record<string, unknown>).assigned_worker_ids = ids
-          // 하위호환: assigned_worker_id 첫 번째로 override (기존 필드값이 어긋난 경우 자동 정합)
           if (ids.length > 0) (c as Record<string, unknown>).assigned_worker_id = ids[0]
         }
       }
     }
-    // 정기딥/엔드 등 나머지는 assigned_worker_ids 빈 배열
+    // 정기딥/엔드 및 배열이 비어있는 나머지 → assigned_worker_id 단수 값을 배열로 감싸 fallback.
     for (const c of customers) {
-      if (!(c as Record<string, unknown>).assigned_worker_ids) {
+      const existing = c.assigned_worker_ids
+      if (!Array.isArray(existing) || existing.length === 0) {
         (c as Record<string, unknown>).assigned_worker_ids = c.assigned_worker_id ? [c.assigned_worker_id] : []
       }
     }
@@ -447,6 +450,15 @@ export async function PATCH(request: NextRequest) {
   const updates: Record<string, unknown> = { updated_at: new Date().toISOString() }
   for (const key of ALLOWED) {
     if (key in rest) updates[key] = rest[key]
+  }
+
+  // assigned_worker_ids 가 전달되면 assigned_worker_id 를 첫 번째 요소로 자동 동기화.
+  // 하위 호환: assigned_worker_id 단수 값을 참조하는 다른 API/외부 자동화(Make 등) 유지 목적.
+  if ('assigned_worker_ids' in rest && Array.isArray(rest.assigned_worker_ids)) {
+    const ids = (rest.assigned_worker_ids as unknown[])
+      .filter((v): v is string => typeof v === 'string' && v.length > 0)
+    updates.assigned_worker_ids = ids
+    updates.assigned_worker_id = ids[0] ?? null
   }
 
   const phoneChanged = 'contact_phone' in rest
