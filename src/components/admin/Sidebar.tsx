@@ -9,6 +9,8 @@ import { OpsHelpSheet } from '@/components/admin/ops/OpsHelpSheet'
 
 // ─── 타입 ─────────────────────────────────────────────────────
 
+type ColorKey = 'home' | 'sales' | 'hr' | 'finance' | 'ops' | 'app' | 'trash'
+
 interface NavLeaf {
   type: 'leaf'
   href: string
@@ -16,6 +18,7 @@ interface NavLeaf {
   icon: ReactNode
   roles: string[]
   badgeKey?: string  // nav_dismissed key for this item
+  colorKey?: ColorKey
 }
 
 interface NavGroup {
@@ -25,19 +28,32 @@ interface NavGroup {
   roles: string[]
   children: { href: string; label: string; badgeKey?: string }[]
   hasHelp?: boolean
+  colorKey?: ColorKey
 }
 
 type NavItem = NavLeaf | NavGroup
 
+// 그룹별 색상 팔레트. Tailwind purge 안전하게 명시적 클래스 사용.
+const COLOR_MAP: Record<ColorKey, { icon: string; hover: string; activeBg: string; activeText: string; border: string; childActiveBg: string; childActiveText: string }> = {
+  home:    { icon: 'text-brand-600',   hover: 'hover:bg-brand-50',   activeBg: 'bg-brand-100',   activeText: 'text-brand-800',   border: 'border-brand-300',   childActiveBg: 'bg-brand-50',   childActiveText: 'text-brand-700' },
+  sales:   { icon: 'text-blue-600',    hover: 'hover:bg-blue-50',    activeBg: 'bg-blue-100',    activeText: 'text-blue-800',    border: 'border-blue-300',    childActiveBg: 'bg-blue-50',    childActiveText: 'text-blue-700' },
+  hr:      { icon: 'text-orange-600',  hover: 'hover:bg-orange-50',  activeBg: 'bg-orange-100',  activeText: 'text-orange-800',  border: 'border-orange-300',  childActiveBg: 'bg-orange-50',  childActiveText: 'text-orange-700' },
+  finance: { icon: 'text-emerald-600', hover: 'hover:bg-emerald-50', activeBg: 'bg-emerald-100', activeText: 'text-emerald-800', border: 'border-emerald-300', childActiveBg: 'bg-emerald-50', childActiveText: 'text-emerald-700' },
+  ops:     { icon: 'text-violet-600',  hover: 'hover:bg-violet-50',  activeBg: 'bg-violet-100',  activeText: 'text-violet-800',  border: 'border-violet-300',  childActiveBg: 'bg-violet-50',  childActiveText: 'text-violet-700' },
+  app:     { icon: 'text-slate-600',   hover: 'hover:bg-slate-100',  activeBg: 'bg-slate-200',   activeText: 'text-slate-800',   border: 'border-slate-300',   childActiveBg: 'bg-slate-100',  childActiveText: 'text-slate-800' },
+  trash:   { icon: 'text-red-500',     hover: 'hover:bg-red-50',     activeBg: 'bg-red-100',     activeText: 'text-red-700',     border: 'border-red-300',     childActiveBg: 'bg-red-50',     childActiveText: 'text-red-700' },
+}
+
 // ─── 메뉴 정의 ────────────────────────────────────────────────
 
 const NAV_ITEMS: NavItem[] = [
-  { type: 'leaf', href: '/admin', label: '홈', icon: <Home size={16} />, roles: ['admin', 'worker'] },
+  { type: 'leaf', href: '/admin', label: '홈', icon: <Home size={16} />, roles: ['admin', 'worker'], colorKey: 'home' },
   {
     type: 'group',
     label: '영업관리',
     icon: <Building2 size={16} />,
     roles: ['admin'],
+    colorKey: 'sales',
     children: [
       { href: '/admin/schedule', label: '배정관리', badgeKey: 'schedule' },
       { href: '/admin/customers', label: '고객관리' },
@@ -46,7 +62,6 @@ const NAV_ITEMS: NavItem[] = [
       { href: '/admin/quotes', label: '견적관리' },
       { href: '/admin/contracts', label: '계약서 관리' },
       { href: '/admin/snippets', label: '문자 단축어' },
-      { href: '/admin/reports', label: '월간보고서' },
     ],
   },
   {
@@ -54,6 +69,7 @@ const NAV_ITEMS: NavItem[] = [
     label: '영업관리',
     icon: <Building2 size={16} />,
     roles: ['worker'],
+    colorKey: 'sales',
     children: [
       { href: '/admin/schedule', label: '배정관리', badgeKey: 'schedule' },
       { href: '/admin/customers', label: '고객관리' },
@@ -66,6 +82,7 @@ const NAV_ITEMS: NavItem[] = [
     label: '인사·현장관리',
     icon: <Users size={16} />,
     roles: ['admin'],
+    colorKey: 'hr',
     children: [
       { href: '/admin/live', label: '오늘의 현장 (라이브)' },
       { href: '/admin/map', label: '지도 대시보드' },
@@ -75,7 +92,6 @@ const NAV_ITEMS: NavItem[] = [
       { href: '/admin/incidents', label: '경위서', badgeKey: 'incidents' },
       { href: '/admin/claims', label: '고객 클레임' },
       { href: '/admin/inventory', label: '재고관리', badgeKey: 'inventory' },
-      { href: '/admin/requests', label: '요청관리', badgeKey: 'requests' },
     ],
   },
   {
@@ -83,6 +99,7 @@ const NAV_ITEMS: NavItem[] = [
     label: '인사·현장관리',
     icon: <Users size={16} />,
     roles: ['worker'],
+    colorKey: 'hr',
     children: [
       { href: '/admin/attendance', label: '출퇴근관리' },
       { href: '/worker/regular-care', label: '정기관리' },
@@ -97,6 +114,7 @@ const NAV_ITEMS: NavItem[] = [
     label: '재무관리',
     icon: <TrendingUp size={16} />,
     roles: ['admin'],
+    colorKey: 'finance',
     children: [
       { href: '/admin/finance', label: '재무 대시보드' },
       { href: '/admin/finance/details', label: '매출매입 상세' },
@@ -109,6 +127,7 @@ const NAV_ITEMS: NavItem[] = [
     label: '운영',
     icon: <Activity size={16} />,
     roles: ['admin'],
+    colorKey: 'ops',
     hasHelp: true,
     children: [
       { href: '/admin/ops/settings/intent', label: '대표 의도' },
@@ -122,9 +141,9 @@ const NAV_ITEMS: NavItem[] = [
     label: '앱관리',
     icon: <Settings size={16} />,
     roles: ['admin'],
+    colorKey: 'app',
     children: [
-      { href: '/admin/notices', label: '공지·이벤트관리', badgeKey: 'notices' },
-      { href: '/admin/events', label: '혜택 페이지 관리' },
+      { href: '/admin/notices', label: '공지사항', badgeKey: 'notices' },
       { href: '/admin/automation', label: '자동화관리' },
       { href: '/admin/notification-templates', label: '문자알림 관리' },
       { href: '/admin/push', label: '앱알림 관리' },
@@ -138,11 +157,12 @@ const NAV_ITEMS: NavItem[] = [
     label: '앱관리',
     icon: <Settings size={16} />,
     roles: ['worker'],
+    colorKey: 'app',
     children: [
       { href: '/admin/account', label: '계정관리' },
     ],
   },
-  { type: 'leaf', href: '/admin/trash', label: '휴지통', icon: <Trash2 size={16} />, roles: ['admin'] },
+  { type: 'leaf', href: '/admin/trash', label: '휴지통', icon: <Trash2 size={16} />, roles: ['admin'], colorKey: 'trash' },
 ]
 
 // ─── Props ────────────────────────────────────────────────────
@@ -240,6 +260,7 @@ export function Sidebar({ role, userName, navBadges = {} }: SidebarProps) {
           if (item.type === 'leaf') {
             const active = isLeafActive(item.href)
             const count = getBadgeCount(item.badgeKey)
+            const c = item.colorKey ? COLOR_MAP[item.colorKey] : null
             return (
               <Link
                 key={item.href}
@@ -247,11 +268,11 @@ export function Sidebar({ role, userName, navBadges = {} }: SidebarProps) {
                 onClick={() => handleNavClick(item.badgeKey)}
                 className={`nav-item-toss flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm ${
                   active
-                    ? 'bg-brand-50 text-brand-700 font-semibold shadow-card'
-                    : 'font-medium text-text-secondary hover:bg-surface-sunken hover:text-text-primary'
+                    ? `${c?.activeBg ?? 'bg-brand-50'} ${c?.activeText ?? 'text-brand-700'} font-semibold shadow-card`
+                    : `font-medium text-text-secondary ${c?.hover ?? 'hover:bg-surface-sunken'} hover:text-text-primary`
                 }`}
               >
-                <span className="text-base">{item.icon}</span>
+                <span className={`text-base ${c?.icon ?? ''}`}>{item.icon}</span>
                 <span className="flex-1">{item.label}</span>
                 <NavBadge count={count} />
               </Link>
@@ -262,20 +283,21 @@ export function Sidebar({ role, userName, navBadges = {} }: SidebarProps) {
           const groupActive = isGroupActive(item.children)
           const isOpen = openGroups[item.label] ?? groupActive
           const groupBadgeCount = getGroupBadgeCount(item.children)
+          const c = item.colorKey ? COLOR_MAP[item.colorKey] : null
 
           return (
             <div key={item.label}>
-              {/* 그룹 헤더 */}
+              {/* 그룹 헤더 (colorKey 로 색상 구분) */}
               <div className="flex items-center gap-0.5">
                 <button
                   onClick={() => toggleGroup(item.label)}
                   className={`nav-item-toss flex-1 flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm ${
-                    groupActive
-                      ? 'bg-brand-50 text-brand-700 font-semibold'
-                      : 'font-medium text-text-secondary hover:bg-surface-sunken hover:text-text-primary'
+                    groupActive || isOpen
+                      ? `${c?.activeBg ?? 'bg-brand-50'} ${c?.activeText ?? 'text-brand-700'} font-semibold`
+                      : `font-medium text-text-secondary ${c?.hover ?? 'hover:bg-surface-sunken'} hover:text-text-primary`
                   }`}
                 >
-                  <span className="text-base">{item.icon}</span>
+                  <span className={`text-base ${c?.icon ?? ''}`}>{item.icon}</span>
                   <span className="flex-1 text-left">{item.label}</span>
                   {/* 접혀있을 때만 그룹 뱃지 표시 */}
                   {!isOpen && <NavBadge count={groupBadgeCount} />}
@@ -294,9 +316,9 @@ export function Sidebar({ role, userName, navBadges = {} }: SidebarProps) {
                 )}
               </div>
 
-              {/* 서브 메뉴 */}
+              {/* 서브 메뉴 — 좌측 라인도 그룹 색상 */}
               {isOpen && (
-                <div className="ml-4 mt-0.5 space-y-0.5 border-l-2 border-border-subtle pl-3">
+                <div className={`ml-4 mt-0.5 space-y-0.5 border-l-2 pl-3 ${c?.border ?? 'border-border-subtle'}`}>
                   {item.children.map(child => {
                     const childActive = pathname.startsWith(child.href)
                     const childCount = getBadgeCount(child.badgeKey)
@@ -307,8 +329,8 @@ export function Sidebar({ role, userName, navBadges = {} }: SidebarProps) {
                         onClick={() => handleNavClick(child.badgeKey)}
                         className={`nav-item-toss flex items-center px-3 py-2 rounded-lg text-sm ${
                           childActive
-                            ? 'bg-brand-50 text-brand-700 font-semibold shadow-card'
-                            : 'font-medium text-text-secondary hover:bg-surface-sunken hover:text-text-primary'
+                            ? `${c?.childActiveBg ?? 'bg-brand-50'} ${c?.childActiveText ?? 'text-brand-700'} font-semibold shadow-card`
+                            : `font-medium text-text-secondary ${c?.hover ?? 'hover:bg-surface-sunken'} hover:text-text-primary`
                         }`}
                       >
                         <span className="flex-1">{child.label}</span>
