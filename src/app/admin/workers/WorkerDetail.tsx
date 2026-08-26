@@ -22,6 +22,7 @@ const EMP_BADGE: Record<EmploymentType, string> = {
   DAILY:       'bg-amber-100 text-amber-700',
   FREELANCER:  'bg-orange-100 text-orange-700',
   SUBCONTRACT: 'bg-rose-100 text-rose-700',
+  TERMINATED:  'bg-gray-300 text-gray-700',
 }
 
 function Field({ label, value, onChange, type = 'text', mono, placeholder }: {
