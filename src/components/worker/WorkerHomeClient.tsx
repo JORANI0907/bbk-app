@@ -54,7 +54,7 @@ export function WorkerHomeClient() {
         </div>
       </div>
 
-      {/* 정기관리 링크 카드 (매주 사진 제출) */}
+      {/* 장비관리보고 링크 카드 (주간 사진 1장 제출) */}
       <Link
         href="/worker/regular-care"
         className="flex items-center gap-3 bg-surface border border-border-subtle shadow-soft rounded-2xl p-3 mb-4 hover:bg-surface-sunken transition-colors"
@@ -63,8 +63,8 @@ export function WorkerHomeClient() {
           <Wrench size={20} className="text-brand-600" />
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold text-text-primary">🧰 정기관리 (주간 장비 정리)</p>
-          <p className="text-xs text-text-secondary mt-0.5">이번 주 자기 장비·도구 정리 사진 제출</p>
+          <p className="text-sm font-semibold text-text-primary">🧰 장비관리보고</p>
+          <p className="text-xs text-text-secondary mt-0.5">이번 주 사용한 장비 사진 1장 보고</p>
         </div>
         <span className="text-text-tertiary text-sm">→</span>
       </Link>
