@@ -2035,6 +2035,7 @@ export function ServiceManagementPage({
                             DAILY:       'bg-yellow-100 text-yellow-700',
                             FREELANCER:  'bg-amber-100 text-amber-700',
                             SUBCONTRACT: 'bg-red-100 text-red-700',
+                            TERMINATED:  'bg-gray-300 text-gray-700',
                           }
                           return (
                             <button key={w.id} type="button"
