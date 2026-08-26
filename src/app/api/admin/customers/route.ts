@@ -452,13 +452,22 @@ export async function PATCH(request: NextRequest) {
     if (key in rest) updates[key] = rest[key]
   }
 
-  // assigned_worker_ids 가 전달되면 assigned_worker_id 를 첫 번째 요소로 자동 동기화.
-  // 하위 호환: assigned_worker_id 단수 값을 참조하는 다른 API/외부 자동화(Make 등) 유지 목적.
-  if ('assigned_worker_ids' in rest && Array.isArray(rest.assigned_worker_ids)) {
-    const ids = (rest.assigned_worker_ids as unknown[])
+  // worker_ids (레거시 프론트) 또는 assigned_worker_ids (신규) 어느 이름으로 와도 처리.
+  // - assigned_worker_ids 로 정규화 후 저장
+  // - assigned_worker_id 는 첫 번째 요소로 자동 동기화 (하위 호환)
+  // - normalizedWorkerIds 는 아래 정기케어 미래 회차 sync 에도 재사용
+  let normalizedWorkerIds: string[] | null = null
+  const rawWorkerIds =
+    Array.isArray((rest as Record<string, unknown>).assigned_worker_ids)
+      ? (rest as Record<string, unknown>).assigned_worker_ids
+      : Array.isArray((rest as Record<string, unknown>).worker_ids)
+        ? (rest as Record<string, unknown>).worker_ids
+        : undefined
+  if (Array.isArray(rawWorkerIds)) {
+    normalizedWorkerIds = (rawWorkerIds as unknown[])
       .filter((v): v is string => typeof v === 'string' && v.length > 0)
-    updates.assigned_worker_ids = ids
-    updates.assigned_worker_id = ids[0] ?? null
+    updates.assigned_worker_ids = normalizedWorkerIds
+    updates.assigned_worker_id = normalizedWorkerIds[0] ?? null
   }
 
   const phoneChanged = 'contact_phone' in rest
@@ -593,18 +602,14 @@ export async function PATCH(request: NextRequest) {
     }
   }
 
-  // Phase 27-AH sync: 1회성/일반일정 마스터에서 worker_ids 편집 시 짝 신청서의
-  // work_assignments 를 재구성. 그동안 customers PATCH 가 worker_ids 를 무시해서
-  // UI 상태만 바뀌고 DB 에는 저장 안 되던 광범위 버그를 근본 해결.
-  //
-  // 정기딥/엔드는 이번달 일정 아코디언(MonthlyScheduleSection)에서 회차별로
-  // 직접 배정하므로 여기서는 스킵.
-  if (oneShotSyncable && Array.isArray((rest as Record<string, unknown>).worker_ids)) {
-    const workerIds = ((rest as Record<string, unknown>).worker_ids as unknown[])
-      .filter((v): v is string => typeof v === 'string' && v.length > 0)
+  // 마스터 → work_assignments 재구성 (양방향 sync).
+  // - 1회성/일반일정: 최근 open 상태 신청서 1건에 배정 (기존 정책 유지).
+  // - 정기딥/엔드: 미래 회차 전체에 배정 (완료된 회차는 스냅샷 보존).
+  //   그동안 정기케어는 스킵되어 마스터·회차별 배정이 어긋나던 광범위 버그 해결.
+  if (oneShotSyncable && normalizedWorkerIds !== null) {
+    const workerIds = normalizedWorkerIds
     try {
       // 작업완료·결제 상태도 포함 — 이미 완료된 회차의 담당자 정정을 허용.
-      // (급여 재계산은 관리자가 급여관리에서 별도로 확인)
       const { data: openApp } = await supabase
         .from('service_applications')
         .select('id, construction_date, business_name')
@@ -616,7 +621,6 @@ export async function PATCH(request: NextRequest) {
         .maybeSingle()
 
       if (openApp && openApp.construction_date && openApp.business_name) {
-        // 기존 배정 전량 삭제 후 새로 삽입 (multi-set replace)
         await supabase
           .from('work_assignments')
           .delete()
@@ -635,6 +639,41 @@ export async function PATCH(request: NextRequest) {
     } catch (e) {
       console.error(
         '1회성/일반일정 worker_ids sync 실패:',
+        e instanceof Error ? e.message : e,
+      )
+    }
+  }
+
+  // 정기딥/엔드 마스터 → 미래 회차 work_assignments 재구성.
+  // 완료된 회차(작업완료·결제·계산서발행완료 등)는 스냅샷 보존.
+  if (regularSyncable && normalizedWorkerIds !== null) {
+    const workerIds = normalizedWorkerIds
+    try {
+      const todayKST = new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10)
+      const { data: futureApps } = await supabase
+        .from('service_applications')
+        .select('id, construction_date, business_name')
+        .eq('customer_id', id)
+        .is('deleted_at', null)
+        .in('status', ['신규', '예약확정', '예약1일전', '예약당일', '기존고객'])
+        .gte('construction_date', todayKST)
+
+      for (const app of futureApps ?? []) {
+        if (!app.construction_date || !app.business_name) continue
+        await supabase.from('work_assignments').delete().eq('application_id', app.id)
+        if (workerIds.length > 0) {
+          const rows = workerIds.map(worker_id => ({
+            worker_id,
+            application_id: app.id,
+            construction_date: app.construction_date,
+            business_name: app.business_name,
+          }))
+          await supabase.from('work_assignments').insert(rows)
+        }
+      }
+    } catch (e) {
+      console.error(
+        '정기케어 미래 회차 work_assignments sync 실패:',
         e instanceof Error ? e.message : e,
       )
     }

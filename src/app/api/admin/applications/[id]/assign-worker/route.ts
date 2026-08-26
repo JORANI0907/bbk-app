@@ -38,16 +38,35 @@ export async function POST(
 
   const supabase = createServiceClient()
 
-  // 1) application 조회
+  // 1) application 조회 (customer_id 도 함께 — 마스터 sync 용)
   const { data: app, error: appErr } = await supabase
     .from('service_applications')
-    .select('id, construction_date, business_name')
+    .select('id, construction_date, business_name, customer_id')
     .eq('id', applicationId)
     .is('deleted_at', null)
     .single()
 
   if (appErr || !app) {
     return NextResponse.json({ error: '신청서를 찾을 수 없습니다.' }, { status: 404 })
+  }
+
+  // 회차별 저장 → customers 마스터 sync (양방향 정합).
+  // 그동안 회차별에서 작업자 뺐어도 마스터 assigned_worker_ids 는 그대로라
+  // UI 상단(마스터 표시)에서 옛 작업자가 계속 보이던 버그 해결.
+  const syncCustomerMaster = async () => {
+    if (!app.customer_id) return
+    try {
+      await supabase
+        .from('customers')
+        .update({
+          assigned_worker_ids: workerIds,
+          assigned_worker_id: workerIds[0] ?? null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', app.customer_id)
+    } catch (e) {
+      console.error('회차별 → 마스터 sync 실패:', e instanceof Error ? e.message : e)
+    }
   }
 
   // 2) 기존 assignments 전체 삭제 (다중 배정도 이 방식으로 동기화)
@@ -60,8 +79,9 @@ export async function POST(
     return NextResponse.json({ error: `기존 배정 삭제 실패: ${delErr.message}` }, { status: 500 })
   }
 
-  // 3) 배정 해제 요청 — work_assignments 는 이미 위에서 삭제됨. 담당자 필드는 건드리지 않음.
+  // 3) 배정 해제 요청 — work_assignments 는 이미 위에서 삭제됨. 마스터도 빈 배열로 sync.
   if (workerIds.length === 0) {
+    await syncCustomerMaster()
     return NextResponse.json({ success: true, worker_ids: [] })
   }
 
@@ -86,9 +106,8 @@ export async function POST(
     return NextResponse.json({ error: `배정 실패: ${insErr.message}` }, { status: 500 })
   }
 
-  // 6) service_applications.assigned_to 는 담당자(users.id) 전용 컬럼이므로 여기서 건드리지 않음.
-  //    (과거 assigned_to = workerIds[0] 로 덮어써서 담당자가 워커 ID 로 오염되던 버그 fix)
-  //    작업자 조회는 work_assignments 테이블 또는 GET 응답의 assigned_worker_ids 로 확인.
+  // 6) customers 마스터 sync — 회차별에서 편집한 결과를 마스터에도 반영 (양방향 정합).
+  await syncCustomerMaster()
 
   // 하위호환: worker_id 는 첫 번째 반환
   return NextResponse.json({ success: true, worker_ids: workerIds, worker_id: workerIds[0] })
