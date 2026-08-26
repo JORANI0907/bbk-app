@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { ChevronDown, ChevronUp, Trash2, Send, Folder, FolderOpen, FolderPlus, Camera, Save } from 'lucide-react'
 import { requestGoogleToken, createWorkFolderStructure } from '@/lib/googleDrive'
 
@@ -363,6 +363,21 @@ function ExpandedEditor({ merged, users, workers, update, status, isDirty, onSav
 
   // Phase 27-AI: 회차 Drive 폴더 관리 (부모 폴더 있으면 그 안에 자식 생성, 없으면 피커)
   const [driveCreating, setDriveCreating] = useState(false)
+
+  // 작업자 드롭다운 상태 (회차별 독립)
+  const [workerDropdownOpen, setWorkerDropdownOpen] = useState(false)
+  const workerDropdownRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!workerDropdownOpen) return
+    const handler = (e: MouseEvent) => {
+      if (workerDropdownRef.current && !workerDropdownRef.current.contains(e.target as Node)) {
+        setWorkerDropdownOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [workerDropdownOpen])
   const parentFolderId = extractDriveFolderId(parentDriveFolderUrl)
   async function handleCreateChildFolder() {
     if (driveCreating) return
@@ -442,40 +457,71 @@ function ExpandedEditor({ merged, users, workers, update, status, isDirty, onSav
         </div>
         <div>
           <p className={labelCls}>작업자 (복수 선택)</p>
-          {/* Phase 27-AC: 다중 선택 chip UI. work_assignments 를 배열로 저장해
-              여러 작업자 배정 지원. 클릭 = toggle. 아무것도 선택 안 하면 미배정. */}
-          <div className="flex flex-wrap gap-1.5 min-h-[38px] items-center px-2 py-1.5 border border-border rounded-md bg-surface">
-            {workers.length === 0 && (
-              <span className="text-xs text-text-tertiary px-1">등록된 작업자 없음</span>
-            )}
-            {workers.map(w => {
-              const selected = workerIdsView.includes(w.id)
+          {/* 다중 선택 드롭다운 — 접힘 요약 + 클릭 시 팝오버(체크박스, 스크롤). */}
+          <div className="relative" ref={workerDropdownRef}>
+            {(() => {
+              const selectedNames = workerIdsView
+                .map(id => workers.find(w => w.id === id)?.name)
+                .filter((n): n is string => !!n)
+              const summary = selectedNames.length === 0
+                ? '작업자 선택'
+                : selectedNames.length <= 2
+                  ? selectedNames.join(', ')
+                  : `${selectedNames[0]}, ${selectedNames[1]} 외 ${selectedNames.length - 2}명`
               return (
                 <button
-                  key={w.id}
                   type="button"
-                  onClick={() => {
-                    const next = selected
-                      ? workerIdsView.filter(id => id !== w.id)
-                      : [...workerIdsView, w.id]
-                    update('assigned_worker_ids', next)
-                    update('assigned_worker_id', next[0] ?? null)  // 하위호환 프리뷰 동기화
-                  }}
-                  className={`text-xs px-2 py-1 rounded-full border transition-colors ${
-                    selected
-                      ? 'bg-brand-600 text-white border-brand-600 hover:bg-brand-700'
-                      : 'bg-surface text-text-secondary border-border hover:bg-surface-sunken'
-                  }`}
+                  onClick={() => setWorkerDropdownOpen(v => !v)}
+                  className="w-full flex items-center justify-between gap-2 px-2 py-1.5 border border-border rounded-md bg-surface text-xs text-left hover:bg-surface-sunken transition-colors"
                 >
-                  {selected && <span className="mr-1">✓</span>}
-                  {w.name}
+                  <span className={`truncate ${workerIdsView.length === 0 ? 'text-text-tertiary' : 'text-text-primary'}`}>
+                    {summary}
+                  </span>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    {workerIdsView.length > 0 && (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-brand-100 text-brand-700 font-semibold">
+                        {workerIdsView.length}명
+                      </span>
+                    )}
+                    <ChevronDown className={`w-3.5 h-3.5 text-text-tertiary transition-transform ${workerDropdownOpen ? 'rotate-180' : ''}`} />
+                  </div>
                 </button>
               )
-            })}
+            })()}
+            {workerDropdownOpen && (
+              <div className="absolute z-20 mt-1 left-0 right-0 max-h-64 overflow-y-auto bg-surface border border-border rounded-md shadow-lg py-1">
+                {workers.length === 0 ? (
+                  <p className="text-xs text-text-tertiary px-3 py-2">등록된 작업자 없음</p>
+                ) : (
+                  workers.map(w => {
+                    const selected = workerIdsView.includes(w.id)
+                    return (
+                      <label
+                        key={w.id}
+                        className={`flex items-center gap-2 px-3 py-2 text-xs cursor-pointer hover:bg-surface-sunken transition-colors ${selected ? 'bg-brand-50' : ''}`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={selected}
+                          onChange={() => {
+                            const next = selected
+                              ? workerIdsView.filter(id => id !== w.id)
+                              : [...workerIdsView, w.id]
+                            update('assigned_worker_ids', next)
+                            update('assigned_worker_id', next[0] ?? null)  // 하위호환 프리뷰 동기화
+                          }}
+                          className="accent-brand-600 shrink-0"
+                        />
+                        <span className={selected ? 'text-brand-700 font-medium' : 'text-text-primary'}>
+                          {w.name}
+                        </span>
+                      </label>
+                    )
+                  })
+                )}
+              </div>
+            )}
           </div>
-          {workerIdsView.length > 1 && (
-            <p className="text-[10px] text-text-tertiary mt-1">{workerIdsView.length}명 배정됨</p>
-          )}
         </div>
         <div>
           <p className={labelCls}>시공일자</p>
