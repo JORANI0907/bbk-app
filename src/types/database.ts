@@ -5719,6 +5719,13 @@ export interface User {
   email: string | null
   avatar_url: string | null
   is_active: boolean
+  /**
+   * 최초 승인 시각.
+   * 자가 가입한 워커는 NULL 로 시작하고 관리자 승인 시 값이 채워진다.
+   * 관리자가 직접 등록한 계정과 승인 완료된 계정은 값이 있다.
+   * 승인대기 판정: is_active=false AND approved_at IS NULL
+   */
+  approved_at: string | null
   account_sent_at: string | null
   password_hint: string | null
   created_at: string
