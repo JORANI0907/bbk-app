@@ -417,7 +417,9 @@ export async function POST(request: NextRequest) {
         care_scope?: string | null
         request_notes?: string | null
       }) => ({
+        // Rename-A: worker_id → assigned_user_id 로 점진 교체 중 (dual-write)
         worker_id: app.assigned_to,
+        assigned_user_id: app.assigned_to,
         customer_id: customer.id,
         scheduled_date: app.construction_date.slice(0, 10),
         scheduled_time_start: toTime(customer.business_hours_start, '09:00:00'),
