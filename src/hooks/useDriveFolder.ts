@@ -18,7 +18,11 @@ interface UseDriveFolderOptions {
   onSaved: (url: string) => Promise<void> | void
   /** 폴더명에 쓸 업체명 */
   businessName: string
-  /** 폴더명에 쓸 시공일자 (YYYY-MM-DD). 미지정 시 오늘 */
+  /**
+   * 폴더명에 쓸 시공일자 (YYYY-MM-DD).
+   * null 인 경우 폴더 생성이 거부되고 오류 토스트가 뜬다.
+   * (과거엔 null 이면 오늘 날짜로 조용히 대체됐지만, 사장님 지시로 제거함 — 2026-08-26)
+   */
   dateForName: string | null
 }
 
@@ -50,11 +54,9 @@ export function useDriveFolder({ onSaved, businessName, dateForName }: UseDriveF
     loadGoogleAPIs().then(() => setApisReady(true)).catch(() => {})
   }, [])
 
-  const today = () => new Date().toISOString().slice(0, 10)
-  const dateStr = () => dateForName || today()
-
   async function createInParent(parentId: string, token: string) {
-    const result = await createWorkFolderStructure(parentId, businessName, dateStr(), token)
+    // dateForName 은 시공일자(YYYY-MM-DD). null 이면 여기서 createOrChange 의 사전검증에서 이미 걸러짐.
+    const result = await createWorkFolderStructure(parentId, businessName, dateForName!, token)
     await onSaved(result.folderUrl)
     toast.success(`"${result.folderName}" 폴더 생성 완료`, { duration: 5000 })
     window.open(result.folderUrl, '_blank')
@@ -67,6 +69,11 @@ export function useDriveFolder({ onSaved, businessName, dateForName }: UseDriveF
     }
     if (!businessName?.trim()) {
       toast.error('업체명이 없어 폴더를 만들 수 없습니다.')
+      return
+    }
+    // 시공일자 미지정 시 폴더 생성 거부 (과거엔 오늘 날짜로 조용히 대체되던 버그 fix)
+    if (!dateForName) {
+      toast.error('시공일자가 설정되지 않아 폴더를 만들 수 없습니다. 먼저 시공일자를 입력해주세요.', { duration: 6000 })
       return
     }
     setSaving(true)
