@@ -51,6 +51,7 @@ const METRIC_DESCRIPTIONS: Record<string, string> = {
   revenue_end_rate: '이달 정기엔드케어 매출 금액 (목표는 원 단위 입력)',
   attendance_rate: '이달 배정된 근무 중 실제 출근한 비율 (배정 대비 출근율)',
   ontime_work_rate: '이달 배정 시공 시간의 ±30분 이내 출근한 비율 (정시 출근율)',
+  equipment_care_rate: '이번 주 전체 작업자 중 정기관리 사진을 제출한 비율',
 }
 
 // 각 지표별 상세 측정 방법 매뉴얼
@@ -109,6 +110,13 @@ const METRIC_MANUALS: Record<string, MetricManual> = {
     inputLocation: '/admin/attendance',
     inputLink: '/admin/attendance',
     notes: '시공 시간(construction_time)이 등록되지 않은 배정은 판정 대상에서 제외됩니다. 신청서에 시공 시간을 꼭 입력하세요.',
+  },
+  equipment_care_rate: {
+    source: 'equipment_care_records + users(role=worker) 테이블',
+    logic: '활성 작업자 수 대비 이번 주 월요일 기준 사진 제출한 건수 비율',
+    inputLocation: '/admin/regular-care',
+    inputLink: '/admin/regular-care',
+    notes: '워커는 /worker/regular-care 에서 사진 제출. 관리자는 승인/재정리 요청 가능. 매주 리셋됨(주 단위 지표).',
   },
   // ── 수기입력 지표 (manual) ───────────────────────────────
   jobs_backlog: {
