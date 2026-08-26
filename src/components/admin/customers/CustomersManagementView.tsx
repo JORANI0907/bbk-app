@@ -1671,6 +1671,26 @@ export function CustomersManagementView({
       if (curM > 12) { curM = 1; curY += 1 }
     }
 
+    // cleanup 모드는 기존 미완료 회차를 소프트 삭제하고 재생성.
+    // 실수 클릭으로 배정된 미래 회차가 통째로 사라지는 사고 방지 위해 명시적 확인.
+    if (mode === 'cleanup') {
+      const confirmed = window.confirm(
+        '⚠️ 계약일정 저장 (cleanup) 모드 경고\n\n' +
+        '이 모드는 다음 동작을 수행합니다:\n' +
+        '  1. 현재 계약의 미완료 회차를 소프트 삭제\n' +
+        '  2. 새 방문일정으로 재생성\n\n' +
+        '이미 배정된 미래 회차가 있다면 함께 삭제됩니다.\n' +
+        '(과거 완료 회차는 유지됨)\n\n' +
+        '정말 진행하시겠습니까?\n' +
+        '취소하려면 [취소] 를 눌러주세요.'
+      )
+      if (!confirmed) {
+        setBulkCreating(false)
+        setScheduleGenModal((s) => ({ ...s, submitting: false }))
+        return
+      }
+    }
+
     // 계약 정보 저장(cleanup 모드일 때) — 저장 버튼의 의미상 계약 저장 함께 수행
     if (mode === 'cleanup' && selected) {
       try {
