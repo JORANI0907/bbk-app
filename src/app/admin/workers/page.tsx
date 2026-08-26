@@ -60,6 +60,10 @@ export default function WorkersPage() {
 
       let list: Worker[] = json.workers ?? []
 
+      // '전체' (filterType 비어있음) 상태에서는 말소(TERMINATED) 인원 자동 제외.
+      // 말소 인원을 보려면 필터에서 명시적으로 '말소' 선택.
+      if (!filterType) list = list.filter(w => w.employment_type !== 'TERMINATED')
+
       if (filterSkill) list = list.filter(w => w.skill_level === filterSkill)
       if (filterSpecialty) {
         const kw = filterSpecialty.toLowerCase()
