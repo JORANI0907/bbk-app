@@ -34,6 +34,7 @@ export async function GET(request: NextRequest) {
     .select(`
       id, occurred_at, content, category, cause, is_rework,
       resolved_at, logged_by, customer_id, created_at, updated_at,
+      source, business_name, reporter_name, reporter_phone,
       customer:customers(id, business_name, owner_name, phone)
     `)
     .order('occurred_at', { ascending: false })
@@ -63,6 +64,14 @@ export async function POST(request: NextRequest) {
   if (!content) return NextResponse.json({ ok: false, error: 'content 필수' }, { status: 400 })
   if (content.length > 2000) return NextResponse.json({ ok: false, error: 'content 2000자 이하' }, { status: 400 })
 
+  // Batch B-4: 관리자 수동 등록에는 source='admin_manual' 자동 세팅 + 고객 정보 자동 스냅샷
+  const supabase = createServiceClient()
+  const { data: cust } = await supabase
+    .from('customers')
+    .select('business_name, contact_name, contact_phone')
+    .eq('id', customerCheck.value)
+    .maybeSingle()
+
   const payload = {
     customer_id: customerCheck.value,
     occurred_at: occurredIso,
@@ -72,9 +81,12 @@ export async function POST(request: NextRequest) {
     is_rework: !!body.is_rework,
     resolved_at: body.resolved_at ? new Date(body.resolved_at).toISOString() : null,
     logged_by: guard.session.userId,
+    source: (body.source === 'phone_call' ? 'phone_call' : 'admin_manual') as 'admin_manual' | 'phone_call',
+    business_name: cust?.business_name ?? null,
+    reporter_name: cust?.contact_name ?? null,
+    reporter_phone: cust?.contact_phone ?? null,
   }
 
-  const supabase = createServiceClient()
   const { data, error } = await supabase
     .from('claims')
     .insert(payload)
