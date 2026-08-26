@@ -50,7 +50,7 @@ export async function middleware(request: NextRequest) {
       pathname === '/care-manual' ||
       pathname === '/guide'
 
-    const publicPaths = ['/login', '/signup', '/install', '/quote', '/bbk-care', '/sign', '/portal-preview', '/api/auth', '/api/sms', '/api/admin', '/api/webhooks', '/api/form', '/api/cron', '/api/dev', '/api/contracts', '/api/push', '/api/juso', '/terms', '/privacy', '/refund', '/company', '/apply', '/api/apply', '/portone', '/api/portone/webhook', '/api/portone/pay-info', '/api/portone/complete', '/events', '/api/events', '/kg-review', '/api/kg-review', '/worker-documents', '/api/worker-documents']
+    const publicPaths = ['/login', '/signup', '/install', '/quote', '/bbk-care', '/sign', '/portal-preview', '/api/auth', '/api/sms', '/api/admin', '/api/webhooks', '/api/form', '/api/cron', '/api/dev', '/api/contracts', '/api/push', '/api/juso', '/terms', '/privacy', '/refund', '/company', '/apply', '/api/apply', '/portone', '/api/portone/webhook', '/api/portone/pay-info', '/api/portone/complete', '/events', '/api/events', '/kg-review', '/api/kg-review', '/worker-documents', '/api/worker-documents', '/customer/claims/new', '/api/customer/claims']
     const isPublic = isDemoPath || publicPaths.some(p => pathname.startsWith(p))
 
     const sessionToken = request.cookies.get('bbk_session')?.value
@@ -99,6 +99,11 @@ export async function middleware(request: NextRequest) {
       }
 
       if (pathname.startsWith('/customer') && role !== 'customer') {
+        // Batch B/D 후속: 고객 자율 클레임 접수 페이지는 role 무관 접근 허용
+        // (누구든 로그인 상태에서도 URL 확인 · 관리자가 카톡비즈 배포 전 확인)
+        if (pathname.startsWith('/customer/claims/new')) {
+          return NextResponse.next()
+        }
         // 관리자 미리보기 / 본사 지점전환 쿠키 별도 확인
         const previewToken = request.cookies.get('bbk_preview_session')?.value
         const previewPayload = previewToken ? await verifySession(previewToken) : null
