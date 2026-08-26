@@ -172,41 +172,56 @@ export default function WorkerRegularCarePage() {
   }
 
   return (
-    <div className="px-4 pb-6 flex flex-col gap-4">
+    <div className="px-4 pb-6 pt-4 flex flex-col gap-5 max-w-2xl mx-auto w-full">
       <Toaster position="top-center" />
 
-      <div className="text-center pt-2">
-        <h1 className="text-xl font-bold text-text-primary">🧰 장비관리보고</h1>
-        <p className="text-xs text-text-tertiary mt-1">사용한 장비 사진을 보고해주세요 (하루에 여러 번 가능)</p>
-        {weekStart && <p className="text-xs text-brand-600 font-medium mt-1">이번 주: {fmtWeek(weekStart)}</p>}
-      </div>
+      {/* 헤더 */}
+      <header className="text-center">
+        <div className="inline-flex items-center gap-2 text-2xl font-bold text-text-primary">
+          <span>🧰</span>
+          <h1>장비관리보고</h1>
+        </div>
+        <p className="text-sm text-text-secondary mt-1.5 leading-relaxed break-keep">
+          사용한 장비 사진을 남겨주세요.<br className="sm:hidden" />
+          <span className="hidden sm:inline"> </span>
+          하루 여러 번, 업장별로 보고 가능합니다.
+        </p>
+        {weekStart && (
+          <p className="text-xs text-brand-600 font-semibold mt-2 inline-block bg-brand-50 px-3 py-1 rounded-full">
+            이번 주 · {fmtWeek(weekStart)}
+          </p>
+        )}
+      </header>
 
-      {/* 재정리 요청 알림 배너 */}
+      {/* 재정리 요청 배너 */}
       {recentRecheck && (
-        <div className="bg-state-warning-bg border-2 border-state-warning rounded-xl p-3 flex items-start gap-2">
+        <div className="bg-state-warning-bg border border-state-warning rounded-2xl p-4 flex items-start gap-3">
           <AlertCircle size={20} className="text-state-warning shrink-0 mt-0.5" />
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-bold text-state-warning">⚠️ 관리자 재정리 요청</p>
-            <p className="text-xs text-text-primary mt-0.5">
+          <div className="flex-1 min-w-0 space-y-1.5">
+            <p className="text-sm font-bold text-state-warning">관리자 재정리 요청</p>
+            <p className="text-xs text-text-primary leading-relaxed">
               {fmtDateTime(recentRecheck.submitted_at)} 보고 건에 재정리 요청이 있습니다.
             </p>
             {recentRecheck.review_notes && (
-              <p className="text-xs text-text-secondary mt-1 whitespace-pre-wrap bg-white rounded-md px-2 py-1.5">
+              <div className="text-xs text-text-secondary bg-white rounded-lg px-3 py-2 mt-1 whitespace-pre-wrap leading-relaxed">
                 {recentRecheck.review_notes}
-              </p>
+              </div>
             )}
           </div>
         </div>
       )}
 
       {/* 세그먼트 탭 */}
-      <div className="inline-flex bg-surface-sunken rounded-xl p-1 self-center">
-        {([{ key: 'report', label: '📸 보고' }, { key: 'history', label: `📋 이력 (${history.length})` }] as { key: Tab; label: string }[]).map(t => (
+      <div className="grid grid-cols-2 bg-surface-sunken rounded-xl p-1 gap-1">
+        {([{ key: 'report', label: '보고 작성' }, { key: 'history', label: `이력 ${history.length}` }] as { key: Tab; label: string }[]).map(t => (
           <button
             key={t.key}
+            type="button"
             onClick={() => setActiveTab(t.key)}
-            className={`px-5 py-1.5 rounded-lg text-sm font-semibold transition-colors ${
-              activeTab === t.key ? 'bg-surface text-text-primary shadow-soft' : 'text-text-tertiary hover:text-text-primary'
+            className={`py-2 rounded-lg text-sm font-semibold transition-all ${
+              activeTab === t.key
+                ? 'bg-surface text-brand-700 shadow-soft'
+                : 'text-text-tertiary hover:text-text-primary'
             }`}
           >
             {t.label}
@@ -215,25 +230,24 @@ export default function WorkerRegularCarePage() {
       </div>
 
       {activeTab === 'report' && (
-        <div className="bg-surface rounded-2xl border border-border-subtle p-4 space-y-4">
-          <div>
-            <p className="text-sm font-semibold text-text-primary mb-1">새 보고 작성</p>
-            <p className="text-xs text-text-tertiary">사진 1~3장 + 메모(선택)를 입력하고 제출하세요.</p>
-          </div>
-
+        <section className="bg-surface rounded-2xl border border-border-subtle p-5 space-y-5 shadow-soft">
           {/* 사진 슬롯 3장 */}
-          <div>
-            <p className="text-xs text-text-secondary mb-2 flex items-center justify-between">
-              <span>📸 사진 ({draftPhotos.length}/3)</span>
-              <span className="text-text-tertiary">🔍 클릭하면 확대</span>
-            </p>
-            <div className="grid grid-cols-3 gap-2">
+          <div className="space-y-3">
+            <div className="flex items-baseline justify-between">
+              <label className="text-sm font-semibold text-text-primary">
+                사진 <span className="text-brand-600 font-bold">{draftPhotos.length}</span><span className="text-text-tertiary text-xs font-normal"> / 3</span>
+              </label>
+              <span className="text-[11px] text-text-tertiary">필수 · 최대 3장</span>
+            </div>
+
+            <div className="grid grid-cols-3 gap-2.5">
               {draftPhotos.map((url, idx) => (
-                <div key={idx} className="relative aspect-square">
+                <div key={idx} className="relative aspect-square group">
                   <button
                     type="button"
                     onClick={() => setZoomPhoto(url)}
-                    className="w-full h-full rounded-lg overflow-hidden border border-border-subtle"
+                    className="w-full h-full rounded-xl overflow-hidden border-2 border-border-subtle hover:border-brand-300 transition-colors"
+                    aria-label={`사진 ${idx + 1} 확대`}
                   >
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={url} alt={`draft ${idx + 1}`} className="w-full h-full object-cover" />
@@ -241,22 +255,32 @@ export default function WorkerRegularCarePage() {
                   <button
                     type="button"
                     onClick={() => removeDraftPhoto(idx)}
-                    className="absolute top-1 right-1 w-6 h-6 rounded-full bg-black/70 text-white text-xs flex items-center justify-center hover:bg-red-600"
+                    className="absolute -top-1.5 -right-1.5 w-6 h-6 rounded-full bg-red-500 text-white text-xs font-bold flex items-center justify-center shadow-md hover:bg-red-600 active:scale-90 transition-transform"
                     aria-label="사진 제거"
                   >✕</button>
+                  <span className="absolute bottom-1 left-1 bg-black/60 text-white text-[10px] font-medium px-1.5 py-0.5 rounded">
+                    {idx + 1}
+                  </span>
                 </div>
               ))}
               {draftPhotos.length < 3 && (
                 <label
                   htmlFor="rc-photo-add"
-                  className={`aspect-square border-2 border-dashed rounded-lg flex flex-col items-center justify-center gap-1 cursor-pointer transition-colors ${uploading ? 'border-gray-300 bg-gray-100' : 'border-brand-300 text-brand-600 hover:bg-brand-50'}`}
+                  className={`aspect-square rounded-xl flex flex-col items-center justify-center gap-1.5 cursor-pointer transition-all ${
+                    uploading
+                      ? 'border-2 border-gray-200 bg-gray-100'
+                      : 'border-2 border-dashed border-brand-300 bg-brand-50/50 text-brand-600 hover:bg-brand-50 hover:border-brand-500 active:scale-95'
+                  }`}
                 >
                   {uploading ? (
-                    <span className="text-xs text-text-tertiary">업로드 중...</span>
+                    <>
+                      <div className="w-5 h-5 border-2 border-brand-300 border-t-brand-600 rounded-full animate-spin" />
+                      <span className="text-[11px] text-text-tertiary font-medium">업로드 중</span>
+                    </>
                   ) : (
                     <>
-                      <Camera size={20} />
-                      <span className="text-[10px] font-semibold">사진 추가</span>
+                      <Camera size={24} strokeWidth={2} />
+                      <span className="text-xs font-semibold">사진 추가</span>
                     </>
                   )}
                 </label>
@@ -274,72 +298,94 @@ export default function WorkerRegularCarePage() {
           </div>
 
           {/* 메모 */}
-          <div>
-            <label className="block text-xs text-text-secondary mb-1">메모 (선택)</label>
+          <div className="space-y-2">
+            <label className="text-sm font-semibold text-text-primary block">
+              메모 <span className="text-text-tertiary text-xs font-normal">(선택)</span>
+            </label>
             <textarea
               value={draftNotes}
               onChange={e => setDraftNotes(e.target.value)}
-              rows={2}
-              placeholder="예: OO업장 마무리 완료 / 새 걸레 필요"
-              className="w-full border border-border rounded-lg px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-brand-500"
+              rows={3}
+              placeholder="예: OO업장 마무리 · 새 걸레 필요"
+              className="w-full border border-border rounded-xl px-3.5 py-2.5 text-sm leading-relaxed resize-none focus:outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100 transition-shadow"
+              maxLength={500}
             />
           </div>
 
-          {/* 제출 */}
+          {/* 제출 버튼 */}
           <button
+            type="button"
             onClick={handleSubmit}
             disabled={submitting || draftPhotos.length === 0}
-            className={`w-full py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-colors ${
+            className={`w-full h-12 rounded-xl text-base font-bold flex items-center justify-center gap-2 transition-all ${
               submitting || draftPhotos.length === 0
-                ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                : 'bg-brand-600 text-white hover:bg-brand-700'
+                ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                : 'bg-brand-600 text-white hover:bg-brand-700 active:scale-[0.98] shadow-soft'
             }`}
           >
-            <Send size={16} />
-            {submitting ? '제출 중...' : '📤 보고 제출'}
+            {submitting ? (
+              <>
+                <div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                제출 중
+              </>
+            ) : (
+              <>
+                <Send size={18} strokeWidth={2.5} />
+                보고 제출
+              </>
+            )}
           </button>
 
-          {/* 이번주 이미 제출한 건수 안내 */}
+          {/* 이번주 제출 안내 */}
           {thisWeekRecords.length > 0 && (
-            <p className="text-xs text-text-tertiary text-center bg-surface-sunken rounded-md py-2">
-              이번 주 이미 {thisWeekRecords.length}건 보고했습니다. 이력 탭에서 확인 가능.
-            </p>
+            <div className="flex items-center justify-center gap-2 text-xs text-text-secondary bg-brand-50 border border-brand-100 rounded-lg py-2 px-3">
+              <CheckCircle2 size={14} className="text-brand-600" />
+              <span>이번 주 이미 <b className="text-brand-700">{thisWeekRecords.length}건</b> 보고했어요</span>
+            </div>
           )}
-        </div>
+        </section>
       )}
 
       {activeTab === 'history' && (
-        <div className="space-y-3">
+        <section className="space-y-3">
           {history.length === 0 ? (
-            <div className="bg-surface rounded-2xl border border-border-subtle p-8 text-center text-sm text-text-tertiary">
-              보고 이력이 없습니다.<br />첫 보고를 남겨보세요!
+            <div className="bg-surface rounded-2xl border border-border-subtle p-10 text-center">
+              <div className="w-14 h-14 mx-auto mb-3 bg-surface-sunken rounded-full flex items-center justify-center">
+                <Camera size={24} className="text-text-tertiary" />
+              </div>
+              <p className="text-sm text-text-secondary leading-relaxed">
+                보고 이력이 없습니다.<br />
+                <span className="text-text-tertiary text-xs">첫 보고를 남겨보세요!</span>
+              </p>
             </div>
           ) : (
             history.map(h => {
               const photos = getPhotos(h)
               return (
-                <div key={h.id} className="bg-surface rounded-2xl border border-border-subtle p-3 space-y-2">
-                  <div className="flex items-center justify-between">
+                <article key={h.id} className="bg-surface rounded-2xl border border-border-subtle overflow-hidden shadow-soft">
+                  {/* 카드 헤더 */}
+                  <div className="flex items-center justify-between gap-2 px-4 py-3 border-b border-border-subtle">
                     <div className="min-w-0 flex-1">
-                      <p className="text-xs font-semibold text-text-primary">{fmtDateTime(h.submitted_at)}</p>
-                      <p className="text-[10px] text-text-tertiary">{fmtWeek(h.week_start)}</p>
+                      <p className="text-sm font-semibold text-text-primary">{fmtDateTime(h.submitted_at)}</p>
+                      <p className="text-[11px] text-text-tertiary mt-0.5">{fmtWeek(h.week_start)}</p>
                     </div>
-                    <div className="flex items-center gap-1.5 shrink-0">
+                    <div className="flex items-center gap-2 shrink-0">
                       {h.review_status === 'approved' && (
-                        <span className="text-[10px] bg-state-success-bg text-state-success px-1.5 py-0.5 rounded">✅ 승인</span>
+                        <span className="text-[11px] font-semibold bg-state-success-bg text-state-success px-2 py-1 rounded-md">승인됨</span>
                       )}
                       {h.review_status === 'need_recheck' && (
-                        <span className="text-[10px] bg-state-warning-bg text-state-warning px-1.5 py-0.5 rounded">⚠️ 재정리</span>
+                        <span className="text-[11px] font-semibold bg-state-warning-bg text-state-warning px-2 py-1 rounded-md">재정리</span>
                       )}
                       {!h.review_status && (
-                        <span className="text-[10px] text-text-tertiary">검토대기</span>
+                        <span className="text-[11px] text-text-tertiary px-2 py-1">대기</span>
                       )}
                       <button
+                        type="button"
                         onClick={() => deleteRecord(h.id)}
-                        className="text-text-tertiary hover:text-red-500 p-1"
+                        className="w-7 h-7 rounded-md text-text-tertiary hover:text-red-500 hover:bg-red-50 flex items-center justify-center transition-colors"
                         aria-label="삭제"
                         title="삭제"
-                      ><Trash2 size={12} /></button>
+                      ><Trash2 size={14} /></button>
                     </div>
                   </div>
 
@@ -352,28 +398,32 @@ export default function WorkerRegularCarePage() {
                         src={url}
                         alt={`${idx + 1}`}
                         onClick={() => setZoomPhoto(url)}
-                        className={`w-full object-cover rounded-md border border-border-subtle cursor-zoom-in ${photos.length === 1 ? 'h-40' : 'h-24'}`}
+                        className={`w-full object-cover cursor-zoom-in hover:opacity-90 transition-opacity ${photos.length === 1 ? 'h-56' : 'h-28'}`}
                       />
                     ))}
                   </div>
 
-                  {h.notes && (
-                    <p className="text-xs text-text-secondary bg-surface-sunken rounded-md p-2 whitespace-pre-wrap">
-                      📝 {h.notes}
-                    </p>
-                  )}
-
-                  {h.review_status === 'need_recheck' && h.review_notes && (
-                    <div className="bg-state-warning-bg border border-state-warning rounded-md p-2 text-xs text-text-primary">
-                      <p className="font-semibold">관리자 메모</p>
-                      <p className="mt-0.5 whitespace-pre-wrap">{h.review_notes}</p>
+                  {/* 메모 · 재정리 사유 */}
+                  {(h.notes || (h.review_status === 'need_recheck' && h.review_notes)) && (
+                    <div className="px-4 py-3 space-y-2">
+                      {h.notes && (
+                        <p className="text-xs text-text-secondary leading-relaxed whitespace-pre-wrap">
+                          <span className="text-text-tertiary">메모</span> · {h.notes}
+                        </p>
+                      )}
+                      {h.review_status === 'need_recheck' && h.review_notes && (
+                        <div className="bg-state-warning-bg border border-state-warning rounded-lg px-3 py-2 text-xs text-text-primary leading-relaxed">
+                          <p className="font-semibold text-state-warning mb-0.5">관리자 메모</p>
+                          <p className="whitespace-pre-wrap">{h.review_notes}</p>
+                        </div>
+                      )}
                     </div>
                   )}
-                </div>
+                </article>
               )
             })
           )}
-        </div>
+        </section>
       )}
 
       {/* 사진 확대 모달 */}
