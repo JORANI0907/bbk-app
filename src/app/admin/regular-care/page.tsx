@@ -150,19 +150,38 @@ export default function AdminRegularCarePage() {
         <p className="p-6 text-center text-text-tertiary text-sm">불러오는 중…</p>
       ) : (
         <>
-          {/* 미제출자 */}
-          {notSubmitted.length > 0 && (
-            <div className="bg-state-warning-bg border border-state-warning rounded-2xl p-4">
-              <p className="text-sm font-semibold text-state-warning mb-2 flex items-center gap-1">
-                <Clock size={14} /> 미제출 ({notSubmitted.length}명)
-              </p>
-              <div className="flex flex-wrap gap-2">
-                {notSubmitted.map(w => (
-                  <span key={w.worker_id} className="text-xs bg-white border border-state-warning rounded-full px-2 py-1 text-text-primary">
-                    {w.worker_name}
-                  </span>
-                ))}
-              </div>
+          {/* 제출 현황 통합 카드 (제출완료 + 미제출을 같은 박스, 색상으로 구분) */}
+          {(submitted.length > 0 || notSubmitted.length > 0) && (
+            <div className="bg-surface border border-border-subtle rounded-2xl p-4 space-y-3">
+              {submitted.length > 0 && (
+                <div>
+                  <p className="text-sm font-semibold text-state-success mb-2 flex items-center gap-1">
+                    <CheckCircle2 size={14} /> 제출완료 ({submitted.length}명)
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {submitted.map(w => (
+                      <span key={w.worker_id} className="text-xs bg-state-success-bg border border-state-success rounded-full px-2 py-1 text-state-success font-medium">
+                        {w.worker_name}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {notSubmitted.length > 0 && (
+                <div className={submitted.length > 0 ? 'pt-3 border-t border-border-subtle' : ''}>
+                  <p className="text-sm font-semibold text-state-warning mb-2 flex items-center gap-1">
+                    <Clock size={14} /> 미제출 ({notSubmitted.length}명)
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {notSubmitted.map(w => (
+                      <span key={w.worker_id} className="text-xs bg-state-warning-bg border border-state-warning rounded-full px-2 py-1 text-state-warning font-medium">
+                        {w.worker_name}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
