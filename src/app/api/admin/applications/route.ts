@@ -271,7 +271,10 @@ export async function PATCH(request: NextRequest) {
           t ? (t.length === 5 ? `${t}:00` : t) : fallback
 
         const scheduleData = {
+          // Rename-A: worker_id 컬럼명이 오해 유발적이라 assigned_user_id 로 점진 교체 중.
+          // 관찰 기간 동안 두 컬럼 모두 dual-write 하여 되돌리기 쉽게 유지.
           worker_id: app.assigned_to,
+          assigned_user_id: app.assigned_to,
           scheduled_date: app.construction_date.slice(0, 10),
           scheduled_time_start: toTime(app.business_hours_start, '09:00:00'),
           scheduled_time_end: toTime(app.business_hours_end, '18:00:00'),
