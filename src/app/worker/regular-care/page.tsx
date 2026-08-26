@@ -13,11 +13,19 @@ import { resizeImageToUnder } from '@/lib/image-resize'
 interface CareRecord {
   id: string
   week_start: string
-  photo_url: string
+  photo_url: string           // 하위호환 (첫 번째 사진)
+  photo_urls: string[] | null // 정본 (최대 3장)
   notes: string | null
   submitted_at: string
   review_status: 'approved' | 'need_recheck' | null
   review_notes: string | null
+}
+
+// photo_urls 우선, 없으면 photo_url 단일로 폴백
+function getPhotos(r: CareRecord | null): string[] {
+  if (!r) return []
+  if (r.photo_urls && r.photo_urls.length > 0) return r.photo_urls
+  return r.photo_url ? [r.photo_url] : []
 }
 
 function fmtWeek(iso: string): string {
@@ -66,6 +74,7 @@ export default function WorkerRegularCarePage() {
   // 재정리 요청 뱃지가 있는 최근 이력 (알림 배너용)
   const recentRecheck = history.find(h => h.review_status === 'need_recheck')
 
+  // B-후속-6: 사진 1장 추가 (기존 photo_urls 배열에 append). 최대 3장.
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const original = e.target.files?.[0]
     if (!original) return
@@ -73,9 +82,14 @@ export default function WorkerRegularCarePage() {
       toast.error('파일 크기는 20MB 이하여야 합니다.')
       return
     }
+    const currentPhotos = getPhotos(record)
+    if (currentPhotos.length >= 3) {
+      toast.error('사진은 최대 3장까지 업로드 가능합니다.')
+      return
+    }
     setUploading(true)
     try {
-      // Batch B-2: 업로드 전 자동 2MB 이하로 리사이즈 (클라이언트 side)
+      // 자동 2MB 이하로 리사이즈
       const file = await resizeImageToUnder(original, 2 * 1024 * 1024)
       if (file.size < original.size) {
         const savedKb = Math.round((original.size - file.size) / 1024)
@@ -90,22 +104,50 @@ export default function WorkerRegularCarePage() {
       const upJson = await upRes.json()
       if (!upRes.ok || !upJson.url) throw new Error(upJson.error ?? '업로드 실패')
 
-      // 2) 레코드 저장
+      // 2) 레코드 저장 (기존 배열 + 새 사진)
+      const nextPhotos = [...currentPhotos, upJson.url as string]
       const saveRes = await fetch('/api/worker/regular-care', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ photo_url: upJson.url, notes: notes || null }),
+        body: JSON.stringify({ photo_urls: nextPhotos, notes: notes || null }),
       })
       const saveJson = await saveRes.json()
       if (!saveRes.ok || !saveJson.ok) throw new Error(saveJson.error ?? '저장 실패')
 
-      toast.success('제출 완료!')
+      toast.success(nextPhotos.length === 1 ? '제출 완료!' : `${nextPhotos.length}번째 사진 추가됨`)
       setRecord(saveJson.record)
     } catch (err) {
       toast.error(err instanceof Error ? err.message : '제출 실패')
     } finally {
       setUploading(false)
       if (fileInputRef.current) fileInputRef.current.value = ''
+    }
+  }
+
+  // B-후속-6: 특정 인덱스 사진 삭제 (마지막 1장은 삭제 불가 → 삭제하려면 별도 로직 필요)
+  const handleDeletePhoto = async (idx: number) => {
+    const current = getPhotos(record)
+    if (current.length <= 1) {
+      toast.error('마지막 사진은 삭제할 수 없습니다. 새로 촬영해 교체해주세요.')
+      return
+    }
+    if (!confirm(`${idx + 1}번째 사진을 삭제할까요?`)) return
+    setUploading(true)
+    try {
+      const nextPhotos = current.filter((_, i) => i !== idx)
+      const saveRes = await fetch('/api/worker/regular-care', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ photo_urls: nextPhotos, notes: notes || null }),
+      })
+      const saveJson = await saveRes.json()
+      if (!saveRes.ok || !saveJson.ok) throw new Error(saveJson.error ?? '삭제 실패')
+      toast.success('사진 삭제됨')
+      setRecord(saveJson.record)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : '삭제 실패')
+    } finally {
+      setUploading(false)
     }
   }
 
@@ -176,17 +218,59 @@ export default function WorkerRegularCarePage() {
             )}
           </div>
 
-          {/* 사진 미리보기 — 작은 썸네일 (클릭 시 확대) */}
-          <button
-            type="button"
-            onClick={() => setZoomPhoto(record.photo_url)}
-            className="block w-full max-w-xs mx-auto rounded-xl overflow-hidden border border-border-subtle hover:opacity-90 transition-opacity"
-            aria-label="사진 확대"
-          >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={record.photo_url} alt="장비관리보고 사진" className="w-full h-40 object-cover" />
-          </button>
-          <p className="text-[10px] text-text-tertiary text-center -mt-2">🔍 클릭하면 확대됩니다</p>
+          {/* 사진 슬롯 그리드 (최대 3장) */}
+          <div>
+            <p className="text-xs text-text-secondary mb-2 flex items-center justify-between">
+              <span>📸 등록된 사진 ({getPhotos(record).length}/3)</span>
+              <span className="text-text-tertiary">🔍 클릭하면 확대</span>
+            </p>
+            <div className="grid grid-cols-3 gap-2">
+              {getPhotos(record).map((url, idx) => (
+                <div key={idx} className="relative aspect-square group">
+                  <button
+                    type="button"
+                    onClick={() => setZoomPhoto(url)}
+                    className="w-full h-full rounded-lg overflow-hidden border border-border-subtle hover:opacity-90 transition-opacity"
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={url} alt={`장비관리보고 ${idx + 1}`} className="w-full h-full object-cover" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleDeletePhoto(idx)}
+                    disabled={uploading || getPhotos(record).length <= 1}
+                    className="absolute top-1 right-1 w-6 h-6 rounded-full bg-black/70 text-white text-xs flex items-center justify-center hover:bg-red-600 disabled:opacity-30"
+                    aria-label="사진 삭제"
+                  >✕</button>
+                </div>
+              ))}
+              {/* 빈 슬롯 (사진 추가 버튼) */}
+              {getPhotos(record).length < 3 && (
+                <label
+                  htmlFor="rc-photo-add"
+                  className={`aspect-square border-2 border-dashed rounded-lg flex flex-col items-center justify-center gap-1 cursor-pointer transition-colors ${uploading ? 'border-gray-300 bg-gray-100' : 'border-brand-300 text-brand-600 hover:bg-brand-50'}`}
+                >
+                  {uploading ? (
+                    <span className="text-xs text-text-tertiary">업로드 중...</span>
+                  ) : (
+                    <>
+                      <Camera size={20} />
+                      <span className="text-[10px] font-semibold">사진 추가</span>
+                    </>
+                  )}
+                </label>
+              )}
+            </div>
+            <input
+              id="rc-photo-add"
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              capture="environment"
+              onChange={handleFileChange}
+              className="hidden"
+            />
+          </div>
 
           {/* 관리자 재정리 요청 사유 */}
           {record.review_status === 'need_recheck' && record.review_notes && (
@@ -211,25 +295,6 @@ export default function WorkerRegularCarePage() {
               disabled={savingNotes}
               className={`mt-2 w-full py-2 rounded-lg text-sm font-semibold transition-colors ${savingNotes ? 'bg-gray-300 text-gray-500' : 'bg-brand-600 text-white hover:bg-brand-700'}`}
             >{savingNotes ? '저장 중...' : '💾 메모 저장'}</button>
-          </div>
-
-          {/* 재제출 버튼 */}
-          <div>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              capture="environment"
-              onChange={handleFileChange}
-              className="hidden"
-              id="rc-photo-input"
-            />
-            <label
-              htmlFor="rc-photo-input"
-              className={`w-full block text-center py-3 rounded-xl text-sm font-semibold cursor-pointer ${uploading ? 'bg-gray-300 text-gray-500' : 'bg-surface-sunken text-text-secondary hover:bg-brand-50'}`}
-            >
-              {uploading ? '업로드 중...' : <><RefreshCw size={14} className="inline mr-1" /> 사진 다시 찍기</>}
-            </label>
           </div>
 
           <p className="text-[10px] text-text-tertiary text-center">
@@ -280,15 +345,23 @@ export default function WorkerRegularCarePage() {
             {history.length === 0 ? (
               <p className="text-xs text-text-tertiary text-center py-6">이력이 없습니다.</p>
             ) : (
-              history.map(h => (
+              history.map(h => {
+                const hPhotos = getPhotos(h)
+                const firstPhoto = hPhotos[0] ?? h.photo_url
+                return (
                 <div key={h.id} className="flex items-center gap-3 p-3">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <button
                     type="button"
-                    onClick={() => setZoomPhoto(h.photo_url)}
-                    className="w-14 h-14 rounded-lg overflow-hidden border border-border-subtle shrink-0 hover:opacity-80"
+                    onClick={() => setZoomPhoto(firstPhoto)}
+                    className="w-14 h-14 rounded-lg overflow-hidden border border-border-subtle shrink-0 hover:opacity-80 relative"
                   >
-                    <img src={h.photo_url} alt={fmtWeek(h.week_start)} className="w-full h-full object-cover" />
+                    <img src={firstPhoto} alt={fmtWeek(h.week_start)} className="w-full h-full object-cover" />
+                    {hPhotos.length > 1 && (
+                      <span className="absolute bottom-0 right-0 bg-black/70 text-white text-[9px] px-1 rounded-tl-md">
+                        +{hPhotos.length - 1}
+                      </span>
+                    )}
                   </button>
                   <div className="flex-1 min-w-0">
                     <p className="text-xs font-semibold text-text-primary">{fmtWeek(h.week_start)}</p>
@@ -307,7 +380,8 @@ export default function WorkerRegularCarePage() {
                     <span className="text-[10px] text-text-tertiary shrink-0">검토대기</span>
                   )}
                 </div>
-              ))
+                )
+              })
             )}
           </div>
         )}
