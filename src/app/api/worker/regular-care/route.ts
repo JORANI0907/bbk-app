@@ -60,8 +60,19 @@ export async function POST(request: NextRequest) {
   if (!session) return NextResponse.json({ ok: false, error: '인증 필요' }, { status: 401 })
 
   const body = await request.json().catch(() => ({}))
-  const photoUrl = String(body.photo_url ?? '').trim()
-  if (!photoUrl) return NextResponse.json({ ok: false, error: 'photo_url 필수' }, { status: 400 })
+
+  // B-후속-5: photo_urls 배열 우선 처리 (최대 3장). 하위호환으로 photo_url 단일 값도 지원.
+  const rawUrls: unknown = body.photo_urls
+  const singleUrl = typeof body.photo_url === 'string' ? body.photo_url.trim() : ''
+  let photoUrls: string[] = []
+  if (Array.isArray(rawUrls)) {
+    photoUrls = rawUrls.map(u => String(u).trim()).filter(Boolean).slice(0, 3)
+  } else if (singleUrl) {
+    photoUrls = [singleUrl]
+  }
+  if (photoUrls.length === 0) {
+    return NextResponse.json({ ok: false, error: '사진이 최소 1장 필요합니다.' }, { status: 400 })
+  }
 
   const weekStart = getWeekStartMonday(getKstToday())
   const supabase = createServiceClient()
@@ -72,7 +83,8 @@ export async function POST(request: NextRequest) {
     .upsert({
       worker_id: session.userId,
       week_start: weekStart,
-      photo_url: photoUrl,
+      photo_url: photoUrls[0], // 하위호환: 첫 번째 사진
+      photo_urls: photoUrls,    // 정본 배열
       photo_file_id: typeof body.photo_file_id === 'string' ? body.photo_file_id : null,
       notes: typeof body.notes === 'string' ? body.notes : null,
       submitted_at: new Date().toISOString(),
