@@ -127,8 +127,10 @@ export function RecommendServicePicker({ serviceType, value, onChange }: Props) 
   const [activeTab, setActiveTab] = useState<FilterTab>('전체')
   const [searchText, setSearchText] = useState('')
   const [customInput, setCustomInput] = useState('')
+  const [isPickerOpen, setIsPickerOpen] = useState(false)
 
   const allItems = serviceType === '정기딥케어' ? DEEP_CARE_ITEMS : END_CARE_ITEMS
+  const selectedCount = Object.keys(value).length
 
   const filteredItems = useMemo(() => {
     return allItems.filter((item) => {
@@ -184,78 +186,96 @@ export function RecommendServicePicker({ serviceType, value, onChange }: Props) 
 
   return (
     <div className="flex flex-col gap-4">
-      {/* 필터 탭 */}
-      <div className="flex gap-2 flex-wrap">
-        {TABS.map((tab) => (
-          <button
-            key={tab}
-            type="button"
-            onClick={() => setActiveTab(tab)}
-            className={`px-3 py-1.5 rounded-lg text-sm font-semibold transition-colors ${
-              activeTab === tab
-                ? 'bg-brand-600 text-white'
-                : 'bg-surface text-text-secondary border border-border'
-            }`}
-          >
-            {tab}
-          </button>
-        ))}
-      </div>
+      {/* 아코디언 헤더 — 접었다 폈다 토글 */}
+      <button
+        type="button"
+        onClick={() => setIsPickerOpen((prev) => !prev)}
+        className="flex items-center justify-between w-full px-4 py-3 rounded-lg border border-border bg-surface text-sm font-semibold text-text-primary hover:bg-surface-sunken transition-colors"
+      >
+        <span>
+          품목 선택하기
+          {selectedCount > 0 && (
+            <span className="ml-2 text-brand-700">({selectedCount}개 선택됨)</span>
+          )}
+        </span>
+        <span className={`transition-transform ${isPickerOpen ? 'rotate-180' : ''}`}>▼</span>
+      </button>
 
-      {/* 검색창 */}
-      <input
-        type="text"
-        value={searchText}
-        onChange={(e) => setSearchText(e.target.value)}
-        placeholder="항목 검색..."
-        className="w-full rounded-md border border-border bg-surface px-3 py-2 text-sm text-text-primary placeholder:text-text-tertiary focus:outline-none focus:border-brand-600"
-      />
+      {isPickerOpen && (
+        <div className="flex flex-col gap-4 rounded-2xl border border-border-subtle bg-surface-sunken p-4">
+          {/* 필터 탭 */}
+          <div className="flex gap-2 flex-wrap">
+            {TABS.map((tab) => (
+              <button
+                key={tab}
+                type="button"
+                onClick={() => setActiveTab(tab)}
+                className={`px-3 py-1.5 rounded-lg text-sm font-semibold transition-colors ${
+                  activeTab === tab
+                    ? 'bg-brand-600 text-white'
+                    : 'bg-surface text-text-secondary border border-border'
+                }`}
+              >
+                {tab}
+              </button>
+            ))}
+          </div>
 
-      {/* 체크박스 그리드 */}
-      <div className="grid grid-cols-3 gap-2">
-        {filteredItems.map((item) => {
-          const selected = !!value[item.name]
-          return (
+          {/* 검색창 */}
+          <input
+            type="text"
+            value={searchText}
+            onChange={(e) => setSearchText(e.target.value)}
+            placeholder="항목 검색..."
+            className="w-full rounded-md border border-border bg-surface px-3 py-2 text-sm text-text-primary placeholder:text-text-tertiary focus:outline-none focus:border-brand-600"
+          />
+
+          {/* 품목 그리드 (이름만 표시) */}
+          <div className="grid grid-cols-3 gap-2">
+            {filteredItems.map((item) => {
+              const selected = !!value[item.name]
+              return (
+                <button
+                  key={item.name}
+                  type="button"
+                  onClick={() => toggleItem(item.name)}
+                  className={`px-2 py-2 rounded-lg border text-xs font-medium text-center transition-colors leading-snug break-keep ${
+                    selected
+                      ? 'bg-brand-50 border-brand-600 text-brand-700'
+                      : 'bg-surface border-border text-text-secondary'
+                  }`}
+                >
+                  {item.name}
+                </button>
+              )
+            })}
+            {filteredItems.length === 0 && (
+              <p className="col-span-3 text-sm text-text-tertiary text-center py-4">
+                검색 결과가 없습니다.
+              </p>
+            )}
+          </div>
+
+          {/* 직접 입력 */}
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={customInput}
+              onChange={(e) => setCustomInput(e.target.value)}
+              onKeyDown={handleCustomKeyDown}
+              placeholder="직접 입력 (Enter 또는 추가 버튼)"
+              className="flex-1 rounded-md border border-border bg-surface px-3 py-2 text-sm text-text-primary placeholder:text-text-tertiary focus:outline-none focus:border-brand-600"
+            />
             <button
-              key={item.name}
               type="button"
-              onClick={() => toggleItem(item.name)}
-              className={`px-2 py-2 rounded-lg border text-xs font-medium text-left transition-colors leading-snug break-keep ${
-                selected
-                  ? 'bg-brand-50 border-brand-600 text-brand-700'
-                  : 'bg-surface border-border text-text-secondary'
-              }`}
+              onClick={handleAddCustom}
+              className="px-3 py-2 rounded-lg bg-brand-600 text-white text-sm font-semibold hover:bg-brand-700 transition-colors shrink-0"
             >
-              <span className="mr-1">{selected ? '✓' : '+'}</span>
-              {item.name}
+              추가
             </button>
-          )
-        })}
-        {filteredItems.length === 0 && (
-          <p className="col-span-3 text-sm text-text-tertiary text-center py-4">
-            검색 결과가 없습니다.
-          </p>
-        )}
-      </div>
-
-      {/* 직접 입력 */}
-      <div className="flex gap-2">
-        <input
-          type="text"
-          value={customInput}
-          onChange={(e) => setCustomInput(e.target.value)}
-          onKeyDown={handleCustomKeyDown}
-          placeholder="직접 입력 (Enter 또는 추가 버튼)"
-          className="flex-1 rounded-md border border-border bg-surface px-3 py-2 text-sm text-text-primary placeholder:text-text-tertiary focus:outline-none focus:border-brand-600"
-        />
-        <button
-          type="button"
-          onClick={handleAddCustom}
-          className="px-3 py-2 rounded-lg bg-brand-600 text-white text-sm font-semibold hover:bg-brand-700 transition-colors shrink-0"
-        >
-          추가
-        </button>
-      </div>
+          </div>
+        </div>
+      )}
 
       {/* 선택된 항목들 */}
       {Object.keys(value).length > 0 && (
