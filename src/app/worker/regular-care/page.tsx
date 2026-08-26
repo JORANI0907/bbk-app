@@ -47,6 +47,8 @@ function fmtDateTime(iso: string): string {
 
 type Tab = 'report' | 'history'
 
+const WEEKDAY_LABELS = ['일', '월', '화', '수', '목', '금', '토']
+
 export default function WorkerRegularCarePage() {
   const [activeTab, setActiveTab] = useState<Tab>('report')
   const [weekStart, setWeekStart] = useState('')
@@ -62,6 +64,10 @@ export default function WorkerRegularCarePage() {
   const [submitting, setSubmitting] = useState(false)
 
   const [zoomPhoto, setZoomPhoto] = useState<string | null>(null)
+
+  // C-3: 장비관리보고 알림 요일 (정규 + 예비, 최대 2개)
+  const [notifyWeekdays, setNotifyWeekdays] = useState<number[]>([])
+  const [savingNotify, setSavingNotify] = useState(false)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -83,6 +89,46 @@ export default function WorkerRegularCarePage() {
   }, [])
 
   useEffect(() => { load() }, [load])
+
+  // C-3: 알림 요일 초기 로드
+  useEffect(() => {
+    fetch('/api/worker/notify-settings')
+      .then(r => r.json())
+      .then(j => { if (j.ok) setNotifyWeekdays(j.equipment_notify_weekdays ?? []) })
+      .catch(() => {})
+  }, [])
+
+  const toggleNotifyWeekday = async (day: number) => {
+    const already = notifyWeekdays.includes(day)
+    let next: number[]
+    if (already) {
+      next = notifyWeekdays.filter(d => d !== day)
+    } else {
+      // 최대 2개 (정규 + 예비). 초과 시 가장 오래된 것 제거
+      if (notifyWeekdays.length >= 2) {
+        toast('정규+예비 최대 2개까지만 선택 가능. 첫 번째 요일이 제거됩니다.', { icon: 'ℹ️', duration: 2500 })
+        next = [notifyWeekdays[1], day].sort((a, b) => a - b)
+      } else {
+        next = [...notifyWeekdays, day].sort((a, b) => a - b)
+      }
+    }
+    setNotifyWeekdays(next)
+    setSavingNotify(true)
+    try {
+      const res = await fetch('/api/worker/notify-settings', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ equipment_notify_weekdays: next }),
+      })
+      const json = await res.json()
+      if (!res.ok || !json.ok) throw new Error(json.error ?? '저장 실패')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : '저장 실패')
+      setNotifyWeekdays(notifyWeekdays)
+    } finally {
+      setSavingNotify(false)
+    }
+  }
 
   // 재정리 요청 배너 대상 (전체 이력 중)
   const recentRecheck = history.find(h => h.review_status === 'need_recheck')
@@ -230,6 +276,46 @@ export default function WorkerRegularCarePage() {
       </div>
 
       {activeTab === 'report' && (
+        <>
+        {/* C-3: 보고 알림 요일 (정규 + 예비, 최대 2개) */}
+        <section className="bg-surface rounded-2xl border border-border-subtle p-4 shadow-soft">
+          <div className="flex items-baseline justify-between mb-2">
+            <label className="text-sm font-semibold text-text-primary">🔔 보고 알림 요일 (정규+예비)</label>
+            {savingNotify && <span className="text-[10px] text-brand-600">저장 중...</span>}
+          </div>
+          <p className="text-[11px] text-text-tertiary leading-relaxed mb-3">
+            매주 정한 요일 <b className="text-brand-700">밤 9시</b>에 &quot;장비 사진 보고 잊지 마세요&quot; 알림이 발송됩니다.
+            <br />정규 요일 못 지키면 예비 요일도 함께 알림받도록 최대 2개 선택 가능.
+          </p>
+          <div className="grid grid-cols-7 gap-1.5">
+            {WEEKDAY_LABELS.map((label, day) => {
+              const idx = notifyWeekdays.indexOf(day)
+              const active = idx !== -1
+              const isBackup = active && idx === 1 // 두 번째 선택 = 예비
+              return (
+                <button
+                  key={day}
+                  type="button"
+                  onClick={() => toggleNotifyWeekday(day)}
+                  disabled={savingNotify}
+                  className={`h-10 rounded-lg text-sm font-bold transition-all relative ${
+                    active
+                      ? (isBackup ? 'bg-brand-400 text-white shadow-soft' : 'bg-brand-600 text-white shadow-soft')
+                      : 'bg-surface-sunken text-text-tertiary hover:bg-brand-50 hover:text-brand-600'
+                  } ${day === 0 && !active ? 'text-red-500' : ''} ${day === 6 && !active ? 'text-blue-500' : ''}`}
+                >
+                  {label}
+                  {active && (
+                    <span className="absolute -top-1 -right-1 text-[9px] bg-white text-brand-700 rounded-full px-1 shadow border border-brand-200 leading-tight">
+                      {isBackup ? '예비' : '정규'}
+                    </span>
+                  )}
+                </button>
+              )
+            })}
+          </div>
+        </section>
+
         <section className="bg-surface rounded-2xl border border-border-subtle p-5 space-y-5 shadow-soft">
           {/* 사진 슬롯 3장 */}
           <div className="space-y-3">
@@ -344,6 +430,7 @@ export default function WorkerRegularCarePage() {
             </div>
           )}
         </section>
+        </>
       )}
 
       {activeTab === 'history' && (
