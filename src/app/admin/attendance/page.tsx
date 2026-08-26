@@ -280,6 +280,8 @@ interface WorkerInfo {
   role: string
 }
 
+const WEEKDAY_LABELS = ['일', '월', '화', '수', '목', '금', '토']
+
 interface WorkerClockViewProps {
   workerInfo: WorkerInfo
 }
@@ -293,6 +295,9 @@ function WorkerClockView({ workerInfo }: WorkerClockViewProps) {
   const [monthRecords, setMonthRecords] = useState<AttendanceRecord[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedDate, setSelectedDate] = useState(kstToday)
+  // C-2: 출근 알림 요일 설정
+  const [attendanceNotifyWeekdays, setAttendanceNotifyWeekdays] = useState<number[]>([])
+  const [savingNotify, setSavingNotify] = useState(false)
   const [flow, setFlow] = useState<'clock_in' | 'clock_out' | null>(null)
   const [phase, setPhase] = useState<ClockPhase>('idle')
   const [elapsed, setElapsed] = useState(0)
@@ -329,6 +334,37 @@ function WorkerClockView({ workerInfo }: WorkerClockViewProps) {
   }, [workerInfo.id])
 
   useEffect(() => { fetchData() }, [fetchData])
+
+  // C-2: 알림 요일 설정 초기 로드
+  useEffect(() => {
+    fetch('/api/worker/notify-settings')
+      .then(r => r.json())
+      .then(j => { if (j.ok) setAttendanceNotifyWeekdays(j.attendance_notify_weekdays ?? []) })
+      .catch(() => {})
+  }, [])
+
+  const toggleAttendanceWeekday = async (day: number) => {
+    const next = attendanceNotifyWeekdays.includes(day)
+      ? attendanceNotifyWeekdays.filter(d => d !== day)
+      : [...attendanceNotifyWeekdays, day].sort((a, b) => a - b)
+    setAttendanceNotifyWeekdays(next) // 낙관적 업데이트
+    setSavingNotify(true)
+    try {
+      const res = await fetch('/api/worker/notify-settings', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ attendance_notify_weekdays: next }),
+      })
+      const json = await res.json()
+      if (!res.ok || !json.ok) throw new Error(json.error ?? '저장 실패')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : '저장 실패')
+      // 실패 시 원복
+      setAttendanceNotifyWeekdays(attendanceNotifyWeekdays)
+    } finally {
+      setSavingNotify(false)
+    }
+  }
 
   // 선택한 날짜의 기록 (야간 작업 대응: 오늘 선택 + 12시 이전 → 전날 미완료 기록 우선)
   const selectedRecord: AttendanceRecord | null = (() => {
@@ -673,6 +709,37 @@ function WorkerClockView({ workerInfo }: WorkerClockViewProps) {
         <h1 className="text-2xl font-black text-text-primary mt-1">{workerInfo.name}</h1>
         <p className="text-xs text-text-secondary mt-1">오늘도 안전 근무 하세요 👋</p>
       </header>
+
+      {/* C-2: 출근 알림 요일 설정 카드 */}
+      <div className="bg-surface rounded-2xl border border-border-subtle p-4 shadow-soft">
+        <div className="flex items-baseline justify-between mb-2">
+          <label className="text-sm font-semibold text-text-primary">🔔 출근 알림 요일</label>
+          {savingNotify && <span className="text-[10px] text-brand-600">저장 중...</span>}
+        </div>
+        <p className="text-[11px] text-text-tertiary leading-relaxed mb-3">
+          선택한 요일마다 <b className="text-brand-700">밤 9시</b>에 &quot;오늘 출근 체크하셨나요?&quot; 알림이 발송됩니다.
+        </p>
+        <div className="grid grid-cols-7 gap-1.5">
+          {WEEKDAY_LABELS.map((label, day) => {
+            const active = attendanceNotifyWeekdays.includes(day)
+            return (
+              <button
+                key={day}
+                type="button"
+                onClick={() => toggleAttendanceWeekday(day)}
+                disabled={savingNotify}
+                className={`h-10 rounded-lg text-sm font-bold transition-all ${
+                  active
+                    ? 'bg-brand-600 text-white shadow-soft'
+                    : 'bg-surface-sunken text-text-tertiary hover:bg-brand-50 hover:text-brand-600'
+                } ${day === 0 && !active ? 'text-red-500' : ''} ${day === 6 && !active ? 'text-blue-500' : ''}`}
+              >
+                {label}
+              </button>
+            )
+          })}
+        </div>
+      </div>
 
       {/* 근무 날짜 선택 카드 */}
       <div className="bg-surface rounded-2xl border border-border-subtle p-5 shadow-soft">
@@ -1028,6 +1095,11 @@ function AdminTableView() {
 
       {activeTab === 'dashboard' && (
         <>
+          {/* C-4: 자동 알림 안내 배너 */}
+          <div className="bg-brand-50 border border-brand-200 rounded-xl px-4 py-2.5 text-xs text-brand-800 leading-relaxed">
+            💡 직원 본인이 출근 알림 요일을 선택하면 <b>매일 21:00</b>에 &quot;출근 체크하셨나요?&quot; 앱 알림이 자동 발송됩니다.
+          </div>
+
           {/* 이달 지표 대시보드 */}
           <div className="bg-surface border border-border-subtle rounded-2xl p-4 mb-4">
             <div className="flex items-center justify-between mb-3">
