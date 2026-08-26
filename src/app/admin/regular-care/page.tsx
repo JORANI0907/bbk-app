@@ -155,6 +155,11 @@ export default function AdminRegularCarePage() {
         </div>
       </div>
 
+      {/* C-4: 자동 알림 안내 배너 */}
+      <div className="bg-brand-50 border border-brand-200 rounded-xl px-4 py-2.5 text-xs text-brand-800 leading-relaxed">
+        💡 직원 본인이 보고 요일(정규+예비 최대 2개)을 선택하면 <b>매일 21:00</b>에 &quot;장비 사진 보고 잊지 마세요&quot; 앱 알림이 자동 발송됩니다.
+      </div>
+
       {/* 진행률 카드 */}
       <div className="bg-surface border border-border-subtle rounded-2xl p-4">
         <div className="flex items-center justify-between mb-2">
