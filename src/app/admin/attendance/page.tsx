@@ -505,38 +505,61 @@ function WorkerClockView({ workerInfo }: WorkerClockViewProps) {
   const isClockedIn = !!selectedRecord?.clock_in
   const isClockedOut = !!selectedRecord?.clock_out
 
-  // 확인 단계 (취소 가능)
+  // 확인 단계 — 날짜 오탈자 방지용 강조 팝업
   if (phase === 'confirm') {
+    const isClockIn = flow === 'clock_in'
+    const dateObj = new Date(selectedDate + 'T12:00:00')
+    const monthDay = dateObj.toLocaleDateString('ko-KR', { month: 'long', day: 'numeric' })
+    const weekday = dateObj.toLocaleDateString('ko-KR', { weekday: 'long' })
+    const year = dateObj.getFullYear()
+    const isToday = selectedDate === kstToday
     return (
-      <div className="max-w-sm mx-auto px-4 pt-8">
-        <div className="bg-surface-sunken border border-border rounded-2xl p-6 flex flex-col gap-4">
-          <div>
-            <p className="text-sm font-semibold text-text-primary">
-              {flow === 'clock_in' ? <><span className="inline-block w-2 h-2 rounded-full bg-green-500 mr-1" />출근 처리하시겠습니까?</> : <><span className="inline-block w-2 h-2 rounded-full bg-red-500 mr-1" />퇴근 처리하시겠습니까?</>}
-            </p>
-            <p className="text-xs text-text-tertiary mt-1">
-              {new Date(selectedDate + 'T12:00:00').toLocaleDateString('ko-KR', {
-                year: 'numeric', month: 'long', day: 'numeric', weekday: 'short',
-              })}
-            </p>
+      <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+        <div className="bg-surface w-full max-w-sm rounded-2xl shadow-modal overflow-hidden">
+          {/* 헤더 */}
+          <div className={`px-6 pt-6 pb-4 text-center ${isClockIn ? 'bg-green-50' : 'bg-gray-50'}`}>
+            <div className={`inline-flex w-14 h-14 rounded-full items-center justify-center text-2xl mb-3 ${isClockIn ? 'bg-green-500 text-white' : 'bg-gray-700 text-white'}`}>
+              {isClockIn ? '🚀' : '🏁'}
+            </div>
+            <h2 className="text-lg font-bold text-text-primary">
+              {isClockIn ? '출근 처리하시겠습니까?' : '퇴근 처리하시겠습니까?'}
+            </h2>
+          </div>
+
+          {/* 날짜 강조 표시 */}
+          <div className="px-6 py-5 border-b border-border-subtle">
+            <p className="text-[11px] font-semibold text-text-tertiary uppercase tracking-wide mb-2">근무 날짜 확인</p>
+            <div className="flex items-baseline gap-2">
+              <span className="text-3xl font-black text-text-primary">{monthDay}</span>
+              <span className="text-base text-text-secondary font-medium">{weekday}</span>
+              {isToday && <span className="ml-auto text-[10px] bg-brand-600 text-white font-bold px-2 py-0.5 rounded-full">오늘</span>}
+            </div>
+            <p className="text-xs text-text-tertiary mt-1">{year}년</p>
             {flow === 'clock_out' && selectedRecord?.clock_in && (
-              <p className="text-xs text-text-tertiary mt-0.5">출근 {formatTime(selectedRecord.clock_in)}</p>
+              <div className="mt-3 pt-3 border-t border-border-subtle flex items-center gap-2 text-xs">
+                <span className="text-text-tertiary">출근 기록</span>
+                <span className="font-semibold text-text-primary">{formatTime(selectedRecord.clock_in)}</span>
+              </div>
             )}
           </div>
-          <div className="flex gap-2">
+
+          {/* 버튼 */}
+          <div className="p-4 flex gap-2 bg-surface">
             <button
-              onClick={() => setPhase('camera')}
-              className={`flex-1 py-3 text-sm font-bold rounded-xl ${
-                flow === 'clock_in' ? 'bg-brand-600 text-white' : 'bg-gray-800 text-white'
-              }`}
-            >
-              {flow === 'clock_in' ? '출근 확정' : '퇴근 확정'}
-            </button>
-            <button
+              type="button"
               onClick={cancelFlow}
-              className="flex-1 py-3 bg-surface border border-border text-text-secondary text-sm font-semibold rounded-xl"
+              className="flex-1 h-12 bg-surface-sunken text-text-secondary text-sm font-semibold rounded-xl hover:bg-gray-100 active:scale-[0.98] transition-all"
             >
               취소
+            </button>
+            <button
+              type="button"
+              onClick={() => setPhase('camera')}
+              className={`flex-[2] h-12 text-white text-sm font-bold rounded-xl active:scale-[0.98] transition-all shadow-soft ${
+                isClockIn ? 'bg-brand-600 hover:bg-brand-700' : 'bg-gray-800 hover:bg-gray-900'
+              }`}
+            >
+              {isClockIn ? '✅ 예, 출근합니다' : '✅ 예, 퇴근합니다'}
             </button>
           </div>
         </div>
@@ -633,94 +656,133 @@ function WorkerClockView({ workerInfo }: WorkerClockViewProps) {
     )
   }
 
-  // Main UI
+  // Main UI (리디자인)
+  const displayDate = new Date(selectedDate + 'T12:00:00')
+  const displayMonthDay = displayDate.toLocaleDateString('ko-KR', { month: 'long', day: 'numeric' })
+  const displayWeekday = displayDate.toLocaleDateString('ko-KR', { weekday: 'long' })
+  const isSelectedToday = selectedDate === kstToday
   return (
-    <div className="px-4 pb-6 flex flex-col gap-5">
+    <div className="px-4 pb-6 pt-4 flex flex-col gap-5 max-w-2xl mx-auto w-full">
       {/* 헤더 */}
-      <div className="text-center pt-2">
+      <header className="text-center">
         <p className="text-xs text-text-tertiary font-medium">
           {new Date().toLocaleDateString('ko-KR', {
             timeZone: 'Asia/Seoul', year: 'numeric', month: 'long', day: 'numeric', weekday: 'long',
           })}
         </p>
-        <p className="text-2xl font-black text-text-primary mt-1">{workerInfo.name}</p>
-      </div>
+        <h1 className="text-2xl font-black text-text-primary mt-1">{workerInfo.name}</h1>
+        <p className="text-xs text-text-secondary mt-1">오늘도 안전 근무 하세요 👋</p>
+      </header>
 
-      {/* 날짜 선택 */}
-      <div className="bg-surface rounded-2xl border border-border-subtle p-4">
-        <label className="block text-xs text-text-tertiary mb-1.5">근무 날짜 선택</label>
+      {/* 근무 날짜 선택 카드 */}
+      <div className="bg-surface rounded-2xl border border-border-subtle p-5 shadow-soft">
+        <div className="flex items-baseline justify-between mb-3">
+          <label className="text-sm font-semibold text-text-primary">근무 날짜</label>
+          {isSelectedToday && (
+            <span className="text-[10px] bg-brand-600 text-white font-bold px-2 py-0.5 rounded-full">오늘</span>
+          )}
+        </div>
+        <div className="mb-3">
+          <div className="flex items-baseline gap-2">
+            <span className="text-2xl font-black text-text-primary">{displayMonthDay}</span>
+            <span className="text-sm text-text-secondary font-medium">{displayWeekday}</span>
+          </div>
+        </div>
         <input
           type="date"
           value={selectedDate}
           max={kstToday}
           onChange={(e) => { setSelectedDate(e.target.value); setPhase('idle') }}
-          className="w-full px-3 py-2.5 border border-border rounded-xl text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-brand-500"
+          className="w-full h-11 px-3 border border-border rounded-xl text-sm text-text-primary focus:outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100 transition-shadow"
         />
-        <p className="text-xs text-text-tertiary mt-1.5">
-          야간 근무(22시~익일 06시)의 경우 실제 출근한 날짜를 선택해 주세요
+        <p className="text-[11px] text-text-tertiary mt-2 leading-relaxed">
+          💡 야간 근무(22시~익일 06시)는 실제 출근 날짜를 선택해주세요
         </p>
       </div>
 
-      {/* 상태 카드 */}
+      {/* 상태 카드 — 출근 전 */}
       {!isClockedIn && (
-        <div className="bg-surface-sunken rounded-2xl p-6 flex flex-col items-center gap-4">
-          <div className="w-20 h-20 bg-brand-100 rounded-full flex items-center justify-center text-4xl"><Building2 size={40} /></div>
-          <p className="text-sm text-text-secondary text-center">출근 기록이 없습니다.<br />출근 버튼을 눌러 출근하세요.</p>
+        <div className="bg-gradient-to-br from-brand-50 to-brand-100/40 rounded-2xl p-6 flex flex-col items-center gap-4 border border-brand-100">
+          <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center shadow-soft">
+            <Building2 size={36} className="text-brand-600" strokeWidth={2} />
+          </div>
+          <div className="text-center">
+            <p className="text-base font-bold text-text-primary">아직 출근 전이에요</p>
+            <p className="text-xs text-text-secondary mt-1">아래 버튼을 눌러 출근을 시작하세요</p>
+          </div>
           <button
+            type="button"
             onClick={() => startFlow('clock_in')}
-            className="btn-toss-primary w-full py-4 bg-brand-600 text-white rounded-2xl text-base font-bold"
+            className="w-full h-14 bg-brand-600 text-white rounded-2xl text-base font-bold flex items-center justify-center gap-2 hover:bg-brand-700 active:scale-[0.98] shadow-soft transition-all"
           >
-            <span className="inline-block w-2 h-2 rounded-full bg-green-500 mr-1" />출근하기
+            <span className="w-2.5 h-2.5 rounded-full bg-green-400 animate-pulse" />
+            출근하기
           </button>
         </div>
       )}
 
+      {/* 상태 카드 — 근무 중 */}
       {isClockedIn && !isClockedOut && (
-        <div className="bg-surface-sunken rounded-2xl p-6 flex flex-col items-center gap-4">
-          <div className="w-20 h-20 bg-state-success-bg rounded-full flex items-center justify-center text-4xl"><CheckSquare size={40} /></div>
-          <div className="text-center">
-            <p className="text-xs text-text-tertiary mb-1">출근 시각</p>
-            <p className="text-lg font-bold text-text-primary">{formatTime(selectedRecord!.clock_in)}</p>
+        <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-2xl p-6 flex flex-col items-center gap-4 border border-green-200">
+          <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center shadow-soft">
+            <CheckSquare size={36} className="text-state-success" strokeWidth={2} />
           </div>
-          <div className="bg-surface border border-border rounded-xl px-6 py-3 text-center">
-            <p className="text-xs text-text-tertiary mb-0.5">근무 경과</p>
-            <p className="text-2xl font-mono font-bold text-brand-600">{formatElapsed(elapsed)}</p>
+          <div className="text-center w-full">
+            <p className="text-xs text-text-tertiary uppercase tracking-wide font-semibold">근무 중</p>
+            <p className="text-3xl font-black text-text-primary mt-1 tabular-nums">{formatTime(selectedRecord!.clock_in)}</p>
+            <p className="text-xs text-text-secondary mt-0.5">출근 시각</p>
+          </div>
+          <div className="w-full bg-white/70 border border-green-200 rounded-xl px-4 py-3 text-center">
+            <p className="text-[11px] text-text-tertiary mb-1 font-semibold">근무 경과</p>
+            <p className="text-3xl font-mono font-black text-state-success tabular-nums">{formatElapsed(elapsed)}</p>
           </div>
           <button
+            type="button"
             onClick={() => startFlow('clock_out')}
-            className="w-full py-4 bg-gray-800 text-white rounded-2xl text-base font-bold active:scale-95 transition-all"
+            className="w-full h-14 bg-gray-900 text-white rounded-2xl text-base font-bold flex items-center justify-center gap-2 hover:bg-black active:scale-[0.98] shadow-soft transition-all"
           >
-            <span className="inline-block w-2 h-2 rounded-full bg-red-500 mr-1" />퇴근하기
+            <span className="w-2.5 h-2.5 rounded-full bg-red-400 animate-pulse" />
+            퇴근하기
           </button>
           <button
+            type="button"
             onClick={() => setPhase('cancel_in_confirm')}
-            className="text-xs text-red-400 underline underline-offset-2"
+            className="text-xs text-text-tertiary hover:text-red-500 underline underline-offset-2 transition-colors"
           >
             출근 기록 취소
           </button>
         </div>
       )}
 
+      {/* 상태 카드 — 퇴근 완료 */}
       {isClockedIn && isClockedOut && (
-        <div className="bg-surface-sunken rounded-2xl p-6 flex flex-col items-center gap-4">
-          <div className="w-20 h-20 bg-purple-100 rounded-full flex items-center justify-center text-4xl"><Moon size={40} /></div>
-          <p className="text-sm font-semibold text-text-primary">출퇴근 완료</p>
-          <div className="w-full flex gap-3">
-            <div className="flex-1 bg-surface border border-border rounded-xl p-3 text-center">
-              <p className="text-[10px] text-text-tertiary mb-1">출근</p>
-              <p className="text-sm font-bold text-text-primary">{formatTime(selectedRecord!.clock_in)}</p>
+        <div className="bg-gradient-to-br from-purple-50 to-indigo-50 rounded-2xl p-6 flex flex-col items-center gap-4 border border-purple-200">
+          <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center shadow-soft">
+            <Moon size={36} className="text-purple-600" strokeWidth={2} />
+          </div>
+          <div className="text-center">
+            <p className="text-base font-bold text-text-primary">오늘 근무 완료 ✨</p>
+            <p className="text-xs text-text-secondary mt-1">수고하셨습니다</p>
+          </div>
+          <div className="w-full grid grid-cols-2 gap-2">
+            <div className="bg-white border border-purple-200 rounded-xl p-3 text-center">
+              <p className="text-[10px] text-text-tertiary mb-1 font-semibold">출근</p>
+              <p className="text-base font-bold text-text-primary tabular-nums">{formatTime(selectedRecord!.clock_in)}</p>
             </div>
-            <div className="flex-1 bg-surface border border-border rounded-xl p-3 text-center">
-              <p className="text-[10px] text-text-tertiary mb-1">퇴근</p>
-              <p className="text-sm font-bold text-text-primary">{formatTime(selectedRecord!.clock_out)}</p>
+            <div className="bg-white border border-purple-200 rounded-xl p-3 text-center">
+              <p className="text-[10px] text-text-tertiary mb-1 font-semibold">퇴근</p>
+              <p className="text-base font-bold text-text-primary tabular-nums">{formatTime(selectedRecord!.clock_out)}</p>
             </div>
           </div>
-          <p className="text-xs text-text-tertiary">
-            근무 시간 {formatDuration(selectedRecord!.clock_in, selectedRecord!.clock_out)}
-          </p>
+          <div className="w-full bg-white/70 border border-purple-200 rounded-xl px-4 py-2.5 text-center">
+            <p className="text-xs text-text-secondary">
+              총 근무 시간 · <b className="text-purple-700">{formatDuration(selectedRecord!.clock_in, selectedRecord!.clock_out)}</b>
+            </p>
+          </div>
           <button
+            type="button"
             onClick={() => setPhase('cancel_out_confirm')}
-            className="text-xs text-red-400 underline underline-offset-2"
+            className="text-xs text-text-tertiary hover:text-red-500 underline underline-offset-2 transition-colors"
           >
             퇴근 기록 취소
           </button>
