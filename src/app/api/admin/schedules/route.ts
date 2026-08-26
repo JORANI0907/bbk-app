@@ -104,7 +104,9 @@ export async function POST(request: NextRequest) {
     .from('service_schedules')
     .insert({
       customer_id: finalCustomerId,
+      // Rename-A: worker_id → assigned_user_id 로 점진 교체 중 (dual-write)
       worker_id: worker_id || null,
+      assigned_user_id: worker_id || null,
       scheduled_date,
       scheduled_time_start: toTime(scheduled_time_start),
       scheduled_time_end: toTime(scheduled_time_end),
