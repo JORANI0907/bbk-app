@@ -4493,6 +4493,7 @@ export type Database = {
           application_id: string | null
           arrival_lat: number | null
           arrival_lng: number | null
+          assigned_user_id: string | null
           contract_id: string | null
           created_at: string | null
           customer_id: string | null
@@ -4520,6 +4521,7 @@ export type Database = {
           application_id?: string | null
           arrival_lat?: number | null
           arrival_lng?: number | null
+          assigned_user_id?: string | null
           contract_id?: string | null
           created_at?: string | null
           customer_id?: string | null
@@ -4547,6 +4549,7 @@ export type Database = {
           application_id?: string | null
           arrival_lat?: number | null
           arrival_lng?: number | null
+          assigned_user_id?: string | null
           contract_id?: string | null
           created_at?: string | null
           customer_id?: string | null
