@@ -13,11 +13,17 @@ import { ArrowLeft, Wrench, CheckCircle2, AlertCircle, Clock } from 'lucide-reac
 interface CareRecord {
   id: string
   week_start: string
-  photo_url: string
+  photo_url: string           // 하위호환 (첫 번째 사진)
+  photo_urls: string[] | null // 정본 (최대 3장)
   notes: string | null
   submitted_at: string
   review_status: 'approved' | 'need_recheck' | null
   review_notes: string | null
+}
+
+function getPhotos(r: CareRecord): string[] {
+  if (r.photo_urls && r.photo_urls.length > 0) return r.photo_urls
+  return r.photo_url ? [r.photo_url] : []
 }
 
 interface ListItem {
@@ -193,17 +199,23 @@ export default function AdminRegularCarePage() {
                 {submitted.map(w => {
                   const r = w.record!
                   const isReviewing = reviewingId === r.id
+                  const rPhotos = getPhotos(r)
                   return (
                     <div key={w.worker_id} className="bg-surface border border-border-subtle rounded-xl overflow-hidden">
-                      {/* 축소 썸네일 (클릭 시 확대) */}
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={r.photo_url}
-                        alt={`${w.worker_name} 장비관리보고`}
-                        className="w-full h-28 object-cover cursor-zoom-in hover:opacity-90 transition-opacity"
-                        onClick={() => setZoomPhoto(r.photo_url)}
-                        title="🔍 클릭하여 확대"
-                      />
+                      {/* 사진 그리드 (최대 3장, 각각 클릭 시 확대) */}
+                      <div className={`grid gap-0.5 ${rPhotos.length === 1 ? 'grid-cols-1' : rPhotos.length === 2 ? 'grid-cols-2' : 'grid-cols-3'}`}>
+                        {rPhotos.map((url, idx) => (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            key={idx}
+                            src={url}
+                            alt={`${w.worker_name} ${idx + 1}`}
+                            className={`w-full object-cover cursor-zoom-in hover:opacity-90 transition-opacity ${rPhotos.length === 1 ? 'h-28' : 'h-20'}`}
+                            onClick={() => setZoomPhoto(url)}
+                            title="🔍 클릭하여 확대"
+                          />
+                        ))}
+                      </div>
                       <div className="p-3 space-y-2">
                         <div className="flex items-center justify-between">
                           <p className="text-sm font-semibold text-text-primary">{w.worker_name}</p>
