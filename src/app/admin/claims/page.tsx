@@ -27,6 +27,7 @@ interface Claim {
   customer_id: string
   customer: CustomerBrief | CustomerBrief[] | null
   created_at: string
+  source?: 'customer_form' | 'admin_manual' | 'phone_call' | null
 }
 
 interface CustomerRow { id: string; business_name: string; owner_name: string | null }
@@ -35,6 +36,15 @@ type FilterTab = 'open' | 'all'
 
 const LABEL = 'block text-xs font-medium text-text-secondary mb-1'
 const INPUT = 'w-full px-3 py-2 rounded-md border border-border bg-surface text-sm focus:border-brand-500 focus:shadow-focus'
+
+// Batch B-4: 표준 카테고리 5종 (고객 자율 접수와 동일)
+const CATEGORIES = ['청소 미흡', '파손·훼손', '시간 지연', '작업자 태도', '기타'] as const
+// 관리자 수동 등록 시 접수 경로 구분 (Slack 히스토리·CS 분석용)
+const SOURCE_LABEL: Record<string, string> = {
+  customer_form: '고객 자율',
+  admin_manual: '관리자 수동',
+  phone_call: '전화 상담',
+}
 
 function customerName(c: Claim['customer']): string {
   if (!c) return '알 수 없음'
@@ -55,6 +65,7 @@ export default function ClaimsPage() {
     category: '',
     cause: '',
     is_rework: false,
+    source: 'phone_call' as 'admin_manual' | 'phone_call',
   })
 
   const load = useCallback(async () => {
@@ -94,6 +105,7 @@ export default function ClaimsPage() {
         customer_id: '',
         occurred_at: new Date().toISOString().slice(0, 16),
         content: '', category: '', cause: '', is_rework: false,
+        source: 'phone_call',
       })
       load()
     } catch (e) { toast.error((e as Error).message) }
@@ -161,14 +173,24 @@ export default function ClaimsPage() {
             <label className={LABEL}>내용 (필수)</label>
             <textarea className={INPUT + ' resize-none'} rows={3} value={form.content} onChange={e => setForm({ ...form, content: e.target.value })} placeholder="클레임 상세 내용" />
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <div>
               <label className={LABEL}>카테고리</label>
-              <input className={INPUT} value={form.category} onChange={e => setForm({ ...form, category: e.target.value })} placeholder="예: 청소 품질, 결제 불만, 지연" />
+              <select className={INPUT} value={form.category} onChange={e => setForm({ ...form, category: e.target.value })}>
+                <option value="">선택 안 함</option>
+                {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+              </select>
             </div>
             <div>
-              <label className={LABEL}>원인 분석</label>
-              <input className={INPUT} value={form.cause} onChange={e => setForm({ ...form, cause: e.target.value })} placeholder="원인 (선택)" />
+              <label className={LABEL}>접수 경로</label>
+              <select className={INPUT} value={form.source} onChange={e => setForm({ ...form, source: e.target.value as 'admin_manual' | 'phone_call' })}>
+                <option value="phone_call">전화 상담</option>
+                <option value="admin_manual">관리자 수동</option>
+              </select>
+            </div>
+            <div>
+              <label className={LABEL}>원인 분석 (선택)</label>
+              <input className={INPUT} value={form.cause} onChange={e => setForm({ ...form, cause: e.target.value })} placeholder="원인" />
             </div>
           </div>
           <label className="inline-flex items-center gap-2 text-sm text-text-secondary">
@@ -212,6 +234,11 @@ export default function ClaimsPage() {
                       <span className="text-sm font-bold text-text-primary">{customerName(c.customer)}</span>
                       <span className="text-xs text-text-tertiary">{new Date(c.occurred_at).toLocaleString('ko-KR')}</span>
                       {c.category && <span className="text-xs bg-surface-sunken text-text-secondary px-1.5 py-0.5 rounded-md">{c.category}</span>}
+                      {c.source && (
+                        <span className={`text-xs px-1.5 py-0.5 rounded-md ${c.source === 'customer_form' ? 'bg-blue-50 text-blue-700' : 'bg-gray-50 text-gray-700'}`}>
+                          {SOURCE_LABEL[c.source] ?? c.source}
+                        </span>
+                      )}
                       {c.is_rework && (
                         <span className="text-xs bg-orange-50 text-orange-700 px-1.5 py-0.5 rounded-md inline-flex items-center gap-0.5"><Repeat size={10} />재작업</span>
                       )}
