@@ -47,6 +47,15 @@ function getMonthRange(month: string): { start: string; end: string } {
   return { start, end }
 }
 
+// 오늘이 속한 주의 월요일 (YYYY-MM-DD)
+function getWeekStartMonday(dateStr: string): string {
+  const d = new Date(`${dateStr}T00:00:00Z`)
+  const dow = d.getUTCDay() // 0=Sun, 1=Mon, ...
+  const diff = dow === 0 ? -6 : 1 - dow
+  d.setUTCDate(d.getUTCDate() + diff)
+  return d.toISOString().slice(0, 10)
+}
+
 export async function GET(request: NextRequest) {
   const session = getServerSession()
   if (!session) return NextResponse.json({ ok: false, error: '인증 필요' }, { status: 401 })
@@ -212,6 +221,27 @@ export async function GET(request: NextRequest) {
       // 정시 판정 가능한 배정만 분모로 (시공시간 없는 배정 제외)
       actuals['ontime_work_rate'] = ontimeEligible > 0 ? Math.round((ontimeCount / ontimeEligible) * 100) : null
     }
+  }
+
+  // 9) equipment_care_rate: 이번 주 활성 작업자 중 정기관리 사진 제출 비율
+  const needsEquipmentCare = activeConfigs.some(c => c.key === 'equipment_care_rate' && c.calculation === 'auto')
+  if (needsEquipmentCare) {
+    const weekStart = getWeekStartMonday(today)
+    // 활성 작업자 수 (users.role='worker' AND is_active=true)
+    const { count: activeWorkerCount } = await supabase
+      .from('users')
+      .select('id', { count: 'exact', head: true })
+      .eq('role', 'worker')
+      .eq('is_active', true)
+    // 이번 주 제출 건수
+    const { count: submittedCount } = await supabase
+      .from('equipment_care_records')
+      .select('id', { count: 'exact', head: true })
+      .eq('week_start', weekStart)
+
+    const total = activeWorkerCount ?? 0
+    const submitted = submittedCount ?? 0
+    actuals['equipment_care_rate'] = total > 0 ? Math.round((submitted / total) * 100) : null
   }
 
   // 최종 응답 조립
