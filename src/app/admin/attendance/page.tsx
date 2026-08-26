@@ -768,6 +768,14 @@ function WorkerClockView({ workerInfo }: WorkerClockViewProps) {
 
 // ─── Admin Table View ─────────────────────────────────────────────────────────
 
+// Batch D-3: 이달 attendance 지표 (metrics/values API 응답)
+interface AttendanceMetric {
+  key: string
+  label: string
+  actual: number | null
+  target: number | null
+}
+
 function AdminTableView() {
   const today = new Date()
   const [yearMonth, setYearMonth] = useState(
@@ -777,6 +785,8 @@ function AdminTableView() {
   const [selectedWorkerId, setSelectedWorkerId] = useState('')
   const [records, setRecords] = useState<AttendanceRecord[]>([])
   const [loading, setLoading] = useState(false)
+  // Batch D-3: 이달 출퇴근 지표
+  const [attendanceMetrics, setAttendanceMetrics] = useState<AttendanceMetric[]>([])
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null)
   const [noteValue, setNoteValue] = useState('')
   const [savingNote, setSavingNote] = useState(false)
@@ -854,6 +864,18 @@ function AdminTableView() {
 
   useEffect(() => { fetchRecords() }, [fetchRecords])
 
+  // Batch D-3: 이달 출퇴근 지표 fetch (attendance_rate / ontime_work_rate)
+  useEffect(() => {
+    fetch(`/api/admin/ops/metrics/values?month=${yearMonth}`)
+      .then(r => r.json())
+      .then((j: { ok?: boolean; metrics?: Array<{ key: string; label: string; actual: number | null; target: number | null }> }) => {
+        if (!j.ok || !j.metrics) return
+        const filtered = j.metrics.filter(m => m.key === 'attendance_rate' || m.key === 'ontime_work_rate')
+        setAttendanceMetrics(filtered)
+      })
+      .catch(() => {})
+  }, [yearMonth])
+
   const startNoteEdit = (rec: AttendanceRecord) => {
     setEditingNoteId(rec.id)
     setNoteValue(rec.notes ?? '')
@@ -889,8 +911,71 @@ function AdminTableView() {
 
   const showNameColumn = !selectedWorkerId
 
+  // Batch D-3: 직원별 이달 출근 일수 집계 (records 기반)
+  const workerAttendanceSummary = workers.map(w => {
+    const workerRecords = records.filter(r => r.worker_id === w.id && r.clock_in)
+    return {
+      id: w.id,
+      name: w.name,
+      workedDays: workerRecords.length,
+    }
+  }).sort((a, b) => b.workedDays - a.workedDays)
+
   return (
     <div>
+      {/* Batch D-3: 이달 출퇴근 대시보드 */}
+      <div className="bg-surface border border-border-subtle rounded-2xl p-4 mb-4">
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-sm font-bold text-text-primary">📊 {yearMonth} 출퇴근 대시보드</h2>
+          <span className="text-[10px] text-text-tertiary">지표 자동 계산 · 실시간</span>
+        </div>
+
+        {/* 지표 카드 2개 */}
+        <div className="grid grid-cols-2 gap-3 mb-4">
+          {attendanceMetrics.length === 0 ? (
+            <div className="col-span-2 text-center text-xs text-text-tertiary py-3">지표 로딩 중...</div>
+          ) : (
+            attendanceMetrics.map(m => (
+              <div key={m.key} className="bg-surface-sunken rounded-xl p-3">
+                <p className="text-xs text-text-tertiary mb-1">{m.label}</p>
+                <p className="text-2xl font-bold text-brand-600">
+                  {m.actual !== null ? `${m.actual}%` : '-'}
+                </p>
+                {m.target && m.actual !== null && (
+                  <p className="text-[10px] text-text-tertiary mt-1">
+                    목표 {m.target}% · {m.actual >= m.target ? '✅ 달성' : '❌ 미달'}
+                  </p>
+                )}
+              </div>
+            ))
+          )}
+        </div>
+
+        {/* 직원별 이달 출근 일수 */}
+        <div>
+          <p className="text-xs font-semibold text-text-secondary mb-2">👥 직원별 이달 출근 일수</p>
+          {workerAttendanceSummary.length === 0 ? (
+            <p className="text-xs text-text-tertiary text-center py-2">직원 정보 없음</p>
+          ) : (
+            <div className="space-y-1.5">
+              {workerAttendanceSummary.map(w => {
+                const maxDays = Math.max(...workerAttendanceSummary.map(x => x.workedDays), 1)
+                const barPct = (w.workedDays / maxDays) * 100
+                return (
+                  <div key={w.id} className="flex items-center gap-2 text-xs">
+                    <span className="w-20 text-text-primary truncate">{w.name}</span>
+                    <div className="flex-1 bg-surface-sunken rounded-full h-4 overflow-hidden relative">
+                      <div className="h-full bg-brand-500 rounded-full transition-all" style={{ width: `${barPct}%` }} />
+                    </div>
+                    <span className="w-14 text-right text-text-primary tabular-nums">{w.workedDays}일</span>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+
       {/* Drive 사진 저장 위치 설정 */}
       <div className="bg-brand-50 border border-brand-200 rounded-xl px-4 py-3 mb-4 flex flex-wrap items-center gap-3">
         <span className="text-sm font-semibold text-brand-700 shrink-0 flex items-center gap-1"><Folder size={14} /> 사진 저장 위치</span>
