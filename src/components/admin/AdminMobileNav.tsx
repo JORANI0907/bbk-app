@@ -43,6 +43,7 @@ const NAV_ITEMS: NavItem[] = [
     children: [
       { href: '/admin/live', label: '오늘의 현장 (라이브)' },
       { href: '/admin/attendance', label: '출퇴근관리' },
+      { href: '/admin/regular-care', label: '정기관리' },
       { href: '/admin/workers', label: '직원관리' },
       { href: '/admin/incidents', label: '경위서' },
       { href: '/admin/claims', label: '고객 클레임' },
@@ -54,6 +55,7 @@ const NAV_ITEMS: NavItem[] = [
     type: 'group', label: '인사·현장관리', icon: <Users size={16} />, roles: ['worker'],
     children: [
       { href: '/admin/attendance', label: '출퇴근관리' },
+      { href: '/worker/regular-care', label: '정기관리' },
       { href: '/admin/workers', label: '직원관리' },
       { href: '/admin/incidents', label: '경위서' },
       { href: '/admin/inventory', label: '재고관리', badgeKey: 'inventory' },
