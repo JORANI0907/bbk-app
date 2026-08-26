@@ -82,6 +82,10 @@ export async function middleware(request: NextRequest) {
           const id = pathname.replace('/worker/schedule/', '')
           return NextResponse.redirect(new URL(`/admin/schedule/${id}`, request.url))
         }
+        // Batch B 후속: 워커 전용 페이지 (관리자 뷰가 없어서 리다이렉트하면 안 됨)
+        if (pathname.startsWith('/worker/regular-care')) {
+          return NextResponse.next()
+        }
         return NextResponse.redirect(new URL('/admin', request.url))
       }
 
