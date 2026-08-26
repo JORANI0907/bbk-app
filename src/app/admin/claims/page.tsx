@@ -12,7 +12,10 @@
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import toast from 'react-hot-toast'
-import { AlertOctagon, Plus, CheckCircle2, Repeat, ArrowLeft, X } from 'lucide-react'
+import { AlertOctagon, Plus, CheckCircle2, Repeat, ArrowLeft, X, Copy, ExternalLink } from 'lucide-react'
+
+// D: 고객 자율 접수 URL (카톡비즈·안내문자·QR 등에 배포)
+const CUSTOMER_CLAIM_URL = 'https://app.bbkorea.co.kr/customer/claims/new'
 
 interface CustomerBrief { id: string; business_name: string; owner_name: string | null; phone: string | null }
 
@@ -152,6 +155,53 @@ export default function ClaimsPage() {
         >
           {showForm ? <><X size={14} /> 접기</> : <><Plus size={14} /> 새 클레임</>}
         </button>
+      </div>
+
+      {/* D: 고객 접수 URL 카드 + 사용 흐름 안내 */}
+      <div className="bg-brand-50 border border-brand-200 rounded-2xl p-4 space-y-3">
+        <div>
+          <p className="text-sm font-bold text-brand-800 mb-1">📢 고객 자율 접수 URL</p>
+          <p className="text-xs text-brand-700 leading-relaxed">
+            아래 링크를 카톡비즈니스 · 안내 문자 · 명함 QR 등에 배포하세요.
+          </p>
+        </div>
+
+        {/* URL 복사 박스 */}
+        <div className="flex items-center gap-2 bg-white border border-brand-200 rounded-lg px-3 py-2">
+          <code className="flex-1 text-xs text-brand-800 font-mono truncate">{CUSTOMER_CLAIM_URL}</code>
+          <button
+            type="button"
+            onClick={() => {
+              navigator.clipboard.writeText(CUSTOMER_CLAIM_URL)
+                .then(() => toast.success('URL 복사됨'))
+                .catch(() => toast.error('복사 실패'))
+            }}
+            className="inline-flex items-center gap-1 bg-brand-600 text-white px-2.5 py-1.5 rounded-md text-xs font-semibold hover:bg-brand-700 active:scale-95 transition-all shrink-0"
+          >
+            <Copy size={12} /> 복사
+          </button>
+          <a
+            href={CUSTOMER_CLAIM_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1 bg-white border border-brand-300 text-brand-700 px-2.5 py-1.5 rounded-md text-xs font-semibold hover:bg-brand-50 shrink-0"
+          >
+            <ExternalLink size={12} /> 열기
+          </a>
+        </div>
+
+        {/* 사용 흐름 3단계 */}
+        <div className="bg-white border border-brand-100 rounded-lg p-3">
+          <p className="text-xs font-semibold text-brand-800 mb-2">💡 어떻게 작동하나요?</p>
+          <ol className="space-y-1.5 text-xs text-text-secondary leading-relaxed list-decimal list-inside">
+            <li>고객이 링크 클릭 → 등록된 <b>연락처 입력 · OTP 인증</b></li>
+            <li>카테고리 선택(청소 미흡·파손·시간 지연·작업자 태도·기타) + 세부 내용 작성</li>
+            <li>접수 완료 → 이 페이지에 <b>&quot;고객 자율&quot;</b> 뱃지로 표시 + Slack 즉시 알림</li>
+          </ol>
+          <p className="text-[10px] text-text-tertiary mt-2 leading-relaxed">
+            등록되지 않은 연락처는 접수 불가 (스팸 방지). 전화 상담은 위 &quot;새 클레임&quot; 버튼으로 직접 등록.
+          </p>
+        </div>
       </div>
 
       {showForm && (
