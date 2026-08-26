@@ -509,42 +509,73 @@ export async function PATCH(request: NextRequest) {
     }
   }
 
-  // customer → service_applications 자동 필드 sync 는 정기딥/정기엔드에는 여전히 폐지.
-  //   마스터 편집이 기존 회차 일정에 영향을 주면 업무량·정산이 왜곡됨.
-  //   회차 일정은 생성 시점(generate-schedules)의 스냅샷을 유지하고,
-  //   개별 회차 수정은 이번달 일정 섹션의 아코디언에서만 수행.
+  // customer → service_applications 시공 정보 sync.
+  // - 1회성/일반일정: 완료·결제 상태 포함 전체 회차에 sync (사후 정정 허용).
+  // - 정기딥/엔드: 미래 회차만 sync. 완료된 회차는 스냅샷 보존해 감사·정산 정합성 유지.
   //
-  // 예외: 1회성케어·일반일정은 원칙상 customer 1건 = 신청서 1건 구조라
-  //   담당자·시공일자가 마스터와 어긋나면 배정관리에서 매칭 실패 →
-  //   customer:접두사 마킹 → 편집 불가로 고객관리로 튕겨나감.
-  //   open 상태(결제·작업완료 전) 신청서만 좁게 sync.
+  // SYNC 필드는 마스터와 신청서가 같은 의미를 가지는 항목만 (결제 트랜잭션 ID 등은 제외).
+  const SYNC_FIELD_MAP: Record<string, string> = {
+    // 담당·시공일자·경로
+    assigned_user_id: 'assigned_to',
+    next_visit_date: 'construction_date',
+    drive_folder_url: 'drive_folder_url',
+    // 시공 정보
+    address: 'address',
+    business_hours_start: 'business_hours_start',
+    business_hours_end: 'business_hours_end',
+    construction_time: 'construction_time',
+    elevator: 'elevator',
+    building_access: 'building_access',
+    access_method: 'access_method',
+    // 서비스 세부
+    care_scope: 'care_scope',
+    disposition: 'disposition',
+    meeting_time: 'meeting_time',
+    // 연락·알림
+    email: 'email',
+    phone_notify_1: 'phone_notify_1',
+    phone_notify_2: 'phone_notify_2',
+    platform_nickname: 'platform_nickname',
+    // 진행
+    pre_meeting_done: 'pre_meeting_done',
+  }
+
+  const appUpdates: Record<string, unknown> = {}
+  for (const [custKey, appKey] of Object.entries(SYNC_FIELD_MAP)) {
+    if (custKey in rest) appUpdates[appKey] = rest[custKey]
+  }
+
   const oneShotSyncable =
     updatedCustomer.customer_type === '1회성케어' ||
     updatedCustomer.customer_type === '일반일정'
-  const oneShotFieldsChanged =
-    'assigned_user_id' in rest ||
-    'next_visit_date' in rest ||
-    'drive_folder_url' in rest
-  if (oneShotSyncable && oneShotFieldsChanged) {
+  const regularSyncable =
+    updatedCustomer.customer_type === '정기딥케어' ||
+    updatedCustomer.customer_type === '정기엔드케어'
+
+  if (Object.keys(appUpdates).length > 0) {
     try {
-      const appUpdates: Record<string, unknown> = {}
-      if ('assigned_user_id' in rest) appUpdates.assigned_to = rest.assigned_user_id
-      if ('next_visit_date' in rest) appUpdates.construction_date = rest.next_visit_date
-      // drive_folder_url 도 마스터 편집 시 짝 신청서에 동기화 (사진올리기 폴백과 정합)
-      if ('drive_folder_url' in rest) appUpdates.drive_folder_url = rest.drive_folder_url
-      if (Object.keys(appUpdates).length > 0) {
-        // 작업완료·결제 상태도 포함 — 사후 담당자/시공일자 정정을 허용해야
-        // 이미 완료된 건의 배정 오류를 관리자가 수정할 수 있다.
+      if (oneShotSyncable) {
+        // 1회성/일반일정: 작업완료·결제 상태도 포함해서 사후 정정 허용.
         await supabase
           .from('service_applications')
           .update(appUpdates)
           .eq('customer_id', id)
           .is('deleted_at', null)
           .in('status', ['신규', '예약확정', '예약1일전', '예약당일', '기존고객', '작업완료', '결제'])
+      } else if (regularSyncable) {
+        // 정기케어: 미래 회차만 sync. 완료·결제·계산서 상태는 제외.
+        const todayKST = new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10)
+        await supabase
+          .from('service_applications')
+          .update(appUpdates)
+          .eq('customer_id', id)
+          .is('deleted_at', null)
+          .in('status', ['신규', '예약확정', '예약1일전', '예약당일', '기존고객'])
+          .gte('construction_date', todayKST)
       }
     } catch (e) {
       console.error(
-        '1회성/일반일정 customer→service_applications sync 실패:',
+        'customer→service_applications sync 실패:',
         e instanceof Error ? e.message : e,
       )
     }

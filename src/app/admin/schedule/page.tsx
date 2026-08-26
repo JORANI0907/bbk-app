@@ -954,7 +954,7 @@ export default function SchedulePage() {
     // 성능: 캐시가 있으면 즉시 뿌리고 백그라운드에서 최신값 교체
     const cacheKey = `schedule-month-${month}`
     const cached = readCache<{ applications: Application[]; assignments: WorkAssignment[] }>(
-      cacheKey, 30 * 60 * 1000, // 30분 TTL
+      cacheKey, 5 * 60 * 1000, // 5분 TTL — 마스터 편집 즉시 반영을 위해 단축
     )
     if (cached) {
       setApplications(cached.applications)
