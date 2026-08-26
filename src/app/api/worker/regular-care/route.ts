@@ -26,8 +26,24 @@ export async function GET(request: NextRequest) {
   const session = getServerSession()
   if (!session) return NextResponse.json({ ok: false, error: '인증 필요' }, { status: 401 })
 
-  const week = request.nextUrl.searchParams.get('week') ?? getWeekStartMonday(getKstToday())
   const supabase = createServiceClient()
+  const isHistory = request.nextUrl.searchParams.get('history') === 'true'
+
+  // B-후속-1: 이력 조회 모드 — 최근 12주 이력 리스트 반환
+  if (isHistory) {
+    const limit = Math.min(Number(request.nextUrl.searchParams.get('limit') ?? 12), 52)
+    const { data, error } = await supabase
+      .from('equipment_care_records')
+      .select('*')
+      .eq('worker_id', session.userId)
+      .order('week_start', { ascending: false })
+      .limit(limit)
+    if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 })
+    return NextResponse.json({ ok: true, history: data ?? [] })
+  }
+
+  // 기본: 특정 주 조회
+  const week = request.nextUrl.searchParams.get('week') ?? getWeekStartMonday(getKstToday())
   const { data, error } = await supabase
     .from('equipment_care_records')
     .select('*')
