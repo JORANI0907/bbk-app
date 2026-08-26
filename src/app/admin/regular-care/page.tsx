@@ -113,7 +113,7 @@ export default function AdminRegularCarePage() {
         <div className="flex items-center gap-2">
           <Link href="/admin" className="text-text-tertiary hover:text-brand-600"><ArrowLeft size={18} /></Link>
           <h1 className="text-xl font-bold text-text-primary flex items-center gap-2">
-            <Wrench size={20} className="text-brand-600" /> 정기관리
+            <Wrench size={20} className="text-brand-600" /> 장비관리보고
           </h1>
         </div>
         <div className="flex items-center gap-2">
@@ -179,7 +179,7 @@ export default function AdminRegularCarePage() {
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src={r.photo_url}
-                        alt={`${w.worker_name} 정기관리`}
+                        alt={`${w.worker_name} 장비관리보고`}
                         className="w-full aspect-square object-cover cursor-zoom-in"
                         onClick={() => setZoomPhoto(r.photo_url)}
                       />
