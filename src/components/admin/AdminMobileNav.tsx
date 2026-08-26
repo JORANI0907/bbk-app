@@ -57,7 +57,6 @@ const NAV_ITEMS: NavItem[] = [
       { href: '/admin/workers', label: '직원관리' },
       { href: '/admin/incidents', label: '경위서' },
       { href: '/admin/inventory', label: '재고관리', badgeKey: 'inventory' },
-      { href: '/worker/requests', label: '요청하기', badgeKey: 'worker_requests' },
     ],
   },
   {
