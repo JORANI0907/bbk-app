@@ -152,6 +152,68 @@ export async function GET(request: NextRequest) {
     actuals['__revenue_end'] = total
   }
 
+  // 7~8) 출퇴근 지표 (attendance_rate / ontime_work_rate)
+  const needsAttendance = activeConfigs.some(c => c.key === 'attendance_rate' && c.calculation === 'auto')
+  const needsOntimeWork = activeConfigs.some(c => c.key === 'ontime_work_rate' && c.calculation === 'auto')
+
+  if (needsAttendance || needsOntimeWork) {
+    // 이달 배정 (work_assignments) + 시공 시간(construction_time) 조인
+    const { data: assignments } = await supabase
+      .from('work_assignments')
+      .select('worker_id, construction_date, application_id, service_applications!inner(construction_time)')
+      .gte('construction_date', monthStart)
+      .lt('construction_date', monthEnd)
+
+    // 이달 clock_in 이 있는 attendance 조회
+    const { data: att } = await supabase
+      .from('attendance')
+      .select('worker_id, work_date, clock_in')
+      .gte('work_date', monthStart)
+      .lt('work_date', monthEnd)
+      .not('clock_in', 'is', null)
+
+    // (worker_id, work_date) → clock_in 매핑
+    const attMap = new Map<string, string>()
+    for (const a of att ?? []) {
+      if (a.worker_id && a.work_date && a.clock_in) {
+        attMap.set(`${a.worker_id}|${a.work_date}`, a.clock_in as string)
+      }
+    }
+
+    const totalAssignments = (assignments ?? []).length
+    let attendedCount = 0
+    let ontimeCount = 0
+    let ontimeEligible = 0 // construction_time 이 있어야 정시 판정 가능
+
+    for (const wa of assignments ?? []) {
+      if (!wa.worker_id || !wa.construction_date) continue
+      const clockIn = attMap.get(`${wa.worker_id}|${wa.construction_date}`)
+      if (clockIn) attendedCount += 1
+
+      // construction_time 파싱 (배열/객체 두 형태 방어)
+      const sa = wa.service_applications as { construction_time?: string | null } | { construction_time?: string | null }[] | null
+      const constructionTime = Array.isArray(sa) ? sa[0]?.construction_time : sa?.construction_time
+      if (!constructionTime) continue
+      ontimeEligible += 1
+      if (!clockIn) continue
+
+      // construction_time (HH:MM:SS) + construction_date → 예정 시각 (KST 로컬)
+      const [hh, mm] = String(constructionTime).split(':').map(Number)
+      const scheduledKst = new Date(`${wa.construction_date}T${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}:00+09:00`)
+      const actualMs = new Date(clockIn).getTime()
+      const diffMin = Math.abs(actualMs - scheduledKst.getTime()) / 60000
+      if (diffMin <= 30) ontimeCount += 1
+    }
+
+    if (needsAttendance) {
+      actuals['attendance_rate'] = totalAssignments > 0 ? Math.round((attendedCount / totalAssignments) * 100) : null
+    }
+    if (needsOntimeWork) {
+      // 정시 판정 가능한 배정만 분모로 (시공시간 없는 배정 제외)
+      actuals['ontime_work_rate'] = ontimeEligible > 0 ? Math.round((ontimeCount / ontimeEligible) * 100) : null
+    }
+  }
+
   // 최종 응답 조립
   const metrics: MetricValue[] = activeConfigs.map(c => {
     const target = c.target_value !== null ? Number(c.target_value) : null
