@@ -170,18 +170,20 @@ export default function AdminRegularCarePage() {
           {submitted.length > 0 && (
             <div>
               <p className="text-sm font-semibold text-text-primary mb-2">✅ 제출 완료 ({submitted.length}명)</p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
                 {submitted.map(w => {
                   const r = w.record!
                   const isReviewing = reviewingId === r.id
                   return (
                     <div key={w.worker_id} className="bg-surface border border-border-subtle rounded-xl overflow-hidden">
+                      {/* 축소 썸네일 (클릭 시 확대) */}
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src={r.photo_url}
                         alt={`${w.worker_name} 장비관리보고`}
-                        className="w-full aspect-square object-cover cursor-zoom-in"
+                        className="w-full h-28 object-cover cursor-zoom-in hover:opacity-90 transition-opacity"
                         onClick={() => setZoomPhoto(r.photo_url)}
+                        title="🔍 클릭하여 확대"
                       />
                       <div className="p-3 space-y-2">
                         <div className="flex items-center justify-between">
