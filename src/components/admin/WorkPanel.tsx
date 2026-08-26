@@ -7,7 +7,6 @@ import {
   RecommendServicePicker,
   RecommendationState,
 } from '@/components/worker/RecommendServicePicker'
-import { WorkerPlanEditor } from '@/components/worker/WorkerPlanEditor'
 
 const CONDITION_OPTIONS = [
   { value: 1 as const, label: '양호', activeTone: 'border-green-500 bg-green-50 text-green-700' },
@@ -274,23 +273,6 @@ export function WorkPanel({ app, onUpdate, isAdmin = false }: Props) {
       {/* ── 1단계: 대기 중 ── */}
       {status === 'pending' && (
         <div className="space-y-3">
-          {/* Phase 24: 담당자 계획 편집기 (관리자 뷰 — 워커 뷰에서는 "내 계획"으로 표시됨) */}
-          <WorkerPlanEditor
-            title="담당자 계획"
-            subtitle="출발 시각·특이사항"
-            initialDeparture={app.worker_planned_departure ?? null}
-            initialNote={app.worker_plan_note ?? null}
-            onSave={async (payload) => {
-              const res = await fetch(`/api/admin/applications/${app.id}/work`, {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action: 'update', ...payload }),
-              })
-              if (!res.ok) throw new Error('저장 실패')
-              onUpdate(payload)
-            }}
-          />
-
           <p className="text-xs text-gray-500">작업 준비가 되면 시작 버튼을 눌러주세요.</p>
           <button
             onClick={handleStart}
