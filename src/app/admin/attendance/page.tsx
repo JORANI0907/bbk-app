@@ -38,6 +38,22 @@ interface Worker {
   employment_type: string
 }
 
+// A-3: 대시보드/현황 탭 + 고용형태 필터
+type AttendanceTab = 'dashboard' | 'records'
+type EmploymentFilter = 'all' | 'FULL_TIME' | 'CONTRACT' | 'PART_TIME' | 'ULTRA_SHORT' | 'DAILY' | 'FREELANCER' | 'SUBCONTRACT' | 'TERMINATED'
+const EMPLOYMENT_FILTER_ORDER: EmploymentFilter[] = ['all', 'FULL_TIME', 'CONTRACT', 'PART_TIME', 'ULTRA_SHORT', 'DAILY', 'FREELANCER', 'SUBCONTRACT', 'TERMINATED']
+const EMPLOYMENT_FILTER_LABEL: Record<EmploymentFilter, string> = {
+  all: '전체',
+  FULL_TIME: '정규직',
+  CONTRACT: '계약직',
+  PART_TIME: '단시간',
+  ULTRA_SHORT: '초단시간',
+  DAILY: '일용직',
+  FREELANCER: '프리랜서',
+  SUBCONTRACT: '외주',
+  TERMINATED: '말소',
+}
+
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function formatTime(ts: string | null): string {
@@ -787,6 +803,9 @@ function AdminTableView() {
   const [loading, setLoading] = useState(false)
   // Batch D-3: 이달 출퇴근 지표
   const [attendanceMetrics, setAttendanceMetrics] = useState<AttendanceMetric[]>([])
+  // A-3: 대시보드/현황 세그먼트 탭 + 고용형태 필터
+  const [activeTab, setActiveTab] = useState<AttendanceTab>('dashboard')
+  const [employmentFilter, setEmploymentFilter] = useState<EmploymentFilter>('all')
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null)
   const [noteValue, setNoteValue] = useState('')
   const [savingNote, setSavingNote] = useState(false)
@@ -911,8 +930,14 @@ function AdminTableView() {
 
   const showNameColumn = !selectedWorkerId
 
-  // Batch D-3: 직원별 이달 출근 일수 집계 (records 기반)
-  const workerAttendanceSummary = workers.map(w => {
+  // A-3: 고용형태 필터 적용된 workers 리스트 (all 은 TERMINATED 제외)
+  const filteredWorkers = workers.filter(w => {
+    if (employmentFilter === 'all') return w.employment_type !== 'TERMINATED'
+    return w.employment_type === employmentFilter
+  })
+
+  // Batch D-3: 직원별 이달 출근 일수 집계 (필터링된 workers 기반)
+  const workerAttendanceSummary = filteredWorkers.map(w => {
     const workerRecords = records.filter(r => r.worker_id === w.id && r.clock_in)
     return {
       id: w.id,
@@ -923,58 +948,100 @@ function AdminTableView() {
 
   return (
     <div>
-      {/* Batch D-3: 이달 출퇴근 대시보드 */}
-      <div className="bg-surface border border-border-subtle rounded-2xl p-4 mb-4">
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-sm font-bold text-text-primary">📊 {yearMonth} 출퇴근 대시보드</h2>
-          <span className="text-[10px] text-text-tertiary">지표 자동 계산 · 실시간</span>
-        </div>
+      {/* A-3: 세그먼트 탭 (대시보드 / 출퇴근 현황) */}
+      <div className="inline-flex bg-surface-sunken rounded-xl p-1 mb-4">
+        {([{ key: 'dashboard', label: '📊 대시보드' }, { key: 'records', label: '📋 출퇴근 현황' }] as { key: AttendanceTab; label: string }[]).map(t => (
+          <button
+            key={t.key}
+            onClick={() => setActiveTab(t.key)}
+            className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-colors ${
+              activeTab === t.key ? 'bg-surface text-text-primary shadow-soft' : 'text-text-tertiary hover:text-text-primary'
+            }`}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
 
-        {/* 지표 카드 2개 */}
-        <div className="grid grid-cols-2 gap-3 mb-4">
-          {attendanceMetrics.length === 0 ? (
-            <div className="col-span-2 text-center text-xs text-text-tertiary py-3">지표 로딩 중...</div>
-          ) : (
-            attendanceMetrics.map(m => (
-              <div key={m.key} className="bg-surface-sunken rounded-xl p-3">
-                <p className="text-xs text-text-tertiary mb-1">{m.label}</p>
-                <p className="text-2xl font-bold text-brand-600">
-                  {m.actual !== null ? `${m.actual}%` : '-'}
-                </p>
-                {m.target && m.actual !== null && (
-                  <p className="text-[10px] text-text-tertiary mt-1">
-                    목표 {m.target}% · {m.actual >= m.target ? '✅ 달성' : '❌ 미달'}
-                  </p>
-                )}
-              </div>
-            ))
-          )}
-        </div>
+      {activeTab === 'dashboard' && (
+        <>
+          {/* 이달 지표 대시보드 */}
+          <div className="bg-surface border border-border-subtle rounded-2xl p-4 mb-4">
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-sm font-bold text-text-primary">📊 {yearMonth} 출퇴근 대시보드</h2>
+              <span className="text-[10px] text-text-tertiary">지표 자동 계산 · 실시간</span>
+            </div>
 
-        {/* 직원별 이달 출근 일수 */}
-        <div>
-          <p className="text-xs font-semibold text-text-secondary mb-2">👥 직원별 이달 출근 일수</p>
-          {workerAttendanceSummary.length === 0 ? (
-            <p className="text-xs text-text-tertiary text-center py-2">직원 정보 없음</p>
-          ) : (
-            <div className="space-y-1.5">
-              {workerAttendanceSummary.map(w => {
-                const maxDays = Math.max(...workerAttendanceSummary.map(x => x.workedDays), 1)
-                const barPct = (w.workedDays / maxDays) * 100
-                return (
-                  <div key={w.id} className="flex items-center gap-2 text-xs">
-                    <span className="w-20 text-text-primary truncate">{w.name}</span>
-                    <div className="flex-1 bg-surface-sunken rounded-full h-4 overflow-hidden relative">
-                      <div className="h-full bg-brand-500 rounded-full transition-all" style={{ width: `${barPct}%` }} />
-                    </div>
-                    <span className="w-14 text-right text-text-primary tabular-nums">{w.workedDays}일</span>
+            {/* 지표 카드 2개 */}
+            <div className="grid grid-cols-2 gap-3 mb-4">
+              {attendanceMetrics.length === 0 ? (
+                <div className="col-span-2 text-center text-xs text-text-tertiary py-3">지표 로딩 중...</div>
+              ) : (
+                attendanceMetrics.map(m => (
+                  <div key={m.key} className="bg-surface-sunken rounded-xl p-3">
+                    <p className="text-xs text-text-tertiary mb-1">{m.label}</p>
+                    <p className="text-2xl font-bold text-brand-600">
+                      {m.actual !== null ? `${m.actual}%` : '-'}
+                    </p>
+                    {m.target && m.actual !== null && (
+                      <p className="text-[10px] text-text-tertiary mt-1">
+                        목표 {m.target}% · {m.actual >= m.target ? '✅ 달성' : '❌ 미달'}
+                      </p>
+                    )}
                   </div>
+                ))
+              )}
+            </div>
+
+            {/* 고용형태 필터 버튼 */}
+            <div className="flex flex-wrap gap-1.5 mb-3">
+              {EMPLOYMENT_FILTER_ORDER.map(f => {
+                const active = employmentFilter === f
+                const isTerm = f === 'TERMINATED'
+                return (
+                  <button
+                    key={f}
+                    onClick={() => setEmploymentFilter(f)}
+                    className={`px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${
+                      active
+                        ? (isTerm ? 'bg-red-600 text-white' : 'bg-brand-600 text-white')
+                        : (isTerm ? 'bg-red-50 text-red-700 hover:bg-red-100' : 'bg-surface-sunken text-text-secondary hover:bg-brand-50 hover:text-brand-700')
+                    }`}
+                  >
+                    {EMPLOYMENT_FILTER_LABEL[f]}
+                  </button>
                 )
               })}
             </div>
-          )}
-        </div>
-      </div>
+
+            {/* 직원별 이달 출근 일수 (필터 적용됨) */}
+            <div>
+              <p className="text-xs font-semibold text-text-secondary mb-2">👥 직원별 이달 출근 일수 <span className="text-text-tertiary font-normal">({workerAttendanceSummary.length}명)</span></p>
+              {workerAttendanceSummary.length === 0 ? (
+                <p className="text-xs text-text-tertiary text-center py-2">해당 필터에 직원이 없습니다.</p>
+              ) : (
+                <div className="space-y-1.5 max-h-96 overflow-y-auto pr-1">
+                  {workerAttendanceSummary.map(w => {
+                    const maxDays = Math.max(...workerAttendanceSummary.map(x => x.workedDays), 1)
+                    const barPct = (w.workedDays / maxDays) * 100
+                    return (
+                      <div key={w.id} className="flex items-center gap-2 text-xs">
+                        <span className="w-20 text-text-primary truncate">{w.name}</span>
+                        <div className="flex-1 bg-surface-sunken rounded-full h-4 overflow-hidden relative">
+                          <div className="h-full bg-brand-500 rounded-full transition-all" style={{ width: `${barPct}%` }} />
+                        </div>
+                        <span className="w-14 text-right text-text-primary tabular-nums">{w.workedDays}일</span>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        </>
+      )}
+
+      {activeTab === 'records' && <>
 
       {/* Drive 사진 저장 위치 설정 */}
       <div className="bg-brand-50 border border-brand-200 rounded-xl px-4 py-3 mb-4 flex flex-wrap items-center gap-3">
@@ -1173,6 +1240,7 @@ function AdminTableView() {
           </div>
         )}
       </div>
+      </>}
     </div>
   )
 }
