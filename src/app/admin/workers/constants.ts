@@ -37,9 +37,11 @@ CREATE TABLE IF NOT EXISTS work_assignments (
 
 // 고용형태 enum — workers.employment_type CHECK 제약과 동일해야 함.
 // UI 라벨은 EMPLOYMENT_LABEL 을 통해 한글로 표시.
+// TERMINATED: 퇴사/휴직 인원. '전체' 필터에서는 자동 제외됨.
 export const EMPLOYMENT_TYPE_VALUES = [
   'FULL_TIME', 'CONTRACT', 'PART_TIME', 'ULTRA_SHORT',
   'DAILY', 'FREELANCER', 'SUBCONTRACT',
+  'TERMINATED',
 ] as const
 
 export type EmploymentType = typeof EMPLOYMENT_TYPE_VALUES[number]
@@ -52,7 +54,11 @@ export const EMPLOYMENT_LABEL: Record<EmploymentType, string> = {
   DAILY:       '일용직',
   FREELANCER:  '프리랜서3.3%',
   SUBCONTRACT: '외주/도급',
+  TERMINATED:  '말소',
 }
+
+// 활성 인원 (전체 필터에서 노출) — TERMINATED 제외
+export const EMPLOYMENT_TYPE_ACTIVE = EMPLOYMENT_TYPE_VALUES.filter(v => v !== 'TERMINATED')
 
 export interface Worker {
   id: string
