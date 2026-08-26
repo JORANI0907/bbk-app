@@ -79,7 +79,8 @@ export async function POST(request: NextRequest) {
 
   const { data, error } = await supabase
     .from('users')
-    .insert({ role, name, phone: normalized, email: virtualEmail, auth_id: authId, is_active: true, password_hint: initialPassword })
+    // approved_at: 관리자가 직접 등록하면 이미 승인된 상태로 기록. 자가가입(현재 비활성)만 null 유지.
+    .insert({ role, name, phone: normalized, email: virtualEmail, auth_id: authId, is_active: true, password_hint: initialPassword, approved_at: new Date().toISOString() })
     .select()
     .single()
 
