@@ -233,6 +233,35 @@ function RulesTab() {
   const [rules, setRules] = useState<NotificationRule[]>([])
   const [loading, setLoading] = useState(true)
   const [updating, setUpdating] = useState<string | null>(null)
+  // 실수 방지 잠금: 기본 잠김. sessionStorage 로 관리해 새 탭·새로고침 시 다시 잠김.
+  // 대부분 알림 유형은 dispatcher 를 안 거쳐 여기서 바꿔도 효과 없는데,
+  // 관리자가 잘못 만져 정말 효과 있는 3~4개 규칙(작업완료·계산서발행완료·리뷰이벤트)까지
+  // 오조작할 위험을 원천 차단.
+  const [locked, setLocked] = useState(true)
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    setLocked(sessionStorage.getItem('bbk-rules-unlocked') !== '1')
+  }, [])
+  const toggleLock = () => {
+    if (!locked) {
+      // 잠그기 — 즉시
+      sessionStorage.removeItem('bbk-rules-unlocked')
+      setLocked(true)
+      toast.success('자동 알림 규칙이 잠겼습니다.')
+      return
+    }
+    // 잠금 해제 — 확인 문구 필요
+    const ok = window.confirm(
+      '자동 알림 규칙 잠금을 해제하시겠습니까?\n\n' +
+      '⚠️ 대부분 규칙은 실제 발송 로직이 참조하지 않아 여기서 바꿔도 효과가 없습니다.\n' +
+      '반면 몇몇 규칙(작업완료·계산서발행완료·리뷰이벤트 등)은 실제로 반영되므로 잘못 만지면 알림이 안 나갈 수 있습니다.\n\n' +
+      '해제 후에는 새로고침·탭 종료 시 자동으로 다시 잠깁니다.'
+    )
+    if (!ok) return
+    sessionStorage.setItem('bbk-rules-unlocked', '1')
+    setLocked(false)
+    toast('잠금 해제됨 — 신중히 편집하세요.', { icon: '🔓' })
+  }
 
   const fetchRules = useCallback(async () => {
     setLoading(true)
@@ -251,6 +280,10 @@ function RulesTab() {
   useEffect(() => { fetchRules() }, [fetchRules])
 
   const handleToggle = async (id: string, field: string, value: boolean) => {
+    if (locked) {
+      toast.error('잠겨 있습니다. 상단 잠금 버튼을 눌러 해제한 뒤 편집하세요.')
+      return
+    }
     const key = `${id}-${field}`
     setUpdating(key)
     setRules((prev) =>
@@ -276,11 +309,24 @@ function RulesTab() {
 
   return (
     <section className="bg-surface rounded-2xl shadow-soft overflow-hidden">
-      <div className="px-6 py-5 border-b border-border-subtle">
+      <div className="px-6 py-5 border-b border-border-subtle flex items-start justify-between gap-4">
         <SectionHeader
           title="자동 알림 규칙"
-          subtitle="고객/직원에게 자동 발송되는 알림 유형을 관리합니다."
+          subtitle="고객/직원에게 자동 발송되는 알림 유형을 관리합니다. 실수 방지를 위해 기본 잠김 상태입니다."
         />
+        <button
+          type="button"
+          onClick={toggleLock}
+          className={`shrink-0 inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium rounded-lg border transition-colors ${
+            locked
+              ? 'bg-amber-50 border-amber-300 text-amber-800 hover:bg-amber-100'
+              : 'bg-state-danger-bg border-state-danger text-state-danger hover:bg-red-100'
+          }`}
+          title={locked ? '잠금 해제 후 편집' : '지금 잠그기'}
+        >
+          <span aria-hidden>{locked ? '🔒' : '🔓'}</span>
+          {locked ? '잠금 (편집하려면 해제)' : '해제됨 — 클릭하여 잠그기'}
+        </button>
       </div>
 
       {loading ? (
@@ -324,48 +370,48 @@ function RulesTab() {
                   {/* 채널 4종 */}
                   <td className="px-2 py-3 text-center">
                     <div className="flex justify-center">
-                      <Toggle checked={rule.channel_alimtalk} onChange={(v) => handleToggle(rule.id, 'channel_alimtalk', v)} disabled={updating === `${rule.id}-channel_alimtalk`} />
+                      <Toggle checked={rule.channel_alimtalk} onChange={(v) => handleToggle(rule.id, 'channel_alimtalk', v)} disabled={locked || updating === `${rule.id}-channel_alimtalk`} />
                     </div>
                   </td>
                   <td className="px-2 py-3 text-center">
                     <div className="flex justify-center">
-                      <Toggle checked={rule.channel_sms} onChange={(v) => handleToggle(rule.id, 'channel_sms', v)} disabled={updating === `${rule.id}-channel_sms`} />
+                      <Toggle checked={rule.channel_sms} onChange={(v) => handleToggle(rule.id, 'channel_sms', v)} disabled={locked || updating === `${rule.id}-channel_sms`} />
                     </div>
                   </td>
                   <td className="px-2 py-3 text-center">
                     <div className="flex justify-center">
-                      <Toggle checked={rule.channel_push} onChange={(v) => handleToggle(rule.id, 'channel_push', v)} disabled={updating === `${rule.id}-channel_push`} />
+                      <Toggle checked={rule.channel_push} onChange={(v) => handleToggle(rule.id, 'channel_push', v)} disabled={locked || updating === `${rule.id}-channel_push`} />
                     </div>
                   </td>
                   <td className="px-2 py-3 text-center">
                     <div className="flex justify-center">
-                      <Toggle checked={rule.channel_in_app} onChange={(v) => handleToggle(rule.id, 'channel_in_app', v)} disabled={updating === `${rule.id}-channel_in_app`} />
+                      <Toggle checked={rule.channel_in_app} onChange={(v) => handleToggle(rule.id, 'channel_in_app', v)} disabled={locked || updating === `${rule.id}-channel_in_app`} />
                     </div>
                   </td>
                   {/* 수신 대상 4종 */}
                   <td className="px-2 py-3 text-center">
                     <div className="flex justify-center">
-                      <Toggle checked={rule.notify_admin} onChange={(v) => handleToggle(rule.id, 'notify_admin', v)} disabled={updating === `${rule.id}-notify_admin`} />
+                      <Toggle checked={rule.notify_admin} onChange={(v) => handleToggle(rule.id, 'notify_admin', v)} disabled={locked || updating === `${rule.id}-notify_admin`} />
                     </div>
                   </td>
                   <td className="px-2 py-3 text-center">
                     <div className="flex justify-center">
-                      <Toggle checked={rule.notify_worker} onChange={(v) => handleToggle(rule.id, 'notify_worker', v)} disabled={updating === `${rule.id}-notify_worker`} />
+                      <Toggle checked={rule.notify_worker} onChange={(v) => handleToggle(rule.id, 'notify_worker', v)} disabled={locked || updating === `${rule.id}-notify_worker`} />
                     </div>
                   </td>
                   <td className="px-2 py-3 text-center">
                     <div className="flex justify-center">
-                      <Toggle checked={rule.notify_customer} onChange={(v) => handleToggle(rule.id, 'notify_customer', v)} disabled={updating === `${rule.id}-notify_customer`} />
+                      <Toggle checked={rule.notify_customer} onChange={(v) => handleToggle(rule.id, 'notify_customer', v)} disabled={locked || updating === `${rule.id}-notify_customer`} />
                     </div>
                   </td>
                   <td className="px-2 py-3 text-center">
                     <div className="flex justify-center">
-                      <Toggle checked={rule.notify_franchise_hq} onChange={(v) => handleToggle(rule.id, 'notify_franchise_hq', v)} disabled={updating === `${rule.id}-notify_franchise_hq`} />
+                      <Toggle checked={rule.notify_franchise_hq} onChange={(v) => handleToggle(rule.id, 'notify_franchise_hq', v)} disabled={locked || updating === `${rule.id}-notify_franchise_hq`} />
                     </div>
                   </td>
                   <td className="px-2 py-3 text-center">
                     <div className="flex justify-center">
-                      <Toggle checked={rule.is_active} onChange={(v) => handleToggle(rule.id, 'is_active', v)} disabled={updating === `${rule.id}-is_active`} />
+                      <Toggle checked={rule.is_active} onChange={(v) => handleToggle(rule.id, 'is_active', v)} disabled={locked || updating === `${rule.id}-is_active`} />
                     </div>
                   </td>
                 </tr>
