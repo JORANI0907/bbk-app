@@ -11,6 +11,8 @@ const ALLOWED_COLUMNS = [
   'safety_edu_status', 'safety_edu_date', 'health_cert_status', 'health_cert_date',
   'nationality', 'certifications', 'contract_signed', 'bank_copy_submitted',
   'tax_type', 'salary_basis',
+  // C-1: 알림 요일 설정 (본인이 저장, 21시 cron 이 매칭 시 발송)
+  'attendance_notify_weekdays', 'equipment_notify_weekdays',
 ]
 
 export async function GET(request: NextRequest) {
