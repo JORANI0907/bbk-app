@@ -1646,12 +1646,22 @@ export function CustomersManagementView({
    * 모달의 [진행] 버튼에서 호출됨.
    */
   const handleGenerateSchedulesBulk = async (startDate: string, endDate: string, mode: 'create' | 'cleanup') => {
+    // 함수 최상단 즉시 반영 락. setState 는 다음 렌더까지 반영 안 돼서 확인창(async) 사이
+    // 재클릭이 통과하는 문제가 있었음(엽기떡볶이 이천증포점 9/15 11초 5중복 사고).
+    // useRef 대신 window 전역 플래그를 써서 컴포넌트 리렌더와 무관하게 즉시 차단.
+    const LOCK_KEY = '__bbk_bulk_schedule_running__'
+    const w = window as unknown as Record<string, boolean | undefined>
+    if (w[LOCK_KEY]) {
+      toast.error('이미 처리 중입니다. 잠시만 기다려주세요.')
+      return
+    }
     const regularIds = checkedIds.filter(id => {
       const c = customers.find(c => c.id === id)
       return c?.customer_type === '정기딥케어' || c?.customer_type === '정기엔드케어'
     })
     if (regularIds.length === 0) return
     if (startDate > endDate) { toast.error('종료일이 시작일보다 앞섭니다.'); return }
+    w[LOCK_KEY] = true
 
     // 기간 내의 (year, month) 세그먼트 생성
     const [sy, sm, sd] = startDate.split('-').map(Number)
@@ -1685,6 +1695,7 @@ export function CustomersManagementView({
         '취소하려면 [취소] 를 눌러주세요.'
       )
       if (!confirmed) {
+        w[LOCK_KEY] = false
         setBulkCreating(false)
         setScheduleGenModal((s) => ({ ...s, submitting: false }))
         return
@@ -1752,7 +1763,10 @@ export function CustomersManagementView({
     } catch (e) {
       toast.error(e instanceof Error ? e.message : '일정 처리 실패')
       setScheduleGenModal((s) => ({ ...s, submitting: false }))
-    } finally { setBulkCreating(false) }
+    } finally {
+      setBulkCreating(false)
+      w[LOCK_KEY] = false // 함수 상단 락 해제 — 다음 클릭 허용
+    }
   }
 
   const handleDuplicateBulk = async () => {
