@@ -68,8 +68,7 @@ export default function PortOnePayPage() {
       const storeId    = process.env.NEXT_PUBLIC_PORTONE_STORE_ID ?? ''
       const channelKey = process.env.NEXT_PUBLIC_PORTONE_CHANNEL_KEY_CARD ?? ''
 
-      // Step 1: 완결형 원큐 결제 요청 (예약금·잔금 각각 독립된 카드 승인)
-      // KG이니시스 심사 정책: 두 결제는 서로 참조 관계 없는 독립 승인.
+      // Step 1: 완결형 원큐 결제 요청 (단일 총액 카드 승인)
       // KG이니시스는 customer.email 필수. 신청서에 이메일이 없으면 유효 형식 폴백 사용.
       const emailToUse = (app.email && app.email.trim())
         || `noemail-${appId.replace(/-/g, '').slice(0, 8)}@bbkorea.co.kr`

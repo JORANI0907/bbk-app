@@ -50,7 +50,12 @@ export async function middleware(request: NextRequest) {
       pathname === '/care-manual' ||
       pathname === '/guide'
 
-    const publicPaths = ['/login', '/signup', '/install', '/quote', '/bbk-care', '/sign', '/portal-preview', '/api/auth', '/api/sms', '/api/admin', '/api/webhooks', '/api/form', '/api/cron', '/api/dev', '/api/contracts', '/api/push', '/api/juso', '/terms', '/privacy', '/refund', '/company', '/apply', '/api/apply', '/portone', '/api/portone/webhook', '/api/portone/pay-info', '/api/portone/complete', '/events', '/api/events', '/kg-review', '/api/kg-review', '/worker-documents', '/api/worker-documents', '/customer/claims/new', '/api/customer/claims']
+    // /kg-review 는 신규 심사 포털 /kg-audit 으로 통합 리디렉션 (KG 심사팀 2차 대응)
+    if (pathname === '/kg-review' || pathname.startsWith('/kg-review/')) {
+      return NextResponse.redirect(new URL('/kg-audit', request.url))
+    }
+
+    const publicPaths = ['/login', '/signup', '/install', '/quote', '/bbk-care', '/sign', '/portal-preview', '/api/auth', '/api/sms', '/api/admin', '/api/webhooks', '/api/form', '/api/cron', '/api/dev', '/api/contracts', '/api/push', '/api/juso', '/terms', '/privacy', '/refund', '/company', '/apply', '/api/apply', '/portone', '/api/portone/webhook', '/api/portone/pay-info', '/api/portone/complete', '/events', '/api/events', '/kg-audit', '/api/kg-audit', '/worker-documents', '/api/worker-documents', '/customer/claims/new', '/api/customer/claims']
     const isPublic = isDemoPath || publicPaths.some(p => pathname.startsWith(p))
 
     const sessionToken = request.cookies.get('bbk_session')?.value

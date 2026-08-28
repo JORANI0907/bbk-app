@@ -112,9 +112,8 @@ export default function DemoGuidePage() {
         </div>
 
         <div className="bg-surface rounded-2xl border border-border-subtle shadow-soft p-5">
-          <h3 className="text-sm font-bold text-text-primary mb-3">예약금 환불</h3>
+          <h3 className="text-sm font-bold text-text-primary mb-3">환불 처리 안내</h3>
           <ul className="space-y-1.5 text-xs text-text-secondary leading-relaxed break-keep">
-            <li>• 예약금은 서비스 총 금액에서 차감됩니다.</li>
             <li>• 환불 요건 충족 시 결제 수단으로 3~5 영업일 이내 환불됩니다.</li>
             <li>• 가상계좌 결제는 환불 계좌 정보를 별도 안내드립니다.</li>
           </ul>
