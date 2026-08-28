@@ -550,6 +550,11 @@ export async function PATCH(request: NextRequest) {
     access_method: 'access_method',
     // 서비스 세부
     care_scope: 'care_scope',
+    // customers.special_notes → service_applications.request_notes
+    // 라벨: "고객 요청사항". 신규 회차 생성 시엔 복사되나 마스터 편집 시 sync 누락으로
+    // 배정관리·워커 앱에 반영 안 되던 버그 해결.
+    // (admin_notes / notes 는 Phase 27-BC 스냅샷 정책 유지 위해 SYNC 제외)
+    special_notes: 'request_notes',
     disposition: 'disposition',
     meeting_time: 'meeting_time',
     // 연락·알림
