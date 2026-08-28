@@ -46,7 +46,7 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
     .from('claims')
     .update(patch)
     .eq('id', idCheck.value)
-    .select(`*, customer:customers(id, business_name, owner_name, phone)`)
+    .select(`*, customer:customers(id, business_name, contact_name, contact_phone)`)
     .single()
 
   if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 })

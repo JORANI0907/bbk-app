@@ -35,7 +35,7 @@ export async function GET(request: NextRequest) {
       id, occurred_at, content, category, cause, is_rework,
       resolved_at, logged_by, customer_id, created_at, updated_at,
       source, business_name, reporter_name, reporter_phone,
-      customer:customers(id, business_name, owner_name, phone)
+      customer:customers(id, business_name, contact_name, contact_phone)
     `)
     .order('occurred_at', { ascending: false })
     .limit(limit)
@@ -91,7 +91,7 @@ export async function POST(request: NextRequest) {
     .from('claims')
     .insert(payload)
     .select(`
-      *, customer:customers(id, business_name, owner_name, phone)
+      *, customer:customers(id, business_name, contact_name, contact_phone)
     `)
     .single()
 
