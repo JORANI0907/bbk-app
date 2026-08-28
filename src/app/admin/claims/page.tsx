@@ -194,12 +194,12 @@ export default function ClaimsPage() {
         <div className="bg-white border border-brand-100 rounded-lg p-3">
           <p className="text-xs font-semibold text-brand-800 mb-2">💡 어떻게 작동하나요?</p>
           <ol className="space-y-1.5 text-xs text-text-secondary leading-relaxed list-decimal list-inside">
-            <li>고객이 링크 클릭 → 등록된 <b>연락처 입력 · OTP 인증</b></li>
-            <li>카테고리 선택(청소 미흡·파손·시간 지연·작업자 태도·기타) + 세부 내용 작성</li>
+            <li>고객이 링크 클릭 → <b>연락처 입력 · OTP 인증</b> (1회성·계정 잊은 고객도 접수 가능)</li>
+            <li>이름·업체명(선택) + 카테고리 + 세부 내용 작성</li>
             <li>접수 완료 → 이 페이지에 <b>&quot;고객 자율&quot;</b> 뱃지로 표시 + Slack 즉시 알림</li>
           </ol>
           <p className="text-[10px] text-text-tertiary mt-2 leading-relaxed">
-            등록되지 않은 연락처는 접수 불가 (스팸 방지). 전화 상담은 위 &quot;새 클레임&quot; 버튼으로 직접 등록.
+            등록된 연락처면 업체명이 자동 매칭됩니다. 미매칭 접수는 <b>&quot;미매칭·관리자 확인 필요&quot;</b>로 표시되니 신규 고객 등록 후 연결하세요. 전화 상담은 위 &quot;새 클레임&quot; 버튼으로 직접 등록.
           </p>
         </div>
       </div>
