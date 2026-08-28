@@ -129,6 +129,7 @@ const NAV_ITEMS: NavItem[] = [
     colorKey: 'ops',
     hasHelp: true,
     children: [
+      { href: '/admin/ops/dashboard', label: '운영 관리 대시보드' },
       { href: '/admin/ops/settings/intent', label: '대표 의도' },
       { href: '/admin/ops/settings/metrics', label: '지표 설정' },
       { href: '/admin/ops/settings/functions', label: '기능 담당' },

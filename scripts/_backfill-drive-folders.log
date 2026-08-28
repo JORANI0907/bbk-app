@@ -1,0 +1,1376 @@
+{
+  "startedAt": "2026-08-27T00:14:47.992Z",
+  "total": 171,
+  "ok": 171,
+  "fail": 0,
+  "results": [
+    {
+      "id": "1165ef2a-2a36-446d-b87e-12f89a55a9d2",
+      "biz": "성서교회",
+      "date": "2026-03-07",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 371
+    },
+    {
+      "id": "084258f1-56ef-471f-9ba6-c1c520cb7b9c",
+      "biz": "성서교회",
+      "date": "2026-03-14",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 299
+    },
+    {
+      "id": "1958a668-ac91-4942-90a4-b4e9a0a0ee4f",
+      "biz": "성서교회",
+      "date": "2026-03-21",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 307
+    },
+    {
+      "id": "766a3529-7eca-48b2-91b3-3e53dca15698",
+      "biz": "아르스킨의원",
+      "date": "2026-04-01",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 304
+    },
+    {
+      "id": "165a70e8-e2b8-423b-be1e-2cc132f292cb",
+      "biz": "아르스킨의원",
+      "date": "2026-04-03",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 299
+    },
+    {
+      "id": "23309202-f7f0-4788-9d4b-18340d4a386b",
+      "biz": "노블 카야노 송파점",
+      "date": "2026-04-04",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 298
+    },
+    {
+      "id": "2263ef3a-5a6b-452c-ad40-bbb90858f06a",
+      "biz": "아르스킨의원",
+      "date": "2026-04-06",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 298
+    },
+    {
+      "id": "66476711-4e64-4404-bc48-8c867690ee96",
+      "biz": "아르스킨의원",
+      "date": "2026-04-08",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 312
+    },
+    {
+      "id": "9fd09819-9bdf-4400-a362-1168f6371a27",
+      "biz": "아르스킨의원",
+      "date": "2026-04-10",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 307
+    },
+    {
+      "id": "c5962dd6-f960-42f6-9d37-9c2989a1b50b",
+      "biz": "아르스킨의원",
+      "date": "2026-04-13",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 298
+    },
+    {
+      "id": "c507084b-8449-4c9b-ab8b-21254f587ecd",
+      "biz": "아르스킨의원",
+      "date": "2026-04-15",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 303
+    },
+    {
+      "id": "e135096c-062c-4884-acfb-0f991bc7fe7d",
+      "biz": "아르스킨의원",
+      "date": "2026-04-17",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 310
+    },
+    {
+      "id": "d54d4054-1d26-4563-b1c1-c1c5b79c0674",
+      "biz": "아르스킨의원",
+      "date": "2026-04-20",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 301
+    },
+    {
+      "id": "fda89b87-895c-474a-a05d-bb20f7889b10",
+      "biz": "아르스킨의원",
+      "date": "2026-04-22",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 303
+    },
+    {
+      "id": "6397f42e-a09b-490f-b0bb-c4a278b36756",
+      "biz": "아르스킨의원",
+      "date": "2026-04-24",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 301
+    },
+    {
+      "id": "a587dc7a-0279-4db4-ad7f-23d205a11597",
+      "biz": "아르스킨의원",
+      "date": "2026-04-27",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 298
+    },
+    {
+      "id": "1070c0a7-8563-4a15-adcd-5ab0f5e07156",
+      "biz": "아르스킨의원",
+      "date": "2026-04-29",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 302
+    },
+    {
+      "id": "237efd49-cfa1-4314-b689-9a2d505ddffc",
+      "biz": "노블 카야노 송파점",
+      "date": "2026-05-02",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 298
+    },
+    {
+      "id": "7c22dded-972a-4eda-93fc-efe70d75d300",
+      "biz": "아르스킨의원",
+      "date": "2026-06-01",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 302
+    },
+    {
+      "id": "9331ab1a-474e-4d78-9757-7d5e29cc0c63",
+      "biz": "아르스킨의원",
+      "date": "2026-06-03",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 302
+    },
+    {
+      "id": "cf50ccab-0a32-44b4-865a-d72bc1d03b76",
+      "biz": "아르스킨의원",
+      "date": "2026-06-05",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 304
+    },
+    {
+      "id": "a0db182e-880e-4659-aad6-5411712dc843",
+      "biz": "성서교회",
+      "date": "2026-06-06",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 307
+    },
+    {
+      "id": "de232877-01e4-4212-b519-4f7bc0c19f9d",
+      "biz": "노블 카야노 송파점",
+      "date": "2026-06-06",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 309
+    },
+    {
+      "id": "44c2e606-95ec-4ba6-bf97-18e2faa99056",
+      "biz": "아르스킨의원",
+      "date": "2026-06-08",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 298
+    },
+    {
+      "id": "b57dc489-ff87-4b16-ad32-9799131c7183",
+      "biz": "아르스킨의원",
+      "date": "2026-06-10",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 306
+    },
+    {
+      "id": "c2054ef8-70e1-4319-8b2c-f0180b100514",
+      "biz": "아르스킨의원",
+      "date": "2026-06-12",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 305
+    },
+    {
+      "id": "8b7cc9a3-52a8-4c8d-9936-261a32f1cca2",
+      "biz": "아르스킨의원",
+      "date": "2026-06-15",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 302
+    },
+    {
+      "id": "d3007fee-f2fb-48e7-9d0b-65d3335adbb0",
+      "biz": "아르스킨의원",
+      "date": "2026-06-17",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 302
+    },
+    {
+      "id": "d92c0252-2109-4d2b-a623-17c1eebf5fc5",
+      "biz": "노블 다이닝 압구정점",
+      "date": "2026-06-19",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 303
+    },
+    {
+      "id": "830c566c-4b15-47c5-86b4-71ae2ff2b8a1",
+      "biz": "아르스킨의원",
+      "date": "2026-06-19",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 295
+    },
+    {
+      "id": "a21bc4af-3d18-42fb-b502-1013e953bafd",
+      "biz": "성서교회",
+      "date": "2026-06-20",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 297
+    },
+    {
+      "id": "3f6c0e68-98d3-4a33-b0ed-e31219da8e21",
+      "biz": "노블 오마카세 청담점",
+      "date": "2026-06-22",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 298
+    },
+    {
+      "id": "bc601c29-fd55-4265-8c18-989ea5498972",
+      "biz": "아르스킨의원",
+      "date": "2026-06-22",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 303
+    },
+    {
+      "id": "d9e11e42-7bdb-4396-91fb-5e57d5b3fa78",
+      "biz": "노블 다이닝 압구정점",
+      "date": "2026-06-23",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 314
+    },
+    {
+      "id": "8f05f371-b8c5-4f7b-81cc-6b2d38a2ee52",
+      "biz": "아르스킨의원",
+      "date": "2026-06-24",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 301
+    },
+    {
+      "id": "a7d2b8bd-27e3-4855-a9dd-cc37e99cba77",
+      "biz": "노블 오마카세 청담점",
+      "date": "2026-06-25",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 301
+    },
+    {
+      "id": "11f8ed6b-e8a0-4a30-a763-e09ca2a559f6",
+      "biz": "아르스킨의원",
+      "date": "2026-06-26",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 303
+    },
+    {
+      "id": "467ee9a5-d671-4199-8048-c2a9042d3c1a",
+      "biz": "노블 다이닝 압구정점",
+      "date": "2026-06-26",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 300
+    },
+    {
+      "id": "8ce8b23c-0e28-484f-91c0-75feccdce619",
+      "biz": "마운틴짐",
+      "date": "2026-06-26",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 301
+    },
+    {
+      "id": "48a58d35-7f30-444d-9224-688cf6c4f06f",
+      "biz": "성서교회",
+      "date": "2026-06-27",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 300
+    },
+    {
+      "id": "d373809d-417d-4124-9927-07476a362347",
+      "biz": "아르스킨의원",
+      "date": "2026-06-29",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 303
+    },
+    {
+      "id": "2e6b92cc-6e09-49ca-808f-a1f979be1206",
+      "biz": "노블 오마카세 청담점",
+      "date": "2026-06-29",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 299
+    },
+    {
+      "id": "6b449008-1be2-4741-af08-d2ab95971dd2",
+      "biz": "노블 다이닝 압구정점",
+      "date": "2026-07-03",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 308
+    },
+    {
+      "id": "b28e49ba-8131-41de-a1b9-f05a88834d91",
+      "biz": "노블 카야노 송파점",
+      "date": "2026-07-04",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 298
+    },
+    {
+      "id": "c66572d6-d9a7-4a9c-b7c4-a708976f0a0e",
+      "biz": "노블 오마카세 청담점",
+      "date": "2026-07-06",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 303
+    },
+    {
+      "id": "3033203d-6085-48c6-9244-4a2ba85e878b",
+      "biz": "면미정",
+      "date": "2026-07-07",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 309
+    },
+    {
+      "id": "167bd0b9-5416-4177-add7-f135e4c4a494",
+      "biz": "노블 다이닝 압구정점",
+      "date": "2026-07-07",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 304
+    },
+    {
+      "id": "8243cfff-d830-45c7-85c4-bae7b89e8eae",
+      "biz": "노블 오마카세 청담점",
+      "date": "2026-07-09",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 297
+    },
+    {
+      "id": "8dd38d77-d4c0-4fe6-8dd5-a4d44fc98382",
+      "biz": "노블 다이닝 압구정점",
+      "date": "2026-07-10",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 320
+    },
+    {
+      "id": "a4c2ec80-d7e1-46b8-b781-5b2287798823",
+      "biz": "노블 오마카세 청담점",
+      "date": "2026-07-31",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 302
+    },
+    {
+      "id": "616f30fc-a10b-479a-8994-21b775145e29",
+      "biz": "노블 카야노 송파점",
+      "date": "2026-08-01",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 303
+    },
+    {
+      "id": "e4a727b2-a9a5-46e9-82f2-788b271b6058",
+      "biz": "아르스킨의원",
+      "date": "2026-08-20",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 303
+    },
+    {
+      "id": "b7d1554f-afab-449f-b657-bf09e61d460b",
+      "biz": "아르스킨의원",
+      "date": "2026-08-20",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 303
+    },
+    {
+      "id": "cc079e2f-3edd-4382-9c4f-a63ab6b783aa",
+      "biz": "화이트짐 수원아주대점",
+      "date": "2026-08-26",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 296
+    },
+    {
+      "id": "835c9c10-bc05-4ac1-894d-ab0b4d048320",
+      "biz": "욜로피시카페",
+      "date": "2026-08-26",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 301
+    },
+    {
+      "id": "3835ffda-135a-40cd-ab37-491cc196a493",
+      "biz": "화이트짐 용인동백 2호점",
+      "date": "2026-08-26",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 305
+    },
+    {
+      "id": "d323858c-24d4-41ec-9da0-2d3985f30525",
+      "biz": "화이트짐 동백점",
+      "date": "2026-08-26",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 303
+    },
+    {
+      "id": "48a5b0e5-8f68-4cea-bead-f4e8bc167db4",
+      "biz": "화이트짐 수원아주대점",
+      "date": "2026-08-28",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 303
+    },
+    {
+      "id": "d13e4699-37e9-4579-801d-e2b963ba25d9",
+      "biz": "쌍용임대아파트관리사무소",
+      "date": "2026-08-28",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 303
+    },
+    {
+      "id": "f007aa74-0707-46f3-a7f1-ea69d84c64a8",
+      "biz": "화이트짐 용인동백 2호점",
+      "date": "2026-08-28",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 302
+    },
+    {
+      "id": "e6887942-6768-4814-8f3a-28e0e5d0562f",
+      "biz": "화이트짐 동백점",
+      "date": "2026-08-28",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 300
+    },
+    {
+      "id": "a523cf06-a287-4a66-8650-4875501fb7ce",
+      "biz": "성서교회",
+      "date": "2026-08-29",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 303
+    },
+    {
+      "id": "d2e3fb97-87fc-4ea8-88e0-7e1a2be50a0f",
+      "biz": "마운틴짐",
+      "date": "2026-08-30",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 301
+    },
+    {
+      "id": "5b6dff75-0cb3-4d54-8d4e-ab9fdba6360e",
+      "biz": "화이트짐 동백점",
+      "date": "2026-08-31",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 298
+    },
+    {
+      "id": "f9f36013-cb4b-4708-9dbe-fa4bb793524b",
+      "biz": "화이트짐 수원아주대점",
+      "date": "2026-08-31",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 307
+    },
+    {
+      "id": "731bcfd1-f756-4545-9a62-2dc5c3ca2a75",
+      "biz": "몽글몽글",
+      "date": "2026-08-31",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 303
+    },
+    {
+      "id": "9c64dbef-017d-441c-b873-3fb11d75ee4c",
+      "biz": "씨엘쏭",
+      "date": "2026-08-31",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 302
+    },
+    {
+      "id": "6660944d-4864-41fa-aa3a-9dda0d67e8b2",
+      "biz": "케이제이앤피치",
+      "date": "2026-08-31",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 296
+    },
+    {
+      "id": "ab26e1bf-6da1-4a17-93e5-6ce09f186fa1",
+      "biz": "쌍용임대아파트관리사무소",
+      "date": "2026-08-31",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 298
+    },
+    {
+      "id": "d64647ce-8ead-4049-914c-3556b45539ee",
+      "biz": "화이트짐 용인동백 2호점",
+      "date": "2026-08-31",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 302
+    },
+    {
+      "id": "43b40390-9ddf-40dc-ab77-a5e3e24cf4a7",
+      "biz": "쌍용임대아파트관리사무소",
+      "date": "2026-09-02",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 298
+    },
+    {
+      "id": "3e075de6-154a-4572-aee3-585a0fe38a64",
+      "biz": "쌍용임대아파트관리사무소",
+      "date": "2026-09-04",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 303
+    },
+    {
+      "id": "fb67f4e1-fff3-4970-ac9d-25e892ab741d",
+      "biz": "노블 카야노 송파점",
+      "date": "2026-09-05",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 303
+    },
+    {
+      "id": "a40a2617-fd89-4bcc-8b78-9f5c2cbc3d16",
+      "biz": "쌍용임대아파트관리사무소",
+      "date": "2026-09-07",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 299
+    },
+    {
+      "id": "d786fdc9-1730-45ef-bc7d-ebaf221dd28a",
+      "biz": "쌍용임대아파트관리사무소",
+      "date": "2026-09-09",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 299
+    },
+    {
+      "id": "27b8707f-010c-4de3-96c3-77f07d831680",
+      "biz": "KG이니시스 심사원(테스트)",
+      "date": "2026-09-10",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 299
+    },
+    {
+      "id": "dd9ad52a-eafd-47fc-b873-8218a840a8fc",
+      "biz": "쌍용임대아파트관리사무소",
+      "date": "2026-09-11",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 297
+    },
+    {
+      "id": "766b3c5a-e773-4037-8842-277dd7795147",
+      "biz": "KG이니시스 심사원(테스트)",
+      "date": "2026-09-13",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 306
+    },
+    {
+      "id": "33a3375a-dead-4f23-b130-11acfe9129c1",
+      "biz": "미미고찹쌀꽈배기",
+      "date": "2026-09-13",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 303
+    },
+    {
+      "id": "d829b125-ce3d-4427-aec7-e9c9c5ffe401",
+      "biz": "쌍용임대아파트관리사무소",
+      "date": "2026-09-14",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 308
+    },
+    {
+      "id": "ff0b1417-dffc-4c8a-945a-da32ca86f2a2",
+      "biz": "엽기떡볶이 이천증포점",
+      "date": "2026-09-15",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 300
+    },
+    {
+      "id": "f6ed261d-dfb1-489e-b01d-32b641bec392",
+      "biz": "씨엘쏭",
+      "date": "2026-09-15",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 298
+    },
+    {
+      "id": "16134be5-abc5-435d-9651-4317c5bee414",
+      "biz": "홍콩웍헤이",
+      "date": "2026-09-16",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 298
+    },
+    {
+      "id": "d3d6bcc1-389a-4517-9cad-0210ff32f66c",
+      "biz": "윤찬방",
+      "date": "2026-09-16",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 299
+    },
+    {
+      "id": "177a7ddb-f3f8-4cc4-9a5e-9d8fb23de823",
+      "biz": "쌍용임대아파트관리사무소",
+      "date": "2026-09-16",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 298
+    },
+    {
+      "id": "e6292650-8b4f-4c7d-8ee3-a2c2a398dd1d",
+      "biz": "우대포 트리플스트리트",
+      "date": "2026-09-16",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 302
+    },
+    {
+      "id": "baa5ec99-f726-4105-a2fa-e8ae2d5700b4",
+      "biz": "아침애만나",
+      "date": "2026-09-17",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 299
+    },
+    {
+      "id": "2f8ddd4e-6eec-4a08-b8d7-151433a5c61d",
+      "biz": "신전떡볶이",
+      "date": "2026-09-17",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 303
+    },
+    {
+      "id": "bc5b3b9f-c96b-424d-bbd4-df2371a8d647",
+      "biz": "배고픈덮밥이 당산점",
+      "date": "2026-09-17",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 305
+    },
+    {
+      "id": "eb58dd06-76ee-48f9-b73a-1c733328599d",
+      "biz": "쌍용임대아파트관리사무소",
+      "date": "2026-09-18",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 299
+    },
+    {
+      "id": "93344d7f-e649-4aad-9c79-4bc4e8d9ba74",
+      "biz": "쌍용임대아파트관리사무소",
+      "date": "2026-09-21",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 300
+    },
+    {
+      "id": "b3ebfc63-ead3-4960-a2f1-a7d41f1e4182",
+      "biz": "쌍용임대아파트관리사무소",
+      "date": "2026-09-23",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 315
+    },
+    {
+      "id": "593800f1-9e12-4732-933d-4c2baf88031e",
+      "biz": "아웃백 스테이크하우스 중동롯데점(딥케어)",
+      "date": "2026-09-23",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 305
+    },
+    {
+      "id": "2b145600-a0ab-463a-a322-f3506561232b",
+      "biz": "쌍용임대아파트관리사무소",
+      "date": "2026-09-25",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 297
+    },
+    {
+      "id": "a6efad83-f971-454f-9097-36ab8f2e4f8b",
+      "biz": "쌍용임대아파트관리사무소",
+      "date": "2026-09-28",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 301
+    },
+    {
+      "id": "91e5ae9a-ba62-4602-a62f-233bd0f915b0",
+      "biz": "쌍용임대아파트관리사무소",
+      "date": "2026-09-30",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 300
+    },
+    {
+      "id": "5ae49c7f-6142-497e-890c-2e8d74d8898a",
+      "biz": "씨엘쏭",
+      "date": "2026-09-30",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 314
+    },
+    {
+      "id": "fe9960b4-9741-4322-ad3b-61538656b029",
+      "biz": "와리가리 대학동점",
+      "date": "2026-10-04",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 314
+    },
+    {
+      "id": "8e9a9752-7f62-4a2d-8000-d1eabd40274b",
+      "biz": "미미고찹쌀꽈배기",
+      "date": "2026-10-13",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 304
+    },
+    {
+      "id": "4bdf4cdb-0a00-4f20-b543-4aad185ee938",
+      "biz": "씨엘쏭",
+      "date": "2026-10-15",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 297
+    },
+    {
+      "id": "fa4abfff-5862-4864-9c51-49d35fd38054",
+      "biz": "미나미",
+      "date": "2026-10-15",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 325
+    },
+    {
+      "id": "8947cc99-c455-45af-84cd-448509fc26a7",
+      "biz": "엽기떡볶이 이천증포점",
+      "date": "2026-10-15",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 309
+    },
+    {
+      "id": "b577a8d0-abf8-476c-b412-b94b8a769975",
+      "biz": "윤찬방",
+      "date": "2026-10-16",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 312
+    },
+    {
+      "id": "9f606853-7c19-4405-ad5f-ff85a11b7e92",
+      "biz": "홍콩웍헤이",
+      "date": "2026-10-16",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 298
+    },
+    {
+      "id": "2b3e1864-29a8-4f3e-87f6-abddcbfebf87",
+      "biz": "우대포 트리플스트리트",
+      "date": "2026-10-16",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 307
+    },
+    {
+      "id": "4f015cd4-87d4-4ad1-9393-4b30c484699c",
+      "biz": "아침애만나",
+      "date": "2026-10-17",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 300
+    },
+    {
+      "id": "233617d4-af1a-4872-b1b2-6b0222fb16be",
+      "biz": "신전떡볶이",
+      "date": "2026-10-17",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 303
+    },
+    {
+      "id": "166e88b8-6bcb-4121-bf94-d7717940e1fe",
+      "biz": "배고픈덮밥이 당산점",
+      "date": "2026-10-17",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 305
+    },
+    {
+      "id": "2a1c43e3-df17-4d33-a5d1-eca495ca4614",
+      "biz": "아웃백 스테이크하우스 중동롯데점(딥케어)",
+      "date": "2026-10-23",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 304
+    },
+    {
+      "id": "5358cc3e-783a-4d37-9c23-c7328c3dc795",
+      "biz": "미미고찹쌀꽈배기",
+      "date": "2026-11-13",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 308
+    },
+    {
+      "id": "2af899e2-dda8-4452-a711-fb4c47c6015d",
+      "biz": "엽기떡볶이 이천증포점",
+      "date": "2026-11-15",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 303
+    },
+    {
+      "id": "76fb208a-0c65-4612-9aab-1cdfcd9f7c7a",
+      "biz": "우대포 트리플스트리트",
+      "date": "2026-11-16",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 302
+    },
+    {
+      "id": "6fc85fe0-6dbf-47f2-9137-412e8cade6df",
+      "biz": "홍콩웍헤이",
+      "date": "2026-11-16",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 310
+    },
+    {
+      "id": "ec91001e-b5a3-4550-bf05-65944c4926cb",
+      "biz": "윤찬방",
+      "date": "2026-11-16",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 304
+    },
+    {
+      "id": "f025a45f-2735-4318-a76f-5ace75c527bf",
+      "biz": "신전떡볶이",
+      "date": "2026-11-17",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 298
+    },
+    {
+      "id": "f9187588-c379-41e2-a8cd-9ab743b7b213",
+      "biz": "아침애만나",
+      "date": "2026-11-17",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 302
+    },
+    {
+      "id": "5134bfa2-c406-4daf-9558-65d474de8fa7",
+      "biz": "배고픈덮밥이 당산점",
+      "date": "2026-11-17",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 300
+    },
+    {
+      "id": "bc85f91d-e8d5-405b-bcc1-d9f3cf90522e",
+      "biz": "아웃백 스테이크하우스 중동롯데점(딥케어)",
+      "date": "2026-11-23",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 312
+    },
+    {
+      "id": "8e0d31fd-93fd-45db-8c4e-be8a82f6fee7",
+      "biz": "미미고찹쌀꽈배기",
+      "date": "2026-12-13",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 302
+    },
+    {
+      "id": "1bb0014b-3660-4e20-8161-d0970cb06cd6",
+      "biz": "미나미",
+      "date": "2026-12-15",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 296
+    },
+    {
+      "id": "df93d534-aedd-4a20-92ac-b28b665de549",
+      "biz": "엽기떡볶이 이천증포점",
+      "date": "2026-12-15",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 305
+    },
+    {
+      "id": "1c04f211-a6e4-464c-a490-5edd9aace25c",
+      "biz": "우대포 트리플스트리트",
+      "date": "2026-12-16",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 306
+    },
+    {
+      "id": "ffffde09-d6a9-4d9e-9f6b-00df63041415",
+      "biz": "윤찬방",
+      "date": "2026-12-16",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 307
+    },
+    {
+      "id": "58f7a06d-a907-4d91-a49e-7be0f6e8765d",
+      "biz": "홍콩웍헤이",
+      "date": "2026-12-16",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 312
+    },
+    {
+      "id": "1ee6ad1c-2f19-4099-924b-725a02ca8297",
+      "biz": "신전떡볶이",
+      "date": "2026-12-17",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 314
+    },
+    {
+      "id": "47626deb-d42f-4c3e-b800-8214ca1f04b2",
+      "biz": "배고픈덮밥이 당산점",
+      "date": "2026-12-17",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 300
+    },
+    {
+      "id": "5b8c66cc-9d71-45c9-aff2-e68315bdb188",
+      "biz": "아웃백 스테이크하우스 중동롯데점(딥케어)",
+      "date": "2026-12-23",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 304
+    },
+    {
+      "id": "dfdff6f8-99fc-4c6e-a151-fc7e7f2cf550",
+      "biz": "케이제이앤피치",
+      "date": "2026-12-31",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 307
+    },
+    {
+      "id": "c2fceece-711a-4ea1-8246-e3c8c7f0eca5",
+      "biz": "와리가리 대학동점",
+      "date": "2027-01-04",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 311
+    },
+    {
+      "id": "cf9a0504-1ed7-44b9-b073-aa209c4c2a3e",
+      "biz": "미미고찹쌀꽈배기",
+      "date": "2027-01-13",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 302
+    },
+    {
+      "id": "80ba3a06-336f-44ef-a42c-0dc0ca65552d",
+      "biz": "엽기떡볶이 이천증포점",
+      "date": "2027-01-15",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 302
+    },
+    {
+      "id": "9e031665-c6d9-46f7-8bfe-7e3e8636c5fb",
+      "biz": "윤찬방",
+      "date": "2027-01-16",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 308
+    },
+    {
+      "id": "66ccc93d-6605-46c5-b30f-8c5de4b8307a",
+      "biz": "우대포 트리플스트리트",
+      "date": "2027-01-16",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 304
+    },
+    {
+      "id": "4a9611c8-01ac-4f03-b219-93e79936fe74",
+      "biz": "홍콩웍헤이",
+      "date": "2027-01-16",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 301
+    },
+    {
+      "id": "e2337263-77d5-4879-b0e6-2b8256be7ed6",
+      "biz": "신전떡볶이",
+      "date": "2027-01-17",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 303
+    },
+    {
+      "id": "2ece6611-d5ad-4550-93e7-a5e62b135006",
+      "biz": "배고픈덮밥이 당산점",
+      "date": "2027-01-17",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 297
+    },
+    {
+      "id": "a214bc8a-4faa-4d8b-8247-cdf122200b9f",
+      "biz": "아웃백 스테이크하우스 중동롯데점(딥케어)",
+      "date": "2027-01-23",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 302
+    },
+    {
+      "id": "e30cfb58-945e-4abd-ba97-2f4c23fb9977",
+      "biz": "미미고찹쌀꽈배기",
+      "date": "2027-02-13",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 296
+    },
+    {
+      "id": "3b83d39b-29ab-4376-8e10-e0f39bef083a",
+      "biz": "미나미",
+      "date": "2027-02-15",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 309
+    },
+    {
+      "id": "11a1b5e7-3b6b-4a40-a0a1-d0f18b8bd2b9",
+      "biz": "우대포 트리플스트리트",
+      "date": "2027-02-16",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 302
+    },
+    {
+      "id": "b2d502eb-06f4-47bd-897e-2ee0d86a6300",
+      "biz": "홍콩웍헤이",
+      "date": "2027-02-16",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 302
+    },
+    {
+      "id": "4896428e-2b12-40ec-bce6-cc8ce8ff8320",
+      "biz": "배고픈덮밥이 당산점",
+      "date": "2027-02-17",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 302
+    },
+    {
+      "id": "ce6f5aae-1cdb-4d75-b615-7a9228fd5012",
+      "biz": "신전떡볶이",
+      "date": "2027-02-17",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 316
+    },
+    {
+      "id": "e1d9c242-e17d-42ca-b40d-b04da67129e8",
+      "biz": "아웃백 스테이크하우스 중동롯데점(딥케어)",
+      "date": "2027-02-23",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 322
+    },
+    {
+      "id": "a4b565ab-f8de-4d04-a49b-a781d771350e",
+      "biz": "미미고찹쌀꽈배기",
+      "date": "2027-03-13",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 304
+    },
+    {
+      "id": "11afe7f0-ae69-424b-aa74-019e2236d936",
+      "biz": "홍콩웍헤이",
+      "date": "2027-03-16",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 308
+    },
+    {
+      "id": "d58765d3-fee4-40e1-b921-3d13b7b05876",
+      "biz": "우대포 트리플스트리트",
+      "date": "2027-03-16",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 305
+    },
+    {
+      "id": "47dd0a05-778b-4f80-a84d-550d9565b9cf",
+      "biz": "배고픈덮밥이 당산점",
+      "date": "2027-03-17",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 303
+    },
+    {
+      "id": "31918822-6d36-4117-aecb-29bb7dec60e5",
+      "biz": "신전떡볶이",
+      "date": "2027-03-17",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 303
+    },
+    {
+      "id": "1d0f82cb-745f-46bc-bbb8-87cdb943054c",
+      "biz": "아웃백 스테이크하우스 중동롯데점(딥케어)",
+      "date": "2027-03-23",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 317
+    },
+    {
+      "id": "3a89b8c3-f3dc-4d11-9774-d4a1176c585e",
+      "biz": "와리가리 대학동점",
+      "date": "2027-04-04",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 302
+    },
+    {
+      "id": "453d4932-b051-4fa7-bb46-c6111a4f11e4",
+      "biz": "미미고찹쌀꽈배기",
+      "date": "2027-04-13",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 305
+    },
+    {
+      "id": "9b9fdfc5-4813-4580-9680-bce3751a707c",
+      "biz": "미나미",
+      "date": "2027-04-15",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 303
+    },
+    {
+      "id": "0d065f2d-447d-492a-8f72-2c5c010304b1",
+      "biz": "홍콩웍헤이",
+      "date": "2027-04-16",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 307
+    },
+    {
+      "id": "3d61b654-6797-4638-900d-03de33fe6c88",
+      "biz": "우대포 트리플스트리트",
+      "date": "2027-04-16",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 298
+    },
+    {
+      "id": "47365e37-b468-4848-86bd-d77cc778ee83",
+      "biz": "신전떡볶이",
+      "date": "2027-04-17",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 297
+    },
+    {
+      "id": "a5bacabb-eab7-47a2-8f95-8a89473b7d6e",
+      "biz": "배고픈덮밥이 당산점",
+      "date": "2027-04-17",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 315
+    },
+    {
+      "id": "6e112a75-efb5-419d-a984-078c06666139",
+      "biz": "아웃백 스테이크하우스 중동롯데점(딥케어)",
+      "date": "2027-04-23",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 301
+    },
+    {
+      "id": "2cbf562c-b72d-4666-b0c6-49e3bd40617a",
+      "biz": "갓잇 서초점",
+      "date": "2027-04-27",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 303
+    },
+    {
+      "id": "135c4aec-713d-49c7-9964-e8bb0108ca23",
+      "biz": "미미고찹쌀꽈배기",
+      "date": "2027-05-13",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 299
+    },
+    {
+      "id": "68c59e7e-30de-4726-a0ca-b35cfa62662d",
+      "biz": "우대포 트리플스트리트",
+      "date": "2027-05-16",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 306
+    },
+    {
+      "id": "ddd1dc7a-e072-4314-9d38-a550eac9c86b",
+      "biz": "신전떡볶이",
+      "date": "2027-05-17",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 298
+    },
+    {
+      "id": "0bd95c5c-b50e-4c31-bbc7-2375ff8fc875",
+      "biz": "아웃백 스테이크하우스 중동롯데점(딥케어)",
+      "date": "2027-05-23",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 301
+    },
+    {
+      "id": "d6726e05-cb0a-4b7a-b38f-6abe24512e84",
+      "biz": "미미고찹쌀꽈배기",
+      "date": "2027-06-13",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 297
+    },
+    {
+      "id": "7c6325f0-ccc8-40c4-b171-721f6e53c3ad",
+      "biz": "미나미",
+      "date": "2027-06-15",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 300
+    },
+    {
+      "id": "1e2fc7e2-1032-42f4-94ce-8c9a06093237",
+      "biz": "신전떡볶이",
+      "date": "2027-06-17",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 304
+    },
+    {
+      "id": "53bdad30-61b6-4d51-9ca0-1289e28f6fbe",
+      "biz": "아웃백 스테이크하우스 중동롯데점(딥케어)",
+      "date": "2027-06-23",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 304
+    },
+    {
+      "id": "062c4d3e-1a34-4a50-a626-9608ee757208",
+      "biz": "미미고찹쌀꽈배기",
+      "date": "2027-07-13",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 300
+    },
+    {
+      "id": "e717f7d3-15af-4a7e-aba2-aeaeb69c2f3a",
+      "biz": "미나미",
+      "date": "2027-08-15",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 301
+    },
+    {
+      "id": "0d315d83-e30e-4f75-988e-4d627c96f78d",
+      "biz": "갓잇 서초점",
+      "date": "2027-08-27",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 300
+    },
+    {
+      "id": "2614dbee-1480-4d81-b70d-eb757f240aa1",
+      "biz": "미나미",
+      "date": "2027-10-15",
+      "ok": true,
+      "status": 200,
+      "elapsedMs": 295
+    }
+  ]
+}

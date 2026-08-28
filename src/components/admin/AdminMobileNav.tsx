@@ -72,6 +72,7 @@ const NAV_ITEMS: NavItem[] = [
     // Phase 27-BI: 운영 그룹 신규 추가 (desktop Sidebar와 정합)
     type: 'group', label: '운영', icon: <Activity size={16} />, roles: ['admin'],
     children: [
+      { href: '/admin/ops/dashboard', label: '운영 관리 대시보드' },
       { href: '/admin/ops/settings/intent', label: '대표 의도' },
       { href: '/admin/ops/settings/metrics', label: '지표 설정' },
       { href: '/admin/ops/settings/functions', label: '기능 담당' },

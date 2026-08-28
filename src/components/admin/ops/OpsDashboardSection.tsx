@@ -71,7 +71,12 @@ function deadlineDday(dueDate: string): number {
   return Math.floor((t2 - t1) / (24 * 3600 * 1000))
 }
 
-export function OpsDashboardSection() {
+interface OpsDashboardSectionProps {
+  /** 대표 의도 배너 표시 여부 (홈에선 HomeIntentSection 이 별도로 표시하므로 dashboard 페이지에선 false) */
+  showIntent?: boolean
+}
+
+export function OpsDashboardSection({ showIntent = true }: OpsDashboardSectionProps = {}) {
   const [data, setData] = useState<DashboardResponse | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -116,14 +121,16 @@ export function OpsDashboardSection() {
 
   return (
     <section className="flex flex-col gap-4">
-      {/* ─── 1. 대표 의도 배너 ───────────────── */}
-      <IntentBanner
-        purpose={intent.purpose}
-        intent_1={intent.intent_1}
-        intent_2={intent.intent_2}
-        intent_3={intent.intent_3}
-        year={intent.year}
-      />
+      {/* ─── 1. 대표 의도 배너 (홈에선 HomeIntentSection 이 대신 표시) ───────────────── */}
+      {showIntent && (
+        <IntentBanner
+          purpose={intent.purpose}
+          intent_1={intent.intent_1}
+          intent_2={intent.intent_2}
+          intent_3={intent.intent_3}
+          year={intent.year}
+        />
+      )}
 
       {/* ─── 2. 심장박동 4타일 ─────────────── */}
       <div>
