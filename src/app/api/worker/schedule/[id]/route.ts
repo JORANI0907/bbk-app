@@ -16,7 +16,7 @@ export async function GET(
 
   let query = supabase
     .from('service_schedules')
-    .select('*, customer:customers(*), worker:users(id,name,phone)')
+    .select('*, customer:customers(*), worker:users!worker_id(id,name,phone)')
     .eq('id', params.id)
 
   // 직원은 본인 배정 일정만, 관리자는 전체 접근

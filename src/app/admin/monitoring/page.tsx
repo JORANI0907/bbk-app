@@ -40,7 +40,7 @@ export default function AdminMonitoringPage() {
       .select(`
         *,
         customer:customers(business_name, address),
-        worker:users(name, phone)
+        worker:users!worker_id(name, phone)
       `)
       .eq('scheduled_date', today)
       .eq('status', 'in_progress')

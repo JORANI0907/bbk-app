@@ -80,7 +80,7 @@ export default async function CustomerHomePage() {
     hasCustomer
       ? supabase
           .from('service_schedules')
-          .select('*, worker:users(id,name), application:service_applications(construction_time), customer:customers(customer_type)')
+          .select('*, worker:users!worker_id(id,name), application:service_applications(construction_time), customer:customers(customer_type)')
           .in('customer_id', customerIds)
           .gte('scheduled_date', today)
           .in('status', ['scheduled', 'confirmed'])
@@ -100,7 +100,7 @@ export default async function CustomerHomePage() {
     hasCustomer
       ? supabase
           .from('service_schedules')
-          .select('*, worker:users(id,name), customer:customers(customer_type)')
+          .select('*, worker:users!worker_id(id,name), customer:customers(customer_type)')
           .in('customer_id', customerIds)
           .eq('status', 'completed')
           .is('deleted_at', null)

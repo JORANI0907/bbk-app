@@ -42,7 +42,7 @@ export async function GET(request: Request) {
 
   const { data: recentRaw, error: recentErr } = await supabase
     .from('service_schedules')
-    .select('*, worker:users(id,name), closing_checklists(condition_score, recommended_services, customer_comment)')
+    .select('*, worker:users!worker_id(id,name), closing_checklists(condition_score, recommended_services, customer_comment)')
     .eq('customer_id', customer.id)
     .eq('status', 'completed')
     .is('deleted_at', null)

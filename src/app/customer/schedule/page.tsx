@@ -19,7 +19,7 @@ export default async function CustomerSchedulePage() {
 
   const { data: schedules } = await supabase
     .from('service_schedules')
-    .select('*, worker:users(id,name), application:service_applications(construction_time), customer:customers(customer_type)')
+    .select('*, worker:users!worker_id(id,name), application:service_applications(construction_time), customer:customers(customer_type)')
     .in('customer_id', customerIds)
     .is('deleted_at', null)
     .order('scheduled_date', { ascending: false })
