@@ -1,7 +1,7 @@
 'use client'
 
 /**
- * 고객 클레임 관리 페이지 (SPEC 4.4 · Phase 1 v2 S4)
+ * 고객 A/S 요청 관리 페이지 (SPEC 4.4 · Phase 1 v2 S4)
  * PLAN v2 §3.4 (수정 매핑)
  *
  * - 리스트: 미해결/전체 세그먼트
@@ -17,7 +17,7 @@ import { AlertOctagon, Plus, CheckCircle2, Repeat, ArrowLeft, X, Copy, ExternalL
 // D: 고객 자율 접수 URL (카톡비즈·안내문자·QR 등에 배포)
 const CUSTOMER_CLAIM_URL = 'https://app.bbkorea.co.kr/customer/claims/new'
 
-interface CustomerBrief { id: string; business_name: string; owner_name: string | null; phone: string | null }
+interface CustomerBrief { id: string; business_name: string; contact_name: string | null; contact_phone: string | null }
 
 interface Claim {
   id: string
@@ -33,7 +33,7 @@ interface Claim {
   source?: 'customer_form' | 'admin_manual' | 'phone_call' | null
 }
 
-interface CustomerRow { id: string; business_name: string; owner_name: string | null }
+interface CustomerRow { id: string; business_name: string; contact_name: string | null }
 
 type FilterTab = 'open' | 'all'
 
@@ -115,7 +115,7 @@ export default function ClaimsPage() {
   }
 
   const resolve = async (id: string) => {
-    if (!confirm('이 클레임을 해결 처리하시겠습니까?')) return
+    if (!confirm('이 A/S 요청을 해결 처리하시겠습니까?')) return
     try {
       const res = await fetch(`/api/admin/claims/${id}`, {
         method: 'PATCH',
@@ -147,13 +147,13 @@ export default function ClaimsPage() {
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-2">
           <Link href="/admin" className="text-text-tertiary hover:text-brand-600"><ArrowLeft size={18} /></Link>
-          <h1 className="text-xl font-bold text-text-primary flex items-center gap-2"><AlertOctagon size={20} className="text-state-danger" /> 고객 클레임</h1>
+          <h1 className="text-xl font-bold text-text-primary flex items-center gap-2"><AlertOctagon size={20} className="text-state-danger" /> 고객 A/S 요청</h1>
         </div>
         <button
           onClick={() => setShowForm(v => !v)}
           className="btn-toss-primary inline-flex items-center gap-1.5 bg-brand-600 text-white px-3 py-1.5 rounded-lg text-sm font-semibold"
         >
-          {showForm ? <><X size={14} /> 접기</> : <><Plus size={14} /> 새 클레임</>}
+          {showForm ? <><X size={14} /> 접기</> : <><Plus size={14} /> 새 A/S 요청</>}
         </button>
       </div>
 
@@ -199,7 +199,7 @@ export default function ClaimsPage() {
             <li>접수 완료 → 이 페이지에 <b>&quot;고객 자율&quot;</b> 뱃지로 표시 + Slack 즉시 알림</li>
           </ol>
           <p className="text-[10px] text-text-tertiary mt-2 leading-relaxed">
-            등록된 연락처면 업체명이 자동 매칭됩니다. 미매칭 접수는 <b>&quot;미매칭·관리자 확인 필요&quot;</b>로 표시되니 신규 고객 등록 후 연결하세요. 전화 상담은 위 &quot;새 클레임&quot; 버튼으로 직접 등록.
+            등록된 연락처면 업체명이 자동 매칭됩니다. 미매칭 접수는 <b>&quot;미매칭·관리자 확인 필요&quot;</b>로 표시되니 신규 고객 등록 후 연결하세요. 전화 상담은 위 &quot;새 A/S 요청&quot; 버튼으로 직접 등록.
           </p>
         </div>
       </div>
@@ -211,7 +211,7 @@ export default function ClaimsPage() {
               <label className={LABEL}>고객 (필수)</label>
               <select className={INPUT} value={form.customer_id} onChange={e => setForm({ ...form, customer_id: e.target.value })}>
                 <option value="">선택</option>
-                {customers.map(c => <option key={c.id} value={c.id}>{c.business_name} {c.owner_name ? `(${c.owner_name})` : ''}</option>)}
+                {customers.map(c => <option key={c.id} value={c.id}>{c.business_name} {c.contact_name ? `(${c.contact_name})` : ''}</option>)}
               </select>
             </div>
             <div>
@@ -221,7 +221,7 @@ export default function ClaimsPage() {
           </div>
           <div>
             <label className={LABEL}>내용 (필수)</label>
-            <textarea className={INPUT + ' resize-none'} rows={3} value={form.content} onChange={e => setForm({ ...form, content: e.target.value })} placeholder="클레임 상세 내용" />
+            <textarea className={INPUT + ' resize-none'} rows={3} value={form.content} onChange={e => setForm({ ...form, content: e.target.value })} placeholder="A/S 요청 상세 내용" />
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <div>
@@ -271,7 +271,7 @@ export default function ClaimsPage() {
       {loading ? (
         <div className="p-6 text-center text-text-tertiary text-sm">불러오는 중…</div>
       ) : claims.length === 0 ? (
-        <div className="p-6 text-center text-text-tertiary text-sm bg-surface border border-border-subtle rounded-2xl">클레임이 없습니다.</div>
+        <div className="p-6 text-center text-text-tertiary text-sm bg-surface border border-border-subtle rounded-2xl">A/S 요청이 없습니다.</div>
       ) : (
         <ul className="bg-surface border border-border-subtle rounded-2xl divide-y divide-border-subtle overflow-hidden">
           {claims.map(c => {

@@ -45,7 +45,7 @@ const NAV_ITEMS: NavItem[] = [
       { href: '/admin/regular-care', label: '장비관리보고'},
       { href: '/admin/workers', label: '직원관리' },
       { href: '/admin/incidents', label: '경위서' },
-      { href: '/admin/claims', label: '고객 클레임' },
+      { href: '/admin/claims', label: '고객 A/S 요청' },
       { href: '/admin/inventory', label: '재고관리', badgeKey: 'inventory' },
     ],
   },
