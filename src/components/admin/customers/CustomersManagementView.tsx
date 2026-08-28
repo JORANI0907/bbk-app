@@ -1630,9 +1630,14 @@ export function CustomersManagementView({
    * Phase 5-E: 기간 기반 모달 오픈 — mode에 따라 생성/수정 분기
    * - 'create': 신규 일정 생성 (기간 내 방문일자 새로 만듦)
    * - 'cleanup': 기존 미완료 일정 정리 (기간 내 새 방문일정에 없는 것 삭제, INSERT X)
+   *
+   * overrideIds: 세부창에서 호출될 때 setCheckedIds 후 즉시 openScheduleGenModal 을 호출하면
+   * React 배치 업데이트로 인해 checkedIds 는 아직 옛 값이라 검증에 걸림.
+   * overrideIds 로 [selected.id] 를 직접 전달해서 우회.
    */
-  const openScheduleGenModal = (mode: 'create' | 'cleanup' = 'create') => {
-    const regularIds = checkedIds.filter(id => {
+  const openScheduleGenModal = (mode: 'create' | 'cleanup' = 'create', overrideIds?: string[]) => {
+    const sourceIds = overrideIds ?? checkedIds
+    const regularIds = sourceIds.filter(id => {
       const c = customers.find(c => c.id === id)
       return c?.customer_type === '정기딥케어' || c?.customer_type === '정기엔드케어'
     })
@@ -1640,6 +1645,9 @@ export function CustomersManagementView({
       toast.error('정기딥케어 또는 정기엔드케어 고객을 선택해주세요.')
       return
     }
+    // overrideIds 로 진입한 경우에도 handleGenerateSchedulesBulk 가 checkedIds 를 읽으므로
+    // state 도 함께 세팅해 두 경로가 일치하도록 보장.
+    if (overrideIds) setCheckedIds(regularIds)
     const noManagerCustomers = regularIds
       .map(id => customers.find(c => c.id === id))
       .filter((c): c is NonNullable<typeof c> => !!c && !c.assigned_user_id)
@@ -3970,11 +3978,11 @@ export function CustomersManagementView({
                   {/* Phase 5-E: 계약일정 저장·생성 버튼 — 둘 다 기간 모달 오픈 */}
                   {!isNew && selected && (
                     <div className="flex justify-end gap-1.5 mt-1">
-                      <button onClick={() => { setCheckedIds([selected.id]); openScheduleGenModal('cleanup') }} disabled={saving}
+                      <button onClick={() => openScheduleGenModal('cleanup', [selected.id])} disabled={saving}
                         className="px-3 py-1.5 text-xs font-medium bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors disabled:opacity-50">
                         수정 반영
                       </button>
-                      <button onClick={() => { setCheckedIds([selected.id]); openScheduleGenModal('create') }} disabled={saving}
+                      <button onClick={() => openScheduleGenModal('create', [selected.id])} disabled={saving}
                         className="px-3 py-1.5 text-xs font-medium bg-white hover:bg-purple-50 text-purple-700 border border-purple-300 rounded-lg transition-colors disabled:opacity-50">
                         생성
                       </button>
@@ -4152,11 +4160,11 @@ export function CustomersManagementView({
                   {/* Phase 5-E: 계약일정 저장·생성 버튼 — 둘 다 기간 모달 오픈 */}
                   {!isNew && selected && (
                     <div className="flex justify-end gap-1.5 mt-1">
-                      <button onClick={() => { setCheckedIds([selected.id]); openScheduleGenModal('cleanup') }} disabled={saving}
+                      <button onClick={() => openScheduleGenModal('cleanup', [selected.id])} disabled={saving}
                         className="px-3 py-1.5 text-xs font-medium bg-brand-600 hover:bg-brand-700 text-white rounded-lg transition-colors disabled:opacity-50">
                         수정 반영
                       </button>
-                      <button onClick={() => { setCheckedIds([selected.id]); openScheduleGenModal('create') }} disabled={saving}
+                      <button onClick={() => openScheduleGenModal('create', [selected.id])} disabled={saving}
                         className="px-3 py-1.5 text-xs font-medium bg-white hover:bg-brand-50 text-brand-700 border border-brand-300 rounded-lg transition-colors disabled:opacity-50">
                         생성
                       </button>
@@ -4588,9 +4596,9 @@ export function CustomersManagementView({
 
     </div>
 
-    {/* 서비스 일정 생성 모달 */}
+    {/* 서비스 일정 생성 모달 — 세부창(z-60) 위에 뜨도록 z-[90] */}
     {scheduleGenModal.open && (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => !scheduleGenModal.submitting && setScheduleGenModal((s) => ({ ...s, open: false }))}>
+      <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/50 p-4" onClick={() => !scheduleGenModal.submitting && setScheduleGenModal((s) => ({ ...s, open: false }))}>
         <div className="bg-surface rounded-2xl shadow-modal max-w-md w-full p-6" onClick={(e) => e.stopPropagation()}>
           <h2 className="text-lg font-bold text-text-primary mb-1">
             {scheduleGenModal.mode === 'cleanup' ? '계약일정 저장 (기존 일정 갈아엎기)' : '서비스 일정 생성 (신규)'}
