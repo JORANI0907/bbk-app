@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 
+// Next.js 14 App Router 는 request 파라미터를 참조하지 않는 route handler 를
+// 정적 캐시 처리해서 응답이 최초 빌드 시점 데이터로 굳어짐. 이 파일은 _request 를
+// 명시적으로 무시하므로 dynamic 힌트를 켜야 매 호출마다 최신 DB 값을 반환한다.
+// (세부창 저장 후 새로고침 시 옛 값이 계속 표시되던 광범위 버그의 근본 원인.)
+export const dynamic = 'force-dynamic'
+
 // 고객 세부창 전용 조회 — 리스트 슬림 필드로는 부족한 전체 필드를 반환.
 // 리스트(GET /api/admin/customers?page=1) 는 25개 필드만 내려주므로,
 // 세부창 진입 시 이 라우트로 전체 필드를 다시 fetch 한다.
