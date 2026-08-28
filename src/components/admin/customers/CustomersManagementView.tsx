@@ -907,19 +907,20 @@ export function CustomersManagementView({
       .catch(() => setRevenueSummary({ week: 0, month: 0, weeks: [] }))
   }, [archivedView, forceCustomerType])
 
-  // 케어매뉴얼 편집에서 돌아올 때 ?detail=ID 파라미터로 세부화면 복원
+  // 케어매뉴얼 편집에서 돌아올 때 ?detail=ID 파라미터로 세부화면 복원.
+  // handleSelect 를 호출해서 lazy full fetch 도 함께 발동 → slim 에 없는 필드
+  // (special_notes/고객요청사항, notes/관리자메모, admin_notes/관리자요청사항 등)
+  // 도 정상 표시됨. 이전엔 setForm(toForm(slim))만 호출해서 refresh 후 이 필드들이
+  // 계속 빈 값으로 보이던 심각한 버그가 있었음.
   useEffect(() => {
     const detailId = searchParams.get('detail')
     if (!detailId || customers.length === 0 || selected) return
     const target = customers.find(c => c.id === detailId)
     if (target) {
-      setSelected(target)
-      setIsNew(false)
-      setForm(toForm(target))
-      setVisitWeekdays(target.visit_weekdays ?? [])
-      setVisitMonthlyDates(target.visit_monthly_dates ?? [])
+      handleSelect(target)
       router.replace('/admin/customers', { scroll: false })
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [customers, searchParams, selected, router])
 
   // 리스트 미리보기 청구 뱃지 갱신 — 편집 폼에서 청구 변경 시 부모가 호출

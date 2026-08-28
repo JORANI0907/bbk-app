@@ -190,6 +190,9 @@ const FIELDS_SLIM = [
   'archived_at', 'auto_notification_paused',
   // 시공정보 (리스트에 표시되는 케어범위)
   'care_scope',
+  // 텍스트 메모 3종 — 세부창 진입 시 lazy full fetch 딜레이 동안 빈 값으로 표시되던
+  // "저장 안 됨" 착각 버그 방지. 리스트 응답 크기 소폭 증가하나 관리성 우선.
+  'special_notes', 'admin_notes', 'notes',
   // 결제·금액 (리스트에 총액·잔금 표시)
   'payment_method', 'supply_amount', 'vat', 'deposit', 'balance',
   'tax_invoice_issued',
