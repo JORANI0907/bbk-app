@@ -22,8 +22,8 @@ export async function POST(request: NextRequest) {
     const { phone, otp, category, content, reporter_name: bodyName, business_name: bodyBiz } = body
     const isRework = !!body.is_rework
 
-    if (!phone || !otp) {
-      return NextResponse.json({ error: '연락처와 인증번호가 필요합니다.' }, { status: 400 })
+    if (!phone) {
+      return NextResponse.json({ error: '연락처가 필요합니다.' }, { status: 400 })
     }
     if (!category || !(VALID_CATEGORIES as readonly string[]).includes(category)) {
       return NextResponse.json({ error: '카테고리를 선택해주세요.' }, { status: 400 })
@@ -34,10 +34,19 @@ export async function POST(request: NextRequest) {
 
     const normalizedPhone = String(phone).replace(/-/g, '')
 
-    // OTP 검증 (성공 시 store에서 자동 삭제 → 일회용)
-    const verify = otpStore.verify(normalizedPhone, String(otp).trim())
-    if (!verify.success) {
-      return NextResponse.json({ error: verify.error ?? '인증 실패' }, { status: 401 })
+    // 인증: 두 가지 경로 지원
+    //  1) OTP 를 함께 보낸 경우 (구 클라이언트 호환) — 여기서 최종 검증
+    //  2) verify-otp API 로 사전 검증 통과한 경우 — verified 상태 소비
+    if (otp) {
+      const verify = otpStore.verify(normalizedPhone, String(otp).trim())
+      if (!verify.success) {
+        return NextResponse.json({ error: verify.error ?? '인증 실패' }, { status: 401 })
+      }
+    } else {
+      const consumed = otpStore.consumeVerified(normalizedPhone)
+      if (!consumed) {
+        return NextResponse.json({ error: '인증이 만료되었습니다. 처음부터 다시 진행해주세요.' }, { status: 401 })
+      }
     }
 
     // customer 매칭 시도 — 미등록이면 사용자 입력값(bodyName/bodyBiz) 로 저장.
