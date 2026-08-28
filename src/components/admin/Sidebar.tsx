@@ -96,27 +96,27 @@ export function Sidebar({ role, userName, navBadges = {}, navLayout, onLayoutSav
       {/* 로고 */}
       <div className="flex items-center gap-3 px-6 py-5 border-b border-border-subtle">
         <img src="/icons/icon-192x192.png" alt="BBK 공간케어 로고" className="w-10 h-10 rounded-xl object-cover shadow-soft" />
-        <div className="flex-1 min-w-0">
-          <p className="font-bold text-text-primary leading-tight truncate">BBK 공간케어</p>
+        <div>
+          <p className="font-bold text-text-primary leading-tight">BBK 공간케어</p>
           <span className={`text-xs font-medium px-1.5 py-0.5 rounded-full ${roleBadgeClass}`}>
             {roleLabel}
           </span>
         </div>
+      </div>
+
+      {/* 메뉴 */}
+      <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-0.5 relative">
         {role === 'admin' && (
           <button
             type="button"
             onClick={() => setEditorOpen(true)}
             aria-label="탭 순서 편집"
             title="탭 순서 편집"
-            className="shrink-0 w-8 h-8 inline-flex items-center justify-center rounded-lg text-text-tertiary hover:bg-surface-sunken hover:text-brand-600 transition-colors"
+            className="absolute top-4 right-3 z-10 w-7 h-7 inline-flex items-center justify-center rounded-md text-text-tertiary hover:bg-surface hover:text-brand-600 hover:shadow-card transition-all"
           >
-            <Settings2 size={16} />
+            <Settings2 size={14} />
           </button>
         )}
-      </div>
-
-      {/* 메뉴 */}
-      <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-0.5">
         {items.map(item => {
           if (item.type === 'leaf') {
             const active = isLeafActive(item.href)
