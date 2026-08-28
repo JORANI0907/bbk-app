@@ -18,7 +18,7 @@ import { ServiceManagementPage } from '@/components/admin/applications/ServiceMa
 import { CustomersCalendarGrid, type CalendarApp } from '@/components/admin/customers/CustomersCalendarGrid'
 import { computeAppAmount, fmtAmount } from '@/components/admin/customers/calendar-amount'
 import { TODAY_ROW_BORDER, TODAY_ROW_BG, TODAY_ROW_SHADOW } from '@/lib/ui/today-styles'
-import { readCache, writeCache } from '@/lib/browser-cache'
+import { readCache, writeCache, clearCache } from '@/lib/browser-cache'
 import { VisitCycleEditor } from '@/components/admin/customers/VisitCycleEditor'
 import type { VisitCycleUnit, VisitCycleConfig } from '@/lib/schedule-generator'
 
@@ -1059,22 +1059,31 @@ export function CustomersManagementView({
 
     // 성능: 리스트는 fields=slim 으로 25개만 받아왔으므로, 세부창 편집용 전체 필드를 lazy fetch.
     // 이미 온 slim 데이터로 즉시 세부창을 띄운 뒤, 백그라운드에서 전체 데이터로 form 을 덮어써 편집 준비.
+    //
+    // slimSnapshot: handleSelect 진입 시점의 slim 폼 값 스냅샷.
+    // full 이 도착한 시점에 prev[k] === slimSnapshot[k] 이면 사용자가 편집 안 한 필드 → full 로 갱신.
+    // prev[k] !== slimSnapshot[k] 이면 사용자가 편집 중 → 그 값 보존.
+    // (기존 "빈 값일 때만 덮어씀" 로직은 slim 이 stale 값을 가지고 있을 때 갱신 실패 → 저장 후 새로고침 시 옛 값이 계속 표시되는 버그의 원인)
+    const slimSnapshot = toForm(c)
+    const targetId = c.id
     fetch(`/api/admin/customers/${c.id}`)
       .then(r => r.ok ? r.json() : null)
       .then(j => {
         if (!j?.customer) return
         const full = j.customer as Customer
-        // 세부창을 다른 고객으로 이미 이동했으면 무시
+        // 세부창을 다른 고객으로 이미 이동했으면 무시 (stale response 방어)
+        if (full.id !== targetId) return
         setSelected(prev => (prev && prev.id === full.id) ? { ...prev, ...full } : prev)
-        // 사용자가 이미 입력한 값(prev에 실값이 있음)은 보존하고,
-        // slim 에 없어서 빈 상태로 있던 필드만 full 로 채운다.
-        // (기존 { ...toForm(full), ...prev } 방식은 slim의 빈 문자열이 full의 실제값을 덮어써 필드가 사라지는 사고 유발)
         setForm(prev => {
           const fullForm = toForm(full)
           const merged: Record<string, unknown> = { ...prev }
+          const snapshotObj = slimSnapshot as Record<string, unknown>
           for (const [k, v] of Object.entries(fullForm)) {
             const cur = merged[k]
-            if (cur === '' || cur === null || cur === undefined) {
+            const initial = snapshotObj[k]
+            // 사용자가 편집 안 함(prev === slim 스냅샷) → full 값으로 갱신
+            // 사용자가 편집함 → 사용자 입력 보존
+            if (cur === initial) {
               merged[k] = v
             }
           }
@@ -1346,6 +1355,9 @@ export function CustomersManagementView({
         handleSelect(newCustomer)
         setIsNew(false)
         toast.success('고객이 추가되었습니다.')
+        // 캐시 무효화 — 다음 새로고침 시 fresh 데이터로 즉시 표시
+        clearCache('customers-list-active')
+        clearCache('customers-list-archived')
         autoGenerateBillings(newCustomer.id)
         // pending 신청서(app:xxx)에서 유입된 경우 → 생성된 customer_id 연결
         if (pendingAppId) {
@@ -1379,6 +1391,9 @@ export function CustomersManagementView({
         const data = await res.json()
         if (!res.ok) throw new Error(data.error || '저장 실패')
         toast.success('저장되었습니다.')
+        // 캐시 무효화 — 저장 성공 후 새로고침 시 stale 데이터 안 뜨도록
+        clearCache('customers-list-active')
+        clearCache('customers-list-archived')
         // 유형 변경 후 새 유형이 현재 필터에 없으면 자동 추가 → 저장 직후 리스트에서 사라지지 않도록
         if (typeChanged) {
           const nt = nextType as FilterOption
