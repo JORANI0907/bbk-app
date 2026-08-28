@@ -19,7 +19,7 @@ const VALID_CATEGORIES = ['청소 미흡', '파손·훼손', '시간 지연', '�
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { phone, otp, category, content } = body
+    const { phone, otp, category, content, reporter_name: bodyName, business_name: bodyBiz } = body
     const isRework = !!body.is_rework
 
     if (!phone || !otp) {
@@ -40,7 +40,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: verify.error ?? '인증 실패' }, { status: 401 })
     }
 
-    // customer 재조회 (send-otp 시점 이후 상태 변화 방어)
+    // customer 매칭 시도 — 미등록이면 사용자 입력값(bodyName/bodyBiz) 로 저장.
+    // 관리자가 접수 리스트에서 후속 매칭 처리.
     const supabase = createServiceClient()
     const { data: customer } = await supabase
       .from('customers')
@@ -50,22 +51,21 @@ export async function POST(request: NextRequest) {
       .limit(1)
       .maybeSingle()
 
-    if (!customer) {
-      return NextResponse.json({ error: '고객 정보를 찾을 수 없습니다.' }, { status: 404 })
-    }
+    const reporterName = customer?.contact_name ?? (typeof bodyName === 'string' ? bodyName.trim() : null) ?? null
+    const businessName = customer?.business_name ?? (typeof bodyBiz === 'string' ? bodyBiz.trim() : null) ?? null
 
-    // claims INSERT
+    // claims INSERT (customer_id 는 매칭 실패 시 null → 관리자 후속 처리)
     const { data: claim, error } = await supabase
       .from('claims')
       .insert({
-        customer_id: customer.id,
+        customer_id: customer?.id ?? null,
         occurred_at: new Date().toISOString(),
         content: content.trim(),
         category,
         is_rework: isRework,
         reporter_phone: normalizedPhone,
-        reporter_name: customer.contact_name ?? null,
-        business_name: customer.business_name ?? null,
+        reporter_name: reporterName,
+        business_name: businessName,
         source: 'customer_form',
       })
       .select('id')
@@ -84,8 +84,8 @@ export async function POST(request: NextRequest) {
     })
     sendSlack(
       `🚨 *새 클레임 접수 (고객 자율)*\n` +
-      `• 업체: ${customer.business_name ?? '-'}\n` +
-      `• 담당자: ${customer.contact_name ?? '-'}\n` +
+      `• 업체: ${businessName ?? '-'}${customer ? '' : ' (미매칭·관리자 확인 필요)'}\n` +
+      `• 담당자: ${reporterName ?? '-'}\n` +
       `• 연락처: ${normalizedPhone}\n` +
       `• 카테고리: ${category}\n` +
       `• 재작업 요청: ${isRework ? '✅' : '❌'}\n` +
@@ -96,8 +96,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       claim_id: claim.id,
-      customer_name: customer.contact_name,
-      business_name: customer.business_name,
+      customer_name: reporterName,
+      business_name: businessName,
+      matched: !!customer,
     })
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
