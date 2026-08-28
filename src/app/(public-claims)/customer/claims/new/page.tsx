@@ -21,6 +21,8 @@ export default function CustomerClaimsNewPage() {
   const [otp, setOtp] = useState('')
   const [category, setCategory] = useState<string>('')
   const [content, setContent] = useState('')
+  const [reporterName, setReporterName] = useState('')
+  const [businessName, setBusinessName] = useState('')
   const [isRework, setIsRework] = useState(false)
   const [loading, setLoading] = useState(false)
   const [cooldown, setCooldown] = useState(0)
@@ -82,6 +84,9 @@ export default function CustomerClaimsNewPage() {
           category,
           content: content.trim(),
           is_rework: isRework,
+          // 미등록 연락처 대비: 사용자 직접 입력값 함께 전달 (매칭 성공 시 서버에서 무시)
+          reporter_name: reporterName.trim() || null,
+          business_name: businessName.trim() || null,
         }),
       })
       const data = await res.json()
@@ -154,6 +159,29 @@ export default function CustomerClaimsNewPage() {
                 </button>
               </div>
               <p className="text-[10px] text-text-tertiary mt-1">5분간 유효 · 5회 실패 시 15분 잠금</p>
+            </div>
+
+            <div>
+              <label className="block text-sm font-semibold text-text-primary mb-1.5">이름 <span className="text-text-tertiary font-normal">(선택)</span></label>
+              <input
+                type="text"
+                value={reporterName}
+                onChange={e => setReporterName(e.target.value)}
+                placeholder="홍길동"
+                className="w-full border border-border rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-semibold text-text-primary mb-1.5">업체명 <span className="text-text-tertiary font-normal">(선택)</span></label>
+              <input
+                type="text"
+                value={businessName}
+                onChange={e => setBusinessName(e.target.value)}
+                placeholder="예: OO식당"
+                className="w-full border border-border rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+              />
+              <p className="text-[10px] text-text-tertiary mt-1">등록된 연락처는 자동으로 채워집니다. 잊으신 경우 직접 입력해주세요.</p>
             </div>
 
             <div>
