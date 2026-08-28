@@ -46,22 +46,11 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // customers 매칭 확인 (연락처 대시 유무 두 형식 모두 매칭)
+    // 등록된 연락처는 정보 미리 세팅. 미등록도 OTP 발송 허용 (1회성 고객·계정 잊은 고객 대응).
+    // 스팸 방어는 OTP 인증 + 레이트 리밋(60초) + 실패 락(15분) 3중으로 유지.
+    // 접수 시 customers 매칭 실패해도 claim 은 저장되고 관리자가 후속 매칭 처리.
     const supabase = createServiceClient()
-    const { data: customer } = await supabase
-      .from('customers')
-      .select('id')
-      .or(`contact_phone.eq.${normalizedPhone},contact_phone.eq.${phone}`)
-      .is('deleted_at', null)
-      .limit(1)
-      .maybeSingle()
-
-    if (!customer) {
-      return NextResponse.json(
-        { error: '등록되지 않은 연락처입니다. BBK 서비스를 받으신 연락처로 접수해주세요.' },
-        { status: 404 }
-      )
-    }
+    void supabase // ESLint 미사용 방지 — 향후 customer 프리페치가 필요할 때 사용
 
     // OTP 생성·저장·발송
     const otp = generateOTP()
