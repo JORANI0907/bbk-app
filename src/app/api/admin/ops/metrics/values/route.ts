@@ -284,10 +284,19 @@ export async function GET(request: NextRequest) {
     }
   })
 
-  return NextResponse.json({
-    ok: true,
-    generated_at: new Date().toISOString(),
-    month,
-    metrics,
-  })
+  return NextResponse.json(
+    {
+      ok: true,
+      generated_at: new Date().toISOString(),
+      month,
+      metrics,
+    },
+    {
+      headers: {
+        // Batch E-3: 관리자 대시보드 반복 로드 시 DB 부하 감소
+        // 세션 쿠키 기반 인증이라 private 캐시만 사용 (CDN 공유 캐시 금지)
+        'Cache-Control': 'private, max-age=30, stale-while-revalidate=120',
+      },
+    }
+  )
 }
