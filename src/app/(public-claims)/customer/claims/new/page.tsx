@@ -23,6 +23,7 @@ export default function CustomerClaimsNewPage() {
   const [step, setStep] = useState<Step>('phone')
   const [phone, setPhone] = useState('')
   const [otp, setOtp] = useState('')
+  const [verifiedToken, setVerifiedToken] = useState<string | null>(null)
   const [category, setCategory] = useState<string>('')
   const [content, setContent] = useState('')
   const [reporterName, setReporterName] = useState('')
@@ -81,7 +82,8 @@ export default function CustomerClaimsNewPage() {
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? '인증 실패')
-      toast.success('인증되었습니다. 30분 안에 접수를 완료해 주세요.')
+      if (data.token) setVerifiedToken(data.token as string)
+      toast.success('인증되었습니다.')
       setStep('form')
     } catch (err) {
       toast.error(err instanceof Error ? err.message : '인증 실패')
@@ -107,6 +109,8 @@ export default function CustomerClaimsNewPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           phone: phone.replace(/-/g, ''),
+          // HMAC 토큰 우선 — Vercel serverless 인스턴스 간 상태 불일치 대응
+          token: verifiedToken,
           category,
           content: content.trim(),
           is_rework: isRework,
@@ -207,7 +211,6 @@ export default function CustomerClaimsNewPage() {
               <p className="text-xs text-brand-800">
                 ✓ 인증 완료 <span className="text-brand-600">({phone.replace(/-/g, '').replace(/(\d{3})(\d{4})(\d{4})/, '$1-$2-$3')})</span>
               </p>
-              <p className="text-[10px] text-brand-700 mt-0.5">30분 안에 아래 내용을 작성해 주세요</p>
             </div>
 
             <div>
