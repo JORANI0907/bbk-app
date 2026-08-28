@@ -13,7 +13,7 @@
  *   })
  */
 
-import { sendSMS } from './solapi'
+import { sendSmsOrLms } from './solapi'
 import { sendPushToUsers } from './push'
 import { notifySlack } from './slack'
 import { saveNotificationHistory } from './notification'
@@ -140,10 +140,13 @@ export async function dispatch(type: string, ctx: DispatchContext): Promise<Disp
     return result
   }
 
-  // 2. SMS 발송 (customer만)
+  // 2. SMS/LMS 발송 (customer만)
+  //   sendSmsOrLms: 90바이트 초과 시 자동 LMS 승격 + subject 자동 세팅
+  //   (기존 sendSMS 는 subject 없이 sendOne 호출 → Solapi 가 LMS 로 처리하면서
+  //    subject 누락으로 발송 실패하거나 부분 전달되던 이슈 해결)
   if (rule.channel_sms && rule.notify_customer && ctx.customer?.phone && ctx.fallbackText) {
     try {
-      await sendSMS(ctx.customer.phone, ctx.fallbackText)
+      await sendSmsOrLms(ctx.customer.phone, ctx.fallbackText, { subject: `[BBK] ${type}` })
       result.sms.sent = true
     } catch (e) {
       result.sms.reason = e instanceof Error ? e.message : String(e)
