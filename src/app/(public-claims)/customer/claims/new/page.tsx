@@ -1,11 +1,15 @@
 'use client'
 
 /**
- * Batch B-2: 고객 클레임 자율 접수 페이지
+ * 고객 A/S 요청 접수 페이지 (3단계 UX)
  *
- * 흐름: 연락처 입력 → OTP 발송 → OTP + 카테고리 + 내용 입력 → 접수 완료
- * URL 예시: https://app.bbkorea.co.kr/customer/claims/new
- * 카톡비즈니스 채널·안내 문자·명함 등에 이 URL 을 넣어 배포.
+ * step 1 'phone': 연락처 입력 → OTP 발송
+ * step 2 'otp':   OTP 입력 → 확인 버튼으로 검증 (통과하면 30분 유효)
+ * step 3 'form':  이름·업체명·카테고리·내용 입력 → 접수
+ * step 4 'done':  완료 화면
+ *
+ * URL: https://app.bbkorea.co.kr/customer/claims/new (URL 은 기존 유지)
+ * 카톡비즈니스·안내 문자·명함 QR 등에 이 URL 을 배포.
  */
 
 import { useState } from 'react'
@@ -13,7 +17,7 @@ import toast, { Toaster } from 'react-hot-toast'
 
 const CATEGORIES = ['청소 미흡', '파손·훼손', '시간 지연', '작업자 태도', '기타'] as const
 
-type Step = 'phone' | 'form' | 'done'
+type Step = 'phone' | 'otp' | 'form' | 'done'
 
 export default function CustomerClaimsNewPage() {
   const [step, setStep] = useState<Step>('phone')
@@ -27,6 +31,16 @@ export default function CustomerClaimsNewPage() {
   const [loading, setLoading] = useState(false)
   const [cooldown, setCooldown] = useState(0)
   const [result, setResult] = useState<{ business_name: string | null; customer_name: string | null } | null>(null)
+
+  function startCooldown() {
+    setCooldown(60)
+    const timer = setInterval(() => {
+      setCooldown(prev => {
+        if (prev <= 1) { clearInterval(timer); return 0 }
+        return prev - 1
+      })
+    }, 1000)
+  }
 
   async function handleSendOtp() {
     const digits = phone.replace(/-/g, '')
@@ -43,16 +57,9 @@ export default function CustomerClaimsNewPage() {
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? '발송 실패')
-      toast.success('인증번호가 발송되었습니다. 3~5분간 유효합니다.')
-      setStep('form')
-      // 60초 재발송 쿨다운
-      setCooldown(60)
-      const timer = setInterval(() => {
-        setCooldown(prev => {
-          if (prev <= 1) { clearInterval(timer); return 0 }
-          return prev - 1
-        })
-      }, 1000)
+      toast.success('인증번호가 발송되었습니다.')
+      setStep('otp')
+      startCooldown()
     } catch (err) {
       toast.error(err instanceof Error ? err.message : '발송 실패')
     } finally {
@@ -60,11 +67,30 @@ export default function CustomerClaimsNewPage() {
     }
   }
 
-  async function handleSubmit() {
+  async function handleVerifyOtp() {
     if (!otp.trim() || otp.length !== 6) {
       toast.error('6자리 인증번호를 입력해주세요.')
       return
     }
+    setLoading(true)
+    try {
+      const res = await fetch('/api/customer/claims/verify-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: phone.replace(/-/g, ''), otp: otp.trim() }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error ?? '인증 실패')
+      toast.success('인증되었습니다. 30분 안에 접수를 완료해 주세요.')
+      setStep('form')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : '인증 실패')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function handleSubmit() {
     if (!category) {
       toast.error('카테고리를 선택해주세요.')
       return
@@ -75,16 +101,15 @@ export default function CustomerClaimsNewPage() {
     }
     setLoading(true)
     try {
+      // OTP 는 이미 verify-otp 로 사전 검증됨 → 여기서는 phone 만으로 verified 상태 소비
       const res = await fetch('/api/customer/claims', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           phone: phone.replace(/-/g, ''),
-          otp: otp.trim(),
           category,
           content: content.trim(),
           is_rework: isRework,
-          // 미등록 연락처 대비: 사용자 직접 입력값 함께 전달 (매칭 성공 시 서버에서 무시)
           reporter_name: reporterName.trim() || null,
           business_name: businessName.trim() || null,
         }),
@@ -105,14 +130,14 @@ export default function CustomerClaimsNewPage() {
       <Toaster position="top-center" />
       <div className="w-full max-w-md bg-surface rounded-2xl shadow-soft border border-border-subtle p-6">
         <div className="text-center mb-6">
-          <h1 className="text-xl font-bold text-text-primary">BBK 클레임 접수</h1>
+          <h1 className="text-xl font-bold text-text-primary">BBK A/S 요청 접수</h1>
           <p className="text-xs text-text-tertiary mt-1">불편사항을 신속하게 확인·조치해 드리겠습니다</p>
         </div>
 
         {step === 'phone' && (
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-semibold text-text-primary mb-1.5">등록된 연락처</label>
+              <label className="block text-sm font-semibold text-text-primary mb-1.5">연락처</label>
               <input
                 type="tel"
                 inputMode="numeric"
@@ -121,7 +146,7 @@ export default function CustomerClaimsNewPage() {
                 placeholder="010-1234-5678"
                 className="w-full border border-border rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
               />
-              <p className="text-[10px] text-text-tertiary mt-1">BBK 서비스를 받으신 연락처로 인증합니다</p>
+              <p className="text-[10px] text-text-tertiary mt-1">본인 확인용 인증번호를 문자로 보내드립니다</p>
             </div>
             <button
               onClick={handleSendOtp}
@@ -130,13 +155,10 @@ export default function CustomerClaimsNewPage() {
             >
               {loading ? '발송 중...' : '인증번호 발송'}
             </button>
-            <p className="text-[10px] text-text-tertiary text-center">
-              연락처 인증 후 카테고리·내용을 입력하시면 접수 완료됩니다
-            </p>
           </div>
         )}
 
-        {step === 'form' && (
+        {step === 'otp' && (
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-semibold text-text-primary mb-1.5">인증번호 (6자리)</label>
@@ -148,17 +170,44 @@ export default function CustomerClaimsNewPage() {
                   value={otp}
                   onChange={e => setOtp(e.target.value.replace(/\D/g, ''))}
                   placeholder="123456"
+                  autoFocus
                   className="flex-1 border border-border rounded-lg px-3 py-2.5 text-sm font-mono text-center tracking-widest focus:outline-none focus:ring-2 focus:ring-brand-500"
                 />
                 <button
-                  onClick={handleSendOtp}
-                  disabled={cooldown > 0 || loading}
-                  className="px-3 border border-border rounded-lg text-xs text-text-secondary hover:bg-surface-sunken disabled:opacity-50"
+                  onClick={handleVerifyOtp}
+                  disabled={loading || otp.length !== 6}
+                  className="px-4 bg-brand-600 text-white rounded-lg text-sm font-semibold hover:bg-brand-700 disabled:opacity-50 shrink-0"
                 >
-                  {cooldown > 0 ? `${cooldown}초` : '재발송'}
+                  {loading ? '확인 중' : '확인'}
                 </button>
               </div>
               <p className="text-[10px] text-text-tertiary mt-1">5분간 유효 · 5회 실패 시 15분 잠금</p>
+            </div>
+
+            <button
+              onClick={handleSendOtp}
+              disabled={cooldown > 0 || loading}
+              className="w-full border border-border rounded-lg py-2 text-xs text-text-secondary hover:bg-surface-sunken disabled:opacity-50"
+            >
+              {cooldown > 0 ? `${cooldown}초 후 재발송 가능` : '인증번호 재발송'}
+            </button>
+
+            <button
+              onClick={() => { setStep('phone'); setOtp('') }}
+              className="w-full text-[11px] text-text-tertiary hover:text-text-secondary underline underline-offset-2"
+            >
+              연락처 다시 입력
+            </button>
+          </div>
+        )}
+
+        {step === 'form' && (
+          <div className="space-y-4">
+            <div className="bg-brand-50 border border-brand-200 rounded-lg px-3 py-2">
+              <p className="text-xs text-brand-800">
+                ✓ 인증 완료 <span className="text-brand-600">({phone.replace(/-/g, '').replace(/(\d{3})(\d{4})(\d{4})/, '$1-$2-$3')})</span>
+              </p>
+              <p className="text-[10px] text-brand-700 mt-0.5">30분 안에 아래 내용을 작성해 주세요</p>
             </div>
 
             <div>
@@ -181,7 +230,7 @@ export default function CustomerClaimsNewPage() {
                 placeholder="예: OO식당"
                 className="w-full border border-border rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
               />
-              <p className="text-[10px] text-text-tertiary mt-1">등록된 연락처는 자동으로 채워집니다. 잊으신 경우 직접 입력해주세요.</p>
+              <p className="text-[10px] text-text-tertiary mt-1">등록된 연락처면 자동으로 채워집니다. 잊으신 경우 직접 입력해주세요.</p>
             </div>
 
             <div>
@@ -218,7 +267,7 @@ export default function CustomerClaimsNewPage() {
               disabled={loading}
               className="w-full bg-brand-600 text-white rounded-lg py-2.5 text-sm font-semibold hover:bg-brand-700 disabled:opacity-50"
             >
-              {loading ? '접수 중...' : '접수하기'}
+              {loading ? '접수 중...' : 'A/S 요청 접수'}
             </button>
           </div>
         )}
