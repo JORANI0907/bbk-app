@@ -66,7 +66,10 @@ export default function WorkerRegularCarePage() {
   const [zoomPhoto, setZoomPhoto] = useState<string | null>(null)
 
   // C-3: 장비관리보고 알림 요일 (정규 + 예비, 최대 2개)
-  const [notifyWeekdays, setNotifyWeekdays] = useState<number[]>([])
+  //  - persisted: 서버에 저장된 값 (마지막 저장 성공 시점 기준)
+  //  - draft: 사용자가 편집 중인 값. 저장 버튼으로 서버 반영
+  const [notifyWeekdaysPersisted, setNotifyWeekdaysPersisted] = useState<number[]>([])
+  const [notifyWeekdaysDraft, setNotifyWeekdaysDraft] = useState<number[]>([])
   const [savingNotify, setSavingNotify] = useState(false)
 
   const load = useCallback(async () => {
@@ -94,37 +97,56 @@ export default function WorkerRegularCarePage() {
   useEffect(() => {
     fetch('/api/worker/notify-settings')
       .then(r => r.json())
-      .then(j => { if (j.ok) setNotifyWeekdays(j.equipment_notify_weekdays ?? []) })
+      .then(j => {
+        if (j.ok) {
+          const list = (j.equipment_notify_weekdays ?? []) as number[]
+          setNotifyWeekdaysPersisted(list)
+          setNotifyWeekdaysDraft(list)
+        }
+      })
       .catch(() => {})
   }, [])
 
-  const toggleNotifyWeekday = async (day: number) => {
-    const already = notifyWeekdays.includes(day)
+  // draft 만 갱신 (서버 저장은 별도 저장 버튼에서 수행)
+  const toggleNotifyWeekday = (day: number) => {
+    const already = notifyWeekdaysDraft.includes(day)
     let next: number[]
     if (already) {
-      next = notifyWeekdays.filter(d => d !== day)
+      next = notifyWeekdaysDraft.filter(d => d !== day)
     } else {
       // 최대 2개 (정규 + 예비). 초과 시 가장 오래된 것 제거
-      if (notifyWeekdays.length >= 2) {
+      if (notifyWeekdaysDraft.length >= 2) {
         toast('정규+예비 최대 2개까지만 선택 가능. 첫 번째 요일이 제거됩니다.', { icon: 'ℹ️', duration: 2500 })
-        next = [notifyWeekdays[1], day].sort((a, b) => a - b)
+        next = [notifyWeekdaysDraft[1], day].sort((a, b) => a - b)
       } else {
-        next = [...notifyWeekdays, day].sort((a, b) => a - b)
+        next = [...notifyWeekdaysDraft, day].sort((a, b) => a - b)
       }
     }
-    setNotifyWeekdays(next)
+    setNotifyWeekdaysDraft(next)
+  }
+
+  const isNotifyDirty = (() => {
+    const a = [...notifyWeekdaysDraft].sort((x, y) => x - y)
+    const b = [...notifyWeekdaysPersisted].sort((x, y) => x - y)
+    if (a.length !== b.length) return true
+    return a.some((v, i) => v !== b[i])
+  })()
+
+  const handleSaveNotifyWeekdays = async () => {
+    if (!isNotifyDirty || savingNotify) return
     setSavingNotify(true)
     try {
       const res = await fetch('/api/worker/notify-settings', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ equipment_notify_weekdays: next }),
+        body: JSON.stringify({ equipment_notify_weekdays: notifyWeekdaysDraft }),
       })
       const json = await res.json()
       if (!res.ok || !json.ok) throw new Error(json.error ?? '저장 실패')
+      setNotifyWeekdaysPersisted(notifyWeekdaysDraft)
+      toast.success('알림 요일이 저장되었습니다.')
     } catch (err) {
       toast.error(err instanceof Error ? err.message : '저장 실패')
-      setNotifyWeekdays(notifyWeekdays)
     } finally {
       setSavingNotify(false)
     }
@@ -257,6 +279,59 @@ export default function WorkerRegularCarePage() {
         </div>
       )}
 
+      {/* C-3: 보고 알림 요일 (정규 + 예비, 최대 2개) — 탭 위 상시 노출 */}
+      <section className="bg-surface rounded-2xl border border-border-subtle p-4 shadow-soft">
+        <div className="flex items-baseline justify-between mb-2">
+          <label className="text-sm font-semibold text-text-primary">🔔 보고 알림 요일 (정규+예비)</label>
+          {isNotifyDirty && !savingNotify && (
+            <span className="text-[10px] text-amber-600">변경 있음 · 저장 필요</span>
+          )}
+        </div>
+        <p className="text-[11px] text-text-tertiary leading-relaxed mb-3">
+          매주 정한 요일 <b className="text-brand-700">밤 9시</b>에 &quot;장비 사진 보고 잊지 마세요&quot; 알림이 발송됩니다.
+          <br />정규 요일 못 지키면 예비 요일도 함께 알림받도록 최대 2개 선택 가능.
+        </p>
+        <div className="grid grid-cols-7 gap-1.5">
+          {WEEKDAY_LABELS.map((label, day) => {
+            const idx = notifyWeekdaysDraft.indexOf(day)
+            const active = idx !== -1
+            const isBackup = active && idx === 1 // 두 번째 선택 = 예비
+            return (
+              <button
+                key={day}
+                type="button"
+                onClick={() => toggleNotifyWeekday(day)}
+                disabled={savingNotify}
+                className={`h-10 rounded-lg text-sm font-bold transition-all relative ${
+                  active
+                    ? (isBackup ? 'bg-brand-400 text-white shadow-soft' : 'bg-brand-600 text-white shadow-soft')
+                    : 'bg-surface-sunken text-text-tertiary hover:bg-brand-50 hover:text-brand-600'
+                } ${day === 0 && !active ? 'text-red-500' : ''} ${day === 6 && !active ? 'text-blue-500' : ''}`}
+              >
+                {label}
+                {active && (
+                  <span className="absolute -top-1 -right-1 text-[9px] bg-white text-brand-700 rounded-full px-1 shadow border border-brand-200 leading-tight">
+                    {isBackup ? '예비' : '정규'}
+                  </span>
+                )}
+              </button>
+            )
+          })}
+        </div>
+        <button
+          type="button"
+          onClick={handleSaveNotifyWeekdays}
+          disabled={!isNotifyDirty || savingNotify}
+          className={`mt-3 w-full py-2 rounded-lg text-sm font-semibold transition-all ${
+            isNotifyDirty && !savingNotify
+              ? 'bg-brand-600 text-white hover:bg-brand-700'
+              : 'bg-surface-sunken text-text-tertiary cursor-not-allowed'
+          }`}
+        >
+          {savingNotify ? '저장 중...' : '알림 요일 저장'}
+        </button>
+      </section>
+
       {/* 세그먼트 탭 */}
       <div className="grid grid-cols-2 bg-surface-sunken rounded-xl p-1 gap-1">
         {([{ key: 'report', label: '보고 작성' }, { key: 'history', label: `이력 ${history.length}` }] as { key: Tab; label: string }[]).map(t => (
@@ -277,45 +352,6 @@ export default function WorkerRegularCarePage() {
 
       {activeTab === 'report' && (
         <>
-        {/* C-3: 보고 알림 요일 (정규 + 예비, 최대 2개) */}
-        <section className="bg-surface rounded-2xl border border-border-subtle p-4 shadow-soft">
-          <div className="flex items-baseline justify-between mb-2">
-            <label className="text-sm font-semibold text-text-primary">🔔 보고 알림 요일 (정규+예비)</label>
-            {savingNotify && <span className="text-[10px] text-brand-600">저장 중...</span>}
-          </div>
-          <p className="text-[11px] text-text-tertiary leading-relaxed mb-3">
-            매주 정한 요일 <b className="text-brand-700">밤 9시</b>에 &quot;장비 사진 보고 잊지 마세요&quot; 알림이 발송됩니다.
-            <br />정규 요일 못 지키면 예비 요일도 함께 알림받도록 최대 2개 선택 가능.
-          </p>
-          <div className="grid grid-cols-7 gap-1.5">
-            {WEEKDAY_LABELS.map((label, day) => {
-              const idx = notifyWeekdays.indexOf(day)
-              const active = idx !== -1
-              const isBackup = active && idx === 1 // 두 번째 선택 = 예비
-              return (
-                <button
-                  key={day}
-                  type="button"
-                  onClick={() => toggleNotifyWeekday(day)}
-                  disabled={savingNotify}
-                  className={`h-10 rounded-lg text-sm font-bold transition-all relative ${
-                    active
-                      ? (isBackup ? 'bg-brand-400 text-white shadow-soft' : 'bg-brand-600 text-white shadow-soft')
-                      : 'bg-surface-sunken text-text-tertiary hover:bg-brand-50 hover:text-brand-600'
-                  } ${day === 0 && !active ? 'text-red-500' : ''} ${day === 6 && !active ? 'text-blue-500' : ''}`}
-                >
-                  {label}
-                  {active && (
-                    <span className="absolute -top-1 -right-1 text-[9px] bg-white text-brand-700 rounded-full px-1 shadow border border-brand-200 leading-tight">
-                      {isBackup ? '예비' : '정규'}
-                    </span>
-                  )}
-                </button>
-              )
-            })}
-          </div>
-        </section>
-
         <section className="bg-surface rounded-2xl border border-border-subtle p-5 space-y-5 shadow-soft">
           {/* 사진 슬롯 3장 */}
           <div className="space-y-3">
