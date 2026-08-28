@@ -12,14 +12,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { sendSlack } from '@/lib/slack'
-import { otpStore } from '@/lib/otp-store'
+import { otpStore, verifyToken } from '@/lib/otp-store'
 
 const VALID_CATEGORIES = ['청소 미흡', '파손·훼손', '시간 지연', '작업자 태도', '기타'] as const
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { phone, otp, category, content, reporter_name: bodyName, business_name: bodyBiz } = body
+    const { phone, otp, token, category, content, reporter_name: bodyName, business_name: bodyBiz } = body
     const isRework = !!body.is_rework
 
     if (!phone) {
@@ -34,10 +34,16 @@ export async function POST(request: NextRequest) {
 
     const normalizedPhone = String(phone).replace(/-/g, '')
 
-    // 인증: 두 가지 경로 지원
-    //  1) OTP 를 함께 보낸 경우 (구 클라이언트 호환) — 여기서 최종 검증
-    //  2) verify-otp API 로 사전 검증 통과한 경우 — verified 상태 소비
-    if (otp) {
+    // 인증: 세 경로 지원 (우선순위 순)
+    //  1) HMAC 서명 토큰 (권장, stateless) — verify-otp 응답의 token 을 전달받음
+    //  2) 인메모리 verified 상태 소비 (같은 서버 인스턴스일 때 fallback)
+    //  3) OTP 직접 전송 (구 클라이언트 호환)
+    if (token) {
+      const check = verifyToken(String(token), normalizedPhone)
+      if (!check.ok) {
+        return NextResponse.json({ error: `인증이 만료되었습니다. 처음부터 다시 진행해주세요. (${check.error ?? '토큰 오류'})` }, { status: 401 })
+      }
+    } else if (otp) {
       const verify = otpStore.verify(normalizedPhone, String(otp).trim())
       if (!verify.success) {
         return NextResponse.json({ error: verify.error ?? '인증 실패' }, { status: 401 })

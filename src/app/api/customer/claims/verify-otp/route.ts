@@ -8,7 +8,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { otpStore } from '@/lib/otp-store'
+import { otpStore, issueVerifiedToken } from '@/lib/otp-store'
 
 export async function POST(request: NextRequest) {
   try {
@@ -25,9 +25,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: verify.error ?? '인증 실패' }, { status: 401 })
     }
 
-    // 인증 통과 → 30분 유효 상태로 마킹. 접수 API 에서 consumeVerified() 로 소비.
+    // 통과 → HMAC 서명 토큰 발급 (Vercel serverless 인스턴스 간 인메모리 불일치 우회).
+    // 인메모리 markVerified 도 병행 (같은 인스턴스면 즉시 사용 가능).
     otpStore.markVerified(normalizedPhone)
-    return NextResponse.json({ success: true, valid_for_seconds: 30 * 60 })
+    const token = issueVerifiedToken(normalizedPhone)
+    return NextResponse.json({ success: true, token, valid_for_seconds: 30 * 60 })
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
     return NextResponse.json({ error: `인증 실패: ${message}` }, { status: 500 })
