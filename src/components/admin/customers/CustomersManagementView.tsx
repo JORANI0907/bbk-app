@@ -41,6 +41,11 @@ interface Customer {
   address_detail: string | null
   business_number: string | null
   account_number: string | null
+  // 결제자(수취인) 정보 — 서비스 수령자와 다를 때 사용. NULL 이면 일반 필드로 fallback.
+  billing_contact_name?: string | null
+  billing_email?: string | null
+  billing_address?: string | null
+  billing_business_number?: string | null
   platform_nickname: string | null
   payment_method: string | null
   elevator: string | null
@@ -292,6 +297,8 @@ const PAYMENT_STATUS_DOT: Record<string, string> = {
 const EMPTY_FORM = {
   business_name: '', contact_name: '', contact_phone: '', contact_phone_2: '', email: '',
   address: '', address_detail: '', business_number: '', account_number: '',
+  // 결제자(수취인) 정보 — 비어있으면 일반정보 값 사용
+  billing_contact_name: '', billing_email: '', billing_address: '', billing_business_number: '',
   platform_nickname: '', payment_method: '',
   elevator: '', building_access: '', access_method: '',
   business_hours_start: '', business_hours_end: '',
@@ -970,6 +977,10 @@ export function CustomersManagementView({
     address_detail: c.address_detail ?? '',
     business_number: c.business_number ?? '',
     account_number: c.account_number ?? '',
+    billing_contact_name: c.billing_contact_name ?? '',
+    billing_email: c.billing_email ?? '',
+    billing_address: c.billing_address ?? '',
+    billing_business_number: c.billing_business_number ?? '',
     platform_nickname: c.platform_nickname ?? '',
     payment_method: c.payment_method ?? '',
     elevator: c.elevator ?? '',
@@ -1234,6 +1245,10 @@ export function CustomersManagementView({
     address_detail: form.address_detail || null,
     business_number: form.business_number || null,
     account_number: form.account_number || null,
+    billing_contact_name: form.billing_contact_name?.trim() || null,
+    billing_email: form.billing_email?.trim() || null,
+    billing_address: form.billing_address?.trim() || null,
+    billing_business_number: form.billing_business_number?.trim() || null,
     platform_nickname: form.platform_nickname || null,
     payment_method: form.payment_method || null,
     elevator: form.elevator || null,
@@ -3613,6 +3628,48 @@ export function CustomersManagementView({
                     <input value={form.business_number} onChange={e => set('business_number')(e.target.value)}
                       className="flex-1 border border-border rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-rose-500 font-mono" />
                     <button onClick={() => navigator.clipboard.writeText(form.business_number).then(() => toast.success('사업자번호 복사됨'))} className="px-2 py-1.5 text-xs bg-surface-sunken rounded-lg hover:bg-surface-sunken"><ClipboardList size={14} /></button>
+                  </div>
+                </div>
+
+                {/* 결제자(수취인) 정보 — 서비스 수령자와 다를 때 사용. 비어있으면 일반정보 값 스냅샷 fallback */}
+                <div className="pt-2 mt-2 border-t border-rose-200/60">
+                  <p className="text-[10px] text-rose-700 font-semibold mb-1.5 inline-flex items-center gap-1">
+                    결제자(수취인) 정보
+                    <FieldHint text="세금계산서·이체 시 이 정보를 우선 사용. 비어있으면 위 일반정보 값이 자동 적용됨(스냅샷)." />
+                  </p>
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-text-secondary w-20 shrink-0">대표자성함</span>
+                      <input
+                        value={form.billing_contact_name}
+                        onChange={e => set('billing_contact_name')(e.target.value)}
+                        placeholder={form.contact_name ? `자동: ${form.contact_name}` : '입력 시 별도 저장'}
+                        className="flex-1 border border-border rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-rose-500" />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-text-secondary w-20 shrink-0">이메일</span>
+                      <input
+                        value={form.billing_email}
+                        onChange={e => set('billing_email')(e.target.value)}
+                        placeholder={form.email ? `자동: ${form.email}` : '입력 시 별도 저장'}
+                        className="flex-1 border border-border rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-rose-500" />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-text-secondary w-20 shrink-0">주소</span>
+                      <input
+                        value={form.billing_address}
+                        onChange={e => set('billing_address')(e.target.value)}
+                        placeholder={form.address ? `자동: ${form.address}` : '입력 시 별도 저장'}
+                        className="flex-1 border border-border rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-rose-500" />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-text-secondary w-20 shrink-0">사업자번호</span>
+                      <input
+                        value={form.billing_business_number}
+                        onChange={e => set('billing_business_number')(e.target.value)}
+                        placeholder={form.business_number ? `자동: ${form.business_number}` : '입력 시 별도 저장'}
+                        className="flex-1 border border-border rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-rose-500 font-mono" />
+                    </div>
                   </div>
                 </div>
               </div>
