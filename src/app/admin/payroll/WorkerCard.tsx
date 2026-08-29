@@ -20,6 +20,7 @@ export default function WorkerCard({
   onUpdated,
   onPublished,
   onRefresh,
+  onJobSalaryChanged,
 }: {
   entry: WorkerEntry
   month: string
@@ -31,7 +32,8 @@ export default function WorkerCard({
   onPayslipDeleted: (id: string) => void
   onUpdated: (record: PayrollRecord) => void
   onPublished: () => void
-  onRefresh?: () => void  // 일정별 금액 편집 후 부모 데이터 재조회
+  onRefresh?: () => void  // 일정별 금액 편집 후 부모 데이터 재조회 (폴백용, 지금은 미사용)
+  onJobSalaryChanged?: (personId: string, jobId: string, newSalary: number) => void
 }) {
   const [editingJobId, setEditingJobId] = useState<string | null>(null)
   const [editValue, setEditValue] = useState('')
@@ -61,7 +63,10 @@ export default function WorkerCard({
       if (!res.ok) throw new Error((await res.json()).error ?? '저장 실패')
       toast.success('금액이 저장되었습니다')
       setEditingJobId(null)
-      onRefresh?.()  // 부모에서 auto_amount 재계산
+      // 낙관적 업데이트: 부모 state의 해당 job만 갱신 (전체 refetch 없음).
+      // 콜백 미주입 시에만 폴백으로 전체 재조회.
+      if (onJobSalaryChanged) onJobSalaryChanged(entry.person.id, jobId, newSalary)
+      else onRefresh?.()
     } catch (err) {
       toast.error(err instanceof Error ? err.message : '저장 실패')
     } finally {

@@ -113,6 +113,28 @@ export default function PayrollPage() {
     ))
   }
 
+  // 낙관적 업데이트: 회차 금액 편집 후 전체 refetch 없이 로컬 state만 갱신.
+  // 서버 PATCH가 salary/manager_pay 단일 필드만 바꾸므로 프론트에서 SUM 재계산해도 정합성 유지.
+  const handleWorkerJobSalaryChanged = (personId: string, jobId: string, newSalary: number) => {
+    setWorkersPayroll(prev => prev.map(e => {
+      if (e.person.id !== personId) return e
+      const jobs = e.jobs.map(j => j.id === jobId ? { ...j, salary: newSalary } : j)
+      const auto_amount = jobs.reduce((s, j) => s + (j.salary ?? 0), 0)
+      return { ...e, jobs, auto_amount }
+    }))
+  }
+
+  const handleManagerJobPayChanged = (personId: string, jobId: string, newPay: number) => {
+    setManagers(prev => prev.map(e => {
+      if (e.person.id !== personId) return e
+      // 서버 공식: resolved_pay = manager_pay ?? monthly_price ?? unit_price_per_visit
+      // 편집으로 manager_pay 값이 들어가면 그대로 resolved_pay 가 됨.
+      const jobs = e.jobs.map(j => j.id === jobId ? { ...j, manager_pay: newPay, resolved_pay: newPay } : j)
+      const auto_amount = jobs.reduce((s, j) => s + j.resolved_pay, 0)
+      return { ...e, jobs, auto_amount }
+    }))
+  }
+
   const displayMonth = (() => {
     const [y, m] = month.split('-')
     return `${y}년 ${Number(m)}월`
@@ -362,6 +384,7 @@ export default function PayrollPage() {
                         onUpdated={handleManagerRecordUpdated}
                         onPublished={fetchPayslips}
                         onRefresh={fetchData}
+                        onJobPayChanged={handleManagerJobPayChanged}
                       />
                     ))}
                     {showWorkers && workersPayroll.map(entry => (
@@ -378,6 +401,7 @@ export default function PayrollPage() {
                         onUpdated={handleWorkerRecordUpdated}
                         onPublished={fetchPayslips}
                         onRefresh={fetchData}
+                        onJobSalaryChanged={handleWorkerJobSalaryChanged}
                       />
                     ))}
                   </div>
