@@ -67,6 +67,8 @@ interface Candidate {
   payment_status_detail?: string | null
   customer_payment_status_detail?: string | null
   account_number: string | null
+  /** 1회성 회차 예약금 이체 시각 (미이체이면 null) */
+  deposit_transferred_at?: string | null
 }
 
 interface DraftData {
@@ -197,6 +199,8 @@ export async function GET(request: NextRequest) {
       payment_method: string | null
       created_at: string
       deleted_at: string | null
+      // 신규 컬럼 — 마이그레이션 안 됐으면 undefined
+      deposit_transferred_at?: string | null
     }
     interface OneTimeCust {
       id: string
@@ -213,25 +217,63 @@ export async function GET(request: NextRequest) {
       // 마스터의 총액 fallback (회차 supply_amount 가 0/null 인 경우 이 값으로 계산)
       supply_amount: number | null
       vat: number | null
+      // 결제자 정보 (없으면 일반정보 fallback). 마이그레이션 전에는 undefined
+      billing_contact_name?: string | null
+      billing_email?: string | null
+      billing_address?: string | null
+      billing_business_number?: string | null
       service_applications: SaRow[]
     }
 
-    const { data: oneTimeCusts, error: oneTimeErr } = await supabase
-      .from('customers')
-      .select(`
-        id, business_name, business_number, contact_name, address, email, contact_phone,
-        payment_method, payment_status_detail, created_at, account_number,
-        supply_amount, vat,
-        service_applications (
-          id, construction_date, status, payment_status_detail,
-          tax_invoice_issued, tax_invoice_issued_at,
-          supply_amount, vat, payment_method, created_at, deleted_at
-        )
-      `)
-      .eq('customer_type', '1회성케어')
-      .is('deleted_at', null)
-      .is('archived_at', null)
-      .order('created_at', { ascending: false })
+    // 신규 컬럼 select 를 우선 시도. 마이그레이션 안 됐으면 42703 → 구버전 select 로 fallback.
+    const SELECT_NEW = `
+      id, business_name, business_number, contact_name, address, email, contact_phone,
+      payment_method, payment_status_detail, created_at, account_number,
+      supply_amount, vat,
+      billing_contact_name, billing_email, billing_address, billing_business_number,
+      service_applications (
+        id, construction_date, status, payment_status_detail,
+        tax_invoice_issued, tax_invoice_issued_at,
+        supply_amount, vat, payment_method, created_at, deleted_at,
+        deposit_transferred_at
+      )
+    `
+    const SELECT_LEGACY = `
+      id, business_name, business_number, contact_name, address, email, contact_phone,
+      payment_method, payment_status_detail, created_at, account_number,
+      supply_amount, vat,
+      service_applications (
+        id, construction_date, status, payment_status_detail,
+        tax_invoice_issued, tax_invoice_issued_at,
+        supply_amount, vat, payment_method, created_at, deleted_at
+      )
+    `
+    let oneTimeCusts: OneTimeCust[] | null = null
+    let oneTimeErr: { message: string } | null = null
+    {
+      const r = await supabase
+        .from('customers')
+        .select(SELECT_NEW)
+        .eq('customer_type', '1회성케어')
+        .is('deleted_at', null)
+        .is('archived_at', null)
+        .order('created_at', { ascending: false })
+      if (r.error && /(billing_contact_name|billing_email|billing_address|billing_business_number|deposit_transferred_at)/i.test(r.error.message)) {
+        // 신규 컬럼 미배포 → legacy 로 재시도
+        const r2 = await supabase
+          .from('customers')
+          .select(SELECT_LEGACY)
+          .eq('customer_type', '1회성케어')
+          .is('deleted_at', null)
+          .is('archived_at', null)
+          .order('created_at', { ascending: false })
+        oneTimeCusts = ((r2.data ?? []) as unknown) as OneTimeCust[]
+        oneTimeErr = r2.error
+      } else {
+        oneTimeCusts = ((r.data ?? []) as unknown) as OneTimeCust[]
+        oneTimeErr = r.error
+      }
+    }
 
     if (oneTimeErr) {
       return NextResponse.json({ error: `1회성케어: ${oneTimeErr.message}` }, { status: 500 })
@@ -250,11 +292,13 @@ export async function GET(request: NextRequest) {
         if (!includeIssued && isIssued) continue
 
         const draft = draftMap.get(`application:${sa.id}`)
-        const business_number = draft?.receiver_business_number ?? c.business_number ?? null
+        // 결제자 정보 우선: draft > billing_* > 일반정보. billing_* 는 마이그레이션 전엔 undefined
+        //   → nullish 로 자연 fallback 됨.
+        const business_number = draft?.receiver_business_number ?? c.billing_business_number ?? c.business_number ?? null
         const business_name = draft?.receiver_business_name ?? c.business_name
-        const owner_name = draft?.receiver_owner_name ?? c.contact_name ?? ''
-        const address = draft?.receiver_address ?? c.address ?? null
-        const email = draft?.receiver_email ?? c.email ?? null
+        const owner_name = draft?.receiver_owner_name ?? c.billing_contact_name ?? c.contact_name ?? ''
+        const address = draft?.receiver_address ?? c.billing_address ?? c.address ?? null
+        const email = draft?.receiver_email ?? c.billing_email ?? c.email ?? null
 
         let supply: number
         let vat: number
@@ -319,6 +363,7 @@ export async function GET(request: NextRequest) {
           draft_invoice_kind: draft?.invoice_kind ?? null,
           application_status: sa.status ?? null,
           payment_status_detail: sa.payment_status_detail ?? null,
+          deposit_transferred_at: sa.deposit_transferred_at ?? null,
           customer_payment_status_detail: c.payment_status_detail ?? null,
           account_number: c.account_number ?? null,
         })
@@ -354,23 +399,55 @@ export async function GET(request: NextRequest) {
       payment_method: string | null
       created_at: string
       account_number: string | null
+      billing_contact_name?: string | null
+      billing_email?: string | null
+      billing_address?: string | null
+      billing_business_number?: string | null
       service_billings: BillingRow[]
     }
 
-    const { data: customers, error: custErr } = await supabase
-      .from('customers')
-      .select(`
-        id, business_name, business_number, contact_name, address, email, contact_phone,
-        customer_type, payment_method, created_at, account_number,
-        service_billings (
-          id, billing_period, billing_type, amount, status, due_date,
-          tax_invoice_issued, tax_invoice_issued_date, created_at
-        )
-      `)
-      .in('customer_type', periodicTypes)
-      .is('deleted_at', null)
-      .is('archived_at', null)
-      .order('created_at', { ascending: false })
+    const PERIODIC_SELECT_NEW = `
+      id, business_name, business_number, contact_name, address, email, contact_phone,
+      customer_type, payment_method, created_at, account_number,
+      billing_contact_name, billing_email, billing_address, billing_business_number,
+      service_billings (
+        id, billing_period, billing_type, amount, status, due_date,
+        tax_invoice_issued, tax_invoice_issued_date, created_at
+      )
+    `
+    const PERIODIC_SELECT_LEGACY = `
+      id, business_name, business_number, contact_name, address, email, contact_phone,
+      customer_type, payment_method, created_at, account_number,
+      service_billings (
+        id, billing_period, billing_type, amount, status, due_date,
+        tax_invoice_issued, tax_invoice_issued_date, created_at
+      )
+    `
+    let customers: PeriodicCust[] | null = null
+    let custErr: { message: string } | null = null
+    {
+      const r = await supabase
+        .from('customers')
+        .select(PERIODIC_SELECT_NEW)
+        .in('customer_type', periodicTypes)
+        .is('deleted_at', null)
+        .is('archived_at', null)
+        .order('created_at', { ascending: false })
+      if (r.error && /(billing_contact_name|billing_email|billing_address|billing_business_number)/i.test(r.error.message)) {
+        const r2 = await supabase
+          .from('customers')
+          .select(PERIODIC_SELECT_LEGACY)
+          .in('customer_type', periodicTypes)
+          .is('deleted_at', null)
+          .is('archived_at', null)
+          .order('created_at', { ascending: false })
+        customers = ((r2.data ?? []) as unknown) as PeriodicCust[]
+        custErr = r2.error
+      } else {
+        customers = ((r.data ?? []) as unknown) as PeriodicCust[]
+        custErr = r.error
+      }
+    }
 
     if (custErr) {
       return NextResponse.json({ error: `정기케어: ${custErr.message}` }, { status: 500 })
@@ -384,11 +461,12 @@ export async function GET(request: NextRequest) {
         if (!includeIssued && isIssued) continue
 
         const draft = draftMap.get(`billing:${b.id}`)
-        const business_number = draft?.receiver_business_number ?? c.business_number ?? null
+        // 결제자 정보 우선: draft > billing_* > 일반정보
+        const business_number = draft?.receiver_business_number ?? c.billing_business_number ?? c.business_number ?? null
         const business_name = draft?.receiver_business_name ?? c.business_name
-        const owner_name = draft?.receiver_owner_name ?? c.contact_name ?? ''
-        const address = draft?.receiver_address ?? c.address ?? null
-        const email = draft?.receiver_email ?? c.email ?? null
+        const owner_name = draft?.receiver_owner_name ?? c.billing_contact_name ?? c.contact_name ?? ''
+        const address = draft?.receiver_address ?? c.billing_address ?? c.address ?? null
+        const email = draft?.receiver_email ?? c.billing_email ?? c.email ?? null
         const payment_method = c.payment_method ?? null
 
         let supply: number
