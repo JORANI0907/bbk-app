@@ -82,14 +82,21 @@ export default function UnitPriceSettings({ month }: { month: string }) {
   useEffect(() => { loadData() }, [loadData])
 
   // 그룹핑: 같은 업체의 여러 신청서를 하나로 묶음.
-  // 기본단가는 DB에 저장된 그대로 사용 — 자동 매핑/최댓값 채택 없음.
-  // 사용자가 저장하면 그룹의 모든 신청서에 동일 값 반영되므로 이후 값이 흩어지지 않음.
+  // 대표값(base_unit_price)은 그룹 내 첫 non-null 값을 채택.
+  // (이전엔 배열 첫 앱 값만 참조 → 신규 신청서가 unit_price_per_visit=NULL 로 접수되면
+  //  그 앱이 first 로 잡히는 순간 화면이 통째로 0으로 표시되어 "삭제됨" 오해 유발)
+  // 저장 시엔 그룹의 모든 applicationIds 에 동일 값 반영.
   const groups: CustomerGroup[] = (() => {
     const map = new Map<string, CustomerGroup>()
     for (const app of apps) {
       const existing = map.get(app.business_name)
       if (existing) {
         existing.applicationIds.push(app.id)
+        // 기존 대표값이 null 이고 현재 앱에 값이 있으면 대표로 승격
+        if (existing.base_unit_price === null && app.unit_price_per_visit !== null) {
+          existing.base_unit_price = app.unit_price_per_visit
+          existing.first_app_id = app.id
+        }
       } else {
         map.set(app.business_name, {
           business_name: app.business_name,
