@@ -1025,17 +1025,6 @@
         </div>
 
         <div class="form-group">
-          <label class="form-label">서비스 종류 선택<span class="required">*</span></label>
-          <select class="form-input" name="serviceType" id="serviceType" required>
-            <option value="">서비스 종류를 선택해주세요</option>
-            <option value="1회성케어">1회성 케어 (80,000원)</option>
-            <option value="정기딥케어">정기 딥케어 (60,000원)</option>
-            <option value="정기엔드케어">정기 엔드케어 (70,000원)</option>
-          </select>
-          <div class="error-msg" id="serviceTypeError">⚠ 서비스 종류를 선택해주세요</div>
-        </div>
-
-        <div class="form-group">
           <label class="form-label">결제 방법 선택<span class="required">*</span></label>
           <div class="radio-group">
             <div class="radio-option">
@@ -1534,7 +1523,6 @@
         buildingAccess: document.querySelector('input[name="buildingAccess"]:checked').value,
         accessMethod: document.getElementById('accessMethod').value.trim(),
         parking: parkingValue,
-        serviceType: document.getElementById('serviceType').value,
         paymentMethod: document.querySelector('input[name="paymentMethod"]:checked').value,
         accountNumber: (function(){
           var bank = document.getElementById('bankName').value.trim();
