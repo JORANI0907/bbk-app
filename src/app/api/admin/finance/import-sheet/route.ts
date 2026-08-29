@@ -130,7 +130,7 @@ async function classifyWithAI(rawRows: RawRow[]): Promise<Array<{ category: 'fix
   try {
     const msg = await client.messages.create({
       model: 'claude-haiku-4-5-20251001',
-      max_tokens: 2048,
+      max_tokens: 8000,
       messages: [{ role: 'user', content: `${CLASSIFY_PROMPT}\n\n${items.join('\n')}` }],
     })
 
@@ -168,8 +168,8 @@ export async function POST(request: NextRequest) {
 
     if (rawRows.length === 0) return NextResponse.json({ error: '분석할 데이터가 없습니다.' }, { status: 400 })
 
-    // AI 분류 (최대 100건) — category(고정비/변동비)만 결정
-    const limited = rawRows.slice(0, 100)
+    // AI 분류 (최대 500건) — category(고정비/변동비)만 결정
+    const limited = rawRows.slice(0, 500)
     const classified = await classifyWithAI(limited)
 
     // 매핑 테이블 조회 후 (category, name) 별 group_name 자동 세팅 — 매칭 없으면 미분류
