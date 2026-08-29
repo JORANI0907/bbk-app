@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import toast from 'react-hot-toast'
-import { RefreshCw, Download, Filter, Search, AlertCircle, CheckCircle2, FileSpreadsheet, Settings, Pencil, Check, Undo2, ChevronLeft, ChevronRight, Banknote } from 'lucide-react'
+import { RefreshCw, Download, Filter, Search, AlertCircle, CheckCircle2, FileSpreadsheet, Settings, Pencil, Check, Undo2, ChevronLeft, ChevronRight } from 'lucide-react'
 import Link from 'next/link'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
@@ -51,6 +51,8 @@ interface Candidate {
   payment_status_detail?: string | null
   customer_payment_status_detail?: string | null
   account_number?: string | null
+  /** 예약금 이체 완료 시각 (신규 컬럼, 미이체이면 null) */
+  deposit_transferred_at?: string | null
 }
 
 const SERVICE_TYPES_FIXED = ['1회성케어', '정기딥케어', '정기엔드케어']
@@ -316,6 +318,72 @@ export default function TaxInvoiceDashboardPage() {
     }
   }
 
+  // ── 이체 완료 처리 (선택된 1회성 회차에 대해 예약금환급완료 SMS 발송 + 상태 세팅) ─
+  const handleMarkTransferred = async () => {
+    const selected = filteredCandidates.filter(c =>
+      selectedIds.has(rowKey(c)) && c.source === 'application' && !c.deposit_transferred_at,
+    )
+    if (selected.length === 0) {
+      toast.error('먼저 이체 대상 1회성 회차(미이체)를 선택하세요.')
+      return
+    }
+    if (!confirm(
+      `선택한 ${selected.length}건 1회성 회차를 이체 완료 처리하고, 각 고객에게 예약금환급완료 알림 SMS 를 발송할까요?`,
+    )) return
+
+    setMarkingIssued(true)
+    try {
+      const items = selected.map(c => ({ source: 'application' as const, source_id: c.source_id }))
+      const res = await fetch('/api/admin/tax-invoice/mark-transferred', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ items }),
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error ?? '처리 실패')
+      const sentLine = json.failed > 0 ? ` · 알림 발송 ${json.sent}건 (실패 ${json.failed}건)` : ` · 알림 발송 ${json.sent}건`
+      toast.success(`이체 완료 처리 ${json.updated}건${sentLine}`)
+      if (json.migrationPending) {
+        toast('DB 마이그레이션 대기 중 — deposit_transferred_at 컬럼 없음. 상태만 기록되고 이력 시각 미저장.', { icon: '⚠️', duration: 5000 })
+      }
+      void load()
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : '처리 실패')
+    } finally {
+      setMarkingIssued(false)
+    }
+  }
+
+  // ── 이체 완료 취소 ───────────────────────────────────────────
+  const handleRevertTransferred = async () => {
+    const selected = filteredCandidates.filter(c =>
+      selectedIds.has(rowKey(c)) && c.source === 'application' && !!c.deposit_transferred_at,
+    )
+    if (selected.length === 0) {
+      toast.error('이체 완료 상태인 1회성 회차만 취소할 수 있습니다.')
+      return
+    }
+    if (!confirm(`선택한 ${selected.length}건 이체 완료를 취소하시겠습니까?\n(이미 발송된 SMS 는 되돌릴 수 없습니다)`)) return
+
+    setMarkingIssued(true)
+    try {
+      const items = selected.map(c => ({ source: 'application' as const, source_id: c.source_id }))
+      const res = await fetch('/api/admin/tax-invoice/mark-transferred', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ items }),
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error ?? '취소 실패')
+      toast.success(`이체 완료 취소: ${json.reverted}건`)
+      void load()
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : '취소 실패')
+    } finally {
+      setMarkingIssued(false)
+    }
+  }
+
   // ── 예약금 이체 xls ───────────────────────────────────────────
   const handleExportDepositTransfer = async () => {
     const selected = filteredCandidates.filter(c => selectedIds.has(rowKey(c)))
@@ -504,33 +572,48 @@ export default function TaxInvoiceDashboardPage() {
 
           <div className="w-px h-6 bg-border-subtle" />
 
-          {/* 계산서 저장 + 예약금 이체 */}
-          <Button size="sm" onClick={handleDownloadCsv}
-            disabled={selectedIds.size === 0}
-            className="flex items-center gap-1.5 h-8"
-            title="Google Drive '세금계산서' 폴더에 Google Sheets로 저장 (실패 시 로컬 CSV 다운로드 fallback)">
-            <Download size={13} />계산서{selectedIds.size > 0 ? ` (${selectedIds.size})` : ''}
-          </Button>
-          <Button size="sm" variant="secondary" onClick={handleExportDepositTransfer}
-            className="flex items-center gap-1.5 h-8"
-            title="카드(온라인 간편결제) 고객 전체 예약금 8만원 이체 파일 다운로드">
-            <Banknote size={13} />예약금이체
-          </Button>
+          {/* 세트 1: 계산서 3버튼 그룹 (저장 · 발행완료 · 발행취소) */}
+          <div className="inline-flex items-center gap-1 rounded-lg border border-border-subtle bg-surface-sunken/60 p-1">
+            <Button size="sm" onClick={handleDownloadCsv}
+              disabled={selectedIds.size === 0}
+              className="flex items-center gap-1.5 h-7"
+              title="Google Drive '세금계산서' 폴더에 Google Sheets로 저장 (실패 시 로컬 CSV 다운로드 fallback)">
+              <Download size={13} />계산서{selectedIds.size > 0 ? ` (${selectedIds.size})` : ''}
+            </Button>
+            <Button size="sm" variant="secondary" onClick={handleMarkIssued}
+              disabled={selectedIds.size === 0 || markingIssued}
+              className="flex items-center gap-1.5 h-7 text-state-success">
+              <Check size={13} />발행완료
+            </Button>
+            <Button size="sm" variant="secondary" onClick={handleRevertIssued}
+              disabled={selectedIds.size === 0 || markingIssued}
+              className="flex items-center gap-1.5 h-7 text-state-danger"
+              title="발행 완료 상태를 취소 (재발행 필요 시)">
+              <Undo2 size={13} />취소
+            </Button>
+          </div>
 
-          <div className="w-px h-6 bg-border-subtle" />
-
-          {/* 발행 완료 + 취소 */}
-          <Button size="sm" variant="secondary" onClick={handleMarkIssued}
-            disabled={selectedIds.size === 0 || markingIssued}
-            className="flex items-center gap-1.5 h-8 text-state-success">
-            <Check size={13} />발행 완료
-          </Button>
-          <Button size="sm" variant="secondary" onClick={handleRevertIssued}
-            disabled={selectedIds.size === 0 || markingIssued}
-            className="flex items-center gap-1.5 h-8 text-state-danger"
-            title="발행 완료 상태를 취소 (재발행 필요 시)">
-            <Undo2 size={13} />취소
-          </Button>
+          {/* 세트 2: 예약금 3버튼 그룹 (파일 · 이체완료 · 이체취소). 1회성만 대상 */}
+          <div className="inline-flex items-center gap-1 rounded-lg border border-border-subtle bg-surface-sunken/60 p-1">
+            <Button size="sm" onClick={handleExportDepositTransfer}
+              disabled={selectedIds.size === 0}
+              className="flex items-center gap-1.5 h-7"
+              title="카드(온라인 간편결제) 1회성 고객 예약금 이체 xls 다운로드">
+              <Download size={13} />예약금{selectedIds.size > 0 ? ` (${selectedIds.size})` : ''}
+            </Button>
+            <Button size="sm" variant="secondary" onClick={handleMarkTransferred}
+              disabled={selectedIds.size === 0 || markingIssued}
+              className="flex items-center gap-1.5 h-7 text-state-success"
+              title="선택된 1회성 회차 이체 완료 처리 + 예약금환급완료 알림 SMS 자동 발송">
+              <Check size={13} />이체완료
+            </Button>
+            <Button size="sm" variant="secondary" onClick={handleRevertTransferred}
+              disabled={selectedIds.size === 0 || markingIssued}
+              className="flex items-center gap-1.5 h-7 text-state-danger"
+              title="이체 완료 상태를 취소 (실수·재이체 필요 시. 이미 발송된 SMS 는 되돌릴 수 없음)">
+              <Undo2 size={13} />취소
+            </Button>
+          </div>
         </div>
       </div>
 
