@@ -210,6 +210,9 @@ export async function GET(request: NextRequest) {
       payment_status_detail: string | null
       created_at: string
       account_number: string | null
+      // 마스터의 총액 fallback (회차 supply_amount 가 0/null 인 경우 이 값으로 계산)
+      supply_amount: number | null
+      vat: number | null
       service_applications: SaRow[]
     }
 
@@ -218,6 +221,7 @@ export async function GET(request: NextRequest) {
       .select(`
         id, business_name, business_number, contact_name, address, email, contact_phone,
         payment_method, payment_status_detail, created_at, account_number,
+        supply_amount, vat,
         service_applications (
           id, construction_date, status, payment_status_detail,
           tax_invoice_issued, tax_invoice_issued_at,
@@ -258,9 +262,16 @@ export async function GET(request: NextRequest) {
           supply = draft.items.reduce((s, i) => s + Number(i.supply_amount ?? (Number(i.qty ?? 1) * Number(i.unit_price ?? 0))), 0)
           vat = draft.items.reduce((s, i) => s + Number(i.vat ?? 0), 0)
           if (vat === 0) vat = Math.round(supply * 0.1)
-        } else if (sa.supply_amount !== null) {
+        } else if (sa.supply_amount !== null && Number(sa.supply_amount) > 0) {
+          // 회차 스냅샷 금액 우선
           supply = Number(sa.supply_amount)
           vat = Number(sa.vat ?? 0)
+        } else if (c.supply_amount !== null && Number(c.supply_amount) > 0) {
+          // 회차 금액이 0/null 이면 마스터(customers) 금액으로 fallback
+          //   → 신규 신청서 유입 후 회차에 금액이 세팅되지 않은 상태에서도
+          //     세금계산서 발행 탭에 0원으로 뜨는 문제 방지
+          supply = Number(c.supply_amount)
+          vat = Number(c.vat ?? 0)
         } else {
           supply = 0; vat = 0
         }
