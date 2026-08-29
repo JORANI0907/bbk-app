@@ -41,12 +41,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '이미 사용 중인 이메일입니다.' }, { status: 409 })
     }
 
-    // 전화번호 중복 확인
+    // 전화번호 중복 확인 — 활성 사용자만 (소프트 삭제된 사용자와 같은 번호는 재가입 허용)
     const { data: existingPhone } = await adminSupabase
       .from('users')
       .select('id')
       .eq('phone', normalizedPhone)
-      .single()
+      .is('deleted_at', null)
+      .maybeSingle()
     if (existingPhone) {
       return NextResponse.json({ error: '이미 등록된 전화번호입니다.' }, { status: 409 })
     }

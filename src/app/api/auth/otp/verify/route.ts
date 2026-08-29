@@ -75,13 +75,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: result.error }, { status: 400 })
     }
 
-    // BBK users 테이블 조회
+    // BBK users 테이블 조회 — 소프트 삭제된 사용자 제외
     const adminSupabase = createServiceClient()
     const { data: user, error: userError } = await adminSupabase
       .from('users')
       .select('id, role, name, auth_id, phone')
       .eq('phone', normalizedPhone)
-      .single()
+      .is('deleted_at', null)
+      .maybeSingle()
 
     if (userError || !user) {
       console.error('users 조회 오류:', userError?.message)

@@ -22,10 +22,12 @@ export async function POST(request: NextRequest) {
     const supabase = createServiceClient()
 
     // users 테이블에서 phone으로 role 조회 (is_active 포함)
+    // 소프트 삭제된 사용자는 제외 — 같은 전화번호로 재가입한 경우 활성 계정만 조회
     const { data: userRow, error: userLookupError } = await supabase
       .from('users')
       .select('id, role, name, is_active')
       .eq('phone', normalized)
+      .is('deleted_at', null)
       .single()
 
     if (userLookupError || !userRow) {

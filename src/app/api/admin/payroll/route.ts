@@ -51,11 +51,12 @@ export async function GET(request: NextRequest) {
       .order('construction_date'),
 
     // 담당자 목록 (users 테이블의 worker/admin)
+    // is_active / deleted_at 필터 없음 — 소프트 삭제됐거나 일시 비활성인 사용자도 과거 급여
+    // 이력 조회 시 표시되어야 함. 활성 여부는 회원관리 페이지에서만 필터.
     supabase
       .from('users')
       .select('id, name, role, phone, account_number')
       .in('role', ['worker', 'admin'])
-      .eq('is_active', true)
       .order('name'),
 
     // 작업자 목록 (workers 테이블)

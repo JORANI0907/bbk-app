@@ -16,14 +16,16 @@ async function deleteAuthUser(authId: string) {
   }
 }
 
-// GET: 전체 사용자 목록 (role 필터 지원)
+// GET: 사용자 목록 (활성만 기본. ?include_deleted=true 로 삭제된 사용자 포함 조회 가능)
 export async function GET(request: NextRequest) {
   const supabase = createServiceClient()
   const { searchParams } = new URL(request.url)
   const role = searchParams.get('role')
+  const includeDeleted = searchParams.get('include_deleted') === 'true'
 
   let query = supabase.from('users').select('*').order('role').order('name')
   if (role) query = query.eq('role', role)
+  if (!includeDeleted) query = query.is('deleted_at', null)
 
   const { data, error } = await query
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
@@ -44,12 +46,13 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: '올바른 전화번호 형식이 아닙니다.' }, { status: 400 })
   }
 
-  // 중복 확인
+  // 중복 확인 — 활성 사용자만 대상 (소프트 삭제된 사용자와 같은 전화번호 재등록 허용)
   const { data: existing } = await supabase
     .from('users')
     .select('id')
     .eq('phone', normalized)
-    .single()
+    .is('deleted_at', null)
+    .maybeSingle()
 
   if (existing) {
     return NextResponse.json({ error: '이미 등록된 전화번호입니다.' }, { status: 409 })
@@ -200,7 +203,10 @@ export async function PATCH(request: NextRequest) {
   return NextResponse.json({ user: data })
 }
 
-// DELETE: 사용자 삭제 (Auth 계정 포함)
+// DELETE: 사용자 소프트 삭제 (Auth 계정만 즉시 삭제, users row 는 deleted_at 세팅으로 보존)
+// 이유: users 하드 삭제 시 payroll_records / incident_reports / 급여정산 이력이 매핑을 잃어
+//       과거 급여·경위서 조회에서 사라져 보이는 문제가 있었음.
+//       Auth 는 즉시 삭제해 로그인은 차단하고, users row 는 남겨 과거 이력 보존.
 export async function DELETE(request: NextRequest) {
   const supabase = createServiceClient()
   const { id } = await request.json()
@@ -209,11 +215,12 @@ export async function DELETE(request: NextRequest) {
 
   const { data: user } = await supabase
     .from('users')
-    .select('auth_id, role, name')
+    .select('auth_id, role, name, deleted_at')
     .eq('id', id)
     .single()
 
   if (!user) return NextResponse.json({ error: '사용자를 찾을 수 없습니다.' }, { status: 404 })
+  if (user.deleted_at) return NextResponse.json({ error: '이미 삭제된 사용자입니다.' }, { status: 400 })
 
   if (user.auth_id) {
     try {
@@ -224,7 +231,12 @@ export async function DELETE(request: NextRequest) {
     }
   }
 
-  const { error } = await supabase.from('users').delete().eq('id', id)
+  // 소프트 삭제 — deleted_at 세팅 + is_active=false 로 활성 조회에서 자동 제외.
+  // auth_id 는 null 로 지워서 향후 같은 전화번호로 재가입 시 unique 충돌 방지.
+  const { error } = await supabase
+    .from('users')
+    .update({ deleted_at: new Date().toISOString(), is_active: false, auth_id: null })
+    .eq('id', id)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
   return NextResponse.json({ success: true })

@@ -27,13 +27,14 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // 사용자 존재 확인
+    // 사용자 존재 확인 — 소프트 삭제된 사용자 제외
     const supabase = createServiceClient()
     const { data: user } = await supabase
       .from('users')
       .select('id, role, name')
       .eq('phone', normalizedPhone)
-      .single()
+      .is('deleted_at', null)
+      .maybeSingle()
 
     if (!user) {
       return NextResponse.json({ error: '등록되지 않은 전화번호입니다.' }, { status: 404 })
