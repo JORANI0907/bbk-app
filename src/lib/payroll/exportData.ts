@@ -48,7 +48,12 @@ export function parseAccount(raw: string | null): { bank: string; number: string
   const idx = trimmed.search(/\s/)
   if (idx > 0) {
     const first = trimmed.slice(0, idx)
-    if (/^[가-힣]/.test(first)) {
+    // 첫 토큰이 은행명으로 보이면 분리.
+    // 판정: 한글이 하나라도 포함되고 숫자가 없음 (예: '카카오뱅크', 'KEB하나', 'IBK기업',
+    //   'SC제일', 'NH농협', '국민', '우리', '신한' 등 영문+한글 혼합도 포함)
+    const hasHangul = /[가-힣]/.test(first)
+    const hasDigit = /\d/.test(first)
+    if (hasHangul && !hasDigit) {
       return { bank: first, number: trimmed.slice(idx + 1).trim() }
     }
   }
