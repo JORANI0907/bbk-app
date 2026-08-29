@@ -14,8 +14,10 @@ import {
   Pie,
   Cell,
   Legend,
+  ComposedChart,
+  Line,
 } from 'recharts'
-import { ChevronLeft, ChevronRight, TrendingUp, TrendingDown, Wallet, Users, Building2, ShoppingCart, ArrowRight, FileText, AlertTriangle } from 'lucide-react'
+import { ChevronLeft, ChevronRight, TrendingUp, TrendingDown, Wallet, Users, Building2, ShoppingCart, ArrowRight, FileText, AlertTriangle, Calendar, CalendarRange } from 'lucide-react'
 
 // ─── 타입 ────────────────────────────────────────────────
 
@@ -39,11 +41,19 @@ interface PayrollRecord {
   is_paid: boolean
 }
 
+interface CostRecord {
+  id: string
+  name: string
+  amount: number
+  group_name?: string | null
+  note?: string | null
+}
+
 interface FinanceData {
   revenue: { total: number; items: RevenueItem[] }
   labor: { total: number; records: PayrollRecord[] }
-  fixed: { total: number; records: { id: string; name: string; amount: number }[] }
-  variable: { total: number; records: { id: string; name: string; amount: number }[] }
+  fixed: { total: number; records: CostRecord[] }
+  variable: { total: number; records: CostRecord[] }
   net_profit: number
 }
 
@@ -96,11 +106,19 @@ const REVENUE_COLORS = ['#3b82f6', '#8b5cf6', '#06b6d4', '#22c55e', '#f97316']
 
 // ─── 메인 ────────────────────────────────────────────────
 
+interface AnnualMonth {
+  month: string  // YYYY-MM
+  data: FinanceData
+}
+
 export default function FinanceDashboardPage() {
+  const [viewMode, setViewMode] = useState<'monthly' | 'annual'>('monthly')
   const [month, setMonth] = useState<string>(todayMonth())
+  const [year, setYear] = useState<number>(new Date().getFullYear())
   const [current, setCurrent] = useState<FinanceData | null>(null)
   const [previous, setPrevious] = useState<FinanceData | null>(null)
   const [trends, setTrends] = useState<MonthlyTrend[]>([])
+  const [annualMonths, setAnnualMonths] = useState<AnnualMonth[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -138,7 +156,39 @@ export default function FinanceDashboardPage() {
     }
   }, [])
 
-  useEffect(() => { loadData(month) }, [month, loadData])
+  useEffect(() => {
+    if (viewMode === 'monthly') loadData(month)
+  }, [month, loadData, viewMode])
+
+  // 연간 뷰: 해당 연도의 12개월 데이터를 병렬 fetch (기존 월별 API 재활용)
+  const loadAnnualData = useCallback(async (targetYear: number) => {
+    setLoading(true)
+    setError(null)
+    try {
+      const months = Array.from({ length: 12 }, (_, i) =>
+        `${targetYear}-${String(i + 1).padStart(2, '0')}`
+      )
+      const results = await Promise.all(
+        months.map(m =>
+          fetch(`/api/admin/finance?month=${m}`)
+            .then(r => (r.ok ? r.json() : null))
+            .catch(() => null)
+        )
+      )
+      const merged: AnnualMonth[] = months
+        .map((m, i) => ({ month: m, data: results[i] as FinanceData | null }))
+        .filter((x): x is AnnualMonth => x.data !== null)
+      setAnnualMonths(merged)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '연간 데이터 로드 실패')
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (viewMode === 'annual') loadAnnualData(year)
+  }, [viewMode, year, loadAnnualData])
 
   const revenueDelta = useMemo(() => {
     if (!current || !previous) return null
@@ -192,21 +242,59 @@ export default function FinanceDashboardPage() {
     <div className="min-h-screen bg-surface-sunken pb-16">
       <div className="max-w-7xl mx-auto px-4 md:px-6 py-6 space-y-6">
 
-        <header className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+        <header className="flex flex-col md:flex-row md:items-start md:justify-between gap-3">
           <div>
             <h1 className="text-2xl md:text-3xl font-bold text-text-primary">재무 대시보드</h1>
-            <p className="text-sm text-text-secondary mt-1">{formatMonthLabel(month)} 한눈에 보기</p>
+            <p className="text-sm text-text-secondary mt-1">
+              {viewMode === 'monthly' ? `${formatMonthLabel(month)} 한눈에 보기` : `${year}년 연간 분석`}
+            </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            {/* 뷰 모드 토글 */}
             <div className="flex items-center bg-surface border border-border rounded-lg overflow-hidden">
-              <button onClick={() => setMonth(shiftMonth(month, -1))} className="px-2 py-2 hover:bg-surface-sunken transition" aria-label="이전 달">
-                <ChevronLeft size={16} />
+              <button
+                onClick={() => setViewMode('monthly')}
+                className={`flex items-center gap-1.5 px-3 py-2 text-sm font-medium transition ${
+                  viewMode === 'monthly' ? 'bg-brand-600 text-white' : 'text-text-secondary hover:bg-surface-sunken'
+                }`}
+              >
+                <Calendar size={14} />
+                월간
               </button>
-              <span className="px-3 py-2 text-sm font-medium text-text-primary min-w-[110px] text-center">{formatMonthLabel(month)}</span>
-              <button onClick={() => setMonth(shiftMonth(month, 1))} className="px-2 py-2 hover:bg-surface-sunken transition" aria-label="다음 달">
-                <ChevronRight size={16} />
+              <button
+                onClick={() => setViewMode('annual')}
+                className={`flex items-center gap-1.5 px-3 py-2 text-sm font-medium transition ${
+                  viewMode === 'annual' ? 'bg-brand-600 text-white' : 'text-text-secondary hover:bg-surface-sunken'
+                }`}
+              >
+                <CalendarRange size={14} />
+                연간
               </button>
             </div>
+
+            {/* 기간 선택기 */}
+            {viewMode === 'monthly' ? (
+              <div className="flex items-center bg-surface border border-border rounded-lg overflow-hidden">
+                <button onClick={() => setMonth(shiftMonth(month, -1))} className="px-2 py-2 hover:bg-surface-sunken transition" aria-label="이전 달">
+                  <ChevronLeft size={16} />
+                </button>
+                <span className="px-3 py-2 text-sm font-medium text-text-primary min-w-[110px] text-center">{formatMonthLabel(month)}</span>
+                <button onClick={() => setMonth(shiftMonth(month, 1))} className="px-2 py-2 hover:bg-surface-sunken transition" aria-label="다음 달">
+                  <ChevronRight size={16} />
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center bg-surface border border-border rounded-lg overflow-hidden">
+                <button onClick={() => setYear(y => y - 1)} className="px-2 py-2 hover:bg-surface-sunken transition" aria-label="이전 해">
+                  <ChevronLeft size={16} />
+                </button>
+                <span className="px-3 py-2 text-sm font-medium text-text-primary min-w-[80px] text-center">{year}년</span>
+                <button onClick={() => setYear(y => y + 1)} className="px-2 py-2 hover:bg-surface-sunken transition" aria-label="다음 해">
+                  <ChevronRight size={16} />
+                </button>
+              </div>
+            )}
+
             <Link href="/admin/finance/details" className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-brand-600 bg-brand-50 hover:bg-brand-100 rounded-lg transition">
               <FileText size={14} />
               상세 내역
@@ -224,7 +312,11 @@ export default function FinanceDashboardPage() {
           <div className="text-center py-16 text-text-tertiary">불러오는 중...</div>
         )}
 
-        {!loading && current && (
+        {!loading && viewMode === 'annual' && (
+          <AnnualView months={annualMonths} year={year} />
+        )}
+
+        {!loading && viewMode === 'monthly' && current && (
           <>
             <section className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4">
               <KpiCard
@@ -468,5 +560,317 @@ function EmptyChart({ message }: { message: string }) {
     <div className="h-[260px] flex items-center justify-center text-sm text-text-tertiary">
       {message}
     </div>
+  )
+}
+
+// ─── 연간 뷰 ────────────────────────────────────────────
+
+function AnnualView({ months, year }: { months: AnnualMonth[]; year: number }) {
+  // 연 합계 · 파생 지표
+  const summary = useMemo(() => {
+    const totals = months.reduce(
+      (acc, m) => {
+        acc.revenue += m.data.revenue?.total ?? 0
+        acc.labor += m.data.labor?.total ?? 0
+        acc.fixed += m.data.fixed?.total ?? 0
+        acc.variable += m.data.variable?.total ?? 0
+        acc.net += m.data.net_profit ?? 0
+        return acc
+      },
+      { revenue: 0, labor: 0, fixed: 0, variable: 0, net: 0 },
+    )
+    const totalCost = totals.labor + totals.fixed + totals.variable
+    const avgMargin = totals.revenue > 0 ? (totals.net / totals.revenue) * 100 : 0
+
+    // 최고·최저 매출월
+    let bestMonth: AnnualMonth | null = null
+    let worstMonth: AnnualMonth | null = null
+    for (const m of months) {
+      const r = m.data.revenue?.total ?? 0
+      if (r <= 0) continue
+      if (!bestMonth || r > (bestMonth.data.revenue?.total ?? 0)) bestMonth = m
+      if (!worstMonth || r < (worstMonth.data.revenue?.total ?? 0)) worstMonth = m
+    }
+
+    return { ...totals, totalCost, avgMargin, bestMonth, worstMonth }
+  }, [months])
+
+  // 월별 트렌드 데이터 (차트용 + 요약표용)
+  const trendRows = useMemo(() => {
+    // 1~12월 슬롯 채우기 (데이터 없는 달은 0)
+    return Array.from({ length: 12 }, (_, i) => {
+      const monthStr = `${year}-${String(i + 1).padStart(2, '0')}`
+      const found = months.find(m => m.month === monthStr)
+      const d = found?.data
+      return {
+        monthNum: i + 1,
+        label: `${i + 1}월`,
+        매출: d?.revenue?.total ?? 0,
+        인건비: d?.labor?.total ?? 0,
+        고정비: d?.fixed?.total ?? 0,
+        변동비: d?.variable?.total ?? 0,
+        순이익: d?.net_profit ?? 0,
+      }
+    })
+  }, [months, year])
+
+  return (
+    <div className="space-y-6">
+      {/* 연간 KPI */}
+      <section className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+        <KpiCard title="연 매출" value={fmtKRW(summary.revenue)} unit="원" icon={<TrendingUp size={18} />} color="blue" />
+        <KpiCard title="연 총 비용" value={fmtKRW(summary.totalCost)} unit="원" icon={<ShoppingCart size={18} />} color="amber" subtext={`인건 ${fmtKRW(summary.labor)}원`} />
+        <KpiCard
+          title="연 순이익"
+          value={fmtKRW(summary.net)}
+          unit="원"
+          icon={summary.net >= 0 ? <TrendingUp size={18} /> : <TrendingDown size={18} />}
+          color={summary.net >= 0 ? 'green' : 'red'}
+          highlight
+        />
+        <KpiCard
+          title="평균 수익률"
+          value={fmtPct(summary.avgMargin)}
+          icon={<Wallet size={18} />}
+          color={summary.avgMargin >= 20 ? 'green' : summary.avgMargin >= 10 ? 'amber' : 'red'}
+        />
+        <KpiCard
+          title="최고 매출월"
+          value={summary.bestMonth ? `${Number(summary.bestMonth.month.split('-')[1])}월` : '-'}
+          icon={<TrendingUp size={18} />}
+          color="green"
+          subtext={summary.bestMonth ? `${fmtKRW(summary.bestMonth.data.revenue.total)}원` : ''}
+        />
+        <KpiCard
+          title="최저 매출월"
+          value={summary.worstMonth ? `${Number(summary.worstMonth.month.split('-')[1])}월` : '-'}
+          icon={<TrendingDown size={18} />}
+          color="red"
+          subtext={summary.worstMonth ? `${fmtKRW(summary.worstMonth.data.revenue.total)}원` : ''}
+        />
+      </section>
+
+      {/* 12개월 흐름 차트 + 옆 요약표 */}
+      <section className="grid grid-cols-1 xl:grid-cols-5 gap-4">
+        <div className="xl:col-span-3">
+          <ChartCard title={`${year}년 월별 흐름`} subtitle="매출 · 총비용 · 순이익">
+            <ResponsiveContainer width="100%" height={320}>
+              <ComposedChart data={trendRows} margin={{ top: 15, right: 15, left: 0, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                <XAxis dataKey="label" stroke="#6b7280" fontSize={12} />
+                <YAxis stroke="#6b7280" fontSize={11} tickFormatter={v => `${(v / 10000).toFixed(0)}만`} />
+                <Tooltip
+                  formatter={(v, name) => [`${fmtKRW(Number(v ?? 0))}원`, String(name)]}
+                  labelStyle={{ color: '#111827', fontWeight: 600 }}
+                  contentStyle={{ borderRadius: 8, border: '1px solid #e5e7eb', fontSize: 12 }}
+                />
+                <Legend wrapperStyle={{ fontSize: 12 }} />
+                <Bar dataKey="매출" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="인건비" fill="#6366f1" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="고정비" fill="#f59e0b" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="변동비" fill="#10b981" radius={[4, 4, 0, 0]} />
+                <Line type="monotone" dataKey="순이익" stroke="#ef4444" strokeWidth={2.5} dot={{ r: 4 }} />
+              </ComposedChart>
+            </ResponsiveContainer>
+          </ChartCard>
+        </div>
+        <div className="xl:col-span-2">
+          <ChartCard title="월별 정확 금액" subtitle="원 단위 풀 표기">
+            <div className="overflow-x-auto -mx-2">
+              <table className="w-full text-[11px] tabular-nums">
+                <thead>
+                  <tr className="border-b border-border-subtle text-text-tertiary">
+                    <th className="text-left px-2 py-1.5 font-medium">월</th>
+                    <th className="text-right px-2 py-1.5 font-medium">매출</th>
+                    <th className="text-right px-2 py-1.5 font-medium">총비용</th>
+                    <th className="text-right px-2 py-1.5 font-medium">순이익</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {trendRows.map(r => {
+                    const totalCost = r.인건비 + r.고정비 + r.변동비
+                    const isCurrentYearMonth =
+                      year === new Date().getFullYear() && r.monthNum === new Date().getMonth() + 1
+                    const isProfit = r.순이익 >= 0
+                    return (
+                      <tr
+                        key={r.monthNum}
+                        className={`border-b border-border-subtle last:border-0 ${
+                          isCurrentYearMonth ? 'bg-brand-50' : ''
+                        }`}
+                      >
+                        <td className={`px-2 py-1.5 font-medium ${isCurrentYearMonth ? 'text-brand-700' : 'text-text-primary'}`}>
+                          {r.label}
+                        </td>
+                        <td className="text-right px-2 py-1.5">{r.매출 > 0 ? fmtKRW(r.매출) : '-'}</td>
+                        <td className="text-right px-2 py-1.5 text-text-secondary">{totalCost > 0 ? fmtKRW(totalCost) : '-'}</td>
+                        <td className={`text-right px-2 py-1.5 font-semibold ${isProfit ? 'text-green-600' : 'text-red-600'}`}>
+                          {r.순이익 !== 0 ? fmtKRW(r.순이익) : '-'}
+                        </td>
+                      </tr>
+                    )
+                  })}
+                  <tr className="border-t-2 border-border font-bold text-text-primary">
+                    <td className="px-2 py-2">합계</td>
+                    <td className="text-right px-2 py-2 text-brand-600">{fmtKRW(summary.revenue)}</td>
+                    <td className="text-right px-2 py-2 text-text-primary">{fmtKRW(summary.totalCost)}</td>
+                    <td className={`text-right px-2 py-2 ${summary.net >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                      {fmtKRW(summary.net)}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </ChartCard>
+        </div>
+      </section>
+
+      {/* 비용 group_name 별 세부 분석 */}
+      <CostBreakdownSection months={months} year={year} category="fixed" title="고정비 세부 분석" />
+      <CostBreakdownSection months={months} year={year} category="variable" title="변동비 세부 분석" />
+    </div>
+  )
+}
+
+// group_name 별 색상 팔레트 (충분히 다양하게)
+const GROUP_PALETTE = [
+  '#6366f1', '#8b5cf6', '#ec4899', '#f43f5e', '#f97316',
+  '#eab308', '#22c55e', '#10b981', '#14b8a6', '#06b6d4',
+  '#3b82f6', '#a855f7', '#d946ef', '#ef4444', '#84cc16',
+]
+
+function CostBreakdownSection({
+  months, year, category, title,
+}: {
+  months: AnnualMonth[]
+  year: number
+  category: 'fixed' | 'variable'
+  title: string
+}) {
+  const UNCLASSIFIED = '미분류'
+
+  // 1) 연간 group_name 별 합계 랭킹
+  // 2) 월별 group_name 별 값 (stacked bar 용)
+  const { rankings, chartData, groupOrder, yearTotal } = useMemo(() => {
+    const groupTotals = new Map<string, number>()
+    // 월별: monthNum(1~12) → group → amount
+    const perMonth = new Map<number, Map<string, number>>()
+    for (let i = 1; i <= 12; i++) perMonth.set(i, new Map())
+
+    for (const m of months) {
+      const monthNum = Number(m.month.split('-')[1])
+      const records = m.data[category]?.records ?? []
+      for (const r of records) {
+        const group = r.group_name && r.group_name.trim() ? r.group_name : UNCLASSIFIED
+        const amt = Number(r.amount) || 0
+        groupTotals.set(group, (groupTotals.get(group) ?? 0) + amt)
+        const mp = perMonth.get(monthNum)!
+        mp.set(group, (mp.get(group) ?? 0) + amt)
+      }
+    }
+
+    const yearTotal = Array.from(groupTotals.values()).reduce((s, v) => s + v, 0)
+
+    const rankings = Array.from(groupTotals.entries())
+      .map(([group, amount], i) => ({
+        group,
+        amount,
+        pct: yearTotal > 0 ? (amount / yearTotal) * 100 : 0,
+        color: GROUP_PALETTE[i % GROUP_PALETTE.length],
+      }))
+      .sort((a, b) => b.amount - a.amount)
+
+    // 색상 재할당: 랭킹 순서대로 팔레트 부여
+    const colorMap = new Map(rankings.map((r, i) => [r.group, GROUP_PALETTE[i % GROUP_PALETTE.length]]))
+    for (const r of rankings) r.color = colorMap.get(r.group)!
+
+    // chartData: recharts 스택 바용 [{ label: '1월', groupA: 100, groupB: 200 }, ...]
+    const chartData = Array.from({ length: 12 }, (_, i) => {
+      const monthNum = i + 1
+      const row: Record<string, number | string> = { label: `${monthNum}월` }
+      const mp = perMonth.get(monthNum)!
+      for (const { group } of rankings) {
+        row[group] = mp.get(group) ?? 0
+      }
+      return row
+    })
+
+    // 스택 렌더 순서 (rankings 상위부터)
+    const groupOrder = rankings.map(r => r.group)
+
+    return { rankings, chartData, groupOrder, yearTotal }
+  }, [months, category])
+
+  if (yearTotal === 0) {
+    return (
+      <section>
+        <ChartCard title={title} subtitle="유형별 지출 breakdown">
+          <EmptyChart message={`${year}년 ${category === 'fixed' ? '고정비' : '변동비'} 데이터가 없습니다`} />
+        </ChartCard>
+      </section>
+    )
+  }
+
+  return (
+    <section className="grid grid-cols-1 xl:grid-cols-5 gap-4">
+      {/* 12개월 스택 바 */}
+      <div className="xl:col-span-3">
+        <ChartCard title={title} subtitle={`${year}년 총 ${fmtKRW(yearTotal)}원 · 유형별 월간 흐름`}>
+          <ResponsiveContainer width="100%" height={300}>
+            <BarChart data={chartData} margin={{ top: 15, right: 15, left: 0, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+              <XAxis dataKey="label" stroke="#6b7280" fontSize={12} />
+              <YAxis stroke="#6b7280" fontSize={11} tickFormatter={v => `${(v / 10000).toFixed(0)}만`} />
+              <Tooltip
+                formatter={(v, name) => [`${fmtKRW(Number(v ?? 0))}원`, String(name)]}
+                labelStyle={{ color: '#111827', fontWeight: 600 }}
+                contentStyle={{ borderRadius: 8, border: '1px solid #e5e7eb', fontSize: 12 }}
+                itemSorter={(item) => -Number(item.value ?? 0)}
+              />
+              <Legend wrapperStyle={{ fontSize: 11 }} />
+              {groupOrder.map(group => {
+                const color = rankings.find(r => r.group === group)?.color ?? '#9ca3af'
+                return (
+                  <Bar key={group} dataKey={group} stackId="cost" fill={color} />
+                )
+              })}
+            </BarChart>
+          </ResponsiveContainer>
+        </ChartCard>
+      </div>
+
+      {/* 유형별 연간 랭킹 표 */}
+      <div className="xl:col-span-2">
+        <ChartCard title="연간 지출 랭킹" subtitle={`총 ${fmtKRW(yearTotal)}원 · 유형별 합계 · 비율`}>
+          <div className="overflow-x-auto -mx-2">
+            <table className="w-full text-[11px] tabular-nums">
+              <thead>
+                <tr className="border-b border-border-subtle text-text-tertiary">
+                  <th className="text-left px-2 py-1.5 font-medium w-8">#</th>
+                  <th className="text-left px-2 py-1.5 font-medium">유형</th>
+                  <th className="text-right px-2 py-1.5 font-medium">금액</th>
+                  <th className="text-right px-2 py-1.5 font-medium w-14">비중</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rankings.map((r, i) => (
+                  <tr key={r.group} className="border-b border-border-subtle last:border-0">
+                    <td className="px-2 py-1.5 text-text-tertiary font-medium">{i + 1}</td>
+                    <td className="px-2 py-1.5 text-text-primary">
+                      <span className="inline-flex items-center gap-1.5">
+                        <span className="w-2 h-2 rounded-sm shrink-0" style={{ backgroundColor: r.color }} />
+                        <span className={r.group === UNCLASSIFIED ? 'text-text-tertiary italic' : ''}>{r.group}</span>
+                      </span>
+                    </td>
+                    <td className="text-right px-2 py-1.5 text-text-primary">{fmtKRW(r.amount)}</td>
+                    <td className="text-right px-2 py-1.5 text-text-secondary">{r.pct.toFixed(1)}%</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </ChartCard>
+      </div>
+    </section>
   )
 }
