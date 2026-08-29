@@ -258,20 +258,21 @@ export async function GET(request: NextRequest) {
 
         let supply: number
         let vat: number
+        // 우선순위 (사장님 정책 2026-08-29):
+        //   draft(사용자 편집중) > customers 마스터 > 회차 스냅샷 > 0
+        // 이전엔 회차 스냅샷 우선이었으나, 사장님 지시로 "고객관리에서 수정한 값이
+        // 항상 진실" 로 변경. 회차 값은 마스터가 비어있을 때만 fallback.
+        // 발행 완료된 회차는 별도 스냅샷 이력(향후 발행 로그)으로 무결성 유지.
         if (draft?.items && draft.items.length > 0) {
           supply = draft.items.reduce((s, i) => s + Number(i.supply_amount ?? (Number(i.qty ?? 1) * Number(i.unit_price ?? 0))), 0)
           vat = draft.items.reduce((s, i) => s + Number(i.vat ?? 0), 0)
           if (vat === 0) vat = Math.round(supply * 0.1)
-        } else if (sa.supply_amount !== null && Number(sa.supply_amount) > 0) {
-          // 회차 스냅샷 금액 우선
-          supply = Number(sa.supply_amount)
-          vat = Number(sa.vat ?? 0)
         } else if (c.supply_amount !== null && Number(c.supply_amount) > 0) {
-          // 회차 금액이 0/null 이면 마스터(customers) 금액으로 fallback
-          //   → 신규 신청서 유입 후 회차에 금액이 세팅되지 않은 상태에서도
-          //     세금계산서 발행 탭에 0원으로 뜨는 문제 방지
           supply = Number(c.supply_amount)
           vat = Number(c.vat ?? 0)
+        } else if (sa.supply_amount !== null && Number(sa.supply_amount) > 0) {
+          supply = Number(sa.supply_amount)
+          vat = Number(sa.vat ?? 0)
         } else {
           supply = 0; vat = 0
         }
