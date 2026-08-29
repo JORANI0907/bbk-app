@@ -8,6 +8,8 @@ const ALLOWED = [
   'business_name', 'contact_name', 'contact_phone', 'contact_phone_2', 'email',
   'phone_notify_1', 'phone_notify_2',
   'platform_nickname', 'business_number', 'account_number',
+  // 결제자(수취인) 정보 — NULL 이면 세금계산서 로직이 일반 필드로 fallback
+  'billing_contact_name', 'billing_email', 'billing_address', 'billing_business_number',
   // 작업장정보
   'address', 'address_detail',
   'elevator', 'building_access', 'access_method',
@@ -486,12 +488,30 @@ export async function PATCH(request: NextRequest) {
     existingUserId = currentCustomer?.user_id ?? null
   }
 
-  const { data: updatedCustomer, error } = await supabase
+  let { data: updatedCustomer, error } = await supabase
     .from('customers')
     .update(updates)
     .eq('id', id)
     .select()
     .single()
+
+  // 신규 컬럼(billing_*) 미배포 대응: 42703 감지 시 billing_* 4개 제거 후 재시도.
+  // 마이그레이션 20260829000001_billing_recipient_fields.sql 실행 전 안전빵.
+  if (error && /billing_(contact_name|email|address|business_number)/i.test(error.message)) {
+    delete updates.billing_contact_name
+    delete updates.billing_email
+    delete updates.billing_address
+    delete updates.billing_business_number
+    const retry = await supabase
+      .from('customers')
+      .update(updates)
+      .eq('id', id)
+      .select()
+      .single()
+    updatedCustomer = retry.data
+    error = retry.error
+  }
+
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
   // contact_phone 변경 시 users + Auth 동기화 (실패해도 고객 수정은 성공)
