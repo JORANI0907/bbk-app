@@ -2071,17 +2071,21 @@ export function CustomersManagementView({
   const filtered = useMemo(() => {
     let list = customers
 
+    // 유효 담당자 id set — 실제 users 목록에 존재하는 id만.
+    // 이 세트에 없으면 "유령 배정"(퇴사·삭제된 직원 uuid만 남은 상태) 으로 판단해
+    // 미배정으로 취급. 직원 하드삭제 후에도 필터가 정상 동작하게 함.
+    const validUserIds = new Set(usersList.map(u => u.id))
+
     // 비관리자: 담당자(assigned_user_id)가 자신인 고객만
     if (!isAdmin && currentUserId) {
       list = list.filter(c => c.assigned_user_id === currentUserId)
     }
 
     // 서비스 유형 복수 필터 (비어있으면 전체)
-    // Phase 27-AM: 유형 필터에서는 담당자(assigned_user_id) 없는 건 자동 제외.
-    // 미배정 항목은 "미배정" 필터에서만 확인 가능하도록 하여 유형 뷰의 잡음 제거.
+    // 유형 필터에서는 담당자 없거나 유령 배정(실존 X)인 건 자동 제외.
     if (selectedTypes.size > 0) {
       list = list.filter(c => {
-        if (!c.assigned_user_id) return false
+        if (!c.assigned_user_id || !validUserIds.has(c.assigned_user_id)) return false
         const ct = (c.customer_type ?? '1회성케어') as CustomerType
         for (const opt of selectedTypes) {
           if (matchesCustomerFilter(ct, opt)) return true
@@ -2090,10 +2094,10 @@ export function CustomersManagementView({
       })
     }
 
-    // Phase 6-B: 미배정 필터 — 담당자 없음 OR (1회성이면서 시공일자 없음)
+    // 미배정 필터 — 담당자 없음 OR 유령 배정 OR (1회성이면서 시공일자 없음)
     if (showUnassignedOnly) {
       list = list.filter(c => {
-        const noManager = !c.assigned_user_id
+        const noManager = !c.assigned_user_id || !validUserIds.has(c.assigned_user_id)
         const isOnce = c.customer_type === '1회성케어'
         const noConstructionDate = isOnce && !c.next_visit_date
         return noManager || noConstructionDate
@@ -2124,9 +2128,9 @@ export function CustomersManagementView({
           const appBiz = (a.business_name ?? '').trim()
           if (appBiz && existingBizNames.has(appBiz)) return false
           // 유형 필터 활성 시 신청서 service_type도 함께 필터
-          // Phase 27-AM: 유형 필터에서는 담당자(assigned_to) 없는 pending 도 자동 제외.
+          // 유형 필터에서는 담당자 없거나 유령 배정(실존 X)인 pending 자동 제외.
           if (selectedTypes.size > 0) {
-            if (!a.assigned_to) return false
+            if (!a.assigned_to || !validUserIds.has(a.assigned_to)) return false
             const t = (a.service_type ?? '1회성케어') as CustomerType
             let matched = false
             for (const opt of selectedTypes) {
@@ -2134,9 +2138,9 @@ export function CustomersManagementView({
             }
             if (!matched) return false
           }
-          // 미배정 필터 활성 시 pendings 도 동일 규칙 적용
+          // 미배정 필터 활성 시 pendings 도 동일 규칙 적용 (유령 배정 포함).
           if (showUnassignedOnly) {
-            const noManager = !a.assigned_to
+            const noManager = !a.assigned_to || !validUserIds.has(a.assigned_to)
             const isOnce = a.service_type === '1회성케어'
             const noConstructionDate = isOnce && !a.construction_date
             if (!(noManager || noConstructionDate)) return false
@@ -2288,7 +2292,7 @@ export function CustomersManagementView({
     }
 
     return list
-  }, [customers, isAdmin, currentUserId, selectedTypes, deferredSearch, sortKey, sortDir, selectedStaffId, staffList, showUnassignedOnly, pendingApplications, archivedView])
+  }, [customers, isAdmin, currentUserId, selectedTypes, deferredSearch, sortKey, sortDir, selectedStaffId, staffList, showUnassignedOnly, pendingApplications, archivedView, usersList])
 
   // Phase 18: 유형 필터 활성 시 리스트 상단 30일치만 우선 로드 (전체는 "더 보기" 클릭)
   // archivedView(고객DB이력): 시간대가 다양하므로 30일 window가 아닌 "최근 30건" slice.
