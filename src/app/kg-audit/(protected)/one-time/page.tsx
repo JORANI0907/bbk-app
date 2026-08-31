@@ -1,7 +1,12 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { ONE_TIME_PRODUCTS, groupByCategory, calcTotalAmount } from '@/lib/kg-audit/products'
+import {
+  ONE_TIME_PRODUCTS,
+  groupByCategory,
+  calcTotalAmount,
+  SERVICE_PERIOD_ONE_TIME,
+} from '@/lib/kg-audit/products'
 
 export default function KgAuditOneTimePage() {
   const groups = useMemo(() => groupByCategory(ONE_TIME_PRODUCTS), [])
@@ -45,10 +50,27 @@ export default function KgAuditOneTimePage() {
   return (
     <div className="space-y-4 pb-32">
       <div>
-        <h2 className="text-xl font-bold text-text-primary mb-2">1회성 청소 서비스</h2>
+        <div className="flex items-center gap-2 mb-2 flex-wrap">
+          <h2 className="text-xl font-bold text-text-primary">1회성 청소 서비스</h2>
+          <span className="text-[11px] font-bold bg-brand-600 text-white px-2.5 py-1 rounded-full">
+            서비스기간 1개월
+          </span>
+        </div>
         <p className="text-sm text-text-secondary">
           필요한 청소 항목을 카테고리별로 선택하세요. 여러 항목을 함께 선택하시면 합계 금액으로 결제됩니다.
         </p>
+      </div>
+
+      {/* 서비스 제공기간 안내 (전자상거래법 필수 표기) */}
+      <div className="bg-brand-50 border border-brand-600/40 rounded-xl px-4 py-3 flex items-start gap-2.5">
+        <span className="text-base leading-none mt-0.5">⏱</span>
+        <div className="text-xs leading-relaxed break-keep">
+          <p className="font-bold text-brand-700 mb-0.5">서비스 제공기간</p>
+          <p className="text-text-primary">{SERVICE_PERIOD_ONE_TIME}</p>
+          <p className="text-text-secondary mt-1">
+            결제일로부터 30일 이내 예약·시공 완료가 원칙이며, 기간 내 미이용 시 환불 규정에 따라 처리됩니다.
+          </p>
+        </div>
       </div>
 
       {/* 카테고리 탭 */}

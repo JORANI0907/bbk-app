@@ -1,3 +1,5 @@
+import { SERVICE_PERIOD_ONE_TIME, SERVICE_PERIOD_SUBSCRIPTION } from '@/lib/kg-audit/products'
+
 const REFUND_RULES = [
   { timing: '서비스 예정일 48시간 전 취소', rate: '전액 환불', tone: 'bg-state-success-bg text-state-success border-state-success/20' },
   { timing: '서비스 예정일 24시간 전 취소', rate: '50% 환불',  tone: 'bg-state-warning-bg text-state-warning border-state-warning/20' },
@@ -13,6 +15,35 @@ export default function KgAuditRefundPage() {
           BBK 공간케어의 서비스 취소 및 환불 처리 정책입니다.
         </p>
       </div>
+
+      {/* 서비스 제공기간 (전자상거래법 필수 표기) */}
+      <section className="bg-brand-50 border-2 border-brand-600 rounded-2xl p-5 shadow-soft">
+        <div className="flex items-start gap-3">
+          <span className="text-2xl leading-none">⏱</span>
+          <div className="flex-1">
+            <h3 className="text-base font-bold text-brand-700 mb-2">서비스 제공기간</h3>
+            <div className="space-y-1.5 text-sm text-text-primary leading-relaxed break-keep">
+              <p>
+                <span className="font-bold">· 1회성 서비스:</span> {SERVICE_PERIOD_ONE_TIME}
+              </p>
+              <p>
+                <span className="font-bold">· 정기 서비스:</span> {SERVICE_PERIOD_SUBSCRIPTION}
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* 1회성 서비스 유효기간 조항 (신설) */}
+      <section className="bg-surface rounded-2xl border border-border-subtle shadow-soft p-5">
+        <h3 className="text-sm font-bold text-text-primary mb-3">1회성 서비스 유효기간</h3>
+        <ul className="space-y-1.5 text-xs text-text-secondary leading-relaxed break-keep">
+          <li>• 1회성 서비스는 <strong className="text-text-primary">결제일로부터 1개월(30일) 이내</strong> 시공 완료를 원칙으로 합니다.</li>
+          <li>• 30일 이내 미예약·미이용 시 사용자에게 사전 안내 후 서비스가 자동 소멸됩니다.</li>
+          <li>• 자동 소멸된 서비스는 원칙적으로 환불이 제한되며, 회사 귀책 사유 또는 부득이한 사유가 확인된 경우에만 부분 환불이 진행됩니다.</li>
+          <li>• 유효기간 연장이 필요한 경우 고객센터(1522-9597)로 문의해 주세요.</li>
+        </ul>
+      </section>
 
       {/* 취소 시점별 환불율 */}
       <section className="bg-surface rounded-2xl border border-border-subtle shadow-soft overflow-hidden">
