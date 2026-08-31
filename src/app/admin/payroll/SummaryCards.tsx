@@ -7,8 +7,8 @@ export default function SummaryCards({ entries, label, rates }: {
   rates: PayslipRates
 }) {
   const autoTotal = entries.reduce((s, e) => s + e.auto_amount, 0)
-  // 개별 카드의 '실지급 예상'과 동일한 공식(payslipCalc.computePayslip)으로 계산.
-  // 세금(4대보험·프리랜서3.3% 등) 공제 반영된 netPay 합산 — PDF/엑셀과 정합.
+  // 개별 카드의 '지급 합계'와 동일한 공식(payslipCalc.computePayslip)으로 계산.
+  // 회사 지출 총액(gross) 합산 — 세후 모드는 gross-up 후 회사가 실제 지출한 금액.
   const finalTotal = entries.reduce((s, e) => {
     if (!e.record) return s + e.auto_amount
     const calc = computePayslip({
@@ -20,7 +20,7 @@ export default function SummaryCards({ entries, label, rates }: {
       salaryBasis: (e.person.salary_basis ?? '세전') as SalaryBasis,
       rates,
     })
-    return s + calc.netPay
+    return s + calc.grossTotal
   }, 0)
   const paidCount = entries.filter(e => e.record?.is_paid).length
 
