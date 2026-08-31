@@ -7,6 +7,7 @@ import { fmt, fmtDate } from './utils'
 import PayslipList, { type PayslipEntry } from './PayslipList'
 import PayslipDraftModal from './PayslipDraftModal'
 import type { ManagerEntry, ManagerJob, PayrollRecord } from './types'
+import { computePayslip, type PayslipRates, type TaxType, type SalaryBasis } from '@/lib/payroll/payslipCalc'
 
 export default function ManagerCard({
   entry,
@@ -21,6 +22,7 @@ export default function ManagerCard({
   onPublished,
   onRefresh,
   onJobPayChanged,
+  rates,
 }: {
   entry: ManagerEntry
   month: string
@@ -34,6 +36,7 @@ export default function ManagerCard({
   onPublished: () => void
   onRefresh?: () => void  // 일정별 금액 편집 후 부모 데이터 재조회 (폴백용, 지금은 미사용)
   onJobPayChanged?: (personId: string, jobId: string, newPay: number) => void
+  rates: PayslipRates
 }) {
   const [editingJobId, setEditingJobId] = useState<string | null>(null)
   const [editValue, setEditValue] = useState('')
@@ -84,15 +87,21 @@ export default function ManagerCard({
   const hasNote = !!(record?.note?.trim())
   const workDays = new Set(entry.jobs.map(j => j.construction_date)).size
 
-  // 카드 우측 표시 금액: 저장된 record가 있으면 실지급 예상액, 없으면 자동 계산액
-  const extraItemsTotal = (record?.extra_items ?? []).reduce((s, it) => s + (it.amount || 0), 0)
-  const extraDedTotal = (record?.extra_deductions ?? []).reduce((s, it) => s + (it.amount || 0), 0)
-  const base = record?.final_amount ?? entry.auto_amount
+  // 카드 우측 표시 금액: 저장된 record가 있으면 실지급 예상(세금 공제 반영), 없으면 자동 계산액.
+  // payslipCalc.computePayslip 로 모달/PDF/엑셀과 동일 공식 유지.
+  const calc = computePayslip({
+    autoAmount: entry.auto_amount,
+    finalAmount: record?.final_amount ?? null,
+    extraItems: record?.extra_items ?? [],
+    extraDeductions: record?.extra_deductions ?? [],
+    taxType: (entry.person.tax_type ?? '없음') as TaxType,
+    salaryBasis: (entry.person.salary_basis ?? '세전') as SalaryBasis,
+    rates,
+  })
   const hasSaved = record != null
-  const netEstimate = base + extraItemsTotal - extraDedTotal
-  const displayAmount = hasSaved ? netEstimate : entry.auto_amount
+  const displayAmount = hasSaved ? calc.netPay : entry.auto_amount
   const displayLabel = hasSaved ? '실지급 예상' : '자동 계산액'
-  const hasExtras = extraItemsTotal !== 0 || extraDedTotal !== 0
+  const hasExtras = calc.extraItemsTotal !== 0 || calc.extraDeductionsTotal !== 0
 
   const jobsByDate = entry.jobs.reduce<Record<string, ManagerJob[]>>((acc, job) => {
     if (!acc[job.construction_date]) acc[job.construction_date] = []
@@ -200,7 +209,7 @@ export default function ManagerCard({
                 <span className="block text-[10px] text-text-tertiary leading-none mb-0.5">{displayLabel}</span>
                 <span
                   className={`text-lg font-bold leading-tight ${isAdjusted || hasExtras ? 'text-orange-600' : 'text-text-primary'}`}
-                  title={hasSaved && hasExtras ? `조정 ${base.toLocaleString('ko-KR')} + 추가지급 ${extraItemsTotal.toLocaleString('ko-KR')} − 추가공제 ${extraDedTotal.toLocaleString('ko-KR')}` : undefined}
+                  title={hasSaved && hasExtras ? `지급총액 ${calc.grossTotal.toLocaleString('ko-KR')} − 공제 ${calc.deductions.total.toLocaleString('ko-KR')} − 추가공제 ${calc.extraDeductionsTotal.toLocaleString('ko-KR')}` : undefined}
                 >
                   {displayAmount.toLocaleString('ko-KR')}
                 </span>

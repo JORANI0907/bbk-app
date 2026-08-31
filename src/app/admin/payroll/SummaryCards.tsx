@@ -1,18 +1,26 @@
-import type { PayrollRecord } from './types'
+import type { ManagerEntry, WorkerEntry } from './types'
+import { computePayslip, type PayslipRates, type TaxType, type SalaryBasis } from '@/lib/payroll/payslipCalc'
 
-export default function SummaryCards({ entries, label }: {
-  entries: Array<{ auto_amount: number; record: PayrollRecord | undefined }>
+export default function SummaryCards({ entries, label, rates }: {
+  entries: Array<ManagerEntry | WorkerEntry>
   label: string
+  rates: PayslipRates
 }) {
   const autoTotal = entries.reduce((s, e) => s + e.auto_amount, 0)
-  // 개별 카드의 '실지급 예상'과 동일한 공식으로 계산:
-  //   base(final_amount ?? auto_amount) + extra_items - extra_deductions
-  // 이전에는 base만 합산해 추가 지급/공제가 누락됐음.
+  // 개별 카드의 '실지급 예상'과 동일한 공식(payslipCalc.computePayslip)으로 계산.
+  // 세금(4대보험·프리랜서3.3% 등) 공제 반영된 netPay 합산 — PDF/엑셀과 정합.
   const finalTotal = entries.reduce((s, e) => {
-    const base = e.record?.final_amount ?? e.auto_amount
-    const extras = (e.record?.extra_items ?? []).reduce((a, it) => a + (it.amount || 0), 0)
-    const deducts = (e.record?.extra_deductions ?? []).reduce((a, it) => a + (it.amount || 0), 0)
-    return s + base + extras - deducts
+    if (!e.record) return s + e.auto_amount
+    const calc = computePayslip({
+      autoAmount: e.auto_amount,
+      finalAmount: e.record.final_amount,
+      extraItems: e.record.extra_items ?? [],
+      extraDeductions: e.record.extra_deductions ?? [],
+      taxType: (e.person.tax_type ?? '없음') as TaxType,
+      salaryBasis: (e.person.salary_basis ?? '세전') as SalaryBasis,
+      rates,
+    })
+    return s + calc.netPay
   }, 0)
   const paidCount = entries.filter(e => e.record?.is_paid).length
 

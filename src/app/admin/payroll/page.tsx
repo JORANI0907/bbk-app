@@ -16,6 +16,7 @@ import InsuranceRateModal from './InsuranceRateModal'
 import { currentYM } from './utils'
 import type { ManagerEntry, WorkerEntry, PayrollRecord } from './types'
 import type { PayslipEntry } from './PayslipList'
+import { DEFAULT_PAYSLIP_RATES, type PayslipRates } from '@/lib/payroll/payslipCalc'
 
 function parseMonthParam(raw: string | null): string | null {
   if (!raw) return null
@@ -39,6 +40,7 @@ export default function PayrollPage() {
   const [showInsuranceRate, setShowInsuranceRate] = useState(false)
   const [selectedPersons, setSelectedPersons] = useState<Set<string>>(new Set())
   const [payslips, setPayslips] = useState<PayslipEntry[]>([])
+  const [rates, setRates] = useState<PayslipRates>(DEFAULT_PAYSLIP_RATES)
 
   const fetchData = useCallback(async () => {
     setLoading(true)
@@ -68,6 +70,12 @@ export default function PayrollPage() {
 
   useEffect(() => { fetchData() }, [fetchData])
   useEffect(() => { fetchPayslips() }, [fetchPayslips])
+  useEffect(() => {
+    fetch('/api/admin/payroll/insurance-rates')
+      .then(r => r.json())
+      .then(d => { if (d.rates) setRates({ ...DEFAULT_PAYSLIP_RATES, ...d.rates }) })
+      .catch(() => {})
+  }, [])
 
   const handlePayslipUpdated = useCallback((updated: PayslipEntry) => {
     setPayslips(prev => prev.map(p => p.id === updated.id ? updated : p))
@@ -351,7 +359,7 @@ export default function PayrollPage() {
               <>
                 {filteredEntries.length > 0 && (
                   <div className="mb-3">
-                    <SummaryCards entries={filteredEntries} label={filterLabel} />
+                    <SummaryCards entries={filteredEntries} label={filterLabel} rates={rates} />
                   </div>
                 )}
                 {dualRoleNames.length > 0 && personFilter === 'all' && (
@@ -385,6 +393,7 @@ export default function PayrollPage() {
                         onPublished={fetchPayslips}
                         onRefresh={fetchData}
                         onJobPayChanged={handleManagerJobPayChanged}
+                        rates={rates}
                       />
                     ))}
                     {showWorkers && workersPayroll.map(entry => (
@@ -402,6 +411,7 @@ export default function PayrollPage() {
                         onPublished={fetchPayslips}
                         onRefresh={fetchData}
                         onJobSalaryChanged={handleWorkerJobSalaryChanged}
+                        rates={rates}
                       />
                     ))}
                   </div>
