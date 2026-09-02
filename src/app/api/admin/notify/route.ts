@@ -492,26 +492,11 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // 견적 미입력 상태 발송 차단 (해담 케이스 재발 방지)
-    // 잔금·금액이 포함된 template 은 supply_amount 없이 발송하면 SMS 에 0원으로 나감.
-    // 정기엔드/정기딥 작업완료 template 은 감사·사진 위주라 금액 미포함이라 제외.
-    const REQUIRES_QUOTE_TYPES = new Set([
-      '작업완료알림',
-      '작업완료알림(현금)',
-      '작업완료알림(카드,플렛폼)',
-      '결제알림',
-      '결제알림(현금)',
-      '결제알림(카드,플렛폼)',
-    ])
-    if (REQUIRES_QUOTE_TYPES.has(type)) {
-      const supplyAmount = Number(app.supply_amount ?? 0)
-      if (!supplyAmount) {
-        return NextResponse.json(
-          { error: '공급가액이 미입력 상태입니다. 견적 입력 후 발송해주세요.' },
-          { status: 400 },
-        )
-      }
-    }
+    // 견적 미입력 발송 차단 게이팅은 롤백됨 (2026-09-03).
+    // 배경: 실무 데이터의 대부분(정기딥/엔드 회차·1회성 예약 시점)이 supply_amount NULL 상태로 운영되고 있어
+    // 정상 업무 흐름을 막았음. {{잔금}} resolver 의 fallback(supply+vat-deposit) 은 유지되므로
+    // legacy balance NULL 케이스는 여전히 SMS 상으로 올바르게 계산됨.
+    // 사고 방지는 프론트 게이팅(견적 미입력 시 발송 버튼 비활성) 으로 재설계 예정.
 
     // 신청서작성완료알림 1회 제한
     if (type === '신청서작성완료알림') {
