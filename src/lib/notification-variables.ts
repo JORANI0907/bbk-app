@@ -311,8 +311,19 @@ export const AVAILABLE_VARIABLES: VariableDef[] = [
     desc: '선입금 금액',
     resolve: (c) => fmtMoney(c.application?.deposit ?? c.customer?.deposit) },
   { label: '잔금', category: '결제정보', scope: 'application', appliesTo: TAB_ONESHOT_MONTHLY,
-    desc: '자동계산: 총액-예약금',
-    resolve: (c) => fmtMoney(c.application?.balance ?? c.customer?.balance) },
+    desc: '자동계산: 총액-예약금 (balance 컬럼 없거나 0이면 공급가액+부가세-예약금으로 대체 계산)',
+    resolve: (c) => {
+      const stored = c.application?.balance ?? c.customer?.balance
+      const storedNum = Number(stored ?? 0)
+      if (storedNum > 0) return fmtMoney(stored)
+      // balance 컬럼 미기록·0인 legacy 케이스 → supply+vat-deposit 로 재계산
+      const supply = Number(c.application?.supply_amount ?? c.customer?.supply_amount ?? 0)
+      const pm = c.application?.payment_method ?? c.customer?.payment_method
+      const vat = isNoVat(pm) ? 0 : Number(c.application?.vat ?? c.customer?.vat ?? 0)
+      const deposit = Number(c.application?.deposit ?? c.customer?.deposit ?? 0)
+      const computed = supply + vat - deposit
+      return fmtMoney(computed > 0 ? computed : 0)
+    } },
   { label: '회차결제금액', category: '결제정보', scope: 'application', appliesTo: TAB_MONTHLY,
     desc: '이번 회차 청구 금액',
     resolve: (c) => fmtMoney(c.schedule?.payment_amount) },
