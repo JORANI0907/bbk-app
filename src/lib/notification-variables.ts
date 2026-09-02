@@ -290,37 +290,56 @@ export const AVAILABLE_VARIABLES: VariableDef[] = [
     desc: '입금받을 계좌 (환급·페이백)',
     resolve: (c) => c.application?.account_number ?? c.customer?.account_number ?? '' },
   // 공급가액·부가세·총액·예약금·잔금 = 1회성/월간 회차별 결제
+  // 값 우선순위: 고객관리 UI(customers) → application → 계산 fallback
+  // Why: 관리자가 UI 세부화면에서 편집하는 값은 customers 테이블에 저장됨.
+  // ?? (nullish) 는 0 을 유효값으로 보아 fallback 이 안 되므로, Number 변환 후 || 로 truthy 체크.
   { label: '공급가액', category: '결제정보', scope: 'application', appliesTo: TAB_NON_MONTHLY,
     desc: '부가세 제외 금액',
-    resolve: (c) => fmtMoney(c.application?.supply_amount ?? c.customer?.supply_amount) },
+    resolve: (c) => {
+      const cust = Number(c.customer?.supply_amount ?? 0) || 0
+      const app = Number(c.application?.supply_amount ?? 0) || 0
+      return fmtMoney(cust || app)
+    } },
   { label: '부가세', category: '결제정보', scope: 'application', appliesTo: TAB_NON_MONTHLY,
     desc: '10% 부가세 (비과세 시 0)',
     resolve: (c) => {
-      const pm = c.application?.payment_method ?? c.customer?.payment_method
-      return isNoVat(pm) ? '0' : fmtMoney(c.application?.vat ?? c.customer?.vat)
+      const pm = c.customer?.payment_method ?? c.application?.payment_method
+      if (isNoVat(pm)) return '0'
+      const cust = Number(c.customer?.vat ?? 0) || 0
+      const app = Number(c.application?.vat ?? 0) || 0
+      return fmtMoney(cust || app)
     } },
   { label: '총액', category: '결제정보', scope: 'application', appliesTo: TAB_NON_MONTHLY,
     desc: '공급가액 + 부가세',
     resolve: (c) => {
-      const s = Number(c.application?.supply_amount ?? c.customer?.supply_amount ?? 0)
-      const pm = c.application?.payment_method ?? c.customer?.payment_method
-      const v = isNoVat(pm) ? 0 : Number(c.application?.vat ?? c.customer?.vat ?? 0)
+      const s = (Number(c.customer?.supply_amount ?? 0) || 0) || (Number(c.application?.supply_amount ?? 0) || 0)
+      const pm = c.customer?.payment_method ?? c.application?.payment_method
+      const v = isNoVat(pm)
+        ? 0
+        : ((Number(c.customer?.vat ?? 0) || 0) || (Number(c.application?.vat ?? 0) || 0))
       return fmtMoney(s + v)
     } },
   { label: '예약금', category: '결제정보', scope: 'application', appliesTo: TAB_ONESHOT_MONTHLY,
     desc: '선입금 금액',
-    resolve: (c) => fmtMoney(c.application?.deposit ?? c.customer?.deposit) },
-  { label: '잔금', category: '결제정보', scope: 'application', appliesTo: TAB_ONESHOT_MONTHLY,
-    desc: '자동계산: 총액-예약금 (balance 컬럼 없거나 0이면 공급가액+부가세-예약금으로 대체 계산)',
     resolve: (c) => {
-      const stored = c.application?.balance ?? c.customer?.balance
-      const storedNum = Number(stored ?? 0)
-      if (storedNum > 0) return fmtMoney(stored)
-      // balance 컬럼 미기록·0인 legacy 케이스 → supply+vat-deposit 로 재계산
-      const supply = Number(c.application?.supply_amount ?? c.customer?.supply_amount ?? 0)
-      const pm = c.application?.payment_method ?? c.customer?.payment_method
-      const vat = isNoVat(pm) ? 0 : Number(c.application?.vat ?? c.customer?.vat ?? 0)
-      const deposit = Number(c.application?.deposit ?? c.customer?.deposit ?? 0)
+      const cust = Number(c.customer?.deposit ?? 0) || 0
+      const app = Number(c.application?.deposit ?? 0) || 0
+      return fmtMoney(cust || app)
+    } },
+  { label: '잔금', category: '결제정보', scope: 'application', appliesTo: TAB_ONESHOT_MONTHLY,
+    desc: '자동계산: 총액-예약금 (customer/application balance 우선, 없으면 supply+vat-deposit)',
+    resolve: (c) => {
+      const custBalance = Number(c.customer?.balance ?? 0) || 0
+      const appBalance = Number(c.application?.balance ?? 0) || 0
+      const stored = custBalance || appBalance
+      if (stored > 0) return fmtMoney(stored)
+      // fallback: supply+vat-deposit 계산 (동일 우선순위)
+      const supply = (Number(c.customer?.supply_amount ?? 0) || 0) || (Number(c.application?.supply_amount ?? 0) || 0)
+      const pm = c.customer?.payment_method ?? c.application?.payment_method
+      const vat = isNoVat(pm)
+        ? 0
+        : ((Number(c.customer?.vat ?? 0) || 0) || (Number(c.application?.vat ?? 0) || 0))
+      const deposit = (Number(c.customer?.deposit ?? 0) || 0) || (Number(c.application?.deposit ?? 0) || 0)
       const computed = supply + vat - deposit
       return fmtMoney(computed > 0 ? computed : 0)
     } },
