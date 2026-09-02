@@ -228,6 +228,16 @@ const NOTIFY_TYPE_CONFIG: Record<string, { badge: string; dot: string }> = {
 const isNoVatMethod = (method: string | null | undefined): boolean =>
   !!method && (method.includes('비과세') || method.includes('미희망') || method === '현금(부가세 X)')
 
+// 서비스 유형 → 짧은 배지 라벨 (알림 이력 옆에 병기)
+// baseType 저장 통일 후에도 어떤 서비스 유형 template 로 나갔는지 UI 에서 즉시 확인.
+function serviceTypeShortLabel(t: string | null | undefined): string | null {
+  if (!t) return null
+  if (t === '1회성케어') return '1회성'
+  if (t === '정기딥케어') return '정기딥'
+  if (t === '정기엔드케어') return '정기엔드'
+  return null
+}
+
 // Phase 22 v13: 케어별 뱃지 색상 확실히 구분 (1회성=green, 정기딥=blue/brand, 정기엔드=purple, 일반=stone)
 const TYPE_STYLE: Record<CustomerType, { badge: string; accent: string }> = {
   '1회성케어':    { badge: 'bg-emerald-100 text-emerald-700', accent: 'border-emerald-200 bg-emerald-50' },
@@ -1946,8 +1956,11 @@ export function CustomersManagementView({
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || '발송 실패')
       const nowIso = new Date().toISOString()
-      const log: NotifyLog = { type: notifyType, sentAt: nowIso, method: 'manual' }
-      const dbEntry = { type: notifyType, sent_at: nowIso, method: 'manual' as const }
+      // API 가 templateCode 를 baseType 으로 정규화해 돌려주므로 그 값을 log 기준으로 사용.
+      // (예: '작업완료알림_1회성' → '작업완료알림')
+      const displayType: string = data?.final_type ?? notifyType
+      const log: NotifyLog = { type: displayType, sentAt: nowIso, method: 'manual' }
+      const dbEntry = { type: displayType, sent_at: nowIso, method: 'manual' as const }
       setNotifyLogs(prev => [log, ...prev])
       // Phase 27-AR: 응답의 linked_* 값으로 진행/결제 상태 옵티미스틱 업데이트
       const nextProgress: string | null | undefined = data?.new_progress_status
@@ -1990,8 +2003,9 @@ export function CustomersManagementView({
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || '재발송 실패')
       const nowIso = new Date().toISOString()
-      const log: NotifyLog = { type: `[재발송] ${type}`, sentAt: nowIso, method: 'manual' }
-      const dbEntry = { type, sent_at: nowIso, method: 'manual' as const }
+      const displayType: string = data?.final_type ?? type
+      const log: NotifyLog = { type: `[재발송] ${displayType}`, sentAt: nowIso, method: 'manual' }
+      const dbEntry = { type: displayType, sent_at: nowIso, method: 'manual' as const }
       setNotifyLogs(prev => [log, ...prev])
       // Phase 27-AR: 재발송 시에도 응답 linked_* 반영
       const nextProgress: string | null | undefined = data?.new_progress_status
@@ -4535,6 +4549,7 @@ export function CustomersManagementView({
                       <div className="max-h-52 overflow-y-auto divide-y divide-border-subtle">
                         {notifyLogs.map((log, i) => {
                           const cfg = NOTIFY_TYPE_CONFIG[log.type]
+                          const svcLabel = serviceTypeShortLabel(selected?.customer_type)
                           return (
                             <div key={i} className="flex items-center justify-between px-3 py-2 gap-2">
                               <div className="flex items-center gap-1.5 min-w-0">
@@ -4546,6 +4561,9 @@ export function CustomersManagementView({
                                 )}
                                 {cfg && <span className={`inline-block w-1.5 h-1.5 rounded-full ${cfg.dot} shrink-0`}></span>}
                                 <span className={`text-xs font-medium truncate ${cfg ? cfg.badge.split(' ').find(c => c.startsWith('text-')) : 'text-text-primary'}`}>{log.type}</span>
+                                {svcLabel && (
+                                  <span className="text-[10px] px-1.5 py-0.5 bg-slate-100 text-slate-600 rounded font-medium shrink-0">{svcLabel}</span>
+                                )}
                               </div>
                               <span className="text-[11px] text-text-tertiary shrink-0 tabular-nums">{new Date(log.sentAt).toLocaleString('ko-KR', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}</span>
                             </div>
@@ -4614,6 +4632,7 @@ export function CustomersManagementView({
                           const isResent = log.type.startsWith('[재발송] ')
                           const baseType = isResent ? log.type.replace('[재발송] ', '') : log.type
                           const cfg = NOTIFY_TYPE_CONFIG[baseType]
+                          const svcLabel = serviceTypeShortLabel(selected?.customer_type)
                           return (
                             <div key={i} className="flex items-center justify-between px-3 py-2 gap-2">
                               <div className="flex items-center gap-1.5 min-w-0">
@@ -4627,6 +4646,9 @@ export function CustomersManagementView({
                                   <span className={`w-1.5 h-1.5 rounded-full ${cfg?.dot ?? 'bg-text-tertiary'} shrink-0`} />
                                   <span className="truncate">{baseType}</span>
                                 </span>
+                                {svcLabel && (
+                                  <span className="text-[10px] px-1.5 py-0.5 bg-slate-100 text-slate-600 rounded font-medium shrink-0">{svcLabel}</span>
+                                )}
                               </div>
                               <div className="flex items-center gap-2 shrink-0">
                                 <span className="text-xs text-text-tertiary">{new Date(log.sentAt).toLocaleString('ko-KR', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}</span>

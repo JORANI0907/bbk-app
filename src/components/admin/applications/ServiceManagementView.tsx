@@ -179,6 +179,16 @@ const rowTotal = (app: Application) => {
   return (app.supply_amount ?? 0) + (isNoVatMethod(app.payment_method) ? 0 : (app.vat ?? 0))
 }
 
+// 서비스 유형 → 짧은 배지 라벨 (알림 이력 옆에 병기)
+// baseType 저장 통일 후에도 어떤 서비스 유형 template 로 나갔는지 UI 에서 즉시 확인.
+function serviceTypeShortLabel(t: string | null | undefined): string | null {
+  if (!t) return null
+  if (t === '1회성케어') return '1회성'
+  if (t === '정기딥케어') return '정기딥'
+  if (t === '정기엔드케어') return '정기엔드'
+  return null
+}
+
 function isMigrationError(msg: string) {
   return msg.includes('does not exist') || msg.includes('column') || msg.includes('no such column')
 }
@@ -2341,6 +2351,7 @@ export function ServiceManagementPage({
                         const isResent = log.type.startsWith('[재발송] ')
                         const baseType = isResent ? log.type.replace('[재발송] ', '') : log.type
                         const cfg = NOTIFY_TYPE_CONFIG[baseType]
+                        const svcLabel = serviceTypeShortLabel(selected?.service_type)
                         return (
                           <div key={i} className="flex items-center justify-between px-3 py-2 gap-2">
                             <div className="flex items-center gap-1.5 min-w-0">
@@ -2355,6 +2366,9 @@ export function ServiceManagementPage({
                                 <span className={`w-1.5 h-1.5 rounded-full ${cfg?.dot ?? 'bg-text-tertiary'} shrink-0`} />
                                 <span className="truncate">{baseType}</span>
                               </span>
+                              {svcLabel && (
+                                <span className="text-[10px] px-1.5 py-0.5 bg-slate-100 text-slate-600 rounded font-medium shrink-0">{svcLabel}</span>
+                              )}
                             </div>
                             <div className="flex items-center gap-2 shrink-0">
                               <span className="text-xs text-text-tertiary">{new Date(log.sentAt).toLocaleString('ko-KR', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}</span>

@@ -102,6 +102,16 @@ function fmtDateShort(d: string | null): string {
   return `${mm}.${dd}(${dow})`
 }
 
+// 서비스 유형 → 짧은 배지 라벨 (알림 이력에 병기)
+// baseType 저장 통일 이후에도 어떤 유형의 template 인지 UI 에서 확인 가능.
+function serviceTypeShortLabel(t: string | null | undefined): string | null {
+  if (!t) return null
+  if (t === '1회성케어') return '1회성'
+  if (t === '정기딥케어') return '정기딥'
+  if (t === '정기엔드케어') return '정기엔드'
+  return null
+}
+
 function StatusPill({ label, tone }: { label: string; tone: string }) {
   return (
     <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium border ${tone}`}>
@@ -660,17 +670,23 @@ function ExpandedEditor({ merged, users, workers, update, status, isDirty, onSav
         <div className="border-t border-border-subtle pt-2">
           <p className={labelCls}>알림 이력 ({merged.notification_log.length}건)</p>
           <div className="mt-1 space-y-0.5 max-h-32 overflow-y-auto pr-1">
-            {merged.notification_log.slice(0, 8).map((log, i) => (
-              <div key={i} className="flex items-center gap-1.5 text-[11px] text-text-secondary bg-surface-sunken/50 rounded px-1.5 py-0.5">
-                {log.method === 'auto' && (
-                  <span className="text-[9px] px-1 py-0.5 bg-brand-100 text-brand-600 rounded font-medium leading-none">자동</span>
-                )}
-                <span className="font-mono text-text-tertiary shrink-0">
-                  {log.sent_at.slice(5, 10)} {log.sent_at.slice(11, 16)}
-                </span>
-                <span className="truncate">{log.type}</span>
-              </div>
-            ))}
+            {merged.notification_log.slice(0, 8).map((log, i) => {
+              const svcLabel = serviceTypeShortLabel(customerType)
+              return (
+                <div key={i} className="flex items-center gap-1.5 text-[11px] text-text-secondary bg-surface-sunken/50 rounded px-1.5 py-0.5">
+                  {log.method === 'auto' && (
+                    <span className="text-[9px] px-1 py-0.5 bg-brand-100 text-brand-600 rounded font-medium leading-none">자동</span>
+                  )}
+                  <span className="font-mono text-text-tertiary shrink-0">
+                    {log.sent_at.slice(5, 10)} {log.sent_at.slice(11, 16)}
+                  </span>
+                  <span className="truncate">{log.type}</span>
+                  {svcLabel && (
+                    <span className="text-[9px] px-1 py-0.5 bg-slate-100 text-slate-600 rounded font-medium leading-none shrink-0">{svcLabel}</span>
+                  )}
+                </div>
+              )
+            })}
             {merged.notification_log.length > 8 && (
               <p className="text-[10px] text-text-tertiary text-center pt-1">... {merged.notification_log.length - 8}건 더</p>
             )}

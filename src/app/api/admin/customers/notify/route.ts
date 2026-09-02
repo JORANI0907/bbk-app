@@ -79,6 +79,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '필수 항목 누락' }, { status: 400 })
     }
 
+    // Phase 알림통일: templateCode(작업완료알림_1회성)를 log·이력·pipeline_status 매핑에
+    // 그대로 쓰면 UI 표기가 접미사로 갈라짐. → baseType 으로 정규화한 값을 저장·표시 기준으로 사용.
+    // 원본 type 은 실제 template row 조회(하단 code 매칭)에만 사용.
+    const KNOWN_TYPE_SUFFIXES = ['_정기딥', '_정기엔드', '_1회성'] as const
+    const baseType = KNOWN_TYPE_SUFFIXES.reduce(
+      (acc, suf) => (acc.endsWith(suf) ? acc.slice(0, -suf.length) : acc),
+      type,
+    )
+
     const supabase = createServiceClient()
 
     // 게이팅: notification_templates에 code로 등록된 활성 템플릿이어야 발송 가능
@@ -157,14 +166,14 @@ export async function POST(request: NextRequest) {
       : []
     const primaryChannel: 'sms' | 'lms' = channelsUsed[0] ?? 'sms'
     const newEntry: NotificationLogEntry = {
-      type, sent_at: nowIso, phone: sentPhoneRecord, method,
+      type: baseType, sent_at: nowIso, phone: sentPhoneRecord, method,
       channel: primaryChannel,
     }
     const updatedLog = [newEntry, ...existingLog]
 
     // pipeline_status 자동 업데이트 + Phase 27-AR: template.linked_* 로 progress/payment 자동 세팅
     const dbUpdates: Record<string, unknown> = { notification_log: updatedLog }
-    const newStatus = NOTIFY_PIPELINE_STATUS[type]
+    const newStatus = NOTIFY_PIPELINE_STATUS[baseType]
     if (newStatus) dbUpdates.pipeline_status = newStatus
     // Phase 27-AR: 정기딥/정기엔드 세부화면의 진행상태·결제상태 필드 자동 갱신
     // (하드코딩 매핑 없음 → 관리자가 관리 페이지에서 dropdown 으로 지정한 값 사용)
@@ -188,9 +197,9 @@ export async function POST(request: NextRequest) {
     // 알림 이력 저장 (감사·통계용)
     await saveNotificationHistory({
       category: 'sms',
-      type,
-      body: `${type} 발송 완료 — ${customer.contact_name ?? ''} (${sentPhoneRecord})`,
-      title: type,
+      type: baseType,
+      body: `${baseType} 발송 완료 — ${customer.contact_name ?? ''} (${sentPhoneRecord})`,
+      title: baseType,
       method,
       recipientType: 'customer',
       recipientName: String(customer.contact_name ?? ''),
@@ -207,9 +216,9 @@ export async function POST(request: NextRequest) {
     // 1회성케어 작업완료 3종(정기엔드케어 제외) 발송 성공 시 이어서 리뷰 안내 LMS 발송.
     // 실패는 원본 작업완료 발송 성공에 영향 없음.
     if (
-      (type === '작업완료알림' ||
-        type === '작업완료알림(현금)' ||
-        type === '작업완료알림(카드,플렛폼)') &&
+      (baseType === '작업완료알림' ||
+        baseType === '작업완료알림(현금)' ||
+        baseType === '작업완료알림(카드,플렛폼)') &&
       customer.customer_type === '1회성케어' &&
       channelsUsed.length > 0
     ) {
@@ -280,7 +289,9 @@ export async function POST(request: NextRequest) {
     // Phase 27-AR: 프론트 옵티미스틱 업데이트가 응답 값 그대로 반영하도록 확장
     return NextResponse.json({
       success: true,
-      type,
+      type: baseType,
+      final_type: baseType, // 프론트 log 매핑용 (templateCode → baseType 정규화 결과)
+      template_code: type,  // 어떤 template 로 실제 발송됐는지 (UI 서비스 유형 뱃지 참고용)
       method,
       pipeline_status: newStatus ?? null,
       new_progress_status: linkedProgress,
