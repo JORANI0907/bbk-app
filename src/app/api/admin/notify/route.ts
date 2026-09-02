@@ -536,6 +536,20 @@ export async function POST(request: NextRequest) {
     const variables = buildVariables(type, app as Record<string, unknown>, assignedUserName)
     const fallbackText = buildFallback(type, app as Record<string, unknown>)
 
+    // customers 마스터 조회 — resolver 가 application.supply/vat/deposit/balance 가 비어있을 때
+    // customer 값으로 fallback 하도록 context 에 함께 전달.
+    // (UI 세부화면은 customers 테이블에 견적을 저장하는데 service_applications 로는 sync 안 되는
+    //  구조라 이 hydration 없이는 SMS 잔금이 0 원으로 나감.)
+    let customerRow: Record<string, unknown> | null = null
+    if (app.customer_id) {
+      const { data } = await supabase
+        .from('customers')
+        .select('*')
+        .eq('id', app.customer_id)
+        .maybeSingle()
+      customerRow = data as Record<string, unknown> | null
+    }
+
     // 각 번호로 순차 발송. 하나 실패해도 나머지는 계속.
     // templateCode(접미사 붙은 코드)로 실제 template 조회. type(baseType)은 이력·상태용.
     const sendErrors: string[] = []
@@ -543,6 +557,7 @@ export async function POST(request: NextRequest) {
     for (const target of targets) {
       const smsResult = await sendByTemplate(templateCode, target, {
         application: app as NotificationContext['application'],
+        customer: (customerRow ?? undefined) as NotificationContext['customer'] | undefined,
       })
       if (smsResult.ok) {
         channelsUsed.push(smsResult.type === 'LMS' ? 'lms' : 'sms')
