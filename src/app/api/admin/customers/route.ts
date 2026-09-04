@@ -587,6 +587,14 @@ export async function PATCH(request: NextRequest) {
     platform_nickname: 'platform_nickname',
     // 진행
     pre_meeting_done: 'pre_meeting_done',
+    // 금액 (단일 진실 원본: customers). 결제 알림 크론(payment-reminders-afternoon)이
+    // service_applications.supply_amount 를 대상 판정에 씀. sync 없이는 UI 편집한 금액이
+    // 크론 판정까지 흘러가지 않아 자동 알림 skip 되던 근본 문제 해결.
+    // 정기케어 completed 회차는 아래 regularSyncable 분기의 status 필터로 자동 보존됨.
+    supply_amount: 'supply_amount',
+    vat: 'vat',
+    deposit: 'deposit',
+    balance: 'balance',
   }
 
   const appUpdates: Record<string, unknown> = {}
