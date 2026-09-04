@@ -1947,6 +1947,14 @@ export function CustomersManagementView({
 
   const handleNotify = async () => {
     if (!selected || !notifyType) { toast.error('알림 유형을 선택하세요.'); return }
+    // 프론트 게이팅: 잔금·청소비용 변수 사용 알림은 supply_amount 필수.
+    // 서버 게이팅은 legacy 데이터(정기 회차·예약 시점) 때문에 롤백됨(2026-09-03).
+    const requiresQuote = /^(작업완료알림|결제알림|결제요청알림)/.test(notifyType)
+                       && !/정기엔드케어|정기딥케어/.test(notifyType)
+    if (requiresQuote && !(Number(selected.supply_amount ?? 0) > 0)) {
+      toast.error('공급가액이 미입력 상태입니다. 견적을 먼저 입력한 뒤 발송해 주세요.')
+      return
+    }
     setSending(true)
     try {
       const res = await fetch('/api/admin/customers/notify', {

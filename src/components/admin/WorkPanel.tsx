@@ -63,6 +63,8 @@ interface WorkApp {
   notification_log?: NotificationLogEntry[] | null
   progress_status?: string | null
   payment_status_detail?: string | null
+  // 프론트 게이팅용: 잔금 참조 알림 발송 전 견적 유효성 판정
+  supply_amount?: number | null
 }
 
 interface Props {
@@ -205,6 +207,15 @@ export function WorkPanel({ app, onUpdate, isAdmin = false }: Props) {
   // notify API 응답의 new_progress_status / new_payment_status_detail / final_type 을
   // 그대로 반영하여 "발송이력"에 즉시 나타나고 진행/결제 상태가 화면과 DB 동기화됨.
   async function handleSendNow() {
+    // 프론트 게이팅: 정기엔드케어 외 유형은 잔금·청소비용 변수를 참조하므로
+    // supply_amount 미입력 시 SMS에 잔금 0원으로 나가는 사고를 사전 차단.
+    // 서버 게이팅은 정기 회차·예약 시점 데이터 대량이 supply NULL 이라 롤백됨(2026-09-03).
+    const isFinalCareReq = String(app.service_type ?? '') !== '정기엔드케어'
+                        && String(app.service_type ?? '') !== '정기딥케어'
+    if (isFinalCareReq && !(Number(app.supply_amount ?? 0) > 0)) {
+      toast.error('공급가액이 미입력 상태입니다. 견적을 먼저 입력한 뒤 발송해 주세요.')
+      return
+    }
     setSaving(true)
     try {
       await saveMemos()
