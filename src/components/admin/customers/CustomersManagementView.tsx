@@ -209,6 +209,9 @@ const NOTIFY_TYPE_CONFIG: Record<string, { badge: string; dot: string }> = {
   '결제알림':               { badge: 'bg-orange-100 text-orange-700',  dot: 'bg-orange-500' },
   '결제알림(현금)':         { badge: 'bg-orange-100 text-orange-800',  dot: 'bg-orange-600' },
   '결제알림(카드,플렛폼)':  { badge: 'bg-amber-100 text-amber-700',    dot: 'bg-amber-500' },
+  // cron(payment-reminders-afternoon)이 카드/플랫폼 결제방식에 실제 저장하는 type.
+  // 옛 이름('결제알림(카드,플렛폼)')과 동시 지원해 이력 표시 정합성 확보.
+  '결제요청알림(카드)':     { badge: 'bg-amber-100 text-amber-700',    dot: 'bg-amber-500' },
   '결제완료알림':       { badge: 'bg-emerald-100 text-emerald-700', dot: 'bg-emerald-500' },
   '결제완료알림(잔금)': { badge: 'bg-emerald-100 text-emerald-800', dot: 'bg-emerald-600' },
   '계산서발행완료알림': { badge: 'bg-brand-100 text-brand-700',      dot: 'bg-brand-500' },
