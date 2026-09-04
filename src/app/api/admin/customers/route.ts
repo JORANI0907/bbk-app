@@ -597,9 +597,17 @@ export async function PATCH(request: NextRequest) {
     balance: 'balance',
   }
 
+  // 금액 필드는 UI 폼이 빈 값을 null 로 항상 body 에 포함시킬 수 있어,
+  // 그대로 sync 하면 이전 신청서 값을 null 로 덮어씀 → 후속 알림 발송 시 supply_amount 없음.
+  // 따라서 금액 4필드는 null/undefined 를 "미변경" 으로 해석해 sync 대상에서 제외한다.
+  // 다른 필드는 기존 동작 유지 (명시적 null 로 초기화 허용).
+  const MONEY_FIELDS = new Set(['supply_amount', 'vat', 'deposit', 'balance'])
   const appUpdates: Record<string, unknown> = {}
   for (const [custKey, appKey] of Object.entries(SYNC_FIELD_MAP)) {
-    if (custKey in rest) appUpdates[appKey] = rest[custKey]
+    if (!(custKey in rest)) continue
+    const v = rest[custKey]
+    if (MONEY_FIELDS.has(custKey) && (v === null || v === undefined)) continue
+    appUpdates[appKey] = v
   }
 
   const oneShotSyncable =
