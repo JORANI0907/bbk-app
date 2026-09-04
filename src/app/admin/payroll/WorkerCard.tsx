@@ -85,10 +85,9 @@ export default function WorkerCard({
   const hasNote = !!(record?.note?.trim())
   const workDays = new Set(entry.jobs.map(j => j.construction_date)).size
 
-  // 카드 우측 표시 금액: 회사 지출 총액(gross) 기준.
-  // - 세전: 입력 basePay = 지급 합계
-  // - 세후: 실수령 basePay를 gross-up 하여 회사 지출 총액 표시
-  // payslipCalc.computePayslip 로 모달의 '지급 합계'와 동일 공식.
+  // 카드 우측 표시 금액: 저장된 record가 있으면 실지급 예상(세금·공제 반영), 없으면 자동 계산액.
+  // 툴팁에는 지급 합계·공제·실지급을 함께 병기해 회계 관점도 즉시 확인 가능.
+  // payslipCalc.computePayslip 로 모달·PDF·엑셀과 동일 공식 유지.
   const calc = computePayslip({
     autoAmount: entry.auto_amount,
     finalAmount: record?.final_amount ?? null,
@@ -99,8 +98,8 @@ export default function WorkerCard({
     rates,
   })
   const hasSaved = record != null
-  const displayAmount = hasSaved ? calc.grossTotal : entry.auto_amount
-  const displayLabel = hasSaved ? '지급 합계' : '자동 계산액'
+  const displayAmount = hasSaved ? calc.netPay : entry.auto_amount
+  const displayLabel = hasSaved ? '실지급 예상' : '자동 계산액'
   const hasExtras = calc.extraItemsTotal !== 0 || calc.extraDeductionsTotal !== 0
 
   const jobsByDate = entry.jobs.reduce<Record<string, WorkerJob[]>>((acc, job) => {
