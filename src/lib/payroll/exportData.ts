@@ -182,7 +182,10 @@ export async function loadExportBundle(
       .gte('construction_date', `${month}-01`)
       .lte('construction_date', getMonthEndDate(month))
       .order('construction_date'),
-    supabase.from('users').select('id, name, role, phone, account_number, bank_code, bank_name, email').in('role', ['worker', 'admin']).eq('is_active', true).order('name'),
+    // is_active 필터 제거 — 휴직자여도 이번달 배정 이력이 있으면 급여 정산 대상.
+    // 어차피 아래 managerMap 구축 로직이 "이번달 assigned_to에 있는 사람"만 자연 필터링하므로
+    // 휴직·비활성 사용자 중 활동 있는 사람만 정확히 포함됨.
+    supabase.from('users').select('id, name, role, phone, account_number, bank_code, bank_name, email').in('role', ['worker', 'admin']).order('name'),
     supabase.from('workers').select('id, name, employment_type, phone, account_number, bank_code, bank_name, email, tax_type, salary_basis').order('name'),
     supabase.from('workers').select('user_id, tax_type, salary_basis, employment_type, account_number, bank_code, bank_name, email, phone').not('user_id', 'is', null),
     supabase.from('payroll_records').select('*').eq('year_month', month),
