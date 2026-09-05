@@ -57,6 +57,18 @@ export async function POST(req: NextRequest) {
 
     const { buffer, skipped } = await buildDepositTransferXls(candidates)
 
+    // Skip 사유별 그룹핑 (UI 표시용)
+    // 사유 문자열 앞부분 매칭 — buildDepositTransferXls 의 reason 포맷과 정합.
+    const summary: Record<string, number> = {}
+    for (const s of skipped) {
+      let key = '기타'
+      if (s.reason.startsWith('카드(온라인 간편결제) 아님')) key = '결제방식 카드 아님'
+      else if (s.reason.startsWith('계좌번호 없음')) key = '계좌번호 없음'
+      else if (s.reason.startsWith('은행명 인식 실패')) key = '은행명 인식 실패'
+      else if (s.reason.startsWith('계좌번호 파싱 실패')) key = '계좌번호 파싱 실패'
+      summary[key] = (summary[key] ?? 0) + 1
+    }
+
     const today = new Date()
       .toLocaleDateString('ko-KR', {
         year: 'numeric',
@@ -74,6 +86,8 @@ export async function POST(req: NextRequest) {
         'Content-Type': 'application/vnd.ms-excel',
         'Content-Disposition': `attachment; filename*=UTF-8''${encodeURIComponent(fileName)}`,
         'X-Skipped-Count': String(skipped.length),
+        // 사유별 카운트 요약 (UI 정확한 오류 표시용). ASCII 안전을 위해 base64.
+        'X-Skipped-Summary': Buffer.from(JSON.stringify(summary), 'utf-8').toString('base64'),
       },
     })
   } catch (err) {

@@ -385,6 +385,7 @@ export default function TaxInvoiceDashboardPage() {
   }
 
   // ── 예약금 이체 xls ───────────────────────────────────────────
+  const CARD_PM = '카드(온라인 간편결제)'
   const handleExportDepositTransfer = async () => {
     const selected = filteredCandidates.filter(c => selectedIds.has(rowKey(c)))
     if (selected.length === 0) { toast.error('먼저 이체 대상을 선택하세요.'); return }
@@ -394,6 +395,24 @@ export default function TaxInvoiceDashboardPage() {
     if (customerIds.length === 0) {
       toast.error('선택된 항목에 연결된 고객이 없습니다.'); return
     }
+    // Pre-check: 선택 항목의 결제방식 확인. 카드 아닌 것 있으면 사전 경고.
+    // (서버가 어차피 skip 하지만, 사용자가 이유를 미리 알게 마찰 감소)
+    const nonCard = selected.filter(c => c.payment_method !== CARD_PM)
+    if (nonCard.length === selected.length) {
+      toast.error(
+        `선택된 ${selected.length}건 모두 결제방식이 카드(온라인 간편결제)가 아닙니다. 예약금 이체는 카드 결제 고객만 대상입니다.`,
+        { duration: 6000 },
+      )
+      return
+    }
+    if (nonCard.length > 0) {
+      const proceed = confirm(
+        `선택된 ${selected.length}건 중 ${nonCard.length}건이 카드(온라인 간편결제) 결제가 아닙니다.\n\n` +
+        `이체 파일에는 카드 결제 고객만 포함됩니다. 계속하시겠습니까?`
+      )
+      if (!proceed) return
+    }
+
     const loadingToast = toast.loading('예약금 이체 파일 생성 중...')
     try {
       const res = await fetch('/api/admin/tax-invoice/deposit-transfer', {
@@ -406,6 +425,19 @@ export default function TaxInvoiceDashboardPage() {
         throw new Error(json.error ?? '파일 생성 실패')
       }
       const skippedCount = Number(res.headers.get('X-Skipped-Count') ?? '0')
+
+      // 사유별 요약(base64 JSON) 파싱
+      let summary: Record<string, number> = {}
+      const summaryHeader = res.headers.get('X-Skipped-Summary')
+      if (summaryHeader) {
+        try {
+          const decoded = typeof atob === 'function'
+            ? atob(summaryHeader)
+            : Buffer.from(summaryHeader, 'base64').toString('utf-8')
+          summary = JSON.parse(decoded) as Record<string, number>
+        } catch { /* 파싱 실패해도 무해 */ }
+      }
+
       const blob = await res.blob()
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
@@ -418,7 +450,15 @@ export default function TaxInvoiceDashboardPage() {
       toast.dismiss(loadingToast)
       toast.success('예약금 이체 파일 다운로드 완료')
       if (skippedCount > 0) {
-        toast.error(`${skippedCount}건 계좌 파싱 실패로 제외됨`, { duration: 6000 })
+        const detailLines = Object.entries(summary)
+          .map(([reason, cnt]) => `• ${reason}: ${cnt}건`)
+          .join('\n')
+        toast.error(
+          detailLines
+            ? `${skippedCount}건 제외됨\n${detailLines}`
+            : `${skippedCount}건 제외됨`,
+          { duration: 7000 },
+        )
       }
     } catch (e) {
       toast.dismiss(loadingToast)
