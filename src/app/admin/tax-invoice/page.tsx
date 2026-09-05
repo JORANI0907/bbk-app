@@ -749,17 +749,17 @@ export default function TaxInvoiceDashboardPage() {
                     className="accent-brand-600"
                   />
                 </th>
-                <th className="text-left px-3 py-2.5 text-xs font-medium text-text-secondary">유형</th>
-                <th className="text-left px-3 py-2.5 text-xs font-medium text-text-secondary">기간 / 시공일</th>
-                <th className="text-left px-3 py-2.5 text-xs font-medium text-text-secondary">업체명</th>
-                <th className="text-left px-3 py-2.5 text-xs font-medium text-text-secondary">대표자</th>
-                <th className="text-left px-3 py-2.5 text-xs font-medium text-text-secondary">사업자번호</th>
-                <th className="text-left px-3 py-2.5 text-xs font-medium text-text-secondary">결제방법</th>
-                <th className="text-right w-20 px-2 py-2.5 text-xs font-medium text-text-secondary">공급가액</th>
-                <th className="text-right w-16 px-2 py-2.5 text-xs font-medium text-text-secondary">세액</th>
-                <th className="text-right w-24 px-2 py-2.5 text-xs font-medium text-text-secondary">합계</th>
-                <th className="text-left px-3 py-2.5 text-xs font-medium text-text-secondary">계산서</th>
-                <th className="text-left px-3 py-2.5 text-xs font-medium text-text-secondary">결제</th>
+                <th className="text-left px-3 py-2.5 text-xs font-medium text-text-secondary whitespace-nowrap">유형</th>
+                <th className="text-left px-3 py-2.5 text-xs font-medium text-text-secondary whitespace-nowrap">기간 / 시공일</th>
+                <th className="text-left px-3 py-2.5 text-xs font-medium text-text-secondary whitespace-nowrap">업체명</th>
+                <th className="text-left w-16 px-2 py-2.5 text-xs font-medium text-text-secondary whitespace-nowrap">대표자</th>
+                <th className="text-left px-3 py-2.5 text-xs font-medium text-text-secondary whitespace-nowrap">사업자번호</th>
+                <th className="text-left px-3 py-2.5 text-xs font-medium text-text-secondary whitespace-nowrap">결제방법</th>
+                <th className="text-right w-24 px-2 py-2.5 text-xs font-medium text-text-secondary whitespace-nowrap">공급가액</th>
+                <th className="text-right w-20 px-2 py-2.5 text-xs font-medium text-text-secondary whitespace-nowrap">세액</th>
+                <th className="text-right w-24 px-2 py-2.5 text-xs font-medium text-text-secondary whitespace-nowrap">합계</th>
+                <th className="text-left px-3 py-2.5 text-xs font-medium text-text-secondary whitespace-nowrap">계산서</th>
+                <th className="text-left px-3 py-2.5 text-xs font-medium text-text-secondary whitespace-nowrap">결제</th>
                 <th className="w-20 py-2.5" />
               </tr>
             </thead>
