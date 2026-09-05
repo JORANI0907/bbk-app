@@ -59,11 +59,11 @@ export async function POST(req: NextRequest) {
 
     // Skip 사유별 그룹핑 (UI 표시용)
     // 사유 문자열 앞부분 매칭 — buildDepositTransferXls 의 reason 포맷과 정합.
+    // 2026-09-05: 결제방식 필터 제거되어 '카드 아님' 케이스는 더 이상 발생 안 함.
     const summary: Record<string, number> = {}
     for (const s of skipped) {
       let key = '기타'
-      if (s.reason.startsWith('카드(온라인 간편결제) 아님')) key = '결제방식 카드 아님'
-      else if (s.reason.startsWith('계좌번호 없음')) key = '계좌번호 없음'
+      if (s.reason.startsWith('계좌번호 없음')) key = '계좌번호 없음'
       else if (s.reason.startsWith('은행명 인식 실패')) key = '은행명 인식 실패'
       else if (s.reason.startsWith('계좌번호 파싱 실패')) key = '계좌번호 파싱 실패'
       summary[key] = (summary[key] ?? 0) + 1

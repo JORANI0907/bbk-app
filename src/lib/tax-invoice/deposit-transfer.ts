@@ -54,13 +54,11 @@ export async function buildDepositTransferXls(
   const rows: TransferRow[] = []
 
   for (const c of candidates) {
-    if (c.payment_method !== CARD_PAYMENT_METHOD) {
-      skipped.push({
-        business_name: c.business_name,
-        reason: `카드(온라인 간편결제) 아님 (${c.payment_method ?? '-'})`,
-      })
-      continue
-    }
+    // 결제방식 필터 제거 (2026-09-05).
+    // 이유: 현금 결제 고객도 예약금 환급 이체가 필요한 케이스 존재 (재예약 취소 등).
+    // 원래 카드(온라인 간편결제) 조건은 PG→계좌 환급 흐름 특화였지만,
+    // 실무 유연성을 위해 결제방식 무관하게 계좌 파싱만 성공하면 이체 대상 포함.
+    // 참고: CARD_PAYMENT_METHOD 상수는 다른 곳에서 참조 가능성 있어 export 는 유지.
     if (!c.account_number?.trim()) {
       skipped.push({ business_name: c.business_name, reason: '계좌번호 없음' })
       continue
