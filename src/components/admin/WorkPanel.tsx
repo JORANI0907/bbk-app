@@ -207,14 +207,21 @@ export function WorkPanel({ app, onUpdate, isAdmin = false }: Props) {
   // notify API 응답의 new_progress_status / new_payment_status_detail / final_type 을
   // 그대로 반영하여 "발송이력"에 즉시 나타나고 진행/결제 상태가 화면과 DB 동기화됨.
   async function handleSendNow() {
-    // 프론트 게이팅: 정기엔드케어 외 유형은 잔금·청소비용 변수를 참조하므로
-    // supply_amount 미입력 시 SMS에 잔금 0원으로 나가는 사고를 사전 차단.
-    // 서버 게이팅은 정기 회차·예약 시점 데이터 대량이 supply NULL 이라 롤백됨(2026-09-03).
+    // 프론트 게이팅: 잔금·청소비용 변수를 참조하는 유형(정기딥/엔드 제외)에서
+    // supply_amount 미입력 상태로 실수 발송하는 것을 예방.
+    // 단, 서버(notify API)는 customer 마스터 supply_amount 로 fallback 계산하므로
+    // 실제 SMS 금액은 정확히 나감. 따라서 발송 자체를 막는 게 아니라
+    // confirm 으로 사용자에게 결정권을 넘기고, 확인 시 진행.
+    // (완전 차단 시 sync 지연·마스터 편집 순서 등 정상 실무 흐름을 막던 문제 해결)
     const isFinalCareReq = String(app.service_type ?? '') !== '정기엔드케어'
                         && String(app.service_type ?? '') !== '정기딥케어'
     if (isFinalCareReq && !(Number(app.supply_amount ?? 0) > 0)) {
-      toast.error('공급가액이 미입력 상태입니다. 견적을 먼저 입력한 뒤 발송해 주세요.')
-      return
+      const proceed = confirm(
+        '이 신청서에 공급가액이 미입력 상태입니다.\n\n' +
+        '고객관리 마스터에 견적이 입력되어 있다면 서버가 자동으로 그 값을 사용해 SMS 금액을 계산합니다.\n\n' +
+        '그래도 발송을 진행하시겠습니까?'
+      )
+      if (!proceed) return
     }
     setSaving(true)
     try {
