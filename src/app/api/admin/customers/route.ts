@@ -580,6 +580,12 @@ export async function PATCH(request: NextRequest) {
     special_notes: 'request_notes',
     disposition: 'disposition',
     meeting_time: 'meeting_time',
+    // 기본 정보 (관리자가 편집하면 배정관리·워커앱·알림 SMS 에서 즉시 반영되어야 함)
+    business_name: 'business_name',
+    business_number: 'business_number',
+    contact_name: 'owner_name',
+    contact_phone: 'phone',
+    contact_phone_2: 'phone_2',
     // 연락·알림
     email: 'email',
     phone_notify_1: 'phone_notify_1',
