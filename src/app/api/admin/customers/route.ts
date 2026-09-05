@@ -576,8 +576,11 @@ export async function PATCH(request: NextRequest) {
     // customers.special_notes → service_applications.request_notes
     // 라벨: "고객 요청사항". 신규 회차 생성 시엔 복사되나 마스터 편집 시 sync 누락으로
     // 배정관리·워커 앱에 반영 안 되던 버그 해결.
-    // (admin_notes / notes 는 Phase 27-BC 스냅샷 정책 유지 위해 SYNC 제외)
     special_notes: 'request_notes',
+    // customers.admin_notes → service_applications.admin_request_notes
+    // 라벨: "관리자 요청사항". 필드명이 서로 다르지만 같은 의미 (스키마 이력 흔적).
+    // notes(내부 메모) 는 여전히 sync 제외 — 회차별 스냅샷 의미 있음.
+    admin_notes: 'admin_request_notes',
     disposition: 'disposition',
     meeting_time: 'meeting_time',
     // 기본 정보 (관리자가 편집하면 배정관리·워커앱·알림 SMS 에서 즉시 반영되어야 함)
