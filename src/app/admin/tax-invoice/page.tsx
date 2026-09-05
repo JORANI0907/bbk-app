@@ -975,11 +975,11 @@ function isPaymentDone(c: Candidate): boolean {
 function PaymentBadge({ done }: { done: boolean }) {
   return done
     ? (
-      <span className="inline-flex items-center gap-1 text-[11px] text-state-success">
+      <span className="inline-flex items-center gap-1 text-[11px] text-state-success whitespace-nowrap">
         <CheckCircle2 size={11} />완료
       </span>
     ) : (
-      <span className="text-[11px] text-text-tertiary">미완료</span>
+      <span className="text-[11px] text-text-tertiary whitespace-nowrap">미완료</span>
     )
 }
 
@@ -987,7 +987,7 @@ function RowStatus({ c }: { c: Candidate }) {
   // 계산서 열은 계산서 상태만 표시 — 결제 상태는 별도의 PaymentBadge 열이 담당
   if (c.tax_invoice_issued) {
     return (
-      <span className="inline-flex items-center gap-1 text-[11px] text-state-success">
+      <span className="inline-flex items-center gap-1 text-[11px] text-state-success whitespace-nowrap">
         <CheckCircle2 size={11} />발행완료
         {c.tax_invoice_issued_at && (
           <span className="text-text-tertiary">({fmtDate(c.tax_invoice_issued_at)})</span>
@@ -997,11 +997,11 @@ function RowStatus({ c }: { c: Candidate }) {
   }
   if (!c.is_valid) {
     return (
-      <span className="inline-flex items-center gap-1 text-[11px] text-state-warning"
+      <span className="inline-flex items-center gap-1 text-[11px] text-state-warning whitespace-nowrap"
         title={`누락: ${c.missing_fields.join(', ')}`}>
         <AlertCircle size={11} />정보 누락
       </span>
     )
   }
-  return <span className="text-[11px] text-text-tertiary">미발행</span>
+  return <span className="text-[11px] text-text-tertiary whitespace-nowrap">미발행</span>
 }
