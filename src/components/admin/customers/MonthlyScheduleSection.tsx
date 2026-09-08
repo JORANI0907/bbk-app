@@ -1,9 +1,10 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { Calendar, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react'
+import { Calendar, ChevronLeft, ChevronRight, Loader2, Send } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { ScheduleAccordionRow, ScheduleAppRow } from './ScheduleAccordionRow'
+import { MonthlyScheduleNotifyModal } from './MonthlyScheduleNotifyModal'
 
 interface UserLite { id: string; name: string }
 interface WorkerLite { id: string; name: string }
@@ -61,6 +62,9 @@ export function MonthlyScheduleSection({ customerId, businessName, phone, users,
   }, [initialMonth])
   const [apps, setApps] = useState<ScheduleAppRow[]>([])
   const [loading, setLoading] = useState(false)
+  // 예약확정알림 발송 모달 오픈 여부 (열려있으면 현재 month 로 pre-select)
+  const [notifyOpen, setNotifyOpen] = useState(false)
+  const isRecurring = customerType === '정기딥케어' || customerType === '정기엔드케어'
 
   const load = useCallback(async () => {
     if (!customerId && !phone && !businessName) return
@@ -103,24 +107,37 @@ export function MonthlyScheduleSection({ customerId, businessName, phone, users,
             이번달 일정
           </p>
         </div>
-        <div className="flex items-center gap-1">
-          <button
-            onClick={() => setMonth(shiftMonth(month, -1))}
-            className="w-6 h-6 flex items-center justify-center rounded-md text-text-secondary hover:bg-surface-sunken"
-            aria-label="지난달"
-          >
-            <ChevronLeft size={14} />
-          </button>
-          <span className="text-xs font-medium text-text-primary w-20 text-center">
-            {fmtMonth(month)}
-          </span>
-          <button
-            onClick={() => setMonth(shiftMonth(month, 1))}
-            className="w-6 h-6 flex items-center justify-center rounded-md text-text-secondary hover:bg-surface-sunken"
-            aria-label="다음달"
-          >
-            <ChevronRight size={14} />
-          </button>
+        <div className="flex items-center gap-2">
+          {/* 정기딥/엔드 고객만 예약확정알림 발송 버튼 노출. 클릭 시 현재 month pre-select */}
+          {isRecurring && customerId && (
+            <button
+              onClick={() => setNotifyOpen(true)}
+              className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-md text-brand-700 border border-brand-200 bg-white hover:bg-brand-100 transition-colors"
+              title={`${fmtMonth(month)} 예약확정알림 발송`}
+            >
+              <Send size={10} />
+              알림 발송
+            </button>
+          )}
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setMonth(shiftMonth(month, -1))}
+              className="w-6 h-6 flex items-center justify-center rounded-md text-text-secondary hover:bg-surface-sunken"
+              aria-label="지난달"
+            >
+              <ChevronLeft size={14} />
+            </button>
+            <span className="text-xs font-medium text-text-primary w-20 text-center">
+              {fmtMonth(month)}
+            </span>
+            <button
+              onClick={() => setMonth(shiftMonth(month, 1))}
+              className="w-6 h-6 flex items-center justify-center rounded-md text-text-secondary hover:bg-surface-sunken"
+              aria-label="다음달"
+            >
+              <ChevronRight size={14} />
+            </button>
+          </div>
         </div>
       </div>
 
@@ -150,6 +167,15 @@ export function MonthlyScheduleSection({ customerId, businessName, phone, users,
             />
           ))}
         </div>
+      )}
+      {notifyOpen && isRecurring && customerId && (
+        <MonthlyScheduleNotifyModal
+          customerId={customerId}
+          businessName={businessName}
+          customerType={customerType ?? ''}
+          initialMonth={month}
+          onClose={() => setNotifyOpen(false)}
+        />
       )}
     </div>
   )

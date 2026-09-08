@@ -183,7 +183,6 @@ export function ContractScheduleSection({
             customerId={customerId}
             businessName={businessName}
             customerType={customerType ?? ''}
-            apps={apps}
             initialMonth={notifyMonth}
             onClose={() => setNotifyMonth(null)}
           />

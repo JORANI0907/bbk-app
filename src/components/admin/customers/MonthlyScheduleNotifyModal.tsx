@@ -7,18 +7,15 @@
  * 서버가 그 월의 회차를 조회해 {{시공일정_리스트}} / {{시공월}} 변수를 채워 SMS 발송.
  */
 
-import { useState, useMemo, useEffect } from 'react'
-import { ChevronLeft, ChevronRight, X, Send } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { ChevronLeft, ChevronRight, X, Send, Loader2 } from 'lucide-react'
 import toast from 'react-hot-toast'
-import type { ScheduleAppRow } from './ScheduleAccordionRow'
 
 interface Props {
   customerId: string
   businessName: string
   /** '정기딥케어' | '정기엔드케어' — 이 두 유형만 대상 */
   customerType: string
-  /** ContractScheduleSection 이 이미 로드한 회차 목록 (미리보기용) */
-  apps: ScheduleAppRow[]
   /** 초기 선택 월 (YYYY-MM). 클릭한 월 헤더 값. */
   initialMonth: string
   onClose: () => void
@@ -49,10 +46,12 @@ function fmtShort(d: string): string {
 }
 
 export function MonthlyScheduleNotifyModal({
-  customerId, businessName, customerType, apps, initialMonth, onClose, onSent,
+  customerId, businessName, customerType, initialMonth, onClose, onSent,
 }: Props) {
   const [selectedMonth, setSelectedMonth] = useState(initialMonth)
   const [sending, setSending] = useState(false)
+  const [loadingPreview, setLoadingPreview] = useState(false)
+  const [monthDates, setMonthDates] = useState<string[]>([])
 
   // ESC 로 닫기
   useEffect(() => {
@@ -61,20 +60,41 @@ export function MonthlyScheduleNotifyModal({
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose, sending])
 
-  // 선택된 월의 회차 목록 (미리보기)
-  const monthDates = useMemo(() => {
-    const seen = new Set<string>()
-    const result: string[] = []
-    for (const app of apps) {
-      const d = app.construction_date
-      if (!d || !d.startsWith(selectedMonth)) continue
-      if (seen.has(d)) continue
-      seen.add(d)
-      result.push(d)
+  // 선택된 월이 바뀔 때마다 해당 월의 회차 목록 API 로 조회 (부모 컨텍스트와 무관하게 정확한 미리보기).
+  // 서버 발송 로직도 같은 조건 (customer_id + month) 으로 조회하므로 미리보기 = 실제 발송 내용 정합.
+  useEffect(() => {
+    let cancelled = false
+    async function fetchPreview() {
+      setLoadingPreview(true)
+      try {
+        const params = new URLSearchParams({ customer_id: customerId, month: selectedMonth })
+        const res = await fetch(`/api/admin/applications?${params.toString()}`)
+        if (!res.ok) throw new Error((await res.json()).error ?? '미리보기 조회 실패')
+        const body = await res.json()
+        if (cancelled) return
+        const seen = new Set<string>()
+        const dates: string[] = []
+        for (const app of (body.applications ?? []) as Array<{ construction_date: string | null }>) {
+          const d = app.construction_date
+          if (!d || !d.startsWith(selectedMonth)) continue
+          if (seen.has(d)) continue
+          seen.add(d)
+          dates.push(d)
+        }
+        dates.sort()
+        setMonthDates(dates)
+      } catch (e) {
+        if (!cancelled) {
+          setMonthDates([])
+          toast.error(e instanceof Error ? e.message : '미리보기 조회 실패')
+        }
+      } finally {
+        if (!cancelled) setLoadingPreview(false)
+      }
     }
-    result.sort()
-    return result
-  }, [apps, selectedMonth])
+    void fetchPreview()
+    return () => { cancelled = true }
+  }, [customerId, selectedMonth])
 
   const scheduleListStr = monthDates.map(fmtShort).join(', ')
   const monthLabelStr = `${parseInt(selectedMonth.split('-')[1], 10)}월`
@@ -170,10 +190,14 @@ export function MonthlyScheduleNotifyModal({
           {/* 미리보기 */}
           <div>
             <p className="text-xs font-medium text-text-secondary mb-2">
-              발송될 일정 미리보기 ({monthDates.length}회)
+              발송될 일정 미리보기 {loadingPreview ? '' : `(${monthDates.length}회)`}
             </p>
             <div className="bg-brand-50/50 border border-brand-100 rounded-lg p-3 min-h-[80px]">
-              {monthDates.length === 0 ? (
+              {loadingPreview ? (
+                <div className="flex items-center justify-center py-4 text-text-tertiary">
+                  <Loader2 size={16} className="animate-spin" />
+                </div>
+              ) : monthDates.length === 0 ? (
                 <p className="text-xs text-text-tertiary text-center py-4">
                   이 월에 회차가 없습니다.
                 </p>
