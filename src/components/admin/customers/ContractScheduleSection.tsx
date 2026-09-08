@@ -1,9 +1,10 @@
 'use client'
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import { CalendarDays, Loader2 } from 'lucide-react'
+import { CalendarDays, Loader2, Send } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { ScheduleAccordionRow, ScheduleAppRow } from './ScheduleAccordionRow'
+import { MonthlyScheduleNotifyModal } from './MonthlyScheduleNotifyModal'
 
 interface UserLite { id: string; name: string }
 interface WorkerLite { id: string; name: string }
@@ -45,6 +46,11 @@ export function ContractScheduleSection({
 }: Props) {
   const [apps, setApps] = useState<ScheduleAppRow[]>([])
   const [loading, setLoading] = useState(false)
+  // 예약확정알림 발송 모달 — 클릭한 월(YYYY-MM) 저장. null 이면 닫힘.
+  const [notifyMonth, setNotifyMonth] = useState<string | null>(null)
+
+  // 정기케어 유형만 예약확정알림 발송 대상 (customerType 기준)
+  const isRecurring = customerType === '정기딥케어' || customerType === '정기엔드케어'
 
   const load = useCallback(async () => {
     if (!customerId && !phone && !businessName) return
@@ -127,6 +133,7 @@ export function ContractScheduleSection({
           생성된 일정이 없습니다. 방문 일정 섹션에서 [생성] 버튼을 눌러주세요.
         </div>
       ) : (
+        <>
         <div className="space-y-4 max-h-[500px] overflow-y-auto pr-1">
           {grouped.map(([monthKey, monthApps]) => (
             <div key={monthKey} className="space-y-2">
@@ -138,6 +145,17 @@ export function ContractScheduleSection({
                 <span className="text-xs text-purple-600">
                   ({monthApps.length}회)
                 </span>
+                {/* 정기케어 + 실제 회차 존재 시 예약확정알림 발송 버튼 노출 */}
+                {isRecurring && monthKey !== '(미정)' && customerId && (
+                  <button
+                    onClick={() => setNotifyMonth(monthKey)}
+                    className="ml-auto inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-md text-purple-700 border border-purple-200 bg-white hover:bg-purple-100 transition-colors"
+                    title={`${fmtMonthLabel(monthKey)} 예약확정알림 발송`}
+                  >
+                    <Send size={10} />
+                    알림 발송
+                  </button>
+                )}
               </div>
 
               {/* 월 내 회차 카드들 */}
@@ -160,6 +178,17 @@ export function ContractScheduleSection({
             </div>
           ))}
         </div>
+        {notifyMonth && isRecurring && customerId && (
+          <MonthlyScheduleNotifyModal
+            customerId={customerId}
+            businessName={businessName}
+            customerType={customerType ?? ''}
+            apps={apps}
+            initialMonth={notifyMonth}
+            onClose={() => setNotifyMonth(null)}
+          />
+        )}
+        </>
       )}
     </div>
   )

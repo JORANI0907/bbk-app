@@ -72,8 +72,13 @@ export async function POST(request: NextRequest) {
       visit_time?: string
       login_id?: string
       login_pw?: string
+      /**
+       * 정기케어 예약확정알림 전용 — 안내할 대상 월 (YYYY-MM).
+       * 서버가 이 월의 회차를 조회해 {{시공일정_리스트}} 변수에 채움.
+       */
+      target_month?: string
     }
-    const { customer_id, type, method = 'manual' } = body
+    const { customer_id, type, method = 'manual', target_month } = body
 
     if (!customer_id || !type) {
       return NextResponse.json({ error: '필수 항목 누락' }, { status: 400 })
@@ -140,12 +145,51 @@ export async function POST(request: NextRequest) {
 
     const fallbackText = buildFallback(type, customer as Record<string, unknown>)
 
+    // 정기케어 예약확정알림 — target_month 지정 시 그 월의 회차 목록을 미리 렌더.
+    // {{시공일정_리스트}} / {{시공월}} 변수에 채워져 SMS 본문에 나열됨.
+    // 예: "9/3(목), 9/10(목), 9/17(목), 9/24(목)"
+    let scheduleListStr: string | null = null
+    let targetMonthLabel: string | null = null
+    if (target_month && /^\d{4}-\d{2}$/.test(target_month)) {
+      const [y, m] = target_month.split('-')
+      targetMonthLabel = `${parseInt(m, 10)}월`
+      const firstDay = `${target_month}-01`
+      const lastDayNum = new Date(parseInt(y, 10), parseInt(m, 10), 0).getDate()
+      const lastDay = `${target_month}-${String(lastDayNum).padStart(2, '0')}`
+      const { data: appsInMonth } = await supabase
+        .from('service_applications')
+        .select('construction_date')
+        .eq('customer_id', customer_id)
+        .gte('construction_date', firstDay)
+        .lte('construction_date', lastDay)
+        .is('deleted_at', null)
+        .order('construction_date', { ascending: true })
+      const WEEKDAY_KR = ['일', '월', '화', '수', '목', '금', '토']
+      const dates = (appsInMonth ?? [])
+        .map(a => a.construction_date as string | null)
+        .filter((d): d is string => !!d)
+      const parts: string[] = []
+      const seen = new Set<string>()
+      for (const d of dates) {
+        if (seen.has(d)) continue
+        seen.add(d)
+        const [yy, mm, dd] = d.split('-')
+        const dow = WEEKDAY_KR[new Date(parseInt(yy,10), parseInt(mm,10)-1, parseInt(dd,10)).getDay()]
+        parts.push(`${parseInt(mm,10)}/${parseInt(dd,10)}(${dow})`)
+      }
+      scheduleListStr = parts.join(', ')
+    }
+
     // 번호별 SMS 발송 (sendByTemplate 단독)
     const sendErrors: string[] = []
     const channelsUsed: Array<'sms' | 'lms'> = []
     for (const target of targets) {
       const smsResult = await sendByTemplate(type, target, {
         customer: customer as NotificationContext['customer'],
+        extra: {
+          schedule_list: scheduleListStr,
+          target_month_label: targetMonthLabel,
+        },
       })
       if (smsResult.ok) {
         channelsUsed.push(smsResult.type === 'LMS' ? 'lms' : 'sms')

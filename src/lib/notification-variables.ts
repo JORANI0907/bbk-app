@@ -154,6 +154,14 @@ export interface NotificationContext {
     checkin_expected?: string | null
     checkin_status?: string | null
     late_minutes?: string | null
+    /**
+     * 정기케어 예약확정알림용 — 서버가 지정된 월의 회차를 조회해 미리 렌더한 문자열.
+     * 예: "9/3(목), 9/10(목), 9/17(목), 9/24(목)"
+     * resolver 는 순수 함수(DB 조회 불가)라 서버가 사전에 계산해 넣어줌.
+     */
+    schedule_list?: string | null
+    /** {{시공월}} 헤더 표기용. 예: "9월" */
+    target_month_label?: string | null
   } | null
 }
 
@@ -274,6 +282,13 @@ export const AVAILABLE_VARIABLES: VariableDef[] = [
   { label: '투입주기', category: '일정정보', scope: 'customer', appliesTo: TAB_RECURRING,
     desc: '월/개월 단위 투입 주기',
     resolve: (c) => c.customer?.injection_cycle_months ?? '' },
+  // 정기케어 예약확정알림 전용 — 지정된 월의 회차 목록 나열 (예: "9/3(목), 9/10(목)")
+  { label: '시공일정_리스트', category: '일정정보', scope: 'application', appliesTo: TAB_RECURRING,
+    desc: '해당 월의 정기 회차 전체 목록 (예: 9/3(목), 9/10(목))',
+    resolve: (c) => c.extra?.schedule_list ?? '' },
+  { label: '시공월', category: '일정정보', scope: 'application', appliesTo: TAB_RECURRING,
+    desc: '예약확정알림에서 안내할 대상 월 (예: 9월)',
+    resolve: (c) => c.extra?.target_month_label ?? '' },
   // 사전미팅 (1회성)
   { label: '사전미팅시각', category: '일정정보', scope: 'application', appliesTo: ['1회성케어'],
     desc: '사전 방문미팅 예정 시각',
