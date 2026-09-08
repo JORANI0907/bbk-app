@@ -259,6 +259,10 @@ export function ScheduleAccordionRow({ app, users, workers, onOptimisticUpdate, 
                 tone="bg-brand-50 text-brand-700 border-brand-200"
               />
             )}
+            {/* 월단위 예약확정알림 발송 이력 배지 — 회차별로 발송 여부 시각화 */}
+            {merged.notification_log?.some(l => l.type === '예약확정알림_월단위') && (
+              <StatusPill label="확정알림발송" tone="bg-purple-50 text-purple-700 border-purple-200" />
+            )}
           </div>
         </div>
         <div className="shrink-0 pt-1">

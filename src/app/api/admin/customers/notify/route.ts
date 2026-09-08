@@ -150,6 +150,9 @@ export async function POST(request: NextRequest) {
     // 예: "9/3(목), 9/10(목), 9/17(목), 9/24(목)"
     let scheduleListStr: string | null = null
     let targetMonthLabel: string | null = null
+    // 발송 성공 시 각 application 에 확정알림발송 로그를 append 하기 위해 app id 목록도 보관
+    let monthAppIds: string[] = []
+    let monthAppLogs: Record<string, unknown[]> = {}
     if (target_month && /^\d{4}-\d{2}$/.test(target_month)) {
       const [y, m] = target_month.split('-')
       targetMonthLabel = `${parseInt(m, 10)}월`
@@ -158,7 +161,7 @@ export async function POST(request: NextRequest) {
       const lastDay = `${target_month}-${String(lastDayNum).padStart(2, '0')}`
       const { data: appsInMonth } = await supabase
         .from('service_applications')
-        .select('construction_date')
+        .select('id, construction_date, notification_log')
         .eq('customer_id', customer_id)
         .gte('construction_date', firstDay)
         .lte('construction_date', lastDay)
@@ -178,6 +181,13 @@ export async function POST(request: NextRequest) {
         parts.push(`${parseInt(mm,10)}/${parseInt(dd,10)}(${dow})`)
       }
       scheduleListStr = parts.join(', ')
+      monthAppIds = (appsInMonth ?? []).map(a => a.id as string).filter(Boolean)
+      monthAppLogs = Object.fromEntries(
+        (appsInMonth ?? []).map(a => [
+          a.id as string,
+          Array.isArray(a.notification_log) ? a.notification_log : []
+        ])
+      )
     }
 
     // 번호별 SMS 발송 (sendByTemplate 단독)
@@ -237,6 +247,19 @@ export async function POST(request: NextRequest) {
       .from('customers')
       .update(dbUpdates)
       .eq('id', customer_id)
+
+    // target_month 지정 발송(월단위 예약확정) 이면 그 월의 각 회차 notification_log 에도
+    // 확정알림발송 이력 append → UI 카드에 '확정알림발송' 배지 표시 근거로 사용됨.
+    if (monthAppIds.length > 0) {
+      for (const appId of monthAppIds) {
+        const existing = monthAppLogs[appId] ?? []
+        const newAppLog = [newEntry, ...existing]
+        await supabase
+          .from('service_applications')
+          .update({ notification_log: newAppLog })
+          .eq('id', appId)
+      }
+    }
 
     // 알림 이력 저장 (감사·통계용)
     await saveNotificationHistory({
