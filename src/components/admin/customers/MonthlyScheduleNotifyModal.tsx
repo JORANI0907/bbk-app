@@ -99,10 +99,11 @@ export function MonthlyScheduleNotifyModal({
   const scheduleListStr = monthDates.map(fmtShort).join(', ')
   const monthLabelStr = `${parseInt(selectedMonth.split('-')[1], 10)}월`
 
-  // 정기딥/정기엔드 접미사
+  // 월단위 전용 template — 기존 예약확정알림_정기딥/정기엔드 는 그대로 유지하고
+  // 이 UI 는 별도 신설된 '월단위' 템플릿({{시공일정_리스트}} 변수 포함) 을 사용.
   const templateType = customerType === '정기딥케어'
-    ? '예약확정알림_정기딥'
-    : '예약확정알림_정기엔드'
+    ? '예약확정알림_월단위_정기딥'
+    : '예약확정알림_월단위_정기엔드'
 
   const handleSend = async () => {
     if (monthDates.length === 0) {
@@ -207,9 +208,9 @@ export function MonthlyScheduleNotifyModal({
                     {scheduleListStr}
                   </p>
                   <p className="text-[10px] text-text-tertiary mt-2">
-                    * 문자 본문에 <code className="text-brand-700">{'{{시공일정_리스트}}'}</code> 변수로 삽입됨.
+                    * 전용 템플릿 <b>{templateType}</b> 사용 (기존 예약확정알림과 별개).
                     <br />
-                    * 문자알림관리 &gt; {customerType} 탭에서 <b>{templateType}</b> 템플릿의 본문에 이 변수가 있어야 반영됩니다.
+                    * 문자 본문에 <code className="text-brand-700">{'{{시공일정_리스트}}'}</code> · <code className="text-brand-700">{'{{시공월}}'}</code> 변수가 이미 포함되어 있습니다.
                   </p>
                 </>
               )}
