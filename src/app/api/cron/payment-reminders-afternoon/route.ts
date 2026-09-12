@@ -67,6 +67,10 @@ async function sendAndLog(
   }
 
   const phone = String(app.phone ?? '').replace(/-/g, '')
+  // app.customers 는 상위 조회에서 JOIN 된 마스터 (payment_method/supply_amount/status 등).
+  // notification-variables 리졸버가 customer 우선 fallback 이라 여기 함께 전달하면
+  // SMS 본문 금액·결제방법도 마스터 값으로 정확히 렌더링됨.
+  const cust = (app.customers as Record<string, unknown> | null) ?? null
   const context: NotificationContext = {
     application: {
       business_name: (app.business_name as string | null) ?? null,
@@ -96,6 +100,10 @@ async function sendAndLog(
       drive_folder_url: (app.drive_folder_url as string | null) ?? null,
       request_notes: (app.request_notes as string | null) ?? null,
     },
+    customer: cust ? {
+      payment_method: (cust.payment_method as string | null) ?? null,
+      supply_amount: (cust.supply_amount as number | null) ?? null,
+    } : null,
   }
 
   const result = await sendByTemplate(lookupCode, phone, context)
@@ -178,18 +186,25 @@ export async function GET(request: NextRequest) {
     .toISOString().slice(0, 10)
 
   type AppRow = Record<string, unknown> & {
-    customers?: { payment_status_detail: string | null } | null
+    // 마스터 우선 참조 (2026-09-12): 신청서와 마스터 값이 어긋나 있어도 알림은 정확.
+    // customer.payment_method / supply_amount 를 크론이 우선 사용.
+    customers?: {
+      payment_status_detail: string | null
+      payment_method: string | null
+      supply_amount: number | null
+    } | null
   }
 
   const { data: apps } = await supabase
     .from('service_applications')
-    .select('*, customers(payment_status_detail)')
+    .select('*, customers(payment_status_detail, payment_method, supply_amount)')
     // 세금계산서 발행 후에도 실제 결제 안 됐으면 알림 계속
     .in('status', ['작업완료', '결제', '계산서발행완료'])
     // 1회성케어 전용. 정기딥/정기엔드는 service_billings 기반의
     // billing-payment-reminders 크론이 담당하므로 여기서 제외.
     .eq('service_type', '1회성케어')
-    .gt('supply_amount', 0)
+    // supply_amount 필터 제거: 신청서 값이 sync 안 됐어도 마스터 값을 아래 로직에서 우선 참조.
+    // 대신 아래 for 루프에서 supply(customer 우선) > 0 검증.
     .is('deleted_at', null)
     .gte('construction_date', cutoffDate)
     // balance_paid_at 이 세팅됐으면 잔금 입금 완료 → skip.
@@ -208,7 +223,14 @@ export async function GET(request: NextRequest) {
       (custPay && PAID_STATUS_DETAILS.includes(custPay))
     if (isPaid) { skipped++; continue }
 
-    const pm = String(app.payment_method ?? '')
+    // supply_amount 마스터 우선 참조 — sync 어긋난 경우도 정상 판정
+    const supply = (app.customers?.supply_amount ?? (app.supply_amount as number | null)) ?? 0
+    if (supply <= 0) { skipped++; continue }
+
+    // payment_method 마스터 우선 참조 — sync 어긋난 경우도 정상 판정.
+    // 예: customer='현금(계산서 희망)' 인데 app 이 '카드(온라인 간편결제)' 로 남아있는 케이스
+    //  → 마스터 값 채택하여 '결제알림' 템플릿으로 정확히 발송.
+    const pm = String(app.customers?.payment_method ?? app.payment_method ?? '')
     let billingType: string
     if (pm === '현금(계산서 희망)') {
       billingType = '결제알림'

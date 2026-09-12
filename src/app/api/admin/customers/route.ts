@@ -604,18 +604,27 @@ export async function PATCH(request: NextRequest) {
     vat: 'vat',
     deposit: 'deposit',
     balance: 'balance',
+    // 결제방식 (마스터 편집이 결제요청알림 템플릿 선택으로 흘러야 함).
+    // 크론이 신청서 payment_method 를 참조해 '결제요청알림(카드)' vs '결제알림(현금)' 결정.
+    payment_method: 'payment_method',
   }
 
-  // 금액 필드는 UI 폼이 빈 값을 null 로 항상 body 에 포함시킬 수 있어,
-  // 그대로 sync 하면 이전 신청서 값을 null 로 덮어씀 → 후속 알림 발송 시 supply_amount 없음.
-  // 따라서 금액 4필드는 null/undefined 를 "미변경" 으로 해석해 sync 대상에서 제외한다.
-  // 다른 필드는 기존 동작 유지 (명시적 null 로 초기화 허용).
-  const MONEY_FIELDS = new Set(['supply_amount', 'vat', 'deposit', 'balance'])
+  // ═════════════════════════════════════════════════════════════════════
+  // SYNC 로직 재설계 (근본 해결):
+  // 기존: UI body 에 포함된 필드만 sync (놓친 필드는 마스터·신청서 어긋남).
+  // 개선: UPDATE 후 저장된 마스터 최신 값 전체를 신청서에 반영.
+  //   → UI 가 어떤 필드를 저장하든 무관. 마스터 = 신청서 항상 정합.
+  //   → SYNC_FIELD_MAP 에 필드 하나 추가하면 그 즉시 자동 sync.
+  //
+  // null 안전장치: 마스터 값이 null/undefined 이면 sync 스킵 (신청서 값 보존).
+  // 이는 신청서에 회차별 개별 값이 있고 마스터엔 미설정인 경우 (예: 회차별 시공시간) 를 보호.
+  // ═════════════════════════════════════════════════════════════════════
   const appUpdates: Record<string, unknown> = {}
   for (const [custKey, appKey] of Object.entries(SYNC_FIELD_MAP)) {
-    if (!(custKey in rest)) continue
-    const v = rest[custKey]
-    if (MONEY_FIELDS.has(custKey) && (v === null || v === undefined)) continue
+    // updatedCustomer 는 방금 저장된 마스터 최신 상태 (모든 컬럼 포함)
+    const v = (updatedCustomer as Record<string, unknown>)[custKey]
+    // null/undefined 는 sync 하지 않음 — 신청서 값 보존 (특히 금액·시공시간 등 회차별 값 방어)
+    if (v === null || v === undefined) continue
     appUpdates[appKey] = v
   }
 
