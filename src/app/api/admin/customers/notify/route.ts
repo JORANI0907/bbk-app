@@ -193,6 +193,8 @@ export async function POST(request: NextRequest) {
     // 번호별 SMS 발송 (sendByTemplate 단독)
     const sendErrors: string[] = []
     const channelsUsed: Array<'sms' | 'lms'> = []
+    // 실제 렌더링된 SMS 본문 (첫 성공 발송분 저장) — 발송이력 클릭 시 문구 조회용
+    let renderedBody: string | null = null
     for (const target of targets) {
       const smsResult = await sendByTemplate(type, target, {
         customer: customer as NotificationContext['customer'],
@@ -203,6 +205,7 @@ export async function POST(request: NextRequest) {
       })
       if (smsResult.ok) {
         channelsUsed.push(smsResult.type === 'LMS' ? 'lms' : 'sms')
+        if (renderedBody === null) renderedBody = smsResult.text
       } else {
         sendErrors.push(`${target}: ${smsResult.reason}${smsResult.details ? ` (${smsResult.details})` : ''}`)
       }
@@ -262,10 +265,12 @@ export async function POST(request: NextRequest) {
     }
 
     // 알림 이력 저장 (감사·통계용)
+    // body: 실제 렌더링된 SMS 본문 저장 → 발송이력 UI 툴팁으로 노출.
+    // 렌더링 실패로 renderedBody 가 null 이면 요약 폴백.
     await saveNotificationHistory({
       category: 'sms',
       type: baseType,
-      body: `${baseType} 발송 완료 — ${customer.contact_name ?? ''} (${sentPhoneRecord})`,
+      body: renderedBody ?? `${baseType} 발송 완료 — ${customer.contact_name ?? ''} (${sentPhoneRecord})`,
       title: baseType,
       method,
       recipientType: 'customer',
@@ -290,6 +295,8 @@ export async function POST(request: NextRequest) {
       channelsUsed.length > 0
     ) {
       const reviewLog: NotificationLogEntry[] = []
+      // phone → 실제 렌더링된 SMS 본문 매핑 (발송이력 툴팁에 사용)
+      const reviewBodyByPhone: Record<string, string> = {}
       for (const target of targets) {
         try {
           const result = await sendByTemplate('리뷰이벤트안내', target, {
@@ -303,6 +310,7 @@ export async function POST(request: NextRequest) {
               method: 'auto',
               channel: result.type === 'LMS' ? 'lms' : 'sms',
             })
+            reviewBodyByPhone[target] = result.text
           }
         } catch { /* 리뷰 알림 실패는 무시 */ }
       }
@@ -318,7 +326,7 @@ export async function POST(request: NextRequest) {
           await saveNotificationHistory({
             category: 'sms',
             type: '리뷰이벤트안내',
-            body: '리뷰 이벤트 안내 자동 발송',
+            body: reviewBodyByPhone[entry.phone] ?? '리뷰 이벤트 안내 자동 발송',
             title: '리뷰 이벤트 안내',
             method: 'auto',
             recipientType: 'customer',
@@ -354,6 +362,7 @@ export async function POST(request: NextRequest) {
     ].join('\n')).catch(() => {})
 
     // Phase 27-AR: 프론트 옵티미스틱 업데이트가 응답 값 그대로 반영하도록 확장
+    // rendered_body: 발송이력 툴팁 즉시 갱신용 (프론트에서 map 에 삽입).
     return NextResponse.json({
       success: true,
       type: baseType,
@@ -365,6 +374,7 @@ export async function POST(request: NextRequest) {
       // 결제완료 상태 보호 가드가 스킵한 경우엔 null 반환 → 프론트도 상태 유지.
       new_payment_status_detail: (dbUpdates.payment_status_detail as string | undefined) ?? null,
       notification_log: updatedLog,
+      rendered_body: renderedBody,
     })
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)

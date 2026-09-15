@@ -137,6 +137,33 @@ function dbLogToNotifyLog(l: { type: string; sent_at: string; method?: 'auto' | 
   return { type: l.type, sentAt: l.sent_at, method: l.method ?? 'auto' }
 }
 
+// notification_history 응답을 (type, sent_at 근사) 기준으로 body 맵으로 변환.
+// notification_log.sent_at 과 notification_history.created_at 은 저장 시점이 몇 초 다를 수 있어
+// 각 history 항목마다 초단위 ±60초 범위의 키를 모두 등록해 매칭 폭 확보.
+// Record 사용 이유: 이 파일 상단에서 lucide-react 의 Map 아이콘을 import 하고 있어 이름 충돌.
+type NotifyBodyMap = Record<string, string>
+function buildNotifyBodyMap(
+  rows: Array<{ type: string; created_at: string; body: string | null }>,
+): NotifyBodyMap {
+  const out: NotifyBodyMap = {}
+  for (const row of rows) {
+    if (!row.body || !row.created_at) continue
+    const base = Math.floor(new Date(row.created_at).getTime() / 1000)
+    // ±60초 범위의 모든 초 단위 키에 대해 등록 (중복 시 최근값 유지)
+    for (let delta = -60; delta <= 60; delta++) {
+      out[`${row.type}|${base + delta}`] = row.body
+    }
+  }
+  return out
+}
+
+// 발송이력 항목 하나에 대해 실제 문구를 조회 (없으면 null).
+function findNotifyBody(map: NotifyBodyMap, type: string, sentAtIso: string): string | null {
+  const baseType = type.startsWith('[재발송] ') ? type.replace('[재발송] ', '') : type
+  const sec = Math.floor(new Date(sentAtIso).getTime() / 1000)
+  return map[`${baseType}|${sec}`] ?? null
+}
+
 // ─── 상수 ─────────────────────────────────────────────────────
 // Phase 22: 샘플 유형(정기엔드케어샘플/정기딥케어샘플) 편집 UI 노출 제거. 타입 union은 legacy DB 레코드 렌더링 위해 유지.
 const CUSTOMER_TYPES: CustomerType[] = ['정기엔드케어', '정기딥케어', '1회성케어', '일반일정']
@@ -707,12 +734,17 @@ export function CustomersManagementView({
   const [form, setForm] = useState<typeof EMPTY_FORM>(EMPTY_FORM)
   const [saving, setSaving] = useState(false)
   const [statusToggling, setStatusToggling] = useState(false)
+  // 결제방법 편집 잠금 (카드 단일화 정책 실수 방지 · 고객 열 때마다 잠금으로 리셋)
+  const [paymentMethodUnlocked, setPaymentMethodUnlocked] = useState(false)
   const [notifyType, setNotifyType] = useState('')
   const [sending, setSending] = useState(false)
   const [notifyLogs, setNotifyLogs] = useState<NotifyLog[]>([])
-  // Phase A-4: 포트원 결제 링크 생성/청구 로딩 상태
-  const [sendingPaymentLink, setSendingPaymentLink] = useState(false)
-  const [chargingBalance, setChargingBalance] = useState(false)
+  // 발송이력 클릭 시 실제 문구 표시용 — 세부창 열 때 lazy fetch.
+  // key = `${type}|${sent_at 초단위 문자열}`, value = 실제 SMS 본문.
+  // 매칭 미스는 "이전 발송분이라 문구 보관이 없습니다" 로 폴백.
+  const [notifyBodyMap, setNotifyBodyMap] = useState<NotifyBodyMap>({})
+  // 열린 툴팁 인덱스 (null = 닫힘). 같은 항목 다시 클릭 시 토글.
+  const [openBodyIdx, setOpenBodyIdx] = useState<number | null>(null)
   const [checkedIds, setCheckedIds] = useState<string[]>([])
   const [bulkCreating, setBulkCreating] = useState(false)
   // Phase 5-E: 기간 기반 모달 — mode(create=신규 생성 / cleanup=수정)
@@ -1081,6 +1113,17 @@ export function CustomersManagementView({
     setPrepaidPeriods(1)
     // Phase A-3: 알림 발송 이력 로딩
     setNotifyLogs((c.notification_log ?? []).map(dbLogToNotifyLog))
+    // 발송이력 클릭 툴팁용: 이 고객의 최근 notification_history 100건 lazy fetch.
+    // metadata.customer_id 로 필터 → 자동/수동/크론 발송 통합 조회.
+    setNotifyBodyMap({})
+    setOpenBodyIdx(null)
+    fetch(`/api/admin/notification-history?customer_id=${c.id}&limit=100`)
+      .then(r => r.ok ? r.json() : null)
+      .then(j => {
+        if (!j?.data) return
+        setNotifyBodyMap(buildNotifyBodyMap(j.data))
+      })
+      .catch(() => {})
 
     // 성능: 리스트는 fields=slim 으로 25개만 받아왔으므로, 세부창 편집용 전체 필드를 lazy fetch.
     // 이미 온 slim 데이터로 즉시 세부창을 띄운 뒤, 백그라운드에서 전체 데이터로 form 을 덮어써 편집 준비.
@@ -1973,6 +2016,17 @@ export function CustomersManagementView({
       const log: NotifyLog = { type: displayType, sentAt: nowIso, method: 'manual' }
       const dbEntry = { type: displayType, sent_at: nowIso, method: 'manual' as const }
       setNotifyLogs(prev => [log, ...prev])
+      // 발송이력 툴팁: 방금 발송한 문구를 map 에 즉시 삽입 (±60초 근사 매칭 커버).
+      if (typeof data?.rendered_body === 'string' && data.rendered_body) {
+        const base = Math.floor(new Date(nowIso).getTime() / 1000)
+        setNotifyBodyMap(prev => {
+          const next: NotifyBodyMap = { ...prev }
+          for (let delta = -60; delta <= 60; delta++) {
+            next[`${displayType}|${base + delta}`] = data.rendered_body as string
+          }
+          return next
+        })
+      }
       // Phase 27-AR: 응답의 linked_* 값으로 진행/결제 상태 옵티미스틱 업데이트
       const nextProgress: string | null | undefined = data?.new_progress_status
       const nextPayment: string | null | undefined = data?.new_payment_status_detail
@@ -2018,6 +2072,17 @@ export function CustomersManagementView({
       const log: NotifyLog = { type: `[재발송] ${displayType}`, sentAt: nowIso, method: 'manual' }
       const dbEntry = { type: displayType, sent_at: nowIso, method: 'manual' as const }
       setNotifyLogs(prev => [log, ...prev])
+      // 발송이력 툴팁: 재발송 문구도 map 에 즉시 삽입.
+      if (typeof data?.rendered_body === 'string' && data.rendered_body) {
+        const base = Math.floor(new Date(nowIso).getTime() / 1000)
+        setNotifyBodyMap(prev => {
+          const next: NotifyBodyMap = { ...prev }
+          for (let delta = -60; delta <= 60; delta++) {
+            next[`${displayType}|${base + delta}`] = data.rendered_body as string
+          }
+          return next
+        })
+      }
       // Phase 27-AR: 재발송 시에도 응답 linked_* 반영
       const nextProgress: string | null | undefined = data?.new_progress_status
       const nextPayment: string | null | undefined = data?.new_payment_status_detail
@@ -2044,53 +2109,6 @@ export function CustomersManagementView({
     } catch (e) {
       toast.error(e instanceof Error ? e.message : '재발송 실패')
     } finally { setSending(false) }
-  }
-
-  // Phase A-4: 포트원 결제 링크 생성/복사 (1회성케어 예약금·잔금)
-  const handleSendPaymentLink = async (stage: 'deposit' | 'balance') => {
-    if (!selected) return
-    setSendingPaymentLink(true)
-    try {
-      const res = await fetch('/api/portone/issue-payment-link', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ customerId: selected.id, stage }),
-      })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error ?? '결제링크 생성 실패')
-      await navigator.clipboard.writeText(data.paymentUrl)
-      toast.success(data.reused ? '기존 결제링크 복사됨' : '결제링크 생성 · 클립보드 복사됨')
-      const urlField = stage === 'deposit' ? 'deposit_payment_url' : 'balance_payment_url'
-      const idField  = stage === 'deposit' ? 'deposit_portone_id'   : 'balance_portone_id'
-      const patch = { [urlField]: data.paymentUrl, [idField]: data.paymentId }
-      setCustomers(prev => prev.map(c => c.id === selected.id ? { ...c, ...patch } : c))
-      setSelected(prev => prev ? { ...prev, ...patch } : prev)
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : '결제링크 생성 실패')
-    } finally {
-      setSendingPaymentLink(false)
-    }
-  }
-
-  const handleChargeBalance = async () => {
-    if (!selected) return
-    if (!confirm('잔금을 자동 청구하시겠습니까?\n고객 카드에서 즉시 결제됩니다.')) return
-    setChargingBalance(true)
-    try {
-      const res = await fetch('/api/portone/charge-balance', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ customerId: selected.id }),
-      })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error ?? '잔금 청구 실패')
-      toast.success(`잔금 ${Number(data.chargedAmount ?? 0).toLocaleString('ko-KR')}원 청구 완료`)
-      const nowIso = new Date().toISOString()
-      setCustomers(prev => prev.map(c => c.id === selected.id ? { ...c, balance_paid_at: nowIso } : c))
-      setSelected(prev => prev ? { ...prev, balance_paid_at: nowIso } : prev)
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : '잔금 청구 실패')
-    } finally {
-      setChargingBalance(false)
-    }
   }
 
   const filtered = useMemo(() => {
@@ -3607,16 +3625,51 @@ export function CustomersManagementView({
                 <div className="flex items-center gap-2">
                   <span className="text-xs text-text-secondary w-20 shrink-0 inline-flex items-center gap-1">
                     결제방법
-                    <FieldHint text="비과세 계열(현금(비과세)·카드 간편결제·플랫폼)이면 부가세 자동 0원 처리 + 세금계산서 발행 대기에서도 제외." />
+                    <FieldHint text="기본값은 카드(온라인 간편결제). 다른 방법으로 바꾸려면 잠금 해제 후 변경. 비과세 계열은 부가세 0원 자동 + 세금계산서 발행 대기 제외." />
                   </span>
-                  <select value={form.payment_method} onChange={e => set('payment_method')(e.target.value)}
-                    className="flex-1 border border-border rounded-lg px-2 py-1.5 text-xs text-text-primary focus:outline-none focus:ring-2 focus:ring-rose-500 bg-surface">
-                    <option value="">선택...</option>
-                    <option value="현금(계산서 희망)">현금(계산서 희망)</option>
-                    <option value="현금(비과세)">현금(비과세)</option>
-                    <option value="카드(온라인 간편결제)">카드(온라인 간편결제)</option>
-                    <option value="플랫폼">플랫폼</option>
-                  </select>
+                  <div className="flex-1 flex items-center gap-1.5">
+                    <select
+                      value={form.payment_method}
+                      onChange={e => set('payment_method')(e.target.value)}
+                      disabled={!paymentMethodUnlocked}
+                      className={`flex-1 border rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-rose-500 ${
+                        paymentMethodUnlocked
+                          ? 'border-border text-text-primary bg-surface'
+                          : 'border-border-subtle text-text-tertiary bg-surface-sunken cursor-not-allowed'
+                      }`}>
+                      <option value="">선택...</option>
+                      <option value="카드(온라인 간편결제)">카드(온라인 간편결제)</option>
+                      <option value="계좌이체">계좌이체</option>
+                      <option value="가상계좌">가상계좌</option>
+                      <option value="현금(계산서 희망)">현금(계산서 희망)</option>
+                      <option value="현금(비과세)">현금(비과세)</option>
+                      <option value="플랫폼">플랫폼</option>
+                    </select>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (paymentMethodUnlocked) {
+                          setPaymentMethodUnlocked(false)
+                        } else {
+                          const ok = window.confirm(
+                            '⚠️ 결제방법을 변경하시겠습니까?\n\n' +
+                            '기본값은 "카드(온라인 간편결제)"입니다.\n' +
+                            '다른 방법 선택 시 결제 자동화(SMS 발송·잔금 청구 등)가 정상 작동하지 않을 수 있습니다.\n\n' +
+                            '(가상계좌·계산서 희망·플랫폼은 별도 정책 확정 전까지 사용을 자제해주세요)'
+                          )
+                          if (ok) setPaymentMethodUnlocked(true)
+                        }
+                      }}
+                      className={`text-xs px-2 py-1.5 rounded-md whitespace-nowrap transition-colors border ${
+                        paymentMethodUnlocked
+                          ? 'bg-rose-100 text-rose-700 hover:bg-rose-200 border-rose-300'
+                          : 'bg-surface text-text-secondary hover:bg-surface-sunken border-border-subtle'
+                      }`}
+                      title={paymentMethodUnlocked ? '잠금으로 되돌리기' : '잠금 해제하여 편집'}
+                    >
+                      {paymentMethodUnlocked ? '🔓 해제됨' : '🔒 잠금'}
+                    </button>
+                  </div>
                 </div>
                 {/* 자동 알림 중단 옵션 */}
                 <div className={`rounded-lg border p-2 ${form.auto_notification_paused ? 'bg-amber-50 border-amber-300' : 'bg-surface-sunken border-border'}`}>
@@ -3759,153 +3812,6 @@ export function CustomersManagementView({
                 </div>
               </div>
             )}
-
-            {/* ── 포트원 결제 — 1회성케어 카드+계좌 통합, 예약금·잔금 대칭 UX (Phase 5-F) ── */}
-            {!isWorker && isOnceCare && (form.payment_method === '카드(온라인 간편결제)' || form.payment_method === '현금(계산서 희망)') && selected && !isNew && (() => {
-              const isVbank = form.payment_method === '현금(계산서 희망)'
-              const deposit = Number(form.deposit ?? 0)
-              const supply  = Number(form.supply_amount ?? 0)
-              const vat     = Number(form.vat ?? 0)
-              const balance = Math.max(0, supply + vat - deposit)
-              const fmtTs = (ts?: string | null) => {
-                if (!ts) return ''
-                const d = new Date(ts)
-                return `${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
-              }
-              const urlSuffix = (u: string) => u.split('/').slice(-1)[0]?.slice(0, 24) ?? ''
-              return (
-                <div className="rounded-xl border border-brand-200 overflow-hidden">
-                  <div className="bg-brand-50 px-4 py-2.5 border-b border-brand-200">
-                    <p className="text-xs font-semibold text-brand-800">포트원 결제</p>
-                  </div>
-                  <div className="p-4 space-y-2">
-                    {/* 예약금 */}
-                    <div className="flex items-start gap-2">
-                      <span className="text-xs text-text-secondary w-20 shrink-0 mt-1.5">
-                        예약금
-                        {deposit > 0 ? <span className="block text-[10px] text-text-tertiary font-mono">{deposit.toLocaleString('ko-KR')}원</span> : null}
-                      </span>
-                      <div className="flex flex-1 flex-col gap-1">
-                        {selected.deposit_paid_at ? (
-                          <div className="flex items-center gap-1">
-                            <div className="flex-1 border border-state-success-bg rounded-lg px-2 py-1.5 text-xs text-state-success bg-state-success-bg">
-                              ✅ 결제완료 · {fmtTs(selected.deposit_paid_at)}
-                            </div>
-                            {selected.deposit_payment_url && (
-                              <button
-                                onClick={() => { navigator.clipboard.writeText(selected.deposit_payment_url!); toast.success('예약금 결제링크 복사됨') }}
-                                className="px-2 py-1.5 text-xs bg-surface-sunken rounded-lg hover:bg-border border border-border-subtle"
-                                title="결제링크 복사 (재전송용)"
-                              >
-                                📋
-                              </button>
-                            )}
-                          </div>
-                        ) : selected.deposit_payment_url ? (
-                          <div className="flex items-center gap-1">
-                            <button
-                              onClick={() => { navigator.clipboard.writeText(selected.deposit_payment_url!); toast.success('예약금 결제링크 복사됨') }}
-                              className="flex-1 border border-border rounded-lg px-2 py-1.5 text-xs font-mono text-text-secondary text-left truncate hover:bg-surface-sunken"
-                              title="클릭 시 복사"
-                            >
-                              📋 {urlSuffix(selected.deposit_payment_url)}…
-                            </button>
-                            <button onClick={() => handleSendPaymentLink('deposit')} disabled={sendingPaymentLink} className="px-2 py-1.5 text-xs bg-surface-sunken rounded-lg hover:bg-border border border-border-subtle" title="링크 재생성">
-                              <ClipboardList size={14} />
-                            </button>
-                          </div>
-                        ) : (() => {
-                          // Bug A fix: 버튼 활성화는 DB(selected.deposit) 기준.
-                          // form.deposit 만 편집하고 저장 안 하면 서버는 stale DB값으로
-                          // "예약금 0원" 에러. 사용자에게 저장 필요 힌트 노출.
-                          const dbDeposit = Number(selected.deposit ?? 0)
-                          const needsSave = deposit > 0 && dbDeposit === 0
-                          return (
-                            <div className="flex flex-col gap-1">
-                              <Button onClick={() => handleSendPaymentLink('deposit')} disabled={sendingPaymentLink || !dbDeposit} className="flex-1 bg-brand-600 hover:bg-brand-700 text-white text-xs">
-                                {sendingPaymentLink ? '생성 중...' : '🔗 예약금 링크 생성 · 복사'}
-                              </Button>
-                              {needsSave && (
-                                <p className="text-[10px] text-amber-600 leading-tight">💡 예약금 저장 후 링크 생성이 가능합니다.</p>
-                              )}
-                            </div>
-                          )
-                        })()}
-                        {/* 가상계좌 정보 (현금 · 미결제 시) */}
-                        {isVbank && selected.virtual_account_number && !selected.deposit_paid_at && (
-                          <button
-                            onClick={() => {
-                              navigator.clipboard.writeText(`${selected.virtual_account_bank ?? ''} ${selected.virtual_account_number ?? ''}`)
-                              toast.success('가상계좌 정보 복사됨')
-                            }}
-                            className="border border-amber-200 rounded-lg px-2 py-1.5 text-xs text-amber-800 bg-amber-50 text-left hover:bg-amber-100"
-                            title="클릭 시 복사"
-                          >
-                            🏦 {selected.virtual_account_bank} {selected.virtual_account_number}
-                            {selected.virtual_account_expired_at ? <span className="ml-2 text-amber-600">(기한 {fmtTs(selected.virtual_account_expired_at)})</span> : null}
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                    {/* 잔금 */}
-                    <div className="flex items-start gap-2">
-                      <span className="text-xs text-text-secondary w-20 shrink-0 mt-1.5">
-                        잔금
-                        {balance > 0 ? <span className="block text-[10px] text-text-tertiary font-mono">{balance.toLocaleString('ko-KR')}원</span> : null}
-                      </span>
-                      <div className="flex flex-1 gap-1">
-                        {selected.balance_paid_at ? (
-                          <>
-                            <div className="flex-1 border border-state-success-bg rounded-lg px-2 py-1.5 text-xs text-state-success bg-state-success-bg">
-                              ✅ 결제완료 · {fmtTs(selected.balance_paid_at)}
-                            </div>
-                            {selected.balance_payment_url && (
-                              <button
-                                onClick={() => { navigator.clipboard.writeText(selected.balance_payment_url!); toast.success('잔금 결제링크 복사됨') }}
-                                className="px-2 py-1.5 text-xs bg-surface-sunken rounded-lg hover:bg-border border border-border-subtle"
-                                title="결제링크 복사 (재전송용)"
-                              >
-                                📋
-                              </button>
-                            )}
-                          </>
-                        ) : selected.balance_payment_url ? (
-                          <>
-                            <button
-                              onClick={() => { navigator.clipboard.writeText(selected.balance_payment_url!); toast.success('잔금 결제링크 복사됨') }}
-                              className="flex-1 border border-border rounded-lg px-2 py-1.5 text-xs font-mono text-text-secondary text-left truncate hover:bg-surface-sunken"
-                              title="클릭 시 복사"
-                            >
-                              📋 {urlSuffix(selected.balance_payment_url)}…
-                            </button>
-                            <button onClick={() => handleSendPaymentLink('balance')} disabled={sendingPaymentLink} className="px-2 py-1.5 text-xs bg-surface-sunken rounded-lg hover:bg-border border border-border-subtle" title="링크 재생성">
-                              <ClipboardList size={14} />
-                            </button>
-                          </>
-                        ) : selected.billing_key ? (
-                          <Button onClick={handleChargeBalance} disabled={chargingBalance} className="flex-1 bg-brand-600 hover:bg-brand-700 text-white text-xs">
-                            {chargingBalance ? '청구 중...' : '잔금 자동 청구 (빌링키)'}
-                          </Button>
-                        ) : selected.deposit_paid_at && balance > 0 ? (
-                          <Button onClick={() => handleSendPaymentLink('balance')} disabled={sendingPaymentLink} className="flex-1 bg-brand-600 hover:bg-brand-700 text-white text-xs">
-                            {sendingPaymentLink ? '생성 중...' : '🔗 잔금 링크 생성 · 복사'}
-                          </Button>
-                        ) : (
-                          <div className="flex-1 border border-border-subtle rounded-lg px-2 py-1.5 text-xs text-text-tertiary bg-surface-sunken">
-                            {balance <= 0 ? '견적(공급가액·부가세) 확정 필요' : '예약금 결제 후 활성화'}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                    {selected.billing_key && !selected.balance_paid_at && (
-                      <div className="px-3 py-2 bg-emerald-50 border border-emerald-200 rounded-lg">
-                        <p className="text-xs text-emerald-700">카드 등록됨 · 잔금 즉시 청구 가능 (정기케어 트랙)</p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )
-            })()}
 
             {/* Phase 7-I: 1회성 시공일자 섹션은 폼 최상단(유형 선택 아래)으로 이동됨 — 여기 자리는 제거 */}
 
@@ -4644,35 +4550,51 @@ export function CustomersManagementView({
                           const baseType = isResent ? log.type.replace('[재발송] ', '') : log.type
                           const cfg = NOTIFY_TYPE_CONFIG[baseType]
                           const svcLabel = serviceTypeShortLabel(selected?.customer_type)
+                          const isOpen = openBodyIdx === i
+                          const body = findNotifyBody(notifyBodyMap, log.type, log.sentAt)
                           return (
-                            <div key={i} className="flex items-center justify-between px-3 py-2 gap-2">
-                              <div className="flex items-center gap-1.5 min-w-0">
-                                {isResent && (
-                                  <span className="text-xs px-1.5 py-0.5 bg-surface-sunken text-text-secondary rounded font-medium shrink-0">재발송</span>
-                                )}
-                                {log.method === 'auto' && (
-                                  <span className="text-xs px-1.5 py-0.5 bg-brand-100 text-brand-600 rounded font-medium shrink-0">[자동]</span>
-                                )}
-                                <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium ${cfg?.badge ?? 'bg-surface-sunken text-text-secondary'}`}>
-                                  <span className={`w-1.5 h-1.5 rounded-full ${cfg?.dot ?? 'bg-text-tertiary'} shrink-0`} />
-                                  <span className="truncate">{baseType}</span>
-                                </span>
-                                {svcLabel && (
-                                  <span className="text-[10px] px-1.5 py-0.5 bg-slate-100 text-slate-600 rounded font-medium shrink-0">{svcLabel}</span>
-                                )}
+                            <div key={i}>
+                              <div
+                                className="flex items-center justify-between px-3 py-2 gap-2 cursor-pointer hover:bg-surface-sunken transition-colors"
+                                onClick={() => setOpenBodyIdx(prev => prev === i ? null : i)}
+                              >
+                                <div className="flex items-center gap-1.5 min-w-0">
+                                  {isResent && (
+                                    <span className="text-xs px-1.5 py-0.5 bg-surface-sunken text-text-secondary rounded font-medium shrink-0">재발송</span>
+                                  )}
+                                  {log.method === 'auto' && (
+                                    <span className="text-xs px-1.5 py-0.5 bg-brand-100 text-brand-600 rounded font-medium shrink-0">[자동]</span>
+                                  )}
+                                  <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium ${cfg?.badge ?? 'bg-surface-sunken text-text-secondary'}`}>
+                                    <span className={`w-1.5 h-1.5 rounded-full ${cfg?.dot ?? 'bg-text-tertiary'} shrink-0`} />
+                                    <span className="truncate">{baseType}</span>
+                                  </span>
+                                  {svcLabel && (
+                                    <span className="text-[10px] px-1.5 py-0.5 bg-slate-100 text-slate-600 rounded font-medium shrink-0">{svcLabel}</span>
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-2 shrink-0">
+                                  <span className="text-xs text-text-tertiary">{new Date(log.sentAt).toLocaleString('ko-KR', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}</span>
+                                  {!isResent && (
+                                    <button
+                                      onClick={(e) => { e.stopPropagation(); handleResend(baseType) }}
+                                      disabled={sending}
+                                      className="text-xs px-2 py-0.5 bg-orange-50 text-orange-600 hover:bg-orange-100 rounded transition-colors disabled:opacity-50 whitespace-nowrap"
+                                    >
+                                      재발송
+                                    </button>
+                                  )}
+                                </div>
                               </div>
-                              <div className="flex items-center gap-2 shrink-0">
-                                <span className="text-xs text-text-tertiary">{new Date(log.sentAt).toLocaleString('ko-KR', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}</span>
-                                {!isResent && (
-                                  <button
-                                    onClick={() => handleResend(baseType)}
-                                    disabled={sending}
-                                    className="text-xs px-2 py-0.5 bg-orange-50 text-orange-600 hover:bg-orange-100 rounded transition-colors disabled:opacity-50 whitespace-nowrap"
-                                  >
-                                    재발송
-                                  </button>
-                                )}
-                              </div>
+                              {isOpen && (
+                                <div className="px-3 py-2 bg-surface-sunken border-t border-border-subtle">
+                                  {body ? (
+                                    <pre className="text-xs text-text-primary whitespace-pre-wrap break-words font-sans leading-normal">{body}</pre>
+                                  ) : (
+                                    <p className="text-xs text-text-tertiary italic">이전에 발송된 알림이라 문구 보관이 없습니다.</p>
+                                  )}
+                                </div>
+                              )}
                             </div>
                           )
                         })}

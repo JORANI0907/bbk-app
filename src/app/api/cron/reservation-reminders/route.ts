@@ -167,6 +167,7 @@ async function sendAndLog(
   })
 
   // 수정 C: notification_history 기록 (문자알림관리 탭 표시 + Slack 로그)
+  // metadata.customer_id: 고객관리 발송이력 툴팁 조회 필터에 사용.
   await saveNotificationHistory({
     category: 'sms',
     type,
@@ -176,6 +177,7 @@ async function sendAndLog(
     recipientPhone: phone,
     metadata: {
       application_id: app.id as string,
+      customer_id: (app.customer_id as string | null) ?? null,
       business_name: app.business_name as string,
       channel: result.type,
       source: 'cron/reservation-reminders',

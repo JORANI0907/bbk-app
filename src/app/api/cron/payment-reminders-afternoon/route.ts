@@ -141,6 +141,7 @@ async function sendAndLog(
     recipientPhone: phone,
     metadata: {
       application_id: app.id as string,
+      customer_id: (app.customer_id as string | null) ?? null,
       business_name: app.business_name as string,
       channel: result.type,
       source: 'cron/payment-reminders-afternoon',

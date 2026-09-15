@@ -10,6 +10,14 @@ export async function GET(request: NextRequest) {
     const page = Math.max(0, parseInt(searchParams.get('page') ?? '0', 10))
     const from = searchParams.get('from')
     const to = searchParams.get('to')
+    // 고객관리 발송이력 툴팁: 특정 고객의 최근 알림 이력 lazy fetch 용.
+    // metadata.customer_id 로 필터 → 크론·수동 발송 모두 동일 metadata 규약을 따르므로 통합 조회.
+    const customerId = searchParams.get('customer_id')
+    const type = searchParams.get('type')
+    const limitParam = parseInt(searchParams.get('limit') ?? '', 10)
+    const limit = Number.isFinite(limitParam) && limitParam > 0
+      ? Math.min(limitParam, 200)
+      : PAGE_SIZE
 
     const supabase = createServiceClient()
 
@@ -17,7 +25,7 @@ export async function GET(request: NextRequest) {
       .from('notification_history')
       .select('*', { count: 'exact' })
       .order('created_at', { ascending: false })
-      .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1)
+      .range(page * limit, (page + 1) * limit - 1)
 
     if (category && category !== 'all') {
       query = query.eq('category', category)
@@ -31,6 +39,14 @@ export async function GET(request: NextRequest) {
       query = query.lte('created_at', `${to}T23:59:59+09:00`)
     }
 
+    if (customerId) {
+      query = query.eq('metadata->>customer_id', customerId)
+    }
+
+    if (type) {
+      query = query.eq('type', type)
+    }
+
     const { data, error, count } = await query
 
     if (error) {
@@ -41,7 +57,7 @@ export async function GET(request: NextRequest) {
       data: data ?? [],
       total: count ?? 0,
       page,
-      pageSize: PAGE_SIZE,
+      pageSize: limit,
     })
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
