@@ -44,13 +44,10 @@ export async function GET(request: NextRequest) {
   const businessName = searchParams.get('business_name')
   // Phase 4: 이관 필터 (활성/이관됨/전체)
   const archived = searchParams.get('archived')
-  // Phase 12: 결제 상태 필터 (DB CHECK 값: pending / invoiced / paid / overdue)
-  // - payment_status=pending → 결제대기만
-  // - payment_status=paid → 결제완료만
-  // - include_pending=true → 결제대기 포함 전체
-  // - 기본(파라미터 없음) → 결제대기(pending) 제외 (관리자는 결제완료 건만 보는 게 기본)
+  // 결제 상태 필터 (opt-in): 파라미터가 있을 때만 필터, 기본은 전체 반환.
+  // 과거 기본 제외 필터를 넣었더니 정기케어 pending 회차가 배정관리 탭에서 사라져 되돌림.
+  // 결제대기만 뷰는 payment_status=pending 을 명시적으로 지정.
   const paymentStatusFilter = searchParams.get('payment_status')
-  const includePending = searchParams.get('include_pending') === 'true'
   // 성능 최적화: fields=slim 이면 리스트 필드만 반환 (기본은 * 유지 → 하위호환)
   const useSlim = searchParams.get('fields') === 'slim'
   const selectClause = useSlim
@@ -75,12 +72,10 @@ export async function GET(request: NextRequest) {
   if (hasAssigned === 'true') {
     query = query.not('assigned_to', 'is', null)
   }
-  // 결제 상태 필터
+  // 결제 상태 필터 (opt-in): 명시된 경우에만 필터 적용.
+  // 기본 값 필터를 두지 않는 이유는 정기케어 pending 회차가 배정관리에서 사라졌기 때문.
   if (paymentStatusFilter) {
     query = query.eq('payment_status', paymentStatusFilter)
-  } else if (!includePending) {
-    // 기본: 결제대기(pending) 제외 (null 또는 pending 외 상태만)
-    query = query.or('payment_status.is.null,payment_status.neq.pending')
   }
   if (month) {
     const [y, m] = month.split('-').map(Number)
