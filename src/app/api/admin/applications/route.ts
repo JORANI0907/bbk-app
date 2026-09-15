@@ -44,6 +44,13 @@ export async function GET(request: NextRequest) {
   const businessName = searchParams.get('business_name')
   // Phase 4: 이관 필터 (활성/이관됨/전체)
   const archived = searchParams.get('archived')
+  // Phase 12: 결제 상태 필터 (DB CHECK 값: pending / invoiced / paid / overdue)
+  // - payment_status=pending → 결제대기만
+  // - payment_status=paid → 결제완료만
+  // - include_pending=true → 결제대기 포함 전체
+  // - 기본(파라미터 없음) → 결제대기(pending) 제외 (관리자는 결제완료 건만 보는 게 기본)
+  const paymentStatusFilter = searchParams.get('payment_status')
+  const includePending = searchParams.get('include_pending') === 'true'
   // 성능 최적화: fields=slim 이면 리스트 필드만 반환 (기본은 * 유지 → 하위호환)
   const useSlim = searchParams.get('fields') === 'slim'
   const selectClause = useSlim
@@ -67,6 +74,13 @@ export async function GET(request: NextRequest) {
   }
   if (hasAssigned === 'true') {
     query = query.not('assigned_to', 'is', null)
+  }
+  // 결제 상태 필터
+  if (paymentStatusFilter) {
+    query = query.eq('payment_status', paymentStatusFilter)
+  } else if (!includePending) {
+    // 기본: 결제대기(pending) 제외 (null 또는 pending 외 상태만)
+    query = query.or('payment_status.is.null,payment_status.neq.pending')
   }
   if (month) {
     const [y, m] = month.split('-').map(Number)
@@ -236,6 +250,77 @@ export async function PATCH(request: NextRequest) {
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+
+  // ═════════════════════════════════════════════════════════════════════
+  // 축 C: 역방향 SYNC (신청서 → customer 마스터).
+  // 지금까지 customer → 신청서 sync (축 A) 만 존재했고, 신청서를 직접 수정하면
+  // customer 마스터가 어긋난 채 남아 다음 회차·크론 판정에서 다시 마스터 값을 참조하며
+  // "고쳤는데 또 어긋남" 이 반복. 축 C 로 신청서 편집분을 마스터에도 반영.
+  //
+  // 정책:
+  // - 1회성케어 / 일반일정 만 적용 (정기케어는 마스터 스냅샷 보호 — 회차별 개별값 유지).
+  // - 회차별 필드(construction_date/construction_time/assigned_to/disposition/meeting_time/
+  //   drive_folder_url/pre_meeting_done) 는 역동기화 대상 제외.
+  // - null/undefined 는 skip (부분 편집 방어, 축 A 와 대칭).
+  // - customer_id 없는 신청서는 skip (아직 마스터 미연결).
+  // ═════════════════════════════════════════════════════════════════════
+  const SYNC_BACK_FIELD_MAP: Record<string, string> = {
+    business_name: 'business_name',
+    business_number: 'business_number',
+    owner_name: 'contact_name',
+    phone: 'contact_phone',
+    phone_2: 'contact_phone_2',
+    email: 'email',
+    phone_notify_1: 'phone_notify_1',
+    phone_notify_2: 'phone_notify_2',
+    platform_nickname: 'platform_nickname',
+    address: 'address',
+    business_hours_start: 'business_hours_start',
+    business_hours_end: 'business_hours_end',
+    elevator: 'elevator',
+    building_access: 'building_access',
+    access_method: 'access_method',
+    care_scope: 'care_scope',
+    request_notes: 'special_notes',
+    admin_request_notes: 'admin_notes',
+    payment_method: 'payment_method',
+    supply_amount: 'supply_amount',
+    vat: 'vat',
+    deposit: 'deposit',
+    balance: 'balance',
+  }
+
+  try {
+    const { data: syncedApp } = await supabase
+      .from('service_applications')
+      .select('customer_id, service_type')
+      .eq('id', id)
+      .single()
+
+    const isSyncable =
+      syncedApp?.customer_id &&
+      (syncedApp.service_type === '1회성케어' ||
+       syncedApp.service_type === '일반일정')
+
+    if (isSyncable) {
+      const customerUpdates: Record<string, unknown> = {}
+      for (const [appKey, custKey] of Object.entries(SYNC_BACK_FIELD_MAP)) {
+        if (!(appKey in updates)) continue
+        const v = updates[appKey]
+        if (v === null || v === undefined) continue
+        customerUpdates[custKey] = v
+      }
+      if (Object.keys(customerUpdates).length > 0) {
+        await supabase
+          .from('customers')
+          .update(customerUpdates)
+          .eq('id', syncedApp.customer_id)
+          .is('deleted_at', null)
+      }
+    }
+  } catch (e) {
+    console.error('축 C 역방향 sync 실패:', e instanceof Error ? e.message : e)
   }
 
   // ── work_assignments.construction_date 자동 동기화 ──────────────
