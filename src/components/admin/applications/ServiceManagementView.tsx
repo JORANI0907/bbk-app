@@ -584,6 +584,8 @@ export function ServiceManagementPage({
 
   // 필터
   const [paymentFilter, setPaymentFilter] = useState('')
+  // Phase 12: 결제대기 뷰 토글 — 기본은 결제완료된 신청서만 조회, 토글 시 결제대기만 조회
+  const [pendingPaymentView, setPendingPaymentView] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [staffList, setStaffList] = useState<Array<{ id: string; name: string; user_id: string | null }>>([])
   const [selectedStaffId, setSelectedStaffId] = useState<string | null>(null)
@@ -685,7 +687,9 @@ export function ServiceManagementPage({
     setLoading(true)
     const appUrl = archivedView
       ? '/api/admin/applications?archived=true'
-      : '/api/admin/applications'
+      : pendingPaymentView
+        ? '/api/admin/applications?payment_status=pending'
+        : '/api/admin/applications'
     const [appRes, userRes, workerRes] = await Promise.all([
       fetch(appUrl),
       fetch('/api/admin/users'),
@@ -707,7 +711,7 @@ export function ServiceManagementPage({
         user_id: w.user_id ?? null,
       })))
     }).catch(() => {})
-  }, [archivedView])
+  }, [archivedView, pendingPaymentView])
 
   useEffect(() => { fetchAll() }, [fetchAll])
   useEffect(() => { fetch('/api/admin/nav-badges?key=applications', { method: 'DELETE' }).catch(() => {}) }, [])
@@ -1751,6 +1755,26 @@ export function ServiceManagementPage({
                 setCalDateApps(dayApps)
               }}
             />
+          )}
+
+          {/* Phase 12: 결제대기 뷰 토글 — embed 모드에서도 항상 노출되도록 리스트 위 별도 렌더링 */}
+          {!archivedView && (viewMode === 'list' || showUnassigned) && (
+            <div className={`flex items-center gap-2 mb-2 ${pendingPaymentView ? 'bg-amber-50 border border-amber-200 rounded-lg px-3 py-2' : ''}`}>
+              <button
+                onClick={() => setPendingPaymentView(v => !v)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
+                  pendingPaymentView
+                    ? 'bg-amber-500 text-white border-amber-500'
+                    : 'bg-surface text-amber-700 border-amber-300 hover:border-amber-500'
+                }`}
+                title={pendingPaymentView ? '결제완료 신청서만 보기로 전환' : '결제대기 중인 신청서만 보기'}
+              >
+                {pendingPaymentView ? '← 전체 목록' : '🕐 결제대기 보기'}
+              </button>
+              {pendingPaymentView && (
+                <span className="text-xs text-amber-800 font-medium">결제대기 중인 신청서 {filteredApps.length}건 · 결제 재촉 대상</span>
+              )}
+            </div>
           )}
 
           {/* 목록 테이블 */}

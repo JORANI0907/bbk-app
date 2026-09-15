@@ -11,8 +11,13 @@ export async function GET(request: NextRequest) {
     const { data: app } = await supabase
       .from('service_applications')
       .select(`
-        owner_name, business_name, phone, email,
-        deposit, supply_amount, vat, payment_method,
+        id, owner_name, business_name, business_number, phone, phone_2, email,
+        address, service_type, care_scope, space_size,
+        access_method, building_access, elevator, parking,
+        business_hours_start, business_hours_end,
+        construction_date, construction_time, meeting_time,
+        request_notes, customer_memo,
+        deposit, supply_amount, vat, payment_method, payment_status,
         virtual_account_number, virtual_account_bank, virtual_account_expired_at,
         deposit_paid_at, balance_paid_at
       `)

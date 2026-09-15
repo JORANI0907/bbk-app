@@ -4,6 +4,20 @@ import { createServiceClient } from '@/lib/supabase/server'
 import { sendSlack } from '@/lib/slack'
 
 const WEBHOOK_SECRET = process.env.PORTONE_WEBHOOK_SECRET ?? ''
+const APP_BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.bbkorea.co.kr'
+
+// 자동 알림 발송 헬퍼 — fire-and-forget (실패해도 웹훅 성공 처리)
+async function triggerAutoNotify(applicationId: string, type: string) {
+  try {
+    await fetch(`${APP_BASE_URL}/api/admin/notify`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ application_id: applicationId, type, method: 'auto' }),
+    })
+  } catch {
+    // 웹훅 재시도 방지 — 알림 실패는 조용히 무시
+  }
+}
 
 // 가상계좌 입금 완료 시 service_applications 업데이트
 async function handleVirtualAccountPaid(paymentId: string) {
@@ -21,7 +35,12 @@ async function handleVirtualAccountPaid(paymentId: string) {
     const nowIso = new Date().toISOString()
     await supabase
       .from('service_applications')
-      .update({ deposit_paid_at: nowIso, payment_confirmed_at: nowIso })
+      .update({
+        deposit_paid_at: nowIso,
+        payment_confirmed_at: nowIso,
+        payment_status: 'paid',
+        payment_status_detail: '예약금 입금',
+      })
       .eq('id', depositRow.id)
 
     await sendSlack(
@@ -29,6 +48,9 @@ async function handleVirtualAccountPaid(paymentId: string) {
       `업체: ${depositRow.business_name ?? '-'} / 고객: ${depositRow.owner_name ?? '-'}\n` +
       `결제ID: ${paymentId}`
     ).catch(() => {})
+
+    // G1: 고객에게 예약금 입금완료 SMS 자동 발송
+    await triggerAutoNotify(depositRow.id, '예약금 입금완료 알림')
     return
   }
 
@@ -43,7 +65,12 @@ async function handleVirtualAccountPaid(paymentId: string) {
     const nowIso = new Date().toISOString()
     await supabase
       .from('service_applications')
-      .update({ balance_paid_at: nowIso, payment_confirmed_at: nowIso })
+      .update({
+        balance_paid_at: nowIso,
+        payment_confirmed_at: nowIso,
+        payment_status: 'paid',
+        payment_status_detail: '결제완료',
+      })
       .eq('id', balanceRow.id)
 
     await sendSlack(
@@ -51,6 +78,9 @@ async function handleVirtualAccountPaid(paymentId: string) {
       `업체: ${balanceRow.business_name ?? '-'} / 고객: ${balanceRow.owner_name ?? '-'}\n` +
       `결제ID: ${paymentId}`
     ).catch(() => {})
+
+    // G4: 고객에게 잔금 결제완료 SMS 자동 발송
+    await triggerAutoNotify(balanceRow.id, '결제완료알림(잔금)')
   }
 }
 

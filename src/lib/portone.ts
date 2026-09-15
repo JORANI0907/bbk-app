@@ -17,10 +17,11 @@ export function getStoreId(): string {
   return STORE_ID
 }
 
-export function getChannelKey(method: 'card' | 'vbank'): string {
-  const key = method === 'card'
-    ? process.env.PORTONE_CHANNEL_KEY_CARD
-    : process.env.PORTONE_CHANNEL_KEY_VBANK
+export function getChannelKey(method: 'card' | 'vbank' | 'transfer'): string {
+  const key =
+    method === 'card'     ? process.env.PORTONE_CHANNEL_KEY_CARD :
+    method === 'vbank'    ? process.env.PORTONE_CHANNEL_KEY_VBANK :
+                            process.env.PORTONE_CHANNEL_KEY_TRANSFER
   if (!key) throw new Error(`PORTONE_CHANNEL_KEY_${method.toUpperCase()}가 설정되지 않았습니다.`)
   return key
 }

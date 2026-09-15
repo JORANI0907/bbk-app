@@ -65,6 +65,7 @@ export async function PATCH(request: NextRequest, { params }: Params) {
 
   if (action === 'complete') {
     const now = new Date()
+    const origin = new URL(request.url).origin
 
     const { error } = await supabase
       .from('service_applications')
@@ -99,6 +100,53 @@ export async function PATCH(request: NextRequest, { params }: Params) {
         })
       }
     } catch { /* Slack 실패 무시 */ }
+
+    // G3: 1회성케어 작업완료 시 잔금 결제링크 발급 + 잔금요청 SMS 자동 발송
+    // - 정기딥/정기엔드는 service_billings + cron(reservation-reminders) 이 담당하므로 여기서 제외 (중복 방지)
+    // - 카드/가상계좌/계좌이체 모두 자동 발송 (템플릿 이름은 아래 notifyType 참조)
+    // - 그 외 결제방법(플랫폼 등)은 자동 발송 skip
+    // - 잔금 결제링크 발급 성공 시에만 SMS 발송 (빈 URL 방지)
+    try {
+      const { data: appPay } = await supabase
+        .from('service_applications')
+        .select('service_type, payment_method, balance_paid_at')
+        .eq('id', id)
+        .single()
+
+      const isOneTime = String(appPay?.service_type ?? '') === '1회성케어'
+      const notPaid = !appPay?.balance_paid_at
+      const pm = String(appPay?.payment_method ?? '')
+      const isCard     = pm === '카드(온라인 간편결제)'
+      // 가상계좌: 신규 옵션('가상계좌') + 기존 옵션('현금(계산서 희망)') 통합 (레거시 데이터 호환)
+      const isVbank    = pm === '가상계좌' || pm === '현금(계산서 희망)'
+      const isTransfer = pm === '계좌이체'
+
+      if (isOneTime && notPaid && (isCard || isVbank || isTransfer)) {
+        // 1. 잔금 결제링크 발급 (기존 링크 있으면 재사용)
+        const linkRes = await fetch(`${origin}/api/portone/issue-payment-link`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ applicationId: id, stage: 'balance' }),
+        })
+
+        // 2. 링크 발급 성공 시 SMS 발송 (실패 시 SMS도 skip — 빈 링크 사고 방지)
+        // 템플릿 이름은 DB(notification_templates.title) 이름과 일치해야 함
+        // - 카드     → '잔금 결제 요청 (카드)'
+        // - 가상계좌 → '잔금 결제 요청 (가상계좌)'
+        // - 계좌이체 → '잔금 결제 요청 (계좌이체)'
+        if (linkRes.ok) {
+          const notifyType =
+            isCard     ? '잔금 결제 요청 (카드)' :
+            isVbank    ? '잔금 결제 요청 (가상계좌)' :
+                         '잔금 결제 요청 (계좌이체)'
+          await fetch(`${origin}/api/admin/notify`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ application_id: id, type: notifyType, method: 'auto' }),
+          }).catch(() => {})
+        }
+      }
+    } catch { /* 자동 잔금 요청 실패는 작업완료 응답에 영향 없음 */ }
 
     // 정기딥케어 월간 billing 안전망: 작업완료 시점에 해당 월 billing이 없으면 자동 생성
     try {

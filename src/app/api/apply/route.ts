@@ -61,6 +61,7 @@ export async function POST(request: NextRequest) {
         progress_status: '신청서작성', // Phase 8-C
         customer_id: autoLinkedCustomerId, // Phase 27-Y: 자동 매칭된 경우만 세팅
         acquisition_source: normalizedSource, // Batch A-2: 유입 채널
+        payment_method: '카드(온라인 간편결제)', // 결제방법 카드 단일화 (가상계좌 심사 통과 시 재검토)
       })
       .select()
       .single()

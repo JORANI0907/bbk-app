@@ -166,7 +166,9 @@ export async function POST(request: NextRequest) {
           building_access: buildingAccess,
           access_method: accessMethod,
           parking,
-          payment_method: paymentMethod,
+          // 결제방법 카드 단일화 — 외부 폼(paymentMethod) 값은 무시, 서버에서 강제 세팅
+          // (가상계좌 심사 통과 시 정책 재검토)
+          payment_method: '카드(온라인 간편결제)',
           account_number: accountNumber,
           privacy_consent: privacyConsent,
           service_consent: serviceConsent,
@@ -177,6 +179,16 @@ export async function POST(request: NextRequest) {
           status: '신규',
           progress_status: '신청서작성', // Phase 8-C
           customer_id: autoLinkedCustomerId, // Phase 27-X: 자동 매칭된 경우만 세팅
+          // /bbk-care 신청서는 무조건 1회성케어로 강제 세팅 (정기케어는 별도 신청서 예정)
+          // 견적서 신청(source='quote')은 관리자가 별도 세팅하므로 여기서 덮어쓰지 않음
+          ...(source !== 'quote' && { service_type: '1회성케어' }),
+          // 예약금 기본 8만원 자동 세팅 (관리자가 UI에서 편집 가능)
+          // KG 이니시스 최소 결제금액 1000원 이상 필수
+          // 견적서 신청은 관리자가 견적 확정 시 세팅하므로 여기선 스킵
+          ...(source !== 'quote' && { deposit: 80000 }),
+          // 결제 대기 상태로 초기화 — 결제 완료 시 complete API가 'paid'로 승격
+          // DB CHECK 제약: pending / invoiced / paid / overdue 만 허용
+          ...(source !== 'quote' && { payment_status: 'pending' }),
         })
         .select()
         .single(),
@@ -226,14 +238,34 @@ export async function POST(request: NextRequest) {
         : `• ⚠️ 고객 자동 승격 실패 (pending 상태 · 수동 검수 필요)`)
     ).catch(() => {})
 
-    // 신청서작성완료 알림 자동 발송 — 견적서 신청(source='quote')은 제외
+    // 1회성 신청서(/bbk-care) 자동 처리 — 견적서 신청(source='quote')은 제외
+    // 신규 흐름 (2026-09-06 · 사장님 지시):
+    //   신청서 제출 → 결제링크 즉시 발급 → 응답에 paymentUrl 포함 → 클라이언트가 결제 페이지로 리다이렉트
+    //   * 접수 SMS 미발송 (예약금 입금완료 SMS만 발송, 결제 완료 후 자동)
+    //   * 결제링크 발급 성공해야 응답에 paymentUrl 담김 → 순차 실행 필수 (fire-and-forget 아님)
+    let paymentUrl: string | null = null
     if (insertedId && source !== 'quote') {
       const origin = new URL(request.url).origin
-      fetch(`${origin}/api/admin/notify`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ application_id: insertedId, type: '신청서작성완료알림', method: 'auto' }),
-      }).catch(() => {})
+      console.log('[webhook] issue-payment-link 호출 시작:', { origin, insertedId })
+      try {
+        const linkRes = await fetch(`${origin}/api/portone/issue-payment-link`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ applicationId: insertedId, stage: 'deposit' }),
+        })
+        console.log('[webhook] issue-payment-link 응답 status:', linkRes.status)
+        if (linkRes.ok) {
+          const linkData = await linkRes.json().catch(() => ({}))
+          console.log('[webhook] issue-payment-link 응답 data:', linkData)
+          paymentUrl = typeof linkData?.paymentUrl === 'string' ? linkData.paymentUrl : null
+        } else {
+          const errText = await linkRes.text().catch(() => '')
+          console.error('[webhook] issue-payment-link 실패:', errText)
+        }
+      } catch (e) {
+        console.error('[webhook] issue-payment-link 예외:', e)
+      }
+      console.log('[webhook] 최종 paymentUrl:', paymentUrl)
     }
 
     // 견적서 신청 접수 확인 알림톡 + 발송이력 기록 (source='quote' 전용)
@@ -262,7 +294,7 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json(
-      { success: true, id: insertedId },
+      { success: true, id: insertedId, paymentUrl },
       { headers: CORS_HEADERS },
     )
   } catch (e) {

@@ -55,7 +55,7 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(new URL('/kg-audit', request.url))
     }
 
-    const publicPaths = ['/login', '/signup', '/install', '/quote', '/bbk-care', '/sign', '/portal-preview', '/api/auth', '/api/sms', '/api/admin', '/api/webhooks', '/api/form', '/api/cron', '/api/dev', '/api/contracts', '/api/push', '/api/juso', '/terms', '/privacy', '/refund', '/company', '/apply', '/api/apply', '/portone', '/api/portone/webhook', '/api/portone/pay-info', '/api/portone/complete', '/events', '/api/events', '/kg-audit', '/api/kg-audit', '/worker-documents', '/api/worker-documents', '/customer/claims/new', '/api/customer/claims']
+    const publicPaths = ['/login', '/signup', '/install', '/quote', '/bbk-care', '/sign', '/portal-preview', '/api/auth', '/api/sms', '/api/admin', '/api/webhooks', '/api/form', '/api/cron', '/api/dev', '/api/contracts', '/api/push', '/api/juso', '/terms', '/privacy', '/refund', '/company', '/apply', '/api/apply', '/portone', '/api/portone', '/events', '/api/events', '/kg-audit', '/api/kg-audit', '/worker-documents', '/api/worker-documents', '/customer/claims/new', '/api/customer/claims']
     const isPublic = isDemoPath || publicPaths.some(p => pathname.startsWith(p))
 
     const sessionToken = request.cookies.get('bbk_session')?.value
