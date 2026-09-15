@@ -27,16 +27,20 @@ export type Product = {
 export const SERVICE_PERIOD_ONE_TIME     = '결제일로부터 1개월(30일) 이내 1회 시공 제공'
 export const SERVICE_PERIOD_SUBSCRIPTION = '월 자동청구 (매월 1회 방문 · 해지 시까지 지속)'
 
-// ─── 정기 상품 (4개) ──────────────────────────────────────
+// ─── 정기 상품 (5개, 테스트 1개 포함) ─────────────────────
 export const SUBSCRIPTION_PRODUCTS: readonly Product[] = [
+  { code: 'test-subscription', category: '결제 테스트', categoryIcon: '🧪', label: '결제 테스트 (정기)', unit: '월', price: 1000, billingType: 'subscription', servicePeriod: SERVICE_PERIOD_SUBSCRIPTION },
   { code: 'sub-deep-1',  category: '정기딥케어',   categoryIcon: '🧽', label: '월 1회 기본형',   unit: '월', price: 150000, billingType: 'subscription', servicePeriod: SERVICE_PERIOD_SUBSCRIPTION },
   { code: 'sub-deep-2',  category: '정기딥케어',   categoryIcon: '🧽', label: '월 2회 기본형',   unit: '월', price: 270000, billingType: 'subscription', servicePeriod: SERVICE_PERIOD_SUBSCRIPTION },
   { code: 'sub-end-1',   category: '정기엔드케어', categoryIcon: '🌙', label: '기본형',          unit: '월', price: 100000, billingType: 'subscription', servicePeriod: SERVICE_PERIOD_SUBSCRIPTION },
   { code: 'sub-end-2',   category: '정기엔드케어', categoryIcon: '🌙', label: '확장형',          unit: '월', price: 180000, billingType: 'subscription', servicePeriod: SERVICE_PERIOD_SUBSCRIPTION },
 ] as const
 
-// ─── 1회성 상품 (30개, 카테고리 8개) ───────────────────────
+// ─── 1회성 상품 (31개, 테스트 1개 포함) ───────────────────
 export const ONE_TIME_PRODUCTS: readonly Product[] = [
+  // 결제 테스트 (1)
+  { code: 'test-onetime', category: '결제 테스트', categoryIcon: '🧪', label: '결제 테스트 (1회성)', unit: '1건',       price: 1000,   billingType: 'one-time', servicePeriod: SERVICE_PERIOD_ONE_TIME },
+
   // 주방 후드/덕트 (5)
   { code: 'ot-hood-01',  category: '주방 후드·덕트', categoryIcon: '🍳', label: '후드 (스텐)',                  unit: '대당',      price: 170000, billingType: 'one-time', servicePeriod: SERVICE_PERIOD_ONE_TIME },
   { code: 'ot-hood-02',  category: '주방 후드·덕트', categoryIcon: '🍳', label: '후드 덕트 전기 집진기',        unit: '대당',      price: 240000, billingType: 'one-time', servicePeriod: SERVICE_PERIOD_ONE_TIME },
