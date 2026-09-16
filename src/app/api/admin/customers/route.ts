@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { createAuthUser, updateAuthUserEmailAndPassword, updateAuthUserEmail, customerEmail } from '@/lib/auth-helpers'
 import { generateBillingSchedule, computeBillingAmountFromCustomer, shouldAutoGenerateBillings } from '@/lib/billing-generator'
+import { getServerSession } from '@/lib/session'
 
 const ALLOWED = [
   // 일반정보
@@ -249,7 +250,17 @@ export async function GET(request: NextRequest) {
     query = query.in('customer_type', ['정기딥케어', '정기엔드케어'])
   }
 
+  // 직원(role=worker) 는 고객관리에서 정기딥/정기엔드 마스터만 접근 허용.
+  // 1회성/일반은 배정관리 탭에서 신청서 단위로 처리하므로 여기서 노출 불필요.
+  // 프론트 필터 옵션 축소와 별개로, URL 직접 조작 방어를 위해 서버에서도 강제.
+  const session = getServerSession()
+  const isWorker = session?.role === 'worker'
+  if (isWorker) {
+    query = query.in('customer_type', ['정기딥케어', '정기엔드케어'])
+  }
+
   if (customerTypeFilter) {
+    // worker 는 강제 필터가 이미 걸려있으니 그 안에서만 매칭 (1회성 요청해도 결과 0건).
     query = query.eq('customer_type', customerTypeFilter)
   }
 

@@ -2522,7 +2522,9 @@ export function CustomersManagementView({
         {/* Phase 27-J: 유형 필터 + 미배정 + 뷰 토글을 한 줄로 통합 (라벨 축약, 토글 1개).
             forceCustomerType(단일 강제)일 때만 UI 숨김. archivedView는 복수 선택 가능하므로 노출. */}
         <div className={`flex flex-wrap items-center gap-1.5 mb-3 ${forceCustomerType ? 'hidden' : ''}`}>
-          {(visibleFilterOptions ?? FILTER_OPTIONS).map(t => {
+          {/* worker role 은 고객관리 탭에서 1회성/일반 노출 안 함 — 정기딥/엔드 마스터만 필요.
+              admin 은 기존대로 4개 유형 모두 표시. visibleFilterOptions prop 이 주어지면 우선. */}
+          {(visibleFilterOptions ?? (isWorker ? ['정기딥케어', '정기엔드케어'] : FILTER_OPTIONS)).map(t => {
             const checked = selectedTypes.has(t)
             return (
               <button key={t} onClick={() => toggleType(t)}
