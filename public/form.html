@@ -12,31 +12,28 @@
   
   <style>
     :root {
-      /* 파스텔 emerald-teal 브랜드 팔레트 (결제 페이지와 통일) */
-      --primary: #34D399;          /* emerald-400 */
-      --primary-dark: #10B981;     /* emerald-500 */
-      --primary-light: #ECFDF5;    /* emerald-50 */
-      --primary-glow: rgba(52, 211, 153, 0.15);
-      --primary-gradient: linear-gradient(135deg, #6EE7B7 0%, #34D399 50%, #2DD4BF 100%);
-      --primary-gradient-hover: linear-gradient(135deg, #34D399 0%, #10B981 50%, #14B8A6 100%);
+      --primary: #2AABE2;
+      --primary-dark: #1E8FC0;
+      --primary-light: #E8F6FC;
+      --primary-glow: rgba(42, 171, 226, 0.15);
       --dark: #1A1A2E;
       --dark-soft: #2D2D44;
       --text: #2C3E50;
       --text-light: #6B7B8D;
       --text-muted: #95A5B5;
-      --bg: linear-gradient(180deg, #FEFCF9 0%, #FBF6EE 40%, #F5F1EB 100%);
+      --bg: #F5F7FA;
       --white: #FFFFFF;
-      --border: #E7E5E4;           /* stone-200 */
+      --border: #E2E8F0;
       --border-focus: var(--primary);
-      --success: #10B981;
-      --success-light: #ECFDF5;
-      --error: #F43F5E;            /* rose-500 */
-      --error-light: #FEF2F2;      /* rose-50 */
-      --warning: #F59E0B;          /* amber-500 */
-      --shadow-sm: 0 1px 3px rgba(28, 25, 23, 0.05);
-      --shadow-md: 0 4px 12px rgba(28, 25, 23, 0.06);
-      --shadow-lg: 0 8px 30px rgba(28, 25, 23, 0.08);
-      --shadow-glow: 0 8px 20px -6px rgba(52, 211, 153, 0.35);
+      --success: #27AE60;
+      --success-light: #E8F8F0;
+      --error: #E74C3C;
+      --error-light: #FDF0EF;
+      --warning: #F39C12;
+      --shadow-sm: 0 1px 3px rgba(0,0,0,0.06);
+      --shadow-md: 0 4px 12px rgba(0,0,0,0.08);
+      --shadow-lg: 0 8px 30px rgba(0,0,0,0.12);
+      --shadow-glow: 0 0 20px rgba(42, 171, 226, 0.2);
       --radius-sm: 8px;
       --radius-md: 12px;
       --radius-lg: 16px;
@@ -51,7 +48,7 @@
       font-family: 'Noto Sans KR', -apple-system, BlinkMacSystemFont, sans-serif;
       background: var(--bg);
       color: var(--text);
-      line-height: 1.6;
+      line-height: 1.7;
       -webkit-font-smoothing: antialiased;
       min-height: 100vh;
     }
@@ -102,8 +99,8 @@
 
     /* ─── Hero ─── */
     .hero {
-      background: linear-gradient(135deg, #ECFDF5 0%, #CCFBF1 60%, #F0FDFA 100%);
-      padding: 32px 20px 36px;
+      background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 60%, #1e293b 100%);
+      padding: 52px 20px 60px;
       text-align: center;
       position: relative;
       overflow: hidden;
@@ -111,13 +108,13 @@
     .hero::before {
       content: '';
       position: absolute; inset: 0;
-      background: radial-gradient(ellipse 60% 80% at 50% 0%, rgba(52, 211, 153, 0.15) 0%, transparent 70%);
+      background: radial-gradient(ellipse 60% 80% at 50% 0%, rgba(37,99,235,0.12) 0%, transparent 70%);
     }
     .hero::after {
       content: '';
       position: absolute;
-      bottom: 0; left: 0; right: 0; height: 2px;
-      background: linear-gradient(90deg, transparent, #6EE7B7, #2DD4BF, transparent);
+      bottom: 0; left: 0; right: 0; height: 3px;
+      background: linear-gradient(90deg, transparent, #2563eb, #818cf8, transparent);
     }
     .hero-content {
       position: relative; z-index: 1;
@@ -125,29 +122,29 @@
       display: flex; flex-direction: column; align-items: center;
     }
     .hero-logo {
-      width: 56px; height: 56px; border-radius: 16px; object-fit: cover;
-      box-shadow: 0 6px 18px -4px rgba(52, 211, 153, 0.4);
-      margin-bottom: 12px; display: block;
+      width: 76px; height: 76px; border-radius: 20px; object-fit: cover;
+      box-shadow: 0 0 32px rgba(37,99,235,0.4);
+      margin-bottom: 18px; display: block;
       animation: heroFloat 5s ease-in-out infinite;
     }
     @keyframes heroFloat {
       0%, 100% { transform: translateY(0); }
-      50%       { transform: translateY(-5px); }
+      50%       { transform: translateY(-7px); }
     }
     .hero-badge {
       display: inline-block;
-      background: rgba(52, 211, 153, 0.15); border: 1px solid rgba(52, 211, 153, 0.35);
-      color: var(--primary-dark); font-size: 10px; font-weight: 700;
-      padding: 3px 10px; border-radius: 999px; letter-spacing: 1px; margin-bottom: 10px;
+      background: rgba(37,99,235,0.2); border: 1px solid rgba(37,99,235,0.4);
+      color: #93c5fd; font-size: 11px; font-weight: 600;
+      padding: 4px 14px; border-radius: 999px; letter-spacing: 1px; margin-bottom: 14px;
     }
     .hero h1 {
-      font-size: 22px; font-weight: 900; color: #064E3B;
-      letter-spacing: -0.5px; margin-bottom: 6px;
+      font-size: 26px; font-weight: 900; color: #fff;
+      letter-spacing: -0.5px; margin-bottom: 10px;
     }
-    .hero h1 span { color: var(--primary-dark); }
+    .hero h1 span { color: #93c5fd; }
     .hero-subtitle {
-      color: rgba(6, 78, 59, 0.7);
-      font-size: 12.5px; font-weight: 400; line-height: 1.5;
+      color: rgba(255,255,255,0.5);
+      font-size: 14px; font-weight: 400; line-height: 1.7;
     }
     /* legacy compat */
     .logo-container { display: none; }
@@ -163,24 +160,22 @@
 
     /* ═══════ Section Cards ═══════ */
     .section-card {
-      background: rgba(255, 255, 255, 0.92);
+      background: var(--white);
       border-radius: var(--radius-lg);
-      padding: 20px 18px;
-      margin-bottom: 12px;
+      padding: 28px 24px;
+      margin-bottom: 16px;
       box-shadow: var(--shadow-sm);
-      border: 1px solid rgba(231, 229, 228, 0.6);
-      transition: box-shadow 0.2s, border-color 0.2s;
+      border: 1px solid var(--border);
+      transition: var(--transition);
+      opacity: 0;
+      transform: none;
+      animation: cardFadeIn 0.5s ease forwards;
       overflow: visible;
-      position: relative;
-      z-index: 1;
     }
     .section-card:hover {
       box-shadow: var(--shadow-md);
-      border-color: rgba(52, 211, 153, 0.2);
+      border-color: rgba(42,171,226,0.15);
     }
-    /* 시간 픽커가 열린 카드는 다음 카드 위로 */
-    .section-card:has(.time-picker.open),
-    .section-card.tp-active { z-index: 100; }
     @keyframes cardFadeIn {
       from { opacity: 0; }
       to { opacity: 1; }
@@ -193,13 +188,13 @@
 
     .section-header {
       display: flex; align-items: center; gap: 10px;
-      margin-bottom: 16px; padding-bottom: 12px;
-      border-bottom: 1px solid rgba(231, 229, 228, 0.6);
+      margin-bottom: 22px; padding-bottom: 14px;
+      border-bottom: 2px solid var(--bg);
     }
     .section-icon {
-      width: 34px; height: 34px; border-radius: 10px;
+      width: 38px; height: 38px; border-radius: 10px;
       display: flex; align-items: center; justify-content: center;
-      font-size: 16px; flex-shrink: 0;
+      font-size: 18px; flex-shrink: 0;
     }
     .section-icon.blue { background: var(--primary-light); }
     .section-icon.green { background: var(--success-light); }
@@ -211,32 +206,37 @@
     .section-desc { font-size: 12.5px; color: var(--text-muted); margin-top: 2px; }
 
     /* ═══════ Form Fields ═══════ */
-    .form-group { margin-bottom: 14px; }
+    .form-group { margin-bottom: 20px; }
     .form-group:last-child { margin-bottom: 0; }
     .form-label {
       display: flex; align-items: center; gap: 6px;
-      font-size: 13px; font-weight: 600; color: var(--text);
-      margin-bottom: 6px;
+      font-size: 13.5px; font-weight: 600; color: var(--text);
+      margin-bottom: 7px;
     }
-    .form-label .required { color: var(--error); font-weight: 700; font-size: 13px; }
+    .form-label .required { color: var(--error); font-weight: 700; font-size: 14px; }
     .form-label .emoji { font-size: 15px; }
     .form-hint {
-      font-size: 11.5px; color: var(--text-muted);
-      margin-bottom: 6px; padding-left: 2px; line-height: 1.5;
+      font-size: 12px; color: var(--text-muted);
+      margin-bottom: 7px; padding-left: 2px; line-height: 1.5;
     }
-    .form-hint.important,
+    .form-hint.important {
+      color: var(--primary-dark); font-weight: 500;
+      background: var(--primary-light);
+      padding: 8px 12px; border-radius: var(--radius-sm);
+      border-left: 3px solid var(--primary);
+    }
     .form-hint.warning-hint {
-      color: #92400E; font-weight: 500;
-      background: rgba(254, 243, 199, 0.5);
-      padding: 7px 10px; border-radius: var(--radius-sm);
-      border-left: 2px solid #FCD34D;
-      margin-top: 6px; font-size: 11px;
+      color: #E67E22; font-weight: 500;
+      background: #FFF8E1;
+      padding: 8px 12px; border-radius: var(--radius-sm);
+      border-left: 3px solid #F39C12;
+      margin-top: 8px;
     }
 
     .form-input, .form-select, .form-textarea {
       width: 100%;
-      padding: 10px 12px;
-      font-size: 13.5px;
+      padding: 12px 14px;
+      font-size: 14px;
       font-family: 'Noto Sans KR', sans-serif;
       color: var(--text);
       background: var(--white);
@@ -310,52 +310,6 @@
       background: var(--primary-light); color: var(--primary-dark);
     }
 
-    /* ═══════ Time Picker (grid 방식) ═══════ */
-    .time-picker { position: relative; flex: 1; }
-    .time-picker.open { z-index: 9999; }  /* 다음 section-card 위로 확실히 올라오도록 */
-    .time-picker-btn {
-      width: 100%; padding: 10px 12px;
-      font-family: 'Noto Sans KR', sans-serif;
-      font-size: 13.5px; font-weight: 600; color: var(--text-muted);
-      background: var(--white); border: 1.5px solid var(--border);
-      border-radius: var(--radius-sm); cursor: pointer;
-      display: flex; justify-content: space-between; align-items: center;
-      transition: var(--transition);
-    }
-    .time-picker-btn:hover { border-color: var(--primary); }
-    .time-picker-btn.filled { color: var(--primary-dark); font-weight: 700; }
-    .time-picker-btn .tp-arrow { font-size: 10px; color: var(--text-muted); transition: transform 0.2s; }
-    .time-picker.open .time-picker-btn { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-glow); }
-    .time-picker.open .tp-arrow { transform: rotate(180deg); }
-    .time-picker-panel {
-      position: absolute; top: calc(100% + 6px); left: 0; right: 0;
-      background: var(--white); border: 1px solid var(--border);
-      border-radius: var(--radius-md);
-      padding: 12px; box-shadow: var(--shadow-lg);
-      z-index: 9999; display: none;
-    }
-    .time-picker.open .time-picker-panel { display: block; }
-    .tp-label {
-      font-size: 10px; font-weight: 700; color: var(--text-muted);
-      letter-spacing: 0.5px; margin-bottom: 6px; padding-left: 2px;
-    }
-    .tp-label:not(:first-child) { margin-top: 10px; }
-    .tp-grid { display: grid; gap: 4px; }
-    .tp-hours { grid-template-columns: repeat(6, 1fr); }
-    .tp-minutes { grid-template-columns: repeat(6, 1fr); }
-    .tp-cell {
-      padding: 8px 4px; font-family: 'Noto Sans KR', sans-serif;
-      font-size: 12px; font-weight: 600;
-      color: var(--text-light); background: rgba(28, 25, 23, 0.03);
-      border: none; border-radius: 6px; cursor: pointer;
-      transition: all 0.15s;
-    }
-    .tp-cell:hover { background: var(--primary-light); color: var(--primary-dark); }
-    .tp-cell.selected {
-      background: var(--primary-gradient); color: var(--white);
-      box-shadow: 0 2px 6px -2px var(--primary-glow);
-    }
-
     /* Email Row */
     .email-row { display: flex; align-items: center; gap: 8px; }
     .email-row .form-input { flex: 1; }
@@ -367,19 +321,19 @@
     .radio-option { position: relative; }
     .radio-option input { display: none; }
     .radio-option label {
-      display: inline-flex; align-items: center; gap: 6px;
-      padding: 8px 14px;
+      display: inline-flex; align-items: center; gap: 7px;
+      padding: 10px 16px;
       border: 1.5px solid var(--border);
       border-radius: var(--radius-sm);
-      cursor: pointer; font-size: 12.5px; font-weight: 500;
+      cursor: pointer; font-size: 13.5px; font-weight: 500;
       transition: var(--transition);
       background: var(--white); user-select: none;
     }
     .radio-option label:hover { border-color: var(--primary); background: var(--primary-light); }
     .radio-option input:checked + label {
-      background: var(--primary-gradient); border-color: var(--primary);
+      background: var(--primary); border-color: var(--primary);
       color: var(--white);
-      box-shadow: 0 3px 8px -2px rgba(52, 211, 153, 0.4);
+      box-shadow: 0 2px 8px rgba(42,171,226,0.3);
     }
     .radio-dot {
       width: 16px; height: 16px;
@@ -404,10 +358,10 @@
 
     /* Consent */
     .consent-box {
-      background: rgba(28, 25, 23, 0.02);
+      background: var(--bg);
       border: 1.5px solid var(--border);
       border-radius: var(--radius-md);
-      padding: 12px 14px; margin-bottom: 10px;
+      padding: 16px 18px; margin-bottom: 12px;
       transition: var(--transition);
     }
     .consent-box:last-child { margin-bottom: 0; }
@@ -457,14 +411,13 @@
     }
     .privacy-note svg { width: 14px; height: 14px; stroke: var(--text-muted); flex-shrink: 0; }
     .submit-btn {
-      width: 100%; padding: 14px; font-size: 15px; font-weight: 700;
+      width: 100%; padding: 16px; font-size: 16px; font-weight: 700;
       font-family: 'Noto Sans KR', sans-serif; color: var(--white);
-      background: var(--primary-gradient);
+      background: linear-gradient(135deg, var(--primary), var(--primary-dark));
       border: none; border-radius: var(--radius-md); cursor: pointer;
-      transition: var(--transition); position: relative; overflow: hidden; letter-spacing: 0.3px;
-      box-shadow: var(--shadow-glow);
+      transition: var(--transition); position: relative; overflow: hidden; letter-spacing: 0.5px;
     }
-    .submit-btn:hover { transform: translateY(-1px); background: var(--primary-gradient-hover); box-shadow: 0 12px 24px -6px rgba(52, 211, 153, 0.4); }
+    .submit-btn:hover { transform: translateY(-2px); box-shadow: var(--shadow-glow), var(--shadow-md); }
     .submit-btn:active { transform: translateY(0); }
     .submit-btn:disabled { opacity: 0.7; cursor: not-allowed; transform: none; }
     .submit-btn .btn-text {
@@ -500,42 +453,38 @@
     }
     .modal-overlay.active .modal-content { transform: scale(1) translateY(0); }
     .modal-icon {
-      width: 68px; height: 68px; border-radius: 20px;
-      background: var(--primary-gradient);
+      width: 72px; height: 72px; border-radius: 50%;
+      background: var(--success-light);
       display: flex; align-items: center; justify-content: center;
-      margin: 0 auto 18px;
-      box-shadow: 0 10px 25px -6px rgba(52, 211, 153, 0.4);
+      margin: 0 auto 20px;
     }
-    .modal-icon svg { width: 32px; height: 32px; stroke: var(--white); stroke-width: 3; fill: none; }
-    .modal-title { font-size: 19px; font-weight: 800; color: var(--dark); margin-bottom: 8px; }
-    .modal-message { font-size: 13.5px; color: var(--text-light); line-height: 1.6; margin-bottom: 22px; }
+    .modal-icon svg { width: 36px; height: 36px; stroke: var(--success); stroke-width: 3; fill: none; }
+    .modal-title { font-size: 20px; font-weight: 800; color: var(--dark); margin-bottom: 10px; }
+    .modal-message { font-size: 14px; color: var(--text-light); line-height: 1.6; margin-bottom: 24px; }
     .modal-btn {
       display: inline-flex; align-items: center; justify-content: center;
-      padding: 12px 32px; background: var(--primary-gradient); color: var(--white);
+      padding: 12px 32px; background: var(--success); color: var(--white);
       border: none; border-radius: var(--radius-sm);
       font-size: 14px; font-weight: 600; font-family: 'Noto Sans KR', sans-serif;
       cursor: pointer; transition: var(--transition);
-      box-shadow: 0 4px 12px -2px rgba(52, 211, 153, 0.35);
     }
-    .modal-btn:hover { background: var(--primary-gradient-hover); transform: translateY(-1px); box-shadow: var(--shadow-glow); }
+    .modal-btn:hover { background: #219A52; transform: translateY(-1px); }
 
     /* ═══════ Progress ═══════ */
     .progress-container {
-      position: sticky; top: 0; z-index: 50;
-      background: rgba(255, 255, 255, 0.9);
-      backdrop-filter: blur(6px);
-      border-bottom: 1px solid rgba(231, 229, 228, 0.6);
-      padding: 8px 20px;
+      position: sticky; top: 0; z-index: 100;
+      background: var(--white); border-bottom: 1px solid var(--border);
+      padding: 10px 20px;
       display: flex; align-items: center; gap: 12px;
       box-shadow: var(--shadow-sm);
     }
-    .progress-bar { flex: 1; height: 4px; background: rgba(231, 229, 228, 0.6); border-radius: 10px; overflow: hidden; }
+    .progress-bar { flex: 1; height: 5px; background: var(--bg); border-radius: 10px; overflow: hidden; }
     .progress-fill {
       height: 100%;
-      background: var(--primary-gradient);
+      background: linear-gradient(90deg, var(--primary), #5BC0EB);
       border-radius: 10px; transition: width 0.4s ease; width: 0%;
     }
-    .progress-text { font-size: 11.5px; font-weight: 700; color: var(--primary-dark); white-space: nowrap; min-width: 32px; text-align: right; }
+    .progress-text { font-size: 12px; font-weight: 600; color: var(--primary); white-space: nowrap; min-width: 32px; text-align: right; }
 
     .footer {
       text-align: center; padding: 24px 20px 32px;
@@ -545,58 +494,255 @@
     /* No-biz toggle button */
     .no-biz-toggle {
       display: inline-flex; align-items: center; gap: 6px;
-      padding: 6px 12px; font-size: 12px; font-weight: 600;
+      padding: 7px 14px; font-size: 13px; font-weight: 500;
       font-family: 'Noto Sans KR', sans-serif;
-      color: var(--text-light); background: rgba(28, 25, 23, 0.03);
+      color: var(--text-secondary); background: var(--bg-secondary);
       border: 1.5px solid var(--border); border-radius: 20px;
       cursor: pointer; transition: var(--transition);
     }
-    .no-biz-toggle:hover { border-color: var(--primary); color: var(--primary-dark); background: var(--primary-light); }
+    .no-biz-toggle:hover { border-color: var(--primary); color: var(--primary); }
     .no-biz-toggle.active {
-      background: var(--primary-gradient); color: var(--white);
+      background: var(--primary); color: var(--white);
       border-color: var(--primary);
-      box-shadow: 0 3px 8px -2px rgba(52, 211, 153, 0.35);
     }
-    .no-biz-check { font-size: 14px; }
+    .no-biz-check { font-size: 15px; }
 
-    /* Verification buttons — 파스텔 그라디언트 배경 + 흰 텍스트 */
+    /* Verification buttons */
     .verify-btn {
-      padding: 10px 14px; font-size: 12px; font-weight: 600;
+      padding: 10px 16px; font-size: 13px; font-weight: 600;
       font-family: 'Noto Sans KR', sans-serif;
-      color: var(--white);
-      background: var(--primary-gradient);
+      color: var(--white); background: var(--primary);
       border: none; border-radius: var(--radius-sm);
       cursor: pointer; transition: var(--transition);
       white-space: nowrap; flex-shrink: 0;
-      box-shadow: 0 2px 6px -1px rgba(52, 211, 153, 0.25);
     }
-    .verify-btn:hover {
-      background: var(--primary-gradient-hover);
-      transform: translateY(-1px);
-      box-shadow: var(--shadow-glow);
-    }
-    .verify-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
-    .verify-btn.verify-confirm {
-      background: linear-gradient(135deg, #6EE7B7 0%, #10B981 100%);
-    }
-    .verify-btn.verify-confirm:hover {
-      background: linear-gradient(135deg, #10B981 0%, #059669 100%);
-    }
+    .verify-btn:hover { background: var(--primary-dark); }
+    .verify-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .verify-btn.verify-confirm { background: var(--success); }
+    .verify-btn.verify-confirm:hover { background: #219A52; }
 
     @media (max-width: 480px) {
-      .hero { padding: 26px 16px 32px; }
-      .hero h1 { font-size: 20px; }
-      .hero-logo { width: 52px; height: 52px; }
-      .section-card { padding: 18px 14px; }
+      .hero { padding: 36px 16px 44px; }
+      .hero h1 { font-size: 22px; }
+      .section-card { padding: 22px 18px; }
       .radio-group { flex-direction: column; }
       .radio-option label { width: 100%; justify-content: center; }
       .email-row { flex-direction: column; gap: 8px; }
       .email-at { display: none; }
       .time-row { gap: 6px; }
+      .section-card:nth-child(2) { z-index: 10; }
     }
 
-    /* Layout only — 시각 스타일은 위 원본 정의를 그대로 사용 */
-    .form-wrapper { margin-bottom: 50px; padding-top: 16px; }
+    /* ═══════════════════════════════════════
+       CLEAN FLAT DESIGN
+    ═══════════════════════════════════════ */
+
+    body { background: #F5F6F8; }
+
+    .hero {
+      background: #0f172a !important;
+      padding: 28px 20px 38px !important;
+    }
+    .hero::before { background: none !important; }
+    .hero::after {
+      height: 1px !important;
+      background: rgba(255,255,255,0.08) !important;
+    }
+    .hero-logo { box-shadow: none !important; animation: none !important; }
+
+    .section-card {
+      border-radius: 16px !important;
+      border: 1px solid #E8ECF0 !important;
+      box-shadow: none !important;
+      transition: border-color 0.2s ease !important;
+    }
+    .section-card:hover {
+      box-shadow: none !important;
+      transform: none !important;
+      border-color: #D1D8E0 !important;
+    }
+
+    .section-icon,
+    .section-icon.blue,
+    .section-icon.green,
+    .section-icon.purple,
+    .section-icon.teal,
+    .section-icon.red {
+      background: #F0F2F5 !important;
+      border-radius: 10px !important;
+      box-shadow: none !important;
+      font-size: 16px !important;
+    }
+
+    .section-header {
+      border-bottom: 1px solid #F0F2F5 !important;
+      padding-bottom: 14px !important;
+      margin-bottom: 22px !important;
+    }
+    .section-title { font-size: 15px !important; letter-spacing: -0.3px !important; }
+    .section-desc { font-size: 12px !important; margin-top: 2px !important; }
+
+    .form-input, .form-select, .form-textarea {
+      border-radius: 10px !important;
+      background: #fff !important;
+      border-color: #E2E8F0 !important;
+      font-weight: 400 !important;
+      font-size: 14px !important;
+      padding: 11px 14px !important;
+    }
+    .form-input:hover, .form-select:hover, .form-textarea:hover {
+      border-color: #C8D0DA !important;
+      background: #fff !important;
+    }
+    .form-input:focus, .form-select:focus, .form-textarea:focus {
+      border-color: #2AABE2 !important;
+      background: #fff !important;
+      box-shadow: 0 0 0 3px rgba(42,171,226,0.1) !important;
+    }
+    .form-input::placeholder, .form-textarea::placeholder { color: #B8C4CF !important; }
+
+    .form-label {
+      font-size: 13.5px !important;
+      color: #2D3748 !important;
+      font-weight: 600 !important;
+      letter-spacing: -0.1px !important;
+    }
+
+    .radio-option label {
+      border-radius: 8px !important;
+      font-weight: 500 !important;
+      font-size: 13px !important;
+      padding: 9px 16px !important;
+      border: 1px solid #E2E8F0 !important;
+      background: #fff !important;
+      transition: all 0.15s ease !important;
+    }
+    .radio-option label:hover {
+      border-color: #2AABE2 !important;
+      background: rgba(42,171,226,0.04) !important;
+      transform: none !important;
+    }
+    .radio-option input:checked + label {
+      background: #2AABE2 !important;
+      border-color: #2AABE2 !important;
+      box-shadow: none !important;
+      transform: none !important;
+      color: #fff !important;
+    }
+
+    .verify-btn {
+      border-radius: 8px !important;
+      font-weight: 600 !important;
+      font-size: 13px !important;
+      background: #2AABE2 !important;
+      box-shadow: none !important;
+      padding: 10px 16px !important;
+    }
+    .verify-btn:hover {
+      background: #1E8FC0 !important;
+      box-shadow: none !important;
+      transform: none !important;
+    }
+    .verify-btn.verify-confirm {
+      background: #27AE60 !important;
+      box-shadow: none !important;
+    }
+    .verify-btn.verify-confirm:hover { background: #219A52 !important; }
+
+    .consent-box {
+      border-radius: 10px !important;
+      background: #FAFBFC !important;
+      border: 1px solid #E8ECF0 !important;
+      padding: 16px !important;
+    }
+    .consent-box:hover { border-color: #2AABE2 !important; }
+
+    .custom-checkbox {
+      border-radius: 6px !important;
+      border: 1.5px solid #C8D0DA !important;
+    }
+    .checkbox-wrapper input:checked ~ .custom-checkbox {
+      background: #2AABE2 !important;
+      border-color: #2AABE2 !important;
+      box-shadow: none !important;
+    }
+    .consent-link a { color: #2AABE2 !important; font-weight: 600 !important; }
+
+    .progress-container {
+      box-shadow: none !important;
+      border-bottom: 1px solid #E8ECF0 !important;
+      padding: 10px 20px !important;
+    }
+    .progress-bar {
+      height: 4px !important;
+      background: #EEF2F7 !important;
+      border-radius: 4px !important;
+    }
+    .progress-fill {
+      background: #2AABE2 !important;
+      animation: none !important;
+      background-size: unset !important;
+    }
+    .progress-text { font-size: 12px !important; font-weight: 600 !important; color: #2AABE2 !important; }
+
+    .submit-btn {
+      border-radius: 12px !important;
+      padding: 16px !important;
+      font-size: 16px !important;
+      font-weight: 700 !important;
+      background: #2AABE2 !important;
+      box-shadow: none !important;
+      letter-spacing: 0 !important;
+    }
+    .submit-btn:hover {
+      transform: none !important;
+      box-shadow: none !important;
+      background: #1E8FC0 !important;
+    }
+    .submit-btn:active { transform: none !important; }
+
+    .form-hint.important {
+      border-radius: 8px !important;
+      border-left: 3px solid #2AABE2 !important;
+      background: rgba(42,171,226,0.06) !important;
+      color: #1A7AB5 !important;
+    }
+    .form-hint.warning-hint {
+      border-radius: 8px !important;
+      border-left: 3px solid #F39C12 !important;
+    }
+
+    .modal-content { border-radius: 20px !important; padding: 40px 32px !important; box-shadow: 0 8px 40px rgba(0,0,0,0.14) !important; }
+    .modal-icon {
+      width: 72px !important; height: 72px !important;
+      background: #EBF9F0 !important;
+      box-shadow: none !important;
+    }
+    .modal-icon svg { stroke: #27AE60 !important; width: 36px !important; height: 36px !important; }
+    .modal-btn {
+      border-radius: 10px !important;
+      padding: 12px 32px !important;
+      font-size: 14px !important;
+      font-weight: 600 !important;
+      background: #27AE60 !important;
+      box-shadow: none !important;
+    }
+    .modal-btn:hover {
+      background: #219A52 !important;
+      transform: none !important;
+      box-shadow: none !important;
+    }
+
+    .no-biz-toggle { border-radius: 20px !important; font-weight: 500 !important; }
+    .no-biz-toggle.active {
+      background: #2AABE2 !important;
+      border-color: #2AABE2 !important;
+      box-shadow: none !important;
+    }
+
+    .footer { color: #94A3B8 !important; font-size: 12px !important; padding: 24px 20px 32px !important; }
+
+    .form-wrapper { margin-bottom: 50px; padding-top: 20px; }
   </style>
 </head>
 
@@ -615,7 +761,8 @@
   <div class="hero">
     <div class="hero-content">
       <img src="/bbk-logo.png" alt="BBK" class="hero-logo">
-      <h1>범빌드코리아 <span>공간케어</span> 신청서</h1>
+      <div class="hero-badge">SERVICE INQUIRY</div>
+      <h1>BBK <span>공간케어</span> 신청서</h1>
       <p class="hero-subtitle">아래 정보를 입력해주시면 담당자가 빠르게 연락드립니다</p>
     </div>
   </div>
@@ -624,12 +771,6 @@
   <div class="progress-container">
     <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
     <div class="progress-text" id="progressText">0%</div>
-  </div>
-
-  <!-- 🧪 로컬 개발 전용: 테스트 데이터 자동 채우기 버튼 (localhost에서만 노출) -->
-  <div id="devTestBar" style="display:none; margin:12px 16px 0; padding:10px 12px; background:#FFFBE6; border:1px dashed #F0C13C; border-radius:8px; font-size:12px; color:#8A6D00; display:flex; align-items:center; justify-content:space-between; gap:8px;">
-    <span>🧪 로컬 개발 모드 — 테스트 데이터로 필드를 자동 채웁니다</span>
-    <button type="button" onclick="fillTestData()" style="padding:6px 12px; background:#F0C13C; color:#4A3800; font-weight:700; border:none; border-radius:6px; cursor:pointer; font-size:12px;">테스트 데이터 채우기</button>
   </div>
 
   <!-- ═══════ Form ═══════ -->
@@ -691,105 +832,32 @@
           <div class="error-msg" id="businessNumberError">⚠ 사업자등록번호를 입력해주세요</div>
         </div>
 
-        <!-- 영업시간 - 시/분 분리 그리드 (정적 하드코딩으로 확실히 렌더) -->
+        <!-- 영업시간 (사업장 정보 섹션으로 이동) -->
         <div class="form-group">
           <label class="form-label">영업시간 (서비스 방문 시간 접수용)<span class="required">*</span></label>
-          <div class="form-hint">시간과 분을 각각 선택해주세요 (10분 단위)</div>
+          <div class="form-hint">시간을 직접 입력하거나 버튼을 눌러 선택할 수 있습니다 (30분 단위)</div>
           <div class="time-row">
-            <div class="time-picker" id="startTimePicker">
-              <button type="button" class="time-picker-btn" onclick="toggleTimePicker('start')">
-                <span id="startTimeDisplay">시작 시간</span>
-                <span class="tp-arrow">▾</span>
-              </button>
-              <div class="time-picker-panel">
-                <div class="tp-label">시</div>
-                <div class="tp-grid tp-hours" id="startHours">
-                  <button type="button" class="tp-cell" data-hour="00" onclick="selectTimeCell('start','h','00')">00</button>
-                  <button type="button" class="tp-cell" data-hour="01" onclick="selectTimeCell('start','h','01')">01</button>
-                  <button type="button" class="tp-cell" data-hour="02" onclick="selectTimeCell('start','h','02')">02</button>
-                  <button type="button" class="tp-cell" data-hour="03" onclick="selectTimeCell('start','h','03')">03</button>
-                  <button type="button" class="tp-cell" data-hour="04" onclick="selectTimeCell('start','h','04')">04</button>
-                  <button type="button" class="tp-cell" data-hour="05" onclick="selectTimeCell('start','h','05')">05</button>
-                  <button type="button" class="tp-cell" data-hour="06" onclick="selectTimeCell('start','h','06')">06</button>
-                  <button type="button" class="tp-cell" data-hour="07" onclick="selectTimeCell('start','h','07')">07</button>
-                  <button type="button" class="tp-cell" data-hour="08" onclick="selectTimeCell('start','h','08')">08</button>
-                  <button type="button" class="tp-cell" data-hour="09" onclick="selectTimeCell('start','h','09')">09</button>
-                  <button type="button" class="tp-cell" data-hour="10" onclick="selectTimeCell('start','h','10')">10</button>
-                  <button type="button" class="tp-cell" data-hour="11" onclick="selectTimeCell('start','h','11')">11</button>
-                  <button type="button" class="tp-cell" data-hour="12" onclick="selectTimeCell('start','h','12')">12</button>
-                  <button type="button" class="tp-cell" data-hour="13" onclick="selectTimeCell('start','h','13')">13</button>
-                  <button type="button" class="tp-cell" data-hour="14" onclick="selectTimeCell('start','h','14')">14</button>
-                  <button type="button" class="tp-cell" data-hour="15" onclick="selectTimeCell('start','h','15')">15</button>
-                  <button type="button" class="tp-cell" data-hour="16" onclick="selectTimeCell('start','h','16')">16</button>
-                  <button type="button" class="tp-cell" data-hour="17" onclick="selectTimeCell('start','h','17')">17</button>
-                  <button type="button" class="tp-cell" data-hour="18" onclick="selectTimeCell('start','h','18')">18</button>
-                  <button type="button" class="tp-cell" data-hour="19" onclick="selectTimeCell('start','h','19')">19</button>
-                  <button type="button" class="tp-cell" data-hour="20" onclick="selectTimeCell('start','h','20')">20</button>
-                  <button type="button" class="tp-cell" data-hour="21" onclick="selectTimeCell('start','h','21')">21</button>
-                  <button type="button" class="tp-cell" data-hour="22" onclick="selectTimeCell('start','h','22')">22</button>
-                  <button type="button" class="tp-cell" data-hour="23" onclick="selectTimeCell('start','h','23')">23</button>
-                </div>
-                <div class="tp-label">분</div>
-                <div class="tp-grid tp-minutes" id="startMinutes">
-                  <button type="button" class="tp-cell" data-minute="00" onclick="selectTimeCell('start','m','00')">00</button>
-                  <button type="button" class="tp-cell" data-minute="10" onclick="selectTimeCell('start','m','10')">10</button>
-                  <button type="button" class="tp-cell" data-minute="20" onclick="selectTimeCell('start','m','20')">20</button>
-                  <button type="button" class="tp-cell" data-minute="30" onclick="selectTimeCell('start','m','30')">30</button>
-                  <button type="button" class="tp-cell" data-minute="40" onclick="selectTimeCell('start','m','40')">40</button>
-                  <button type="button" class="tp-cell" data-minute="50" onclick="selectTimeCell('start','m','50')">50</button>
-                </div>
+            <div class="time-field">
+              <div class="time-input-wrapper">
+                <input type="text" class="form-input" id="businessHoursStart" placeholder="예: 09:00" required
+                       autocomplete="off" inputmode="numeric" pattern="[0-9]{1,2}:[0-9]{2}" maxlength="5"
+                       name="bhStart" data-lpignore="true" data-form-type="other">
+                <button type="button" class="time-dropdown-btn" onclick="toggleTimeDropdown('startTimeDropdown')">&#9662;</button>
+                <div class="time-dropdown" id="startTimeDropdown"></div>
               </div>
             </div>
             <span class="time-separator">~</span>
-            <div class="time-picker" id="endTimePicker">
-              <button type="button" class="time-picker-btn" onclick="toggleTimePicker('end')">
-                <span id="endTimeDisplay">종료 시간</span>
-                <span class="tp-arrow">▾</span>
-              </button>
-              <div class="time-picker-panel">
-                <div class="tp-label">시</div>
-                <div class="tp-grid tp-hours" id="endHours">
-                  <button type="button" class="tp-cell" data-hour="00" onclick="selectTimeCell('end','h','00')">00</button>
-                  <button type="button" class="tp-cell" data-hour="01" onclick="selectTimeCell('end','h','01')">01</button>
-                  <button type="button" class="tp-cell" data-hour="02" onclick="selectTimeCell('end','h','02')">02</button>
-                  <button type="button" class="tp-cell" data-hour="03" onclick="selectTimeCell('end','h','03')">03</button>
-                  <button type="button" class="tp-cell" data-hour="04" onclick="selectTimeCell('end','h','04')">04</button>
-                  <button type="button" class="tp-cell" data-hour="05" onclick="selectTimeCell('end','h','05')">05</button>
-                  <button type="button" class="tp-cell" data-hour="06" onclick="selectTimeCell('end','h','06')">06</button>
-                  <button type="button" class="tp-cell" data-hour="07" onclick="selectTimeCell('end','h','07')">07</button>
-                  <button type="button" class="tp-cell" data-hour="08" onclick="selectTimeCell('end','h','08')">08</button>
-                  <button type="button" class="tp-cell" data-hour="09" onclick="selectTimeCell('end','h','09')">09</button>
-                  <button type="button" class="tp-cell" data-hour="10" onclick="selectTimeCell('end','h','10')">10</button>
-                  <button type="button" class="tp-cell" data-hour="11" onclick="selectTimeCell('end','h','11')">11</button>
-                  <button type="button" class="tp-cell" data-hour="12" onclick="selectTimeCell('end','h','12')">12</button>
-                  <button type="button" class="tp-cell" data-hour="13" onclick="selectTimeCell('end','h','13')">13</button>
-                  <button type="button" class="tp-cell" data-hour="14" onclick="selectTimeCell('end','h','14')">14</button>
-                  <button type="button" class="tp-cell" data-hour="15" onclick="selectTimeCell('end','h','15')">15</button>
-                  <button type="button" class="tp-cell" data-hour="16" onclick="selectTimeCell('end','h','16')">16</button>
-                  <button type="button" class="tp-cell" data-hour="17" onclick="selectTimeCell('end','h','17')">17</button>
-                  <button type="button" class="tp-cell" data-hour="18" onclick="selectTimeCell('end','h','18')">18</button>
-                  <button type="button" class="tp-cell" data-hour="19" onclick="selectTimeCell('end','h','19')">19</button>
-                  <button type="button" class="tp-cell" data-hour="20" onclick="selectTimeCell('end','h','20')">20</button>
-                  <button type="button" class="tp-cell" data-hour="21" onclick="selectTimeCell('end','h','21')">21</button>
-                  <button type="button" class="tp-cell" data-hour="22" onclick="selectTimeCell('end','h','22')">22</button>
-                  <button type="button" class="tp-cell" data-hour="23" onclick="selectTimeCell('end','h','23')">23</button>
-                </div>
-                <div class="tp-label">분</div>
-                <div class="tp-grid tp-minutes" id="endMinutes">
-                  <button type="button" class="tp-cell" data-minute="00" onclick="selectTimeCell('end','m','00')">00</button>
-                  <button type="button" class="tp-cell" data-minute="10" onclick="selectTimeCell('end','m','10')">10</button>
-                  <button type="button" class="tp-cell" data-minute="20" onclick="selectTimeCell('end','m','20')">20</button>
-                  <button type="button" class="tp-cell" data-minute="30" onclick="selectTimeCell('end','m','30')">30</button>
-                  <button type="button" class="tp-cell" data-minute="40" onclick="selectTimeCell('end','m','40')">40</button>
-                  <button type="button" class="tp-cell" data-minute="50" onclick="selectTimeCell('end','m','50')">50</button>
-                </div>
+            <div class="time-field">
+              <div class="time-input-wrapper">
+                <input type="text" class="form-input" id="businessHoursEnd" placeholder="예: 22:00" required
+                       autocomplete="off" inputmode="numeric" pattern="[0-9]{1,2}:[0-9]{2}" maxlength="5"
+                       name="bhEnd" data-lpignore="true" data-form-type="other">
+                <button type="button" class="time-dropdown-btn" onclick="toggleTimeDropdown('endTimeDropdown')">&#9662;</button>
+                <div class="time-dropdown" id="endTimeDropdown"></div>
               </div>
             </div>
           </div>
-          <!-- 실제 폼 데이터 hidden input (기존 검증·제출 로직 호환 유지) -->
-          <input type="hidden" id="businessHoursStart" name="bhStart" required>
-          <input type="hidden" id="businessHoursEnd"   name="bhEnd"   required>
-          <div class="error-msg" id="businessHoursError">⚠ 영업시간을 선택해주세요</div>
+          <div class="error-msg" id="businessHoursError">⚠ 영업시간을 입력해주세요</div>
         </div>
       </div>
 
@@ -830,18 +898,11 @@
           <div id="phoneVerified" style="display:none; margin-top:8px; font-size:13px; color:var(--success); font-weight:600;">✅ 연락처 인증 완료</div>
         </div>
 
-        <!-- 알림수신 추가번호 (기본 숨김 → 토글로 표시) -->
+        <!-- 알림수신 추가번호 (선택) -->
         <div class="form-group">
-          <button type="button" id="addPhone2Btn" onclick="togglePhone2Field()"
-                  style="display:inline-flex; align-items:center; gap:6px; padding:8px 12px; font-size:12px; font-weight:600;
-                         color:var(--primary-dark); background:var(--primary-light); border:1px dashed var(--primary);
-                         border-radius:8px; cursor:pointer; transition:var(--transition); font-family:'Noto Sans KR', sans-serif;">
-            <span id="addPhone2Icon">+</span> <span id="addPhone2Label">알림수신 추가번호 등록</span>
-          </button>
-          <div id="phone2Field" style="display:none; margin-top:10px;">
-            <div class="form-hint">추가된 번호로도 서비스 알림이 함께 전송됩니다.</div>
-            <input type="tel" class="form-input" id="phone2" placeholder="010-0000-0000">
-          </div>
+          <label class="form-label">알림수신 추가번호</label>
+          <div class="form-hint">연락처로 서비스 관련 알림과 결과물이 전송됩니다.</div>
+          <input type="tel" class="form-input" id="phone2" placeholder="010-0000-0000 (선택)">
         </div>
 
         <!-- 이메일 (기본정보 섹션으로 이동) -->
@@ -911,12 +972,9 @@
           <div class="error-msg" id="buildingAccessError">⚠ 건물 출입 신청 필요 여부를 선택해주세요</div>
         </div>
 
-        <!-- 🚙 주차 방법 -->
+        <!-- 🚙 주차 방법 (출입 방법보다 위로 이동, 라디오 선택 + 직접입력) -->
         <div class="form-group">
           <label class="form-label">주차 방법<span class="required">*</span></label>
-          <div class="form-hint warning-hint">
-            주차등록 불가 시 일부 주차요금이 발생할 수 있어요. 방문 전 확인 부탁드립니다.
-          </div>
           <div class="radio-group">
             <div class="radio-option">
               <input type="radio" name="parking" id="parkingBuilding" value="건물 전용주차장" required>
@@ -938,25 +996,98 @@
           <div class="custom-input-wrapper" id="parkingCustomWrapper">
             <input type="text" class="form-input" id="parkingCustomInput" placeholder="주차 방법을 직접 입력해주세요">
           </div>
+          <div class="form-hint warning-hint">
+            주차등록이 불가한 경우 일부 주차요금이 발생할 수 있으니, 사전에 주차 가능 여부를 확인해주시면 감사하겠습니다.
+          </div>
           <div class="error-msg" id="parkingError">⚠ 주차 방법을 선택해주세요</div>
         </div>
 
-        <!-- 🔏 출입 방법 -->
+        <!-- 🔏 출입 방법 (주차 방법 아래로 이동) -->
         <div class="form-group">
           <label class="form-label">출입 방법 (비밀번호)<span class="required">*</span></label>
           <div class="form-hint important">
-            현장 출입 방법(현관 비밀번호·경비실 안내 등)과 외부 화장실 위치를 함께 알려주세요.
+            ⚠ 요청 주신 공간의 출입 방법을 작성해주세요! (매우 중요)<br>
+            화장실이 외부에 있는 경우 함께 작성해주세요! (매우 중요)
           </div>
-          <textarea class="form-textarea" id="accessMethod" placeholder="예: 현관 비밀번호 1234#, 화장실은 2층 공용 이용" required></textarea>
+          <textarea class="form-textarea" id="accessMethod" placeholder="예: 현관 비밀번호 1234#, 화장실 외부 2층 공용화장실 이용" required></textarea>
           <div class="error-msg" id="accessMethodError">⚠ 출입 방법을 입력해주세요</div>
         </div>
       </div>
 
-      <!-- ══════ Section 4: 결제 정보 → 완전 제거 (2026-09-06) ══════
-        기존: 결제 방법 선택(4가지 라디오) + 계좌번호 입력
-        신규 흐름: 신청서 제출 → 결제 페이지로 자동 리다이렉트 → 거기서 결제 방법 선택
-        Section 번호는 4→5 유지, 아래 "Section 5: 동의 & 요청사항" 그대로.
-      -->
+      <!-- ══════ Section 4: 결제 정보 ══════ -->
+      <div class="section-card">
+        <div class="section-header">
+          <div class="section-icon teal"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2AABE2" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg></div>
+          <div>
+            <div class="section-title">결제 정보</div>
+            <div class="section-desc">결제 방법 및 계좌 정보를 입력해주세요</div>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">결제 방법 선택<span class="required">*</span></label>
+          <div class="radio-group">
+            <div class="radio-option">
+              <input type="radio" name="paymentMethod" id="payTransfer" value="현금(계산서 희망)" required>
+              <label for="payTransfer"><span class="radio-dot"></span>현금(계산서 희망)</label>
+            </div>
+            <div class="radio-option">
+              <input type="radio" name="paymentMethod" id="payCard" value="카드(온라인 간편결제)">
+              <label for="payCard"><span class="radio-dot"></span>카드(온라인 간편결제)</label>
+            </div>
+            <div class="radio-option">
+              <input type="radio" name="paymentMethod" id="payPlatform" value="플랫폼">
+              <label for="payPlatform"><span class="radio-dot"></span>플랫폼</label>
+            </div>
+            <div class="radio-option">
+              <input type="radio" name="paymentMethod" id="payCash" value="현금(비과세)">
+              <label for="payCash"><span class="radio-dot"></span>현금(비과세)</label>
+            </div>
+          </div>
+          <div class="error-msg" id="paymentMethodError">⚠ 결제 방법을 선택해주세요</div>
+          <div id="prepayNotice" style="display:none; margin-top:8px; padding:10px 12px; background:#FFEBEE; border-left:3px solid #F44336; border-radius:4px; font-size:12px; color:#C62828; line-height:1.6; font-weight:600;">
+            사업자등록 전 고객님은 <b>선입금 후 서비스 진행</b>이 원칙입니다.<br>
+            상세 안내는 상담 시 별도로 드리겠습니다.
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">계좌번호 (카드, 플랫폼 결제 시 페이백)<span class="required">*</span></label>
+          <div class="form-hint">카드 or 플랫폼 결제 시 예약금 페이백을 위해 작성 바랍니다.</div>
+          <div style="display:flex; gap:8px; align-items:stretch;">
+            <select class="form-input" id="bankName" required style="flex:0 0 140px; min-width:120px;">
+              <option value="">은행 선택</option>
+              <option value="국민">국민</option>
+              <option value="경남">경남</option>
+              <option value="광주">광주</option>
+              <option value="기업">기업</option>
+              <option value="농협">농협</option>
+              <option value="아이엠뱅크">아이엠뱅크</option>
+              <option value="부산">부산</option>
+              <option value="산업">산업</option>
+              <option value="저축">저축</option>
+              <option value="새마을금고">새마을금고</option>
+              <option value="수협">수협</option>
+              <option value="신한">신한</option>
+              <option value="신협">신협</option>
+              <option value="씨티">씨티</option>
+              <option value="KEB하나">KEB하나</option>
+              <option value="우리">우리</option>
+              <option value="우체국">우체국</option>
+              <option value="전북">전북</option>
+              <option value="SC">SC</option>
+              <option value="제주">제주</option>
+              <option value="HSBC">HSBC</option>
+              <option value="케이뱅크">케이뱅크</option>
+              <option value="카카오뱅크">카카오뱅크</option>
+              <option value="토스뱅크">토스뱅크</option>
+            </select>
+            <input type="text" class="form-input" id="accountNumber" placeholder="계좌번호 (예: 000-000-000000)" required style="flex:1;">
+          </div>
+          <div class="error-msg" id="bankNameError">⚠ 은행을 선택해주세요</div>
+          <div class="error-msg" id="accountNumberError">⚠ 계좌번호를 입력해주세요</div>
+        </div>
+      </div>
 
       <!-- ══════ Section 5: 동의 & 요청사항 ══════ -->
       <div class="section-card">
@@ -1015,13 +1146,7 @@
           고객님의 소중한 정보는 서비스 목적으로만 사용되며 서비스 직후 영구 파기됩니다.
         </div>
         <button type="button" class="submit-btn" id="submitBtn" onclick="handleSubmit()">
-          <span class="btn-text">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px; margin-right:4px;">
-              <rect x="4" y="11" width="16" height="10" rx="2"/>
-              <path d="M8 11V7a4 4 0 0 1 8 0v4"/>
-            </svg>
-            신청서 보안 발송하기
-          </span>
+          <span class="btn-text">🔒 신청서 보안 발송하기</span>
           <div class="spinner"></div>
         </button>
       </div>
@@ -1131,14 +1256,13 @@
     });
 
     // ═══════ Progress ═══════
-    // 결제 정보 섹션 제거 (2026-09-06) → bankName·accountNumber·paymentMethod 필수 검증 제외
     var requiredFields = [
       'ownerName', 'phone', 'emailId', 'emailDomain',
       'address', 'businessName', 'businessNumber',
       'businessHoursStart', 'businessHoursEnd',
-      'accessMethod'
+      'accessMethod', 'bankName', 'accountNumber'
     ];
-    var requiredRadios = ['elevator', 'buildingAccess', 'parking'];
+    var requiredRadios = ['elevator', 'buildingAccess', 'parking', 'paymentMethod'];
     var requiredChecks = ['privacyConsent', 'serviceConsent'];
 
     function updateProgress() {
@@ -1262,8 +1386,8 @@
         {id:'phone', err:'phoneError'}, {id:'emailId', err:'emailError'},
         {id:'address', err:'addressError'}, {id:'businessName', err:'businessNameError'},
         {id:'businessNumber', err:'businessNumberError'},
-        {id:'accessMethod', err:'accessMethodError'}
-        // bankName·accountNumber 제거 — 결제 정보 섹션 삭제됨 (2026-09-06)
+        {id:'accessMethod', err:'accessMethodError'},
+        {id:'bankName', err:'bankNameError'}, {id:'accountNumber', err:'accountNumberError'}
       ];
 
       textFields.forEach(function(f) {
@@ -1326,11 +1450,8 @@
         }
       });
 
-      // 로컬 개발환경 판정 (반복 테스트 편의 · 프로덕션에서는 절대 skip 안 됨)
-      var isLocalTest = (location.hostname === 'localhost' || location.hostname === '127.0.0.1');
-
-      // ═══ 연락처 SMS 인증 필수 검증 (로컬 skip) ═══
-      if (!isLocalTest && !phoneVerified) {
+      // ═══ 연락처 SMS 인증 필수 검증 ═══
+      if (!phoneVerified) {
         var phoneEl = document.getElementById('phone');
         var phoneVerifyMsg = document.getElementById('phoneError');
         phoneVerifyMsg.textContent = '⚠ 연락처 인증을 완료해주세요';
@@ -1340,8 +1461,8 @@
         if (!firstError) firstError = phoneEl;
       }
 
-      // ═══ 사업자등록번호 인증 필수 검증 (사업자등록 전 제외 · 로컬 skip) ═══
-      if (!isLocalTest && document.getElementById('noBizNumber').value !== 'true' && !bizVerified) {
+      // ═══ 사업자등록번호 인증 필수 검증 (사업자등록 전 제외) ═══
+      if (document.getElementById('noBizNumber').value !== 'true' && !bizVerified) {
         var bizEl = document.getElementById('businessNumber');
         var bizVerifyMsg = document.getElementById('businessNumberError');
         bizVerifyMsg.textContent = '⚠ 사업자등록번호 확인을 완료해주세요';
@@ -1402,8 +1523,13 @@
         buildingAccess: document.querySelector('input[name="buildingAccess"]:checked').value,
         accessMethod: document.getElementById('accessMethod').value.trim(),
         parking: parkingValue,
-        // paymentMethod·accountNumber 제거 — 서버에서 '카드(온라인 간편결제)' 강제 세팅 (2026-09-06)
-        // 결제방법은 결제 페이지에서 고객이 최종 선택
+        paymentMethod: document.querySelector('input[name="paymentMethod"]:checked').value,
+        accountNumber: (function(){
+          var bank = document.getElementById('bankName').value.trim();
+          var acct = document.getElementById('accountNumber').value.trim();
+          if (bank && acct) return bank + ' ' + acct;
+          return acct || bank;
+        })(),
         privacyConsent: document.getElementById('privacyConsent').checked,
         serviceConsent: document.getElementById('serviceConsent').checked,
         requestNotes: document.getElementById('requestNotes').value.trim()
@@ -1418,25 +1544,13 @@
         body: JSON.stringify(formData)
       })
       .then(function(response) {
-        if (!response.ok) {
-          btn.classList.remove('loading');
-          btn.disabled = false;
-          alert('전송 중 오류가 발생했습니다. 다시 시도해주세요.');
-          return null;
-        }
-        return response.json().catch(function() { return {}; });
-      })
-      .then(function(data) {
-        if (!data) return;
-        // 신규 흐름 (2026-09-06): 서버 응답에 paymentUrl 있으면 결제 페이지로 즉시 리다이렉트
-        if (data.paymentUrl) {
-          window.location.href = data.paymentUrl;
-          return;
-        }
-        // 폴백: paymentUrl 미포함 시 기존 성공 모달 표시 (구 흐름 호환)
         btn.classList.remove('loading');
         btn.disabled = false;
-        document.getElementById('successModal').classList.add('active');
+        if (response.ok) {
+          document.getElementById('successModal').classList.add('active');
+        } else {
+          alert('전송 중 오류가 발생했습니다. 다시 시도해주세요.');
+        }
       })
       .catch(function(error) {
         btn.classList.remove('loading');
@@ -1466,188 +1580,14 @@
     var isLocalDev = (location.hostname === 'localhost' || location.hostname === '127.0.0.1');
     var phoneVerified = isLocalDev;
     if (isLocalDev) {
-      // 페이지 로드 완료 후 인증완료 표시 + 테스트 채우기 바 노출
+      // 페이지 로드 완료 후 인증완료 표시
       window.addEventListener('DOMContentLoaded', function() {
         var v = document.getElementById('phoneVerified');
         if (v) {
           v.style.display = 'block';
           v.textContent = '✅ 로컬 개발 환경 · SMS 인증 자동 통과';
         }
-        var bar = document.getElementById('devTestBar');
-        if (bar) bar.style.display = 'flex';
       });
-    }
-
-    // ═══════ 영업시간 시/분 그리드 선택 ═══════
-    var timePickerState = { start: { h: null, m: null }, end: { h: null, m: null } };
-
-    // 셀은 HTML에서 정적 하드코딩됨 (24개 시 + 6개 분). no-op.
-    function initTimePickers() {}
-
-    function selectTimeCell(prefix, type, value) {
-      timePickerState[prefix][type] = value;
-      // 하이라이트
-      var gridId = prefix + (type === 'h' ? 'Hours' : 'Minutes');
-      var attr = type === 'h' ? 'hour' : 'minute';
-      document.querySelectorAll('#' + gridId + ' .tp-cell').forEach(function(c) {
-        c.classList.toggle('selected', c.dataset[attr] === value);
-      });
-      // 시+분 둘 다 선택되면 값 반영 + 패널 닫기
-      var s = timePickerState[prefix];
-      if (s.h !== null && s.m !== null) {
-        var timeStr = s.h + ':' + s.m;
-        var display = document.getElementById(prefix + 'TimeDisplay');
-        var hidden = document.getElementById(prefix === 'start' ? 'businessHoursStart' : 'businessHoursEnd');
-        display.textContent = timeStr;
-        display.parentElement.classList.add('filled');
-        if (hidden) {
-          hidden.value = timeStr;
-          hidden.dispatchEvent(new Event('input', { bubbles: true }));
-          hidden.dispatchEvent(new Event('change', { bubbles: true }));
-        }
-        setTimeout(function() {
-          var pickerEl = document.getElementById(prefix + 'TimePicker');
-          pickerEl.classList.remove('open');
-          var cardEl = pickerEl.closest('.section-card');
-          if (cardEl) cardEl.classList.remove('tp-active');
-        }, 150);
-      }
-    }
-
-    function toggleTimePicker(prefix) {
-      var picker = document.getElementById(prefix + 'TimePicker');
-      // 다른 픽커 · 카드 z-index 리셋
-      document.querySelectorAll('.time-picker').forEach(function(p) {
-        if (p !== picker) p.classList.remove('open');
-      });
-      document.querySelectorAll('.section-card.tp-active').forEach(function(c) {
-        c.classList.remove('tp-active');
-      });
-      picker.classList.toggle('open');
-      // 열릴 때 부모 카드 z-index 올림 (:has() 미지원 브라우저 폴백)
-      if (picker.classList.contains('open')) {
-        var card = picker.closest('.section-card');
-        if (card) card.classList.add('tp-active');
-      }
-    }
-
-    // 외부 클릭 시 닫기
-    document.addEventListener('click', function(e) {
-      if (!e.target.closest('.time-picker')) {
-        document.querySelectorAll('.time-picker').forEach(function(p) { p.classList.remove('open'); });
-        document.querySelectorAll('.section-card.tp-active').forEach(function(c) { c.classList.remove('tp-active'); });
-      }
-    });
-
-    // hidden input에 값이 세팅되면 UI에 반영 (fillTestData 호환용)
-    function syncTimePickerFromHidden(prefix) {
-      var hidden = document.getElementById(prefix === 'start' ? 'businessHoursStart' : 'businessHoursEnd');
-      if (!hidden || !hidden.value) return;
-      var parts = hidden.value.split(':');
-      if (parts.length !== 2) return;
-      var h = parts[0], m = parts[1];
-      timePickerState[prefix].h = h;
-      timePickerState[prefix].m = m;
-      var display = document.getElementById(prefix + 'TimeDisplay');
-      if (display) {
-        display.textContent = hidden.value;
-        display.parentElement.classList.add('filled');
-      }
-      document.querySelectorAll('#' + prefix + 'Hours .tp-cell').forEach(function(c) {
-        c.classList.toggle('selected', c.dataset.hour === h);
-      });
-      document.querySelectorAll('#' + prefix + 'Minutes .tp-cell').forEach(function(c) {
-        c.classList.toggle('selected', c.dataset.minute === m);
-      });
-    }
-
-    // 스크립트 실행 시점에 DOM 준비 상태 확인해서 즉시 or 대기 후 초기화
-    if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', initTimePickers);
-    } else {
-      initTimePickers();
-    }
-
-    // 알림수신 추가번호 필드 토글 (기본 숨김 → 추가하기 버튼 클릭 시 표시)
-    function togglePhone2Field() {
-      var field = document.getElementById('phone2Field');
-      var icon  = document.getElementById('addPhone2Icon');
-      var label = document.getElementById('addPhone2Label');
-      var btn   = document.getElementById('addPhone2Btn');
-      var input = document.getElementById('phone2');
-      var isHidden = field.style.display === 'none';
-      if (isHidden) {
-        field.style.display = 'block';
-        icon.textContent  = '−';
-        label.textContent = '알림수신 추가번호 제거';
-        btn.style.borderStyle = 'solid';
-        if (input) setTimeout(function() { input.focus(); }, 100);
-      } else {
-        if (input) input.value = '';
-        field.style.display = 'none';
-        icon.textContent  = '+';
-        label.textContent = '알림수신 추가번호 등록';
-        btn.style.borderStyle = 'dashed';
-      }
-    }
-
-    // 🧪 로컬 전용: 테스트 데이터 자동 채우기
-    function fillTestData() {
-      var rand = Math.floor(Math.random() * 9000 + 1000);
-      // 기본 텍스트 필드
-      document.getElementById('businessName').value    = '테스트업체_' + rand;
-      document.getElementById('address').value         = '경기도 성남시 중원구 둔촌대로268번길 22';
-      document.getElementById('addressDetail').value   = '1동 2층 201호';
-      document.getElementById('ownerName').value       = '테스트대표';
-      document.getElementById('phone').value           = '010-1234-' + String(rand).slice(0, 4);
-      document.getElementById('emailId').value         = 'test' + rand;
-      var domainSel = document.getElementById('emailDomain');
-      // '@bbkorea.co.kr' 옵션이 없으면 gmail로 대체
-      var hasBbk = Array.prototype.some.call(domainSel.options, function(o) { return o.value === 'bbkorea.co.kr'; });
-      domainSel.value = hasBbk ? 'bbkorea.co.kr' : 'gmail.com';
-      document.getElementById('businessHoursStart').value = '09:00';
-      document.getElementById('businessHoursEnd').value   = '18:00';
-      // 시간 그리드 UI에도 동기화 (새 time-picker 방식)
-      if (typeof syncTimePickerFromHidden === 'function') {
-        syncTimePickerFromHidden('start');
-        syncTimePickerFromHidden('end');
-      }
-      document.getElementById('accessMethod').value    = '테스트용 출입 정보 — 현관 비밀번호 1234#';
-      document.getElementById('requestNotes').value    = '테스트 신청서입니다.';
-
-      // 사업자등록번호는 '등록 전' 체크로 스킵 (실제 조회 API 호출 방지)
-      var noBizToggle = document.getElementById('noBizToggleBtn');
-      if (noBizToggle && document.getElementById('noBizNumber').value !== 'true') {
-        noBizToggle.click();
-      }
-
-      // Radio 선택 (엘리베이터·건물출입·주차)
-      var radios = [
-        { name: 'elevator',       value: '가능' },
-        { name: 'buildingAccess', value: '불필요' },
-        { name: 'parking',        value: '건물 전용주차장' },
-      ];
-      radios.forEach(function(r) {
-        var el = document.querySelector('input[name="' + r.name + '"][value="' + r.value + '"]');
-        if (el) {
-          el.checked = true;
-          el.dispatchEvent(new Event('change', { bubbles: true }));
-        }
-      });
-
-      // 동의 체크박스
-      var privacy = document.getElementById('privacyConsent');
-      var service = document.getElementById('serviceConsent');
-      if (privacy) privacy.checked = true;
-      if (service) service.checked = true;
-
-      // 에러 메시지 제거 + progress 재계산 트리거 (input 이벤트 발생)
-      document.querySelectorAll('.form-input, .form-textarea, .form-select').forEach(function(el) {
-        el.dispatchEvent(new Event('input',  { bubbles: true }));
-        el.dispatchEvent(new Event('change', { bubbles: true }));
-      });
-
-      console.log('[fillTestData] 테스트 데이터 채움 완료 (rand=' + rand + ')');
     }
 
     function sendVerificationSMS() {
@@ -1773,8 +1713,7 @@
         checkBtn.style.opacity = '0.4';
         bizResult.innerHTML = '';
         noBizNotice.style.display = 'block';
-        // prepayNotice는 결제 정보 섹션 제거로 삭제됨 (2026-09-06) — null 방어
-        if (prepayNotice) prepayNotice.style.display = 'block';
+        prepayNotice.style.display = 'block';
         bizRequiredMark.style.display = 'none';
         bizVerified = true;
       } else {
@@ -1787,7 +1726,7 @@
         checkBtn.disabled = false;
         checkBtn.style.opacity = '1';
         noBizNotice.style.display = 'none';
-        if (prepayNotice) prepayNotice.style.display = 'none';
+        prepayNotice.style.display = 'none';
         bizRequiredMark.style.display = 'inline';
         bizVerified = false;
       }
