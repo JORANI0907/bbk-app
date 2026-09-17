@@ -658,14 +658,27 @@ export async function PATCH(request: NextRequest) {
           .in('status', ['신규', '예약확정', '예약1일전', '예약당일', '기존고객', '작업완료', '결제'])
       } else if (regularSyncable) {
         // 정기케어: 미래 회차만 sync. 완료·결제·계산서 상태는 제외.
-        const todayKST = new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10)
-        await supabase
-          .from('service_applications')
-          .update(appUpdates)
-          .eq('customer_id', id)
-          .is('deleted_at', null)
-          .in('status', ['신규', '예약확정', '예약1일전', '예약당일', '기존고객'])
-          .gte('construction_date', todayKST)
+        //
+        // 회차별 개별값 보호 (2026-09-17 윤찬방 사고 근본 해결):
+        // 정기케어는 각 회차마다 시공일자·시공시간이 다름. next_visit_date/construction_time
+        // 을 sync 하면 마스터의 단일 값이 미래 회차 전체를 덮어 도미노로 날짜가 통일되는
+        // 데이터 손실 발생 (예: 10월 회차들이 모두 9월 16일 로 통일). 명시적으로 제외.
+        const REGULAR_EXCLUDE = new Set(['construction_date', 'construction_time'])
+        const regularUpdates: Record<string, unknown> = {}
+        for (const [k, v] of Object.entries(appUpdates)) {
+          if (REGULAR_EXCLUDE.has(k)) continue
+          regularUpdates[k] = v
+        }
+        if (Object.keys(regularUpdates).length > 0) {
+          const todayKST = new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10)
+          await supabase
+            .from('service_applications')
+            .update(regularUpdates)
+            .eq('customer_id', id)
+            .is('deleted_at', null)
+            .in('status', ['신규', '예약확정', '예약1일전', '예약당일', '기존고객'])
+            .gte('construction_date', todayKST)
+        }
       }
     } catch (e) {
       console.error(
