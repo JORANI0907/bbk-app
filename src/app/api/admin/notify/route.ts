@@ -517,27 +517,9 @@ export async function POST(request: NextRequest) {
       if (userRow?.name) assignedUserName = userRow.name
     }
 
-    // 발송 대상 번호 결정 — 견적서와 동일 규칙:
-    // phone_notify_1 !== false 이면 메인 phone, phone_notify_2 !== false 이면 추가번호 phone_2
-    // 둘 다 활성인 경우 두 번호 모두에게 발송. 둘 다 비활성 or 번호 없음이면 발송 스킵.
-    const phone = (app.phone ?? '').replace(/-/g, '')
-    const phone2 = (String(app.phone_2 ?? '') || '').replace(/-/g, '')
-    const notify1 = app.phone_notify_1 !== false
-    const notify2 = app.phone_notify_2 !== false
-
-    const targets: string[] = []
-    if (notify1 && phone) targets.push(phone)
-    if (notify2 && phone2) targets.push(phone2)
-
-    if (targets.length === 0) {
-      return NextResponse.json({ error: '발송 가능한 전화번호가 없습니다.' }, { status: 400 })
-    }
-
-    const variables = buildVariables(type, app as Record<string, unknown>, assignedUserName)
-    const fallbackText = buildFallback(type, app as Record<string, unknown>)
-
-    // customers 마스터 조회 — resolver 가 application.supply/vat/deposit/balance 가 비어있을 때
-    // customer 값으로 fallback 하도록 context 에 함께 전달.
+    // customers 마스터 선조회 — 두 용도로 사용:
+    //  1) phone/phone_notify 결정 시 마스터 최신 값 우선 참조 (재발송 사고 방지)
+    //  2) context resolver 가 신청서 값 비었을 때 customer 로 fallback (금액·연락처 등)
     // (UI 세부화면은 customers 테이블에 견적을 저장하는데 service_applications 로는 sync 안 되는
     //  구조라 이 hydration 없이는 SMS 잔금이 0 원으로 나감.)
     let customerRow: Record<string, unknown> | null = null
@@ -549,6 +531,32 @@ export async function POST(request: NextRequest) {
         .maybeSingle()
       customerRow = data as Record<string, unknown> | null
     }
+
+    // 발송 대상 번호 결정 — 견적서와 동일 규칙:
+    // phone_notify_1 !== false 이면 메인 phone, phone_notify_2 !== false 이면 추가번호 phone_2
+    // 둘 다 활성인 경우 두 번호 모두에게 발송. 둘 다 비활성 or 번호 없음이면 발송 스킵.
+    //
+    // 마스터 우선 참조 (2026-09-18 우대포 사고 근본 해결):
+    // 정기케어 과거 회차는 축 A sync 대상(오늘 이후)에서 빠져 신청서 phone 이 옛 값으로 남음.
+    // 재발송 시 마스터 최신 값 사용해 실제 통용 연락처로 정확히 발송.
+    // 크론(축 B) 정책과 대칭.
+    const custPhone = customerRow?.contact_phone ? String(customerRow.contact_phone) : ''
+    const custPhone2 = customerRow?.contact_phone_2 ? String(customerRow.contact_phone_2) : ''
+    const phone = (custPhone || String(app.phone ?? '')).replace(/-/g, '')
+    const phone2 = (custPhone2 || String(app.phone_2 ?? '')).replace(/-/g, '')
+    const notify1 = (customerRow?.phone_notify_1 ?? app.phone_notify_1) !== false
+    const notify2 = (customerRow?.phone_notify_2 ?? app.phone_notify_2) !== false
+
+    const targets: string[] = []
+    if (notify1 && phone) targets.push(phone)
+    if (notify2 && phone2) targets.push(phone2)
+
+    if (targets.length === 0) {
+      return NextResponse.json({ error: '발송 가능한 전화번호가 없습니다.' }, { status: 400 })
+    }
+
+    const variables = buildVariables(type, app as Record<string, unknown>, assignedUserName)
+    const fallbackText = buildFallback(type, app as Record<string, unknown>)
 
     // 각 번호로 순차 발송. 하나 실패해도 나머지는 계속.
     // templateCode(접미사 붙은 코드)로 실제 template 조회. type(baseType)은 이력·상태용.
