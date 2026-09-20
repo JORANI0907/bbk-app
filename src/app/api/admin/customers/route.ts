@@ -397,11 +397,29 @@ export async function POST(request: NextRequest) {
     if (key in body) insert[key] = body[key]
   }
 
-  const { data, error } = await supabase
+  let { data, error } = await supabase
     .from('customers')
     .insert(insert)
     .select()
     .single()
+
+  // 신규 컬럼(billing_*) 미배포/스키마 캐시 대응: 42703 감지 시 billing_* 4개 제거 후 재시도.
+  // 마이그레이션 20260829000001_billing_recipient_fields.sql 미실행 or PostgREST 스키마 캐시
+  // 지연 환경에서도 신규 고객 등록이 막히지 않도록 방어. PATCH 쪽 동일 패턴과 대칭.
+  // 캐시 갱신 후에는 billing_* 값도 정상 저장됨 (fallback 트리거 안 됨).
+  if (error && /billing_(contact_name|email|address|business_number)/i.test(error.message)) {
+    delete insert.billing_contact_name
+    delete insert.billing_email
+    delete insert.billing_address
+    delete insert.billing_business_number
+    const retry = await supabase
+      .from('customers')
+      .insert(insert)
+      .select()
+      .single()
+    data = retry.data
+    error = retry.error
+  }
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
