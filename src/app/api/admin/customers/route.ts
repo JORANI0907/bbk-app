@@ -3,6 +3,7 @@ import { createServiceClient } from '@/lib/supabase/server'
 import { createAuthUser, updateAuthUserEmailAndPassword, updateAuthUserEmail, customerEmail } from '@/lib/auth-helpers'
 import { generateBillingSchedule, computeBillingAmountFromCustomer, shouldAutoGenerateBillings } from '@/lib/billing-generator'
 import { getServerSession } from '@/lib/session'
+import { translateDbError } from '@/lib/db-error-translator'
 
 const ALLOWED = [
   // 일반정보
@@ -295,7 +296,7 @@ export async function GET(request: NextRequest) {
   }
 
   const { data, error, count } = await query
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) return NextResponse.json({ error: translateDbError(error.message) }, { status: 500 })
 
   // 각 customer 에 assigned_worker_ids: string[] 배열 병합 (다중 작업자 지원).
   // 우선순위: DB 컬럼 assigned_worker_ids > 1회성/일반일정 work_assignments JOIN > assigned_worker_id 단수.
@@ -421,7 +422,7 @@ export async function POST(request: NextRequest) {
     error = retry.error
   }
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) return NextResponse.json({ error: translateDbError(error.message) }, { status: 500 })
 
   // 연락처가 있으면 포털 계정 자동 생성
   let generatedPassword: string | null = null
@@ -541,7 +542,7 @@ export async function PATCH(request: NextRequest) {
     error = retry.error
   }
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) return NextResponse.json({ error: translateDbError(error.message) }, { status: 500 })
 
   // contact_phone 변경 시 users + Auth 동기화 (실패해도 고객 수정은 성공)
   if (phoneChanged && existingUserId) {
@@ -816,7 +817,7 @@ export async function DELETE(request: NextRequest) {
     .eq('id', id)
     .is('deleted_at', null)
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) return NextResponse.json({ error: translateDbError(error.message) }, { status: 500 })
 
   // 연결된 service_schedules도 cascade 소프트 삭제
   await supabase
