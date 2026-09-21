@@ -2151,7 +2151,8 @@ export function CustomersManagementView({
     // Phase 27-L: customer 미등록 신청서(pendings) 를 상시 병합.
     // 이전(Phase 7-D)에는 `showUnassignedOnly` 조건 안에만 병합해서, 신청서가 배정·진행 상태이지만
     // customer 로 등록 안 된 회차가 리스트에서 통째로 누락됐음(캘린더에는 표시됨) — 그 gap 해결.
-    if (!archivedView && pendingApplications.length > 0) {
+    // worker 는 미등록 신청서(관리자 배정 대상 후보 UI) 를 볼 필요 없어 병합 skip (2026-09-21).
+    if (!archivedView && !isWorker && pendingApplications.length > 0) {
       // Phase 27-V: 이미 customers 에 phone/business_name 매칭되는 pendings 는 중복 제거.
       // 신청서 접수 시 customer_id 를 자동 매칭 못 해서 발생하는 "원본 + 신청서 딱지" 이중 노출 방지.
       const existingPhones = new Set(
