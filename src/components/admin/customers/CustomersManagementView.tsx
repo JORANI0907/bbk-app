@@ -994,10 +994,11 @@ export function CustomersManagementView({
         setCurrentUserId(d.user.userId ?? null)
         // Phase 27-AW: 워커일 경우 관리자 defaults(캘린더 + 1회성·정기딥 선택)를 원래 defaults로 reset.
         // forceCustomerType/archivedView 컨텍스트는 그대로 존중.
+        // 워커는 미배정 필터 노출·자동활성 모두 제거 (UI 요구 2026-09-21) — 자기 배정만 보면 됨.
         if (role === 'worker' && !forceCustomerType) {
           setSelectedTypes(new Set())
           setViewMode('list')
-          if (!archivedView) setShowUnassignedOnly(true)
+          setShowUnassignedOnly(false)
         }
       }
     }).catch(() => { /* 무시 */ })
@@ -2550,8 +2551,9 @@ export function CustomersManagementView({
             }`}>
             전체 ({typeCounts['전체'] ?? 0})
           </button>
-          {/* Phase 6-B/D: 미배정 토글 — 유형과 상호 배타. archivedView에서는 의미 없으므로 숨김. */}
-          {!archivedView && (
+          {/* Phase 6-B/D: 미배정 토글 — 유형과 상호 배타. archivedView 에서는 의미 없어 숨김.
+              worker 는 자기 배정만 보면 되므로 미배정 필터 자체 노출 안 함 (2026-09-21). */}
+          {!archivedView && !isWorker && (
             <button onClick={toggleUnassigned}
               className={`pill-toss px-2.5 py-1 text-xs border rounded-lg font-semibold ${
                 showUnassignedOnly
