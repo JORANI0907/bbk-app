@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import toast from 'react-hot-toast'
 import { useModalBackButton } from '@/hooks/useModalBackButton'
 import { MapSelectorModal } from '@/components/MapSelectorModal'
+import { BulkMonthlyScheduleNotifyModal } from './BulkMonthlyScheduleNotifyModal'
 import { BillingHistoryPanel } from '@/components/admin/BillingHistoryPanel'
 import { Button } from '@/components/ui'
 import { Phone, ClipboardList, Map, Banknote, Save, Megaphone, Calendar, BookOpen, Archive, Trash2, Copy, Folder, FolderOpen, FolderPlus, CreditCard, FileCheck, ChevronDown } from 'lucide-react'
@@ -772,6 +773,8 @@ export function CustomersManagementView({
   // 열린 툴팁 인덱스 (null = 닫힘). 같은 항목 다시 클릭 시 토글.
   const [openBodyIdx, setOpenBodyIdx] = useState<number | null>(null)
   const [checkedIds, setCheckedIds] = useState<string[]>([])
+  // 일괄 예약확정알림 모달: 발송 유형(정기딥/정기엔드) 세팅 시 오픈, null 이면 닫힘.
+  const [bulkNotifyType, setBulkNotifyType] = useState<'정기딥케어' | '정기엔드케어' | null>(null)
   const [bulkCreating, setBulkCreating] = useState(false)
   // Phase 5-E: 기간 기반 모달 — mode(create=신규 생성 / cleanup=수정)
   const [scheduleGenModal, setScheduleGenModal] = useState<{
@@ -1891,6 +1894,24 @@ export function CustomersManagementView({
     }
   }
 
+  // 일정 알림 (일괄): 선택한 정기딥/엔드 고객들에게 월단위 예약확정알림 발송.
+  // 유효성: 단일 정기케어 유형만 허용. 혼합/1회성/일반 포함 시 안내 후 차단.
+  const handleBulkScheduleNotify = () => {
+    if (checkedIds.length === 0) return
+    const picks = customers.filter(c => checkedIds.includes(c.id))
+    const types = new Set(picks.map(c => c.customer_type ?? ''))
+    if (types.size !== 1) {
+      window.alert('정기딥케어 · 정기엔드케어가 섞여있어 일괄 발송이 불가합니다.\n같은 유형만 선택해주세요.')
+      return
+    }
+    const [only] = types
+    if (only !== '정기딥케어' && only !== '정기엔드케어') {
+      window.alert('일정 알림은 정기딥케어 또는 정기엔드케어에만 발송할 수 있습니다.\n(1회성/일반은 대상 아님)')
+      return
+    }
+    setBulkNotifyType(only)
+  }
+
   const handleDuplicateBulk = async () => {
     if (checkedIds.length === 0) return
     if (!confirm(`선택한 ${checkedIds.length}건의 고객을 복제하시겠습니까?\n\n복제본은 원본과 관계없는 별도 고객으로 생성됩니다 (드라이브 폴더·알림 이력·포털 계정 초기화).`)) return
@@ -2649,6 +2670,12 @@ export function CustomersManagementView({
             <Button size="sm" onClick={() => openScheduleGenModal('create')} disabled={bulkCreating} className="bg-green-600 hover:bg-green-700 text-white whitespace-nowrap">
               {bulkCreating ? '처리 중...' : <><Calendar size={14} className="inline mr-1" />일정 생성</>}
             </Button>
+            {/* 일정 알림 (일괄 예약확정알림). 정기딥/엔드 단일 유형만 허용, 혼합/1회성 시 안내 후 차단. */}
+            {!isWorker && (
+              <Button size="sm" onClick={handleBulkScheduleNotify} disabled={bulkCreating} className="bg-brand-100 hover:bg-brand-200 text-brand-700 whitespace-nowrap">
+                일정 알림
+              </Button>
+            )}
             {/* Phase 7-J: "서비스 신청서 생성 →" 버튼 제거 — 서비스관리 흡수 이후 미사용 (사용자 지시).
                 "서비스 일정 생성"은 세부화면 계약 정보 섹션의 '생성' 버튼과 동일한 openScheduleGenModal('create') 시나리오 사용. */}
           </div>
@@ -4713,6 +4740,18 @@ export function CustomersManagementView({
           </div>
         </div>
       </div>
+    )}
+
+    {/* 일괄 예약확정알림 모달 — 정기딥/엔드 단일 유형 체크 후 [일정 알림] 버튼에서 오픈. */}
+    {bulkNotifyType && (
+      <BulkMonthlyScheduleNotifyModal
+        customers={customers
+          .filter(c => checkedIds.includes(c.id))
+          .map(c => ({ id: c.id, business_name: c.business_name }))}
+        customerType={bulkNotifyType}
+        onClose={() => setBulkNotifyType(null)}
+        onSent={() => { setCheckedIds([]); setBulkNotifyType(null) }}
+      />
     )}
     </>
   )
