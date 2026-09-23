@@ -111,7 +111,8 @@ export async function GET() {
   // ── inventory ─────────────────────────────────────────────────
   let inventoryCount = 0
   if (isAdmin) {
-    let q = supabase.from('inventory_items').select('id, current_qty, min_qty, last_updated')
+    // 실제 테이블명은 'inventory'. inventory_items 는 존재하지 않아 배지가 항상 0 이던 오타 수정.
+    let q = supabase.from('inventory').select('id, current_qty, min_qty, last_updated')
     if (dismissed.inventory) {
       q = q.gt('last_updated', dismissed.inventory) as typeof q
     }

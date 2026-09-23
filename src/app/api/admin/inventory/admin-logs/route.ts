@@ -67,8 +67,10 @@ export async function GET(request: NextRequest) {
   let itemMap: Record<string, string> = {}
 
   if (inventoryIds.length > 0) {
+    // 실제 재고 테이블은 'inventory'. (2026-09-23 오타 수정: inventory_items → inventory)
+    // 이 오타 때문에 조회가 빈 결과로 폴백하여 모든 변동내역이 '알 수 없음' 으로 표시되던 버그.
     const { data: items } = await supabase
-      .from('inventory_items')
+      .from('inventory')
       .select('id, item_name')
       .in('id', inventoryIds)
     itemMap = Object.fromEntries((items ?? []).map(i => [i.id, i.item_name]))
