@@ -164,6 +164,32 @@ function findNotifyBody(map: NotifyBodyMap, type: string, sentAtIso: string): st
   return map[`${baseType}|${sec}`] ?? null
 }
 
+// 리스트 카드에 표시할 방문일정 텍스트 계산.
+// Phase 37 통합 방문주기(visit_cycle_unit/config) 우선 참조, 없으면 레거시 필드 fallback.
+// (2026-09-24 미미고찹쌀꽈배기: 신형 config.dates=[15] 편집됐는데 UI가 레거시 visit_monthly_dates=[20]
+//  만 참조해 잘못된 값 노출되던 사고 근본 해결.)
+function formatVisitSchedule(c: Customer): string {
+  const unit = c.visit_cycle_unit ?? null
+  const cfg = (c.visit_cycle_config ?? {}) as { weekdays?: number[]; dates?: number[] }
+
+  // 신형 우선: 통합 방문주기 config
+  if (unit === 'week' && Array.isArray(cfg.weekdays) && cfg.weekdays.length > 0) {
+    return `매 ${WEEKDAYS.filter(w => cfg.weekdays!.includes(w.value)).map(w => w.label).join('·')}요일`
+  }
+  if (unit === 'month' && Array.isArray(cfg.dates) && cfg.dates.length > 0) {
+    return `매월 ${[...cfg.dates].sort((x, y) => x - y).join('·')}일`
+  }
+
+  // 레거시 fallback: visit_schedule_type + visit_weekdays / visit_monthly_dates
+  if (c.visit_schedule_type === 'weekday' && c.visit_weekdays?.length) {
+    return `매 ${WEEKDAYS.filter(w => c.visit_weekdays!.includes(w.value)).map(w => w.label).join('·')}요일`
+  }
+  if (c.visit_schedule_type === 'monthly_date' && c.visit_monthly_dates?.length) {
+    return `매월 ${[...c.visit_monthly_dates].sort((x, y) => x - y).join('·')}일`
+  }
+  return ''
+}
+
 // ─── 상수 ─────────────────────────────────────────────────────
 // Phase 22: 샘플 유형(정기엔드케어샘플/정기딥케어샘플) 편집 UI 노출 제거. 타입 union은 legacy DB 레코드 렌더링 위해 유지.
 const CUSTOMER_TYPES: CustomerType[] = ['정기엔드케어', '정기딥케어', '1회성케어', '일반일정']
@@ -2313,15 +2339,17 @@ export function CustomersManagementView({
           const diff = (a.visit_interval_days ?? 0) - (b.visit_interval_days ?? 0)
           return sortDir === 'asc' ? diff : -diff
         } else if (sortKey === 'next_visit') {
-          const scheduleText = (c: Customer) => {
-            if (c.visit_schedule_type === 'weekday' && c.visit_weekdays?.length)
-              return `매 ${WEEKDAYS.filter(w => c.visit_weekdays!.includes(w.value)).map(w => w.label).join('·')}요일`
-            if (c.visit_schedule_type === 'monthly_date' && c.visit_monthly_dates?.length)
-              return `매월 ${[...c.visit_monthly_dates].sort((x, y) => x - y).join('·')}일`
-            return ''
+          // 방문일정 정렬: 정기딥/엔드 매월 N일의 N 을 숫자 기준으로 오름/내림.
+          // config.dates 우선, 없으면 레거시 visit_monthly_dates fallback.
+          // 요일 방문 or 미설정은 999 로 밀어 뒤로 정렬.
+          const dayOf = (c: Customer): number => {
+            const cfg = (c.visit_cycle_config ?? {}) as { dates?: number[] }
+            if (Array.isArray(cfg.dates) && cfg.dates.length > 0) return Math.min(...cfg.dates)
+            if (Array.isArray(c.visit_monthly_dates) && c.visit_monthly_dates.length > 0) return Math.min(...c.visit_monthly_dates)
+            return 999
           }
-          av = scheduleText(a)
-          bv = scheduleText(b)
+          const cmp = dayOf(a) - dayOf(b)
+          return sortDir === 'asc' ? cmp : -cmp
         }
         const cmp = COLLATOR.compare(av, bv)
         return sortDir === 'asc' ? cmp : -cmp
@@ -2696,10 +2724,12 @@ export function CustomersManagementView({
                     }
                     if (isDipCareView) {
                       // Phase 27-H: worker는 계약정보·결제 상태 요약 컬럼 헤더 자체 숨김
+                      // 방문일정 별도 컬럼 신설 (2026-09-24) — 매월 N일 정렬 기준으로 유용.
                       return ([
                         { key: 'business_name' as const, label: '일반정보' },
                         { key: null, label: '고객상태' },
                         ...(!isWorker ? [{ key: null, label: '계약정보' } as const] : []),
+                        { key: 'next_visit' as const, label: '방문일정' },
                         ...(!isWorker ? [{ key: null, label: '결제 상태 요약' } as const] : []),
                       ] as const)
                     }
@@ -2770,13 +2800,7 @@ export function CustomersManagementView({
                     }
                     return ''
                   })()
-                  const visitScheduleText = (() => {
-                    if (c.visit_schedule_type === 'weekday' && c.visit_weekdays?.length)
-                      return `매 ${WEEKDAYS.filter(w => c.visit_weekdays!.includes(w.value)).map(w => w.label).join('·')}요일`
-                    if (c.visit_schedule_type === 'monthly_date' && c.visit_monthly_dates?.length)
-                      return `매월 ${[...c.visit_monthly_dates].sort((a, b) => a - b).join('·')}일`
-                    return ''
-                  })()
+                  const visitScheduleText = formatVisitSchedule(c)
                   // Phase 13: 진행상태=좌측 border, 결제상태=행 전체 파스텔 배경, 오늘 시공=sky ring
                   const progressBorder = c.progress_status ? (PROGRESS_ROW_BORDER[c.progress_status] ?? 'border-l-transparent') : 'border-l-transparent'
                   const paymentBg = c.payment_status_detail ? (PAYMENT_ROW_BG[c.payment_status_detail] ?? '') : ''
@@ -2888,7 +2912,7 @@ export function CustomersManagementView({
                               {/* Phase 27-H: worker에겐 계약정보·결제 상태 요약 두 컬럼 통째 숨김 */}
                               {!isWorker && (
                                 <>
-                                  {/* 3열: 계약정보 — 결제주기·총액·계약기간·방문일정 */}
+                                  {/* 3열: 계약정보 — 결제주기·총액·계약기간 (방문일정은 별도 컬럼으로 분리 2026-09-24) */}
                                   <td className="px-3 py-3 min-w-[180px] max-w-[240px]">
                                     <div className="flex flex-col gap-0.5 text-xs">
                                       <span className="text-text-primary font-semibold">
@@ -2902,12 +2926,19 @@ export function CustomersManagementView({
                                           {fmtDate(c.contract_start_date)} ~ {fmtDate(c.contract_end_date)}
                                         </span>
                                       )}
-                                      {visitScheduleText && (
-                                        <span className="text-[11px] text-text-secondary">{visitScheduleText}</span>
-                                      )}
                                     </div>
                                   </td>
-                                  {/* 4열: 결제 상태 요약 */}
+                                </>
+                              )}
+                              {/* 4열: 방문일정 — 별도 컬럼. worker 도 보이도록 유지 (배정 판단 참고용) */}
+                              <td className="px-3 py-3 whitespace-nowrap">
+                                {visitScheduleText
+                                  ? <span className="text-xs text-text-secondary">{visitScheduleText}</span>
+                                  : <span className="text-xs text-text-tertiary">-</span>}
+                              </td>
+                              {!isWorker && (
+                                <>
+                                  {/* 5열: 결제 상태 요약 */}
                                   <td className="px-3 py-3 min-w-[140px]">
                                     <PaymentIssuesSummary
                                       customerId={c.id}
