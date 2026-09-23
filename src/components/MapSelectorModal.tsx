@@ -37,7 +37,9 @@ function openApp(type: 'naver' | 'kakao' | 'google' | 'tmap', address: string): 
     google: isIOS()
       ? `comgooglemaps://?q=${enc}`
       : `intent://maps.google.com/?q=${enc}#Intent;scheme=https;package=com.google.android.apps.maps;end`,
-    tmap:   `tmap://search?searchKeyword=${enc}`,
+    // TMAP 공식 URL 스키마 파라미터는 name (SKT 공식). searchKeyword 는 인식 안 됨 —
+    // 앱은 열리지만 검색창이 빈 상태로 뜨던 증상 근본 해결 (2026-09-23).
+    tmap:   `tmap://search?name=${enc}`,
   }
 
   const storeUrls: Record<string, string> = {
