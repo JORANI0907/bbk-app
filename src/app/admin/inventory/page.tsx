@@ -17,7 +17,6 @@ import { compressImage } from '@/lib/compress-image'
 import { useModalBackButton } from '@/hooks/useModalBackButton'
 import { Button } from '@/components/ui'
 import { ShoppingList } from '@/components/admin/inventory/shopping/ShoppingList'
-import { CameraCapture } from '@/components/CameraCapture'
 
 type InventoryCategory = 'chemical' | 'equipment' | 'consumable' | 'other'
 type TxType = 'receive' | 'return' | 'use' | 'adjust'
@@ -126,9 +125,6 @@ export default function AdminInventoryPage() {
   const [txPhoto, setTxPhoto] = useState<File | null>(null)
   const [txPhotoPreview, setTxPhotoPreview] = useState<string | null>(null)
   const [txLoading, setTxLoading] = useState(false)
-  // 커스텀 카메라(getUserMedia) 모달 노출. HTML capture 속성이 무시되는 기기 대응
-  // — 후면 카메라 100% 강제.
-  const [showCamera, setShowCamera] = useState(false)
 
   const [inventoryFolder, setInventoryFolder] = useState<DriveFolder | null>(null)
   const [apisReady, setApisReady] = useState(false)
@@ -298,11 +294,6 @@ export default function AdminInventoryPage() {
   const handlePhotoCapture = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
-    await applyPhotoFile(file)
-  }
-
-  // 커스텀 카메라(getUserMedia) 로 촬영된 File 을 동일 파이프라인으로 처리.
-  const applyPhotoFile = async (file: File) => {
     const compressed = await compressImage(file)
     if (compressed !== file) {
       toast.success(`사진 용량 축소: ${(file.size / 1024 / 1024).toFixed(1)}MB → ${(compressed.size / 1024 / 1024).toFixed(1)}MB`)
@@ -1209,15 +1200,18 @@ export default function AdminInventoryPage() {
                 )}
 
                 <div className="flex gap-2">
-                  {/* 카메라 버튼: HTML capture 무시 이슈 회피 위해 커스텀 UI(CameraCapture) 사용.
-                      후면 카메라 100% 강제. 촬영된 File 은 갤러리 경로와 동일 파이프라인 통과. */}
-                  <button
-                    type="button"
-                    onClick={() => setShowCamera(true)}
-                    className="flex-1 flex items-center justify-center gap-1 px-3 py-2 rounded-lg bg-surface-sunken border border-border text-sm text-text-secondary hover:bg-surface-sunken transition-colors"
-                  >
-                    <Camera size={14} /> 카메라
-                  </button>
+                  <label className="flex-1 cursor-pointer">
+                    <span className="flex items-center justify-center gap-1 px-3 py-2 rounded-lg bg-surface-sunken border border-border text-sm text-text-secondary hover:bg-surface-sunken transition-colors">
+                      <Camera size={14} /> 카메라
+                    </span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      capture="environment"
+                      onChange={handlePhotoCapture}
+                      className="hidden"
+                    />
+                  </label>
                   <label className="flex-1 cursor-pointer">
                     <span className="flex items-center justify-center gap-1 px-3 py-2 rounded-lg bg-surface-sunken border border-border text-sm text-text-secondary hover:bg-surface-sunken transition-colors">
                       <Image size={14} className="inline mr-1" />갤러리
@@ -1262,14 +1256,6 @@ export default function AdminInventoryPage() {
         </div>
       )}
       </div>
-      )}
-
-      {/* 커스텀 카메라 모달 — 후면 강제 (getUserMedia). 트랜잭션 모달 위에 뜨도록 z-[95]. */}
-      {showCamera && (
-        <CameraCapture
-          onCapture={file => { void applyPhotoFile(file) }}
-          onClose={() => setShowCamera(false)}
-        />
       )}
     </div>
   )
