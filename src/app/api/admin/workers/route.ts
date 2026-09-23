@@ -13,6 +13,8 @@ const ALLOWED_COLUMNS = [
   'tax_type', 'salary_basis',
   // C-1: 알림 요일 설정 (본인이 저장, 21시 cron 이 매칭 시 발송)
   'attendance_notify_weekdays', 'equipment_notify_weekdays',
+  // 관리자 메모 리스트 (jsonb, [{text, created_at}])
+  'memo_list',
 ]
 
 export async function GET(request: NextRequest) {
@@ -118,10 +120,21 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ error: '업데이트할 필드가 없습니다.' }, { status: 400 })
   }
 
-  const { error } = await supabase
+  let { error } = await supabase
     .from('workers')
     .update(updates)
     .eq('id', id)
+
+  // 신규 컬럼(memo_list) 미배포 대응: 42703 감지 시 memo_list 제거 후 재시도.
+  // 마이그레이션 미실행 환경에서도 기존 필드 저장은 정상 동작.
+  if (error && /memo_list/i.test(error.message)) {
+    delete updates.memo_list
+    const retry = await supabase
+      .from('workers')
+      .update(updates)
+      .eq('id', id)
+    error = retry.error
+  }
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 })

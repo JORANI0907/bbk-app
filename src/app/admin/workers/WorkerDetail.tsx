@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, type ReactElement } from 'react'
 import toast from 'react-hot-toast'
-import { EMPLOYMENT_LABEL, EMPLOYMENT_TYPE_VALUES, type EmploymentType, type Worker } from './constants'
+import { EMPLOYMENT_LABEL, EMPLOYMENT_TYPE_VALUES, type EmploymentType, type Worker, type WorkerMemo } from './constants'
 import { BANK_OPTIONS } from '@/lib/bankCodes'
 import { WorkerDocumentSection } from '@/components/workers/WorkerDocumentSection'
 import type { DocumentProps } from '@react-pdf/renderer'
@@ -101,6 +101,10 @@ export default function WorkerDetail({ worker, onWorkerUpdated, onWorkerDeleted 
   const [pdfLoading, setPdfLoading] = useState(false)
   const [privacyExpanded, setPrivacyExpanded] = useState(false)
   const [workHistory, setWorkHistory] = useState<WorkHistoryEntry[]>(() => parseHistory(worker.work_history))
+  // 관리자 메모 리스트 (여러 개, 각 항목 작성 시각 포함).
+  // 저장 버튼 클릭 시 다른 필드와 함께 handleSave 로 반영.
+  const [memoList, setMemoList] = useState<WorkerMemo[]>(() => Array.isArray(worker.memo_list) ? worker.memo_list : [])
+  const [memoDraft, setMemoDraft] = useState<string>('')
   const [showPDFModal, setShowPDFModal] = useState(false)
   const [pdfSections, setPdfSections] = useState<PDFSections>(DEFAULT_PDF_SECTIONS)
 
@@ -257,6 +261,8 @@ export default function WorkerDetail({ worker, onWorkerUpdated, onWorkerDeleted 
     })
     setPrivacyExpanded(false)
     setWorkHistory(parseHistory(worker.work_history))
+    setMemoList(Array.isArray(worker.memo_list) ? worker.memo_list : [])
+    setMemoDraft('')
   }, [worker.id])
 
   const setField = (key: keyof typeof form) => (v: string) =>
@@ -292,6 +298,7 @@ export default function WorkerDetail({ worker, onWorkerUpdated, onWorkerDeleted 
         personal_id: form.personal_id || null,
         emergency_contact: form.emergency_contact || null,
         work_history: workHistory.length > 0 ? JSON.stringify(workHistory) : null,
+        memo_list: memoList,
         nationality: form.nationality || null,
         certifications: form.certifications || null,
         safety_edu_status: form.safety_edu_status || null,
@@ -736,6 +743,67 @@ export default function WorkerDetail({ worker, onWorkerUpdated, onWorkerDeleted 
               ) : (
                 <p className="text-[11px] text-gray-400 text-center py-1">연결 가능한 앱 계정이 없습니다.</p>
               )}
+            </div>
+          )}
+        </div>
+
+        {/* ── 섹션 7: 관리자 메모 ──
+            여러 개 입력 가능. 각 항목에 작성 시각 표시.
+            추가/삭제는 draft state 만 갱신. 저장 버튼 눌러야 서버 반영. */}
+        <div className="bg-gray-50 rounded-xl p-4 flex flex-col gap-3">
+          <SectionTitle icon="📝" title="관리자 메모" />
+          <p className="text-[11px] text-gray-400 -mt-2">특이사항·이슈·인계 사항 등을 자유롭게 남깁니다. 하단 저장 버튼을 눌러야 반영됩니다.</p>
+
+          {/* 새 메모 입력 */}
+          <div className="flex gap-2">
+            <textarea
+              value={memoDraft}
+              onChange={e => setMemoDraft(e.target.value)}
+              placeholder="메모 내용"
+              rows={2}
+              className="flex-1 border border-gray-200 rounded-md px-2.5 py-1.5 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-brand-500 resize-y"
+            />
+            <button
+              type="button"
+              onClick={() => {
+                const text = memoDraft.trim()
+                if (!text) return
+                setMemoList(prev => [{ text, created_at: new Date().toISOString() }, ...prev])
+                setMemoDraft('')
+              }}
+              disabled={!memoDraft.trim()}
+              className="shrink-0 bg-brand-600 hover:bg-brand-700 text-white text-xs px-3 py-1.5 rounded-lg disabled:opacity-40 transition-colors self-start"
+            >
+              추가
+            </button>
+          </div>
+
+          {/* 메모 리스트 (최신순) */}
+          {memoList.length === 0 ? (
+            <p className="text-[11px] text-gray-400 text-center py-2">등록된 메모가 없습니다.</p>
+          ) : (
+            <div className="flex flex-col gap-2">
+              {memoList.map((m, i) => (
+                <div key={`${m.created_at}-${i}`} className="bg-white border border-gray-200 rounded-lg px-3 py-2 flex items-start gap-2">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs text-gray-800 whitespace-pre-wrap break-words">{m.text}</p>
+                    <p className="text-[10px] text-gray-400 mt-1 tabular-nums">
+                      {new Date(m.created_at).toLocaleString('ko-KR', {
+                        year: 'numeric', month: '2-digit', day: '2-digit',
+                        hour: '2-digit', minute: '2-digit',
+                      })}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setMemoList(prev => prev.filter((_, idx) => idx !== i))}
+                    className="shrink-0 text-[11px] text-red-500 hover:text-red-700 px-1.5 py-0.5"
+                    aria-label="메모 삭제"
+                  >
+                    삭제
+                  </button>
+                </div>
+              ))}
             </div>
           )}
         </div>

@@ -100,6 +100,13 @@ export interface Worker {
   salary_basis: '세전' | '세후' | null
   created_at: string
   user_id: string | null
+  // 관리자 메모 리스트 (jsonb) — 여러 개, 각 항목에 작성 시각 포함
+  memo_list: WorkerMemo[] | null
+}
+
+export interface WorkerMemo {
+  text: string
+  created_at: string   // ISO 8601
 }
 
 export interface WorkAssignment {
