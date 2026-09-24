@@ -2204,9 +2204,20 @@ export function CustomersManagementView({
     // 미배정으로 취급. 직원 하드삭제 후에도 필터가 정상 동작하게 함.
     const validUserIds = new Set(usersList.map(u => u.id))
 
-    // 비관리자: 담당자(assigned_user_id)가 자신인 고객만
+    // 비관리자: 담당자가 자신인 고객만
+    // Phase 38: 상단 담당직원(assigned_user_id) OR 요일별 배정(weekday_assignments[*].user_id)
+    // 어느 쪽에라도 자기 uuid 가 있으면 노출. 하단만 배정된 고객이 리스트에서 사라지던 사고 해결.
     if (!isAdmin && currentUserId) {
-      list = list.filter(c => c.assigned_user_id === currentUserId)
+      list = list.filter(c => {
+        if (c.assigned_user_id === currentUserId) return true
+        const wa = c.weekday_assignments
+        if (wa && typeof wa === 'object') {
+          for (const key of Object.keys(wa)) {
+            if (wa[key]?.user_id === currentUserId) return true
+          }
+        }
+        return false
+      })
     }
 
     // 서비스 유형 복수 필터 (비어있으면 전체)
@@ -2504,8 +2515,18 @@ export function CustomersManagementView({
   }
 
   const typeCounts = useMemo(() => {
+    // Phase 38: 필터와 동일하게 상단 or 하단(요일별) 어느 쪽이든 자기 배정이면 포함.
     const base = (!isAdmin && currentUserId)
-      ? customers.filter(c => c.assigned_user_id === currentUserId)
+      ? customers.filter(c => {
+          if (c.assigned_user_id === currentUserId) return true
+          const wa = c.weekday_assignments
+          if (wa && typeof wa === 'object') {
+            for (const key of Object.keys(wa)) {
+              if (wa[key]?.user_id === currentUserId) return true
+            }
+          }
+          return false
+        })
       : customers
     const counts: Record<string, number> = { '전체': base.length }
     for (const opt of FILTER_OPTIONS) {
