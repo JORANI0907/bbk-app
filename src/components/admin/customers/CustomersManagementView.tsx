@@ -21,6 +21,7 @@ import { computeAppAmount, fmtAmount } from '@/components/admin/customers/calend
 import { TODAY_ROW_BORDER, TODAY_ROW_BG, TODAY_ROW_SHADOW } from '@/lib/ui/today-styles'
 import { readCache, writeCache, clearCache } from '@/lib/browser-cache'
 import { VisitCycleEditor } from '@/components/admin/customers/VisitCycleEditor'
+import { RegularAssignmentsWidget } from '@/components/admin/customers/RegularAssignmentsWidget'
 import type { VisitCycleUnit, VisitCycleConfig } from '@/lib/schedule-generator'
 
 // ─── 타입 ─────────────────────────────────────────────────────
@@ -113,8 +114,10 @@ interface Customer {
   visit_cycle_unit: 'day' | 'week' | 'month' | 'quarter' | 'year' | null
   visit_cycle_value: number | null
   visit_cycle_config: VisitCycleConfig | null
-  // Phase 38: 요일별 담당자·작업자 매핑 (jsonb). 비어있으면 assigned_user_id fallback.
+  // Phase 38: 요일별 담당자·작업자 매핑 (jsonb) — visit_cycle_unit=week 용. 비어있으면 assigned_user_id fallback.
   weekday_assignments: Record<string, { user_id: string | null; worker_ids: string[] }> | null
+  // Phase 39: 방문일자별 담당자·작업자 매핑 (jsonb) — visit_cycle_unit=month 용. 비어있으면 assigned_user_id fallback.
+  monthly_date_assignments: Record<string, { user_id: string | null; worker_ids: string[] }> | null
   // 서비스관리 이관 필드 (Phase A)
   notification_log: Array<{ type: string; sent_at: string; phone?: string; method?: 'auto' | 'manual'; template_id?: string }> | null
   phone_notify_1: boolean | null
@@ -795,6 +798,8 @@ export function CustomersManagementView({
   // 키 = 요일 번호('0'=일 ~ '6'=토), 값 = { user_id, worker_ids }.
   // 비어있는 요일은 form.assigned_user_id / customerWorkerIds 로 fallback.
   const [weekdayAssignments, setWeekdayAssignments] = useState<Record<string, { user_id: string | null; worker_ids: string[] }>>({})
+  // Phase 39: 방문일자별 담당자·작업자 매핑 state (월간 방문 계약용).
+  const [monthlyDateAssignments, setMonthlyDateAssignments] = useState<Record<string, { user_id: string | null; worker_ids: string[] }>>({})
   const [workerDropdownOpen, setWorkerDropdownOpen] = useState(false)
   const workerDropdownRef = useRef<HTMLDivElement>(null)
 
@@ -1148,6 +1153,8 @@ export function CustomersManagementView({
     setCustomerWorkerIds(c.assigned_worker_ids ?? (c.assigned_worker_id ? [c.assigned_worker_id] : []))
     // Phase 38: 요일별 배정 로드 (없으면 빈 객체)
     setWeekdayAssignments((c.weekday_assignments ?? {}) as Record<string, { user_id: string | null; worker_ids: string[] }>)
+    // Phase 39: 일자별 배정 로드 (없으면 빈 객체)
+    setMonthlyDateAssignments((c.monthly_date_assignments ?? {}) as Record<string, { user_id: string | null; worker_ids: string[] }>)
     setPrepaidPeriods(1)
     // Phase A-3: 알림 발송 이력 로딩
     setNotifyLogs((c.notification_log ?? []).map(dbLogToNotifyLog))
@@ -1209,6 +1216,15 @@ export function CustomersManagementView({
           )
           if (prevHasAny) return prev // 사용자 편집 보존
           return (full.weekday_assignments ?? {}) as Record<string, { user_id: string | null; worker_ids: string[] }>
+        })
+        // Phase 39: 일자별 배정도 동일 패턴으로 동기화.
+        setMonthlyDateAssignments(prev => {
+          const prevHasAny = Object.values(prev).some(v =>
+            (v?.user_id != null && v.user_id !== '') ||
+            (Array.isArray(v?.worker_ids) && v.worker_ids.length > 0)
+          )
+          if (prevHasAny) return prev
+          return (full.monthly_date_assignments ?? {}) as Record<string, { user_id: string | null; worker_ids: string[] }>
         })
       })
       .catch(() => {}) // 실패해도 slim 데이터로 계속 작동
@@ -1283,6 +1299,7 @@ export function CustomersManagementView({
         visit_cycle_value: null,
         visit_cycle_config: null,
         weekday_assignments: null,
+        monthly_date_assignments: null,
         created_at: nowIso,
         updated_at: nowIso,
       }
@@ -1311,6 +1328,7 @@ export function CustomersManagementView({
     setVisitMonthlyDates([])
     setCustomerWorkerIds([])
     setWeekdayAssignments({})
+    setMonthlyDateAssignments({})
     setPrepaidPeriods(1)
   }
 
@@ -1429,6 +1447,8 @@ export function CustomersManagementView({
     visit_cycle_config: form.visit_cycle_config ?? {} as VisitCycleConfig,
     // Phase 38: 요일별 담당자·작업자 매핑. 빈 객체는 저장돼도 무해 (fallback 기본값).
     weekday_assignments: weekdayAssignments,
+    // Phase 39: 방문일자별 담당자·작업자 매핑 (월간 방문 계약용). 빈 객체는 저장돼도 무해.
+    monthly_date_assignments: monthlyDateAssignments,
   })
 
   const autoGenerateBillings = (customerId: string, regenerate = false) => {
@@ -1539,6 +1559,9 @@ export function CustomersManagementView({
           ...updated,
           assigned_worker_ids: customerWorkerIds,
           weekday_assignments: (updated.weekday_assignments ?? weekdayAssignments) as Customer['weekday_assignments'],
+          // Phase 39: monthly_date_assignments 도 동일 방어. 마이그레이션 미배포로 fallback 발동한
+          // 응답에는 필드가 없어 selected 값이 undefined 로 덮이면서 dirty 뱃지가 잔존하던 사고 방지.
+          monthly_date_assignments: (updated.monthly_date_assignments ?? monthlyDateAssignments) as Customer['monthly_date_assignments'],
         }
         setCustomers(prev => prev.map(c => c.id === selected.id ? updatedWithWorkers : c))
         setSelected(updatedWithWorkers)
@@ -2205,8 +2228,8 @@ export function CustomersManagementView({
     const validUserIds = new Set(usersList.map(u => u.id))
 
     // 비관리자: 담당자가 자신인 고객만
-    // Phase 38: 상단 담당직원(assigned_user_id) OR 요일별 배정(weekday_assignments[*].user_id)
-    // 어느 쪽에라도 자기 uuid 가 있으면 노출. 하단만 배정된 고객이 리스트에서 사라지던 사고 해결.
+    // Phase 38/39: 상단 담당직원(assigned_user_id) OR 요일별(weekday_assignments) OR 일자별
+    // (monthly_date_assignments) 어느 쪽에라도 자기 uuid 가 있으면 노출.
     if (!isAdmin && currentUserId) {
       list = list.filter(c => {
         if (c.assigned_user_id === currentUserId) return true
@@ -2214,6 +2237,12 @@ export function CustomersManagementView({
         if (wa && typeof wa === 'object') {
           for (const key of Object.keys(wa)) {
             if (wa[key]?.user_id === currentUserId) return true
+          }
+        }
+        const mda = c.monthly_date_assignments
+        if (mda && typeof mda === 'object') {
+          for (const key of Object.keys(mda)) {
+            if (mda[key]?.user_id === currentUserId) return true
           }
         }
         return false
@@ -2350,6 +2379,7 @@ export function CustomersManagementView({
           visit_cycle_value: null,
           visit_cycle_config: null,
         weekday_assignments: null,
+        monthly_date_assignments: null,
           created_at: a.created_at,
           updated_at: a.created_at,
         }))
@@ -2515,7 +2545,7 @@ export function CustomersManagementView({
   }
 
   const typeCounts = useMemo(() => {
-    // Phase 38: 필터와 동일하게 상단 or 하단(요일별) 어느 쪽이든 자기 배정이면 포함.
+    // Phase 38/39: 필터와 동일하게 상단 or 요일별 or 일자별 어느 쪽이든 자기 배정이면 포함.
     const base = (!isAdmin && currentUserId)
       ? customers.filter(c => {
           if (c.assigned_user_id === currentUserId) return true
@@ -2523,6 +2553,12 @@ export function CustomersManagementView({
           if (wa && typeof wa === 'object') {
             for (const key of Object.keys(wa)) {
               if (wa[key]?.user_id === currentUserId) return true
+            }
+          }
+          const mda = c.monthly_date_assignments
+          if (mda && typeof mda === 'object') {
+            for (const key of Object.keys(mda)) {
+              if (mda[key]?.user_id === currentUserId) return true
             }
           }
           return false
@@ -2578,6 +2614,72 @@ export function CustomersManagementView({
     }
     return norm(initial) !== norm(weekdayAssignments as Record<string, unknown>)
   }, [weekdayAssignments, selected?.weekday_assignments])
+
+  // Phase 39: 월간 방문 계약용 일자별 배정 관련 메모들.
+  const monthlyVisitDates = useMemo<number[]>(() => {
+    const cfg = (form.visit_cycle_config ?? {}) as { dates?: number[] }
+    return Array.isArray(cfg.dates)
+      ? [...cfg.dates].filter(d => Number.isInteger(d) && d >= 1 && d <= 31).sort((a, b) => a - b)
+      : []
+  }, [form.visit_cycle_config])
+
+  const hasAnyMonthlyDateAssignment = useMemo(() => (
+    Object.values(monthlyDateAssignments).some(v =>
+      (v?.user_id != null && v.user_id !== '') ||
+      (Array.isArray(v?.worker_ids) && v.worker_ids.length > 0)
+    )
+  ), [monthlyDateAssignments])
+
+  const monthlyDateAssignedDayLabels = useMemo(() => {
+    const labels: string[] = []
+    for (const k of Object.keys(monthlyDateAssignments).sort((a, b) => Number(a) - Number(b))) {
+      const v = monthlyDateAssignments[k]
+      const has = (v?.user_id != null && v.user_id !== '') ||
+                  (Array.isArray(v?.worker_ids) && v.worker_ids.length > 0)
+      if (has) labels.push(`${k}일`)
+    }
+    return labels
+  }, [monthlyDateAssignments])
+
+  // 방문일자 목록에 없는데 배정만 남아있는 orphan 일자.
+  // 사용자가 방문일자를 바꾸면 실시간으로 여기 표시되어 "이 배정 사라짐" 을 인지시킴.
+  const monthlyOrphanDays = useMemo(() => {
+    const setDates = new Set(monthlyVisitDates.map(d => String(d)))
+    const orphans: string[] = []
+    for (const key of Object.keys(monthlyDateAssignments)) {
+      const v = monthlyDateAssignments[key]
+      const has = (v?.user_id != null && v.user_id !== '') ||
+                  (Array.isArray(v?.worker_ids) && v.worker_ids.length > 0)
+      if (has && !setDates.has(key)) orphans.push(key)
+    }
+    return orphans.sort((a, b) => Number(a) - Number(b))
+  }, [monthlyDateAssignments, monthlyVisitDates])
+
+  const monthlyDateAssignmentsDirty = useMemo(() => {
+    const initial = (selected?.monthly_date_assignments ?? {}) as Record<string, unknown>
+    const norm = (obj: Record<string, unknown>) => {
+      const out: Record<string, { user_id: string | null; worker_ids: string[] }> = {}
+      for (const k of Object.keys(obj)) {
+        const v = obj[k] as { user_id?: string | null; worker_ids?: string[] } | undefined
+        const uid = v?.user_id && v.user_id !== '' ? v.user_id : null
+        const wids = Array.isArray(v?.worker_ids) ? [...v!.worker_ids].sort() : []
+        if (uid || wids.length > 0) {
+          out[k] = { user_id: uid, worker_ids: wids }
+        }
+      }
+      return JSON.stringify(out)
+    }
+    return norm(initial) !== norm(monthlyDateAssignments as Record<string, unknown>)
+  }, [monthlyDateAssignments, selected?.monthly_date_assignments])
+
+  // 어떤 모드든 dirty 이면 [수정 반영]/[생성] 버튼을 잠금.
+  const assignmentsDirty = weekdayAssignmentsDirty || monthlyDateAssignmentsDirty
+
+  // 현재 편집 중인 방문주기 모드.
+  const visitCycleUnitLive = form.visit_cycle_unit
+  const isWeekVisitMode = visitCycleUnitLive === 'week'
+  const isMonthVisitMode = visitCycleUnitLive === 'month'
+  const isDayVisitMode = visitCycleUnitLive === 'day'
 
   // Phase 2-E: 이번달 일정 아코디언에 노출할 작업자 — 배정 가능한 모든 고용형태.
   // employment_type 이 지정된(=null 아닌) 워커 전원을 포함.
@@ -4144,135 +4246,48 @@ export function CustomersManagementView({
                     />
                   </div>
 
-                  {/* Phase 38: 요일별 담당자·작업자 배정 — 방문 일정 섹션 내부로 통합.
-                      [수정반영]/[생성] 버튼이 이 값도 회차별로 자동 반영. */}
-                  <div className="rounded-lg border border-purple-200 bg-purple-50/30">
-                    <div className="bg-purple-50 px-3 py-2 border-b border-purple-200 flex items-center justify-between gap-2 flex-wrap rounded-t-lg">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <p className="text-xs font-semibold text-purple-800">요일별 담당자·작업자 <span className="text-purple-400 font-normal">(선택)</span></p>
-                        {hasAnyWeekdayAssignment ? (
-                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 border border-purple-200 whitespace-nowrap">
-                            ✓ 이 값 반영 중 (상단 무시)
-                          </span>
-                        ) : (
-                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-surface-sunken text-text-tertiary border border-border-subtle whitespace-nowrap">
-                            상단 담당직원 사용 중
-                          </span>
-                        )}
-                        {/* Phase 38: 저장 안 된 편집 상태 표시. dirty 배지 */}
-                        {weekdayAssignmentsDirty && (
-                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 border border-amber-200 whitespace-nowrap animate-pulse">
-                            ● 저장 안 됨 · 하단 [저장] 필요
-                          </span>
-                        )}
-                      </div>
-                      {hasAnyWeekdayAssignment && (
-                        <button
-                          type="button"
-                          onClick={() => setWeekdayAssignments({})}
-                          className="text-[11px] text-purple-600 hover:text-purple-800 underline underline-offset-2"
-                        >
-                          전체 비우기
-                        </button>
-                      )}
-                    </div>
-                    <div className="p-3 flex flex-col gap-1.5">
-                      <p className="text-[11px] text-text-tertiary mb-1 break-keep leading-relaxed">
-                        <b className="text-purple-700">규칙</b>: 한 요일이라도 값이 있으면 <b>요일별 배정만</b> 반영. 전체 비어있으면 상단 담당직원 값 반영.
-                        비운 요일 회차는 담당자·작업자 없이 생성.
-                        <br />
-                        <b className="text-purple-700">저장 순서</b>: ① 요일별 편집 → ② 세부창 <b>하단 [저장]</b> 클릭해서 마스터 반영 → ③ 필요시 <b>[수정 반영]</b> 또는 <b>[생성]</b> 클릭해 회차에 적용.
-                        {hasAnyWeekdayAssignment && !weekdayAssignmentsDirty && (
-                          <>
-                            <br />
-                            <span className="text-emerald-600">✓ 저장됨 · 세팅 요일: <b>{weekdayAssignedDayLabels.join(' / ')}</b></span>
-                          </>
-                        )}
-                      </p>
-                      {(['0','1','2','3','4','5','6'] as const).map(dayKey => {
-                        const label = ['일','월','화','수','목','금','토'][Number(dayKey)]
-                        const cur = weekdayAssignments[dayKey] ?? { user_id: null, worker_ids: [] as string[] }
-                        const setUserId = (v: string) => setWeekdayAssignments(prev => ({
-                          ...prev,
-                          [dayKey]: { user_id: v || null, worker_ids: prev[dayKey]?.worker_ids ?? [] },
-                        }))
-                        const toggleWorker = (wid: string) => setWeekdayAssignments(prev => {
-                          const cw = prev[dayKey]?.worker_ids ?? []
-                          const next = cw.includes(wid) ? cw.filter(x => x !== wid) : [...cw, wid]
-                          return { ...prev, [dayKey]: { user_id: prev[dayKey]?.user_id ?? null, worker_ids: next } }
-                        })
-                        const selectedWorkerNames = cur.worker_ids
-                          .map(id => workersList.find(w => w.id === id)?.name)
-                          .filter((n): n is string => !!n)
-                        return (
-                          <div key={dayKey} className="flex items-center gap-2 flex-wrap py-0.5 border-b border-purple-100 last:border-b-0">
-                            <span className={`text-xs font-bold w-6 shrink-0 text-center ${dayKey === '0' ? 'text-red-500' : dayKey === '6' ? 'text-blue-500' : 'text-text-secondary'}`}>{label}</span>
-                            <select
-                              value={cur.user_id ?? ''}
-                              onChange={e => setUserId(e.target.value)}
-                              className="flex-1 min-w-[110px] max-w-[170px] border border-purple-200 rounded-md px-2 py-1 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-purple-400"
-                            >
-                              <option value="">담당자 (기본값)</option>
-                              {usersList
-                                .filter(u => u.role === 'admin' || u.role === 'worker')
-                                .map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
-                            </select>
-                            <details className="relative flex-1 min-w-[130px] max-w-[200px]">
-                              <summary className="cursor-pointer list-none border border-purple-200 rounded-md px-2 py-1 text-xs bg-white text-text-primary hover:border-purple-400">
-                                {selectedWorkerNames.length === 0
-                                  ? <span className="text-text-tertiary">작업자 선택</span>
-                                  : selectedWorkerNames.length === 1
-                                    ? selectedWorkerNames[0]
-                                    : `${selectedWorkerNames[0]} 외 ${selectedWorkerNames.length - 1}명`}
-                              </summary>
-                              <div className="absolute z-20 left-0 mt-1 bg-white border border-purple-200 rounded-lg shadow-lg p-2 max-h-52 overflow-y-auto min-w-[180px]">
-                                {workersList.length === 0 ? (
-                                  <p className="text-[11px] text-text-tertiary px-1">작업자가 없습니다.</p>
-                                ) : (
-                                  workersList
-                                    .filter(w => !!w.employment_type)
-                                    .map(w => (
-                                      <label key={w.id} className="flex items-center gap-2 px-1 py-1 hover:bg-purple-50 rounded cursor-pointer">
-                                        <input
-                                          type="checkbox"
-                                          checked={cur.worker_ids.includes(w.id)}
-                                          onChange={() => toggleWorker(w.id)}
-                                        />
-                                        <span className="text-xs text-text-primary">{w.name}</span>
-                                      </label>
-                                    ))
-                                )}
-                              </div>
-                            </details>
-                          </div>
-                        )
-                      })}
-                    </div>
-                  </div>
+                  {/* Phase 38/39: 방문주기 단위별 담당자·작업자 배정 위젯 (자동 스위칭).
+                      week=요일별 / month=일자별 / day=상단 사용 안내 */}
+                  <RegularAssignmentsWidget
+                    visitCycleUnit={visitCycleUnitLive}
+                    monthlyVisitDates={monthlyVisitDates}
+                    weekdayAssignments={weekdayAssignments}
+                    onChangeWeekdayAssignments={setWeekdayAssignments}
+                    hasAnyWeekdayAssignment={hasAnyWeekdayAssignment}
+                    weekdayAssignedDayLabels={weekdayAssignedDayLabels}
+                    weekdayAssignmentsDirty={weekdayAssignmentsDirty}
+                    monthlyDateAssignments={monthlyDateAssignments}
+                    onChangeMonthlyDateAssignments={setMonthlyDateAssignments}
+                    hasAnyMonthlyDateAssignment={hasAnyMonthlyDateAssignment}
+                    monthlyDateAssignedDayLabels={monthlyDateAssignedDayLabels}
+                    monthlyDateAssignmentsDirty={monthlyDateAssignmentsDirty}
+                    monthlyOrphanDays={monthlyOrphanDays}
+                    usersList={usersList}
+                    workersList={workersList}
+                  />
 
                   {/* Phase 5-E: 계약일정 저장·생성 버튼 — 둘 다 기간 모달 오픈.
-                      Phase 38: 요일별 배정 dirty 상태에서는 버튼 차단 + 안내 (서버는 DB 저장값만
-                      참조하므로 저장 안 하면 옛 값 기준으로 재배정되는 사고 방지). */}
+                      Phase 38/39: 요일별·일자별 배정 dirty 상태에서는 버튼 차단 + 안내. */}
                   {!isNew && selected && (
                     <div className="flex flex-col items-end gap-1 mt-1">
-                      {weekdayAssignmentsDirty && (
+                      {assignmentsDirty && (
                         <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-2 py-1 w-full text-center">
-                          ⚠ 요일별 배정에 저장 안 된 변경사항이 있습니다. 먼저 하단 <b>[저장]</b> 버튼을 눌러야 이 버튼들이 활성화됩니다.
+                          ⚠ 담당자·작업자 배정에 저장 안 된 변경사항이 있습니다. 먼저 하단 <b>[저장]</b> 버튼을 눌러야 이 버튼들이 활성화됩니다.
                         </p>
                       )}
                       <div className="flex justify-end gap-1.5">
                         <button
                           onClick={() => openScheduleGenModal('cleanup', [selected.id])}
-                          disabled={saving || weekdayAssignmentsDirty}
-                          title={weekdayAssignmentsDirty ? '요일별 배정 저장 후 사용 가능' : undefined}
+                          disabled={saving || assignmentsDirty}
+                          title={assignmentsDirty ? '배정 저장 후 사용 가능' : undefined}
                           className="px-3 py-1.5 text-xs font-medium bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           수정 반영
                         </button>
                         <button
                           onClick={() => openScheduleGenModal('create', [selected.id])}
-                          disabled={saving || weekdayAssignmentsDirty}
-                          title={weekdayAssignmentsDirty ? '요일별 배정 저장 후 사용 가능' : undefined}
+                          disabled={saving || assignmentsDirty}
+                          title={assignmentsDirty ? '배정 저장 후 사용 가능' : undefined}
                           className="px-3 py-1.5 text-xs font-medium bg-white hover:bg-purple-50 text-purple-700 border border-purple-300 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           생성
@@ -4548,17 +4563,48 @@ export function CustomersManagementView({
                     />
                   </div>
 
-                  {/* Phase 5-E: 계약일정 저장·생성 버튼 — 둘 다 기간 모달 오픈 */}
+                  {/* Phase 38/39: 방문주기 단위별 담당자·작업자 배정 위젯 (자동 스위칭). */}
+                  <RegularAssignmentsWidget
+                    visitCycleUnit={visitCycleUnitLive}
+                    monthlyVisitDates={monthlyVisitDates}
+                    weekdayAssignments={weekdayAssignments}
+                    onChangeWeekdayAssignments={setWeekdayAssignments}
+                    hasAnyWeekdayAssignment={hasAnyWeekdayAssignment}
+                    weekdayAssignedDayLabels={weekdayAssignedDayLabels}
+                    weekdayAssignmentsDirty={weekdayAssignmentsDirty}
+                    monthlyDateAssignments={monthlyDateAssignments}
+                    onChangeMonthlyDateAssignments={setMonthlyDateAssignments}
+                    hasAnyMonthlyDateAssignment={hasAnyMonthlyDateAssignment}
+                    monthlyDateAssignedDayLabels={monthlyDateAssignedDayLabels}
+                    monthlyDateAssignmentsDirty={monthlyDateAssignmentsDirty}
+                    monthlyOrphanDays={monthlyOrphanDays}
+                    usersList={usersList}
+                    workersList={workersList}
+                  />
+
+                  {/* Phase 5-E: 계약일정 저장·생성 버튼 — 둘 다 기간 모달 오픈.
+                      Phase 38/39: 요일별·일자별 배정 dirty 상태에서는 버튼 차단 + 안내. */}
                   {!isNew && selected && (
-                    <div className="flex justify-end gap-1.5 mt-1">
-                      <button onClick={() => openScheduleGenModal('cleanup', [selected.id])} disabled={saving}
-                        className="px-3 py-1.5 text-xs font-medium bg-brand-600 hover:bg-brand-700 text-white rounded-lg transition-colors disabled:opacity-50">
-                        수정 반영
-                      </button>
-                      <button onClick={() => openScheduleGenModal('create', [selected.id])} disabled={saving}
-                        className="px-3 py-1.5 text-xs font-medium bg-white hover:bg-brand-50 text-brand-700 border border-brand-300 rounded-lg transition-colors disabled:opacity-50">
-                        생성
-                      </button>
+                    <div className="flex flex-col items-end gap-1 mt-1">
+                      {assignmentsDirty && (
+                        <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-2 py-1 w-full text-center">
+                          ⚠ 담당자·작업자 배정에 저장 안 된 변경사항이 있습니다. 먼저 하단 <b>[저장]</b> 버튼을 눌러야 이 버튼들이 활성화됩니다.
+                        </p>
+                      )}
+                      <div className="flex justify-end gap-1.5">
+                        <button onClick={() => openScheduleGenModal('cleanup', [selected.id])}
+                          disabled={saving || assignmentsDirty}
+                          title={assignmentsDirty ? '배정 저장 후 사용 가능' : undefined}
+                          className="px-3 py-1.5 text-xs font-medium bg-brand-600 hover:bg-brand-700 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                          수정 반영
+                        </button>
+                        <button onClick={() => openScheduleGenModal('create', [selected.id])}
+                          disabled={saving || assignmentsDirty}
+                          title={assignmentsDirty ? '배정 저장 후 사용 가능' : undefined}
+                          className="px-3 py-1.5 text-xs font-medium bg-white hover:bg-brand-50 text-brand-700 border border-brand-300 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                          생성
+                        </button>
+                      </div>
                     </div>
                   )}
                 </div>

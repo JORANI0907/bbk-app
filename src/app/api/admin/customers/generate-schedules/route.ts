@@ -43,20 +43,31 @@ interface CustomerRow {
   assigned_worker_id: string | null
   billing_cycle: string | null
   billing_amount: number | null
-  // Phase 38: 요일별 담당자·작업자 매핑 (jsonb)
+  // Phase 38: 요일별 담당자·작업자 매핑 (jsonb) — visit_cycle_unit=week 용
   weekday_assignments: Record<string, { user_id: string | null; worker_ids: string[] }> | null
+  // Phase 39: 방문일자별 담당자·작업자 매핑 (jsonb) — visit_cycle_unit=month 용
+  monthly_date_assignments: Record<string, { user_id: string | null; worker_ids: string[] }> | null
 }
 
-// Phase 38: 회차 하나의 담당자·작업자 결정.
-// 정책 (하단 우선): weekday_assignments 에 한 요일이라도 값이 있으면 그 매핑만 사용.
-//   비어있으면 customer.assigned_user_id / assigned_worker_id 사용.
-//   요일별 매핑에서 그 요일이 비어있으면 배정 없음(null / 빈배열).
+// Phase 38/39: 회차 하나의 담당자·작업자 결정.
+// 정책 (하단 우선): visit_cycle_unit 별로 다른 매핑을 참조.
+//   - unit=week : weekday_assignments (요일 키 0~6) 에 하나라도 있으면 그 매핑만 사용
+//   - unit=month: monthly_date_assignments (일자 키 1~31) 에 하나라도 있으면 그 매핑만 사용
+//   - unit=day / 매핑 전체 비어있음: customer.assigned_user_id / assigned_worker_id 사용
+// 매핑이 있는데 해당 키(요일/일자)만 비어있으면 배정 없음(null / 빈배열) — 정책 의도.
 function pickAssignment(customer: CustomerRow, dateStr: string): { assigned_to: string | null; worker_ids: string[] } {
-  const wa = customer.weekday_assignments ?? {}
-  const hasAny = Object.values(wa).some(v =>
-    (!!v?.user_id) || (Array.isArray(v?.worker_ids) && v.worker_ids.length > 0)
-  )
-  if (hasAny) {
+  const unit = customer.visit_cycle_unit
+  const fallback = () => ({
+    assigned_to: customer.assigned_user_id ?? null,
+    worker_ids: customer.assigned_worker_id ? [customer.assigned_worker_id] : [],
+  })
+
+  if (unit === 'week') {
+    const wa = customer.weekday_assignments ?? {}
+    const hasAny = Object.values(wa).some(v =>
+      (!!v?.user_id) || (Array.isArray(v?.worker_ids) && v.worker_ids.length > 0)
+    )
+    if (!hasAny) return fallback()
     const day = String(new Date(dateStr + 'T00:00:00').getDay())
     const entry = wa[day]
     return {
@@ -64,10 +75,22 @@ function pickAssignment(customer: CustomerRow, dateStr: string): { assigned_to: 
       worker_ids: Array.isArray(entry?.worker_ids) ? entry.worker_ids : [],
     }
   }
-  return {
-    assigned_to: customer.assigned_user_id ?? null,
-    worker_ids: customer.assigned_worker_id ? [customer.assigned_worker_id] : [],
+
+  if (unit === 'month') {
+    const mda = customer.monthly_date_assignments ?? {}
+    const hasAny = Object.values(mda).some(v =>
+      (!!v?.user_id) || (Array.isArray(v?.worker_ids) && v.worker_ids.length > 0)
+    )
+    if (!hasAny) return fallback()
+    const dom = String(new Date(dateStr + 'T00:00:00').getDate())
+    const entry = mda[dom]
+    return {
+      assigned_to: entry?.user_id ?? null,
+      worker_ids: Array.isArray(entry?.worker_ids) ? entry.worker_ids : [],
+    }
   }
+
+  return fallback()
 }
 
 interface GenerateResult {
@@ -144,20 +167,36 @@ export async function POST(request: NextRequest) {
   const endDay = typeof reqEndDay === 'number' && reqEndDay >= 1 && reqEndDay <= 31 ? reqEndDay : 31
   const endDateStr = `${year}-${String(month).padStart(2, '0')}-${String(endDay).padStart(2, '0')}`
 
-  const { data: customersData, error: fetchError } = await supabase
+  // Phase 38/39: weekday_assignments (주간) / monthly_date_assignments (월간) 필수 — 요일·일자별 담당자·작업자 배정에 사용.
+  // 미배포 상태 대응: 컬럼이 없어 42703 이 나오면 그 컬럼만 빼고 재시도해서 서버가 죽지 않게.
+  const BASE_FIELDS = 'id, business_name, contact_name, contact_phone, email, address, platform_nickname, business_number, account_number, payment_method, business_hours_start, business_hours_end, elevator, building_access, parking_info, access_method, special_notes, admin_notes, notes, care_scope, customer_type, visit_cycle_unit, visit_cycle_value, visit_cycle_config, visit_schedule_type, visit_weekdays, visit_monthly_dates, contract_start_date, contract_end_date, unit_price, assigned_user_id, assigned_worker_id, billing_cycle, billing_amount, weekday_assignments, monthly_date_assignments'
+  const dropCol = (fields: string, col: string): string =>
+    fields.split(',').map(s => s.trim()).filter(s => s !== col).join(', ')
+
+  const runFetch = (fields: string) => supabase
     .from('customers')
-    .select(
-      // Phase 38: weekday_assignments 필수 — 요일별 담당자·작업자 배정에 사용.
-      'id, business_name, contact_name, contact_phone, email, address, platform_nickname, business_number, account_number, payment_method, business_hours_start, business_hours_end, elevator, building_access, parking_info, access_method, special_notes, admin_notes, notes, care_scope, customer_type, visit_cycle_unit, visit_cycle_value, visit_cycle_config, visit_schedule_type, visit_weekdays, visit_monthly_dates, contract_start_date, contract_end_date, unit_price, assigned_user_id, assigned_worker_id, billing_cycle, billing_amount, weekday_assignments'
-    )
+    .select(fields)
     .in('id', customer_ids)
     .is('deleted_at', null)
+
+  let { data: customersData, error: fetchError } = await runFetch(BASE_FIELDS)
+  if (fetchError && /weekday_assignments/i.test(fetchError.message)) {
+    const retry = await runFetch(dropCol(BASE_FIELDS, 'weekday_assignments'))
+    customersData = retry.data
+    fetchError = retry.error
+  }
+  if (fetchError && /monthly_date_assignments/i.test(fetchError.message)) {
+    const stripped = dropCol(dropCol(BASE_FIELDS, 'weekday_assignments'), 'monthly_date_assignments')
+    const retry = await runFetch(stripped)
+    customersData = retry.data
+    fetchError = retry.error
+  }
 
   if (fetchError) {
     return NextResponse.json({ error: fetchError.message }, { status: 500 })
   }
 
-  const customers = (customersData ?? []) as CustomerRow[]
+  const customers = (customersData ?? []) as unknown as CustomerRow[]
 
   const results: GenerateResult[] = []
   let totalInserted = 0

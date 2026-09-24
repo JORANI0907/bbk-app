@@ -53,6 +53,8 @@ const ALLOWED = [
   'visit_cycle_unit', 'visit_cycle_value', 'visit_cycle_config',
   // Phase 38: 요일별 담당자·작업자 매핑 (jsonb, {요일번호: {user_id, worker_ids}})
   'weekday_assignments',
+  // Phase 39: 방문일자별 담당자·작업자 매핑 (jsonb, {일자: {user_id, worker_ids}}) — 월간 방문 계약용
+  'monthly_date_assignments',
 ]
 
 /**
@@ -219,13 +221,15 @@ const FIELDS_SLIM = [
   // handleSelect(c) 가 c.weekday_assignments=undefined 로 state 를 {} 리셋 → 위젯이
   // 저장된 값을 잊고 빈 상태로 표시되는 사고 발생. (2026-09-24)
   'weekday_assignments',
+  // Phase 39: 방문일자별 담당자·작업자 매핑 (월간 방문 계약용). 슬림에서 누락되면 위 사고와 동일.
+  'monthly_date_assignments',
   // 최근 알림 이력 (리스트 인라인 표시용) — 배열이지만 대부분 몇 개 안 됨
   'notification_log',
   // 메타
   'created_at', 'updated_at',
 ].join(', ')
 
-const FIELDS_FULL = 'id, business_name, contact_name, contact_phone, contact_phone_2, email, address, address_detail, business_number, account_number, platform_nickname, payment_method, elevator, building_access, access_method, business_hours_start, business_hours_end, door_password, parking_info, special_notes, care_scope, pipeline_status, customer_type, status, disposition, grade, billing_cycle, billing_timing, billing_amount, supply_amount, vat, deposit, balance, billing_start_date, billing_next_date, contract_start_date, contract_end_date, unit_price, visit_interval_days, next_visit_date, visit_schedule_type, visit_weekdays, visit_monthly_dates, visit_cycle_unit, visit_cycle_value, visit_cycle_config, yearly_billing_month, yearly_billing_day, notes, rotation_type, visit_count_per_month, payment_status, payment_date, schedule_generation_day, assigned_user_id, assigned_worker_id, assigned_worker_ids, weekday_assignments, user_id, account_user_id, progress_status, payment_status_detail, tax_invoice_issued, injection_cycle_months, drive_folder_url, notification_log, phone_notify_1, phone_notify_2, construction_time, admin_notes, archived_at, archived_by, auto_notification_paused, created_at, updated_at'
+const FIELDS_FULL = 'id, business_name, contact_name, contact_phone, contact_phone_2, email, address, address_detail, business_number, account_number, platform_nickname, payment_method, elevator, building_access, access_method, business_hours_start, business_hours_end, door_password, parking_info, special_notes, care_scope, pipeline_status, customer_type, status, disposition, grade, billing_cycle, billing_timing, billing_amount, supply_amount, vat, deposit, balance, billing_start_date, billing_next_date, contract_start_date, contract_end_date, unit_price, visit_interval_days, next_visit_date, visit_schedule_type, visit_weekdays, visit_monthly_dates, visit_cycle_unit, visit_cycle_value, visit_cycle_config, yearly_billing_month, yearly_billing_day, notes, rotation_type, visit_count_per_month, payment_status, payment_date, schedule_generation_day, assigned_user_id, assigned_worker_id, assigned_worker_ids, weekday_assignments, monthly_date_assignments, user_id, account_user_id, progress_status, payment_status_detail, tax_invoice_issued, injection_cycle_months, drive_folder_url, notification_log, phone_notify_1, phone_notify_2, construction_time, admin_notes, archived_at, archived_by, auto_notification_paused, created_at, updated_at'
 
 export async function GET(request: NextRequest) {
   const supabase = createServiceClient()
@@ -247,61 +251,73 @@ export async function GET(request: NextRequest) {
   // 페이지네이션 모드거나 명시적으로 slim 요청 시 슬림 필드만
   const useSlim = paginationMode || fieldsMode === 'slim'
 
-  let query = supabase
-    .from('customers')
-    .select(useSlim ? FIELDS_SLIM : FIELDS_FULL, paginationMode ? { count: 'exact' } : undefined)
-    .is('deleted_at', null)
-    .order('business_name', { ascending: true })
-
-  if (subscriptionOnly) {
-    query = query.in('customer_type', ['정기딥케어', '정기엔드케어'])
-  }
-
-  // 직원(role=worker) 는 고객관리에서 정기딥/정기엔드 마스터만 접근 허용.
-  // 1회성/일반은 배정관리 탭에서 신청서 단위로 처리하므로 여기서 노출 불필요.
-  // 프론트 필터 옵션 축소와 별개로, URL 직접 조작 방어를 위해 서버에서도 강제.
   const session = getServerSession()
   const isWorker = session?.role === 'worker'
-  if (isWorker) {
-    query = query.in('customer_type', ['정기딥케어', '정기엔드케어'])
+
+  // 쿼리 빌더를 함수로 캡슐화 — 신규 컬럼(weekday_assignments / monthly_date_assignments) 이
+  // DB 에 아직 없어 42703 으로 실패할 때 그 컬럼만 빼고 재시도할 수 있게 하기 위함.
+  // 이 fallback 없이 SELECT 가 통째로 실패하면 리스트가 빈 상태로 렌더되어
+  // "고객 리스트가 통째로 사라진 것처럼 보이는" 사고가 발생함 (2026-09-24).
+  const buildQuery = (fields: string) => {
+    let q = supabase
+      .from('customers')
+      .select(fields, paginationMode ? { count: 'exact' } : undefined)
+      .is('deleted_at', null)
+      .order('business_name', { ascending: true })
+
+    if (subscriptionOnly) q = q.in('customer_type', ['정기딥케어', '정기엔드케어'])
+    if (isWorker) q = q.in('customer_type', ['정기딥케어', '정기엔드케어'])
+    if (customerTypeFilter) q = q.eq('customer_type', customerTypeFilter)
+
+    if (search) {
+      const raw = search.replace(/-/g, '')
+      q = q.or(
+        `business_name.ilike.%${search}%,contact_name.ilike.%${search}%,contact_phone.ilike.%${raw}%`,
+      )
+    }
+
+    if (visitDateRange && /^\d{4}-\d{2}$/.test(visitDateRange)) {
+      const [y, m] = visitDateRange.split('-').map(Number)
+      const monthStart = `${visitDateRange}-01`
+      const nextMonth = m === 12
+        ? `${y + 1}-01-01`
+        : `${y}-${String(m + 1).padStart(2, '0')}-01`
+      q = q.gte('next_visit_date', monthStart).lt('next_visit_date', nextMonth)
+    }
+
+    if (archived === 'true') q = q.not('archived_at', 'is', null)
+    else if (archived !== 'all') q = q.is('archived_at', null)
+
+    if (paginationMode) {
+      const from = (page - 1) * limit
+      const to = from + limit - 1
+      q = q.range(from, to)
+    }
+    return q
   }
 
-  if (customerTypeFilter) {
-    // worker 는 강제 필터가 이미 걸려있으니 그 안에서만 매칭 (1회성 요청해도 결과 0건).
-    query = query.eq('customer_type', customerTypeFilter)
+  const baseFields = useSlim ? FIELDS_SLIM : FIELDS_FULL
+  let { data, error, count } = await buildQuery(baseFields)
+
+  // Fallback: 신규 컬럼 미배포 상태에서도 앱이 정상 동작하도록.
+  // error.message 에 컬럼명이 담기면 그 컬럼만 SELECT 목록에서 제거 후 재시도.
+  const dropCol = (fields: string, col: string): string =>
+    fields.split(',').map(s => s.trim()).filter(s => s !== col).join(', ')
+
+  if (error && /weekday_assignments/i.test(error.message)) {
+    const retry = await buildQuery(dropCol(baseFields, 'weekday_assignments'))
+    data = retry.data
+    error = retry.error
+    count = retry.count
+  }
+  if (error && /monthly_date_assignments/i.test(error.message)) {
+    const stripped = dropCol(dropCol(baseFields, 'weekday_assignments'), 'monthly_date_assignments')
+    const retry = await buildQuery(stripped)
+    data = retry.data
+    error = retry.error
+    count = retry.count
   }
 
-  if (search) {
-    // 상호명 또는 대표자명 또는 전화번호 부분일치 (하이픈 제거 대응)
-    const raw = search.replace(/-/g, '')
-    query = query.or(
-      `business_name.ilike.%${search}%,contact_name.ilike.%${search}%,contact_phone.ilike.%${raw}%`
-    )
-  }
-
-  if (visitDateRange && /^\d{4}-\d{2}$/.test(visitDateRange)) {
-    const [y, m] = visitDateRange.split('-').map(Number)
-    const monthStart = `${visitDateRange}-01`
-    const nextMonth = m === 12
-      ? `${y + 1}-01-01`
-      : `${y}-${String(m + 1).padStart(2, '0')}-01`
-    query = query.gte('next_visit_date', monthStart).lt('next_visit_date', nextMonth)
-  }
-
-  if (archived === 'true') {
-    query = query.not('archived_at', 'is', null)
-  } else if (archived !== 'all') {
-    query = query.is('archived_at', null)
-  }
-
-  // 페이지네이션 range 적용
-  if (paginationMode) {
-    const from = (page - 1) * limit
-    const to = from + limit - 1
-    query = query.range(from, to)
-  }
-
-  const { data, error, count } = await query
   if (error) return NextResponse.json({ error: translateDbError(error.message) }, { status: 500 })
 
   // 각 customer 에 assigned_worker_ids: string[] 배열 병합 (다중 작업자 지원).
@@ -440,6 +456,18 @@ export async function POST(request: NextRequest) {
     error = retry.error
   }
 
+  // Phase 39: monthly_date_assignments 미배포 대응 (PATCH 와 대칭).
+  if (error && /monthly_date_assignments/i.test(error.message)) {
+    delete insert.monthly_date_assignments
+    const retry = await supabase
+      .from('customers')
+      .insert(insert)
+      .select()
+      .single()
+    data = retry.data
+    error = retry.error
+  }
+
   if (error) return NextResponse.json({ error: translateDbError(error.message) }, { status: 500 })
 
   // 연락처가 있으면 포털 계정 자동 생성
@@ -564,6 +592,20 @@ export async function PATCH(request: NextRequest) {
   // 마이그레이션 20260924000001_customers_weekday_assignments.sql 실행 전 안전빵.
   if (error && /weekday_assignments/i.test(error.message)) {
     delete updates.weekday_assignments
+    const retry = await supabase
+      .from('customers')
+      .update(updates)
+      .eq('id', id)
+      .select()
+      .single()
+    updatedCustomer = retry.data
+    error = retry.error
+  }
+
+  // Phase 39: monthly_date_assignments 미배포 대응.
+  // 마이그레이션 20260924000002_customers_monthly_date_assignments.sql 실행 전 안전빵.
+  if (error && /monthly_date_assignments/i.test(error.message)) {
+    delete updates.monthly_date_assignments
     const retry = await supabase
       .from('customers')
       .update(updates)
