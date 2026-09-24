@@ -43,6 +43,31 @@ interface CustomerRow {
   assigned_worker_id: string | null
   billing_cycle: string | null
   billing_amount: number | null
+  // Phase 38: 요일별 담당자·작업자 매핑 (jsonb)
+  weekday_assignments: Record<string, { user_id: string | null; worker_ids: string[] }> | null
+}
+
+// Phase 38: 회차 하나의 담당자·작업자 결정.
+// 정책 (하단 우선): weekday_assignments 에 한 요일이라도 값이 있으면 그 매핑만 사용.
+//   비어있으면 customer.assigned_user_id / assigned_worker_id 사용.
+//   요일별 매핑에서 그 요일이 비어있으면 배정 없음(null / 빈배열).
+function pickAssignment(customer: CustomerRow, dateStr: string): { assigned_to: string | null; worker_ids: string[] } {
+  const wa = customer.weekday_assignments ?? {}
+  const hasAny = Object.values(wa).some(v =>
+    (!!v?.user_id) || (Array.isArray(v?.worker_ids) && v.worker_ids.length > 0)
+  )
+  if (hasAny) {
+    const day = String(new Date(dateStr + 'T00:00:00').getDay())
+    const entry = wa[day]
+    return {
+      assigned_to: entry?.user_id ?? null,
+      worker_ids: Array.isArray(entry?.worker_ids) ? entry.worker_ids : [],
+    }
+  }
+  return {
+    assigned_to: customer.assigned_user_id ?? null,
+    worker_ids: customer.assigned_worker_id ? [customer.assigned_worker_id] : [],
+  }
 }
 
 interface GenerateResult {
@@ -224,7 +249,8 @@ export async function POST(request: NextRequest) {
             ? (customer.billing_amount || null)
             : null
 
-        const resyncFields = {
+        // assigned_to 를 제외한 공통 필드 (모든 keptApps 에 동일하게 UPDATE)
+        const commonFields = {
           business_name: customer.business_name,
           owner_name: customer.contact_name || customer.business_name,
           phone: customer.contact_phone || '',
@@ -245,27 +271,49 @@ export async function POST(request: NextRequest) {
           admin_request_notes: customer.admin_notes || null,
           admin_notes: customer.notes || null,
           service_type: customer.customer_type,
-          assigned_to: customer.assigned_user_id || null,
           unit_price_per_visit: isAnnualForResync ? null : (customer.unit_price || null),
           supply_amount: resyncSupply,
         }
+        // 공통 필드는 bulk UPDATE
         await supabase
           .from('service_applications')
-          .update(resyncFields)
+          .update(commonFields)
           .in('id', toKeepIds)
 
-        // 3) work_assignments 재배정: 기존 배정 삭제 후 마스터 assigned_worker_id 로 재삽입
-        //    회차별 다중 배정도 마스터 기준으로 초기화 (수정 반영 의도상 정상)
+        // Phase 38: assigned_to 는 회차별 요일에 따라 개별 UPDATE.
+        // 회차 수십 건이라 성능 영향 없음. Promise.all 로 병렬 처리.
+        await Promise.all(keptApps.map(async app => {
+          const pick = pickAssignment(customer, app.construction_date.slice(0, 10))
+          await supabase
+            .from('service_applications')
+            .update({ assigned_to: pick.assigned_to })
+            .eq('id', app.id)
+        }))
+
+        // 3) work_assignments 재배정 (Phase 38): 기존 배정 삭제 후 요일별 매핑 기준 재삽입
         await supabase.from('work_assignments').delete().in('application_id', toKeepIds)
-        if (customer.assigned_worker_id) {
-          const workerRows = keptApps.map((app) => ({
-            worker_id: customer.assigned_worker_id!,
-            application_id: app.id,
-            construction_date: app.construction_date.slice(0, 10),
-            business_name: app.business_name,
-            customer_id: customer.id,
-            service_type: customer.customer_type,
-          }))
+        const workerRows: Array<{
+          worker_id: string
+          application_id: string
+          construction_date: string
+          business_name: string
+          customer_id: string
+          service_type: string | null
+        }> = []
+        for (const app of keptApps) {
+          const pick = pickAssignment(customer, app.construction_date.slice(0, 10))
+          for (const wid of pick.worker_ids) {
+            workerRows.push({
+              worker_id: wid,
+              application_id: app.id,
+              construction_date: app.construction_date.slice(0, 10),
+              business_name: app.business_name,
+              customer_id: customer.id,
+              service_type: customer.customer_type,
+            })
+          }
+        }
+        if (workerRows.length > 0) {
           await supabase
             .from('work_assignments')
             .upsert(workerRows, { onConflict: 'worker_id,application_id', ignoreDuplicates: true })
@@ -331,41 +379,46 @@ export async function POST(request: NextRequest) {
         ? '계산서발행완료'
         : null
 
-    const toInsert = newDates.map(date => ({
-      customer_id: customer.id,
-      business_name: customer.business_name,
-      owner_name: customer.contact_name || customer.business_name,
-      phone: customer.contact_phone || '',
-      email: customer.email || null,
-      platform_nickname: customer.platform_nickname || null,
-      business_number: customer.business_number || null,
-      account_number: customer.account_number || null,
-      address: customer.address || '',
-      payment_method: customer.payment_method || null,
-      business_hours_start: customer.business_hours_start || null,
-      business_hours_end: customer.business_hours_end || null,
-      elevator: customer.elevator || null,
-      building_access: customer.building_access || null,
-      parking: customer.parking_info || null,
-      access_method: customer.access_method || null,
-      request_notes: customer.special_notes || null,
-      care_scope: customer.care_scope || null,
-      // Phase 27-BC: 회차 생성 시점 마스터 스냅샷 초기 복사.
-      //   이후 마스터 편집으로는 이 필드가 덮이지 않음(customer-app-sync 매핑 제외 처리).
-      //   admin_request_notes ← customer.admin_notes (마스터 UI 라벨: "관리자 요청사항")
-      //   admin_notes         ← customer.notes       (마스터 UI 라벨: "관리자메모")
-      admin_request_notes: customer.admin_notes || null,
-      admin_notes: customer.notes || null,
-      service_type: customer.customer_type,
-      assigned_to: customer.assigned_user_id || null,
-      unit_price_per_visit: isAnnual ? null : (customer.unit_price || null),
-      supply_amount: supplyAmount,
-      payment_status_detail: preSettledPayment,
-      construction_date: date,
-      status: '예약확정',
-      // 시스템 태그는 감사·디버깅용 internal_memo 로 이동해 사용자 필드(admin_notes) 오염 방지.
-      internal_memo: `고객 DB 자동 일정 생성 (${label})`,
-    }))
+    const toInsert = newDates.map(date => {
+      // Phase 38: 회차별 요일 기반 담당자·작업자 결정 (하단 우선 정책)
+      const pick = pickAssignment(customer, date)
+      return {
+        customer_id: customer.id,
+        business_name: customer.business_name,
+        owner_name: customer.contact_name || customer.business_name,
+        phone: customer.contact_phone || '',
+        email: customer.email || null,
+        platform_nickname: customer.platform_nickname || null,
+        business_number: customer.business_number || null,
+        account_number: customer.account_number || null,
+        address: customer.address || '',
+        payment_method: customer.payment_method || null,
+        business_hours_start: customer.business_hours_start || null,
+        business_hours_end: customer.business_hours_end || null,
+        elevator: customer.elevator || null,
+        building_access: customer.building_access || null,
+        parking: customer.parking_info || null,
+        access_method: customer.access_method || null,
+        request_notes: customer.special_notes || null,
+        care_scope: customer.care_scope || null,
+        // Phase 27-BC: 회차 생성 시점 마스터 스냅샷 초기 복사.
+        //   이후 마스터 편집으로는 이 필드가 덮이지 않음(customer-app-sync 매핑 제외 처리).
+        //   admin_request_notes ← customer.admin_notes (마스터 UI 라벨: "관리자 요청사항")
+        //   admin_notes         ← customer.notes       (마스터 UI 라벨: "관리자메모")
+        admin_request_notes: customer.admin_notes || null,
+        admin_notes: customer.notes || null,
+        service_type: customer.customer_type,
+        // Phase 38: pick.assigned_to 사용 (요일별 or 상단 fallback)
+        assigned_to: pick.assigned_to,
+        unit_price_per_visit: isAnnual ? null : (customer.unit_price || null),
+        supply_amount: supplyAmount,
+        payment_status_detail: preSettledPayment,
+        construction_date: date,
+        status: '예약확정',
+        // 시스템 태그는 감사·디버깅용 internal_memo 로 이동해 사용자 필드(admin_notes) 오염 방지.
+        internal_memo: `고객 DB 자동 일정 생성 (${label})`,
+      }
+    })
 
     const { data: inserted, error: insertError } = await supabase
       .from('service_applications')
@@ -381,8 +434,40 @@ export async function POST(request: NextRequest) {
     const insertedCount = insertedApps.length
     totalInserted += insertedCount
 
-    // 작업자가 있으면 work_assignments에 자동 생성
-    if (customer.assigned_worker_id && insertedApps.length > 0) {
+    // Phase 38: 회차별 요일 기반 worker_ids 배열로 work_assignments 자동 생성.
+    // pick.worker_ids 가 여러 명이면 그 만큼 행 생성. 없는 회차는 skip.
+    if (insertedApps.length > 0) {
+      const workerRows: Array<{
+        worker_id: string
+        application_id: string
+        construction_date: string
+        business_name: string
+        customer_id: string
+        service_type: string | null
+      }> = []
+      for (const app of insertedApps as Array<{ id: string; construction_date: string }>) {
+        const pick = pickAssignment(customer, app.construction_date.slice(0, 10))
+        for (const wid of pick.worker_ids) {
+          workerRows.push({
+            worker_id: wid,
+            application_id: app.id,
+            construction_date: app.construction_date.slice(0, 10),
+            business_name: customer.business_name,
+            customer_id: customer.id,
+            service_type: customer.customer_type,
+          })
+        }
+      }
+      if (workerRows.length > 0) {
+        // Phase 27-BJ: (worker_id, application_id) 유니크 제약과 정합
+        await supabase
+          .from('work_assignments')
+          .upsert(workerRows, { onConflict: 'worker_id,application_id', ignoreDuplicates: true })
+      }
+    }
+
+    // 아래 기존 블록은 dead code (아래 조건 항상 false). Phase 38 확장 로직으로 대체됨.
+    if (false && customer.assigned_worker_id && insertedApps.length > 0) {
       const workerRows = insertedApps.map((app: { id: string; construction_date: string }) => ({
         worker_id: customer.assigned_worker_id,
         application_id: app.id,

@@ -113,6 +113,8 @@ interface Customer {
   visit_cycle_unit: 'day' | 'week' | 'month' | 'quarter' | 'year' | null
   visit_cycle_value: number | null
   visit_cycle_config: VisitCycleConfig | null
+  // Phase 38: 요일별 담당자·작업자 매핑 (jsonb). 비어있으면 assigned_user_id fallback.
+  weekday_assignments: Record<string, { user_id: string | null; worker_ids: string[] }> | null
   // 서비스관리 이관 필드 (Phase A)
   notification_log: Array<{ type: string; sent_at: string; phone?: string; method?: 'auto' | 'manual'; template_id?: string }> | null
   phone_notify_1: boolean | null
@@ -789,6 +791,10 @@ export function CustomersManagementView({
   const [visitWeekdays, setVisitWeekdays] = useState<number[]>([])
   // 세부화면 다중 작업자 배정 state (드롭다운 UI)
   const [customerWorkerIds, setCustomerWorkerIds] = useState<string[]>([])
+  // Phase 38: 요일별 담당자·작업자 매핑. 정기엔드/정기딥 세부창에서 편집.
+  // 키 = 요일 번호('0'=일 ~ '6'=토), 값 = { user_id, worker_ids }.
+  // 비어있는 요일은 form.assigned_user_id / customerWorkerIds 로 fallback.
+  const [weekdayAssignments, setWeekdayAssignments] = useState<Record<string, { user_id: string | null; worker_ids: string[] }>>({})
   const [workerDropdownOpen, setWorkerDropdownOpen] = useState(false)
   const workerDropdownRef = useRef<HTMLDivElement>(null)
 
@@ -1140,6 +1146,8 @@ export function CustomersManagementView({
     setVisitMonthlyDates(c.visit_monthly_dates ?? [])
     // Phase 27-AH: customer 로드 시 다중 작업자 배열 로드
     setCustomerWorkerIds(c.assigned_worker_ids ?? (c.assigned_worker_id ? [c.assigned_worker_id] : []))
+    // Phase 38: 요일별 배정 로드 (없으면 빈 객체)
+    setWeekdayAssignments((c.weekday_assignments ?? {}) as Record<string, { user_id: string | null; worker_ids: string[] }>)
     setPrepaidPeriods(1)
     // Phase A-3: 알림 발송 이력 로딩
     setNotifyLogs((c.notification_log ?? []).map(dbLogToNotifyLog))
@@ -1261,6 +1269,7 @@ export function CustomersManagementView({
         visit_cycle_unit: null,
         visit_cycle_value: null,
         visit_cycle_config: null,
+        weekday_assignments: null,
         created_at: nowIso,
         updated_at: nowIso,
       }
@@ -1288,6 +1297,7 @@ export function CustomersManagementView({
     setVisitWeekdays([])
     setVisitMonthlyDates([])
     setCustomerWorkerIds([])
+    setWeekdayAssignments({})
     setPrepaidPeriods(1)
   }
 
@@ -1404,6 +1414,8 @@ export function CustomersManagementView({
     visit_cycle_unit: form.visit_cycle_unit || null,
     visit_cycle_value: form.visit_cycle_value || 1,
     visit_cycle_config: form.visit_cycle_config ?? {} as VisitCycleConfig,
+    // Phase 38: 요일별 담당자·작업자 매핑. 빈 객체는 저장돼도 무해 (fallback 기본값).
+    weekday_assignments: weekdayAssignments,
   })
 
   const autoGenerateBillings = (customerId: string, regenerate = false) => {
@@ -2301,6 +2313,7 @@ export function CustomersManagementView({
           visit_cycle_unit: null,
           visit_cycle_value: null,
           visit_cycle_config: null,
+        weekday_assignments: null,
           created_at: a.created_at,
           updated_at: a.created_at,
         }))
@@ -2478,6 +2491,47 @@ export function CustomersManagementView({
 
   const isRegular = form.customer_type === '정기딥케어' || form.customer_type === '정기엔드케어'
   const isEndCare = form.customer_type === '정기엔드케어'
+  // Phase 38: 요일별 배정에 하나라도 세팅이 있는지 판정.
+  // 정책: 하단(요일별) 우선. 하나라도 있으면 하단만 반영, 없으면 상단(assigned_user_id / customerWorkerIds) 반영.
+  const hasAnyWeekdayAssignment = useMemo(() => (
+    Object.values(weekdayAssignments).some(v =>
+      (v?.user_id != null && v.user_id !== '') ||
+      (Array.isArray(v?.worker_ids) && v.worker_ids.length > 0)
+    )
+  ), [weekdayAssignments])
+
+  // Phase 38: 세팅된 요일 목록 (저장 상태와 편집 상태 요약용)
+  const weekdayAssignedDayLabels = useMemo(() => {
+    const labels: string[] = []
+    for (const k of ['0','1','2','3','4','5','6']) {
+      const v = weekdayAssignments[k]
+      const has = (v?.user_id != null && v.user_id !== '') ||
+                  (Array.isArray(v?.worker_ids) && v.worker_ids.length > 0)
+      if (has) labels.push(['일','월','화','수','목','금','토'][Number(k)])
+    }
+    return labels
+  }, [weekdayAssignments])
+
+  // Phase 38: 저장 안 된 편집 상태 감지 (dirty).
+  // 초기 저장값(selected?.weekday_assignments) 과 현재 편집값을 JSON 비교.
+  // dirty 면 "총 저장 필요" 배지 노출 → 사용자 인지 강화.
+  const weekdayAssignmentsDirty = useMemo(() => {
+    const initial = (selected?.weekday_assignments ?? {}) as Record<string, unknown>
+    // 빈 값들 정규화 후 비교 (undefined vs null vs '' vs [] 를 동일 취급)
+    const norm = (obj: Record<string, unknown>) => {
+      const out: Record<string, { user_id: string | null; worker_ids: string[] }> = {}
+      for (const k of Object.keys(obj)) {
+        const v = obj[k] as { user_id?: string | null; worker_ids?: string[] } | undefined
+        const uid = v?.user_id && v.user_id !== '' ? v.user_id : null
+        const wids = Array.isArray(v?.worker_ids) ? [...v!.worker_ids].sort() : []
+        if (uid || wids.length > 0) {
+          out[k] = { user_id: uid, worker_ids: wids }
+        }
+      }
+      return JSON.stringify(out)
+    }
+    return norm(initial) !== norm(weekdayAssignments as Record<string, unknown>)
+  }, [weekdayAssignments, selected?.weekday_assignments])
 
   // Phase 2-E: 이번달 일정 아코디언에 노출할 작업자 — 배정 가능한 모든 고용형태.
   // employment_type 이 지정된(=null 아닌) 워커 전원을 포함.
@@ -3397,7 +3451,21 @@ export function CustomersManagementView({
 
             {/* 담당직원 */}
             <div className="bg-surface-sunken rounded-xl p-4 flex flex-col gap-3">
-              <p className="text-xs font-semibold text-text-secondary uppercase tracking-wide">담당직원</p>
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-xs font-semibold text-text-secondary uppercase tracking-wide">담당직원</p>
+                {/* Phase 38: 하단 요일별 배정이 있으면 상단 값은 무시된다는 안내 배지 (정기엔드에서만 표시) */}
+                {isEndCare && (
+                  hasAnyWeekdayAssignment ? (
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 border border-amber-200 whitespace-nowrap">
+                      ⚠ 요일별 배정 사용 중 (이 값 무시)
+                    </span>
+                  ) : (
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 border border-emerald-200 whitespace-nowrap">
+                      ✓ 이 값 반영 중
+                    </span>
+                  )
+                )}
+              </div>
               <div className="flex items-center gap-2">
                 <span className="text-xs text-text-secondary w-24 shrink-0">담당자</span>
                 <select value={form.assigned_user_id} onChange={e => set('assigned_user_id')(e.target.value)}
@@ -4030,6 +4098,112 @@ export function CustomersManagementView({
                     />
                   </div>
 
+                  {/* Phase 38: 요일별 담당자·작업자 배정 — 방문 일정 섹션 내부로 통합.
+                      [수정반영]/[생성] 버튼이 이 값도 회차별로 자동 반영. */}
+                  <div className="rounded-lg border border-purple-200 bg-purple-50/30">
+                    <div className="bg-purple-50 px-3 py-2 border-b border-purple-200 flex items-center justify-between gap-2 flex-wrap rounded-t-lg">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="text-xs font-semibold text-purple-800">요일별 담당자·작업자 <span className="text-purple-400 font-normal">(선택)</span></p>
+                        {hasAnyWeekdayAssignment ? (
+                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 border border-purple-200 whitespace-nowrap">
+                            ✓ 이 값 반영 중 (상단 무시)
+                          </span>
+                        ) : (
+                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-surface-sunken text-text-tertiary border border-border-subtle whitespace-nowrap">
+                            상단 담당직원 사용 중
+                          </span>
+                        )}
+                        {/* Phase 38: 저장 안 된 편집 상태 표시. dirty 배지 */}
+                        {weekdayAssignmentsDirty && (
+                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 border border-amber-200 whitespace-nowrap animate-pulse">
+                            ● 저장 안 됨 · 하단 [저장] 필요
+                          </span>
+                        )}
+                      </div>
+                      {hasAnyWeekdayAssignment && (
+                        <button
+                          type="button"
+                          onClick={() => setWeekdayAssignments({})}
+                          className="text-[11px] text-purple-600 hover:text-purple-800 underline underline-offset-2"
+                        >
+                          전체 비우기
+                        </button>
+                      )}
+                    </div>
+                    <div className="p-3 flex flex-col gap-1.5">
+                      <p className="text-[11px] text-text-tertiary mb-1 break-keep leading-relaxed">
+                        <b className="text-purple-700">규칙</b>: 한 요일이라도 값이 있으면 <b>요일별 배정만</b> 반영. 전체 비어있으면 상단 담당직원 값 반영.
+                        비운 요일 회차는 담당자·작업자 없이 생성.
+                        <br />
+                        <b className="text-purple-700">저장 순서</b>: ① 요일별 편집 → ② 세부창 <b>하단 [저장]</b> 클릭해서 마스터 반영 → ③ 필요시 <b>[수정 반영]</b> 또는 <b>[생성]</b> 클릭해 회차에 적용.
+                        {hasAnyWeekdayAssignment && !weekdayAssignmentsDirty && (
+                          <>
+                            <br />
+                            <span className="text-emerald-600">✓ 저장됨 · 세팅 요일: <b>{weekdayAssignedDayLabels.join(' / ')}</b></span>
+                          </>
+                        )}
+                      </p>
+                      {(['0','1','2','3','4','5','6'] as const).map(dayKey => {
+                        const label = ['일','월','화','수','목','금','토'][Number(dayKey)]
+                        const cur = weekdayAssignments[dayKey] ?? { user_id: null, worker_ids: [] as string[] }
+                        const setUserId = (v: string) => setWeekdayAssignments(prev => ({
+                          ...prev,
+                          [dayKey]: { user_id: v || null, worker_ids: prev[dayKey]?.worker_ids ?? [] },
+                        }))
+                        const toggleWorker = (wid: string) => setWeekdayAssignments(prev => {
+                          const cw = prev[dayKey]?.worker_ids ?? []
+                          const next = cw.includes(wid) ? cw.filter(x => x !== wid) : [...cw, wid]
+                          return { ...prev, [dayKey]: { user_id: prev[dayKey]?.user_id ?? null, worker_ids: next } }
+                        })
+                        const selectedWorkerNames = cur.worker_ids
+                          .map(id => workersList.find(w => w.id === id)?.name)
+                          .filter((n): n is string => !!n)
+                        return (
+                          <div key={dayKey} className="flex items-center gap-2 flex-wrap py-0.5 border-b border-purple-100 last:border-b-0">
+                            <span className={`text-xs font-bold w-6 shrink-0 text-center ${dayKey === '0' ? 'text-red-500' : dayKey === '6' ? 'text-blue-500' : 'text-text-secondary'}`}>{label}</span>
+                            <select
+                              value={cur.user_id ?? ''}
+                              onChange={e => setUserId(e.target.value)}
+                              className="flex-1 min-w-[110px] max-w-[170px] border border-purple-200 rounded-md px-2 py-1 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-purple-400"
+                            >
+                              <option value="">담당자 (기본값)</option>
+                              {usersList
+                                .filter(u => u.role === 'admin' || u.role === 'worker')
+                                .map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+                            </select>
+                            <details className="relative flex-1 min-w-[130px] max-w-[200px]">
+                              <summary className="cursor-pointer list-none border border-purple-200 rounded-md px-2 py-1 text-xs bg-white text-text-primary hover:border-purple-400">
+                                {selectedWorkerNames.length === 0
+                                  ? <span className="text-text-tertiary">작업자 선택</span>
+                                  : selectedWorkerNames.length === 1
+                                    ? selectedWorkerNames[0]
+                                    : `${selectedWorkerNames[0]} 외 ${selectedWorkerNames.length - 1}명`}
+                              </summary>
+                              <div className="absolute z-20 left-0 mt-1 bg-white border border-purple-200 rounded-lg shadow-lg p-2 max-h-52 overflow-y-auto min-w-[180px]">
+                                {workersList.length === 0 ? (
+                                  <p className="text-[11px] text-text-tertiary px-1">작업자가 없습니다.</p>
+                                ) : (
+                                  workersList
+                                    .filter(w => !!w.employment_type)
+                                    .map(w => (
+                                      <label key={w.id} className="flex items-center gap-2 px-1 py-1 hover:bg-purple-50 rounded cursor-pointer">
+                                        <input
+                                          type="checkbox"
+                                          checked={cur.worker_ids.includes(w.id)}
+                                          onChange={() => toggleWorker(w.id)}
+                                        />
+                                        <span className="text-xs text-text-primary">{w.name}</span>
+                                      </label>
+                                    ))
+                                )}
+                              </div>
+                            </details>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+
                   {/* Phase 5-E: 계약일정 저장·생성 버튼 — 둘 다 기간 모달 오픈 */}
                   {!isNew && selected && (
                     <div className="flex justify-end gap-1.5 mt-1">
@@ -4043,6 +4217,105 @@ export function CustomersManagementView({
                       </button>
                     </div>
                   )}
+                </div>
+              </div>
+            )}
+
+            {/* ── Phase 38: 정기엔드 요일별 배정 (선택) — 방문 일정 섹션 내부로 통합됨 (2026-09-24).
+                아래 조건은 항상 false 로 유지되어 렌더링 안 됨. 코드 자체는 다음 세션에서 정리 예정. */}
+            {false && !isWorker && isEndCare && (
+              <div className="rounded-xl border border-purple-200 overflow-hidden">
+                <div className="bg-purple-50 px-4 py-2.5 border-b border-purple-200 flex items-center justify-between gap-2 flex-wrap">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="text-xs font-semibold text-purple-800">요일별 담당자·작업자 배정 <span className="text-purple-400 font-normal">(선택)</span></p>
+                    {/* Phase 38: 하단 우선 정책 안내 배지 */}
+                    {hasAnyWeekdayAssignment ? (
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 border border-purple-200 whitespace-nowrap">
+                        ✓ 이 값 반영 중 (상단 무시)
+                      </span>
+                    ) : (
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-surface-sunken text-text-tertiary border border-border-subtle whitespace-nowrap">
+                        상단 담당직원 사용 중
+                      </span>
+                    )}
+                  </div>
+                  {hasAnyWeekdayAssignment && (
+                    <button
+                      type="button"
+                      onClick={() => setWeekdayAssignments({})}
+                      className="text-[11px] text-purple-600 hover:text-purple-800 underline underline-offset-2"
+                    >
+                      전체 비우기
+                    </button>
+                  )}
+                </div>
+                <div className="p-4 flex flex-col gap-2">
+                  <p className="text-[11px] text-text-tertiary -mt-1 mb-1 break-keep leading-relaxed">
+                    <b className="text-purple-700">규칙</b>: 이 표에 하나라도 값이 있으면 <b>요일별 배정만 반영</b>되고 상단 담당직원 값은 무시됨.
+                    전체 비어있으면 상단 담당직원 값이 모든 회차에 반영됨.
+                    <br />
+                    비운 요일에 회차가 생성되면 그 회차는 담당자·작업자 없이 생성됨.
+                  </p>
+                  {(['0','1','2','3','4','5','6'] as const).map(dayKey => {
+                    const label = ['일','월','화','수','목','금','토'][Number(dayKey)]
+                    const cur = weekdayAssignments[dayKey] ?? { user_id: null, worker_ids: [] as string[] }
+                    const setUserId = (v: string) => setWeekdayAssignments(prev => ({
+                      ...prev,
+                      [dayKey]: { user_id: v || null, worker_ids: prev[dayKey]?.worker_ids ?? [] },
+                    }))
+                    const toggleWorker = (wid: string) => setWeekdayAssignments(prev => {
+                      const cw = prev[dayKey]?.worker_ids ?? []
+                      const next = cw.includes(wid) ? cw.filter(x => x !== wid) : [...cw, wid]
+                      return { ...prev, [dayKey]: { user_id: prev[dayKey]?.user_id ?? null, worker_ids: next } }
+                    })
+                    const selectedWorkerNames = cur.worker_ids
+                      .map(id => workersList.find(w => w.id === id)?.name)
+                      .filter((n): n is string => !!n)
+                    return (
+                      <div key={dayKey} className="flex items-center gap-2 flex-wrap py-1 border-b border-purple-100 last:border-b-0">
+                        <span className={`text-xs font-bold w-6 shrink-0 text-center ${dayKey === '0' ? 'text-red-500' : dayKey === '6' ? 'text-blue-500' : 'text-text-secondary'}`}>{label}</span>
+                        {/* 담당자 드롭다운 */}
+                        <select
+                          value={cur.user_id ?? ''}
+                          onChange={e => setUserId(e.target.value)}
+                          className="flex-1 min-w-[120px] max-w-[180px] border border-purple-200 rounded-md px-2 py-1 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-purple-400"
+                        >
+                          <option value="">담당자 (기본값)</option>
+                          {usersList
+                            .filter(u => u.role === 'admin' || u.role === 'worker')
+                            .map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+                        </select>
+                        {/* 작업자 다중 선택 팝오버 */}
+                        <details className="relative flex-1 min-w-[140px] max-w-[220px]">
+                          <summary className="cursor-pointer list-none border border-purple-200 rounded-md px-2 py-1 text-xs bg-white text-text-primary hover:border-purple-400">
+                            {selectedWorkerNames.length === 0
+                              ? <span className="text-text-tertiary">작업자 선택</span>
+                              : selectedWorkerNames.length === 1
+                                ? selectedWorkerNames[0]
+                                : `${selectedWorkerNames[0]} 외 ${selectedWorkerNames.length - 1}명`}
+                          </summary>
+                          <div className="absolute z-20 left-0 mt-1 bg-white border border-purple-200 rounded-lg shadow-lg p-2 max-h-52 overflow-y-auto min-w-[180px]">
+                            {workersList.length === 0 ? (
+                              <p className="text-[11px] text-text-tertiary px-1">작업자가 없습니다.</p>
+                            ) : (
+                              workersList
+                                .filter(w => !!w.employment_type)
+                                .map(w => (
+                                  <label key={w.id} className="flex items-center gap-2 px-1 py-1 hover:bg-purple-50 rounded cursor-pointer">
+                                    <input
+                                      type="checkbox"
+                                      checked={cur.worker_ids.includes(w.id)}
+                                      onChange={() => toggleWorker(w.id)}
+                                    />
+                                    <span className="text-xs text-text-primary">{w.name}</span>
+                                  </label>
+                                ))
+                            )}
+                          </div>
+                        </details>
+                      </div>
+                    )
+                  })}
                 </div>
               </div>
             )}

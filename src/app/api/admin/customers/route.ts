@@ -51,6 +51,8 @@ const ALLOWED = [
   'grade',
   // Phase 37: 통합 방문주기
   'visit_cycle_unit', 'visit_cycle_value', 'visit_cycle_config',
+  // Phase 38: 요일별 담당자·작업자 매핑 (jsonb, {요일번호: {user_id, worker_ids}})
+  'weekday_assignments',
 ]
 
 /**
@@ -422,6 +424,18 @@ export async function POST(request: NextRequest) {
     error = retry.error
   }
 
+  // Phase 38: weekday_assignments 미배포 대응 (PATCH 와 대칭).
+  if (error && /weekday_assignments/i.test(error.message)) {
+    delete insert.weekday_assignments
+    const retry = await supabase
+      .from('customers')
+      .insert(insert)
+      .select()
+      .single()
+    data = retry.data
+    error = retry.error
+  }
+
   if (error) return NextResponse.json({ error: translateDbError(error.message) }, { status: 500 })
 
   // 연락처가 있으면 포털 계정 자동 생성
@@ -532,6 +546,20 @@ export async function PATCH(request: NextRequest) {
     delete updates.billing_email
     delete updates.billing_address
     delete updates.billing_business_number
+    const retry = await supabase
+      .from('customers')
+      .update(updates)
+      .eq('id', id)
+      .select()
+      .single()
+    updatedCustomer = retry.data
+    error = retry.error
+  }
+
+  // Phase 38: weekday_assignments 미배포 대응 — 컬럼 없으면 제거 후 재시도.
+  // 마이그레이션 20260924000001_customers_weekday_assignments.sql 실행 전 안전빵.
+  if (error && /weekday_assignments/i.test(error.message)) {
+    delete updates.weekday_assignments
     const retry = await supabase
       .from('customers')
       .update(updates)
