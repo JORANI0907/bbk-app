@@ -4204,17 +4204,34 @@ export function CustomersManagementView({
                     </div>
                   </div>
 
-                  {/* Phase 5-E: 계약일정 저장·생성 버튼 — 둘 다 기간 모달 오픈 */}
+                  {/* Phase 5-E: 계약일정 저장·생성 버튼 — 둘 다 기간 모달 오픈.
+                      Phase 38: 요일별 배정 dirty 상태에서는 버튼 차단 + 안내 (서버는 DB 저장값만
+                      참조하므로 저장 안 하면 옛 값 기준으로 재배정되는 사고 방지). */}
                   {!isNew && selected && (
-                    <div className="flex justify-end gap-1.5 mt-1">
-                      <button onClick={() => openScheduleGenModal('cleanup', [selected.id])} disabled={saving}
-                        className="px-3 py-1.5 text-xs font-medium bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors disabled:opacity-50">
-                        수정 반영
-                      </button>
-                      <button onClick={() => openScheduleGenModal('create', [selected.id])} disabled={saving}
-                        className="px-3 py-1.5 text-xs font-medium bg-white hover:bg-purple-50 text-purple-700 border border-purple-300 rounded-lg transition-colors disabled:opacity-50">
-                        생성
-                      </button>
+                    <div className="flex flex-col items-end gap-1 mt-1">
+                      {weekdayAssignmentsDirty && (
+                        <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-2 py-1 w-full text-center">
+                          ⚠ 요일별 배정에 저장 안 된 변경사항이 있습니다. 먼저 하단 <b>[저장]</b> 버튼을 눌러야 이 버튼들이 활성화됩니다.
+                        </p>
+                      )}
+                      <div className="flex justify-end gap-1.5">
+                        <button
+                          onClick={() => openScheduleGenModal('cleanup', [selected.id])}
+                          disabled={saving || weekdayAssignmentsDirty}
+                          title={weekdayAssignmentsDirty ? '요일별 배정 저장 후 사용 가능' : undefined}
+                          className="px-3 py-1.5 text-xs font-medium bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          수정 반영
+                        </button>
+                        <button
+                          onClick={() => openScheduleGenModal('create', [selected.id])}
+                          disabled={saving || weekdayAssignmentsDirty}
+                          title={weekdayAssignmentsDirty ? '요일별 배정 저장 후 사용 가능' : undefined}
+                          className="px-3 py-1.5 text-xs font-medium bg-white hover:bg-purple-50 text-purple-700 border border-purple-300 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          생성
+                        </button>
+                      </div>
                     </div>
                   )}
                 </div>

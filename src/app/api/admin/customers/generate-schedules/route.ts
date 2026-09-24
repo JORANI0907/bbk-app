@@ -147,7 +147,8 @@ export async function POST(request: NextRequest) {
   const { data: customersData, error: fetchError } = await supabase
     .from('customers')
     .select(
-      'id, business_name, contact_name, contact_phone, email, address, platform_nickname, business_number, account_number, payment_method, business_hours_start, business_hours_end, elevator, building_access, parking_info, access_method, special_notes, admin_notes, notes, care_scope, customer_type, visit_cycle_unit, visit_cycle_value, visit_cycle_config, visit_schedule_type, visit_weekdays, visit_monthly_dates, contract_start_date, contract_end_date, unit_price, assigned_user_id, assigned_worker_id, billing_cycle, billing_amount'
+      // Phase 38: weekday_assignments 필수 — 요일별 담당자·작업자 배정에 사용.
+      'id, business_name, contact_name, contact_phone, email, address, platform_nickname, business_number, account_number, payment_method, business_hours_start, business_hours_end, elevator, building_access, parking_info, access_method, special_notes, admin_notes, notes, care_scope, customer_type, visit_cycle_unit, visit_cycle_value, visit_cycle_config, visit_schedule_type, visit_weekdays, visit_monthly_dates, contract_start_date, contract_end_date, unit_price, assigned_user_id, assigned_worker_id, billing_cycle, billing_amount, weekday_assignments'
     )
     .in('id', customer_ids)
     .is('deleted_at', null)
