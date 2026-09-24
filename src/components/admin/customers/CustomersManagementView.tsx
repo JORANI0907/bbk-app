@@ -1197,6 +1197,19 @@ export function CustomersManagementView({
         })
         setCustomers(prev => prev.map(x => x.id === full.id ? { ...x, ...full } : x))
         setNotifyLogs((full.notification_log ?? []).map(dbLogToNotifyLog))
+        // Phase 38: 리스트 슬림 응답에 weekday_assignments 가 빠져있어 handleSelect 초기값이
+        // {} 로 세팅되던 문제 방어. full 응답이 도착한 시점에 state 도 함께 갱신해서
+        // 저장된 요일별 배정이 위젯에 정상 노출되도록 보장.
+        // 단, 사용자가 상세창 진입 후 위젯을 편집 중이었다면 그 값을 우선 보존
+        // (state === 초기 비어있음 상태일 때만 full 로 덮음).
+        setWeekdayAssignments(prev => {
+          const prevHasAny = Object.values(prev).some(v =>
+            (v?.user_id != null && v.user_id !== '') ||
+            (Array.isArray(v?.worker_ids) && v.worker_ids.length > 0)
+          )
+          if (prevHasAny) return prev // 사용자 편집 보존
+          return (full.weekday_assignments ?? {}) as Record<string, { user_id: string | null; worker_ids: string[] }>
+        })
       })
       .catch(() => {}) // 실패해도 slim 데이터로 계속 작동
   }
@@ -1519,7 +1532,14 @@ export function CustomersManagementView({
         setEmbedRefetchKey(prev => prev + 1)
         const updated = (data.customer ?? { ...selected, ...body }) as Customer
         // assigned_worker_ids는 PATCH 응답에 없음(JOIN 계산 필드) → 현재 선택 상태를 병합해 보존
-        const updatedWithWorkers: Customer = { ...updated, assigned_worker_ids: customerWorkerIds }
+        // Phase 38: weekday_assignments 도 마찬가지 — 마이그레이션 미배포로 API fallback 발동
+        // 시엔 응답에 필드 자체가 없어 selected.weekday_assignments = undefined 로 덮어져 사용자
+        // 편집값이 dirty 상태로 남아 위젯이 이상해지던 사고 방어. state 값을 신뢰해 보존.
+        const updatedWithWorkers: Customer = {
+          ...updated,
+          assigned_worker_ids: customerWorkerIds,
+          weekday_assignments: (updated.weekday_assignments ?? weekdayAssignments) as Customer['weekday_assignments'],
+        }
         setCustomers(prev => prev.map(c => c.id === selected.id ? updatedWithWorkers : c))
         setSelected(updatedWithWorkers)
         setForm(toForm(updatedWithWorkers))
@@ -1886,7 +1906,12 @@ export function CustomersManagementView({
       if (mode === 'cleanup') {
         // customers 저장분 리스트 반영
         if (selected) {
-          setCustomers(prev => prev.map(c => c.id === selected.id ? { ...c, ...buildBody() } as Customer : c))
+          const savedBody = buildBody()
+          setCustomers(prev => prev.map(c => c.id === selected.id ? { ...c, ...savedBody } as Customer : c))
+          // Phase 38: selected 도 함께 갱신 — 그러지 않으면 dirty 검사가 (초기 selected vs 최신 state)
+          // 를 비교해 "저장 안 됨" 배지가 잔존하고, 다시 [수정 반영] 클릭 시 버튼이 비활성으로
+          // 보이거나 위젯이 stale 로 보이는 사고 발생. 저장된 값 그대로 selected 에 반영.
+          setSelected(prev => prev ? { ...prev, ...savedBody } as Customer : prev)
         }
         toast.success(totalInserted > 0
           ? `기간 내 기존 일정 정리 후 ${totalInserted}건이 새 방문일정으로 재생성되었습니다.`
