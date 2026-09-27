@@ -217,6 +217,10 @@ const FIELDS_SLIM = [
   'yearly_billing_month', 'yearly_billing_day', 'injection_cycle_months',
   // 담당자 (assigned_worker_ids 우선, assigned_worker_id 는 하위호환)
   'assigned_user_id', 'assigned_worker_id', 'assigned_worker_ids',
+  // 결제자(수취인) 정보 — 세부창 진입 즉시 슬림 값으로 form 을 채우고, 이후 [id] full fetch 로
+  // 병합. 슬림에서 빠져있으면 초기 상태에 빈 문자열로 들어가 사용자가 편집 중일 때 lazy full
+  // 도착값과 비교가 어긋나 "저장 후 값 사라짐" 착각을 일으키므로 여기에도 포함. (2026-09-27)
+  'billing_contact_name', 'billing_email', 'billing_address', 'billing_business_number',
   // Phase 38: 요일별 담당자·작업자 매핑 (세부창 위젯 초기값). 슬림에서도 반환하지 않으면
   // handleSelect(c) 가 c.weekday_assignments=undefined 로 state 를 {} 리셋 → 위젯이
   // 저장된 값을 잊고 빈 상태로 표시되는 사고 발생. (2026-09-24)
@@ -229,7 +233,7 @@ const FIELDS_SLIM = [
   'created_at', 'updated_at',
 ].join(', ')
 
-const FIELDS_FULL = 'id, business_name, contact_name, contact_phone, contact_phone_2, email, address, address_detail, business_number, account_number, platform_nickname, payment_method, elevator, building_access, access_method, business_hours_start, business_hours_end, door_password, parking_info, special_notes, care_scope, pipeline_status, customer_type, status, disposition, grade, billing_cycle, billing_timing, billing_amount, supply_amount, vat, deposit, balance, billing_start_date, billing_next_date, contract_start_date, contract_end_date, unit_price, visit_interval_days, next_visit_date, visit_schedule_type, visit_weekdays, visit_monthly_dates, visit_cycle_unit, visit_cycle_value, visit_cycle_config, yearly_billing_month, yearly_billing_day, notes, rotation_type, visit_count_per_month, payment_status, payment_date, schedule_generation_day, assigned_user_id, assigned_worker_id, assigned_worker_ids, weekday_assignments, monthly_date_assignments, user_id, account_user_id, progress_status, payment_status_detail, tax_invoice_issued, injection_cycle_months, drive_folder_url, notification_log, phone_notify_1, phone_notify_2, construction_time, admin_notes, archived_at, archived_by, auto_notification_paused, created_at, updated_at'
+const FIELDS_FULL = 'id, business_name, contact_name, contact_phone, contact_phone_2, email, address, address_detail, business_number, account_number, platform_nickname, payment_method, elevator, building_access, access_method, business_hours_start, business_hours_end, door_password, parking_info, special_notes, care_scope, pipeline_status, customer_type, status, disposition, grade, billing_cycle, billing_timing, billing_amount, supply_amount, vat, deposit, balance, billing_start_date, billing_next_date, billing_contact_name, billing_email, billing_address, billing_business_number, contract_start_date, contract_end_date, unit_price, visit_interval_days, next_visit_date, visit_schedule_type, visit_weekdays, visit_monthly_dates, visit_cycle_unit, visit_cycle_value, visit_cycle_config, yearly_billing_month, yearly_billing_day, notes, rotation_type, visit_count_per_month, payment_status, payment_date, schedule_generation_day, assigned_user_id, assigned_worker_id, assigned_worker_ids, weekday_assignments, monthly_date_assignments, user_id, account_user_id, progress_status, payment_status_detail, tax_invoice_issued, injection_cycle_months, drive_folder_url, notification_log, phone_notify_1, phone_notify_2, construction_time, admin_notes, archived_at, archived_by, auto_notification_paused, created_at, updated_at'
 
 export async function GET(request: NextRequest) {
   const supabase = createServiceClient()
@@ -312,6 +316,18 @@ export async function GET(request: NextRequest) {
   }
   if (error && /monthly_date_assignments/i.test(error.message)) {
     const stripped = dropCol(dropCol(baseFields, 'weekday_assignments'), 'monthly_date_assignments')
+    const retry = await buildQuery(stripped)
+    data = retry.data
+    error = retry.error
+    count = retry.count
+  }
+  // 결제자(수취인) 정보 컬럼 미배포 대응 (POST/PATCH 와 대칭).
+  if (error && /billing_(contact_name|email|address|business_number)/i.test(error.message)) {
+    let stripped = baseFields
+    for (const col of ['weekday_assignments', 'monthly_date_assignments',
+      'billing_contact_name', 'billing_email', 'billing_address', 'billing_business_number']) {
+      stripped = dropCol(stripped, col)
+    }
     const retry = await buildQuery(stripped)
     data = retry.data
     error = retry.error
