@@ -11,6 +11,14 @@ import {
   type WorkerDocumentType,
 } from '@/lib/workerDocuments'
 
+// Vercel Fluid Compute 활성화 시 request body 크기 제한이 4.5MB → 훨씬 관대(수백MB) 로 완화됨.
+// 이 route 는 multipart/form-data 로 파일 여러 개(각 10MB) + OTP 를 한 번에 받아 easily
+// 4.5MB 를 초과하므로 Vercel 프록시가 413 으로 끊어 클라이언트에 "오류가 발생했습니다"
+// 만 뜨고 코드 자체는 실행 안 되던 사고 원인. Fluid Compute 로 명시 전환하여 해결.
+// (2026-09-29)
+export const runtime = 'nodejs'
+export const maxDuration = 60
+
 type RouteParams = { params: { token: string } }
 
 function getClientIp(request: NextRequest): string {
