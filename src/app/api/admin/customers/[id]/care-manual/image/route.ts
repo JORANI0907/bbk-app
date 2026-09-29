@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { getServerSession } from '@/lib/session'
 
+// Vercel Fluid Compute (payload 4.5MB → 무제한). 파일 업로드 route 표준 설정. (2026-09-29)
+export const runtime = 'nodejs'
+export const maxDuration = 60
+
 const BUCKET = 'care-manual-images'
 
 export async function POST(

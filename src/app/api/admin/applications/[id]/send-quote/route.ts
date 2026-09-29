@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { notifySlack } from '@/lib/slack'
 import { createServiceClient } from '@/lib/supabase/server'
 
-// Vercel 함수 타임아웃 60초로 확장
+// Vercel Fluid Compute (payload 4.5MB → 무제한 · 함수 타임아웃 60초). (2026-09-29)
+export const runtime = 'nodejs'
 export const maxDuration = 60
 
 const TEMPLATE_SPREADSHEET_ID = '1bwj2ncInTA9Vm8ac3J7YKrm4RYRSvpMVnYry-RJALu0'

@@ -9,6 +9,8 @@ import { renderQuotePdf, type QuotePdfData } from '@/lib/quotePdf'
 import { Resend } from 'resend'
 import { uploadQuoteToDrive } from '@/lib/driveUpload'
 
+// Vercel Fluid Compute (payload 4.5MB → 무제한 · 함수 타임아웃 60초). (2026-09-29)
+export const runtime = 'nodejs'
 export const maxDuration = 60
 
 interface QuoteItem {

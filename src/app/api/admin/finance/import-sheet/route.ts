@@ -4,6 +4,10 @@ import Anthropic from '@anthropic-ai/sdk'
 import { createServiceClient } from '@/lib/supabase/server'
 import { UNCLASSIFIED } from '@/lib/finance-types'
 
+// Vercel Fluid Compute (payload 4.5MB → 무제한). 엑셀 업로드 route 표준 설정. (2026-09-29)
+export const runtime = 'nodejs'
+export const maxDuration = 60
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface ParsedRow {

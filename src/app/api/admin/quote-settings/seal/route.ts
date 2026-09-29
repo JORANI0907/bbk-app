@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 
+// Vercel Fluid Compute (payload 4.5MB → 무제한). 인감 이미지 업로드 route. (2026-09-29)
+export const runtime = 'nodejs'
 export const maxDuration = 30
 
 export async function POST(req: NextRequest) {

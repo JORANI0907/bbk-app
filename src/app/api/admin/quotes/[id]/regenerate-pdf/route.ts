@@ -6,6 +6,8 @@ import { createServiceClient } from '@/lib/supabase/server'
 import { renderQuotePdf, type QuotePdfData, type QuoteItem } from '@/lib/quotePdf'
 import { uploadQuoteToDrive } from '@/lib/driveUpload'
 
+// Vercel Fluid Compute (payload 4.5MB → 무제한 · 함수 타임아웃 60초). (2026-09-29)
+export const runtime = 'nodejs'
 export const maxDuration = 60
 
 interface SavedQuote {
