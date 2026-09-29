@@ -7,7 +7,7 @@ import {
   MAX_FILE_SIZE_BYTES,
   buildStoragePath,
   isAllowedExtension,
-  isAllowedMime,
+  mimeFromFileName,
   type WorkerDocumentType,
 } from '@/lib/workerDocuments'
 
@@ -118,7 +118,9 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         { status: 400 },
       )
     }
-    if (!isAllowedExtension(value.name) || !isAllowedMime(value.type)) {
+    // 확장자만 검증. file.type(mime) 은 모바일 브라우저에서 신뢰 불가능. (2026-09-30)
+    // 최종 방어는 Storage bucket 의 allowed_mime_types 정책이 담당 (jpeg/png/heic/heif/pdf).
+    if (!isAllowedExtension(value.name)) {
       return NextResponse.json(
         { success: false, error: `허용되지 않는 파일 형식입니다. (${it.document_type})` },
         { status: 400 },
@@ -143,10 +145,14 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         originalFileName: up.file.name,
       })
       const arrayBuffer = await up.file.arrayBuffer()
+      // contentType 은 파일명 확장자에서 유추 — 모바일 브라우저의 file.type 이
+      // 빈 문자열이거나 application/octet-stream 으로 오면 Storage bucket 의
+      // allowed_mime_types 정책에 걸려 업로드 실패하기 때문에 확장자 기반이 안전.
+      const resolvedMime = mimeFromFileName(up.file.name)
       const { error: upErr } = await supabase.storage
         .from(WORKER_DOCUMENTS_BUCKET)
         .upload(path, arrayBuffer, {
-          contentType: up.file.type,
+          contentType: resolvedMime,
           upsert: false,
         })
       if (upErr) throw new Error(`Storage 업로드 실패: ${upErr.message}`)
@@ -158,7 +164,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         .update({
           file_path: path,
           file_name: up.file.name,
-          file_mime: up.file.type,
+          file_mime: resolvedMime,
           file_size: up.file.size,
           uploaded_at: now,
         })

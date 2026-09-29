@@ -120,6 +120,35 @@ export function isAllowedMime(mime: string): boolean {
   return ALLOWED_MIME_TYPES.includes(mime)
 }
 
+// 파일명 확장자로부터 실제 mime 을 유추. (2026-09-30)
+//
+// 배경: 모바일 브라우저(iOS Safari · Android WebView) 는 file.type 을 신뢰할 수 없음.
+// - iOS Safari 가 HEIC 파일을 골랐을 때 file.type 이 빈 문자열('') 로 옴
+// - Android 에서 다운로드/카톡/드라이브 경유한 pdf 는 application/octet-stream 으로 옴
+// - 확장자는 대체로 신뢰 가능
+//
+// 이 함수는 확장자를 기준으로 정확한 mime 을 반환. Supabase Storage bucket 의
+// allowed_mime_types 정책(image/jpeg, png, heic, heif, application/pdf)에 정확히
+// 매칭되는 문자열만 생성해 저장 실패를 방지.
+export function mimeFromFileName(fileName: string): string {
+  const ext = extensionFromFileName(fileName)
+  switch (ext) {
+    case 'jpg':
+    case 'jpeg':
+      return 'image/jpeg'
+    case 'png':
+      return 'image/png'
+    case 'heic':
+      return 'image/heic'
+    case 'heif':
+      return 'image/heif'
+    case 'pdf':
+      return 'application/pdf'
+    default:
+      return 'application/octet-stream'
+  }
+}
+
 // ─── Storage 경로 ─────────────────────────────────────────────────
 
 export const WORKER_DOCUMENTS_BUCKET = 'worker-documents'

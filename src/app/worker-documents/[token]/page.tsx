@@ -9,7 +9,6 @@ import {
   MAX_FILE_SIZE_BYTES,
   ALLOWED_EXTENSIONS,
   isAllowedExtension,
-  isAllowedMime,
 } from '@/lib/workerDocuments'
 
 type PageState = 'loading' | 'ready' | 'submitted' | 'error' | 'expired'
@@ -94,8 +93,10 @@ export default function WorkerDocumentUploadPage() {
       toast.error('파일 크기가 10MB를 초과합니다.')
       return
     }
-    if (!isAllowedExtension(file.name) || !isAllowedMime(file.type)) {
-      toast.error('jpg, png, heic, pdf 형식만 업로드 가능합니다.')
+    // 확장자만 검증. file.type(mime) 은 모바일 브라우저에서 신뢰 불가능해 게이트로 쓰지 않음.
+    // iOS Safari 는 HEIC 파일 시 빈 문자열, Android 는 다운로드/카톡 경유 PDF 시 octet-stream 이 옴. (2026-09-30)
+    if (!isAllowedExtension(file.name)) {
+      toast.error('jpg, png, heic, pdf 확장자만 업로드 가능합니다.')
       return
     }
     setFiles(prev => ({ ...prev, [itemId]: file }))
