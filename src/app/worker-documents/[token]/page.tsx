@@ -10,6 +10,35 @@ import {
   ALLOWED_EXTENSIONS,
   isAllowedExtension,
 } from '@/lib/workerDocuments'
+import { resizeImageToUnder } from '@/lib/image-resize'
+
+// 업로드 전에 이미지 파일을 이 크기 이하로 압축.
+// 이유: Vercel 프록시가 요청 본문 4.5MB 초과 시 라우트 실행 전에 끊음 →
+// 클라이언트에는 HTML 에러 페이지가 반환돼 JSON.parse 가 catch 로 빠지고
+// "오류가 발생했습니다. 다시 시도해주세요" 만 뜸.
+// 서류 3개 × 1MB = 3MB 로 넉넉히 안전권. PDF 는 대개 작아 원본 유지.
+const IMAGE_COMPRESS_TARGET_BYTES = 1 * 1024 * 1024
+
+// 확장자 기준으로 이미지 여부 판단. file.type(mime) 은 모바일에서 신뢰 불가.
+function isImageFileName(name: string): boolean {
+  return /\.(jpe?g|png|heic|heif)$/i.test(name)
+}
+
+// 이미지면 압축 시도, 아니면 원본. 실패해도 원본 반환(예: HEIC 을 canvas 로
+// 못 그리는 안드로이드 크롬 등) — 서버에서 다시 검증하므로 여기서 throw 하지 않음.
+async function compressIfImage(file: File): Promise<File> {
+  if (!isImageFileName(file.name)) return file
+  try {
+    // resizeImageToUnder 는 file.type 이 image/* 로 시작해야 진행하는 가드가 있음.
+    // iOS Safari 는 HEIC 파일 type 을 빈 문자열로 주기 때문에 강제로 힌트 타입 세팅.
+    const typed = file.type.startsWith('image/')
+      ? file
+      : new File([file], file.name, { type: 'image/jpeg' })
+    return await resizeImageToUnder(typed, IMAGE_COMPRESS_TARGET_BYTES)
+  } catch {
+    return file
+  }
+}
 
 type PageState = 'loading' | 'ready' | 'submitted' | 'error' | 'expired'
 
@@ -136,13 +165,24 @@ export default function WorkerDocumentUploadPage() {
     }
 
     setIsSubmitting(true)
-    const tid = toast.loading('제출 중...')
+    const tid = toast.loading('사진 최적화 중...')
     try {
+      // 프록시 4.5MB 제한 회피 위해 이미지 파일들을 순차 압축.
+      // 병렬 처리 시 iOS Safari 에서 canvas 메모리 이슈 있어 순차가 안전.
+      const prepared: Array<{ itemId: string; file: File }> = []
+      for (const it of data.items) {
+        const raw = files[it.id]
+        if (!raw) continue
+        const compressed = await compressIfImage(raw)
+        prepared.push({ itemId: it.id, file: compressed })
+      }
+
+      toast.loading('제출 중...', { id: tid })
+
       const fd = new FormData()
       fd.append('otp', otp)
-      for (const it of data.items) {
-        const file = files[it.id]
-        if (file) fd.append(`file_${it.id}`, file)
+      for (const p of prepared) {
+        fd.append(`file_${p.itemId}`, p.file)
       }
       const res = await fetch(`/api/worker-documents/${token}/submit`, {
         method: 'POST',
