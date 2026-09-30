@@ -396,6 +396,9 @@ export async function GET(request: NextRequest) {
     }
 
     // due_date 조건 제거 — 유형별 트리거는 아래에서 각자 판정
+    // customers.deleted_at IS NULL 필수: soft-delete 된 고객의 pending billing 이
+    // 남아있는 경우 매일 SMS 재발송되는 사고 방지 (2026-09-30, 테스트업체5 케이스).
+    // service_billings 테이블은 deleted_at 컬럼이 없으므로 오직 customers 쪽 필터로만 방어.
     const { data: billings } = await supabase
       .from('service_billings')
       .select(`
@@ -408,6 +411,7 @@ export async function GET(request: NextRequest) {
       `)
       .eq('status', 'pending')
       .in('customers.customer_type', ['정기딥케어', '정기엔드케어'])
+      .is('customers.deleted_at', null)
 
     let sent = 0, failed = 0, skipped = 0
 
