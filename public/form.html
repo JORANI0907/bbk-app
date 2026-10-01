@@ -1532,7 +1532,8 @@
         })(),
         privacyConsent: document.getElementById('privacyConsent').checked,
         serviceConsent: document.getElementById('serviceConsent').checked,
-        requestNotes: document.getElementById('requestNotes').value.trim()
+        requestNotes: document.getElementById('requestNotes').value.trim(),
+        source: (location.pathname === '/bbk-care-test') ? 'test' : 'application'
       };
 
       // BBK 웹앱 API로 전송
