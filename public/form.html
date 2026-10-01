@@ -1586,7 +1586,7 @@
     // 로컬 개발 환경에서는 SMS 인증 자동 통과 (반복 테스트 편의).
     // 프로덕션(app.bbkorea.co.kr)에서는 절대 활성화 안 됨.
     var isLocalDev = (location.hostname === 'localhost' || location.hostname === '127.0.0.1');
-    var isTestMode = new URLSearchParams(location.search).get('test') === '1';
+    var isTestMode = location.pathname === '/bbk-care-test';
     var isTestEnv = isLocalDev || isTestMode;
     var phoneVerified = isTestEnv;
     if (isTestEnv) {
