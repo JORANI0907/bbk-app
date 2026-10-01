@@ -183,10 +183,9 @@ export async function POST(request: NextRequest) {
           // 견적서 신청(source='quote')은 관리자가 별도 세팅하므로 여기서 덮어쓰지 않음
           ...(source !== 'quote' && { service_type: '1회성케어' }),
           // 예약금 기본 8만원 자동 세팅 (관리자가 UI에서 편집 가능)
-          // 안심클릭 결제 최소 2000원 (1000원은 KG이니시스에서 거절, PortOne은 "사용자 취소"로 분류)
+          // 안심클릭 소액 하한 확실하게 통과하도록 테스트는 1만원
           // 견적서 신청은 관리자가 견적 확정 시 세팅하므로 여기선 스킵
-          // 로컬 개발 환경 또는 /bbk-care-test (source='test') 에서는 실카드 테스트 편의를 위해 2000원
-          ...(source !== 'quote' && { deposit: (process.env.NODE_ENV === 'development' || source === 'test') ? 2000 : 80000 }),
+          ...(source !== 'quote' && { deposit: (process.env.NODE_ENV === 'development' || source === 'test') ? 10000 : 80000 }),
           // 결제 대기 상태로 초기화 — 결제 완료 시 complete API가 'paid'로 승격
           // DB CHECK 제약: pending / invoiced / paid / overdue 만 허용
           ...(source !== 'quote' && { payment_status: 'pending' }),
