@@ -101,13 +101,30 @@ export async function POST(request: NextRequest) {
         console.log(`[complete] polling ${i + 1}/20 status=`, paymentStatus)
       }
       if (paymentStatus !== 'PAID') {
-        console.log('[complete] 최종 실패 응답:', JSON.stringify(payment).slice(0, 2000))
-        // READY 그대로 남으면 웹훅으로 나중에 처리됨 → 사용자에게 명확히 안내
+        console.log('[complete] 최종 실패 응답:', JSON.stringify(payment).slice(0, 3000))
+        // PortOne V2 FAILED/READY 응답에서 상세 거절 사유 추출
+        const failure = (payment as { failure?: { reason?: string; pgCode?: string; pgMessage?: string } })?.failure
+        const pgCode    = failure?.pgCode ?? ''
+        const pgMessage = failure?.pgMessage ?? ''
+        const reason    = failure?.reason ?? ''
+        console.log('[complete] 거절 사유 상세:', { status: paymentStatus, reason, pgCode, pgMessage })
+
         const isStillReady = paymentStatus === 'READY'
-        const errMsg = isStillReady
-          ? '결제 승인 대기 중입니다. 잠시 후 결제 확인 안내가 도착합니다.'
-          : `결제가 완료되지 않았습니다. (상태: ${paymentStatus || '알 수 없음'})`
-        return NextResponse.json({ error: errMsg, status: paymentStatus }, { status: 400 })
+        let errMsg: string
+        if (isStillReady) {
+          errMsg = '결제 승인 대기 중입니다. 잠시 후 결제 확인 안내가 도착합니다.'
+        } else if (reason || pgMessage || pgCode) {
+          // 사용자에게 실제 거절 사유 노출 (KG이니시스 메시지 포함)
+          const parts = [reason, pgMessage].filter(Boolean).join(' / ')
+          errMsg = `결제가 거절되었습니다: ${parts || '사유 불명'}${pgCode ? ` (코드: ${pgCode})` : ''}`
+        } else {
+          errMsg = `결제가 완료되지 않았습니다. (상태: ${paymentStatus || '알 수 없음'})`
+        }
+        return NextResponse.json({
+          error: errMsg,
+          status: paymentStatus,
+          failure: { reason, pgCode, pgMessage },
+        }, { status: 400 })
       }
       // 금액 위변조 검증 — PortOne 실제 결제 금액과 서버 계산 금액 비교
       const paidAmount = Number((payment as { amount?: { total?: number } })?.amount?.total ?? 0)
