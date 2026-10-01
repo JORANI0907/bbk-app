@@ -52,6 +52,7 @@ const nextConfig = {
   async rewrites() {
     return [
       { source: '/bbk-care', destination: '/form.html' },
+      { source: '/bbk-care-test', destination: '/form.html?test=1' },
     ]
   },
   async redirects() {
