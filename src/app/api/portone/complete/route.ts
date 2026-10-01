@@ -86,7 +86,7 @@ export async function POST(request: NextRequest) {
     } else {
       // ─── 일반결제 흐름 (카드/실시간계좌이체) — 브라우저 SDK가 결제창 처리 후 서버는 검증만 ───
       // PortOne V2에서 getPayment로 실제 결제 상태와 금액 확인 → 위변조 방지
-      // READY → PAID 전환에 지연이 있을 수 있어 최대 5회(2.5초) 폴링
+      // READY → PAID 전환에 지연이 있을 수 있어 최대 20회(10초) 폴링
       console.log('[complete] getPayment 호출:', { paymentId })
       let payment = await client.payment.getPayment({ paymentId })
       let paymentStatus = String((payment as { status?: string })?.status ?? '')
@@ -94,11 +94,11 @@ export async function POST(request: NextRequest) {
         status: paymentStatus,
         fullResponse: JSON.stringify(payment).slice(0, 1000),
       })
-      for (let i = 0; i < 5 && paymentStatus === 'READY'; i++) {
+      for (let i = 0; i < 20 && paymentStatus === 'READY'; i++) {
         await new Promise((r) => setTimeout(r, 500))
         payment = await client.payment.getPayment({ paymentId })
         paymentStatus = String((payment as { status?: string })?.status ?? '')
-        console.log(`[complete] polling ${i + 1}/5 status=`, paymentStatus)
+        console.log(`[complete] polling ${i + 1}/20 status=`, paymentStatus)
       }
       if (paymentStatus !== 'PAID') {
         console.log('[complete] 최종 실패 응답:', JSON.stringify(payment).slice(0, 2000))

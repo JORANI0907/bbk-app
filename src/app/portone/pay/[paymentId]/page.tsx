@@ -342,10 +342,10 @@ export default function PortOnePayPage() {
       })
       const verifyData = await verifyRes.json()
       if (!verifyRes.ok || !verifyData.success) {
-        // READY 상태(승인 대기)는 성공에 준하게 안내 — 웹훅으로 최종 확정됨
+        // READY 상태 = 카드 승인 미완료. 성공 UI 대신 명확한 실패로 안내 (오인 방지)
         if (verifyData.status === 'READY') {
-          setStatus('success')
-          setMessage('결제 요청이 접수되었습니다. 승인 완료 시 문자로 안내드립니다.')
+          setStatus('error')
+          setMessage('카드 승인이 완료되지 않았습니다. 결제창에서 카드 인증까지 마치신 뒤 다시 시도해주세요.')
           return
         }
         setStatus('error')
