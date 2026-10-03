@@ -841,36 +841,54 @@ export async function PATCH(request: NextRequest) {
 
   // 정기딥/엔드 마스터 → 미래 회차 work_assignments 재구성.
   // 완료된 회차(작업완료·결제·계산서발행완료 등)는 스냅샷 보존.
+  //
+  // 요일별(weekday_assignments) · 일자별(monthly_date_assignments) 매핑에 값이
+  // 하나라도 있으면 이 bulk sync 를 skip. 요일별 UI 안내("한 요일이라도 값이
+  // 있으면 요일별 배정만 반영. 전체 비어있으면 상단 담당직원 값 반영")와 정합.
+  // 이 skip 없이 상단 workerIds 로 덮어쓰면 요일별 매핑이 work_assignments 테이블
+  // 에서 사라져 모든 미래 회차에 상단 작업자가 일괄 배정되는 사고 발생.
+  // (2026-10-03, 욜로피시카페 2nd 케이스)
+  // 요일별 재배정은 generate-schedules 라우트의 regenerate 블록("수정 반영" 버튼)
+  // 이 담당 — pickAssignment() 로 요일별 매핑을 참조해 회차별로 재삽입.
   if (regularSyncable && normalizedWorkerIds !== null) {
-    const workerIds = normalizedWorkerIds
-    try {
-      const todayKST = new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10)
-      const { data: futureApps } = await supabase
-        .from('service_applications')
-        .select('id, construction_date, business_name')
-        .eq('customer_id', id)
-        .is('deleted_at', null)
-        .in('status', ['신규', '예약확정', '예약1일전', '예약당일', '기존고객'])
-        .gte('construction_date', todayKST)
+    type AssignmentEntry = { user_id?: string | null; worker_ids?: string[] | null } | null | undefined
+    const wa  = (updatedCustomer.weekday_assignments        ?? {}) as Record<string, AssignmentEntry>
+    const mda = (updatedCustomer.monthly_date_assignments  ?? {}) as Record<string, AssignmentEntry>
+    const hasRoleMap =
+      Object.values(wa).some(v => !!v?.user_id || (Array.isArray(v?.worker_ids) && v!.worker_ids!.length > 0)) ||
+      Object.values(mda).some(v => !!v?.user_id || (Array.isArray(v?.worker_ids) && v!.worker_ids!.length > 0))
 
-      for (const app of futureApps ?? []) {
-        if (!app.construction_date || !app.business_name) continue
-        await supabase.from('work_assignments').delete().eq('application_id', app.id)
-        if (workerIds.length > 0) {
-          const rows = workerIds.map(worker_id => ({
-            worker_id,
-            application_id: app.id,
-            construction_date: app.construction_date,
-            business_name: app.business_name,
-          }))
-          await supabase.from('work_assignments').insert(rows)
+    if (!hasRoleMap) {
+      const workerIds = normalizedWorkerIds
+      try {
+        const todayKST = new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10)
+        const { data: futureApps } = await supabase
+          .from('service_applications')
+          .select('id, construction_date, business_name')
+          .eq('customer_id', id)
+          .is('deleted_at', null)
+          .in('status', ['신규', '예약확정', '예약1일전', '예약당일', '기존고객'])
+          .gte('construction_date', todayKST)
+
+        for (const app of futureApps ?? []) {
+          if (!app.construction_date || !app.business_name) continue
+          await supabase.from('work_assignments').delete().eq('application_id', app.id)
+          if (workerIds.length > 0) {
+            const rows = workerIds.map(worker_id => ({
+              worker_id,
+              application_id: app.id,
+              construction_date: app.construction_date,
+              business_name: app.business_name,
+            }))
+            await supabase.from('work_assignments').insert(rows)
+          }
         }
+      } catch (e) {
+        console.error(
+          '정기케어 미래 회차 work_assignments sync 실패:',
+          e instanceof Error ? e.message : e,
+        )
       }
-    } catch (e) {
-      console.error(
-        '정기케어 미래 회차 work_assignments sync 실패:',
-        e instanceof Error ? e.message : e,
-      )
     }
   }
 
