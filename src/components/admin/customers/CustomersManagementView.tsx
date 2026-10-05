@@ -896,10 +896,13 @@ export function CustomersManagementView({
     const nextY = m === 12 ? y + 1 : y
     const nextM = m === 12 ? 1 : m + 1
     const nextMonth = `${nextY}-${String(nextM).padStart(2, '0')}`
-    const [customersRes, appsThisRes, appsNextRes] = await Promise.all([
+    const [customersRes, appsThisRes, appsNextRes, appsPendingRes] = await Promise.all([
       fetch(url),
       archivedView ? Promise.resolve(null) : fetch(`/api/admin/applications?month=${thisMonth}`),
       archivedView ? Promise.resolve(null) : fetch(`/api/admin/applications?month=${nextMonth}`),
+      // 미배정·미시공 접수 건 (홈페이지 /api/contact · /api/quick-inquiry 등으로 유입된
+      // construction_date NULL 상태의 신규 신청서). month 필터로는 안 걸리는 사각지대 보완.
+      archivedView ? Promise.resolve(null) : fetch(`/api/admin/applications?pending_only=true`),
     ])
     const data = await customersRes.json()
     const freshCustomers = data.customers ?? []
@@ -907,10 +910,25 @@ export function CustomersManagementView({
     let freshPendings: unknown[] = []
     if (appsThisRes && appsNextRes) {
       try {
-        const [j1, j2] = await Promise.all([appsThisRes.json(), appsNextRes.json()])
-        const merged = [...(j1.applications ?? []), ...(j2.applications ?? [])]
+        const [j1, j2, j3] = await Promise.all([
+          appsThisRes.json(),
+          appsNextRes.json(),
+          appsPendingRes ? appsPendingRes.json() : Promise.resolve({ applications: [] }),
+        ])
+        const merged = [
+          ...(j1.applications ?? []),
+          ...(j2.applications ?? []),
+          ...(j3.applications ?? []),
+        ]
+        // id 기준 중복 제거 (안전장치 — pending_only 결과는 이미 month 결과와 겹치지 않음)
+        const seen = new Set<string>()
+        const deduped = merged.filter((a: { id: string }) => {
+          if (seen.has(a.id)) return false
+          seen.add(a.id)
+          return true
+        })
         // customer 미등록 신청서만 pendings 로 (customer 등록된 회차는 customers 리스트에서 표시)
-        const orphaned = merged.filter((a: { customer_id: string | null }) => !a.customer_id)
+        const orphaned = deduped.filter((a: { customer_id: string | null }) => !a.customer_id)
         freshPendings = orphaned
         setPendingApplications(orphaned)
       } catch {
@@ -3828,20 +3846,10 @@ export function CustomersManagementView({
               </div>
             </div>
 
-            {/* Phase 22: 시공정보 — 헤더를 테두리 안으로 + 케어매뉴얼 편집 버튼 헤더 옆으로 이동 */}
+            {/* 시공정보 — 헤더는 심플, 매뉴얼 버튼은 섹션 최하단 CTA로 이동 */}
             <div className="border-2 border-green-200 rounded-xl overflow-hidden bg-green-50/30">
-              <div className="bg-green-100/60 px-3 py-2 border-b border-green-200 flex items-center justify-between gap-2">
+              <div className="bg-green-100/60 px-3 py-2 border-b border-green-200">
                 <p className="text-xs font-semibold text-green-900 uppercase tracking-wide">시공정보</p>
-                {!isNew && selected && isRegular && (
-                  <button
-                    type="button"
-                    onClick={() => { window.location.href = `/admin/customers/${selected.id}/care-manual` }}
-                    className="btn-toss-primary inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-brand-600 hover:bg-brand-700 text-white text-xs font-semibold"
-                  >
-                    <BookOpen size={11} />
-                    {isWorker ? '매뉴얼 보기' : '매뉴얼 편집'}
-                  </button>
-                )}
               </div>
               <div className="p-3 space-y-2">
                 <div className="flex items-start gap-2">
@@ -3889,8 +3897,31 @@ export function CustomersManagementView({
                   <input type="time" value={form.construction_time} onChange={e => set('construction_time')(e.target.value)}
                     className="flex-1 border border-border rounded-lg px-2 py-1.5 text-xs text-text-primary focus:outline-none focus:ring-2 focus:ring-green-500" />
                 </div>
-                {/* Phase 22: 케어매뉴얼 편집 → 시공정보 헤더 옆으로 이동됨 (자리 제거) */}
-                {/* Phase 22: 고객계정통합 → 일반정보 섹션 아래로 이동됨 (자리 제거) */}
+                {/* 케어 매뉴얼 CTA — 섹션 최하단, worker는 '보기'로 라벨 전환 */}
+                {!isNew && selected && isRegular && (
+                  <div className="pt-2">
+                    <button
+                      type="button"
+                      onClick={() => { window.location.href = `/admin/customers/${selected.id}/care-manual` }}
+                      className="group w-full inline-flex items-center justify-between gap-3 px-4 py-3 rounded-xl bg-gradient-to-r from-brand-600 via-brand-600 to-brand-700 text-white shadow-soft hover:shadow-brand-hover hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.99] transition-all duration-150 ease-out-toss"
+                    >
+                      <span className="inline-flex items-center gap-2.5">
+                        <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-white/15 ring-1 ring-white/20 group-hover:bg-white/25 transition-colors">
+                          <BookOpen size={15} />
+                        </span>
+                        <span className="flex flex-col items-start leading-tight">
+                          <span className="text-sm font-semibold tracking-tight">
+                            {isWorker ? '케어 매뉴얼 보기' : '케어 매뉴얼 편집'}
+                          </span>
+                          <span className="text-[11px] text-white/70">
+                            {isWorker ? '현장에서 참고할 상세 매뉴얼을 엽니다' : '현장용 상세 매뉴얼을 편집합니다'}
+                          </span>
+                        </span>
+                      </span>
+                      <span className="text-white/80 text-sm group-hover:translate-x-0.5 transition-transform">→</span>
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
 
