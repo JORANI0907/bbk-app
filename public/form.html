@@ -1028,20 +1028,20 @@
           <label class="form-label">결제 방법 선택<span class="required">*</span></label>
           <div class="radio-group">
             <div class="radio-option">
-              <input type="radio" name="paymentMethod" id="payTransfer" value="현금(계산서 희망)" required>
-              <label for="payTransfer"><span class="radio-dot"></span>현금(계산서 희망)</label>
+              <input type="radio" name="paymentMethod" id="payCreditCard" value="credit_card" required>
+              <label for="payCreditCard"><span class="radio-dot"></span>신용/체크카드</label>
             </div>
             <div class="radio-option">
-              <input type="radio" name="paymentMethod" id="payCard" value="카드(온라인 간편결제)">
-              <label for="payCard"><span class="radio-dot"></span>카드(온라인 간편결제)</label>
+              <input type="radio" name="paymentMethod" id="payCorporateCard" value="corporate_card">
+              <label for="payCorporateCard"><span class="radio-dot"></span>법인카드</label>
             </div>
             <div class="radio-option">
-              <input type="radio" name="paymentMethod" id="payPlatform" value="플랫폼">
-              <label for="payPlatform"><span class="radio-dot"></span>플랫폼</label>
+              <input type="radio" name="paymentMethod" id="payBankTransfer" value="bank_transfer">
+              <label for="payBankTransfer"><span class="radio-dot"></span>계좌이체</label>
             </div>
             <div class="radio-option">
-              <input type="radio" name="paymentMethod" id="payCash" value="현금(비과세)">
-              <label for="payCash"><span class="radio-dot"></span>현금(비과세)</label>
+              <input type="radio" name="paymentMethod" id="payVirtualAccount" value="virtual_account">
+              <label for="payVirtualAccount"><span class="radio-dot"></span>무통장입금(가상계좌)</label>
             </div>
           </div>
           <div class="error-msg" id="paymentMethodError">⚠ 결제 방법을 선택해주세요</div>
@@ -1052,8 +1052,16 @@
         </div>
 
         <div class="form-group">
-          <label class="form-label">계좌번호 (카드, 플랫폼 결제 시 페이백)<span class="required">*</span></label>
-          <div class="form-hint">카드 or 플랫폼 결제 시 예약금 페이백을 위해 작성 바랍니다.</div>
+          <label class="form-label">
+            <input type="checkbox" id="taxInvoiceRequired" style="margin-right:6px; vertical-align:middle;">
+            세금계산서 발행 요청 (사업자 고객)
+          </label>
+          <div class="form-hint">사업자등록번호가 있는 고객은 체크하시면 세금계산서를 별도 발행해드립니다.</div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">계좌번호 (예약금 환급받을 계좌)<span class="required">*</span></label>
+          <div class="form-hint">서비스 완료 후 예약금을 환급받으실 본인 명의 계좌를 입력해주세요.</div>
           <div style="display:flex; gap:8px; align-items:stretch;">
             <select class="form-input" id="bankName" required style="flex:0 0 140px; min-width:120px;">
               <option value="">은행 선택</option>
@@ -1524,6 +1532,8 @@
         accessMethod: document.getElementById('accessMethod').value.trim(),
         parking: parkingValue,
         paymentMethod: document.querySelector('input[name="paymentMethod"]:checked').value,
+        // 2026-10-06 재설계: 세금계산서 발행 요청 플래그 (사업자 고객용)
+        taxInvoiceRequired: (document.getElementById('taxInvoiceRequired') || {}).checked || false,
         accountNumber: (function(){
           var bank = document.getElementById('bankName').value.trim();
           var acct = document.getElementById('accountNumber').value.trim();
@@ -1631,7 +1641,7 @@
         checkOne('elevatorYes');
         checkOne('accessNo');
         checkOne('parkingBuilding');
-        checkOne('payCard');
+        checkOne('payCreditCard');
         checkOne('privacyConsent');
         checkOne('serviceConsent');
 

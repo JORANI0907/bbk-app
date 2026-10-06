@@ -5,6 +5,7 @@ import { useParams, useSearchParams } from 'next/navigation'
 import Image from 'next/image'
 import { requestPayment } from '@portone/browser-sdk/v2'
 import { KbEscrowBadge } from '@/components/KbEscrowBadge'
+import { normalizePaymentMethod, type PaymentMethod } from '@/lib/payment-methods'
 
 type AppInfo = {
   id?: string
@@ -67,22 +68,43 @@ const EDITABLE_FIELD_LABELS: EditableField[] = [
 ]
 
 type Stage = 'deposit' | 'balance'
-type Method = 'card' | 'vbank' | 'transfer'
+
+/**
+ * 결제 페이지 UI에서 사용자가 선택할 수 있는 결제 수단 4종.
+ * src/lib/payment-methods.ts 의 PaymentMethod enum 중 CUSTOMER_FACING_METHODS 와 동일.
+ */
+type Method = 'credit_card' | 'corporate_card' | 'bank_transfer' | 'virtual_account'
 
 function calcBalance(supply: number, vat: number, deposit: number) {
   return (supply + vat) - deposit
 }
 
+/**
+ * DB의 payment_method 값(레거시 한글 + 신규 영문 모두)을 받아 UI 상 Method 로 변환.
+ * - 신규 enum 값은 그대로 매핑
+ * - 레거시 '카드(온라인 간편결제)' 는 'credit_card' 로 (법인/개인 구분 없이 저장된 과거 데이터)
+ * - 알 수 없거나 null 이면 기본값 'credit_card'
+ */
 function inferMethodFromPaymentMethod(pm: string | undefined | null): Method {
-  if (pm === '계좌이체') return 'transfer'
-  if (pm === '가상계좌' || pm === '현금(계산서 희망)') return 'vbank'
-  return 'card'
+  const normalized = normalizePaymentMethod(pm)
+  switch (normalized) {
+    case 'bank_transfer':   return 'bank_transfer'
+    case 'virtual_account': return 'virtual_account'
+    case 'corporate_card':  return 'corporate_card'
+    case 'credit_card':
+    default:                return 'credit_card'
+  }
 }
 
-const METHOD_TO_PAYMENT_METHOD: Record<Method, '카드(온라인 간편결제)' | '가상계좌' | '계좌이체'> = {
-  card:     '카드(온라인 간편결제)',
-  vbank:    '가상계좌',
-  transfer: '계좌이체',
+/**
+ * UI Method → DB 저장용 PaymentMethod enum 값.
+ * 1:1 매핑이므로 사실상 동일한 값이지만, 타입 명시를 위해 유지.
+ */
+const METHOD_TO_PAYMENT_METHOD: Record<Method, PaymentMethod> = {
+  credit_card:     'credit_card',
+  corporate_card:  'corporate_card',
+  bank_transfer:   'bank_transfer',
+  virtual_account: 'virtual_account',
 }
 
 // ─── SVG 아이콘 ───────────────────────────────
@@ -107,6 +129,17 @@ function TransferIcon({ className }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
       <path d="M7 10h13l-3-3" /><path d="M17 14H4l3 3" />
+    </svg>
+  )
+}
+function BuildingIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="4" y="3" width="16" height="18" rx="1" />
+      <line x1="9" y1="7"  x2="9"  y2="7.01" /><line x1="15" y1="7"  x2="15" y2="7.01" />
+      <line x1="9" y1="11" x2="9"  y2="11.01" /><line x1="15" y1="11" x2="15" y2="11.01" />
+      <line x1="9" y1="15" x2="9"  y2="15.01" /><line x1="15" y1="15" x2="15" y2="15.01" />
+      <path d="M10 21v-3h4v3" />
     </svg>
   )
 }
@@ -153,7 +186,7 @@ export default function PortOnePayPage() {
   const [app,     setApp]     = useState<AppInfo | null>(null)
   const [status,  setStatus]  = useState<'idle' | 'loading' | 'paying' | 'switching' | 'success' | 'error'>('loading')
   const [message, setMessage] = useState('')
-  const [selectedMethod, setSelectedMethod] = useState<Method>('card')
+  const [selectedMethod, setSelectedMethod] = useState<Method>('credit_card')
 
   // 상세보기 모달 상태 — 개별 필드 편집 방식
   const [detailOpen,    setDetailOpen]    = useState(false)
@@ -289,7 +322,7 @@ export default function PortOnePayPage() {
     setStatus('paying')
     try {
       const storeId = process.env.NEXT_PUBLIC_PORTONE_STORE_ID ?? ''
-      const isTransfer = selectedMethod === 'transfer'
+      const isTransfer = selectedMethod === 'bank_transfer'
       const channelKey = isTransfer
         ? (process.env.NEXT_PUBLIC_PORTONE_CHANNEL_KEY_TRANSFER ?? '')
         : (process.env.NEXT_PUBLIC_PORTONE_CHANNEL_KEY_CARD ?? '')
@@ -408,13 +441,17 @@ export default function PortOnePayPage() {
   }
 
   // ─── 결제방법 옵션 ────────────────────────────────────
+  // 쿠팡 스타일 4종 결제 수단. backend는 신용/체크카드와 법인카드 모두 CARD payMethod로 처리.
+  // 법인카드는 사업자 고객 편의를 위한 시각적 구분이며, DB에 payment_method='corporate_card'로 저장돼
+  // 추후 매출 집계/세금계산서 발행 요청 통계에 활용된다.
   const methods: Array<{ key: Method; title: string; desc: string; Icon: (p: { className?: string }) => JSX.Element; color: string }> = [
-    { key: 'card',     title: '신용/체크카드',    desc: '카드로 즉시 결제',           Icon: CardIcon,     color: 'emerald' },
-    { key: 'transfer', title: '실시간 계좌이체',  desc: '오픈뱅킹으로 즉시 이체',      Icon: TransferIcon, color: 'sky' },
-    { key: 'vbank',    title: '가상계좌',        desc: '발급받은 계좌로 입금',        Icon: BankIcon,     color: 'amber' },
+    { key: 'credit_card',     title: '신용/체크카드',       desc: '카드로 즉시 결제',          Icon: CardIcon,     color: 'emerald' },
+    { key: 'corporate_card',  title: '법인카드',             desc: '법인/사업자 명의 카드',      Icon: BuildingIcon, color: 'violet' },
+    { key: 'bank_transfer',   title: '계좌이체',             desc: '오픈뱅킹으로 즉시 이체',     Icon: TransferIcon, color: 'sky' },
+    { key: 'virtual_account', title: '무통장입금(가상계좌)', desc: '발급받은 가상계좌로 입금',   Icon: BankIcon,     color: 'amber' },
   ]
 
-  const isVbankSelected = selectedMethod === 'vbank'
+  const isVbankSelected = selectedMethod === 'virtual_account'
   const isSwitching     = status === 'switching'
   const isPaying        = status === 'paying'
 
@@ -557,6 +594,8 @@ export default function PortOnePayPage() {
               // 활성 색상: 채도 낮춘 파스텔 (bg-*-50/60로 배경 크림이 배어 나오게)
               const colorClass = m.color === 'emerald'
                 ? { bg: 'from-emerald-50/70 to-teal-50/60', border: 'border-emerald-200/70', icon: 'bg-emerald-100/80 text-emerald-500', dot: 'bg-emerald-400' }
+                : m.color === 'violet'
+                ? { bg: 'from-violet-50/70 to-purple-50/60', border: 'border-violet-200/70', icon: 'bg-violet-100/80 text-violet-500',  dot: 'bg-violet-400' }
                 : m.color === 'sky'
                 ? { bg: 'from-sky-50/70 to-blue-50/60',    border: 'border-sky-200/70',    icon: 'bg-sky-100/80 text-sky-500',       dot: 'bg-sky-400' }
                 : { bg: 'from-amber-50/70 to-orange-50/60',border: 'border-amber-200/70',  icon: 'bg-amber-100/80 text-amber-500',   dot: 'bg-amber-400' }
@@ -660,7 +699,7 @@ export default function PortOnePayPage() {
                 다른 결제 수단을 선택하시거나 아래 버튼으로 다시 시도해 주세요.
               </p>
               <button
-                onClick={() => switchMethod('vbank')}
+                onClick={() => switchMethod('virtual_account')}
                 className="w-full py-2.5 rounded-xl text-sm font-semibold bg-white text-rose-700 border border-rose-200 hover:bg-rose-50 transition-colors"
               >
                 가상계좌 재발급
@@ -700,7 +739,7 @@ export default function PortOnePayPage() {
       </div>
 
       {/* 하단 고정 결제 버튼 - 파스텔 그라디언트 */}
-      {(selectedMethod === 'card' || selectedMethod === 'transfer') && (
+      {(selectedMethod === 'credit_card' || selectedMethod === 'corporate_card' || selectedMethod === 'bank_transfer') && (
         <div className="fixed bottom-0 inset-x-0 bg-white/95 backdrop-blur-lg border-t border-stone-200/60 shadow-2xl">
           <div className="max-w-md mx-auto px-4 py-2.5">
             <button

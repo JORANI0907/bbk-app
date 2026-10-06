@@ -3948,12 +3948,19 @@ export function CustomersManagementView({
                           : 'border-border-subtle text-text-tertiary bg-surface-sunken cursor-not-allowed'
                       }`}>
                       <option value="">선택...</option>
-                      <option value="카드(온라인 간편결제)">카드(온라인 간편결제)</option>
-                      <option value="계좌이체">계좌이체</option>
-                      <option value="가상계좌">가상계좌</option>
-                      <option value="현금(계산서 희망)">현금(계산서 희망)</option>
-                      <option value="현금(비과세)">현금(비과세)</option>
-                      <option value="플랫폼">플랫폼</option>
+                      {/* 2026-10-06 재설계: 신규 enum 5종 (platform은 레거시 유지) */}
+                      <option value="credit_card">신용/체크카드</option>
+                      <option value="corporate_card">법인카드</option>
+                      <option value="bank_transfer">계좌이체</option>
+                      <option value="virtual_account">무통장입금(가상계좌)</option>
+                      <option value="cash_untaxed">비과세 현금</option>
+                      {/* 레거시 (과거 데이터 호환용) */}
+                      <option value="카드(온라인 간편결제)">카드(온라인 간편결제) [레거시]</option>
+                      <option value="계좌이체">계좌이체 [레거시]</option>
+                      <option value="가상계좌">가상계좌 [레거시]</option>
+                      <option value="현금(계산서 희망)">현금(계산서 희망) [레거시]</option>
+                      <option value="현금(비과세)">현금(비과세) [레거시]</option>
+                      <option value="플랫폼">플랫폼 [레거시]</option>
                     </select>
                     <button
                       type="button"

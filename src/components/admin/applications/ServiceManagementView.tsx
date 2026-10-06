@@ -1672,9 +1672,17 @@ export function ServiceManagementPage({
             <select value={paymentFilter} onChange={e => setPaymentFilter(e.target.value)}
               className="text-xs border border-border rounded-lg px-2 py-1.5 bg-surface focus:outline-none focus:ring-2 focus:ring-brand-500">
               <option value="">결제방법 전체</option>
-              {['현금(계산서 희망)', '현금(비과세)', '카드(온라인 간편결제)', '플랫폼'].map(p => (
-                <option key={p} value={p}>{p}</option>
-              ))}
+              {/* 2026-10-06 재설계: 신규 enum 4종 + 운영 전용 1종 */}
+              <option value="credit_card">신용/체크카드</option>
+              <option value="corporate_card">법인카드</option>
+              <option value="bank_transfer">계좌이체</option>
+              <option value="virtual_account">무통장입금(가상계좌)</option>
+              <option value="cash_untaxed">비과세 현금 (운영 전용)</option>
+              {/* 레거시 데이터 필터용 (DB 마이그레이션 전 과거 레코드 조회) */}
+              <option value="카드(온라인 간편결제)">카드(온라인 간편결제) [레거시]</option>
+              <option value="현금(계산서 희망)">현금(계산서 희망) [레거시]</option>
+              <option value="현금(비과세)">현금(비과세) [레거시]</option>
+              <option value="플랫폼">플랫폼 [레거시]</option>
             </select>
             <select
               value={selectedStaffId ?? ''}
@@ -2231,10 +2239,12 @@ export function ServiceManagementPage({
                     <select value={paymentMethod} onChange={e => handlePaymentMethodChange(e.target.value)}
                       className="flex-1 border border-border rounded-lg px-2 py-1.5 text-xs text-text-primary focus:outline-none focus:ring-2 focus:ring-brand-500 bg-surface">
                       <option value="">선택...</option>
-                      <option value="현금(계산서 희망)">현금(계산서 희망)</option>
-                      <option value="현금(비과세)">현금(비과세)</option>
-                      <option value="카드(온라인 간편결제)">카드(온라인 간편결제)</option>
-                      <option value="플랫폼">플랫폼</option>
+                      {/* 2026-10-06 재설계: 신규 enum 5종 (platform은 레거시만 유지, 신규 선택 금지) */}
+                      <option value="credit_card">신용/체크카드</option>
+                      <option value="corporate_card">법인카드</option>
+                      <option value="bank_transfer">계좌이체</option>
+                      <option value="virtual_account">무통장입금(가상계좌)</option>
+                      <option value="cash_untaxed">비과세 현금</option>
                     </select>
                   </div>
                   <div className="flex items-center gap-2">
@@ -2288,8 +2298,8 @@ export function ServiceManagementPage({
                 </div>
               </Section>
 
-              {/* 포트원 결제 */}
-              {paymentMethod === '카드(온라인 간편결제)' && selected && (
+              {/* 포트원 결제 — 2026-10-06 재설계: 카드 결제 2종(신용/법인) 모두 노출 */}
+              {(paymentMethod === '카드(온라인 간편결제)' || paymentMethod === 'credit_card' || paymentMethod === 'corporate_card') && selected && (
                 <Section title="포트원 결제">
                   <div className="space-y-2">
                     <div className="flex items-center gap-2">
