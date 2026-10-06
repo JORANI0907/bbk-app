@@ -7,6 +7,7 @@ import { saveNotificationHistory } from '@/lib/notification'
 import { sendPushToUsers } from '@/lib/push'
 import { sendSlack } from '@/lib/slack'
 import { dispatch, lookupFranchiseHqIdsForCustomer } from '@/lib/notification-dispatcher'
+import { normalizePaymentMethod } from '@/lib/payment-methods'
 
 const WORKER_NOTIFY_TYPES = new Set(['작업자 일정 안내', '작업자 자세한 일정 안내'])
 
@@ -470,11 +471,20 @@ export async function POST(request: NextRequest) {
         //   정기엔드와 동일 패턴(감사·사진 위주)의 단일 template로 통합.
         type = '작업완료알림(정기딥케어)'
       } else {
-        const pm = String(app.payment_method ?? '')
-        if (pm === '카드(온라인 간편결제)' || pm === '플랫폼') {
+        // 2026-10-06 재설계: normalizePaymentMethod()로 레거시+신규 enum 모두 처리.
+        //   - credit_card/corporate_card/platform → '작업완료알림(카드,플렛폼)' 템플릿
+        //   - virtual_account/bank_transfer/cash_untaxed → 기본 '작업완료알림' 템플릿
+        //   - 그 외 (알 수 없는 값) → skip
+        const rawPm = String(app.payment_method ?? '')
+        const pm = normalizePaymentMethod(rawPm)
+        if (pm === 'credit_card' || pm === 'corporate_card' || pm === 'platform') {
           type = '작업완료알림(카드,플렛폼)'
-        } else if (pm !== '현금(계산서 희망)' && pm !== '현금(비과세)') {
-          return NextResponse.json({ success: true, skipped: true, reason: `결제방법 '${pm}'은(는) 발송 대상이 아닙니다.` })
+        } else if (
+          pm !== 'virtual_account' &&
+          pm !== 'bank_transfer' &&
+          pm !== 'cash_untaxed'
+        ) {
+          return NextResponse.json({ success: true, skipped: true, reason: `결제방법 '${rawPm}'은(는) 발송 대상이 아닙니다.` })
         }
       }
     }

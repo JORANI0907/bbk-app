@@ -23,7 +23,10 @@ export async function POST(request: NextRequest) {
       applicationId?: string
       customerId?: string
       stage: 'deposit' | 'balance'
-      overridePaymentMethod?: '카드(온라인 간편결제)' | '가상계좌' | '계좌이체'
+      // 2026-10-06 재설계: 레거시 한글 enum + 신규 영문 enum 모두 지원
+      overridePaymentMethod?:
+        | '카드(온라인 간편결제)' | '가상계좌' | '계좌이체'  // 레거시
+        | 'credit_card' | 'corporate_card' | 'bank_transfer' | 'virtual_account'  // 신규
     }
     const { applicationId, customerId, stage, overridePaymentMethod } = body
     if ((!applicationId && !customerId) || !stage) {

@@ -4,6 +4,7 @@ import { sendByTemplate } from '@/lib/template-sender'
 import type { NotificationContext } from '@/lib/notification-variables'
 import { saveNotificationHistory } from '@/lib/notification'
 import { appendBothNotificationLogs } from '@/lib/notification-log'
+import { normalizePaymentMethod } from '@/lib/payment-methods'
 
 const CRON_SECRET = process.env.CRON_SECRET
 
@@ -231,13 +232,18 @@ export async function GET(request: NextRequest) {
     // payment_method 마스터 우선 참조 — sync 어긋난 경우도 정상 판정.
     // 예: customer='현금(계산서 희망)' 인데 app 이 '카드(온라인 간편결제)' 로 남아있는 케이스
     //  → 마스터 값 채택하여 '결제알림' 템플릿으로 정확히 발송.
-    const pm = String(app.customers?.payment_method ?? app.payment_method ?? '')
+    //
+    // 2026-10-06 재설계: normalizePaymentMethod()로 레거시+신규 enum 모두 처리.
+    //   레거시 '현금(계산서 희망)' → 'virtual_account'로 정규화되므로 rawPm 체크 보존.
+    //   신규 'bank_transfer'/'virtual_account'도 '결제알림' 템플릿 대상에 포함.
+    const rawPm = String(app.customers?.payment_method ?? app.payment_method ?? '')
+    const pm = normalizePaymentMethod(rawPm)
     let billingType: string
-    if (pm === '현금(계산서 희망)') {
+    if (rawPm === '현금(계산서 희망)' || pm === 'virtual_account' || pm === 'bank_transfer') {
       billingType = '결제알림'
-    } else if (pm === '현금(비과세)') {
+    } else if (pm === 'cash_untaxed') {
       billingType = '결제알림(현금)'
-    } else if (pm === '카드(온라인 간편결제)' || pm === '플랫폼') {
+    } else if (pm === 'credit_card' || pm === 'corporate_card' || pm === 'platform') {
       billingType = '결제요청알림(카드)'
     } else {
       skipped++; continue

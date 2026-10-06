@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { getServerSession } from '@/lib/session'
+import { hasVat } from '@/lib/payment-methods'
 
 export const dynamic = 'force-dynamic'
 
@@ -12,8 +13,8 @@ export const dynamic = 'force-dynamic'
 //   include_issued=true       → 발행완료 건도 포함
 //   service_type=A,B,...      → 유형 필터 (1회성케어, 정기딥케어, 정기엔드케어)
 
-// 부가세 미적용 결제방법
-const NO_VAT_METHODS = new Set(['현금(비과세)', '카드(온라인 간편결제)', '플랫폼'])
+// 부가세 미적용 결제방법 — 2026-10-06 재설계로 하드코딩 제거.
+// src/lib/payment-methods.ts의 hasVat() 사용 (레거시+신규 enum 자동 처리)
 
 type Source = 'application' | 'billing'
 
@@ -114,7 +115,7 @@ function checkValidity(row: { business_number: string | null; business_name: str
 }
 
 function calcAmounts(amount: number, payment_method: string | null): { supply: number; vat: number } {
-  if (!payment_method || NO_VAT_METHODS.has(payment_method)) {
+  if (!payment_method || !hasVat(payment_method)) {
     return { supply: amount, vat: 0 }
   }
   const supply = Math.round(amount / 1.1)

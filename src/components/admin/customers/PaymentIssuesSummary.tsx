@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { AlertCircle, DollarSign, FileText, CreditCard } from 'lucide-react'
+import { isTaxInvoiceEligible } from '@/lib/payment-methods'
 
 /**
  * Phase 22 v6~9: 고객의 미해결 결제/계산서 이슈 요약.
@@ -44,8 +45,8 @@ const PAYMENT_PAID_NEEDS_INVOICE = new Set([
   '결제완료', '카드결제 완료',
 ])
 
-// 계산서 발행이 필요없는 결제 방법 (비과세·카드 간편결제 등)
-const NO_INVOICE_METHODS = new Set(['현금(비과세)', '카드(온라인 간편결제)', '플랫폼'])
+// 계산서 발행이 필요없는 결제 방법 — 2026-10-06 재설계로 하드코딩 제거.
+// src/lib/payment-methods.ts의 isTaxInvoiceEligible() 사용 (레거시+신규 enum 자동 처리)
 
 interface Props {
   /** Phase 22 v8: customer_id 최우선 매칭 — 같은 phone/business_name을 공유하는 다른 유형 계약과 안전 분리 */
@@ -123,7 +124,7 @@ export function PaymentIssuesSummary({
         // v11: due_date(결제일)가 아직 도래하지 않은 청구는 결제 대기가 아님
         const dueReached = b.due_date && b.due_date.slice(0, 10) <= todayISO
         if (dueReached) paymentPendingLabels.push(b.billing_period)
-      } else if (!b.tax_invoice_issued && !NO_INVOICE_METHODS.has(paymentMethod ?? '')) {
+      } else if (!b.tax_invoice_issued && isTaxInvoiceEligible(paymentMethod)) {
         invoicePendingLabels.push(b.billing_period)
       }
     }
@@ -157,7 +158,7 @@ export function PaymentIssuesSummary({
         if (
           a.payment_status_detail &&
           PAYMENT_PAID_NEEDS_INVOICE.has(a.payment_status_detail) &&
-          !NO_INVOICE_METHODS.has(a.payment_method ?? '')
+          isTaxInvoiceEligible(a.payment_method)
         ) {
           invoicePendingLabels.push(fmtShortDate(a.construction_date))
         }
