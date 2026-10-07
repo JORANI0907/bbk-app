@@ -766,6 +766,8 @@ export function CustomersManagementView({
   const [form, setForm] = useState<typeof EMPTY_FORM>(EMPTY_FORM)
   const [saving, setSaving] = useState(false)
   const [statusToggling, setStatusToggling] = useState(false)
+  const [copiedUrl, setCopiedUrl] = useState<'deposit' | 'balance' | null>(null)
+  const [generatingBalanceUrl, setGeneratingBalanceUrl] = useState(false)
   // 결제방법 편집 잠금 (카드 단일화 정책 실수 방지 · 고객 열 때마다 잠금으로 리셋)
   const [paymentMethodUnlocked, setPaymentMethodUnlocked] = useState(false)
   const [notifyType, setNotifyType] = useState('')
@@ -1689,6 +1691,44 @@ export function CustomersManagementView({
     } catch (e) {
       toast.error(e instanceof Error ? e.message : '저장 실패')
     } finally { setStatusToggling(false) }
+  }
+
+  // 복사 피드백 2초 후 자동 초기화
+  useEffect(() => {
+    if (!copiedUrl) return
+    const t = setTimeout(() => setCopiedUrl(null), 2000)
+    return () => clearTimeout(t)
+  }, [copiedUrl])
+
+  const handleGenerateBalanceUrl = async () => {
+    if (!selected?.id || generatingBalanceUrl) return
+    setGeneratingBalanceUrl(true)
+    try {
+      const res = await fetch('/api/portone/issue-payment-link', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ customerId: selected.id, stage: 'balance' }),
+      })
+      const data = await res.json()
+      if (data.success && data.paymentUrl) {
+        setSelected(prev => prev ? {
+          ...prev,
+          balance_payment_url: data.paymentUrl,
+          balance_portone_id: data.paymentId ?? prev.balance_portone_id,
+        } : prev)
+        setCustomers(prev => prev.map(c => c.id === selected.id
+          ? { ...c, balance_payment_url: data.paymentUrl }
+          : c
+        ))
+        toast.success('잔금 결제 링크가 생성되었습니다.')
+      } else {
+        toast.error(data.error || '링크 생성에 실패했습니다.')
+      }
+    } catch {
+      toast.error('네트워크 오류가 발생했습니다.')
+    } finally {
+      setGeneratingBalanceUrl(false)
+    }
   }
 
   const handleListInvoiceToggle = async (customerId: string, current: boolean) => {
@@ -4728,6 +4768,81 @@ export function CustomersManagementView({
                       </select>
                     </div>
                   </div>
+                  {/* 결제 링크 — 1차(예약금) · 2차(잔금) URL 복사 및 생성 */}
+                  <div className="bg-surface rounded-xl px-3 py-2.5 space-y-2 border border-border-subtle">
+                    <p className="text-[11px] font-semibold text-text-secondary">결제 링크</p>
+                    {/* 1차 예약금 */}
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[11px] text-text-tertiary">1차(예약금)</span>
+                        <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-semibold border ${
+                          selected?.deposit_paid_at
+                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                            : 'bg-amber-50 text-amber-600 border-amber-200'
+                        }`}>
+                          {selected?.deposit_paid_at ? '완료' : '대기'}
+                        </span>
+                      </div>
+                      {selected?.deposit_payment_url ? (
+                        <button
+                          type="button"
+                          onClick={() => { navigator.clipboard.writeText(selected.deposit_payment_url!); setCopiedUrl('deposit') }}
+                          className={`flex items-center gap-1 text-[10px] px-2 py-1 rounded-md border transition-all duration-150 ${
+                            copiedUrl === 'deposit'
+                              ? 'bg-emerald-50 border-emerald-300 text-emerald-700'
+                              : 'bg-surface border-border text-text-secondary hover:bg-surface-sunken'
+                          }`}
+                        >
+                          <Copy size={10} />
+                          {copiedUrl === 'deposit' ? '복사됨 ✓' : '링크 복사'}
+                        </button>
+                      ) : (
+                        <span className="text-[10px] text-text-tertiary italic">미생성</span>
+                      )}
+                    </div>
+                    {/* 2차 잔금 */}
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[11px] text-text-tertiary">2차(잔금)</span>
+                        <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-semibold border ${
+                          selected?.balance_paid_at
+                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                            : 'bg-amber-50 text-amber-600 border-amber-200'
+                        }`}>
+                          {selected?.balance_paid_at ? '완료' : '대기'}
+                        </span>
+                      </div>
+                      {selected?.balance_payment_url ? (
+                        <button
+                          type="button"
+                          onClick={() => { navigator.clipboard.writeText(selected.balance_payment_url!); setCopiedUrl('balance') }}
+                          className={`flex items-center gap-1 text-[10px] px-2 py-1 rounded-md border transition-all duration-150 ${
+                            copiedUrl === 'balance'
+                              ? 'bg-emerald-50 border-emerald-300 text-emerald-700'
+                              : 'bg-surface border-border text-text-secondary hover:bg-surface-sunken'
+                          }`}
+                        >
+                          <Copy size={10} />
+                          {copiedUrl === 'balance' ? '복사됨 ✓' : '링크 복사'}
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={handleGenerateBalanceUrl}
+                          disabled={generatingBalanceUrl || statusToggling}
+                          className="flex items-center gap-1 text-[10px] px-2 py-1 bg-brand-50 border border-brand-200 text-brand-700 rounded-md hover:bg-brand-100 disabled:opacity-50 transition-colors"
+                        >
+                          {generatingBalanceUrl ? '생성 중...' : '+ URL 생성'}
+                        </button>
+                      )}
+                    </div>
+                    <p className="text-[10px] text-text-tertiary break-keep">
+                      SMS 템플릿에서{' '}
+                      <span className="font-mono text-brand-600 bg-brand-50 px-1 rounded text-[9px]">{'{{잔금결제URL}}'}</span>{' '}
+                      변수로 사용 가능
+                    </p>
+                  </div>
+
                   {/* 예약확정 · 결제완료 · 세금계산서 발행 토글 (3열 배치)
                       예약확정 버튼: 클릭 시 예약확정알림 SMS 발송 + status='예약확정' 저장.
                       그 후 06:00 cron 이 자동으로 예약1일전/예약당일 알림 발송. */}
