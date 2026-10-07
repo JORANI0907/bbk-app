@@ -169,8 +169,7 @@ export async function POST(request: NextRequest) {
     ).catch(() => {})
 
     if (stage === 'deposit') {
-      // G2: 예약금 완료 → 입금완료 알림 + 예약확정 알림 순차 발송
-      await triggerAutoNotify(applicationId, '예약금 입금완료 알림')
+      // G2: 예약금 완료 → 예약확정알림 (입금확인 + 예약확정 내용 통합)
       await triggerAutoNotify(applicationId, '예약확정알림')
     } else {
       // G4: 잔금 완료 → 결제완료 알림

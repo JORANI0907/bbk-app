@@ -49,8 +49,7 @@ async function handleVirtualAccountPaid(paymentId: string) {
       `결제ID: ${paymentId}`
     ).catch(() => {})
 
-    // G1+G2: 예약금 완료 → 입금완료 알림 + 예약확정 알림 순차 발송
-    await triggerAutoNotify(depositRow.id, '예약금 입금완료 알림')
+    // G1+G2: 예약금 완료 → 예약확정알림 (입금확인 + 예약확정 내용 통합)
     await triggerAutoNotify(depositRow.id, '예약확정알림')
     return
   }
