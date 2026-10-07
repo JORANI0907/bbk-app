@@ -168,10 +168,14 @@ export async function POST(request: NextRequest) {
       `결제ID: ${paymentId}`,
     ).catch(() => {})
 
-    // G2: 카드 예약금 → '예약금 입금완료 알림' 자동 SMS
-    // G4: 카드 잔금   → '결제완료알림(잔금)' 자동 SMS
-    const notifyType = stage === 'deposit' ? '예약금 입금완료 알림' : '결제완료알림(잔금)'
-    await triggerAutoNotify(applicationId, notifyType)
+    if (stage === 'deposit') {
+      // G2: 예약금 완료 → 입금완료 알림 + 예약확정 알림 순차 발송
+      await triggerAutoNotify(applicationId, '예약금 입금완료 알림')
+      await triggerAutoNotify(applicationId, '예약확정알림')
+    } else {
+      // G4: 잔금 완료 → 결제완료 알림
+      await triggerAutoNotify(applicationId, '결제완료알림(잔금)')
+    }
 
     return NextResponse.json({
       success: true,

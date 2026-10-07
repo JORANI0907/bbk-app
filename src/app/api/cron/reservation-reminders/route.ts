@@ -5,6 +5,7 @@ import { sendByTemplate } from '@/lib/template-sender'
 import type { NotificationContext } from '@/lib/notification-variables'
 import { saveNotificationHistory } from '@/lib/notification'
 import { appendBothNotificationLogs } from '@/lib/notification-log'
+import { normalizePaymentMethod } from '@/lib/payment-methods'
 
 const CRON_SECRET = process.env.CRON_SECRET
 
@@ -339,13 +340,14 @@ export async function GET(request: NextRequest) {
         (custPay && PAID_STATUS_DETAILS.includes(custPay))
       if (isPaid) { skipped++; continue }
 
-      const pm = String(app.payment_method ?? '')
+      const rawPm = String(app.payment_method ?? '')
+      const pm = normalizePaymentMethod(rawPm)
       let billingType: string
-      if (pm === '현금(계산서 희망)') {
+      if (rawPm === '현금(계산서 희망)' || pm === 'virtual_account' || pm === 'bank_transfer') {
         billingType = '결제알림'
-      } else if (pm === '현금(비과세)') {
+      } else if (pm === 'cash_untaxed') {
         billingType = '결제알림(현금)'
-      } else if (pm === '카드(온라인 간편결제)' || pm === '플랫폼') {
+      } else if (pm === 'credit_card' || pm === 'corporate_card' || pm === 'platform') {
         billingType = '결제요청알림(카드)'
       } else {
         skipped++; continue
