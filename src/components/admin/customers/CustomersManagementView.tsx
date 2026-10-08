@@ -3267,11 +3267,11 @@ export function CustomersManagementView({
                     const s3 = ['작업완료', '계산서발행완료'].includes(c.progress_status ?? '')
                     const s4 = !!c.balance_paid_at || PAYMENT_COMPLETE_STATUSES.includes(c.payment_status_detail ?? '')
                     const s5 = !!c.tax_invoice_issued
-                    if (s5)       { progressBorder = 'border-l-violet-400'; paymentBg = 'bg-violet-50' }
-                    else if (s4)  { progressBorder = 'border-l-emerald-400'; paymentBg = 'bg-emerald-50' }
-                    else if (s3)  { progressBorder = 'border-l-sky-400'; paymentBg = 'bg-sky-50' }
-                    else if (s2)  { progressBorder = 'border-l-amber-400'; paymentBg = 'bg-amber-50' }
-                    else          { progressBorder = 'border-l-gray-200'; paymentBg = '' }
+                    if (s5)       { progressBorder = 'border-l-blue-300';   paymentBg = 'bg-blue-50' }
+                    else if (s4)  { progressBorder = 'border-l-green-300';  paymentBg = 'bg-green-50' }
+                    else if (s3)  { progressBorder = 'border-l-yellow-300'; paymentBg = 'bg-yellow-50' }
+                    else if (s2)  { progressBorder = 'border-l-orange-300'; paymentBg = 'bg-orange-50' }
+                    else          { progressBorder = 'border-l-red-300';    paymentBg = 'bg-red-50' }
                   } else {
                     progressBorder = c.progress_status ? (PROGRESS_ROW_BORDER[c.progress_status] ?? 'border-l-transparent') : 'border-l-transparent'
                     paymentBg = c.payment_status_detail ? (PAYMENT_ROW_BG[c.payment_status_detail] ?? '') : ''
