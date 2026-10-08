@@ -3259,9 +3259,23 @@ export function CustomersManagementView({
                     return ''
                   })()
                   const visitScheduleText = formatVisitSchedule(c)
-                  // Phase 13: 진행상태=좌측 border, 결제상태=행 전체 파스텔 배경, 오늘 시공=sky ring
-                  const progressBorder = c.progress_status ? (PROGRESS_ROW_BORDER[c.progress_status] ?? 'border-l-transparent') : 'border-l-transparent'
-                  const paymentBg = c.payment_status_detail ? (PAYMENT_ROW_BG[c.payment_status_detail] ?? '') : ''
+                  // 1회성케어: 5단계 진행흐름 기반 border·배경. 정기케어: 기존 결제상태 기반 유지.
+                  let progressBorder: string
+                  let paymentBg: string
+                  if (c.customer_type === '1회성케어') {
+                    const s2 = !!c.deposit_paid_at
+                    const s3 = ['작업완료', '계산서발행완료'].includes(c.progress_status ?? '')
+                    const s4 = !!c.balance_paid_at || PAYMENT_COMPLETE_STATUSES.includes(c.payment_status_detail ?? '')
+                    const s5 = !!c.tax_invoice_issued
+                    if (s5)       { progressBorder = 'border-l-violet-400'; paymentBg = 'bg-violet-50' }
+                    else if (s4)  { progressBorder = 'border-l-emerald-400'; paymentBg = 'bg-emerald-50' }
+                    else if (s3)  { progressBorder = 'border-l-sky-400'; paymentBg = 'bg-sky-50' }
+                    else if (s2)  { progressBorder = 'border-l-amber-400'; paymentBg = 'bg-amber-50' }
+                    else          { progressBorder = 'border-l-gray-200'; paymentBg = '' }
+                  } else {
+                    progressBorder = c.progress_status ? (PROGRESS_ROW_BORDER[c.progress_status] ?? 'border-l-transparent') : 'border-l-transparent'
+                    paymentBg = c.payment_status_detail ? (PAYMENT_ROW_BG[c.payment_status_detail] ?? '') : ''
+                  }
                   const todayStr = new Date().toISOString().slice(0, 10)
                   const isToday = c.next_visit_date?.slice(0, 10) === todayStr
                   const isPaused = c.status === 'paused'
