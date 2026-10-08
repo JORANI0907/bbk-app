@@ -1605,7 +1605,7 @@
         var v = document.getElementById('phoneVerified');
         if (v) {
           v.style.display = 'block';
-          v.textContent = '✅ 로컬 개발 환경 · SMS 인증 자동 통과';
+          v.textContent = '✅ 테스트 모드 · SMS 인증 자동 통과';
         }
 
         var setValue = function(id, value) {
@@ -1623,20 +1623,20 @@
           el.dispatchEvent(new Event('click',  { bubbles: true }));
         };
 
-        setValue('businessName',       '테스트업체');
-        setValue('address',            '경기도 성남시 분당구 판교역로 235');
-        setValue('addressDetail',      '3층');
-        setValue('businessNumber',     '1234567890');
-        setValue('businessHoursStart', '09:00');
-        setValue('businessHoursEnd',   '22:00');
-        setValue('ownerName',          '홍길동');
-        setValue('phone',              '010-1234-5678');
-        setValue('emailId',            'test');
-        setValue('emailDomain',        'naver.com');
-        setValue('accessMethod',       '현관 비밀번호 1234#, 후문 이용');
+        setValue('businessName',       '범빌드코리아');
+        setValue('address',            '경기도 성남시 중원구 둔촌대로268번길 22');
+        setValue('addressDetail',      '1동 2층 201호');
+        setValue('businessNumber',     '398-81-04260');
+        setValue('businessHoursStart', '20:00');
+        setValue('businessHoursEnd',   '06:00');
+        setValue('ownerName',          '조동환');
+        setValue('phone',              '010-5434-4877');
+        setValue('emailId',            'sunrise');
+        setValue('emailDomain',        'bbkorea.co.kr');
+        setValue('accessMethod',       '담당자 안내 후 진행');
         setValue('bankName',           '국민은행');
-        setValue('accountNumber',      '000-000-000000');
-        setValue('requestNotes',       '테스트 신청서 (자동 채움)');
+        setValue('accountNumber',      '22913704013579');
+        setValue('requestNotes',       '테스트 신청 (자동 채움)');
 
         checkOne('elevatorYes');
         checkOne('accessNo');
@@ -1648,12 +1648,12 @@
         phoneVerified = true;
         bizVerified   = true;
         var pv = document.getElementById('phoneVerified');
-        if (pv) { pv.style.display = 'block'; pv.textContent = '✅ 로컬 개발 환경 · SMS 인증 자동 통과'; }
+        if (pv) { pv.style.display = 'block'; pv.textContent = '✅ 테스트 모드 · SMS 인증 자동 통과'; }
         var smsBtn = document.getElementById('sendSmsBtn');
         if (smsBtn) smsBtn.style.display = 'none';
 
         if (typeof updateProgress === 'function') updateProgress();
-        console.log('✅ 로컬 개발 환경 · 신청서 자동 채움 완료');
+        console.log('✅ 테스트 모드 · 신청서 자동 채움 완료');
       });
     }
 
