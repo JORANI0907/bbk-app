@@ -17,6 +17,7 @@ const WORKER_NOTIFY_TYPES = new Set(['작업자 일정 안내', '작업자 자�
 // Dual-write 원칙: 기존 status는 그대로 유지하여 자동화(cron 필터, finance 등)가 안 깨지도록 함.
 // 이건 legacy status 컬럼용이라 하드코딩 유지 (도메인 의미가 코드에 고정).
 const NOTIFY_TO_STATUS: Record<string, string> = {
+  '예약금입금요청알림': '예약금요청',
   '예약확정알림':       '예약확정',
   '예약1일전알림':      '예약1일전',
   '예약당일알림':       '예약당일',
@@ -459,6 +460,25 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (!app) return NextResponse.json({ error: '신청서를 찾을 수 없습니다.' }, { status: 404 })
+
+    // 예약금입금요청알림: deposit_payment_url 없으면 자동 생성
+    if (type === '예약금입금요청알림') {
+      if (!app.deposit_payment_url) {
+        try {
+          const resp = await fetch(`${APP_BASE_URL}/api/portone/issue-payment-link`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ applicationId: application_id, stage: 'deposit' }),
+          })
+          if (resp.ok) {
+            const linkData = await resp.json() as { paymentUrl?: string }
+            if (linkData.paymentUrl) {
+              (app as Record<string, unknown>).deposit_payment_url = linkData.paymentUrl
+            }
+          }
+        } catch { /* 링크 생성 실패는 조용히 무시 */ }
+      }
+    }
 
     // 작업완료알림: 서비스 유형 및 payment_method 에 따라 baseType 결정.
     // baseType 은 UI/상태 매핑/변수 빌드용, 접미사 붙은 templateCode 는 DB 조회용.
