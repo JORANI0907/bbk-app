@@ -65,7 +65,7 @@ export async function GET(request: NextRequest) {
         request_notes, customer_memo,
         deposit, supply_amount, vat, payment_method, payment_status,
         virtual_account_number, virtual_account_bank, virtual_account_expired_at,
-        deposit_paid_at, balance_paid_at, source
+        deposit_paid_at, balance_paid_at
       `)
       .eq('id', appId!)
       .is('deleted_at', null)
@@ -73,7 +73,7 @@ export async function GET(request: NextRequest) {
 
     if (!app) return NextResponse.json({ error: '결제 정보를 찾을 수 없습니다.' }, { status: 404 })
 
-    return NextResponse.json({ app, isTest: app.source === 'test' })
+    return NextResponse.json({ app })
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
     return NextResponse.json({ error: msg }, { status: 500 })

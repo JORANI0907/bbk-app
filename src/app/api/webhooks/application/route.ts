@@ -186,9 +186,12 @@ export async function POST(request: NextRequest) {
           // 견적서 신청(source='quote')은 관리자가 별도 세팅하므로 여기서 덮어쓰지 않음
           ...(source !== 'quote' && { service_type: '1회성케어' }),
           // 예약금 기본 8만원 자동 세팅 (관리자가 UI에서 편집 가능)
-          // 안심클릭 소액 하한 확실하게 통과하도록 테스트는 1만원
+          // 테스트 신청서는 1원 — 실제 카드·계좌 결제 흐름 검증 후 포트원 콘솔에서 환불
           // 견적서 신청은 관리자가 견적 확정 시 세팅하므로 여기선 스킵
-          ...(source !== 'quote' && { deposit: (process.env.NODE_ENV === 'development' || source === 'test') ? 10000 : 80000 }),
+          ...(source !== 'quote' && { deposit: (process.env.NODE_ENV === 'development' || source === 'test') ? 1 : 80000 }),
+          // 테스트 신청서는 잔금(2차) 결제도 1원 테스트 가능하도록 supply_amount=2, vat=0 세팅
+          // balance = supply_amount + vat - deposit = 2 + 0 - 1 = 1원
+          ...(source === 'test' && { supply_amount: 2, vat: 0 }),
           // 결제 대기 상태로 초기화 — 결제 완료 시 complete API가 'paid'로 승격
           // DB CHECK 제약: pending / invoiced / paid / overdue 만 허용
           ...(source !== 'quote' && { payment_status: 'pending' }),
