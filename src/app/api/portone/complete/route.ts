@@ -54,10 +54,12 @@ export async function POST(request: NextRequest) {
       contact_name?: string | null
       phone?: string | null
       contact_phone?: string | null
+      deposit_paid_at?: string | null
+      balance_paid_at?: string | null
     }
     const selectFields = isCustomerMode
       ? 'supply_amount, vat, deposit, deposit_portone_id, balance_portone_id, business_name, contact_name, contact_phone'
-      : 'supply_amount, vat, deposit, deposit_portone_id, balance_portone_id, business_name, owner_name, phone'
+      : 'supply_amount, vat, deposit, deposit_portone_id, balance_portone_id, business_name, owner_name, phone, deposit_paid_at, balance_paid_at'
     const { data: rawRecord, error: fetchError } = await supabase
       .from(dbTable)
       .select(selectFields)
@@ -89,6 +91,13 @@ export async function POST(request: NextRequest) {
 
     if (expectedAmount <= 0) {
       return NextResponse.json({ error: '결제 금액이 0원입니다.' }, { status: 400 })
+    }
+
+    // 멱등성 체크: 이미 처리된 결제건은 재처리하지 않음 (브라우저 중복 호출 방어)
+    const alreadyPaidAt = stage === 'deposit' ? app.deposit_paid_at : app.balance_paid_at
+    if (alreadyPaidAt) {
+      console.log('[complete] 이미 처리된 결제건, 중복 처리 건너뜀:', { recordId, stage, alreadyPaidAt })
+      return NextResponse.json({ success: true, stage, paidAmount: expectedAmount, alreadyProcessed: true })
     }
 
     const client = getPortOneClient()!
@@ -182,10 +191,15 @@ export async function POST(request: NextRequest) {
       updates.balance_paid_at = nowIso
     }
 
-    await supabase
+    const { error: updateError } = await supabase
       .from(dbTable)
       .update(updates)
       .eq('id', recordId)
+
+    if (updateError) {
+      console.error('[complete] DB 업데이트 실패:', updateError.message, { recordId, stage, updates })
+      return NextResponse.json({ error: 'DB 업데이트 중 오류가 발생했습니다.' }, { status: 500 })
+    }
 
     // Slack 알림
     const stageLabel = stage === 'deposit' ? '예약금(1차)' : '잔금(2차)'
