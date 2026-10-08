@@ -49,6 +49,7 @@ interface Candidate {
   draft_invoice_kind: string | null
   application_status?: string | null
   payment_status_detail?: string | null
+  balance_paid_at?: string | null
   customer_payment_status_detail?: string | null
   account_number?: string | null
   /** 예약금 이체 완료 시각 (신규 컬럼, 미이체이면 null) */
@@ -953,21 +954,19 @@ function SourceBadge({ label }: { label: string }) {
   )
 }
 
-// PaymentIssuesSummary(고객관리) 와 동일한 완결 상태 집합 — 판정 일관성 유지
+// 5-step 진행흐름 Step 4(잔금결제) 완결 상태 집합 — 결제상태 레이블 기반 보완 판정
 const PAID_APP_STATUSES = new Set([
   '결제완료', '계산서발행완료', '카드결제 완료', '비과세', '예약금환급완료',
 ])
 
 function isPaymentDone(c: Candidate): boolean {
   if (c.source === 'billing') return c.billing_status === 'paid'
-  // 1회성: 관리자는 3개 필드를 각기 다른 화면에서 별개로 업데이트한다.
-  // 어느 하나라도 완결 상태이면 결제 완료로 판정 (payment-reminders 크론과 동일 원칙).
-  //   1) application.payment_status_detail (신청서 결제 상세)
-  //   2) application.status                (신청서 workflow)
-  //   3) customer.payment_status_detail    (고객 레벨 결제 상세)
+  // 1회성: 5-step 진행흐름 기준 — balance_paid_at (포트원/수동 결제 완료 시각)이 진실의 원천.
+  // payment_status_detail / customer.payment_status_detail 은 레이블 기반 보완 신호.
+  // 구 application.status(레거시 workflow) 필드는 더 이상 참조하지 않는다.
   return (
+    !!c.balance_paid_at ||
     PAID_APP_STATUSES.has(c.payment_status_detail ?? '') ||
-    PAID_APP_STATUSES.has(c.application_status ?? '') ||
     PAID_APP_STATUSES.has(c.customer_payment_status_detail ?? '')
   )
 }
