@@ -3040,42 +3040,46 @@ export function CustomersManagementView({
             모바일에선 카운트가 첫 줄 단독, 버튼 5개는 다음 줄로 자연 wrap.
             데스크톱(sm+)은 기존 한 줄 배치 유지. */}
         {checkedIds.length > 0 && !isEmbedActive && (
-          <div className="mb-3 flex flex-wrap items-center gap-2 bg-brand-600 text-white px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl shadow-sm">
-            <span className="text-sm font-semibold w-full sm:w-auto sm:flex-1">{checkedIds.length}건 선택됨</span>
+          <div className="mb-3 flex flex-wrap items-center gap-1.5 bg-brand-50 border border-brand-200 text-text-primary px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl shadow-soft">
+            <span className="text-xs font-semibold text-brand-700 w-full sm:w-auto sm:flex-1">{checkedIds.length}건 선택</span>
             <button onClick={() => setCheckedIds([])}
-              className="text-xs text-brand-200 hover:text-white px-2 py-1 rounded transition-colors">
-              선택 해제
+              className="text-xs text-brand-400 hover:text-brand-700 px-2 py-1 rounded transition-colors">
+              해제
             </button>
             {!isWorker && (
-              <Button size="sm" onClick={handleDuplicateBulk} disabled={bulkCreating} className="bg-brand-100 hover:bg-brand-200 text-brand-700 whitespace-nowrap">
-                {bulkCreating ? '처리 중...' : '복제'}
+              <Button size="sm" onClick={handleDuplicateBulk} disabled={bulkCreating}
+                className="bg-sky-100 hover:bg-sky-200 text-sky-700 border border-sky-200 whitespace-nowrap">
+                {bulkCreating ? '...' : '복제'}
               </Button>
             )}
             {!isWorker && (
-              <Button variant="danger" size="sm" onClick={handleDeleteBulk} disabled={bulkCreating} className="whitespace-nowrap">
+              <Button size="sm" onClick={handleDeleteBulk} disabled={bulkCreating}
+                className="bg-red-100 hover:bg-red-200 text-red-700 border border-red-200 whitespace-nowrap">
                 삭제
               </Button>
             )}
             {!isWorker && (
               <Button size="sm" onClick={handleArchiveBulk} disabled={bulkCreating}
                 className={archivedView
-                  ? 'bg-brand-600 hover:bg-brand-700 text-white whitespace-nowrap'
-                  : 'bg-purple-600 hover:bg-purple-700 text-white whitespace-nowrap'}>
-                {bulkCreating ? '처리 중...' : archivedView ? '↩ 고객관리로 되돌리기' : '📦 이력으로 이관'}
+                  ? 'bg-brand-100 hover:bg-brand-200 text-brand-700 border border-brand-200 whitespace-nowrap'
+                  : 'bg-violet-100 hover:bg-violet-200 text-violet-700 border border-violet-200 whitespace-nowrap'}>
+                {bulkCreating ? '...' : archivedView ? '되돌리기' : '이관'}
               </Button>
             )}
-            <Button size="sm" onClick={() => openScheduleGenModal('create')} disabled={bulkCreating} className="bg-green-600 hover:bg-green-700 text-white whitespace-nowrap">
-              {bulkCreating ? '처리 중...' : <><Calendar size={14} className="inline mr-1" />일정 생성</>}
+            <Button size="sm" onClick={() => openScheduleGenModal('create')} disabled={bulkCreating}
+              className="bg-emerald-100 hover:bg-emerald-200 text-emerald-700 border border-emerald-200 whitespace-nowrap">
+              {bulkCreating ? '...' : '일정 생성'}
             </Button>
-            {/* 일정 알림 (일괄 예약확정알림). 정기딥/엔드 단일 유형만 허용, 혼합/1회성 시 안내 후 차단. */}
             {!isWorker && (
-              <Button size="sm" onClick={handleBulkScheduleNotify} disabled={bulkCreating} className="bg-brand-100 hover:bg-brand-200 text-brand-700 whitespace-nowrap">
+              <Button size="sm" onClick={handleBulkScheduleNotify} disabled={bulkCreating}
+                className="bg-amber-100 hover:bg-amber-200 text-amber-700 border border-amber-200 whitespace-nowrap">
                 일정 알림
               </Button>
             )}
             {!isWorker && (
-              <Button size="sm" onClick={handleExportTaxInvoiceCsv} disabled={bulkCreating} className="bg-emerald-600 hover:bg-emerald-700 text-white whitespace-nowrap">
-                <FileCheck size={14} className="inline mr-1" />홈택스 CSV
+              <Button size="sm" onClick={handleExportTaxInvoiceCsv} disabled={bulkCreating}
+                className="bg-teal-100 hover:bg-teal-200 text-teal-700 border border-teal-200 whitespace-nowrap">
+                홈택스 CSV
               </Button>
             )}
             {/* Phase 7-J: "서비스 신청서 생성 →" 버튼 제거 — 서비스관리 흡수 이후 미사용 (사용자 지시).
@@ -3147,8 +3151,7 @@ export function CustomersManagementView({
                         { key: 'business_name' as const, label: '업체명 / 주소' },
                         { key: null, label: '케어범위' },
                         { key: null, label: '담당자' },
-                        ...(!isWorker ? [{ key: null, label: '결제방법' } as const, { key: null, label: '총액' } as const] : []),
-                        ...(!isWorker ? [{ key: null, label: '진행상태' } as const, { key: null, label: '결제상태' } as const, { key: null, label: '계산서발행' } as const] : []),
+                        ...(!isWorker ? [{ key: null, label: '결제방법' } as const, { key: null, label: '총액' } as const, { key: null, label: '진행흐름' } as const] : []),
                       ] as const)
                     }
                     if (isDipCareView) {
@@ -3433,41 +3436,30 @@ export function CustomersManagementView({
                                       ? <>{total >= 10000 ? `${(total / 10000).toFixed(1).replace(/\.0$/, '')}만` : total.toLocaleString('ko-KR')}<span className="text-text-tertiary font-normal">원</span></>
                                       : <span className="text-text-tertiary">-</span>}
                                   </td>
-                                </>
-                              )}
-                              {/* Phase 27-H: worker에겐 진행상태·결제상태도 숨김 (헤더와 짝 유지) */}
-                              {!isWorker && (
-                                <>
-                                  {/* 진행상태 뱃지 (Phase 9-A) */}
+                                  {/* 진행흐름 — 5단계 독립 dot */}
                                   <td className="px-3 py-3 whitespace-nowrap">
-                                    {c.progress_status
-                                      ? <span className="text-xs px-1.5 py-0.5 rounded-full font-medium bg-brand-50 text-brand-700 border border-brand-200">{c.progress_status}</span>
-                                      : <span className="text-xs text-text-tertiary">-</span>}
-                                  </td>
-                                  {/* 결제상태 뱃지 + Phase 11 dot */}
-                                  <td className="px-3 py-3 whitespace-nowrap">
-                                    {c.payment_status_detail
-                                      ? <span className="inline-flex items-center gap-1.5 text-xs px-1.5 py-0.5 rounded-full font-medium bg-brand-50 text-brand-700 border border-brand-200">
-                                          <span className={`w-1.5 h-1.5 rounded-full ${PAYMENT_STATUS_DOT[c.payment_status_detail] ?? 'bg-gray-400'}`} />
-                                          {c.payment_status_detail === '비과세' ? '비과세 결제' : c.payment_status_detail}
-                                        </span>
-                                      : <span className="text-xs text-text-tertiary">-</span>}
-                                  </td>
-                                  {/* 계산서발행 체크 */}
-                                  <td className="px-3 py-3 text-center whitespace-nowrap w-16" onClick={e => e.stopPropagation()}>
-                                    {!isPendingApp && (
-                                      <button
-                                        type="button"
-                                        onClick={() => handleListInvoiceToggle(c.id, c.tax_invoice_issued ?? false)}
-                                        className={`w-5 h-5 rounded border-2 flex items-center justify-center mx-auto transition-colors ${
-                                          c.tax_invoice_issued
-                                            ? 'bg-blue-500 border-blue-500 text-white'
-                                            : 'border-gray-300 hover:border-blue-400 bg-white'
-                                        }`}
-                                      >
-                                        {c.tax_invoice_issued && <FileCheck className="w-3 h-3" />}
-                                      </button>
-                                    )}
+                                    <div className="flex items-end gap-1.5">
+                                      {([
+                                        { label: '신청', done: true },
+                                        { label: '예약금', done: !!c.deposit_paid_at },
+                                        { label: '작업', done: c.progress_status === '작업완료' },
+                                        { label: '잔금', done: !!c.balance_paid_at || PAYMENT_COMPLETE_STATUSES.includes(c.payment_status_detail ?? '') },
+                                        { label: '계산서', done: !!c.tax_invoice_issued },
+                                      ] as { label: string; done: boolean }[]).map((step, i) => (
+                                        <div key={i} className="flex flex-col items-center gap-0.5">
+                                          <div className={`w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center ${
+                                            step.done ? 'bg-brand-500 border-brand-500' : 'border-gray-300 bg-white'
+                                          }`}>
+                                            {step.done && (
+                                              <svg width="6" height="5" viewBox="0 0 6 5" fill="none">
+                                                <path d="M0.75 2.5L2.25 4L5.25 1" stroke="white" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
+                                              </svg>
+                                            )}
+                                          </div>
+                                          <span className={`text-[8px] leading-none ${step.done ? 'text-brand-600 font-medium' : 'text-text-tertiary'}`}>{step.label}</span>
+                                        </div>
+                                      ))}
+                                    </div>
                                   </td>
                                 </>
                               )}

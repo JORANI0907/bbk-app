@@ -70,6 +70,8 @@ interface Candidate {
   account_number: string | null
   /** 1회성 회차 예약금 이체 시각 (미이체이면 null) */
   deposit_transferred_at?: string | null
+  /** 잔금 결제 완료 시각 — 5-step 진행흐름 기준 */
+  balance_paid_at?: string | null
 }
 
 interface DraftData {
