@@ -161,7 +161,8 @@ export async function POST(request: NextRequest) {
 
     // ─── 가상계좌: 서버사이드 직접 발급 ────────────────────────────────────
     const client    = getPortOneClient()!
-    const channelKey = getChannelKey('vbank')
+    const isTestSource = String(app.source ?? '') === 'test'
+    const channelKey = getChannelKey('vbank', isTestSource)
 
     // KG 이니시스 가상계좌는 customer.email이 필수 (REQUIRED 룰)
     const emailFromApp = String(app.email ?? '').trim()

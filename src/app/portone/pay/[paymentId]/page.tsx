@@ -184,6 +184,7 @@ export default function PortOnePayPage() {
   const custId       = searchParams.get('custId') ?? ''
 
   const [app,     setApp]     = useState<AppInfo | null>(null)
+  const [isTest,  setIsTest]  = useState(false)
   const [status,  setStatus]  = useState<'idle' | 'loading' | 'paying' | 'switching' | 'success' | 'error'>('loading')
   const [message, setMessage] = useState('')
   const [selectedMethod, setSelectedMethod] = useState<Method>('credit_card')
@@ -221,6 +222,7 @@ export default function PortOnePayPage() {
       .then(r => r.json())
       .then(d => {
         setApp(d.app)
+        setIsTest(d.isTest ?? false)
         setSelectedMethod(inferMethodFromPaymentMethod(d.app?.payment_method))
         setStatus('idle')
       })
@@ -324,8 +326,12 @@ export default function PortOnePayPage() {
       const storeId = process.env.NEXT_PUBLIC_PORTONE_STORE_ID ?? ''
       const isTransfer = selectedMethod === 'bank_transfer'
       const channelKey = isTransfer
-        ? (process.env.NEXT_PUBLIC_PORTONE_CHANNEL_KEY_TRANSFER ?? '')
-        : (process.env.NEXT_PUBLIC_PORTONE_CHANNEL_KEY_CARD ?? '')
+        ? (isTest
+            ? (process.env.NEXT_PUBLIC_PORTONE_CHANNEL_KEY_TRANSFER_TEST || process.env.NEXT_PUBLIC_PORTONE_CHANNEL_KEY_TRANSFER || '')
+            : (process.env.NEXT_PUBLIC_PORTONE_CHANNEL_KEY_TRANSFER ?? ''))
+        : (isTest
+            ? (process.env.NEXT_PUBLIC_PORTONE_CHANNEL_KEY_CARD_TEST || process.env.NEXT_PUBLIC_PORTONE_CHANNEL_KEY_CARD || '')
+            : (process.env.NEXT_PUBLIC_PORTONE_CHANNEL_KEY_CARD ?? ''))
       const payMethod: 'CARD' | 'TRANSFER' = isTransfer ? 'TRANSFER' : 'CARD'
       // 진단: 브라우저가 실제 사용하는 채널키·storeId 확인용 (F12 콘솔)
       console.log('[pay] requestPayment 준비:', {
