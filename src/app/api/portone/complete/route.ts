@@ -73,7 +73,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: isCustomerMode ? '고객을 찾을 수 없습니다.' : '신청서를 찾을 수 없습니다.' }, { status: 404 })
     }
 
-    const app = rawRecord as AppRecord
+    const app = rawRecord as unknown as AppRecord
     const ownerName = isCustomerMode ? (app.contact_name ?? '') : (app.owner_name ?? '')
     const ownerPhone = isCustomerMode ? (app.contact_phone ?? '') : (app.phone ?? '')
 
