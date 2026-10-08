@@ -799,6 +799,7 @@ export function CustomersManagementView({
   // 일괄 예약확정알림 모달: 발송 유형(정기딥/정기엔드) 세팅 시 오픈, null 이면 닫힘.
   const [bulkNotifyType, setBulkNotifyType] = useState<'정기딥케어' | '정기엔드케어' | null>(null)
   const [bulkCreating, setBulkCreating] = useState(false)
+  const [bulkConfirm, setBulkConfirm] = useState<{ label: string; desc: string; onConfirm: () => void } | null>(null)
   // Phase 5-E: 기간 기반 모달 — mode(create=신규 생성 / cleanup=수정)
   const [scheduleGenModal, setScheduleGenModal] = useState<{
     open: boolean
@@ -3060,37 +3061,49 @@ export function CustomersManagementView({
               해제
             </button>
             {!isWorker && (
-              <Button size="sm" onClick={handleDuplicateBulk} disabled={bulkCreating}
+              <Button size="sm" disabled={bulkCreating}
+                onClick={() => setBulkConfirm({ label: '복제', desc: `선택한 ${checkedIds.length}건을 복제합니다.`, onConfirm: handleDuplicateBulk })}
                 className="bg-sky-100 hover:bg-sky-200 !text-sky-800 border border-sky-200 whitespace-nowrap">
                 {bulkCreating ? '...' : '복제'}
               </Button>
             )}
             {!isWorker && (
-              <Button size="sm" onClick={handleDeleteBulk} disabled={bulkCreating}
+              <Button size="sm" disabled={bulkCreating}
+                onClick={() => setBulkConfirm({ label: '삭제', desc: `선택한 ${checkedIds.length}건을 삭제합니다. 되돌릴 수 없습니다.`, onConfirm: handleDeleteBulk })}
                 className="bg-red-100 hover:bg-red-200 !text-red-800 border border-red-200 whitespace-nowrap">
                 삭제
               </Button>
             )}
             {!isWorker && (
-              <Button size="sm" onClick={handleArchiveBulk} disabled={bulkCreating}
+              <Button size="sm" disabled={bulkCreating}
+                onClick={() => setBulkConfirm({
+                  label: archivedView ? '되돌리기' : '이관',
+                  desc: archivedView
+                    ? `선택한 ${checkedIds.length}건을 고객관리로 되돌립니다.`
+                    : `선택한 ${checkedIds.length}건을 고객DB이력으로 이관합니다.`,
+                  onConfirm: handleArchiveBulk,
+                })}
                 className={archivedView
                   ? 'bg-brand-100 hover:bg-brand-200 !text-brand-800 border border-brand-200 whitespace-nowrap'
                   : 'bg-violet-100 hover:bg-violet-200 !text-violet-800 border border-violet-200 whitespace-nowrap'}>
                 {bulkCreating ? '...' : archivedView ? '되돌리기' : '이관'}
               </Button>
             )}
-            <Button size="sm" onClick={() => openScheduleGenModal('create')} disabled={bulkCreating}
+            <Button size="sm" disabled={bulkCreating}
+              onClick={() => setBulkConfirm({ label: '일정생성', desc: `선택한 ${checkedIds.length}건의 서비스 일정을 생성합니다.`, onConfirm: () => openScheduleGenModal('create') })}
               className="bg-emerald-100 hover:bg-emerald-200 !text-emerald-800 border border-emerald-200 whitespace-nowrap">
               {bulkCreating ? '...' : '일정생성'}
             </Button>
             {!isWorker && (
-              <Button size="sm" onClick={handleBulkScheduleNotify} disabled={bulkCreating}
+              <Button size="sm" disabled={bulkCreating}
+                onClick={() => setBulkConfirm({ label: '일정알림', desc: `선택한 ${checkedIds.length}건에 예약확정 알림을 발송합니다.`, onConfirm: handleBulkScheduleNotify })}
                 className="bg-orange-100 hover:bg-orange-200 !text-orange-800 border border-orange-200 whitespace-nowrap">
                 일정알림
               </Button>
             )}
             {!isWorker && (
-              <Button size="sm" onClick={handleExportTaxInvoiceCsv} disabled={bulkCreating}
+              <Button size="sm" disabled={bulkCreating}
+                onClick={() => setBulkConfirm({ label: '홈택스', desc: `선택한 ${checkedIds.length}건의 홈택스 CSV를 생성합니다.`, onConfirm: handleExportTaxInvoiceCsv })}
                 className="bg-teal-100 hover:bg-teal-200 !text-teal-800 border border-teal-200 whitespace-nowrap">
                 홈택스
               </Button>
@@ -5454,6 +5467,30 @@ export function CustomersManagementView({
       )}
 
     </div>
+
+    {/* bulk 액션 확인 모달 */}
+    {bulkConfirm && (
+      <div className="fixed inset-0 z-[95] flex items-center justify-center bg-black/50 p-4" onClick={() => setBulkConfirm(null)}>
+        <div className="bg-surface rounded-2xl shadow-modal max-w-sm w-full p-6" onClick={e => e.stopPropagation()}>
+          <h3 className="text-base font-bold text-text-primary mb-2">{bulkConfirm.label}</h3>
+          <p className="text-sm text-text-secondary leading-relaxed mb-5">{bulkConfirm.desc}</p>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setBulkConfirm(null)}
+              className="flex-1 px-4 py-2 text-sm font-medium text-text-secondary border border-border rounded-lg hover:bg-surface-sunken transition-colors"
+            >
+              취소
+            </button>
+            <button
+              onClick={() => { bulkConfirm.onConfirm(); setBulkConfirm(null) }}
+              className="flex-1 px-4 py-2 text-sm font-medium text-white bg-brand-600 hover:bg-brand-700 rounded-lg transition-colors"
+            >
+              확인
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
 
     {/* 서비스 일정 생성 모달 — 세부창(z-60) 위에 뜨도록 z-[90] */}
     {scheduleGenModal.open && (
