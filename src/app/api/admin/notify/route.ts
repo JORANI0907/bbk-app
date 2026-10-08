@@ -9,6 +9,8 @@ import { sendSlack } from '@/lib/slack'
 import { dispatch, lookupFranchiseHqIdsForCustomer } from '@/lib/notification-dispatcher'
 import { normalizePaymentMethod } from '@/lib/payment-methods'
 
+const APP_BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.bbkorea.co.kr'
+
 const WORKER_NOTIFY_TYPES = new Set(['작업자 일정 안내', '작업자 자세한 일정 안내'])
 
 // ─── 계약상태 자동변경 매핑 (Phase 8-B: backward-compat status 컬럼) ─
@@ -471,21 +473,38 @@ export async function POST(request: NextRequest) {
         //   정기엔드와 동일 패턴(감사·사진 위주)의 단일 template로 통합.
         type = '작업완료알림(정기딥케어)'
       } else {
-        // 2026-10-06 재설계: normalizePaymentMethod()로 레거시+신규 enum 모두 처리.
-        //   - credit_card/corporate_card/platform → '작업완료알림(카드,플렛폼)' 템플릿
-        //   - virtual_account/bank_transfer/cash_untaxed → 기본 '작업완료알림' 템플릿
+        // 2026-10-08 재설계: 온라인 결제수단(카드/계좌이체/가상계좌/플랫폼) 모두 URL 포함 템플릿으로 통합.
+        //   - credit_card/corporate_card/bank_transfer/virtual_account/platform → '작업완료알림(카드,플렛폼)'
+        //     (잔금결제URL 자동 생성 포함)
+        //   - cash_untaxed → 기본 '작업완료알림' (계좌 안내)
         //   - 그 외 (알 수 없는 값) → skip
         const rawPm = String(app.payment_method ?? '')
         const pm = normalizePaymentMethod(rawPm)
-        if (pm === 'credit_card' || pm === 'corporate_card' || pm === 'platform') {
-          type = '작업완료알림(카드,플렛폼)'
-        } else if (
-          pm !== 'virtual_account' &&
-          pm !== 'bank_transfer' &&
-          pm !== 'cash_untaxed'
+        if (
+          pm === 'credit_card' || pm === 'corporate_card' || pm === 'platform' ||
+          pm === 'bank_transfer' || pm === 'virtual_account'
         ) {
+          type = '작업완료알림(카드,플렛폼)'
+          // 잔금결제URL이 없으면 자동 생성 — 발송 전 SMS 변수에 포함되도록
+          if (!app.balance_payment_url) {
+            try {
+              const resp = await fetch(`${APP_BASE_URL}/api/portone/issue-payment-link`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ applicationId: application_id, stage: 'balance' }),
+              })
+              if (resp.ok) {
+                const linkData = await resp.json() as { paymentUrl?: string }
+                if (linkData.paymentUrl) {
+                  (app as Record<string, unknown>).balance_payment_url = linkData.paymentUrl
+                }
+              }
+            } catch { /* 링크 생성 실패는 조용히 무시 — SMS는 URL 없이 발송 */ }
+          }
+        } else if (pm !== 'cash_untaxed') {
           return NextResponse.json({ success: true, skipped: true, reason: `결제방법 '${rawPm}'은(는) 발송 대상이 아닙니다.` })
         }
+        // cash_untaxed → 기본 '작업완료알림' 유지 (계좌 안내)
       }
     }
 

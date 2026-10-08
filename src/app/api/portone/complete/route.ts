@@ -31,21 +31,41 @@ export async function POST(request: NextRequest) {
       stage: 'deposit' | 'balance'
       billingKey?: string  // 정기결제(BillPay) 흐름에서만 사용, 일반결제엔 없음
     }
-    const { paymentId, applicationId, stage, billingKey } = body
-    if (!paymentId || !applicationId || !stage) {
-      return NextResponse.json({ error: '필수 항목 누락 (paymentId, applicationId, stage 필요)' }, { status: 400 })
+    const { paymentId, applicationId, customerId, stage, billingKey } = body
+    if (!paymentId || (!applicationId && !customerId) || !stage) {
+      return NextResponse.json({ error: '필수 항목 누락 (paymentId, applicationId 또는 customerId, stage 필요)' }, { status: 400 })
     }
 
     const supabase = createServiceClient()
-    const { data: app } = await supabase
-      .from('service_applications')
-      .select('supply_amount, vat, deposit, deposit_portone_id, balance_portone_id, business_name, owner_name, phone')
-      .eq('id', applicationId)
+    const isCustomerMode = !!customerId && !applicationId
+    const recordId = (applicationId ?? customerId)!
+    const dbTable  = isCustomerMode ? 'customers' : 'service_applications'
+
+    type AppRecord = {
+      supply_amount: number | null
+      vat: number | null
+      deposit: number | null
+      deposit_portone_id: string | null
+      balance_portone_id: string | null
+      business_name: string | null
+      owner_name?: string | null
+      contact_name?: string | null
+      phone?: string | null
+      contact_phone?: string | null
+    }
+    const { data: rawRecord } = await supabase
+      .from(dbTable)
+      .select('supply_amount, vat, deposit, deposit_portone_id, balance_portone_id, business_name, owner_name, contact_name, phone, contact_phone')
+      .eq('id', recordId)
       .single()
 
-    if (!app) {
-      return NextResponse.json({ error: '신청서를 찾을 수 없습니다.' }, { status: 404 })
+    if (!rawRecord) {
+      return NextResponse.json({ error: isCustomerMode ? '고객을 찾을 수 없습니다.' : '신청서를 찾을 수 없습니다.' }, { status: 404 })
     }
+
+    const app = rawRecord as AppRecord
+    const ownerName = isCustomerMode ? (app.contact_name ?? '') : (app.owner_name ?? '')
+    const ownerPhone = isCustomerMode ? (app.contact_phone ?? '') : (app.phone ?? '')
 
     // paymentId 위변조 방지 검증
     const expectedId = stage === 'deposit' ? app.deposit_portone_id : app.balance_portone_id
@@ -68,8 +88,8 @@ export async function POST(request: NextRequest) {
     if (billingKey) {
       // ─── 정기결제(BillPay) 흐름 — 서버가 저장된 billingKey로 재청구 ───
       const orderName    = `BBK 공간케어 ${stage === 'deposit' ? '예약금' : '잔금'} — ${String(app.business_name ?? '')}`
-      const customerName = String(app.owner_name ?? '')
-      const phone        = (app.phone ?? '').replace(/-/g, '')
+      const customerName = ownerName
+      const phone        = ownerPhone.replace(/-/g, '')
 
       await client.payment.payWithBillingKey({
         paymentId,
@@ -138,44 +158,45 @@ export async function POST(request: NextRequest) {
 
     const nowIso = new Date().toISOString()
     const updates: Record<string, unknown> = {
-      payment_confirmed_at: nowIso,
-      // 결제 완료 시 상태 자동 승격 (DB CHECK: pending/invoiced/paid/overdue)
-      payment_status: 'paid',
-      // 관리자 UI 드롭다운 표시 값 자동 세팅 (사람 친화적 라벨)
       payment_status_detail: stage === 'deposit' ? '예약금 입금' : '결제완료',
+    }
+    // customers 테이블엔 payment_confirmed_at / payment_status(enum) 컬럼이 없음
+    if (!isCustomerMode) {
+      updates.payment_confirmed_at = nowIso
+      updates.payment_status = 'paid'
     }
 
     if (stage === 'deposit') {
       updates.deposit_paid_at = nowIso
-      // 실제 결제된 금액을 deposit 필드에 저장 (금액 불일치 방지)
       updates.deposit = expectedAmount
-      // billingKey는 정기결제 흐름에서만 저장 (일반결제엔 없음)
       if (billingKey) updates.billing_key = billingKey
     } else {
       updates.balance_paid_at = nowIso
     }
 
     await supabase
-      .from('service_applications')
+      .from(dbTable)
       .update(updates)
-      .eq('id', applicationId)
+      .eq('id', recordId)
 
-    // Slack 알림 — 카드/실시간계좌이체 결제 완료 알림 (사장님 즉시 알림)
+    // Slack 알림
     const stageLabel = stage === 'deposit' ? '예약금(1차)' : '잔금(2차)'
     sendSlack(
       `💳 *${stageLabel} 결제 완료*\n` +
       `업체: ${String(app.business_name ?? '-')}` +
-      ` / 고객: ${String(app.owner_name ?? '-')}\n` +
+      ` / 고객: ${ownerName || '-'}\n` +
       `금액: ${expectedAmount.toLocaleString('ko-KR')}원\n` +
       `결제ID: ${paymentId}`,
     ).catch(() => {})
 
-    if (stage === 'deposit') {
-      // G2: 예약금 완료 → 예약확정알림 (입금확인 + 예약확정 내용 통합)
-      await triggerAutoNotify(applicationId, '예약확정알림')
-    } else {
-      // G4: 잔금 완료 → 결제완료 알림
-      await triggerAutoNotify(applicationId, '결제완료알림(잔금)')
+    // 자동 알림은 service_applications 모드에서만 (customers 모드는 알림 플로우 없음)
+    if (!isCustomerMode && applicationId) {
+      if (stage === 'deposit') {
+        await triggerAutoNotify(applicationId, '예약확정알림')
+      } else {
+        // G4: 잔금 완료 → 결제완료 알림
+        await triggerAutoNotify(applicationId, '결제완료알림(잔금)')
+      }
     }
 
     return NextResponse.json({
