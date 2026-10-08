@@ -291,6 +291,19 @@ const NOTIFY_TYPE_CONFIG: Record<string, { badge: string; dot: string }> = {
 const isNoVatMethod = (method: string | null | undefined): boolean =>
   !!method && (method.includes('비과세') || method.includes('미희망') || method === '현금(부가세 X)')
 
+// 구버전 DB 값 → 화면 표시 이름 정규화 (DB 값은 변경하지 않음)
+const PAYMENT_METHOD_LABEL: Record<string, string> = {
+  '카드(온라인 간편결제)': '카드',
+  'credit_card':           '신용/체크카드',
+  'corporate_card':        '법인카드',
+  'bank_transfer':         '계좌이체',
+  'virtual_account':       '가상계좌',
+  '계좌이체':              '계좌이체',
+  '가상계좌':              '가상계좌',
+}
+const normalizePaymentMethodLabel = (method: string | null | undefined): string =>
+  method ? (PAYMENT_METHOD_LABEL[method] ?? method) : '-'
+
 // 서비스 유형 → 짧은 배지 라벨 (알림 이력 옆에 병기)
 // baseType 저장 통일 후에도 어떤 서비스 유형 template 로 나갔는지 UI 에서 즉시 확인.
 function serviceTypeShortLabel(t: string | null | undefined): string | null {
@@ -3429,7 +3442,7 @@ export function CustomersManagementView({
                               {!isWorker && (
                                 <>
                                   {/* 결제방법 */}
-                                  <td className="px-3 py-3 text-xs text-text-secondary whitespace-nowrap">{c.payment_method ?? '-'}</td>
+                                  <td className="px-3 py-3 text-xs text-text-secondary whitespace-nowrap">{normalizePaymentMethodLabel(c.payment_method)}</td>
                                   {/* 총액 — 만원 단위 압축 표시 (소수점 1자리까지 유지: 195,800 → "19.6만원") */}
                                   <td className="px-3 py-3 text-xs font-mono font-semibold text-text-primary whitespace-nowrap w-16">
                                     {total > 0
@@ -3525,7 +3538,7 @@ export function CustomersManagementView({
                       {!isWorker && (
                         <td className="px-3 py-3 whitespace-nowrap min-w-[180px]">
                           {c.payment_method && (
-                            <p className="text-[11px] text-text-secondary mb-1">{c.payment_method}</p>
+                            <p className="text-[11px] text-text-secondary mb-1">{normalizePaymentMethodLabel(c.payment_method)}</p>
                           )}
                           {(c.customer_type === '정기딥케어' || c.customer_type === '정기엔드케어') && (() => {
                             const b = latestBillings[c.id]
