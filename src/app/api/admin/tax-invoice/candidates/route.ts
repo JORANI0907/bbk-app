@@ -200,7 +200,7 @@ export async function GET(request: NextRequest) {
       payment_method: string | null
       created_at: string
       deleted_at: string | null
-      // 신규 컬럼 — 마이그레이션 안 됐으면 undefined
+      balance_paid_at?: string | null
       deposit_transferred_at?: string | null
     }
     interface OneTimeCust {
@@ -236,7 +236,7 @@ export async function GET(request: NextRequest) {
         id, construction_date, status, payment_status_detail,
         tax_invoice_issued, tax_invoice_issued_at,
         supply_amount, vat, payment_method, created_at, deleted_at,
-        deposit_transferred_at
+        balance_paid_at, deposit_transferred_at
       )
     `
     const SELECT_LEGACY = `
@@ -246,7 +246,8 @@ export async function GET(request: NextRequest) {
       service_applications (
         id, construction_date, status, payment_status_detail,
         tax_invoice_issued, tax_invoice_issued_at,
-        supply_amount, vat, payment_method, created_at, deleted_at
+        supply_amount, vat, payment_method, created_at, deleted_at,
+        balance_paid_at
       )
     `
     let oneTimeCusts: OneTimeCust[] | null = null
@@ -364,6 +365,7 @@ export async function GET(request: NextRequest) {
           draft_invoice_kind: draft?.invoice_kind ?? null,
           application_status: sa.status ?? null,
           payment_status_detail: sa.payment_status_detail ?? null,
+          balance_paid_at: sa.balance_paid_at ?? null,
           deposit_transferred_at: sa.deposit_transferred_at ?? null,
           customer_payment_status_detail: c.payment_status_detail ?? null,
           account_number: c.account_number ?? null,
