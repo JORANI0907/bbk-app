@@ -1037,7 +1037,7 @@
             </div>
             <div class="radio-option">
               <input type="radio" name="paymentMethod" id="payBankTransfer" value="bank_transfer">
-              <label for="payBankTransfer"><span class="radio-dot"></span>계좌이체</label>
+              <label for="payBankTransfer"><span class="radio-dot"></span>실시간계좌이체</label>
             </div>
             <div class="radio-option">
               <input type="radio" name="paymentMethod" id="payVirtualAccount" value="virtual_account">
@@ -1565,7 +1565,7 @@
       })
       .then(function(data) {
         if (!data) return;
-        if (data.paymentUrl && isTestEnv) {
+        if (data.paymentUrl) {
           window.location.href = data.paymentUrl;
         } else {
           document.getElementById('successModal').classList.add('active');
