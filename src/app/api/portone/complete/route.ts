@@ -48,16 +48,24 @@ export async function POST(request: NextRequest) {
       deposit_portone_id: string | null
       balance_portone_id: string | null
       business_name: string | null
+      // service_applications: owner_name / phone
+      // customers: contact_name / contact_phone
       owner_name?: string | null
       contact_name?: string | null
       phone?: string | null
       contact_phone?: string | null
     }
-    const { data: rawRecord } = await supabase
+    const selectFields = isCustomerMode
+      ? 'supply_amount, vat, deposit, deposit_portone_id, balance_portone_id, business_name, contact_name, contact_phone'
+      : 'supply_amount, vat, deposit, deposit_portone_id, balance_portone_id, business_name, owner_name, phone'
+    const { data: rawRecord, error: fetchError } = await supabase
       .from(dbTable)
-      .select('supply_amount, vat, deposit, deposit_portone_id, balance_portone_id, business_name, owner_name, contact_name, phone, contact_phone')
+      .select(selectFields)
       .eq('id', recordId)
       .single()
+    if (fetchError) {
+      console.error('[complete] DB 조회 오류:', fetchError.message, { recordId, dbTable })
+    }
 
     if (!rawRecord) {
       return NextResponse.json({ error: isCustomerMode ? '고객을 찾을 수 없습니다.' : '신청서를 찾을 수 없습니다.' }, { status: 404 })
