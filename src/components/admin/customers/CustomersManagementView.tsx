@@ -3048,37 +3048,37 @@ export function CustomersManagementView({
             </button>
             {!isWorker && (
               <Button size="sm" onClick={handleDuplicateBulk} disabled={bulkCreating}
-                className="bg-sky-100 hover:bg-sky-200 text-sky-700 border border-sky-200 whitespace-nowrap">
+                className="bg-sky-100 hover:bg-sky-200 !text-sky-800 border border-sky-200 whitespace-nowrap">
                 {bulkCreating ? '...' : '복제'}
               </Button>
             )}
             {!isWorker && (
               <Button size="sm" onClick={handleDeleteBulk} disabled={bulkCreating}
-                className="bg-red-100 hover:bg-red-200 text-red-700 border border-red-200 whitespace-nowrap">
+                className="bg-red-100 hover:bg-red-200 !text-red-800 border border-red-200 whitespace-nowrap">
                 삭제
               </Button>
             )}
             {!isWorker && (
               <Button size="sm" onClick={handleArchiveBulk} disabled={bulkCreating}
                 className={archivedView
-                  ? 'bg-brand-100 hover:bg-brand-200 text-brand-700 border border-brand-200 whitespace-nowrap'
-                  : 'bg-violet-100 hover:bg-violet-200 text-violet-700 border border-violet-200 whitespace-nowrap'}>
+                  ? 'bg-brand-100 hover:bg-brand-200 !text-brand-800 border border-brand-200 whitespace-nowrap'
+                  : 'bg-violet-100 hover:bg-violet-200 !text-violet-800 border border-violet-200 whitespace-nowrap'}>
                 {bulkCreating ? '...' : archivedView ? '되돌리기' : '이관'}
               </Button>
             )}
             <Button size="sm" onClick={() => openScheduleGenModal('create')} disabled={bulkCreating}
-              className="bg-emerald-100 hover:bg-emerald-200 text-emerald-700 border border-emerald-200 whitespace-nowrap">
+              className="bg-emerald-100 hover:bg-emerald-200 !text-emerald-800 border border-emerald-200 whitespace-nowrap">
               {bulkCreating ? '...' : '일정 생성'}
             </Button>
             {!isWorker && (
               <Button size="sm" onClick={handleBulkScheduleNotify} disabled={bulkCreating}
-                className="bg-amber-100 hover:bg-amber-200 text-amber-700 border border-amber-200 whitespace-nowrap">
+                className="bg-amber-100 hover:bg-amber-200 !text-amber-800 border border-amber-200 whitespace-nowrap">
                 일정 알림
               </Button>
             )}
             {!isWorker && (
               <Button size="sm" onClick={handleExportTaxInvoiceCsv} disabled={bulkCreating}
-                className="bg-teal-100 hover:bg-teal-200 text-teal-700 border border-teal-200 whitespace-nowrap">
+                className="bg-teal-100 hover:bg-teal-200 !text-teal-800 border border-teal-200 whitespace-nowrap">
                 홈택스 CSV
               </Button>
             )}
