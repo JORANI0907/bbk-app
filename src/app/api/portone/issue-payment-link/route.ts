@@ -8,6 +8,7 @@ import {
   isPortOneEnabled,
   calcBalance,
 } from '@/lib/portone'
+import { normalizePaymentMethod } from '@/lib/payment-methods'
 
 const APP_BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.bbkorea.co.kr'
 
@@ -23,7 +24,10 @@ export async function POST(request: NextRequest) {
       applicationId?: string
       customerId?: string
       stage: 'deposit' | 'balance'
-      overridePaymentMethod?: '카드(온라인 간편결제)' | '가상계좌' | '계좌이체'
+      // 2026-10-06 재설계: 레거시 한글 enum + 신규 영문 enum 모두 지원
+      overridePaymentMethod?:
+        | '카드(온라인 간편결제)' | '가상계좌' | '계좌이체'  // 레거시
+        | 'credit_card' | 'corporate_card' | 'bank_transfer' | 'virtual_account'  // 신규
     }
     const { applicationId, customerId, stage, overridePaymentMethod } = body
     if ((!applicationId && !customerId) || !stage) {
@@ -77,15 +81,18 @@ export async function POST(request: NextRequest) {
         }
       : rawRecord
 
-    const pm = String(app.payment_method ?? '')
-    const isCard     = pm === '카드(온라인 간편결제)'
-    // 가상계좌: 신규 옵션('가상계좌') + 기존 옵션('현금(계산서 희망)') 통합 (레거시 데이터 호환)
-    const isVbank    = pm === '가상계좌' || pm === '현금(계산서 희망)'
-    const isTransfer = pm === '계좌이체'
+    // 2026-10-06 재설계: normalizePaymentMethod() 로 레거시+신규 enum 모두 처리.
+    //   레거시 '현금(계산서 희망)' → 'virtual_account' 로 자동 변환되어 vbank 플로우로 라우팅.
+    //   신규 'corporate_card' 도 신용카드와 동일한 포트원 CARD 플로우.
+    const rawPm = String(app.payment_method ?? '')
+    const pm = normalizePaymentMethod(rawPm)
+    const isCard     = pm === 'credit_card' || pm === 'corporate_card'
+    const isVbank    = pm === 'virtual_account'
+    const isTransfer = pm === 'bank_transfer'
 
     if (!isCard && !isVbank && !isTransfer) {
       return NextResponse.json(
-        { error: `결제수단 '${pm}'은(는) 포트원 결제 대상이 아닙니다.` },
+        { error: `결제수단 '${rawPm}'은(는) 포트원 결제 대상이 아닙니다.` },
         { status: 400 },
       )
     }

@@ -8,7 +8,7 @@ import { MapSelectorModal } from '@/components/MapSelectorModal'
 import { BulkMonthlyScheduleNotifyModal } from './BulkMonthlyScheduleNotifyModal'
 import { BillingHistoryPanel } from '@/components/admin/BillingHistoryPanel'
 import { Button } from '@/components/ui'
-import { Phone, ClipboardList, Map, Banknote, Save, Megaphone, Calendar, BookOpen, Archive, Trash2, Copy, Folder, FolderOpen, FolderPlus, CreditCard, FileCheck, ChevronDown } from 'lucide-react'
+import { Phone, ClipboardList, Map, Banknote, Save, Megaphone, Calendar, BookOpen, Archive, Trash2, Copy, Folder, FolderOpen, FolderPlus, CreditCard, FileCheck, ChevronDown, Lock, Unlock } from 'lucide-react'
 import { useDriveFolder } from '@/hooks/useDriveFolder'
 import { CustomerAccountLink } from '@/components/admin/CustomerAccountLink'
 import { FieldHint } from '@/components/ui/FieldHint'
@@ -23,6 +23,7 @@ import { readCache, writeCache, clearCache } from '@/lib/browser-cache'
 import { VisitCycleEditor } from '@/components/admin/customers/VisitCycleEditor'
 import { RegularAssignmentsWidget } from '@/components/admin/customers/RegularAssignmentsWidget'
 import type { VisitCycleUnit, VisitCycleConfig } from '@/lib/schedule-generator'
+import { buildHometaxCsv, todayYmdKst, type HometaxRow, type HometaxItem } from '@/lib/hometax-csv'
 
 // ─── 타입 ─────────────────────────────────────────────────────
 type CustomerType = '1회성케어' | '정기딥케어' | '정기엔드케어' | '정기딥케어샘플' | '정기엔드케어샘플' | '일반일정'
@@ -119,7 +120,7 @@ interface Customer {
   // Phase 39: 방문일자별 담당자·작업자 매핑 (jsonb) — visit_cycle_unit=month 용. 비어있으면 assigned_user_id fallback.
   monthly_date_assignments: Record<string, { user_id: string | null; worker_ids: string[] }> | null
   // 서비스관리 이관 필드 (Phase A)
-  notification_log: Array<{ type: string; sent_at: string; phone?: string; method?: 'auto' | 'manual'; template_id?: string }> | null
+  notification_log: Array<{ type: string; sent_at: string; phone?: string; method?: 'auto' | 'manual'; template_id?: string; kind?: 'notification' | 'status_change' }> | null
   phone_notify_1: boolean | null
   phone_notify_2: boolean | null
   construction_time: string | null
@@ -137,10 +138,10 @@ interface Customer {
   updated_at: string
 }
 
-interface NotifyLog { type: string; sentAt: string; method?: 'auto' | 'manual' }
+interface NotifyLog { type: string; sentAt: string; method?: 'auto' | 'manual'; kind?: 'notification' | 'status_change' }
 
-function dbLogToNotifyLog(l: { type: string; sent_at: string; method?: 'auto' | 'manual' }): NotifyLog {
-  return { type: l.type, sentAt: l.sent_at, method: l.method ?? 'auto' }
+function dbLogToNotifyLog(l: { type: string; sent_at: string; method?: 'auto' | 'manual'; kind?: 'notification' | 'status_change' }): NotifyLog {
+  return { type: l.type, sentAt: l.sent_at, method: l.method ?? 'auto', kind: l.kind }
 }
 
 // notification_history 응답을 (type, sent_at 근사) 기준으로 body 맵으로 변환.
@@ -289,6 +290,19 @@ const NOTIFY_TYPE_CONFIG: Record<string, { badge: string; dot: string }> = {
 // 비과세 결제방법 여부 (부가세 0)
 const isNoVatMethod = (method: string | null | undefined): boolean =>
   !!method && (method.includes('비과세') || method.includes('미희망') || method === '현금(부가세 X)')
+
+// 구버전 DB 값 → 화면 표시 이름 정규화 (DB 값은 변경하지 않음)
+const PAYMENT_METHOD_LABEL: Record<string, string> = {
+  '카드(온라인 간편결제)': '카드',
+  'credit_card':           '신용/체크카드',
+  'corporate_card':        '법인카드',
+  'bank_transfer':         '계좌이체',
+  'virtual_account':       '가상계좌',
+  '계좌이체':              '계좌이체',
+  '가상계좌':              '가상계좌',
+}
+const normalizePaymentMethodLabel = (method: string | null | undefined): string =>
+  method ? (PAYMENT_METHOD_LABEL[method] ?? method) : '-'
 
 // 서비스 유형 → 짧은 배지 라벨 (알림 이력 옆에 병기)
 // baseType 저장 통일 후에도 어떤 서비스 유형 template 로 나갔는지 UI 에서 즉시 확인.
@@ -710,7 +724,7 @@ export function CustomersManagementView({
     status: string | null
     created_at: string
     // Phase 27-AB: 자동 발송된 알림 이력을 세부화면에서 감사(audit) 가능하도록 노출
-    notification_log: Array<{ type: string; sent_at: string; phone?: string; method?: 'auto' | 'manual'; template_id?: string }> | null
+    notification_log: Array<{ type: string; sent_at: string; phone?: string; method?: 'auto' | 'manual'; template_id?: string; kind?: 'notification' | 'status_change' }> | null
   }>>([])
   // 리스트 미리보기용 최신 청구 요약 (customer_id → 대표 청구 record)
   const [latestBillings, setLatestBillings] = useState<Record<string, {
@@ -766,8 +780,12 @@ export function CustomersManagementView({
   const [form, setForm] = useState<typeof EMPTY_FORM>(EMPTY_FORM)
   const [saving, setSaving] = useState(false)
   const [statusToggling, setStatusToggling] = useState(false)
+  const [copiedUrl, setCopiedUrl] = useState<'deposit' | 'balance' | null>(null)
+  const [generatingBalanceUrl, setGeneratingBalanceUrl] = useState(false)
   // 결제방법 편집 잠금 (카드 단일화 정책 실수 방지 · 고객 열 때마다 잠금으로 리셋)
   const [paymentMethodUnlocked, setPaymentMethodUnlocked] = useState(false)
+  // 진행 흐름 인포그래픽 편집 잠금 — 고객 열 때마다 잠금으로 초기화
+  const [infographicLocked, setInfographicLocked] = useState(true)
   const [notifyType, setNotifyType] = useState('')
   const [sending, setSending] = useState(false)
   const [notifyLogs, setNotifyLogs] = useState<NotifyLog[]>([])
@@ -781,6 +799,7 @@ export function CustomersManagementView({
   // 일괄 예약확정알림 모달: 발송 유형(정기딥/정기엔드) 세팅 시 오픈, null 이면 닫힘.
   const [bulkNotifyType, setBulkNotifyType] = useState<'정기딥케어' | '정기엔드케어' | null>(null)
   const [bulkCreating, setBulkCreating] = useState(false)
+  const [bulkConfirm, setBulkConfirm] = useState<{ label: string; desc: string; onConfirm: () => void } | null>(null)
   // Phase 5-E: 기간 기반 모달 — mode(create=신규 생성 / cleanup=수정)
   const [scheduleGenModal, setScheduleGenModal] = useState<{
     open: boolean
@@ -1180,6 +1199,7 @@ export function CustomersManagementView({
     // metadata.customer_id 로 필터 → 자동/수동/크론 발송 통합 조회.
     setNotifyBodyMap({})
     setOpenBodyIdx(null)
+    setInfographicLocked(true)
     fetch(`/api/admin/notification-history?customer_id=${c.id}&limit=100`)
       .then(r => r.ok ? r.json() : null)
       .then(j => {
@@ -1341,6 +1361,7 @@ export function CustomersManagementView({
     setPendingAppId(null)  // Phase 27-AB: 완전 신규 고객 입력이므로 pending 상태 해제
     setSelected(null); setIsNew(true); setNotifyType('')
     setNotifyLogs([])
+    setInfographicLocked(true)
     setForm(EMPTY_FORM)
     setVisitWeekdays([])
     setVisitMonthlyDates([])
@@ -1689,6 +1710,107 @@ export function CustomersManagementView({
     } catch (e) {
       toast.error(e instanceof Error ? e.message : '저장 실패')
     } finally { setStatusToggling(false) }
+  }
+
+  // 진행 흐름 인포그래픽 — 노드 클릭 시 즉시 저장 + 워크플로우 이력 추가
+  const handleInfographicSave = async (
+    updates: {
+      progress_status?: string | null
+      payment_status_detail?: string | null
+      tax_invoice_issued?: boolean | null
+      payment_method?: string | null
+      deposit_paid_at?: string | null
+      balance_paid_at?: string | null
+    },
+    logText: string
+  ) => {
+    if (!selected || statusToggling) return
+    setStatusToggling(true)
+    const nowIso = new Date().toISOString()
+    const logEntry = {
+      type: `[상태변경] ${logText}`,
+      sent_at: nowIso,
+      method: 'manual' as const,
+      kind: 'status_change' as const,
+    }
+    try {
+      const res = await fetch('/api/admin/customers', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: selected.id,
+          ...updates,
+          notification_log: [logEntry, ...(selected.notification_log ?? [])],
+        }),
+      })
+      if (!res.ok) throw new Error('저장 실패')
+      // 세금계산서 변경 시 service_applications 동기화
+      if (updates.tax_invoice_issued !== undefined) {
+        fetch('/api/admin/tax-invoice/application-status', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ customer_id: selected.id, tax_invoice_issued: updates.tax_invoice_issued }),
+        }).catch(() => {})
+      }
+      setForm(prev => {
+        const next = { ...prev }
+        if (updates.progress_status !== undefined) next.progress_status = updates.progress_status ?? ''
+        if (updates.payment_status_detail !== undefined) next.payment_status_detail = updates.payment_status_detail ?? ''
+        if (updates.tax_invoice_issued !== undefined) next.tax_invoice_issued = updates.tax_invoice_issued ?? false
+        if (updates.payment_method !== undefined) next.payment_method = updates.payment_method ?? ''
+        return next
+      })
+      setNotifyLogs(prev => [{ type: `[상태변경] ${logText}`, sentAt: nowIso, method: 'manual', kind: 'status_change' }, ...prev])
+      setSelected(prev => prev ? {
+        ...prev,
+        ...updates,
+        notification_log: [logEntry, ...(prev.notification_log ?? [])],
+      } : prev)
+      setCustomers(prev => prev.map(c => c.id === selected.id ? { ...c, ...updates } : c))
+      toast.success(logText)
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : '저장 실패')
+    } finally {
+      setStatusToggling(false)
+    }
+  }
+
+  // 복사 피드백 2초 후 자동 초기화
+  useEffect(() => {
+    if (!copiedUrl) return
+    const t = setTimeout(() => setCopiedUrl(null), 2000)
+    return () => clearTimeout(t)
+  }, [copiedUrl])
+
+  const handleGenerateBalanceUrl = async () => {
+    if (!selected?.id || generatingBalanceUrl) return
+    setGeneratingBalanceUrl(true)
+    try {
+      const res = await fetch('/api/portone/issue-payment-link', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ customerId: selected.id, stage: 'balance' }),
+      })
+      const data = await res.json()
+      if (data.success && data.paymentUrl) {
+        setSelected(prev => prev ? {
+          ...prev,
+          balance_payment_url: data.paymentUrl,
+          balance_portone_id: data.paymentId ?? prev.balance_portone_id,
+        } : prev)
+        setCustomers(prev => prev.map(c => c.id === selected.id
+          ? { ...c, balance_payment_url: data.paymentUrl }
+          : c
+        ))
+        toast.success('잔금 결제 링크가 생성되었습니다.')
+      } else {
+        toast.error(data.error || '링크 생성에 실패했습니다.')
+      }
+    } catch {
+      toast.error('네트워크 오류가 발생했습니다.')
+    } finally {
+      setGeneratingBalanceUrl(false)
+    }
   }
 
   const handleListInvoiceToggle = async (customerId: string, current: boolean) => {
@@ -2058,6 +2180,75 @@ export function CustomersManagementView({
       toast.error(e instanceof Error ? e.message : '실패')
     } finally {
       setBulkCreating(false)
+    }
+  }
+
+  const handleExportTaxInvoiceCsv = async () => {
+    const oneTimeSelected = customers.filter(
+      c => checkedIds.includes(c.id) && c.customer_type === '1회성케어'
+    )
+    if (oneTimeSelected.length === 0) { toast.error('1회성케어 고객을 선택하세요.'); return }
+    const selectedSet = new Set(oneTimeSelected.map(c => c.id))
+    const t = toast.loading('홈택스 CSV 생성 중...')
+    try {
+      type TC = {
+        customer_id: string | null; is_valid: boolean
+        draft_supplier_id: string | null; construction_date: string | null
+        draft_items: Array<{ name: string; spec?: string; qty?: number; unit_price?: number; supply_amount?: number; vat?: number; remark?: string }> | null
+        draft_invoice_kind: string | null; draft_receipt_type: string | null
+        draft_receiver_business_type: string | null; draft_receiver_business_item: string | null
+        draft_receiver_email_2: string | null
+        business_number: string | null; business_name: string; owner_name: string
+        address: string | null; email: string | null
+        supply_amount: number; vat: number
+      }
+      type Sup = { id: string; registration_number: string; company_name: string; representative: string; address: string; business_type: string; business_item: string; email: string; is_default: boolean }
+      const [sRes, cRes] = await Promise.all([
+        fetch('/api/admin/tax-invoice/suppliers').then(r => r.json()),
+        fetch('/api/admin/tax-invoice/candidates?service_type=1회성케어').then(r => r.json()),
+      ])
+      const supplierList = (sRes.suppliers ?? []) as Sup[]
+      const defaultSup = supplierList.find(s => s.is_default) ?? supplierList[0]
+      if (!defaultSup) { toast.dismiss(t); toast.error('공급자 정보 없음 — 세금계산서 탭에서 공급자를 먼저 등록하세요.'); return }
+      const targets = ((cRes.candidates ?? []) as TC[]).filter(c => selectedSet.has(c.customer_id ?? ''))
+      if (targets.length === 0) { toast.dismiss(t); toast.error('선택된 고객의 발행 대상이 없습니다.'); return }
+      const invalid = targets.filter(c => !c.is_valid)
+      if (invalid.length > 0) { toast.dismiss(t); toast.error(`필수 정보 누락 ${invalid.length}건 — 세금계산서 탭에서 확인하세요.`); return }
+      const yyyymmdd = todayYmdKst()
+      const rows: HometaxRow[] = targets.map(c => {
+        const sup = c.draft_supplier_id ? (supplierList.find(s => s.id === c.draft_supplier_id) ?? defaultSup) : defaultSup
+        const periodLabel = c.construction_date?.slice(0, 10) ?? ''
+        const items: HometaxItem[] = c.draft_items?.length
+          ? c.draft_items.slice(0, 4).map(it => ({ name: it.name, spec: it.spec ?? null, qty: it.qty ?? 1, unit_price: it.unit_price ?? Number(it.supply_amount ?? 0), supply_amount: Number(it.supply_amount ?? 0), vat: Number(it.vat ?? 0), remark: it.remark ?? null }))
+          : [{ name: `1회성케어${periodLabel ? ` - ${periodLabel}` : ''}`, qty: 1, unit_price: c.supply_amount, supply_amount: c.supply_amount, vat: c.vat }]
+        return {
+          invoice_kind: (c.draft_invoice_kind === '02' ? '02' : '01') as '01' | '02',
+          written_date: yyyymmdd,
+          supplier: { registration_number: sup.registration_number, company_name: sup.company_name, representative: sup.representative, address: sup.address, business_type: sup.business_type, business_item: sup.business_item, email: sup.email },
+          receiver: { registration_number: c.business_number, business_name: c.business_name, owner_name: c.owner_name, address: c.address, business_type: c.draft_receiver_business_type, business_item: c.draft_receiver_business_item, email: c.email, email_2: c.draft_receiver_email_2 },
+          items,
+          receipt_type: (c.draft_receipt_type === '02' ? '02' : '01') as '01' | '02',
+        }
+      })
+      let csv: string
+      try { csv = buildHometaxCsv(rows) }
+      catch (e) { toast.dismiss(t); toast.error(e instanceof Error ? e.message : 'CSV 생성 실패'); return }
+      const filename = `홈택스_세금계산서_${yyyymmdd}_${rows.length}건.csv`
+      try {
+        const res = await fetch('/api/admin/tax-invoice/upload-csv', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ filename, csv }) })
+        const json = await res.json()
+        toast.dismiss(t)
+        if (!res.ok) throw new Error(json.error ?? '업로드 실패')
+        toast.success(`${rows.length}건 Google Sheets 저장 완료`, { duration: 6000 })
+      } catch {
+        toast.dismiss(t)
+        const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' })
+        const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = filename; a.click(); URL.revokeObjectURL(url)
+        toast.error('Sheets 저장 실패 — 로컬 CSV로 다운로드', { duration: 5000 })
+      }
+    } catch (e) {
+      toast.dismiss(t)
+      toast.error(e instanceof Error ? e.message : '오류 발생')
     }
   }
 
@@ -2863,37 +3054,58 @@ export function CustomersManagementView({
             모바일에선 카운트가 첫 줄 단독, 버튼 5개는 다음 줄로 자연 wrap.
             데스크톱(sm+)은 기존 한 줄 배치 유지. */}
         {checkedIds.length > 0 && !isEmbedActive && (
-          <div className="mb-3 flex flex-wrap items-center gap-2 bg-brand-600 text-white px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl shadow-sm">
-            <span className="text-sm font-semibold w-full sm:w-auto sm:flex-1">{checkedIds.length}건 선택됨</span>
+          <div className="mb-3 flex flex-wrap items-center gap-1.5 bg-brand-50 border border-brand-200 text-text-primary px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl shadow-soft">
+            <span className="text-xs font-semibold text-brand-700 w-full sm:w-auto sm:flex-1">{checkedIds.length}건 선택</span>
             <button onClick={() => setCheckedIds([])}
-              className="text-xs text-brand-200 hover:text-white px-2 py-1 rounded transition-colors">
-              선택 해제
+              className="text-xs text-brand-400 hover:text-brand-700 px-2 py-1 rounded transition-colors">
+              해제
             </button>
             {!isWorker && (
-              <Button size="sm" onClick={handleDuplicateBulk} disabled={bulkCreating} className="bg-brand-100 hover:bg-brand-200 text-brand-700 whitespace-nowrap">
-                {bulkCreating ? '처리 중...' : '복제'}
+              <Button size="sm" disabled={bulkCreating}
+                onClick={() => setBulkConfirm({ label: '복제', desc: `선택한 ${checkedIds.length}건을 복제합니다.`, onConfirm: handleDuplicateBulk })}
+                className="bg-sky-100 hover:bg-sky-200 !text-sky-800 border border-sky-200 whitespace-nowrap">
+                {bulkCreating ? '...' : '복제'}
               </Button>
             )}
             {!isWorker && (
-              <Button variant="danger" size="sm" onClick={handleDeleteBulk} disabled={bulkCreating} className="whitespace-nowrap">
+              <Button size="sm" disabled={bulkCreating}
+                onClick={() => setBulkConfirm({ label: '삭제', desc: `선택한 ${checkedIds.length}건을 삭제합니다. 되돌릴 수 없습니다.`, onConfirm: handleDeleteBulk })}
+                className="bg-red-100 hover:bg-red-200 !text-red-800 border border-red-200 whitespace-nowrap">
                 삭제
               </Button>
             )}
             {!isWorker && (
-              <Button size="sm" onClick={handleArchiveBulk} disabled={bulkCreating}
+              <Button size="sm" disabled={bulkCreating}
+                onClick={() => setBulkConfirm({
+                  label: archivedView ? '되돌리기' : '이관',
+                  desc: archivedView
+                    ? `선택한 ${checkedIds.length}건을 고객관리로 되돌립니다.`
+                    : `선택한 ${checkedIds.length}건을 고객DB이력으로 이관합니다.`,
+                  onConfirm: handleArchiveBulk,
+                })}
                 className={archivedView
-                  ? 'bg-brand-600 hover:bg-brand-700 text-white whitespace-nowrap'
-                  : 'bg-purple-600 hover:bg-purple-700 text-white whitespace-nowrap'}>
-                {bulkCreating ? '처리 중...' : archivedView ? '↩ 고객관리로 되돌리기' : '📦 이력으로 이관'}
+                  ? 'bg-brand-100 hover:bg-brand-200 !text-brand-800 border border-brand-200 whitespace-nowrap'
+                  : 'bg-violet-100 hover:bg-violet-200 !text-violet-800 border border-violet-200 whitespace-nowrap'}>
+                {bulkCreating ? '...' : archivedView ? '되돌리기' : '이관'}
               </Button>
             )}
-            <Button size="sm" onClick={() => openScheduleGenModal('create')} disabled={bulkCreating} className="bg-green-600 hover:bg-green-700 text-white whitespace-nowrap">
-              {bulkCreating ? '처리 중...' : <><Calendar size={14} className="inline mr-1" />일정 생성</>}
+            <Button size="sm" disabled={bulkCreating}
+              onClick={() => setBulkConfirm({ label: '일정생성', desc: `선택한 ${checkedIds.length}건의 서비스 일정을 생성합니다.`, onConfirm: () => openScheduleGenModal('create') })}
+              className="bg-emerald-100 hover:bg-emerald-200 !text-emerald-800 border border-emerald-200 whitespace-nowrap">
+              {bulkCreating ? '...' : '일정생성'}
             </Button>
-            {/* 일정 알림 (일괄 예약확정알림). 정기딥/엔드 단일 유형만 허용, 혼합/1회성 시 안내 후 차단. */}
             {!isWorker && (
-              <Button size="sm" onClick={handleBulkScheduleNotify} disabled={bulkCreating} className="bg-brand-100 hover:bg-brand-200 text-brand-700 whitespace-nowrap">
-                일정 알림
+              <Button size="sm" disabled={bulkCreating}
+                onClick={() => setBulkConfirm({ label: '일정알림', desc: `선택한 ${checkedIds.length}건에 예약확정 알림을 발송합니다.`, onConfirm: handleBulkScheduleNotify })}
+                className="bg-orange-100 hover:bg-orange-200 !text-orange-800 border border-orange-200 whitespace-nowrap">
+                일정알림
+              </Button>
+            )}
+            {!isWorker && (
+              <Button size="sm" disabled={bulkCreating}
+                onClick={() => setBulkConfirm({ label: '홈택스', desc: `선택한 ${checkedIds.length}건의 홈택스 CSV를 생성합니다.`, onConfirm: handleExportTaxInvoiceCsv })}
+                className="bg-teal-100 hover:bg-teal-200 !text-teal-800 border border-teal-200 whitespace-nowrap">
+                홈택스
               </Button>
             )}
             {/* Phase 7-J: "서비스 신청서 생성 →" 버튼 제거 — 서비스관리 흡수 이후 미사용 (사용자 지시).
@@ -2965,8 +3177,7 @@ export function CustomersManagementView({
                         { key: 'business_name' as const, label: '업체명 / 주소' },
                         { key: null, label: '케어범위' },
                         { key: null, label: '담당자' },
-                        ...(!isWorker ? [{ key: null, label: '결제방법' } as const, { key: null, label: '총액' } as const] : []),
-                        ...(!isWorker ? [{ key: null, label: '진행상태' } as const, { key: null, label: '결제상태' } as const, { key: null, label: '계산서발행' } as const] : []),
+                        ...(!isWorker ? [{ key: null, label: '결제방법' } as const, { key: null, label: '총액' } as const, { key: null, label: '진행흐름' } as const] : []),
                       ] as const)
                     }
                     if (isDipCareView) {
@@ -3048,9 +3259,23 @@ export function CustomersManagementView({
                     return ''
                   })()
                   const visitScheduleText = formatVisitSchedule(c)
-                  // Phase 13: 진행상태=좌측 border, 결제상태=행 전체 파스텔 배경, 오늘 시공=sky ring
-                  const progressBorder = c.progress_status ? (PROGRESS_ROW_BORDER[c.progress_status] ?? 'border-l-transparent') : 'border-l-transparent'
-                  const paymentBg = c.payment_status_detail ? (PAYMENT_ROW_BG[c.payment_status_detail] ?? '') : ''
+                  // 1회성케어: 5단계 진행흐름 기반 border·배경. 정기케어: 기존 결제상태 기반 유지.
+                  let progressBorder: string
+                  let paymentBg: string
+                  if (c.customer_type === '1회성케어') {
+                    const s2 = !!c.deposit_paid_at
+                    const s3 = ['작업완료', '계산서발행완료'].includes(c.progress_status ?? '')
+                    const s4 = !!c.balance_paid_at || PAYMENT_COMPLETE_STATUSES.includes(c.payment_status_detail ?? '')
+                    const s5 = !!c.tax_invoice_issued
+                    if (s5)       { progressBorder = 'border-l-blue-300';   paymentBg = 'bg-blue-50' }
+                    else if (s4)  { progressBorder = 'border-l-green-300';  paymentBg = 'bg-green-50' }
+                    else if (s3)  { progressBorder = 'border-l-yellow-300'; paymentBg = 'bg-yellow-50' }
+                    else if (s2)  { progressBorder = 'border-l-orange-300'; paymentBg = 'bg-orange-50' }
+                    else          { progressBorder = 'border-l-red-300';    paymentBg = 'bg-red-50' }
+                  } else {
+                    progressBorder = c.progress_status ? (PROGRESS_ROW_BORDER[c.progress_status] ?? 'border-l-transparent') : 'border-l-transparent'
+                    paymentBg = c.payment_status_detail ? (PAYMENT_ROW_BG[c.payment_status_detail] ?? '') : ''
+                  }
                   const todayStr = new Date().toISOString().slice(0, 10)
                   const isToday = c.next_visit_date?.slice(0, 10) === todayStr
                   const isPaused = c.status === 'paused'
@@ -3244,48 +3469,37 @@ export function CustomersManagementView({
                               {!isWorker && (
                                 <>
                                   {/* 결제방법 */}
-                                  <td className="px-3 py-3 text-xs text-text-secondary whitespace-nowrap">{c.payment_method ?? '-'}</td>
+                                  <td className="px-3 py-3 text-xs text-text-secondary whitespace-nowrap">{normalizePaymentMethodLabel(c.payment_method)}</td>
                                   {/* 총액 — 만원 단위 압축 표시 (소수점 1자리까지 유지: 195,800 → "19.6만원") */}
                                   <td className="px-3 py-3 text-xs font-mono font-semibold text-text-primary whitespace-nowrap w-16">
                                     {total > 0
                                       ? <>{total >= 10000 ? `${(total / 10000).toFixed(1).replace(/\.0$/, '')}만` : total.toLocaleString('ko-KR')}<span className="text-text-tertiary font-normal">원</span></>
                                       : <span className="text-text-tertiary">-</span>}
                                   </td>
-                                </>
-                              )}
-                              {/* Phase 27-H: worker에겐 진행상태·결제상태도 숨김 (헤더와 짝 유지) */}
-                              {!isWorker && (
-                                <>
-                                  {/* 진행상태 뱃지 (Phase 9-A) */}
+                                  {/* 진행흐름 — 5단계 독립 dot */}
                                   <td className="px-3 py-3 whitespace-nowrap">
-                                    {c.progress_status
-                                      ? <span className="text-xs px-1.5 py-0.5 rounded-full font-medium bg-brand-50 text-brand-700 border border-brand-200">{c.progress_status}</span>
-                                      : <span className="text-xs text-text-tertiary">-</span>}
-                                  </td>
-                                  {/* 결제상태 뱃지 + Phase 11 dot */}
-                                  <td className="px-3 py-3 whitespace-nowrap">
-                                    {c.payment_status_detail
-                                      ? <span className="inline-flex items-center gap-1.5 text-xs px-1.5 py-0.5 rounded-full font-medium bg-brand-50 text-brand-700 border border-brand-200">
-                                          <span className={`w-1.5 h-1.5 rounded-full ${PAYMENT_STATUS_DOT[c.payment_status_detail] ?? 'bg-gray-400'}`} />
-                                          {c.payment_status_detail === '비과세' ? '비과세 결제' : c.payment_status_detail}
-                                        </span>
-                                      : <span className="text-xs text-text-tertiary">-</span>}
-                                  </td>
-                                  {/* 계산서발행 체크 */}
-                                  <td className="px-3 py-3 text-center whitespace-nowrap w-16" onClick={e => e.stopPropagation()}>
-                                    {!isPendingApp && (
-                                      <button
-                                        type="button"
-                                        onClick={() => handleListInvoiceToggle(c.id, c.tax_invoice_issued ?? false)}
-                                        className={`w-5 h-5 rounded border-2 flex items-center justify-center mx-auto transition-colors ${
-                                          c.tax_invoice_issued
-                                            ? 'bg-blue-500 border-blue-500 text-white'
-                                            : 'border-gray-300 hover:border-blue-400 bg-white'
-                                        }`}
-                                      >
-                                        {c.tax_invoice_issued && <FileCheck className="w-3 h-3" />}
-                                      </button>
-                                    )}
+                                    <div className="flex items-end gap-1.5">
+                                      {([
+                                        { label: '신청', done: true },
+                                        { label: '예약금', done: !!c.deposit_paid_at },
+                                        { label: '작업', done: ['작업완료', '계산서발행완료'].includes(c.progress_status ?? '') },
+                                        { label: '잔금', done: !!c.balance_paid_at || PAYMENT_COMPLETE_STATUSES.includes(c.payment_status_detail ?? '') },
+                                        { label: '계산서', done: !!c.tax_invoice_issued },
+                                      ] as { label: string; done: boolean }[]).map((step, i) => (
+                                        <div key={i} className="flex flex-col items-center gap-0.5">
+                                          <div className={`w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center ${
+                                            step.done ? 'bg-brand-500 border-brand-500' : 'border-gray-300 bg-white'
+                                          }`}>
+                                            {step.done && (
+                                              <svg width="6" height="5" viewBox="0 0 6 5" fill="none">
+                                                <path d="M0.75 2.5L2.25 4L5.25 1" stroke="white" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
+                                              </svg>
+                                            )}
+                                          </div>
+                                          <span className={`text-[8px] leading-none ${step.done ? 'text-brand-600 font-medium' : 'text-text-tertiary'}`}>{step.label}</span>
+                                        </div>
+                                      ))}
+                                    </div>
                                   </td>
                                 </>
                               )}
@@ -3351,7 +3565,7 @@ export function CustomersManagementView({
                       {!isWorker && (
                         <td className="px-3 py-3 whitespace-nowrap min-w-[180px]">
                           {c.payment_method && (
-                            <p className="text-[11px] text-text-secondary mb-1">{c.payment_method}</p>
+                            <p className="text-[11px] text-text-secondary mb-1">{normalizePaymentMethodLabel(c.payment_method)}</p>
                           )}
                           {(c.customer_type === '정기딥케어' || c.customer_type === '정기엔드케어') && (() => {
                             const b = latestBillings[c.id]
@@ -3948,12 +4162,19 @@ export function CustomersManagementView({
                           : 'border-border-subtle text-text-tertiary bg-surface-sunken cursor-not-allowed'
                       }`}>
                       <option value="">선택...</option>
-                      <option value="카드(온라인 간편결제)">카드(온라인 간편결제)</option>
-                      <option value="계좌이체">계좌이체</option>
-                      <option value="가상계좌">가상계좌</option>
-                      <option value="현금(계산서 희망)">현금(계산서 희망)</option>
-                      <option value="현금(비과세)">현금(비과세)</option>
-                      <option value="플랫폼">플랫폼</option>
+                      {/* 2026-10-06 재설계: 신규 enum 5종 (platform은 레거시 유지) */}
+                      <option value="credit_card">신용/체크카드</option>
+                      <option value="corporate_card">법인카드</option>
+                      <option value="bank_transfer">계좌이체</option>
+                      <option value="virtual_account">무통장입금(가상계좌)</option>
+                      <option value="cash_untaxed">비과세 현금</option>
+                      {/* 레거시 (과거 데이터 호환용) */}
+                      <option value="카드(온라인 간편결제)">카드(온라인 간편결제) [레거시]</option>
+                      <option value="계좌이체">계좌이체 [레거시]</option>
+                      <option value="가상계좌">가상계좌 [레거시]</option>
+                      <option value="현금(계산서 희망)">현금(계산서 희망) [레거시]</option>
+                      <option value="현금(비과세)">현금(비과세) [레거시]</option>
+                      <option value="플랫폼">플랫폼 [레거시]</option>
                     </select>
                     <button
                       type="button"
@@ -4685,90 +4906,249 @@ export function CustomersManagementView({
               />
             )}
 
-            {/* ── 상태 정보 (저장 버튼 바로 위) — 1회성·일반일정 전용 ─── */}
+            {/* ── 진행 흐름 인포그래픽 ──────────────────────────────── */}
             {!isWorker && isOnceCare && !isNew && (
-              <div className="rounded-2xl border border-brand-100 overflow-hidden bg-gradient-to-br from-brand-50/40 to-transparent">
-                <div className="bg-brand-50/60 px-4 py-2.5 border-b border-brand-100">
-                  <p className="text-xs font-semibold text-brand-800">상태 정보</p>
+              <div className="rounded-2xl border border-gray-200 overflow-hidden bg-white">
+                <div className="px-4 py-2.5 border-b border-gray-100 bg-gray-50/60 flex items-center justify-between">
+                  <p className="text-xs font-semibold text-gray-700">진행 흐름</p>
+                  <button
+                    type="button"
+                    onClick={() => setInfographicLocked(v => !v)}
+                    className={`flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-medium transition-colors ${
+                      infographicLocked
+                        ? 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'
+                        : 'text-brand-600 bg-brand-50 border border-brand-200'
+                    }`}
+                  >
+                    {infographicLocked ? <Lock size={10} /> : <Unlock size={10} />}
+                    <span>{infographicLocked ? '잠김' : '편집 중'}</span>
+                  </button>
                 </div>
-                <div className="p-4 space-y-3">
-                  {/* 진행상태·결제상태 좌우 배치 */}
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="flex flex-col gap-1">
-                      <span className="text-[11px] text-text-secondary font-medium">진행상태</span>
-                      <select
-                        value={form.progress_status}
-                        onChange={e => set('progress_status')(e.target.value)}
-                        className="w-full border border-border rounded-lg px-2 py-1.5 text-xs text-text-primary focus:outline-none focus:ring-2 focus:ring-brand-500 bg-surface"
+                <div className="p-4">
+                  {(() => {
+                    const isCancelled = form.progress_status === '예약취소'
+                    const depositDone = !!selected?.deposit_paid_at
+                    const workDone = ['작업완료', '계산서발행완료'].includes(form.progress_status ?? '')
+                    const balancePsd = form.payment_status_detail ?? ''
+                    const balanceDone = PAYMENT_COMPLETE_STATUSES.includes(balancePsd) || !!selected?.balance_paid_at
+                    const invoiceDone = form.tax_invoice_issued === true
+                    const pm = form.payment_method ?? ''
+
+                    const CARD_METHODS = ['카드(온라인 간편결제)', 'credit_card', 'corporate_card']
+                    const VIRTUAL_METHODS = ['가상계좌', 'virtual_account']
+                    const TRANSFER_METHODS = ['계좌이체', 'bank_transfer']
+
+                    const getActiveBranch = (method: string): string | null => {
+                      if (CARD_METHODS.includes(method)) return '카드결제'
+                      if (VIRTUAL_METHODS.includes(method)) return '가상계좌'
+                      if (TRANSFER_METHODS.includes(method)) return '계좌이체'
+                      if (method) return '기타'
+                      return null
+                    }
+                    const activeBranch = getActiveBranch(pm)
+                    const BRANCHES = ['카드결제', '계좌이체', '가상계좌', '기타'] as const
+
+                    const handleBranchClick = (branch: string) => {
+                      if (infographicLocked || statusToggling) return
+                      const oldLabel = activeBranch ?? '미지정'
+                      const methodMap: Record<string, string> = {
+                        '카드결제': '카드(온라인 간편결제)',
+                        '계좌이체': '계좌이체',
+                        '가상계좌': '가상계좌',
+                        '기타': '기타',
+                      }
+                      const newMethod = methodMap[branch] ?? branch
+                      if (newMethod === pm) return
+                      handleInfographicSave({ payment_method: newMethod }, `결제방법 변경: ${oldLabel} → ${branch}`)
+                    }
+
+                    const renderCheck = () => (
+                      <svg width="8" height="6" viewBox="0 0 8 6" fill="none">
+                        <path d="M1 3L3 5L7 1" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                    )
+
+                    const renderNode = (done: boolean, step: number | null, editable: boolean, onClick?: () => void) => (
+                      <div
+                        onClick={editable && !infographicLocked ? onClick : undefined}
+                        className={`w-7 h-7 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-all duration-150 ${
+                          done ? 'bg-brand-500 border-brand-500' : 'bg-white border-gray-300'
+                        } ${editable && !infographicLocked ? 'cursor-pointer hover:scale-110 active:scale-95' : 'cursor-default'}`}
                       >
-                        <option value="">(미정)</option>
-                        {PROGRESS_STATUS_OPTIONS.map(v => (
-                          <option key={v} value={v}>{v}</option>
-                        ))}
-                      </select>
-                    </div>
-                    <div className="flex flex-col gap-1">
-                      <span className="text-[11px] text-text-secondary font-medium">결제상태</span>
-                      <select
-                        value={form.payment_status_detail}
-                        onChange={e => set('payment_status_detail')(e.target.value)}
-                        className="w-full border border-border rounded-lg px-2 py-1.5 text-xs text-text-primary focus:outline-none focus:ring-2 focus:ring-brand-500 bg-surface"
-                      >
-                        <option value="">(미정)</option>
-                        {PAYMENT_STATUS_DETAIL_OPTIONS.map(o => (
-                          <option key={o.value} value={o.value}>{o.label}</option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-                  {/* 예약확정 · 결제완료 · 세금계산서 발행 토글 (3열 배치)
-                      예약확정 버튼: 클릭 시 예약확정알림 SMS 발송 + status='예약확정' 저장.
-                      그 후 06:00 cron 이 자동으로 예약1일전/예약당일 알림 발송. */}
-                  <div className="grid grid-cols-3 gap-2">
-                    <button
-                      type="button"
-                      disabled={statusToggling}
-                      onClick={handleReservationConfirmToggle}
-                      className={`flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium border transition-all duration-150 ease-out hover:-translate-y-0.5 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed ${
-                        form.progress_status === '예약확정'
-                          ? 'bg-blue-100 text-blue-700 border-blue-200 shadow-sm hover:shadow-md hover:bg-blue-200'
-                          : 'bg-gray-50 text-text-tertiary border-border hover:bg-gray-100 hover:shadow-sm'
-                      }`}
-                      title="예약확정 알림 SMS 발송 + 진행상태를 예약확정으로 저장. 다음날부터 예약1일전/당일 알림 자동 발송."
-                    >
-                      <Calendar className="w-3.5 h-3.5" />
-                      예약확정
-                    </button>
-                    <button
-                      type="button"
-                      disabled={statusToggling}
-                      onClick={handlePaymentCompleteToggle}
-                      className={`flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium border transition-all duration-150 ease-out hover:-translate-y-0.5 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed ${
-                        PAYMENT_COMPLETE_STATUSES.includes(selected?.payment_status_detail ?? '')
-                          ? 'bg-emerald-100 text-emerald-700 border-emerald-200 shadow-sm hover:shadow-md hover:bg-emerald-200'
-                          : 'bg-gray-50 text-text-tertiary border-border hover:bg-gray-100 hover:shadow-sm'
-                      }`}
-                    >
-                      <CreditCard className="w-3.5 h-3.5" />
-                      결제완료
-                    </button>
-                    <button
-                      type="button"
-                      disabled={statusToggling}
-                      onClick={handleInvoiceIssuedToggle}
-                      className={`flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium border transition-all duration-150 ease-out hover:-translate-y-0.5 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed ${
-                        form.tax_invoice_issued === true
-                          ? 'bg-sky-100 text-sky-700 border-sky-200 shadow-sm hover:shadow-md hover:bg-sky-200'
-                          : 'bg-gray-50 text-text-tertiary border-border hover:bg-gray-100 hover:shadow-sm'
-                      }`}
-                    >
-                      <FileCheck className="w-3.5 h-3.5" />
-                      세금계산서 발행
-                    </button>
-                  </div>
-                  <p className="text-[11px] text-text-tertiary break-keep leading-relaxed">
-                    진행·결제 상태는 알림 발송 시 자동 업데이트되며 수동 편집도 가능합니다.
-                  </p>
+                        {done ? renderCheck() : step !== null ? <span className="text-[8px] text-gray-300 font-bold">{step}</span> : null}
+                      </div>
+                    )
+
+                    const statusBadge = (label: string, colorClass: string) => (
+                      <span className={`text-[10px] px-2 py-0.5 rounded-full border font-medium ${colorClass}`}>{label}</span>
+                    )
+
+                    const connector = <div className="ml-3.5 w-px h-4 bg-gray-100 my-0.5" />
+
+                    const renderBranches = () => (
+                      <div className="ml-10">
+                        <div className="flex gap-1 flex-wrap">
+                          {BRANCHES.map(b => (
+                            <button
+                              key={b}
+                              type="button"
+                              onClick={() => handleBranchClick(b)}
+                              disabled={infographicLocked || statusToggling}
+                              className={`text-[10px] px-2 py-0.5 rounded-full border font-medium transition-all disabled:cursor-default ${
+                                activeBranch === b
+                                  ? 'bg-brand-50 border-brand-200 text-brand-700'
+                                  : 'bg-gray-50 border-gray-200 text-gray-400 enabled:hover:border-gray-300 enabled:hover:text-gray-500'
+                              }`}
+                            >
+                              {b}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )
+
+                    return (
+                      <div>
+                        {/* 1. 신청서작성 */}
+                        <div className="flex items-center gap-3">
+                          {renderNode(true, null, false)}
+                          <div className="flex-1 flex items-center justify-between">
+                            <span className="text-xs font-semibold text-gray-700">신청서작성</span>
+                            {statusBadge('완료', 'bg-teal-50 text-teal-600 border-teal-200')}
+                          </div>
+                        </div>
+                        {connector}
+
+                        {/* 2. 예약금결제 */}
+                        <div className="space-y-1.5">
+                          <div className="flex items-center gap-3">
+                            {renderNode(depositDone, 2, true, () => handleInfographicSave(
+                              { deposit_paid_at: depositDone ? null : new Date().toISOString() },
+                              depositDone ? '예약금 입금 취소' : '예약금 입금 완료'
+                            ))}
+                            <div className="flex-1 flex items-center justify-between">
+                              <span className="text-xs font-semibold text-gray-700">예약금결제</span>
+                              {statusBadge(
+                                depositDone ? '입금완료' : '미입금',
+                                depositDone ? 'bg-teal-50 text-teal-600 border-teal-200' : 'bg-amber-50 text-amber-600 border-amber-200'
+                              )}
+                            </div>
+                          </div>
+                          {renderBranches()}
+                          <div className="ml-10">
+                            <div className="flex items-center gap-2 px-2.5 py-1.5 bg-gray-50 rounded-xl border border-gray-100">
+                              <span className="text-[10px] text-gray-400 flex-1">예약금 결제링크</span>
+                              {selected?.deposit_payment_url ? (
+                                <button
+                                  type="button"
+                                  onClick={() => { navigator.clipboard.writeText(selected.deposit_payment_url!); setCopiedUrl('deposit') }}
+                                  className={`text-[10px] px-2 py-0.5 rounded-lg border font-medium transition-all ${copiedUrl === 'deposit' ? 'bg-teal-50 border-teal-200 text-teal-700' : 'bg-white border-gray-200 text-gray-500 hover:border-gray-300'}`}
+                                >
+                                  {copiedUrl === 'deposit' ? '복사완료 ✓' : '링크 복사'}
+                                </button>
+                              ) : (
+                                <span className="text-[9px] text-gray-300">미생성</span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                        {connector}
+
+                        {/* 3. 작업완료 */}
+                        <div className="flex items-center gap-3">
+                          {renderNode(workDone && !isCancelled, 3, true, () => handleInfographicSave(
+                            { progress_status: workDone ? '예약확정' : '작업완료' },
+                            workDone ? '작업완료 취소' : '작업완료 처리'
+                          ))}
+                          <div className="flex-1 flex items-center justify-between">
+                            <span className="text-xs font-semibold text-gray-700">작업완료</span>
+                            {statusBadge(
+                              isCancelled ? '취소됨' : workDone ? '완료' : '미완료',
+                              isCancelled ? 'bg-red-50 text-red-500 border-red-200'
+                                : workDone ? 'bg-teal-50 text-teal-600 border-teal-200'
+                                : 'bg-gray-50 text-gray-400 border-gray-200'
+                            )}
+                          </div>
+                        </div>
+                        {connector}
+
+                        {/* 4. 잔금결제 */}
+                        <div className="space-y-1.5">
+                          <div className="flex items-center gap-3">
+                            {renderNode(balanceDone, 4, true, () => handleInfographicSave(
+                              {
+                                payment_status_detail: balanceDone ? '결제' : '결제완료',
+                                balance_paid_at: balanceDone ? null : new Date().toISOString(),
+                              },
+                              balanceDone ? '잔금 결제완료 취소' : '잔금 결제완료 처리'
+                            ))}
+                            <div className="flex-1 flex items-center justify-between">
+                              <span className="text-xs font-semibold text-gray-700">잔금결제</span>
+                              {statusBadge(
+                                balanceDone
+                                  ? balancePsd === '카드결제 완료' ? '카드결제'
+                                    : balancePsd === '비과세' ? '현금(비과세)'
+                                    : '결제완료'
+                                  : '미결제',
+                                balanceDone ? 'bg-teal-50 text-teal-600 border-teal-200' : 'bg-gray-50 text-gray-400 border-gray-200'
+                              )}
+                            </div>
+                          </div>
+                          {renderBranches()}
+                          <div className="ml-10 space-y-1">
+                            <div className="flex items-center gap-2 px-2.5 py-1.5 bg-gray-50 rounded-xl border border-gray-100">
+                              <span className="text-[10px] text-gray-400 flex-1">잔금 결제링크</span>
+                              {selected?.balance_payment_url ? (
+                                <button
+                                  type="button"
+                                  onClick={() => { navigator.clipboard.writeText(selected.balance_payment_url!); setCopiedUrl('balance') }}
+                                  className={`text-[10px] px-2 py-0.5 rounded-lg border font-medium transition-all ${copiedUrl === 'balance' ? 'bg-teal-50 border-teal-200 text-teal-700' : 'bg-white border-gray-200 text-gray-500 hover:border-gray-300'}`}
+                                >
+                                  {copiedUrl === 'balance' ? '복사완료 ✓' : '링크 복사'}
+                                </button>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={handleGenerateBalanceUrl}
+                                  disabled={generatingBalanceUrl || statusToggling}
+                                  className="text-[10px] px-2 py-0.5 bg-brand-50 border border-brand-200 text-brand-600 rounded-lg hover:bg-brand-100 disabled:opacity-50 font-medium transition-colors"
+                                >
+                                  {generatingBalanceUrl ? '생성 중...' : '링크 생성'}
+                                </button>
+                              )}
+                            </div>
+                            <p className="text-[9px] text-gray-400 px-0.5">
+                              알림 템플릿에서{' '}
+                              <span className="font-mono text-brand-500 text-[8px] bg-brand-50 px-1 rounded">{'{{잔금결제URL}}'}</span>{' '}
+                              변수로 사용 가능
+                            </p>
+                          </div>
+                        </div>
+                        {connector}
+
+                        {/* 5. 세금계산서발행 */}
+                        <div className="flex items-center gap-3">
+                          {renderNode(invoiceDone, 5, true, () => handleInfographicSave(
+                            { tax_invoice_issued: !invoiceDone },
+                            invoiceDone ? '세금계산서 발행완료 취소' : '세금계산서 발행완료 처리'
+                          ))}
+                          <div className="flex-1 flex items-center justify-between">
+                            <span className="text-xs font-semibold text-gray-700">세금계산서발행</span>
+                            {statusBadge(
+                              invoiceDone ? '발행완료' : '미발행',
+                              invoiceDone ? 'bg-violet-50 text-violet-600 border-violet-200' : 'bg-gray-50 text-gray-400 border-gray-200'
+                            )}
+                          </div>
+                        </div>
+
+                        {!infographicLocked && (
+                          <p className="text-[9px] text-brand-500 text-center mt-3 pt-3 border-t border-brand-100">
+                            각 단계를 클릭하면 즉시 저장됩니다
+                          </p>
+                        )}
+                      </div>
+                    )
+                  })()}
                 </div>
               </div>
             )}
@@ -5014,14 +5394,28 @@ export function CustomersManagementView({
                       )}
                     </div>
                   )}
-                  {/* 발송 이력 */}
+                  {/* 워크플로우 이력 */}
                   <div className="border border-border-subtle rounded-lg overflow-hidden">
-                    <p className="text-xs font-semibold text-text-secondary px-3 py-2 bg-surface-sunken border-b border-border-subtle">발송 이력</p>
+                    <p className="text-xs font-semibold text-text-secondary px-3 py-2 bg-surface-sunken border-b border-border-subtle">워크플로우 이력</p>
                     {notifyLogs.length === 0 ? (
-                      <p className="text-xs text-text-tertiary text-center py-4">발송 이력이 없습니다.</p>
+                      <p className="text-xs text-text-tertiary text-center py-4">이력이 없습니다.</p>
                     ) : (
                       <div className="max-h-52 overflow-y-auto divide-y divide-border-subtle">
                         {notifyLogs.map((log, i) => {
+                          const isStatusChange = log.kind === 'status_change' || log.type.startsWith('[상태변경]')
+                          if (isStatusChange) {
+                            return (
+                              <div key={i} className="flex items-center justify-between px-3 py-2 gap-2">
+                                <div className="flex items-center gap-1.5 min-w-0">
+                                  <span className="text-[10px] px-1.5 py-0.5 bg-slate-100 text-slate-500 rounded font-medium shrink-0">수동변경</span>
+                                  <span className="text-xs text-text-secondary truncate">{log.type.replace('[상태변경] ', '')}</span>
+                                </div>
+                                <span className="text-xs text-text-tertiary shrink-0">
+                                  {new Date(log.sentAt).toLocaleString('ko-KR', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                                </span>
+                              </div>
+                            )
+                          }
                           const isResent = log.type.startsWith('[재발송] ')
                           const baseType = isResent ? log.type.replace('[재발송] ', '') : log.type
                           const cfg = NOTIFY_TYPE_CONFIG[baseType]
@@ -5087,6 +5481,30 @@ export function CustomersManagementView({
       )}
 
     </div>
+
+    {/* bulk 액션 확인 모달 */}
+    {bulkConfirm && (
+      <div className="fixed inset-0 z-[95] flex items-center justify-center bg-black/50 p-4" onClick={() => setBulkConfirm(null)}>
+        <div className="bg-surface rounded-2xl shadow-modal max-w-sm w-full p-6" onClick={e => e.stopPropagation()}>
+          <h3 className="text-base font-bold text-text-primary mb-2">{bulkConfirm.label}</h3>
+          <p className="text-sm text-text-secondary leading-relaxed mb-5">{bulkConfirm.desc}</p>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setBulkConfirm(null)}
+              className="flex-1 px-4 py-2 text-sm font-medium text-text-secondary border border-border rounded-lg hover:bg-surface-sunken transition-colors"
+            >
+              취소
+            </button>
+            <button
+              onClick={() => { bulkConfirm.onConfirm(); setBulkConfirm(null) }}
+              className="flex-1 px-4 py-2 text-sm font-medium text-white bg-brand-600 hover:bg-brand-700 rounded-lg transition-colors"
+            >
+              확인
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
 
     {/* 서비스 일정 생성 모달 — 세부창(z-60) 위에 뜨도록 z-[90] */}
     {scheduleGenModal.open && (

@@ -21,6 +21,7 @@ const ALLOWED = [
   'care_scope', 'special_notes',
   // Phase 27-AS: 관리자 메모 (누락되어 있어 저장 후 사라지던 이슈 해결)
   'admin_notes',
+  'construction_time',
   // 결제정보
   'payment_method',
   'unit_price', 'deposit', 'supply_amount', 'vat', 'balance',
@@ -203,7 +204,7 @@ const FIELDS_SLIM = [
   'special_notes', 'admin_notes', 'notes',
   // 결제·금액 (리스트에 총액·잔금 표시)
   'payment_method', 'supply_amount', 'vat', 'deposit', 'balance',
-  'tax_invoice_issued',
+  'tax_invoice_issued', 'deposit_paid_at', 'balance_paid_at',
   // 방문/계약 (계약기간·방문주기·다음 결제일 표시)
   'billing_cycle', 'billing_timing', 'billing_amount',
   'billing_start_date', 'billing_next_date',
@@ -233,7 +234,7 @@ const FIELDS_SLIM = [
   'created_at', 'updated_at',
 ].join(', ')
 
-const FIELDS_FULL = 'id, business_name, contact_name, contact_phone, contact_phone_2, email, address, address_detail, business_number, account_number, platform_nickname, payment_method, elevator, building_access, access_method, business_hours_start, business_hours_end, door_password, parking_info, special_notes, care_scope, pipeline_status, customer_type, status, disposition, grade, billing_cycle, billing_timing, billing_amount, supply_amount, vat, deposit, balance, billing_start_date, billing_next_date, billing_contact_name, billing_email, billing_address, billing_business_number, contract_start_date, contract_end_date, unit_price, visit_interval_days, next_visit_date, visit_schedule_type, visit_weekdays, visit_monthly_dates, visit_cycle_unit, visit_cycle_value, visit_cycle_config, yearly_billing_month, yearly_billing_day, notes, rotation_type, visit_count_per_month, payment_status, payment_date, schedule_generation_day, assigned_user_id, assigned_worker_id, assigned_worker_ids, weekday_assignments, monthly_date_assignments, user_id, account_user_id, progress_status, payment_status_detail, tax_invoice_issued, injection_cycle_months, drive_folder_url, notification_log, phone_notify_1, phone_notify_2, construction_time, admin_notes, archived_at, archived_by, auto_notification_paused, created_at, updated_at'
+const FIELDS_FULL = 'id, business_name, contact_name, contact_phone, contact_phone_2, email, address, address_detail, business_number, account_number, platform_nickname, payment_method, elevator, building_access, access_method, business_hours_start, business_hours_end, door_password, parking_info, special_notes, care_scope, pipeline_status, customer_type, status, disposition, grade, billing_cycle, billing_timing, billing_amount, supply_amount, vat, deposit, balance, billing_start_date, billing_next_date, billing_contact_name, billing_email, billing_address, billing_business_number, contract_start_date, contract_end_date, unit_price, visit_interval_days, next_visit_date, visit_schedule_type, visit_weekdays, visit_monthly_dates, visit_cycle_unit, visit_cycle_value, visit_cycle_config, yearly_billing_month, yearly_billing_day, notes, rotation_type, visit_count_per_month, payment_status, payment_date, schedule_generation_day, assigned_user_id, assigned_worker_id, assigned_worker_ids, weekday_assignments, monthly_date_assignments, user_id, account_user_id, progress_status, payment_status_detail, tax_invoice_issued, deposit_paid_at, balance_paid_at, injection_cycle_months, drive_folder_url, notification_log, phone_notify_1, phone_notify_2, construction_time, admin_notes, archived_at, archived_by, auto_notification_paused, created_at, updated_at'
 
 export async function GET(request: NextRequest) {
   const supabase = createServiceClient()

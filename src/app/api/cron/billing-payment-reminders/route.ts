@@ -3,6 +3,7 @@ import { createServiceClient } from '@/lib/supabase/server'
 import { sendByTemplate } from '@/lib/template-sender'
 import type { NotificationContext } from '@/lib/notification-variables'
 import { saveNotificationHistory } from '@/lib/notification'
+import { normalizePaymentMethod } from '@/lib/payment-methods'
 
 /**
  * 정기 청구(service_billings) 기반 결제 알림 크론.
@@ -25,12 +26,19 @@ function getKSTToday(): string {
   return nowKST.toISOString().slice(0, 10)
 }
 
-/** 결제방식 → 알림 템플릿 base code */
+/**
+ * 결제방식 → 알림 템플릿 base code
+ *
+ * 2026-10-06 재설계: normalizePaymentMethod()로 레거시+신규 enum 모두 처리.
+ *   - 레거시 '현금(계산서 희망)' → 'virtual_account'로 정규화되므로 rawPm 체크 보존.
+ *   - 신규 bank_transfer/virtual_account 는 '결제알림' 템플릿 대상에 포함.
+ */
 function pickTemplateBase(paymentMethod: string | null): string | null {
-  const pm = String(paymentMethod ?? '')
-  if (pm === '현금(계산서 희망)') return '결제알림'
-  if (pm === '현금(비과세)')     return '결제알림(현금)'
-  if (pm === '카드(온라인 간편결제)' || pm === '플랫폼') return '결제요청알림(카드)'
+  const rawPm = String(paymentMethod ?? '')
+  const pm = normalizePaymentMethod(rawPm)
+  if (rawPm === '현금(계산서 희망)' || pm === 'virtual_account' || pm === 'bank_transfer') return '결제알림'
+  if (pm === 'cash_untaxed')                                                                return '결제알림(현금)'
+  if (pm === 'credit_card' || pm === 'corporate_card' || pm === 'platform')                return '결제요청알림(카드)'
   return null
 }
 

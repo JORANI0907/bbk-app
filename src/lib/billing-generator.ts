@@ -4,13 +4,15 @@
  * 원칙:
  * - 정기케어(딥/엔드) 모두 billing_cycle(월간/2개월/3개월/연간)만으로 청구 스케줄 계산
  * - 유형별(딥/엔드) 분기 없음
- * - 비과세 여부는 payment_method로 자동 판별
+ * - 비과세 여부는 payment_method로 자동 판별 (src/lib/payment-methods.ts hasVat() 사용)
  * - idempotent: 기존 billing_period는 스킵 (중복 방지)
  *
  * 트리거:
  * 1. 고객 저장(PATCH) 시 autoGenerateBillings 자동 호출
  * 2. Cron 안전망 (/api/cron/billings-safety-net)
  */
+
+import { hasVat } from '@/lib/payment-methods'
 
 /** billing_cycle 문자열 → 한 주기당 월 수 ('월간'→1, 'N개월'→N, '연간'→12) */
 export function billingCycleStepMonths(cycle: string | null): number {
@@ -197,9 +199,6 @@ export function calcMonthlyDueDate(visitDate: string | Date, paymentDay: number 
   return `${y}-${String(m).padStart(2, '0')}-${String(day).padStart(2, '0')}`
 }
 
-// 비과세 결제수단
-const NO_VAT_METHODS = new Set(['현금(비과세)', '카드(온라인 간편결제)', '플랫폼'])
-
 /**
  * customers row에서 청구액 계산.
  *   billing_amount(마스터 UI에서 결제방법·부가세 반영해 산정된 최종 총액)를 최우선 반환.
@@ -208,6 +207,9 @@ const NO_VAT_METHODS = new Set(['현금(비과세)', '카드(온라인 간편결
  *   과거 버전은 supply + vat 을 먼저 계산했는데, NO_VAT_METHODS 에 '카드(온라인 간편결제)'·
  *   '플랫폼' 이 포함되어 있어 카드 결제 시 부가세를 뺀 공급가액만 저장되는 문제 발생.
  *   (예: 신전떡볶이 마스터 198,000 → 청구서 amount 180,000 으로 저장됨)
+ *
+ *   2026-10-06 재설계: NO_VAT_METHODS 하드코딩 제거, src/lib/payment-methods.ts의
+ *   hasVat() 사용으로 전환. 레거시+신규 enum 둘 다 자동 처리.
  */
 export function computeBillingAmountFromCustomer(customer: {
   supply_amount?:  number | null
@@ -216,7 +218,7 @@ export function computeBillingAmountFromCustomer(customer: {
   payment_method?: string | null
 }): number | null {
   if (customer.billing_amount) return Number(customer.billing_amount)
-  const noVat = NO_VAT_METHODS.has(customer.payment_method ?? '')
+  const noVat = !hasVat(customer.payment_method)
   const s = Number(customer.supply_amount ?? 0)
   const v = noVat ? 0 : Number(customer.vat ?? 0)
   if (s > 0) return s + v

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { getServerSession } from '@/lib/session'
+import { hasVat } from '@/lib/payment-methods'
 
 export const dynamic = 'force-dynamic'
 
@@ -12,8 +13,8 @@ export const dynamic = 'force-dynamic'
 //   include_issued=true       → 발행완료 건도 포함
 //   service_type=A,B,...      → 유형 필터 (1회성케어, 정기딥케어, 정기엔드케어)
 
-// 부가세 미적용 결제방법
-const NO_VAT_METHODS = new Set(['현금(비과세)', '카드(온라인 간편결제)', '플랫폼'])
+// 부가세 미적용 결제방법 — 2026-10-06 재설계로 하드코딩 제거.
+// src/lib/payment-methods.ts의 hasVat() 사용 (레거시+신규 enum 자동 처리)
 
 type Source = 'application' | 'billing'
 
@@ -69,6 +70,8 @@ interface Candidate {
   account_number: string | null
   /** 1회성 회차 예약금 이체 시각 (미이체이면 null) */
   deposit_transferred_at?: string | null
+  /** 잔금 결제 완료 시각 — 5-step 진행흐름 기준 */
+  balance_paid_at?: string | null
 }
 
 interface DraftData {
@@ -114,7 +117,7 @@ function checkValidity(row: { business_number: string | null; business_name: str
 }
 
 function calcAmounts(amount: number, payment_method: string | null): { supply: number; vat: number } {
-  if (!payment_method || NO_VAT_METHODS.has(payment_method)) {
+  if (!payment_method || !hasVat(payment_method)) {
     return { supply: amount, vat: 0 }
   }
   const supply = Math.round(amount / 1.1)
@@ -199,7 +202,7 @@ export async function GET(request: NextRequest) {
       payment_method: string | null
       created_at: string
       deleted_at: string | null
-      // 신규 컬럼 — 마이그레이션 안 됐으면 undefined
+      balance_paid_at?: string | null
       deposit_transferred_at?: string | null
     }
     interface OneTimeCust {
@@ -235,7 +238,7 @@ export async function GET(request: NextRequest) {
         id, construction_date, status, payment_status_detail,
         tax_invoice_issued, tax_invoice_issued_at,
         supply_amount, vat, payment_method, created_at, deleted_at,
-        deposit_transferred_at
+        balance_paid_at, deposit_transferred_at
       )
     `
     const SELECT_LEGACY = `
@@ -245,7 +248,8 @@ export async function GET(request: NextRequest) {
       service_applications (
         id, construction_date, status, payment_status_detail,
         tax_invoice_issued, tax_invoice_issued_at,
-        supply_amount, vat, payment_method, created_at, deleted_at
+        supply_amount, vat, payment_method, created_at, deleted_at,
+        balance_paid_at
       )
     `
     let oneTimeCusts: OneTimeCust[] | null = null
@@ -363,6 +367,7 @@ export async function GET(request: NextRequest) {
           draft_invoice_kind: draft?.invoice_kind ?? null,
           application_status: sa.status ?? null,
           payment_status_detail: sa.payment_status_detail ?? null,
+          balance_paid_at: sa.balance_paid_at ?? null,
           deposit_transferred_at: sa.deposit_transferred_at ?? null,
           customer_payment_status_detail: c.payment_status_detail ?? null,
           account_number: c.account_number ?? null,

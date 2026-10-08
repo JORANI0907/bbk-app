@@ -70,6 +70,7 @@ export async function POST(request: NextRequest) {
       businessHoursStart, businessHoursEnd,
       elevator, buildingAccess, accessMethod, parking,
       paymentMethod, accountNumber,
+      taxInvoiceRequired,  // 2026-10-06: 사업자 고객의 세금계산서 발행 요청 플래그
       privacyConsent, serviceConsent, requestNotes,
       constructionDate, careScope,
       source,
@@ -166,9 +167,11 @@ export async function POST(request: NextRequest) {
           building_access: buildingAccess,
           access_method: accessMethod,
           parking,
-          // 결제방법 카드 단일화 — 외부 폼(paymentMethod) 값은 무시, 서버에서 강제 세팅
-          // (가상계좌 심사 통과 시 정책 재검토)
-          payment_method: '카드(온라인 간편결제)',
+          // 2026-10-06 재설계: KG 가상계좌/계좌이체 심사 완료 → 폼의 paymentMethod 그대로 저장.
+          //   신규 enum 4종(credit_card/corporate_card/bank_transfer/virtual_account) 지원.
+          //   레거시 '카드(온라인 간편결제)' 등 과거 값은 normalizePaymentMethod() 가 호환 처리.
+          payment_method: paymentMethod,
+          tax_invoice_required: taxInvoiceRequired ?? false,
           account_number: accountNumber,
           privacy_consent: privacyConsent,
           service_consent: serviceConsent,

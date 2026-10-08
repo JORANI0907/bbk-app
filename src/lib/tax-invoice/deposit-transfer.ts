@@ -17,6 +17,11 @@ const TEMPLATE_PATH = path.join(
 const EXAMPLE_ROWS = 12
 
 export const DEPOSIT_AMOUNT = 80000
+
+/**
+ * @deprecated 2026-10-06 재설계 이후 결제 수단 분기는 src/lib/payment-methods.ts의
+ *   isAnyCardPayment() 사용 권장. 이 상수는 레거시 API 호환성을 위해서만 유지됨.
+ */
 export const CARD_PAYMENT_METHOD = '카드(온라인 간편결제)'
 
 export interface DepositCandidate {

@@ -7,6 +7,9 @@ import { saveNotificationHistory } from '@/lib/notification'
 import { sendPushToUsers } from '@/lib/push'
 import { sendSlack } from '@/lib/slack'
 import { dispatch, lookupFranchiseHqIdsForCustomer } from '@/lib/notification-dispatcher'
+import { normalizePaymentMethod } from '@/lib/payment-methods'
+
+const APP_BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.bbkorea.co.kr'
 
 const WORKER_NOTIFY_TYPES = new Set(['작업자 일정 안내', '작업자 자세한 일정 안내'])
 
@@ -14,6 +17,7 @@ const WORKER_NOTIFY_TYPES = new Set(['작업자 일정 안내', '작업자 자�
 // Dual-write 원칙: 기존 status는 그대로 유지하여 자동화(cron 필터, finance 등)가 안 깨지도록 함.
 // 이건 legacy status 컬럼용이라 하드코딩 유지 (도메인 의미가 코드에 고정).
 const NOTIFY_TO_STATUS: Record<string, string> = {
+  '예약금입금요청알림': '예약금요청',
   '예약확정알림':       '예약확정',
   '예약1일전알림':      '예약1일전',
   '예약당일알림':       '예약당일',
@@ -457,6 +461,25 @@ export async function POST(request: NextRequest) {
 
     if (!app) return NextResponse.json({ error: '신청서를 찾을 수 없습니다.' }, { status: 404 })
 
+    // 예약금입금요청알림: deposit_payment_url 없으면 자동 생성
+    if (type === '예약금입금요청알림') {
+      if (!app.deposit_payment_url) {
+        try {
+          const resp = await fetch(`${APP_BASE_URL}/api/portone/issue-payment-link`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ applicationId: application_id, stage: 'deposit' }),
+          })
+          if (resp.ok) {
+            const linkData = await resp.json() as { paymentUrl?: string }
+            if (linkData.paymentUrl) {
+              (app as Record<string, unknown>).deposit_payment_url = linkData.paymentUrl
+            }
+          }
+        } catch { /* 링크 생성 실패는 조용히 무시 */ }
+      }
+    }
+
     // 작업완료알림: 서비스 유형 및 payment_method 에 따라 baseType 결정.
     // baseType 은 UI/상태 매핑/변수 빌드용, 접미사 붙은 templateCode 는 DB 조회용.
     // 관리자 운영 방침: 현금(계산서 희망)·현금(비과세) 둘 다 '작업완료알림' 템플릿을 공용
@@ -470,12 +493,38 @@ export async function POST(request: NextRequest) {
         //   정기엔드와 동일 패턴(감사·사진 위주)의 단일 template로 통합.
         type = '작업완료알림(정기딥케어)'
       } else {
-        const pm = String(app.payment_method ?? '')
-        if (pm === '카드(온라인 간편결제)' || pm === '플랫폼') {
+        // 2026-10-08 재설계: 온라인 결제수단(카드/계좌이체/가상계좌/플랫폼) 모두 URL 포함 템플릿으로 통합.
+        //   - credit_card/corporate_card/bank_transfer/virtual_account/platform → '작업완료알림(카드,플렛폼)'
+        //     (잔금결제URL 자동 생성 포함)
+        //   - cash_untaxed → 기본 '작업완료알림' (계좌 안내)
+        //   - 그 외 (알 수 없는 값) → skip
+        const rawPm = String(app.payment_method ?? '')
+        const pm = normalizePaymentMethod(rawPm)
+        if (
+          pm === 'credit_card' || pm === 'corporate_card' || pm === 'platform' ||
+          pm === 'bank_transfer' || pm === 'virtual_account'
+        ) {
           type = '작업완료알림(카드,플렛폼)'
-        } else if (pm !== '현금(계산서 희망)' && pm !== '현금(비과세)') {
-          return NextResponse.json({ success: true, skipped: true, reason: `결제방법 '${pm}'은(는) 발송 대상이 아닙니다.` })
+          // 잔금결제URL이 없으면 자동 생성 — 발송 전 SMS 변수에 포함되도록
+          if (!app.balance_payment_url) {
+            try {
+              const resp = await fetch(`${APP_BASE_URL}/api/portone/issue-payment-link`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ applicationId: application_id, stage: 'balance' }),
+              })
+              if (resp.ok) {
+                const linkData = await resp.json() as { paymentUrl?: string }
+                if (linkData.paymentUrl) {
+                  (app as Record<string, unknown>).balance_payment_url = linkData.paymentUrl
+                }
+              }
+            } catch { /* 링크 생성 실패는 조용히 무시 — SMS는 URL 없이 발송 */ }
+          }
+        } else if (pm !== 'cash_untaxed') {
+          return NextResponse.json({ success: true, skipped: true, reason: `결제방법 '${rawPm}'은(는) 발송 대상이 아닙니다.` })
         }
+        // cash_untaxed → 기본 '작업완료알림' 유지 (계좌 안내)
       }
     }
 

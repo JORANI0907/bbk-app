@@ -40,6 +40,8 @@ async function handleVirtualAccountPaid(paymentId: string) {
         payment_confirmed_at: nowIso,
         payment_status: 'paid',
         payment_status_detail: '예약금 입금',
+        // 가상계좌 입금 시에도 실제 결제 금액을 deposit 필드에 확정 저장
+        deposit: Number(depositRow.deposit ?? 0),
       })
       .eq('id', depositRow.id)
 
@@ -49,8 +51,8 @@ async function handleVirtualAccountPaid(paymentId: string) {
       `결제ID: ${paymentId}`
     ).catch(() => {})
 
-    // G1: 고객에게 예약금 입금완료 SMS 자동 발송
-    await triggerAutoNotify(depositRow.id, '예약금 입금완료 알림')
+    // G1+G2: 예약금 완료 → 예약확정알림 (입금확인 + 예약확정 내용 통합)
+    await triggerAutoNotify(depositRow.id, '예약확정알림')
     return
   }
 
