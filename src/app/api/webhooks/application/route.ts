@@ -189,9 +189,6 @@ export async function POST(request: NextRequest) {
           // 테스트 신청서는 1원 — 실제 카드·계좌 결제 흐름 검증 후 포트원 콘솔에서 환불
           // 견적서 신청은 관리자가 견적 확정 시 세팅하므로 여기선 스킵
           ...(source !== 'quote' && { deposit: (process.env.NODE_ENV === 'development' || source === 'test') ? 1000 : 80000 }),
-          // 테스트 신청서는 잔금(2차) 결제도 1,000원 테스트 가능하도록 supply_amount=2000, vat=0 세팅
-          // balance = supply_amount + vat - deposit = 2000 + 0 - 1000 = 1,000원
-          ...(source === 'test' && { supply_amount: 2000, vat: 0 }),
           // 결제 대기 상태로 초기화 — 결제 완료 시 complete API가 'paid'로 승격
           // DB CHECK 제약: pending / invoiced / paid / overdue 만 허용
           ...(source !== 'quote' && { payment_status: 'pending' }),
