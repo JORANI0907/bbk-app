@@ -3468,7 +3468,7 @@ export function CustomersManagementView({
                                       {([
                                         { label: '신청', done: true },
                                         { label: '예약금', done: !!c.deposit_paid_at },
-                                        { label: '작업', done: c.progress_status === '작업완료' },
+                                        { label: '작업', done: ['작업완료', '계산서발행완료'].includes(c.progress_status ?? '') },
                                         { label: '잔금', done: !!c.balance_paid_at || PAYMENT_COMPLETE_STATUSES.includes(c.payment_status_detail ?? '') },
                                         { label: '계산서', done: !!c.tax_invoice_issued },
                                       ] as { label: string; done: boolean }[]).map((step, i) => (
@@ -4914,7 +4914,7 @@ export function CustomersManagementView({
                   {(() => {
                     const isCancelled = form.progress_status === '예약취소'
                     const depositDone = !!selected?.deposit_paid_at
-                    const workDone = form.progress_status === '작업완료'
+                    const workDone = ['작업완료', '계산서발행완료'].includes(form.progress_status ?? '')
                     const balancePsd = form.payment_status_detail ?? ''
                     const balanceDone = PAYMENT_COMPLETE_STATUSES.includes(balancePsd) || !!selected?.balance_paid_at
                     const invoiceDone = form.tax_invoice_issued === true
