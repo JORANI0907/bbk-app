@@ -3081,18 +3081,18 @@ export function CustomersManagementView({
             )}
             <Button size="sm" onClick={() => openScheduleGenModal('create')} disabled={bulkCreating}
               className="bg-emerald-100 hover:bg-emerald-200 !text-emerald-800 border border-emerald-200 whitespace-nowrap">
-              {bulkCreating ? '...' : '일정 생성'}
+              {bulkCreating ? '...' : '일정생성'}
             </Button>
             {!isWorker && (
               <Button size="sm" onClick={handleBulkScheduleNotify} disabled={bulkCreating}
-                className="bg-amber-100 hover:bg-amber-200 !text-amber-800 border border-amber-200 whitespace-nowrap">
-                일정 알림
+                className="bg-orange-100 hover:bg-orange-200 !text-orange-800 border border-orange-200 whitespace-nowrap">
+                일정알림
               </Button>
             )}
             {!isWorker && (
               <Button size="sm" onClick={handleExportTaxInvoiceCsv} disabled={bulkCreating}
                 className="bg-teal-100 hover:bg-teal-200 !text-teal-800 border border-teal-200 whitespace-nowrap">
-                홈택스 CSV
+                홈택스
               </Button>
             )}
             {/* Phase 7-J: "서비스 신청서 생성 →" 버튼 제거 — 서비스관리 흡수 이후 미사용 (사용자 지시).
