@@ -147,6 +147,8 @@ export async function POST(request: NextRequest) {
 
     if (stage === 'deposit') {
       updates.deposit_paid_at = nowIso
+      // 실제 결제된 금액을 deposit 필드에 저장 (금액 불일치 방지)
+      updates.deposit = expectedAmount
       // billingKey는 정기결제 흐름에서만 저장 (일반결제엔 없음)
       if (billingKey) updates.billing_key = billingKey
     } else {

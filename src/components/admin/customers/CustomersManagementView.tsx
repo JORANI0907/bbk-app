@@ -4823,7 +4823,7 @@ export function CustomersManagementView({
                     const depositDone = !!selected?.deposit_paid_at
                     const workDone = form.progress_status === '작업완료'
                     const balancePsd = form.payment_status_detail ?? ''
-                    const balanceDone = PAYMENT_COMPLETE_STATUSES.includes(balancePsd)
+                    const balanceDone = PAYMENT_COMPLETE_STATUSES.includes(balancePsd) || !!selected?.balance_paid_at
                     const invoiceDone = form.tax_invoice_issued === true
                     const pm = form.payment_method ?? ''
 
@@ -4969,7 +4969,10 @@ export function CustomersManagementView({
                         <div className="space-y-1.5">
                           <div className="flex items-center gap-3">
                             {renderNode(balanceDone, 4, true, () => handleInfographicSave(
-                              { payment_status_detail: balanceDone ? '결제' : '결제완료' },
+                              {
+                                payment_status_detail: balanceDone ? '결제' : '결제완료',
+                                balance_paid_at: balanceDone ? null : new Date().toISOString(),
+                              },
                               balanceDone ? '잔금 결제완료 취소' : '잔금 결제완료 처리'
                             ))}
                             <div className="flex-1 flex items-center justify-between">

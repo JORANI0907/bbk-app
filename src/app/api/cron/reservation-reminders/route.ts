@@ -51,11 +51,6 @@ function alreadySentEver(
   return log.some((entry) => entry.type === type)
 }
 
-// Phase 8-B: 진행/결제 상태 매핑 (dual-write용)
-const NOTIFY_TO_PROGRESS_STATUS: Record<string, string> = {
-  '예약1일전알림': '예약1일전',
-  '예약당일알림':  '예약당일',
-}
 const NOTIFY_TO_PAYMENT_STATUS_DETAIL: Record<string, string> = {
   '결제알림':               '결제',
   '결제알림(현금)':         '결제',
@@ -154,8 +149,6 @@ async function sendAndLog(
   const extraAppFields: Record<string, unknown> = {}
   const newStatus = notifyToStatus[type]
   if (newStatus) extraAppFields.status = newStatus
-  const newProgress = NOTIFY_TO_PROGRESS_STATUS[type]
-  if (newProgress) extraAppFields.progress_status = newProgress
   const newPayment = NOTIFY_TO_PAYMENT_STATUS_DETAIL[type]
   if (newPayment) extraAppFields.payment_status_detail = newPayment
 
@@ -233,13 +226,14 @@ export async function GET(request: NextRequest) {
 
   const results: { type: string; sent: number; failed: number; skipped: number }[] = []
 
-  // ── 1. 예약1일전알림: 내일 시공 + 예약확정 + 담당자 배정 ──────────
+  // ── 1. 예약1일전알림: 내일 시공 + 예약금 완료 + 담당자 배정 ──────────
   //     정기엔드케어 제외 (작업완료알림만 발송)
+  //     status 컬럼 대신 deposit_paid_at(예약금 완료 여부)로 필터
   {
     const { data: apps } = await supabase
       .from('service_applications')
       .select('*')
-      .eq('status', '예약확정')
+      .not('deposit_paid_at', 'is', null)
       .eq('construction_date', tomorrowKST)
       .not('assigned_to', 'is', null)
       .neq('service_type', '정기엔드케어')
@@ -249,6 +243,7 @@ export async function GET(request: NextRequest) {
     for (const app of (apps ?? [])) {
       if (!app.phone) { skipped++; continue }
       if (app.customer_id && pausedCustomerIds.has(app.customer_id as string)) { skipped++; continue }
+      if (app.progress_status === '작업완료') { skipped++; continue }
       const log = Array.isArray(app.notification_log) ? app.notification_log : []
       if (alreadySentToday(log, '예약1일전알림', todayKST)) { skipped++; continue }
 
@@ -262,13 +257,14 @@ export async function GET(request: NextRequest) {
     results.push({ type: '예약1일전알림', sent, failed, skipped })
   }
 
-  // ── 2. 예약당일알림: 오늘 시공 + (예약확정|예약1일전) + 담당자 배정 ─
+  // ── 2. 예약당일알림: 오늘 시공 + 예약금 완료 + 담당자 배정 ─
   //     정기엔드케어 제외 (작업완료알림만 발송)
+  //     status 컬럼 대신 deposit_paid_at(예약금 완료 여부)로 필터
   {
     const { data: apps } = await supabase
       .from('service_applications')
       .select('*')
-      .in('status', ['예약확정', '예약1일전'])
+      .not('deposit_paid_at', 'is', null)
       .eq('construction_date', todayKST)
       .not('assigned_to', 'is', null)
       .neq('service_type', '정기엔드케어')
@@ -278,6 +274,7 @@ export async function GET(request: NextRequest) {
     for (const app of (apps ?? [])) {
       if (!app.phone) { skipped++; continue }
       if (app.customer_id && pausedCustomerIds.has(app.customer_id as string)) { skipped++; continue }
+      if (app.progress_status === '작업완료') { skipped++; continue }
       const log = Array.isArray(app.notification_log) ? app.notification_log : []
       if (alreadySentToday(log, '예약당일알림', todayKST)) { skipped++; continue }
 
@@ -316,8 +313,9 @@ export async function GET(request: NextRequest) {
     const { data: apps } = await supabase
       .from('service_applications')
       .select('*, customers(payment_status_detail)')
-      // 세금계산서 발행 후에도 실제 결제 안 됐으면 알림 계속
-      .in('status', ['작업완료', '결제', '계산서발행완료'])
+      // progress_status = '작업완료' 인 것만 — status 컬럼 의존 제거
+      // 세금계산서 발행(tax_invoice_issued)이나 순서 변경과 무관하게 작동
+      .eq('progress_status', '작업완료')
       // 1회성케어 전용. 정기딥/정기엔드는 service_billings 기반의
       // billing-payment-reminders 크론이 담당하므로 여기서 제외.
       .eq('service_type', '1회성케어')
