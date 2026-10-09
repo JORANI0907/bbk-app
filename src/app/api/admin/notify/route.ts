@@ -647,6 +647,13 @@ export async function POST(request: NextRequest) {
       const channelLabel = channelsUsed.length > 0
         ? channelsUsed.map(c => c.toUpperCase()).join('+')
         : 'SMS'
+      // 작업완료알림 유형에 internal_memo가 있으면 동일 메시지에 포함 (별도 Slack 방지)
+      const isWorkCompleteType = [
+        '작업완료알림', '작업완료알림(현금)', '작업완료알림(카드,플렛폼)',
+        '작업완료알림(정기엔드케어)', '작업완료알림(정기딥케어)',
+      ].includes(type)
+      const internalMemo = isWorkCompleteType ? String(app.internal_memo ?? '').trim() : ''
+      const memoSection = internalMemo ? [``, `📝 내부 메모`, internalMemo] : []
       sendSlack([
         `📤 *알림 발송* | ${type}`,
         `업체: ${String(app.business_name ?? '-')} / 고객: ${String(app.owner_name ?? '-')} (${targetSummary})`,
@@ -657,6 +664,7 @@ export async function POST(request: NextRequest) {
         ``,
         `[폴백 SMS]`,
         fallbackText,
+        ...memoSection,
       ].join('\n')).catch(() => {})
     }
 
@@ -812,37 +820,6 @@ export async function POST(request: NextRequest) {
       })
     } catch {
       // dispatcher 실패는 알림톡 응답에 영향 없음
-    }
-
-    // ── Phase 27-BA: 작업완료알림 직후 부가 전달 (customer 특이사항 제거) ──
-    // 이전(Phase 27-M): customer_memo 를 별도 SMS 로 고객에게 후행 발송 + admin Slack.
-    // 변경 이유: 문자알림 관리 탭에 없는 자동 발송 채널이라 관리 불가능하고,
-    // 이제 customer_memo 는 작업완료알림 알림톡 템플릿에 녹여져 있어 중복 발송.
-    // → customer 향 SMS 와 관련 admin Slack(고객 전달 특이사항) 완전 삭제.
-    // internal_memo → admin Slack 은 원래부터 관리자 전용 정보라 그대로 유지.
-    if (
-      type === '작업완료알림' ||
-      type === '작업완료알림(현금)' ||
-      type === '작업완료알림(카드,플렛폼)' ||
-      type === '작업완료알림(정기엔드케어)' ||
-      type === '작업완료알림(정기딥케어)'
-    ) {
-      const internalMemo = String(app.internal_memo ?? '').trim()
-      const businessName = String(app.business_name ?? '')
-      const ownerName = String(app.owner_name ?? '')
-      const serviceType = String(app.service_type ?? '')
-      const constructionDate = String(app.construction_date ?? '').slice(0, 10)
-
-      // 내부 메모 → 관리자 Slack 만 (관리자 전용, 고객 미노출)
-      if (internalMemo) {
-        try {
-          await sendSlack(
-            `📝 *내부 메모* — ${businessName} (${serviceType})\n` +
-            `👤 ${ownerName} · ${constructionDate || '-'}\n` +
-            `${internalMemo}`
-          )
-        } catch { /* fire-and-forget */ }
-      }
     }
 
     // 리뷰 이벤트 안내 자동 후속 발송

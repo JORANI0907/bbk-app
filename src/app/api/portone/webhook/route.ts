@@ -55,12 +55,6 @@ async function handleTransactionPaid(paymentId: string) {
     // 0행 업데이트 = 직전에 다른 요청이 이미 처리함 → 알림 스킵
     if (!updated || updated.length === 0) return
 
-    await sendSlack(
-      `💳 *가상계좌 예약금 입금 완료*\n` +
-      `업체: ${depositRow.business_name ?? '-'} / 고객: ${depositRow.owner_name ?? '-'}\n` +
-      `결제ID: ${paymentId}`
-    ).catch(() => {})
-
     await triggerAutoNotify(depositRow.id, '예약확정알림')
     return
   }

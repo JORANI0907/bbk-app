@@ -137,29 +137,14 @@ export async function PATCH(request: NextRequest, { params }: Params) {
       const isTransfer = pm === '계좌이체'
 
       if (isOneTime && notPaid && (isCard || isVbank || isTransfer)) {
-        // 1. 잔금 결제링크 발급 (기존 링크 있으면 재사용)
-        const linkRes = await fetch(`${origin}/api/portone/issue-payment-link`, {
+        // 잔금 결제링크 사전 발급 — 작업완료알림(카드,플렛폼) 템플릿이 balance_payment_url 을 포함하므로
+        // 여기서 미리 생성해두면 관리자가 "작업완료알림 발송" 버튼 클릭 시 URL 이 바로 사용됨.
+        // 자동 SMS 발송은 하지 않음 (작업완료알림 템플릿에 통합됨 — 중복 SMS/Slack 방지)
+        await fetch(`${origin}/api/portone/issue-payment-link`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ applicationId: id, stage: 'balance' }),
-        })
-
-        // 2. 링크 발급 성공 시 SMS 발송 (실패 시 SMS도 skip — 빈 링크 사고 방지)
-        // 템플릿 이름은 DB(notification_templates.title) 이름과 일치해야 함
-        // - 카드     → '잔금 결제 요청 (카드)'
-        // - 가상계좌 → '잔금 결제 요청 (가상계좌)'
-        // - 계좌이체 → '잔금 결제 요청 (계좌이체)'
-        if (linkRes.ok) {
-          const notifyType =
-            isCard     ? '잔금 결제 요청 (카드)' :
-            isVbank    ? '잔금 결제 요청 (가상계좌)' :
-                         '잔금 결제 요청 (계좌이체)'
-          await fetch(`${origin}/api/admin/notify`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ application_id: id, type: notifyType, method: 'auto' }),
-          }).catch(() => {})
-        }
+        }).catch(() => {})
       }
     } catch { /* 자동 잔금 요청 실패는 작업완료 응답에 영향 없음 */ }
 
