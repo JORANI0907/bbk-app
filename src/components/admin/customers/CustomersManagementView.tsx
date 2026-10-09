@@ -1781,6 +1781,7 @@ export function CustomersManagementView({
       })
       setNotifyLogs(prev => [{ type: `[상태변경] ${logText}`, sentAt: nowIso, method: 'manual', kind: 'status_change' }, ...prev])
       // 서버에서 반환한 실제 저장값으로 상태 동기화 (race condition 완전 방어).
+      // PATCH API는 update().select()로 전체 row를 반환하므로 savedCustomer가 항상 최신 DB 상태.
       // notification_log는 DB ALLOWED 외 필드이므로 UI 상태(prev + logEntry) 우선.
       const mergedCustomer = savedCustomer
         ? { ...savedCustomer, notification_log: [logEntry, ...(selected.notification_log ?? [])] }
@@ -4990,10 +4991,10 @@ export function CustomersManagementView({
 
                     const renderNode = (done: boolean, step: number | null, editable: boolean, onClick?: () => void) => (
                       <div
-                        onClick={editable && !infographicLocked ? onClick : undefined}
+                        onClick={editable ? (infographicLocked ? () => toast.error('자물쇠 아이콘을 눌러 편집 모드로 전환하세요') : onClick) : undefined}
                         className={`w-7 h-7 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-all duration-150 ${
                           done ? 'bg-brand-500 border-brand-500' : 'bg-white border-gray-300'
-                        } ${editable && !infographicLocked ? 'cursor-pointer hover:scale-110 active:scale-95' : 'cursor-default'}`}
+                        } ${editable ? (infographicLocked ? 'cursor-not-allowed opacity-60' : 'cursor-pointer hover:scale-110 active:scale-95') : 'cursor-default'}`}
                       >
                         {done ? renderCheck() : step !== null ? <span className="text-[8px] text-gray-300 font-bold">{step}</span> : null}
                       </div>
