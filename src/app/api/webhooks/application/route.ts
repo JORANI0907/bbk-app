@@ -188,7 +188,7 @@ export async function POST(request: NextRequest) {
           // 예약금 기본 8만원 자동 세팅 (관리자가 UI에서 편집 가능)
           // 테스트 신청서는 1원 — 실제 카드·계좌 결제 흐름 검증 후 포트원 콘솔에서 환불
           // 견적서 신청은 관리자가 견적 확정 시 세팅하므로 여기선 스킵
-          ...(source !== 'quote' && { deposit: (process.env.NODE_ENV === 'development' || source === 'test') ? 1000 : 1000 }),
+          ...(source !== 'quote' && { deposit: (process.env.NODE_ENV === 'development' || source === 'test') ? 1000 : 80000 }),
           // 결제 대기 상태로 초기화 — 결제 완료 시 complete API가 'paid'로 승격
           // DB CHECK 제약: pending / invoiced / paid / overdue 만 허용
           ...(source !== 'quote' && { payment_status: 'pending' }),
