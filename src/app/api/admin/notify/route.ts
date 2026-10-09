@@ -528,7 +528,9 @@ export async function POST(request: NextRequest) {
     }
 
     // 서비스 타입 접미사(_1회성/_정기딥/_정기엔드)를 붙여 실제 DB code 로 게이팅.
-    const templateCode = type + serviceTypeSuffix(String(app.service_type ?? ''))
+    // '결제완료알림(잔금)'은 DB에 별도 템플릿이 없고 '결제완료알림'을 재사용
+    const templateLookupBase = type === '결제완료알림(잔금)' ? '결제완료알림' : type
+    const templateCode = templateLookupBase + serviceTypeSuffix(String(app.service_type ?? ''))
     {
       const { data: dbTpl } = await supabase
         .from('notification_templates')

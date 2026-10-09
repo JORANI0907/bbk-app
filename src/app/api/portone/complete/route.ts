@@ -223,7 +223,7 @@ export async function POST(request: NextRequest) {
         if (appLink?.customer_id) {
           const custUpdate: Record<string, unknown> = stage === 'deposit'
             ? { deposit_paid_at: nowIso }
-            : { balance_paid_at: nowIso }
+            : { balance_paid_at: nowIso, payment_status_detail: '결제완료' }
           await supabase.from('customers').update(custUpdate).eq('id', appLink.customer_id)
         }
       } catch {
