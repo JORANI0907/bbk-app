@@ -284,6 +284,8 @@ export async function PATCH(request: NextRequest) {
     vat: 'vat',
     deposit: 'deposit',
     balance: 'balance',
+    // 배정관리 작업완료 체크 → 고객관리 진행흐름 "작업완료" 단계 동기화
+    progress_status: 'progress_status',
   }
 
   try {

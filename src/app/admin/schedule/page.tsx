@@ -846,13 +846,13 @@ export default function SchedulePage() {
   }
 
   // Phase 1: 완료 체크박스 (낙관적 업데이트)
-  // 체크 → work_status='completed', completed_at=now(), work_completed_at=now()
-  // 해제 → work_status=null, completed_at=null (롤백)
+  // 체크 → work_status='completed', completed_at=now(), work_completed_at=now(), progress_status='작업완료'
+  // 해제 → work_status=null, completed_at=null, progress_status='예약확정'
   const handleToggleComplete = async (app: Application, checked: boolean) => {
     const now = new Date().toISOString()
     const patch: Partial<Application> = checked
-      ? { work_status: 'completed', completed_at: now, work_completed_at: now }
-      : { work_status: null, completed_at: null, work_completed_at: null }
+      ? { work_status: 'completed', completed_at: now, work_completed_at: now, progress_status: '작업완료' }
+      : { work_status: null, completed_at: null, work_completed_at: null, progress_status: '예약확정' }
 
     // 낙관적 업데이트: 즉시 UI 반영
     setApplications(prev => prev.map(a => a.id === app.id ? { ...a, ...patch } : a))
