@@ -56,6 +56,11 @@ export interface DispatchContext {
   method?: 'auto' | 'manual'
   /** notification_history.metadata 기록용 */
   metadata?: Record<string, unknown>
+  /**
+   * true이면 dispatcher 내부에서 notification_history 저장 건너뜀.
+   * 호출자(예: notify/route.ts)가 이미 history를 저장한 경우 중복 저장 및 Slack 이중 경고 방지.
+   */
+  skipHistory?: boolean
 }
 
 export interface DispatchResult {
@@ -202,17 +207,15 @@ export async function dispatch(type: string, ctx: DispatchContext): Promise<Disp
     }
   }
 
-  // 5. notification_history 기록 (성공/실패 모두)
+  // 5. notification_history 기록 — 호출자가 skipHistory: true이면 건너뜀
+  // notify/route.ts처럼 SMS를 직접 발송하고 history도 직접 저장하는 호출자는 skipHistory: true를 넘겨
+  // dispatcher 내부의 중복 저장(+ Slack 이중 경고)을 방지한다.
+  if (!ctx.skipHistory) {
   try {
     const category: 'sms' | 'push' | 'system' =
       result.sms.sent ? 'sms' : result.push.sent ? 'push' : 'system'
     const status: 'sent' | 'failed' =
       (result.sms.sent || result.push.sent || result.slack.sent) ? 'sent' : 'failed'
-
-    // push 'no targets after role filter'는 오류가 아님 — errorMessage에서 제외해 슬랙 경고 방지
-    const pushErrorMsg = result.push.reason === 'no targets after role filter'
-      ? undefined
-      : result.push.reason
 
     await saveNotificationHistory({
       category,
@@ -226,12 +229,13 @@ export async function dispatch(type: string, ctx: DispatchContext): Promise<Disp
       recipientPhone: ctx.customer?.phone,
       metadata: { ...(ctx.metadata ?? {}), ruleFound: result.ruleFound },
       status,
-      errorMessage: result.sms.reason ?? pushErrorMsg,
+      errorMessage: result.sms.reason,
     })
     result.history.saved = true
   } catch {
     /* history 저장 실패는 조용히 무시 */
   }
+  } // end if (!ctx.skipHistory)
 
   return result
 }

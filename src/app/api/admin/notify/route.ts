@@ -807,6 +807,7 @@ export async function POST(request: NextRequest) {
         push: { title: `BBK 공간케어 — ${type}`, body: `${String(app.business_name ?? '')} ${type}`, url: '/admin' },
         method,
         metadata: { application_id, business_name: app.business_name ?? '', source: 'admin/notify' },
+        skipHistory: true, // SMS 발송 및 history 저장은 위에서 이미 완료 — 중복 저장/Slack 이중 경고 방지
       })
     } catch {
       // dispatcher 실패는 알림톡 응답에 영향 없음
