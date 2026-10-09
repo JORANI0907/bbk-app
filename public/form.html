@@ -738,14 +738,6 @@
         </div>
 
         <div class="form-group">
-          <label class="form-label" style="cursor:pointer;">
-            <input type="checkbox" id="taxInvoiceRequired" style="margin-right:6px;vertical-align:middle;accent-color:var(--brand);">
-            세금계산서 발행 요청 (사업자 고객)
-          </label>
-          <div class="form-hint">사업자등록번호가 있는 고객은 체크하시면 세금계산서를 별도 발행해 드립니다.</div>
-        </div>
-
-        <div class="form-group">
           <label class="form-label">예약금 환급 계좌<span class="required">*</span></label>
           <div class="form-hint">서비스 완료 후 예약금을 환급받으실 본인 명의 계좌를 입력해 주세요.</div>
           <div style="display:flex;gap:7px;align-items:stretch;">
@@ -1279,7 +1271,7 @@
       accessMethod: document.getElementById('accessMethod').value.trim(),
       parking: parkingValue,
       paymentMethod: document.querySelector('input[name="paymentMethod"]:checked').value,
-      taxInvoiceRequired: (document.getElementById('taxInvoiceRequired') || {}).checked || false,
+
       accountNumber: (function(){
         var bank = document.getElementById('bankName').value.trim();
         var acct = document.getElementById('accountNumber').value.trim();
