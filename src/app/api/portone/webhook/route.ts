@@ -28,7 +28,7 @@ async function handleTransactionPaid(paymentId: string) {
   // deposit_portone_id 매칭 행 찾기 (deposit_paid_at 포함해 중복 체크)
   const { data: depositRow } = await supabase
     .from('service_applications')
-    .select('id, owner_name, business_name, deposit, supply_amount, vat, deposit_paid_at')
+    .select('id, owner_name, business_name, deposit, supply_amount, vat, deposit_paid_at, customer_id')
     .eq('deposit_portone_id', paymentId)
     .is('deleted_at', null)
     .maybeSingle()
@@ -54,6 +54,16 @@ async function handleTransactionPaid(paymentId: string) {
 
     // 0행 업데이트 = 직전에 다른 요청이 이미 처리함 → 알림 스킵
     if (!updated || updated.length === 0) return
+
+    // customers.deposit 금액 동기화
+    if (depositRow.customer_id) {
+      try {
+        await supabase
+          .from('customers')
+          .update({ deposit_paid_at: nowIso, deposit: Number(depositRow.deposit ?? 0) })
+          .eq('id', depositRow.customer_id)
+      } catch { /* 동기화 실패 무시 */ }
+    }
 
     await triggerAutoNotify(depositRow.id, '예약확정알림')
     return

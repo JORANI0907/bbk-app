@@ -239,7 +239,7 @@ export async function POST(request: NextRequest) {
           .single()
         if (appLink?.customer_id) {
           const custUpdate: Record<string, unknown> = stage === 'deposit'
-            ? { deposit_paid_at: nowIso }
+            ? { deposit_paid_at: nowIso, deposit: expectedAmount }
             : { balance_paid_at: nowIso }
           await supabase.from('customers').update(custUpdate).eq('id', appLink.customer_id)
         }
