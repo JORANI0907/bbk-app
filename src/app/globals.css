@@ -4,18 +4,34 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Phase 27-BB: 시스템 다크모드 무시하고 항상 라이트 모드 강제.
-   PWA(안드로이드/iOS)에서 시스템 야간 모드일 때도 앱은 주간 렌더링.
-   CSS 스펙: 'only' 키워드는 반드시 스킴명 앞에 와야 함 (only light). */
+/* 강제 라이트 모드 — 시스템 야간모드(Android Force Dark / iOS Dark Mode)를 완전 차단.
+   1) :root/html에 color-scheme: only light → 브라우저에 "이 앱은 라이트 모드만 지원" 선언
+   2) *, *::before, *::after에 color-scheme: light → form input 등 시스템 UI 요소까지 커버
+   3) @media dark 블록 → CSS 변수나 third-party 스타일이 dark 미디어를 타더라도 덮어씀 */
+:root {
+  color-scheme: only light !important;
+}
+
 html, body {
-  color-scheme: only light;
+  color-scheme: only light !important;
+  background-color: #ffffff;
+  color: #171717;
+}
+
+*, *::before, *::after {
+  color-scheme: light;
 }
 
 @media (prefers-color-scheme: dark) {
-  html, body {
+  :root {
     color-scheme: only light !important;
+  }
+  html, body {
     background-color: #ffffff !important;
     color: #171717 !important;
+  }
+  *, *::before, *::after {
+    color-scheme: light !important;
   }
 }
 

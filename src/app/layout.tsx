@@ -107,7 +107,7 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="ko" className={notoSansKR.variable}>
+    <html lang="ko" className={notoSansKR.variable} style={{ colorScheme: 'only light' }}>
       <body className={`${notoSansKR.className} antialiased`}>
         <SwUpdateReloader />
         <SplashScreen />
