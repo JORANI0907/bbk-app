@@ -90,6 +90,21 @@ async function handleTransactionPaid(paymentId: string) {
 
     if (!updated || updated.length === 0) return
 
+    // customers.balance_paid_at 동기화
+    try {
+      const { data: link } = await supabase
+        .from('service_applications')
+        .select('customer_id')
+        .eq('id', balanceRow.id)
+        .maybeSingle()
+      if (link?.customer_id) {
+        await supabase
+          .from('customers')
+          .update({ balance_paid_at: nowIso })
+          .eq('id', link.customer_id)
+      }
+    } catch { /* 동기화 실패 무시 */ }
+
     // triggerAutoNotify → notify API → Slack 으로 통합 처리 (중복 방지)
     await triggerAutoNotify(balanceRow.id, '결제완료알림(잔금)')
   }

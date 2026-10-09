@@ -97,6 +97,23 @@ export async function POST(request: NextRequest) {
     const alreadyPaidAt = stage === 'deposit' ? app.deposit_paid_at : app.balance_paid_at
     if (alreadyPaidAt) {
       console.log('[complete] 이미 처리된 결제건, 중복 처리 건너뜀:', { recordId, stage, alreadyPaidAt })
+      // 웹훅이 먼저 처리했을 경우 customers 동기화가 누락될 수 있어 여기서도 보장
+      if (!isCustomerMode && applicationId) {
+        try {
+          const { data: appLink } = await supabase
+            .from('service_applications')
+            .select('customer_id')
+            .eq('id', recordId)
+            .single()
+          if (appLink?.customer_id) {
+            const paidAtField = stage === 'deposit' ? 'deposit_paid_at' : 'balance_paid_at'
+            await supabase
+              .from('customers')
+              .update({ [paidAtField]: alreadyPaidAt })
+              .eq('id', appLink.customer_id)
+          }
+        } catch { /* 동기화 실패 무시 */ }
+      }
       return NextResponse.json({ success: true, stage, paidAmount: expectedAmount, alreadyProcessed: true })
     }
 
