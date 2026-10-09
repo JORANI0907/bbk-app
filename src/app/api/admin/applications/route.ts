@@ -309,11 +309,14 @@ export async function PATCH(request: NextRequest) {
         customerUpdates[custKey] = v
       }
       if (Object.keys(customerUpdates).length > 0) {
-        await supabase
+        const { error: syncBackError } = await supabase
           .from('customers')
           .update(customerUpdates)
           .eq('id', syncedApp.customer_id)
           .is('deleted_at', null)
+        if (syncBackError) {
+          console.error('축 C 역방향 sync customers update 실패:', syncBackError.message, { customerUpdates, customerId: syncedApp.customer_id })
+        }
       }
     }
   } catch (e) {

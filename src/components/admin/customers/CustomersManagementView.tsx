@@ -1762,6 +1762,7 @@ export function CustomersManagementView({
         }),
       })
       if (!res.ok) throw new Error('저장 실패')
+      const { customer: savedCustomer } = await res.json().catch(() => ({}))
       // 세금계산서 변경 시 service_applications 동기화
       if (updates.tax_invoice_issued !== undefined) {
         fetch('/api/admin/tax-invoice/application-status', {
@@ -1779,12 +1780,13 @@ export function CustomersManagementView({
         return next
       })
       setNotifyLogs(prev => [{ type: `[상태변경] ${logText}`, sentAt: nowIso, method: 'manual', kind: 'status_change' }, ...prev])
-      setSelected(prev => prev ? {
-        ...prev,
-        ...updates,
-        notification_log: [logEntry, ...(prev.notification_log ?? [])],
-      } : prev)
-      setCustomers(prev => prev.map(c => c.id === selected.id ? { ...c, ...updates } : c))
+      // 서버에서 반환한 실제 저장값으로 상태 동기화 (race condition 완전 방어).
+      // notification_log는 DB ALLOWED 외 필드이므로 UI 상태(prev + logEntry) 우선.
+      const mergedCustomer = savedCustomer
+        ? { ...savedCustomer, notification_log: [logEntry, ...(selected.notification_log ?? [])] }
+        : { ...updates, notification_log: [logEntry, ...(selected.notification_log ?? [])] }
+      setSelected(prev => prev ? { ...prev, ...mergedCustomer } : prev)
+      setCustomers(prev => prev.map(c => c.id === selected.id ? { ...c, ...mergedCustomer } : c))
       toast.success(logText)
     } catch (e) {
       toast.error(e instanceof Error ? e.message : '저장 실패')
