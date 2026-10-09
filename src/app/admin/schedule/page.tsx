@@ -70,6 +70,7 @@ interface Application {
   progress_status: string | null
   payment_status_detail: string | null
   notification_log?: Array<{ type: string; sent_at: string; method?: 'auto' | 'manual' }> | null
+  customer_id?: string | null
 }
 
 interface User { id: string; name: string; role: string }
@@ -857,13 +858,31 @@ export default function SchedulePage() {
     // 낙관적 업데이트: 즉시 UI 반영
     setApplications(prev => prev.map(a => a.id === app.id ? { ...a, ...patch } : a))
 
+    // customer: 접두사 앱은 service_applications 레코드 없음 — customers만 직접 PATCH
+    const isCustomerOnly = app.id.startsWith('customer:')
+    const customerId = isCustomerOnly
+      ? app.id.replace('customer:', '')
+      : (app.customer_id ?? null)
+
     try {
-      const res = await fetch('/api/admin/applications', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: app.id, ...patch }),
-      })
-      if (!res.ok) throw new Error((await res.json()).error ?? '저장 실패')
+      if (!isCustomerOnly) {
+        const res = await fetch('/api/admin/applications', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: app.id, ...patch }),
+        })
+        if (!res.ok) throw new Error((await res.json()).error ?? '저장 실패')
+      }
+
+      // customers.progress_status 직접 동기화 (SYNC_BACK 의존 제거)
+      if (customerId) {
+        await fetch('/api/admin/customers', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: customerId, progress_status: checked ? '작업완료' : '예약확정' }),
+        })
+      }
+
       toast.success(checked ? '완료 처리되었습니다.' : '완료 해제되었습니다.', { duration: 1500 })
     } catch (e) {
       // 실패 시 원복

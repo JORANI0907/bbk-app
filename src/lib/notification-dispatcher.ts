@@ -209,6 +209,11 @@ export async function dispatch(type: string, ctx: DispatchContext): Promise<Disp
     const status: 'sent' | 'failed' =
       (result.sms.sent || result.push.sent || result.slack.sent) ? 'sent' : 'failed'
 
+    // push 'no targets after role filter'는 오류가 아님 — errorMessage에서 제외해 슬랙 경고 방지
+    const pushErrorMsg = result.push.reason === 'no targets after role filter'
+      ? undefined
+      : result.push.reason
+
     await saveNotificationHistory({
       category,
       type,
@@ -221,7 +226,7 @@ export async function dispatch(type: string, ctx: DispatchContext): Promise<Disp
       recipientPhone: ctx.customer?.phone,
       metadata: { ...(ctx.metadata ?? {}), ruleFound: result.ruleFound },
       status,
-      errorMessage: result.sms.reason ?? result.push.reason,
+      errorMessage: result.sms.reason ?? pushErrorMsg,
     })
     result.history.saved = true
   } catch {
