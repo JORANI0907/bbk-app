@@ -211,6 +211,26 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: true, stage, paidAmount: expectedAmount, alreadyProcessed: true })
     }
 
+    // service_applications → customers 동기화: 고객관리 진행흐름 UI가 customers 테이블을 직접 참조하므로
+    // 신청서 모드 결제 완료 시 연결된 고객 레코드의 paid_at 도 함께 갱신
+    if (!isCustomerMode) {
+      try {
+        const { data: appLink } = await supabase
+          .from('service_applications')
+          .select('customer_id')
+          .eq('id', recordId)
+          .single()
+        if (appLink?.customer_id) {
+          const custUpdate: Record<string, unknown> = stage === 'deposit'
+            ? { deposit_paid_at: nowIso }
+            : { balance_paid_at: nowIso }
+          await supabase.from('customers').update(custUpdate).eq('id', appLink.customer_id)
+        }
+      } catch {
+        // customers 동기화 실패는 조용히 무시 (결제 자체는 이미 성공)
+      }
+    }
+
     // Slack 알림
     const stageLabel = stage === 'deposit' ? '예약금(1차)' : '잔금(2차)'
     sendSlack(

@@ -155,6 +155,26 @@ export async function POST(request: NextRequest) {
         .eq('id', recordId)
       if (updateErr) console.error('[issue-payment-link] update 실패:', updateErr)
 
+      // service_applications → customers 동기화: 고객관리 UI가 customers 테이블을 직접 참조하므로
+      // 신청서 모드에서 링크 생성 시 연결된 고객 레코드에도 portone_id + payment_url 동기화
+      if (!isCustomerMode) {
+        try {
+          const { data: appLink } = await supabase
+            .from('service_applications')
+            .select('customer_id')
+            .eq('id', recordId)
+            .single()
+          if (appLink?.customer_id) {
+            await supabase.from('customers').update({
+              [existingIdField]: paymentId,
+              [existingUrlField]: paymentUrl,
+            }).eq('id', appLink.customer_id)
+          }
+        } catch {
+          // customers 동기화 실패는 조용히 무시
+        }
+      }
+
       console.log('[issue-payment-link] SUCCESS 반환:', paymentUrl)
       return NextResponse.json({ success: true, paymentUrl, paymentId })
     }
@@ -216,6 +236,25 @@ export async function POST(request: NextRequest) {
       .from(table)
       .update(vbankUpdates)
       .eq('id', recordId)
+
+    // service_applications → customers 동기화 (가상계좌 분기)
+    if (!isCustomerMode) {
+      try {
+        const { data: appLink } = await supabase
+          .from('service_applications')
+          .select('customer_id')
+          .eq('id', recordId)
+          .single()
+        if (appLink?.customer_id) {
+          await supabase.from('customers').update({
+            [existingIdField]: paymentId,
+            [existingUrlField]: paymentUrl,
+          }).eq('id', appLink.customer_id)
+        }
+      } catch {
+        // customers 동기화 실패는 조용히 무시
+      }
+    }
 
     return NextResponse.json({
       success: true,
