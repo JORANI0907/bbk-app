@@ -191,14 +191,24 @@ export async function POST(request: NextRequest) {
       updates.balance_paid_at = nowIso
     }
 
-    const { error: updateError } = await supabase
+    // 원자적 업데이트: paid_at IS NULL 조건 추가 → 동시 호출 시 1건만 성공 (race condition 방어)
+    const paidAtField = stage === 'deposit' ? 'deposit_paid_at' : 'balance_paid_at'
+    const { data: updatedRows, error: updateError } = await supabase
       .from(dbTable)
       .update(updates)
       .eq('id', recordId)
+      .is(paidAtField, null)
+      .select('id')
 
     if (updateError) {
-      console.error('[complete] DB 업데이트 실패:', updateError.message, { recordId, stage, updates })
+      console.error('[complete] DB 업데이트 실패:', updateError.message, { recordId, stage })
       return NextResponse.json({ error: 'DB 업데이트 중 오류가 발생했습니다.' }, { status: 500 })
+    }
+
+    // 0행 업데이트 = 이미 다른 요청(웹훅 등)이 처리함 → 알림 없이 성공 반환
+    if (!updatedRows || updatedRows.length === 0) {
+      console.log('[complete] 이미 처리된 결제건 (원자적 체크):', { recordId, stage })
+      return NextResponse.json({ success: true, stage, paidAmount: expectedAmount, alreadyProcessed: true })
     }
 
     // Slack 알림

@@ -19,31 +19,41 @@ async function triggerAutoNotify(applicationId: string, type: string) {
   }
 }
 
-// 가상계좌 입금 완료 시 service_applications 업데이트
-async function handleVirtualAccountPaid(paymentId: string) {
+// Transaction.Paid 웹훅 처리 — 가상계좌 입금 완료 시 DB 업데이트 + 알림
+// 카드/계좌이체는 complete 라우트(브라우저 SDK 콜백)에서 이미 처리됨.
+// deposit_paid_at/balance_paid_at 이 이미 설정된 건은 중복 처리 방지를 위해 스킵.
+async function handleTransactionPaid(paymentId: string) {
   const supabase = createServiceClient()
 
-  // deposit_portone_id 또는 balance_portone_id 중 해당하는 행 찾기
+  // deposit_portone_id 매칭 행 찾기 (deposit_paid_at 포함해 중복 체크)
   const { data: depositRow } = await supabase
     .from('service_applications')
-    .select('id, owner_name, business_name, deposit, supply_amount, vat')
+    .select('id, owner_name, business_name, deposit, supply_amount, vat, deposit_paid_at')
     .eq('deposit_portone_id', paymentId)
     .is('deleted_at', null)
     .maybeSingle()
 
   if (depositRow) {
+    // 이미 complete 라우트에서 처리된 건 → 스킵 (카드/계좌이체 중복 알림 방지)
+    if (depositRow.deposit_paid_at) return
+
     const nowIso = new Date().toISOString()
-    await supabase
+    // 원자적 업데이트: deposit_paid_at IS NULL 인 경우에만 실행 (race condition 방어)
+    const { data: updated } = await supabase
       .from('service_applications')
       .update({
         deposit_paid_at: nowIso,
         payment_confirmed_at: nowIso,
         payment_status: 'paid',
         payment_status_detail: '예약금 입금',
-        // 가상계좌 입금 시에도 실제 결제 금액을 deposit 필드에 확정 저장
         deposit: Number(depositRow.deposit ?? 0),
       })
       .eq('id', depositRow.id)
+      .is('deposit_paid_at', null)
+      .select('id')
+
+    // 0행 업데이트 = 직전에 다른 요청이 이미 처리함 → 알림 스킵
+    if (!updated || updated.length === 0) return
 
     await sendSlack(
       `💳 *가상계좌 예약금 입금 완료*\n` +
@@ -51,21 +61,22 @@ async function handleVirtualAccountPaid(paymentId: string) {
       `결제ID: ${paymentId}`
     ).catch(() => {})
 
-    // G1+G2: 예약금 완료 → 예약확정알림 (입금확인 + 예약확정 내용 통합)
     await triggerAutoNotify(depositRow.id, '예약확정알림')
     return
   }
 
   const { data: balanceRow } = await supabase
     .from('service_applications')
-    .select('id, owner_name, business_name')
+    .select('id, owner_name, business_name, balance_paid_at')
     .eq('balance_portone_id', paymentId)
     .is('deleted_at', null)
     .maybeSingle()
 
   if (balanceRow) {
+    if (balanceRow.balance_paid_at) return
+
     const nowIso = new Date().toISOString()
-    await supabase
+    const { data: updated } = await supabase
       .from('service_applications')
       .update({
         balance_paid_at: nowIso,
@@ -74,6 +85,10 @@ async function handleVirtualAccountPaid(paymentId: string) {
         payment_status_detail: '결제완료',
       })
       .eq('id', balanceRow.id)
+      .is('balance_paid_at', null)
+      .select('id')
+
+    if (!updated || updated.length === 0) return
 
     await sendSlack(
       `💳 *가상계좌 잔금 입금 완료*\n` +
@@ -81,7 +96,6 @@ async function handleVirtualAccountPaid(paymentId: string) {
       `결제ID: ${paymentId}`
     ).catch(() => {})
 
-    // G4: 고객에게 잔금 결제완료 SMS 자동 발송
     await triggerAutoNotify(balanceRow.id, '결제완료알림(잔금)')
   }
 }
@@ -109,7 +123,7 @@ export async function POST(request: NextRequest) {
 
     switch (type) {
       case 'Transaction.Paid':
-        await handleVirtualAccountPaid(paymentId)
+        await handleTransactionPaid(paymentId)
         break
       case 'Transaction.VirtualAccountIssued':
         // 가상계좌 발급 이벤트 (이미 issue-payment-link에서 처리됨, 로그만)
