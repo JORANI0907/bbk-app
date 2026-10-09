@@ -82,6 +82,21 @@ export async function PATCH(request: NextRequest, { params }: Params) {
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
+    // 고객 진행흐름 직통 연결 — customers.work_completed_at 동기화
+    try {
+      const { data: link } = await supabase
+        .from('service_applications')
+        .select('customer_id')
+        .eq('id', id)
+        .maybeSingle()
+      if (link?.customer_id) {
+        await supabase
+          .from('customers')
+          .update({ work_completed_at: now.toISOString() })
+          .eq('id', link.customer_id)
+      }
+    } catch { /* 동기화 실패는 무시 */ }
+
     // Phase 27-AV: 작업완료 Slack 보고 (작업시작과 대칭). 1회성·정기딥·정기엔드 모두 동일.
     try {
       const { data: appData } = await supabase
@@ -230,6 +245,22 @@ export async function PATCH(request: NextRequest, { params }: Params) {
       })
       .eq('id', id)
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+    // 고객 진행흐름 직통 연결 — work_completed_at 취소 동기화
+    try {
+      const { data: link } = await supabase
+        .from('service_applications')
+        .select('customer_id')
+        .eq('id', id)
+        .maybeSingle()
+      if (link?.customer_id) {
+        await supabase
+          .from('customers')
+          .update({ work_completed_at: null })
+          .eq('id', link.customer_id)
+      }
+    } catch { /* 동기화 실패는 무시 */ }
+
     return NextResponse.json({ success: true })
   }
 

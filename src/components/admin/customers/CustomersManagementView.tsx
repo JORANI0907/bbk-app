@@ -102,10 +102,10 @@ interface Customer {
   user_id: string | null
   // 이 계약을 함께 볼 수 있는 다른 로그인 계정(정기딥+정기엔드 통합 뷰). NULL이면 서브 계약 아님.
   account_user_id: string | null
-  // Phase 9-A: 진행/결제 상태 이원화 (1회성 세부화면 전용, 정기는 null)
   progress_status: string | null
   payment_status_detail: string | null
   tax_invoice_issued: boolean | null
+  work_completed_at: string | null
   // Phase 20-C / 22: 투입주기 (자유 텍스트, INTEGER→TEXT 확장 — 숫자·격주·매월 등 임의 표현)
   injection_cycle_months: string | null
   // Phase 29: 연간 결제 월/일 (정기딥케어 연간 전용)
@@ -1342,7 +1342,7 @@ export function CustomersManagementView({
         construction_time: app.construction_time ?? null,
         deposit_payment_url: null, balance_payment_url: null,
         deposit_portone_id: null, balance_portone_id: null,
-        deposit_paid_at: null, balance_paid_at: null,
+        deposit_paid_at: null, balance_paid_at: null, work_completed_at: null,
         virtual_account_number: null, virtual_account_bank: null, virtual_account_expired_at: null,
         billing_key: null,
         progress_status: '신청서작성',
@@ -1739,6 +1739,7 @@ export function CustomersManagementView({
       payment_method?: string | null
       deposit_paid_at?: string | null
       balance_paid_at?: string | null
+      work_completed_at?: string | null
     },
     logText: string
   ) => {
@@ -1816,11 +1817,6 @@ export function CustomersManagementView({
         const { customer } = await res.json()
         if (!customer?.balance_paid_at) return
         setSelected(prev => prev ? { ...prev, ...customer } : prev)
-        setForm(prev => ({
-          ...prev,
-          payment_status_detail: customer.payment_status_detail ?? prev.payment_status_detail,
-          progress_status: customer.progress_status ?? prev.progress_status,
-        }))
         toast.success('잔금 결제가 완료되었습니다!')
       } catch {}
     }, 15000)
@@ -2620,7 +2616,7 @@ export function CustomersManagementView({
           construction_time: a.construction_time ?? null,
           deposit_payment_url: null, balance_payment_url: null,
           deposit_portone_id: null, balance_portone_id: null,
-          deposit_paid_at: null, balance_paid_at: null,
+          deposit_paid_at: null, balance_paid_at: null, work_completed_at: null,
           billing_key: null,
           virtual_account_number: null, virtual_account_bank: null, virtual_account_expired_at: null,
           progress_status: a.status ?? '신청서작성',
@@ -4973,9 +4969,8 @@ export function CustomersManagementView({
                   {(() => {
                     const isCancelled = form.progress_status === '예약취소'
                     const depositDone = !!selected?.deposit_paid_at
-                    const workDone = ['작업완료', '계산서발행완료', '결제완료'].includes(form.progress_status ?? '')
-                    const balancePsd = form.payment_status_detail ?? ''
-                    const balanceDone = PAYMENT_COMPLETE_STATUSES.includes(balancePsd) || !!selected?.balance_paid_at
+                    const workDone = !!selected?.work_completed_at
+                    const balanceDone = !!selected?.balance_paid_at
                     const invoiceDone = form.tax_invoice_issued === true
                     const pm = form.payment_method ?? ''
 
@@ -5102,7 +5097,7 @@ export function CustomersManagementView({
                         {/* 3. 작업완료 */}
                         <div className="flex items-center gap-3">
                           {renderNode(workDone && !isCancelled, 3, true, () => handleInfographicSave(
-                            { progress_status: workDone ? '예약확정' : '작업완료' },
+                            { work_completed_at: workDone ? null : new Date().toISOString() },
                             workDone ? '작업완료 취소' : '작업완료 처리'
                           ))}
                           <div className="flex-1 flex items-center justify-between">
@@ -5121,20 +5116,13 @@ export function CustomersManagementView({
                         <div className="space-y-1.5">
                           <div className="flex items-center gap-3">
                             {renderNode(balanceDone, 4, true, () => handleInfographicSave(
-                              {
-                                payment_status_detail: balanceDone ? '결제' : '결제완료',
-                                balance_paid_at: balanceDone ? null : new Date().toISOString(),
-                              },
+                              { balance_paid_at: balanceDone ? null : new Date().toISOString() },
                               balanceDone ? '잔금 결제완료 취소' : '잔금 결제완료 처리'
                             ))}
                             <div className="flex-1 flex items-center justify-between">
                               <span className="text-xs font-semibold text-gray-700">잔금결제</span>
                               {statusBadge(
-                                balanceDone
-                                  ? balancePsd === '카드결제 완료' ? '카드결제'
-                                    : balancePsd === '비과세' ? '현금(비과세)'
-                                    : '결제완료'
-                                  : '미결제',
+                                balanceDone ? '결제완료' : '미결제',
                                 balanceDone ? 'bg-teal-50 text-teal-600 border-teal-200' : 'bg-gray-50 text-gray-400 border-gray-200'
                               )}
                             </div>
