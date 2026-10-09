@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { sendSlack } from '@/lib/slack'
-import { sendPushToUsers } from '@/lib/push'
 import { sendByTemplate } from '@/lib/template-sender'
 import { appendBothNotificationLogs } from '@/lib/notification-log'
 import { saveNotificationHistory } from '@/lib/notification'
@@ -181,20 +180,6 @@ async function sendPaymentNotify(
   return { ok: true }
 }
 
-// ─── Push 헬퍼 ────────────────────────────────────────────────────
-
-async function pushToAdmins(
-  supabase: ReturnType<typeof createServiceClient>,
-  payload: { title: string; body: string; url?: string },
-) {
-  try {
-    const { data: admins } = await supabase
-      .from('users').select('id').in('role', ['admin', 'staff'])
-    const ids = (admins ?? []).map((a: { id: string }) => a.id)
-    if (ids.length) await sendPushToUsers(ids, payload)
-  } catch { /* Push 실패는 메인 응답에 영향 없음 */ }
-}
-
 // ─── 타입 ─────────────────────────────────────────────────────────
 
 interface PaymentPayload {
@@ -286,11 +271,6 @@ export async function POST(request: NextRequest) {
         await sendSlack(
           `⚠️ *예약금 — 복수 매칭 (수동 처리 필요)*\n• 입금자: ${depositor}\n• 금액: ${amount.toLocaleString('ko-KR')}원\n${list}`
         ).catch(() => {})
-        await pushToAdmins(supabase, {
-          title: '예약금 수동 처리 필요',
-          body: `입금자 ${depositor} — 복수 매칭`,
-          url: '/admin/customers',
-        })
         return NextResponse.json({ matched: 'deposit', action: 'manual', reason: 'multi_match' })
       }
 
@@ -342,11 +322,6 @@ export async function POST(request: NextRequest) {
       await sendSlack(
         `💰 *예약금 입금 확인*\n• 업체: ${app.business_name} (${app.owner_name})\n• 입금자: ${depositor}\n• 금액: ${amount.toLocaleString('ko-KR')}원\n• 알림: ${ok ? '✅' : '❌'}`
       ).catch(() => {})
-      await pushToAdmins(supabase, {
-        title: '💰 예약금 입금 확인',
-        body: `${app.business_name} — ${amount.toLocaleString('ko-KR')}원`,
-        url: '/admin/customers',
-      })
 
       return NextResponse.json({ matched: 'deposit', application_id: app.id, amount, notify_ok: ok })
     }
@@ -360,11 +335,6 @@ export async function POST(request: NextRequest) {
         await sendSlack(
           `⚠️ *잔금 — 복수 매칭 (수동 처리 필요)*\n• 입금자: ${depositor}\n• 금액: ${amount.toLocaleString('ko-KR')}원\n${list}`
         ).catch(() => {})
-        await pushToAdmins(supabase, {
-          title: '잔금 수동 처리 필요',
-          body: `입금자 ${depositor} — 복수 매칭`,
-          url: '/admin/customers',
-        })
         return NextResponse.json({ matched: 'balance', action: 'manual', reason: 'multi_match' })
       }
 
@@ -375,11 +345,6 @@ export async function POST(request: NextRequest) {
         await sendSlack(
           `⚠️ *잔금 DB 미입력 상태에서 입금 감지*\n• 업체: ${app.business_name} (${app.owner_name})\n• 입금액: ${amount.toLocaleString('ko-KR')}원\n• DB 잔금: 미등록 — 수동 확인 필요`
         ).catch(() => {})
-        await pushToAdmins(supabase, {
-          title: '⚠️ 잔금 미등록 — 수동 확인',
-          body: `${app.business_name} — 입금 ${amount.toLocaleString('ko-KR')}원 / DB 잔금 미등록`,
-          url: '/admin/customers',
-        })
         return NextResponse.json({
           matched: 'balance', action: 'manual', reason: 'balance_not_set', paid: amount,
         })
@@ -390,11 +355,6 @@ export async function POST(request: NextRequest) {
         await sendSlack(
           `⚠️ *잔금 불일치*\n• 업체: ${app.business_name} (${app.owner_name})\n• 입금액: ${amount.toLocaleString('ko-KR')}원\n• DB 잔금: ${app.balance.toLocaleString('ko-KR')}원\n• 차액: ${Math.abs(app.balance - amount).toLocaleString('ko-KR')}원`
         ).catch(() => {})
-        await pushToAdmins(supabase, {
-          title: '⚠️ 잔금 금액 불일치',
-          body: `${app.business_name} — 입금 ${amount.toLocaleString('ko-KR')}원 / DB ${app.balance.toLocaleString('ko-KR')}원`,
-          url: '/admin/customers',
-        })
         return NextResponse.json({
           matched: 'balance', action: 'manual', reason: 'amount_mismatch',
           paid: amount, expected: app.balance,
@@ -440,11 +400,6 @@ export async function POST(request: NextRequest) {
       await sendSlack(
         `💰 *잔금 입금 확인*\n• 업체: ${app.business_name} (${app.owner_name})\n• 입금자: ${depositor}\n• 금액: ${amount.toLocaleString('ko-KR')}원\n• 알림: ${ok ? '✅' : '❌'}`
       ).catch(() => {})
-      await pushToAdmins(supabase, {
-        title: '💰 잔금 입금 확인',
-        body: `${app.business_name} — ${amount.toLocaleString('ko-KR')}원`,
-        url: '/admin/customers',
-      })
 
       return NextResponse.json({ matched: 'balance', application_id: app.id, amount, notify_ok: ok })
     }
@@ -453,11 +408,6 @@ export async function POST(request: NextRequest) {
     await sendSlack(
       `⚠️ *입금 매칭 실패*\n• 입금자: ${depositor}\n• 금액: ${amount.toLocaleString('ko-KR')}원\n• 은행: ${bank || sender || '-'}`
     ).catch(() => {})
-    await pushToAdmins(supabase, {
-      title: '⚠️ 입금 매칭 실패',
-      body: `입금자 ${depositor} — ${amount.toLocaleString('ko-KR')}원 (수동 처리 필요)`,
-      url: '/admin/customers',
-    })
 
     return NextResponse.json({ matched: 'none', depositor, amount })
   } catch (e) {

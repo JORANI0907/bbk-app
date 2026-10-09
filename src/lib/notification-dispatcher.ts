@@ -14,7 +14,6 @@
  */
 
 import { sendSmsOrLms } from './solapi'
-import { sendPushToUsers } from './push'
 import { notifySlack } from './slack'
 import { saveNotificationHistory } from './notification'
 import { createServiceClient } from './supabase/server'
@@ -67,7 +66,6 @@ export interface DispatchResult {
   type: string
   ruleFound: boolean
   sms: { sent: boolean; reason?: string }
-  push: { sent: boolean; targets: number; reason?: string }
   slack: { sent: boolean }
   history: { saved: boolean }
 }
@@ -75,8 +73,6 @@ export interface DispatchResult {
 interface NotificationRule {
   type: string
   channel_sms: boolean
-  channel_push: boolean
-  channel_in_app: boolean
   notify_admin: boolean
   notify_customer: boolean
   notify_worker: boolean
@@ -86,13 +82,9 @@ interface NotificationRule {
 
 /**
  * rule이 DB에 없는 type일 때 적용되는 default.
- * 기존 코드 동작을 깨지 않도록 보수적으로 설정 — SMS+push 활성, customer만 수신.
- * 운영자가 notification_rules에 row를 추가하면 이 default를 덮어쓸 수 있음.
  */
 const DEFAULT_RULE: Omit<NotificationRule, 'type'> = {
   channel_sms: true,
-  channel_push: true,
-  channel_in_app: true,
   notify_admin: false,
   notify_customer: true,
   notify_worker: false,
@@ -105,7 +97,6 @@ export async function dispatch(type: string, ctx: DispatchContext): Promise<Disp
     type,
     ruleFound: false,
     sms: { sent: false },
-    push: { sent: false, targets: 0 },
     slack: { sent: false },
     history: { saved: false },
   }
@@ -115,14 +106,11 @@ export async function dispatch(type: string, ctx: DispatchContext): Promise<Disp
   // 1. notification_rules 조회 (없으면 DEFAULT_RULE 사용)
   const { data: ruleData } = await supabase
     .from('notification_rules')
-    .select(
-      'type, channel_sms, channel_push, channel_in_app, ' +
-      'notify_admin, notify_customer, notify_worker, is_active'
-    )
+    .select('type, channel_sms, notify_admin, notify_customer, notify_worker, is_active')
     .eq('type', type)
     .maybeSingle()
 
-  // notify_franchise_hq는 Phase 3에서 추가 — 조회 시 옵셔널
+  // notify_franchise_hq는 옵셔널 컬럼
   let franchiseHqEnabled = false
   if (ruleData) {
     const { data: hqCol } = await supabase
@@ -141,7 +129,6 @@ export async function dispatch(type: string, ctx: DispatchContext): Promise<Disp
 
   if (!rule.is_active) {
     result.sms.reason = 'rule inactive'
-    result.push.reason = 'rule inactive'
     return result
   }
 
@@ -158,39 +145,7 @@ export async function dispatch(type: string, ctx: DispatchContext): Promise<Disp
     }
   }
 
-  // 3. Push 발송 - role별 user id 수집
-  if (rule.channel_push) {
-    const pushTargets = new Set<string>()
-    if (rule.notify_customer && ctx.customer?.userId) pushTargets.add(ctx.customer.userId)
-    if (rule.notify_worker && ctx.workerIds) ctx.workerIds.forEach((id) => pushTargets.add(id))
-    if (rule.notify_franchise_hq && ctx.franchiseHqIds) ctx.franchiseHqIds.forEach((id) => pushTargets.add(id))
-
-    // notify_admin: 호출자가 ctx.adminIds(담당 관리자 id)를 전달한 경우에만 push
-    // 미전달 시 push 안 함 — 각 고객의 담당 관리자만 알림 받도록 보장
-    // (customers.assigned_user_id를 호출자가 명시적으로 전달해야 함)
-    if (rule.notify_admin && ctx.adminIds?.length) {
-      ctx.adminIds.forEach((id) => pushTargets.add(id))
-    }
-
-    if (pushTargets.size > 0) {
-      const targetArr = Array.from(pushTargets)
-      try {
-        await sendPushToUsers(targetArr, {
-          title: ctx.push?.title ?? `BBK 공간케어 — ${type}`,
-          body: ctx.push?.body ?? type,
-          url: ctx.push?.url,
-        })
-        result.push.sent = true
-        result.push.targets = targetArr.length
-      } catch (e) {
-        result.push.reason = e instanceof Error ? e.message : String(e)
-      }
-    } else {
-      result.push.reason = 'no targets after role filter'
-    }
-  }
-
-  // 4. Slack 알림 (관리 인지용 — 알림 발송 사실을 내부에 공유)
+  // 3. Slack 알림 (관리 인지용 — 알림 발송 사실을 내부에 공유)
   if (rule.notify_admin) {
     try {
       await notifySlack({
@@ -213,14 +168,14 @@ export async function dispatch(type: string, ctx: DispatchContext): Promise<Disp
   if (!ctx.skipHistory) {
   try {
     const category: 'sms' | 'push' | 'system' =
-      result.sms.sent ? 'sms' : result.push.sent ? 'push' : 'system'
+      result.sms.sent ? 'sms' : 'system'
     const status: 'sent' | 'failed' =
-      (result.sms.sent || result.push.sent || result.slack.sent) ? 'sent' : 'failed'
+      (result.sms.sent || result.slack.sent) ? 'sent' : 'failed'
 
     await saveNotificationHistory({
       category,
       type,
-      body: `${type} dispatch — sms:${result.sms.sent} push:${result.push.targets} slack:${result.slack.sent}`,
+      body: `${type} dispatch — sms:${result.sms.sent} slack:${result.slack.sent}`,
       title: type,
       method: ctx.method ?? 'auto',
       recipientType: 'customer',

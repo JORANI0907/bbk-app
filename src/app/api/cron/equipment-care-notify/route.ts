@@ -11,7 +11,6 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
-import { sendPushToUsers } from '@/lib/push'
 
 export const dynamic = 'force-dynamic'
 
@@ -46,12 +45,6 @@ export async function POST(request: NextRequest) {
   if (userIds.length === 0) {
     return NextResponse.json({ ok: true, sent: 0, weekday: todayWeekday, note: '오늘 알림 대상 없음' })
   }
-
-  await sendPushToUsers(userIds, {
-    title: '🧰 장비관리보고 알림',
-    body: '오늘 사용한 장비 사진을 보고해주세요. 정규+예비 요일에 알림이 발송됩니다.',
-    url: '/worker/regular-care',
-  })
 
   return NextResponse.json({
     ok: true,
