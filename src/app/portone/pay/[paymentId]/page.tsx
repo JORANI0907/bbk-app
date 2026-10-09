@@ -555,11 +555,11 @@ export default function PortOnePayPage() {
                   </span>
                 </div>
                 <div className="flex justify-between items-center text-[10px]">
-                  <span className="text-emerald-600 font-semibold">― 1차 결제 (예약금)</span>
+                  <span className="text-emerald-600 font-semibold"><span className="inline-block w-3 text-center">―</span> 1차 결제 (예약금)</span>
                   <span className="font-semibold text-emerald-600">― {amount.toLocaleString('ko-KR')}원</span>
                 </div>
                 <div className="flex justify-between items-center text-[10px] border-t border-stone-200 pt-1">
-                  <span className="font-bold text-stone-700">= 2차 결제 (잔금)</span>
+                  <span className="font-bold text-stone-700"><span className="inline-block w-3 text-center">=</span> 2차 결제 (잔금)</span>
                   <span className="font-bold text-sky-600">
                     {totalAmount > 0 ? `${balanceAmount.toLocaleString('ko-KR')}원` : '작업 완료 후 확정'}
                   </span>
