@@ -1281,7 +1281,7 @@
       privacyConsent: document.getElementById('privacyConsent').checked,
       serviceConsent: document.getElementById('serviceConsent').checked,
       requestNotes: document.getElementById('requestNotes').value.trim(),
-      source: (location.pathname === '/bbk-care-test') ? 'test' : 'application'
+      source: isLocalDev ? 'test' : 'application'
     };
 
     fetch('/api/webhooks/application', {
@@ -1330,8 +1330,7 @@
   var smsToken = '';
   var smsTimerInterval = null;
   var isLocalDev = (location.hostname === 'localhost' || location.hostname === '127.0.0.1');
-  var isTestMode = location.pathname === '/bbk-care-test';
-  var isTestEnv = isLocalDev || isTestMode;
+  var isTestEnv = isLocalDev;
   var phoneVerified = isTestEnv;
   if (isTestEnv) {
     window.addEventListener('DOMContentLoaded', function() {
