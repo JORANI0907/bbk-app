@@ -97,25 +97,6 @@ export async function PATCH(request: NextRequest, { params }: Params) {
       }
     } catch { /* 동기화 실패는 무시 */ }
 
-    // Phase 27-AV: 작업완료 Slack 보고 (작업시작과 대칭). 1회성·정기딥·정기엔드 모두 동일.
-    try {
-      const { data: appData } = await supabase
-        .from('service_applications')
-        .select('business_name, owner_name, construction_date, service_type')
-        .eq('id', id)
-        .single()
-      if (appData) {
-        await notifySlack({
-          notifyType: '작업완료',
-          customerName: appData.owner_name ?? '',
-          phone: '',
-          businessName: appData.business_name ?? '',
-          constructionDate: appData.construction_date?.slice(0, 10) ?? null,
-          method: 'manual',
-        })
-      }
-    } catch { /* Slack 실패 무시 */ }
-
     // G3: 1회성케어 작업완료 시 잔금 결제링크 발급 + 잔금요청 SMS 자동 발송
     // - 정기딥/정기엔드는 service_billings + cron(reservation-reminders) 이 담당하므로 여기서 제외 (중복 방지)
     // - 카드/가상계좌/계좌이체 모두 자동 발송 (템플릿 이름은 아래 notifyType 참조)

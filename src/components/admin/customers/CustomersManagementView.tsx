@@ -3305,7 +3305,7 @@ export function CustomersManagementView({
                   let paymentBg: string
                   if (c.customer_type === '1회성케어') {
                     const s2 = !!c.deposit_paid_at
-                    const s3 = ['작업완료', '계산서발행완료'].includes(c.progress_status ?? '')
+                    const s3 = !!c.work_completed_at
                     const s4 = !!c.balance_paid_at || PAYMENT_COMPLETE_STATUSES.includes(c.payment_status_detail ?? '')
                     const s5 = !!c.tax_invoice_issued
                     if (s5)       { progressBorder = 'border-l-blue-300';   paymentBg = 'bg-blue-50' }
@@ -3523,7 +3523,7 @@ export function CustomersManagementView({
                                       {([
                                         { label: '신청', done: true },
                                         { label: '예약금', done: !!c.deposit_paid_at },
-                                        { label: '작업', done: ['작업완료', '계산서발행완료'].includes(c.progress_status ?? '') },
+                                        { label: '작업', done: !!c.work_completed_at },
                                         { label: '잔금', done: !!c.balance_paid_at || PAYMENT_COMPLETE_STATUSES.includes(c.payment_status_detail ?? '') },
                                         { label: '계산서', done: !!c.tax_invoice_issued },
                                       ] as { label: string; done: boolean }[]).map((step, i) => (
