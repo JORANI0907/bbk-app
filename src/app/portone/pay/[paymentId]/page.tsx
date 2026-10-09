@@ -474,12 +474,12 @@ export default function PortOnePayPage() {
       <div className="bg-white/70 backdrop-blur-md border-b border-stone-200/60 sticky top-0 z-10">
         <div className="max-w-md mx-auto px-4 py-2.5 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="relative w-7 h-7">
+            <div className="relative w-7 h-7 rounded-lg overflow-hidden flex-shrink-0" style={{ boxShadow: '0 2px 5px rgba(0,0,0,0.18), 0 1px 2px rgba(0,0,0,0.10), inset 0 1px 0 rgba(255,255,255,0.65)' }}>
               <Image src="/bbk-logo.png" alt="BBK 로고" fill sizes="28px" className="object-contain" priority />
             </div>
             <div className="flex flex-col leading-none">
-              <span className="text-[8px] font-semibold text-stone-400 tracking-[0.15em]">BUMBUILD KOREA</span>
-              <span className="text-[13px] font-bold text-stone-800 mt-0.5">범빌드코리아</span>
+              <span className="text-[8px] font-semibold text-stone-400 tracking-[0.12em]">BUMBUILDKOREA Inc.©</span>
+              <span className="text-[13px] font-bold text-stone-800 mt-0.5">범빌드코리아(주)</span>
             </div>
           </div>
           <div className="flex items-center gap-1 text-[10px] text-emerald-600 font-medium">
@@ -544,19 +544,29 @@ export default function PortOnePayPage() {
               <span className="text-sm font-semibold ml-0.5 text-emerald-600/80">원</span>
             </div>
           </div>
-          {/* 하단: 총액/잔금 요약 + 2차 안내 */}
+          {/* 하단: 결제 흐름 세로 계산식 */}
           {stage === 'deposit' && (
-            <div className="mt-2 pt-2 pl-2 border-t border-stone-100 space-y-1">
-              {totalAmount > 0 && (
-                <div className="flex justify-between text-[10px] text-stone-500">
-                  <span>총 서비스 금액 (VAT 포함) · 2차 결제(잔금) 예정</span>
-                  <span className="font-semibold text-stone-700">
-                    {totalAmount.toLocaleString('ko-KR')}원 · <span className="text-sky-600">{balanceAmount.toLocaleString('ko-KR')}원</span>
+            <div className="mt-2 pt-2 pl-2 border-t border-stone-100">
+              <div className="space-y-1">
+                <div className="flex justify-between items-center text-[10px] text-stone-500">
+                  <span>총 서비스 금액 (VAT 포함)</span>
+                  <span className="font-semibold text-stone-600">
+                    {totalAmount > 0 ? `${totalAmount.toLocaleString('ko-KR')}원` : '견적 확정 후 안내'}
                   </span>
                 </div>
-              )}
-              <p className="text-[10px] text-stone-500 leading-relaxed">
-                <span className="font-semibold text-sky-600">2차 결제(잔금)</span> · 서비스 완료 후 문자로 결제 링크 안내 (카드·계좌이체·가상계좌)
+                <div className="flex justify-between items-center text-[10px]">
+                  <span className="text-emerald-600 font-semibold">― 1차 결제 (예약금)</span>
+                  <span className="font-semibold text-emerald-600">― {amount.toLocaleString('ko-KR')}원</span>
+                </div>
+                <div className="flex justify-between items-center text-[10px] border-t border-stone-200 pt-1">
+                  <span className="font-bold text-stone-700">= 2차 결제 (잔금)</span>
+                  <span className="font-bold text-sky-600">
+                    {totalAmount > 0 ? `${balanceAmount.toLocaleString('ko-KR')}원` : '작업 완료 후 확정'}
+                  </span>
+                </div>
+              </div>
+              <p className="mt-1.5 text-[10px] text-stone-500 leading-relaxed">
+                결제는 총 2회로 진행됩니다. 작업 완료 후 잔금 결제 링크를 문자로 안내드립니다.
               </p>
             </div>
           )}

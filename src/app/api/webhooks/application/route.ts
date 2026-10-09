@@ -271,6 +271,17 @@ export async function POST(request: NextRequest) {
       console.log('[webhook] 최종 paymentUrl:', paymentUrl)
     }
 
+    // 신청서작성완료 SMS — 1차 결제 링크 포함 (source='quote' 제외)
+    // 고객이 결제창을 닫아버릴 경우를 대비해 SMS로 결제 링크를 재안내
+    if (insertedId && source !== 'quote') {
+      const origin = new URL(request.url).origin
+      fetch(`${origin}/api/admin/notify`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ application_id: insertedId, type: '신청서작성완료알림', method: 'auto' }),
+      }).catch(() => {})
+    }
+
     // 견적서 신청 접수 확인 알림톡 + 발송이력 기록 (source='quote' 전용)
     if (insertedId && source === 'quote') {
       const origin = new URL(request.url).origin

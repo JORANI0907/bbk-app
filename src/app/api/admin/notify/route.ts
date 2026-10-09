@@ -242,7 +242,10 @@ function buildVariables(
         '방문시간': constructionTime ?? '-',
       }
     case '신청서작성완료알림':
-      return { '고객명': ownerName }
+      return {
+        '고객명': ownerName,
+        '결제링크': String(app.deposit_payment_url ?? ''),
+      }
     case '견적신청접수알림':
       return {
         '고객명': ownerName,
@@ -278,7 +281,12 @@ function buildFallback(type: string, app: Record<string, unknown>): string {
     '예약취소알림':       `[BBK 공간케어] ${name}님, 예약이 취소되었습니다.`,
     'A/S방문알림':        `[BBK 공간케어] ${name}님, A/S 방문 일정을 안내드립니다.`,
     '방문견적알림':       `[BBK 공간케어] ${name}님, 방문견적 일정을 안내드립니다.`,
-    '신청서작성완료알림': `[BBK 공간케어] ${name}님, 신청서가 정상적으로 접수되었습니다. 담당자가 확인 후 연락드리겠습니다.`,
+    '신청서작성완료알림': (() => {
+      const url = String(app.deposit_payment_url ?? '')
+      return url
+        ? `[BBK 공간케어] ${name}님, 신청서가 접수되었습니다. 예약금 결제 완료 후 예약이 확정됩니다.\n결제링크: ${url}`
+        : `[BBK 공간케어] ${name}님, 신청서가 정상적으로 접수되었습니다. 담당자가 확인 후 연락드리겠습니다.`
+    })(),
     '견적신청접수알림':   `[BBK 공간케어] ${name}님, 견적 신청이 접수되었습니다. 담당자가 확인 후 연락드리겠습니다.`,
   }
   return fallbacks[type] ?? `[BBK 공간케어] ${name}님께 알림을 발송합니다.`
@@ -459,6 +467,25 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (!app) return NextResponse.json({ error: '신청서를 찾을 수 없습니다.' }, { status: 404 })
+
+    // 신청서작성완료알림: deposit_payment_url 없으면 자동 생성 후 SMS에 포함
+    if (type === '신청서작성완료알림') {
+      if (!app.deposit_payment_url) {
+        try {
+          const resp = await fetch(`${APP_BASE_URL}/api/portone/issue-payment-link`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ applicationId: application_id, stage: 'deposit' }),
+          })
+          if (resp.ok) {
+            const linkData = await resp.json() as { paymentUrl?: string }
+            if (linkData.paymentUrl) {
+              (app as Record<string, unknown>).deposit_payment_url = linkData.paymentUrl
+            }
+          }
+        } catch { /* 링크 생성 실패 무시 — SMS는 URL 없이 발송 */ }
+      }
+    }
 
     // 예약금입금요청알림: deposit_payment_url 없으면 자동 생성
     if (type === '예약금입금요청알림') {
