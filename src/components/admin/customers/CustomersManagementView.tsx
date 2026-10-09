@@ -1216,6 +1216,10 @@ export function CustomersManagementView({
     // prev[k] !== slimSnapshot[k] 이면 사용자가 편집 중 → 그 값 보존.
     // (기존 "빈 값일 때만 덮어씀" 로직은 slim 이 stale 값을 가지고 있을 때 갱신 실패 → 저장 후 새로고침 시 옛 값이 계속 표시되는 버그의 원인)
     const slimSnapshot = toForm(c)
+    // handleInfographicSave race condition 방어: full fetch가 PATCH보다 늦게 도착하면
+    // { ...prev, ...full } 단순 병합으로 사용자가 방금 저장한 값이 덮어써지는 버그 수정.
+    // setForm과 동일한 스마트 머지 패턴을 setSelected/setCustomers에도 적용.
+    const customerSnapshot = { ...c } as Record<string, unknown>
     const targetId = c.id
     fetch(`/api/admin/customers/${c.id}`)
       .then(r => r.ok ? r.json() : null)
@@ -1224,7 +1228,14 @@ export function CustomersManagementView({
         const full = j.customer as Customer
         // 세부창을 다른 고객으로 이미 이동했으면 무시 (stale response 방어)
         if (full.id !== targetId) return
-        setSelected(prev => (prev && prev.id === full.id) ? { ...prev, ...full } : prev)
+        setSelected(prev => {
+          if (!prev || prev.id !== full.id) return prev
+          const merged = { ...prev } as unknown as Record<string, unknown>
+          for (const [k, v] of Object.entries(full as unknown as Record<string, unknown>)) {
+            if (merged[k] === customerSnapshot[k]) merged[k] = v
+          }
+          return merged as unknown as Customer
+        })
         setForm(prev => {
           const fullForm = toForm(full)
           const merged: Record<string, unknown> = { ...prev }
@@ -1240,7 +1251,14 @@ export function CustomersManagementView({
           }
           return merged as typeof prev
         })
-        setCustomers(prev => prev.map(x => x.id === full.id ? { ...x, ...full } : x))
+        setCustomers(prev => prev.map(x => {
+          if (x.id !== full.id) return x
+          const merged = { ...x } as unknown as Record<string, unknown>
+          for (const [k, v] of Object.entries(full as unknown as Record<string, unknown>)) {
+            if (merged[k] === customerSnapshot[k]) merged[k] = v
+          }
+          return merged as unknown as Customer
+        }))
         setNotifyLogs((full.notification_log ?? []).map(dbLogToNotifyLog))
         // Phase 38: 리스트 슬림 응답에 weekday_assignments 가 빠져있어 handleSelect 초기값이
         // {} 로 세팅되던 문제 방어. full 응답이 도착한 시점에 state 도 함께 갱신해서
