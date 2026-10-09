@@ -747,9 +747,16 @@ export async function POST(request: NextRequest) {
         const existingCustLog: NotificationLogEntry[] = Array.isArray(cust?.notification_log)
           ? (cust!.notification_log as NotificationLogEntry[])
           : []
+        // 진행흐름 섹션은 customers.progress_status 를 직접 읽으므로 알림 발송 시 동기화.
+        // linked_progress_status(template DB 값)이 있으면 우선, 없으면 NOTIFY_TO_STATUS 하드코딩 fallback.
+        const effectiveProgressStatus = newProgressStatus ?? newStatus ?? null
+        const custUpdate: Record<string, unknown> = {
+          notification_log: [newEntry, ...existingCustLog],
+        }
+        if (effectiveProgressStatus) custUpdate.progress_status = effectiveProgressStatus
         await supabase
           .from('customers')
-          .update({ notification_log: [newEntry, ...existingCustLog] })
+          .update(custUpdate)
           .eq('id', app.customer_id)
       } catch { /* customer 로그 동기화 실패는 조용히 무시 */ }
     }
