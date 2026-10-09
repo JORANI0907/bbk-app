@@ -90,12 +90,7 @@ async function handleTransactionPaid(paymentId: string) {
 
     if (!updated || updated.length === 0) return
 
-    await sendSlack(
-      `💳 *가상계좌 잔금 입금 완료*\n` +
-      `업체: ${balanceRow.business_name ?? '-'} / 고객: ${balanceRow.owner_name ?? '-'}\n` +
-      `결제ID: ${paymentId}`
-    ).catch(() => {})
-
+    // triggerAutoNotify → notify API → Slack 으로 통합 처리 (중복 방지)
     await triggerAutoNotify(balanceRow.id, '결제완료알림(잔금)')
   }
 }

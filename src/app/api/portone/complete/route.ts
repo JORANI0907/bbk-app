@@ -231,15 +231,18 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Slack 알림
-    const stageLabel = stage === 'deposit' ? '예약금(1차)' : '잔금(2차)'
-    sendSlack(
-      `💳 *${stageLabel} 결제 완료*\n` +
-      `업체: ${String(app.business_name ?? '-')}` +
-      ` / 고객: ${ownerName || '-'}\n` +
-      `금액: ${expectedAmount.toLocaleString('ko-KR')}원\n` +
-      `결제ID: ${paymentId}`,
-    ).catch(() => {})
+    // customer 모드는 triggerAutoNotify가 없으므로 Slack을 직접 발송
+    // service_applications 모드는 triggerAutoNotify → notify API → Slack 으로 통합 처리 (중복 방지)
+    if (isCustomerMode) {
+      const stageLabel = stage === 'deposit' ? '예약금(1차)' : '잔금(2차)'
+      sendSlack(
+        `💳 *${stageLabel} 결제 완료*\n` +
+        `업체: ${String(app.business_name ?? '-')}` +
+        ` / 고객: ${ownerName || '-'}\n` +
+        `금액: ${expectedAmount.toLocaleString('ko-KR')}원\n` +
+        `결제ID: ${paymentId}`,
+      ).catch(() => {})
+    }
 
     // 자동 알림은 service_applications 모드에서만 (customers 모드는 알림 플로우 없음)
     if (!isCustomerMode && applicationId) {

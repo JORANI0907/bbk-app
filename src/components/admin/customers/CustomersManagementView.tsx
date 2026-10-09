@@ -1803,6 +1803,30 @@ export function CustomersManagementView({
     return () => clearTimeout(t)
   }, [copiedUrl])
 
+  // 잔금 결제 대기 중 자동 새로고침 (15초 간격)
+  // balance_payment_url이 발급됐지만 balance_paid_at이 없으면 고객이 결제 중으로 판단
+  useEffect(() => {
+    if (!selected?.id) return
+    if (selected?.balance_paid_at) return
+    if (!selected?.balance_payment_url) return
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch(`/api/admin/customers/${selected.id}`)
+        if (!res.ok) return
+        const { customer } = await res.json()
+        if (!customer?.balance_paid_at) return
+        setSelected(prev => prev ? { ...prev, ...customer } : prev)
+        setForm(prev => ({
+          ...prev,
+          payment_status_detail: customer.payment_status_detail ?? prev.payment_status_detail,
+          progress_status: customer.progress_status ?? prev.progress_status,
+        }))
+        toast.success('잔금 결제가 완료되었습니다!')
+      } catch {}
+    }, 15000)
+    return () => clearInterval(interval)
+  }, [selected?.id, selected?.balance_payment_url, selected?.balance_paid_at])
+
   const handleGenerateBalanceUrl = async () => {
     if (!selected?.id || generatingBalanceUrl) return
     setGeneratingBalanceUrl(true)
@@ -4949,7 +4973,7 @@ export function CustomersManagementView({
                   {(() => {
                     const isCancelled = form.progress_status === '예약취소'
                     const depositDone = !!selected?.deposit_paid_at
-                    const workDone = ['작업완료', '계산서발행완료'].includes(form.progress_status ?? '')
+                    const workDone = ['작업완료', '계산서발행완료', '결제완료'].includes(form.progress_status ?? '')
                     const balancePsd = form.payment_status_detail ?? ''
                     const balanceDone = PAYMENT_COMPLETE_STATUSES.includes(balancePsd) || !!selected?.balance_paid_at
                     const invoiceDone = form.tax_invoice_issued === true
