@@ -338,10 +338,17 @@ export default function PortOnePayPage() {
       const emailToUse = (app.email && app.email.trim())
         || `noemail-${appId.replace(/-/g, '').slice(0, 8)}@bbkorea.co.kr`
 
+      const redirectOrigin = typeof window !== 'undefined' ? window.location.origin : 'https://app.bbkorea.co.kr'
+      const redirectParams = new URLSearchParams({ paymentId, stage })
+      if (appId)  redirectParams.set('appId',  appId)
+      if (custId) redirectParams.set('custId', custId)
+      const redirectUrl = `${redirectOrigin}/portone/complete?${redirectParams.toString()}`
+
       const result = await requestPayment({
         storeId, channelKey, paymentId,
         orderName: `범빌드코리아 청소서비스 — ${app.business_name}`,
         totalAmount: amount, currency: 'KRW', payMethod,
+        redirectUrl,
         customer: {
           fullName: app.owner_name,
           phoneNumber: app.phone.replace(/-/g, ''),
