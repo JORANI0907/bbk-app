@@ -6,6 +6,15 @@ import { appendBothNotificationLogs } from '@/lib/notification-log'
 import { saveNotificationHistory } from '@/lib/notification'
 import type { NotificationContext } from '@/lib/notification-variables'
 
+// ─── 비활성화 플래그 (2026-10-12) ─────────────────────────────────
+// 은행 입금 SMS → 입금자명 매칭 → 예약금/잔금 자동체크 로직은
+// PortOne 결제 자동화 도입과 함께 비활성화됨.
+// 코드는 보존 (수동 계좌이체 재개 시 복구 가능). Make 시나리오도 별도 비활성화 필요.
+// 복구 시: 아래 LEGACY_DISABLED 값을 false 로 바꾸고 Make 시나리오 재활성화.
+const LEGACY_DISABLED: boolean = true
+// Slack 과다 알림 방지: 하루 1건만 보내도록 메모리 캐시
+let lastDisabledNoticeDate: string | null = null
+
 // ─── 상태 설정 ────────────────────────────────────────────────────
 
 const DEPOSIT_STATUSES = ['신규', '예약확정'] as const
@@ -205,6 +214,23 @@ type AppRow = {
 // ─── 메인 핸들러 ─────────────────────────────────────────────────
 
 export async function POST(request: NextRequest) {
+  // ── 비활성화 상태: 즉시 skip 응답 ───────────────────────────────
+  // PortOne 결제 자동화 도입 (2026-10-12) 이후 은행 입금자명 매칭 로직 정지.
+  // Make 시나리오가 아직 호출 중이면 하루 1회 Slack 알림으로 사람에게 알림.
+  if (LEGACY_DISABLED) {
+    const todayKST = new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10)
+    if (lastDisabledNoticeDate !== todayKST) {
+      lastDisabledNoticeDate = todayKST
+      await sendSlack(
+        `ℹ️ *입금 매칭 webhook 호출 감지 (비활성 상태)*\n` +
+        `• 이 로직은 2026-10-12에 PortOne 결제 자동화로 대체되어 비활성화됨.\n` +
+        `• Make 시나리오가 여전히 호출 중이면 비활성화 필요.\n` +
+        `• 하루 1회만 알림.`
+      ).catch(() => {})
+    }
+    return NextResponse.json({ matched: 'skipped', reason: 'legacy_disabled' }, { status: 200 })
+  }
+
   try {
     const contentType = request.headers.get('content-type') ?? ''
     const rawBody = await request.text()
