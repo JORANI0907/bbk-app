@@ -248,9 +248,10 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // customer 모드는 triggerAutoNotify가 없으므로 Slack을 직접 발송
-    // service_applications 모드는 triggerAutoNotify → notify API → Slack 으로 통합 처리 (중복 방지)
-    if (isCustomerMode) {
+    // Slack 결제 완료 보고 — service_applications / customers 모드 모두 발송
+    // (이전엔 customers 모드만 Slack 보냈고 service_applications 모드는 notify API 경유를
+    //  믿었지만, 2026-10-12 유현우 건에서 실제론 Slack 보고가 안 오는 걸 확인 → 양쪽 모두 직접 발송)
+    {
       const stageLabel = stage === 'deposit' ? '예약금(1차)' : '잔금(2차)'
       sendSlack(
         `💳 *${stageLabel} 결제 완료*\n` +
@@ -262,9 +263,12 @@ export async function POST(request: NextRequest) {
     }
 
     // 자동 알림은 service_applications 모드에서만 (customers 모드는 알림 플로우 없음)
+    // 2026-10-12 수정: 예약금 결제 완료 시 '예약확정알림'(수동 발송 전용) 대신
+    //   '예약금 입금완료 알림'(자동 발송 전용) 템플릿으로 교체.
+    //   '예약확정알림'은 관리자가 수동 발송하는 공식 확정 안내로 역할 분리.
     if (!isCustomerMode && applicationId) {
       if (stage === 'deposit') {
-        await triggerAutoNotify(applicationId, '예약확정알림')
+        await triggerAutoNotify(applicationId, '예약금 입금완료 알림')
       } else {
         // G4: 잔금 완료 → 결제완료 알림
         await triggerAutoNotify(applicationId, '결제완료알림(잔금)')
