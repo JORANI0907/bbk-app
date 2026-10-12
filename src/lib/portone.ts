@@ -19,21 +19,28 @@ export function getStoreId(): string {
 
 export function getChannelKey(method: 'card' | 'vbank' | 'transfer'): string {
   // KG이니시스는 "일반결제 채널 하나"에 카드·계좌이체·가상계좌 모두 포함.
-  // vbank / transfer 전용 채널 env 가 없으면 CARD 채널 키로 자동 폴백 → 환경변수 세팅 누락 안전망.
-  // 명시적 env 를 넣으면 우선순위로 그걸 사용 (추후 PG별 채널 분리 시 대응).
+  // 폴백 체인: 서버 전용 env → 다른 서버 전용 env → NEXT_PUBLIC_ 환경변수.
+  // NEXT_PUBLIC_* 는 Next.js 에서 브라우저용으로 노출되지만 서버에서도 그대로 읽을 수 있어
+  //   "접두사 불일치로 서버에서 환경변수 못 찾는 사고" 방지의 최종 안전망 역할.
   if (method === 'card') {
     const key = process.env.PORTONE_CHANNEL_KEY_CARD
-    if (!key) throw new Error('PORTONE_CHANNEL_KEY_CARD가 설정되지 않았습니다.')
+             || process.env.NEXT_PUBLIC_PORTONE_CHANNEL_KEY_CARD
+    if (!key) throw new Error('PORTONE_CHANNEL_KEY_CARD (서버) 또는 NEXT_PUBLIC_PORTONE_CHANNEL_KEY_CARD 가 설정되지 않았습니다.')
     return key
   }
   if (method === 'vbank') {
-    const key = process.env.PORTONE_CHANNEL_KEY_VBANK || process.env.PORTONE_CHANNEL_KEY_CARD
-    if (!key) throw new Error('PORTONE_CHANNEL_KEY_VBANK (또는 CARD) 가 설정되지 않았습니다.')
+    const key = process.env.PORTONE_CHANNEL_KEY_VBANK
+             || process.env.PORTONE_CHANNEL_KEY_CARD
+             || process.env.NEXT_PUBLIC_PORTONE_CHANNEL_KEY_CARD
+    if (!key) throw new Error('PORTONE_CHANNEL_KEY_VBANK / CARD / NEXT_PUBLIC_* 모두 미설정.')
     return key
   }
   // transfer
-  const key = process.env.PORTONE_CHANNEL_KEY_TRANSFER || process.env.PORTONE_CHANNEL_KEY_CARD
-  if (!key) throw new Error('PORTONE_CHANNEL_KEY_TRANSFER (또는 CARD) 가 설정되지 않았습니다.')
+  const key = process.env.PORTONE_CHANNEL_KEY_TRANSFER
+           || process.env.NEXT_PUBLIC_PORTONE_CHANNEL_KEY_TRANSFER
+           || process.env.PORTONE_CHANNEL_KEY_CARD
+           || process.env.NEXT_PUBLIC_PORTONE_CHANNEL_KEY_CARD
+  if (!key) throw new Error('PORTONE_CHANNEL_KEY_TRANSFER / NEXT_PUBLIC_* / CARD 모두 미설정.')
   return key
 }
 
