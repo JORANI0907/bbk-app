@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { Webhook } from '@portone/server-sdk'
 import { createServiceClient } from '@/lib/supabase/server'
 import { sendSlack } from '@/lib/slack'
+import { getPortOneClient } from '@/lib/portone'
 
 const WEBHOOK_SECRET = process.env.PORTONE_WEBHOOK_SECRET ?? ''
 const APP_BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.bbkorea.co.kr'
@@ -114,37 +115,50 @@ async function handleTransactionPaid(paymentId: string) {
   }
 }
 
-// 가상계좌 발급 완료 웹훅 처리 — PortOne 응답에서 번호/은행/만료일 추출 후 DB 저장
-// 2026-10-12: issue-payment-link의 즉시 응답에 가상계좌 정보가 안 오는 사례(윤현식 건) 발견.
-// PortOne V2 응답 구조가 PG별로 다를 수 있어 여러 경로 방어적으로 탐색.
+// 가상계좌 발급 완료 웹훅 처리 — PortOne V2는 webhook payload에 메타데이터만 담고
+// 상세 가상계좌 정보는 getPayment API로 조회해야 함 (2026-10-12 Slack payload로 확인).
 async function handleVirtualAccountIssued(paymentId: string, event: Record<string, unknown>): Promise<void> {
-  const data   = (event.data as Record<string, unknown>) ?? {}
-  const method = (data.method as Record<string, unknown>) ?? {}
-  const virtualAccount = (data.virtualAccount as Record<string, unknown>)
+  void event // webhook payload는 트리거용, 실제 정보는 getPayment로 조회
+  const client = getPortOneClient()
+  if (!client) {
+    await sendSlack(`⚠️ 가상계좌 webhook: PortOne 클라이언트 미설정 (STORE_ID/API_SECRET 확인)`).catch(() => {})
+    return
+  }
+
+  let payment: Record<string, unknown>
+  try {
+    payment = await client.payment.getPayment({ paymentId }) as Record<string, unknown>
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e)
+    await sendSlack(`⚠️ getPayment 실패 — ${paymentId}\n${msg}`).catch(() => {})
+    return
+  }
+
+  // PortOne V2 응답 구조: payment.method 안에 가상계좌 정보가 담김 (PG별 필드명 다를 수 있어 방어적)
+  const method = (payment.method as Record<string, unknown>) ?? {}
+  const virtualAccount = (payment.virtualAccount as Record<string, unknown>)
                         ?? (method.virtualAccount as Record<string, unknown>)
                         ?? {}
 
-  // 여러 가능한 필드명 체크 (PG마다 다름)
   const accountNumber = String(
-    virtualAccount.accountNumber ?? method.accountNumber ?? data.accountNumber ?? ''
+    virtualAccount.accountNumber ?? method.accountNumber ?? ''
   )
   const bankName = String(
     virtualAccount.bank ?? virtualAccount.bankName
-    ?? method.bank ?? method.bankName
-    ?? data.bank ?? ''
+    ?? method.bank ?? method.bankName ?? ''
   )
   const expiryRaw = virtualAccount.accountExpiry ?? virtualAccount.expiredAt
-                   ?? method.accountExpiry ?? data.expiredAt ?? null
+                   ?? method.accountExpiry ?? payment.expiredAt ?? null
   const expiredAt = expiryRaw
     ? (() => { try { return new Date(String(expiryRaw)).toISOString() } catch { return null } })()
     : null
 
-  // 추출 실패 시 전체 payload Slack 로깅 (운영자가 PortOne 응답 구조 역추적 가능)
+  // 추출 실패 시 getPayment 전체 응답 Slack 로깅 (PortOne 응답 구조 역추적 가능)
   if (!accountNumber || !bankName) {
     await sendSlack(
-      `⚠️ *가상계좌 webhook 추출 실패*\n` +
+      `⚠️ *가상계좌 getPayment 응답 추출 실패*\n` +
       `paymentId: ${paymentId}\n` +
-      `payload: \`\`\`${JSON.stringify(data).slice(0, 1500)}\`\`\``
+      `getPayment 응답: \`\`\`${JSON.stringify(payment).slice(0, 1500)}\`\`\``
     ).catch(() => {})
     return
   }
