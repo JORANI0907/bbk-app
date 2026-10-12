@@ -71,12 +71,24 @@ export async function POST(request: NextRequest) {
       elevator, buildingAccess, accessMethod, parking,
       paymentMethod, accountNumber,
       taxInvoiceRequired,  // 2026-10-06: 사업자 고객의 세금계산서 발행 요청 플래그
+      refundRequested,     // 2026-10-12: 예약금 환급 요청 체크박스
       privacyConsent, serviceConsent, requestNotes,
       constructionDate, careScope,
       source,
     } = body
 
     const normalizedPhone2 = (typeof phone_2 === 'string' && phone_2.trim()) ? phone_2.trim() : null
+
+    // 2026-10-12: 환급 체크 시 request_notes 끝에 [예약금 환급 요청] 블록 자동 추가.
+    //   관리자가 고객요청사항에서 환급 요청 여부 즉시 인지 가능하게 함.
+    //   form.html 의 refundRequested + accountNumber 를 서버사이드에서 머지하므로 관리자가 수동으로 옮길 필요 없음.
+    const baseNotes = typeof requestNotes === 'string' ? requestNotes.trim() : ''
+    const refundNote = (refundRequested && typeof accountNumber === 'string' && accountNumber.trim())
+      ? `[예약금 환급 요청] 환급계좌: ${accountNumber.trim()}`
+      : ''
+    const mergedRequestNotes = refundNote
+      ? (baseNotes ? `${baseNotes}\n\n${refundNote}` : refundNote)
+      : baseNotes
 
     // 숫자만 추출한 phone — 사장님 번호(01054344877) 자동 test 모드 트리거 판정용.
     // 사장님이 신청서 폼으로 신청하면 자동으로 예약금 1,000원 처리 → 실제 결제 흐름 테스트 가능.
@@ -147,7 +159,7 @@ export async function POST(request: NextRequest) {
       parking,
       payment_method: paymentMethod,
       care_scope: careScope,
-      request_notes: requestNotes,
+      request_notes: mergedRequestNotes,
     })
     if (autoLinkedCustomerId) {
       console.log(`[webhook] customer ${autoCreated ? '자동 생성' : '자동 연결'}: ${autoLinkedCustomerId}`)
@@ -181,7 +193,7 @@ export async function POST(request: NextRequest) {
           account_number: accountNumber,
           privacy_consent: privacyConsent,
           service_consent: serviceConsent,
-          request_notes: requestNotes,
+          request_notes: mergedRequestNotes,
           construction_date: constructionDate ?? null,
           care_scope: careScope ?? null,
           source: source ?? 'application',
