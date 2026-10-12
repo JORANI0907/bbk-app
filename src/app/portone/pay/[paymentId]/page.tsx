@@ -580,9 +580,12 @@ export default function PortOnePayPage() {
               type="button"
               onClick={openDetail}
               disabled={!appId || Boolean(app?.deposit_paid_at)}
+              title={app?.deposit_paid_at
+                ? '결제가 완료된 신청서는 고객이 직접 수정할 수 없습니다. 수정이 필요하면 1522-9597로 연락 주세요.'
+                : '신청 내용을 확인·수정할 수 있습니다.'}
               className="text-[11px] font-semibold text-emerald-600 hover:text-emerald-700 disabled:text-stone-400 disabled:cursor-not-allowed transition-colors"
             >
-              {app?.deposit_paid_at ? '결제완료' : '상세보기 ›'}
+              {app?.deposit_paid_at ? '✓ 결제완료 (수정불가)' : '상세보기 ›'}
             </button>
           </div>
           <div className="px-4 py-2.5 space-y-1.5">
