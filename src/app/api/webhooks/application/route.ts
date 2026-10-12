@@ -78,6 +78,12 @@ export async function POST(request: NextRequest) {
 
     const normalizedPhone2 = (typeof phone_2 === 'string' && phone_2.trim()) ? phone_2.trim() : null
 
+    // 숫자만 추출한 phone — 사장님 번호(01054344877) 자동 test 모드 트리거 판정용.
+    // 사장님이 신청서 폼으로 신청하면 자동으로 예약금 1,000원 처리 → 실제 결제 흐름 테스트 가능.
+    // 하이픈/공백 포함 입력도 안전하게 비교.
+    const phoneDigits = typeof phone === 'string' ? phone.replace(/[^0-9]/g, '') : ''
+    const isOwnerTestPhone = phoneDigits === '01054344877'
+
     // Phase 15: 영업시간 HH:MM 형식 검증 (브라우저 자동완성 오염 방어 — 회사명·긴 문자열 차단)
     const validTime = (v: unknown): string | null => {
       if (typeof v !== 'string') return null
@@ -186,9 +192,10 @@ export async function POST(request: NextRequest) {
           // 견적서 신청(source='quote')은 관리자가 별도 세팅하므로 여기서 덮어쓰지 않음
           ...(source !== 'quote' && { service_type: '1회성케어' }),
           // 예약금 기본 8만원 자동 세팅 (관리자가 UI에서 편집 가능)
-          // 테스트 신청서는 1원 — 실제 카드·계좌 결제 흐름 검증 후 포트원 콘솔에서 환불
+          // 테스트 신청서는 1,000원 — 실제 카드·계좌 결제 흐름 검증 후 포트원 콘솔에서 환불
+          //   트리거: 로컬 개발 | source='test' | 사장님 번호(01054344877)로 신청
           // 견적서 신청은 관리자가 견적 확정 시 세팅하므로 여기선 스킵
-          ...(source !== 'quote' && { deposit: (process.env.NODE_ENV === 'development' || source === 'test') ? 1000 : 80000 }),
+          ...(source !== 'quote' && { deposit: (process.env.NODE_ENV === 'development' || source === 'test' || isOwnerTestPhone) ? 1000 : 80000 }),
           // 결제 대기 상태로 초기화 — 결제 완료 시 complete API가 'paid'로 승격
           // DB CHECK 제약: pending / invoiced / paid / overdue 만 허용
           ...(source !== 'quote' && { payment_status: 'pending' }),
