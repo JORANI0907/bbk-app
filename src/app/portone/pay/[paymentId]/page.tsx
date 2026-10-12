@@ -73,10 +73,11 @@ const EDITABLE_FIELD_LABELS: EditableField[] = [
 type Stage = 'deposit' | 'balance'
 
 /**
- * 결제 페이지 UI에서 사용자가 선택할 수 있는 결제 수단 4종.
+ * 결제 페이지 UI에서 사용자가 선택할 수 있는 결제 수단 3종.
  * src/lib/payment-methods.ts 의 PaymentMethod enum 중 CUSTOMER_FACING_METHODS 와 동일.
+ * 2026-10-12 법인카드 통합 — PortOne 결제창에서 카드 선택 시 법인/개인 모두 선택 가능.
  */
-type Method = 'credit_card' | 'corporate_card' | 'bank_transfer' | 'virtual_account'
+type Method = 'credit_card' | 'bank_transfer' | 'virtual_account'
 
 function calcBalance(supply: number, vat: number, deposit: number) {
   return (supply + vat) - deposit
@@ -85,7 +86,7 @@ function calcBalance(supply: number, vat: number, deposit: number) {
 /**
  * DB의 payment_method 값(레거시 한글 + 신규 영문 모두)을 받아 UI 상 Method 로 변환.
  * - 신규 enum 값은 그대로 매핑
- * - 레거시 '카드(온라인 간편결제)' 는 'credit_card' 로 (법인/개인 구분 없이 저장된 과거 데이터)
+ * - 레거시 '카드(온라인 간편결제)' 또는 'corporate_card' 는 'credit_card' 로 통합
  * - 알 수 없거나 null 이면 기본값 'credit_card'
  */
 function inferMethodFromPaymentMethod(pm: string | undefined | null): Method {
@@ -93,7 +94,6 @@ function inferMethodFromPaymentMethod(pm: string | undefined | null): Method {
   switch (normalized) {
     case 'bank_transfer':   return 'bank_transfer'
     case 'virtual_account': return 'virtual_account'
-    case 'corporate_card':  return 'corporate_card'
     case 'credit_card':
     default:                return 'credit_card'
   }
@@ -105,7 +105,6 @@ function inferMethodFromPaymentMethod(pm: string | undefined | null): Method {
  */
 const METHOD_TO_PAYMENT_METHOD: Record<Method, PaymentMethod> = {
   credit_card:     'credit_card',
-  corporate_card:  'corporate_card',
   bank_transfer:   'bank_transfer',
   virtual_account: 'virtual_account',
 }
@@ -459,14 +458,11 @@ export default function PortOnePayPage() {
   }
 
   // ─── 결제방법 옵션 ────────────────────────────────────
-  // 쿠팡 스타일 4종 결제 수단. backend는 신용/체크카드와 법인카드 모두 CARD payMethod로 처리.
-  // 법인카드는 사업자 고객 편의를 위한 시각적 구분이며, DB에 payment_method='corporate_card'로 저장돼
-  // 추후 매출 집계/세금계산서 발행 요청 통계에 활용된다.
+  // 3종 결제 수단. 2026-10-12 법인카드 통합 — PortOne 결제창에서 카드 선택 후 법인/개인 카드 모두 선택 가능.
   const methods: Array<{ key: Method; title: string; desc: string; Icon: (p: { className?: string }) => JSX.Element; color: string }> = [
-    { key: 'credit_card',     title: '신용/체크카드',       desc: '카드로 즉시 결제',          Icon: CardIcon,     color: 'emerald' },
-    { key: 'corporate_card',  title: '법인카드',             desc: '법인/사업자 명의 카드',      Icon: BuildingIcon, color: 'violet' },
-    { key: 'bank_transfer',   title: '계좌이체',             desc: '오픈뱅킹으로 즉시 이체',     Icon: TransferIcon, color: 'sky' },
-    { key: 'virtual_account', title: '무통장입금(가상계좌)', desc: '발급받은 가상계좌로 입금',   Icon: BankIcon,     color: 'amber' },
+    { key: 'credit_card',     title: '카드결제',             desc: '신용·체크·법인카드 선택 가능', Icon: CardIcon,     color: 'emerald' },
+    { key: 'bank_transfer',   title: '계좌이체',             desc: '오픈뱅킹으로 즉시 이체',       Icon: TransferIcon, color: 'sky' },
+    { key: 'virtual_account', title: '무통장입금(가상계좌)', desc: '발급받은 가상계좌로 입금',     Icon: BankIcon,     color: 'amber' },
   ]
 
   const isVbankSelected = selectedMethod === 'virtual_account'
@@ -770,7 +766,7 @@ export default function PortOnePayPage() {
       </div>
 
       {/* 하단 고정 결제 버튼 - 파스텔 그라디언트 */}
-      {(selectedMethod === 'credit_card' || selectedMethod === 'corporate_card' || selectedMethod === 'bank_transfer') && (
+      {(selectedMethod === 'credit_card' || selectedMethod === 'bank_transfer') && (
         <div className="fixed bottom-0 inset-x-0 bg-white/95 backdrop-blur-lg border-t border-stone-200/60 shadow-2xl">
           <div className="max-w-md mx-auto px-4 py-2.5">
             <button

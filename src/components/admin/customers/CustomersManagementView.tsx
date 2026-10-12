@@ -292,10 +292,11 @@ const isNoVatMethod = (method: string | null | undefined): boolean =>
   !!method && (method.includes('비과세') || method.includes('미희망') || method === '현금(부가세 X)')
 
 // 구버전 DB 값 → 화면 표시 이름 정규화 (DB 값은 변경하지 않음)
+// 2026-10-12 법인카드(corporate_card)는 카드결제로 통합 — 레거시 레코드는 "카드"로 표시
 const PAYMENT_METHOD_LABEL: Record<string, string> = {
   '카드(온라인 간편결제)': '카드',
-  'credit_card':           '신용/체크카드',
-  'corporate_card':        '법인카드',
+  'credit_card':           '카드결제',
+  'corporate_card':        '카드 (레거시 법인)',
   'bank_transfer':         '계좌이체',
   'virtual_account':       '가상계좌',
   '계좌이체':              '계좌이체',
@@ -4203,9 +4204,8 @@ export function CustomersManagementView({
                           : 'border-border-subtle text-text-tertiary bg-surface-sunken cursor-not-allowed'
                       }`}>
                       <option value="">선택...</option>
-                      {/* 2026-10-06 재설계: 신규 enum 5종 (platform은 레거시 유지) */}
-                      <option value="credit_card">신용/체크카드</option>
-                      <option value="corporate_card">법인카드</option>
+                      {/* 2026-10-12 재설계: 신규 enum 4종 (법인카드는 카드결제로 통합, platform은 레거시 유지) */}
+                      <option value="credit_card">카드결제 (신용·체크·법인)</option>
                       <option value="bank_transfer">계좌이체</option>
                       <option value="virtual_account">무통장입금(가상계좌)</option>
                       <option value="cash_untaxed">비과세 현금</option>
@@ -4226,7 +4226,7 @@ export function CustomersManagementView({
                           const ok = window.confirm(
                             '⚠️ 결제방법을 변경하시겠습니까?\n\n' +
                             '기본값은 "신용/체크카드"입니다.\n' +
-                            '신규 선택 가능: 신용/체크카드, 법인카드, 계좌이체, 무통장입금(가상계좌), 비과세 현금.\n\n' +
+                            '신규 선택 가능: 카드결제, 계좌이체, 무통장입금(가상계좌), 비과세 현금.\n\n' +
                             '[레거시] 표시 옵션은 과거 데이터 호환용이며 신규 입력하지 마세요.'
                           )
                           if (ok) setPaymentMethodUnlocked(true)

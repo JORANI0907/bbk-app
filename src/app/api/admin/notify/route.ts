@@ -527,7 +527,7 @@ export async function POST(request: NextRequest) {
         const rawPm = String(app.payment_method ?? '')
         const pm = normalizePaymentMethod(rawPm)
         if (
-          pm === 'credit_card' || pm === 'corporate_card' || pm === 'platform' ||
+          pm === 'credit_card' || pm === 'platform' ||
           pm === 'bank_transfer' || pm === 'virtual_account'
         ) {
           type = '작업완료알림(카드,플렛폼)'

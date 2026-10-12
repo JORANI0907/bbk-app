@@ -1672,9 +1672,8 @@ export function ServiceManagementPage({
             <select value={paymentFilter} onChange={e => setPaymentFilter(e.target.value)}
               className="text-xs border border-border rounded-lg px-2 py-1.5 bg-surface focus:outline-none focus:ring-2 focus:ring-brand-500">
               <option value="">결제방법 전체</option>
-              {/* 2026-10-06 재설계: 신규 enum 4종 + 운영 전용 1종 */}
-              <option value="credit_card">신용/체크카드</option>
-              <option value="corporate_card">법인카드</option>
+              {/* 2026-10-12 재설계: 신규 enum 3종 + 운영 전용 1종 (법인카드는 카드결제 통합) */}
+              <option value="credit_card">카드결제 (신용·체크·법인)</option>
               <option value="bank_transfer">계좌이체</option>
               <option value="virtual_account">무통장입금(가상계좌)</option>
               <option value="cash_untaxed">비과세 현금 (운영 전용)</option>
@@ -2239,9 +2238,8 @@ export function ServiceManagementPage({
                     <select value={paymentMethod} onChange={e => handlePaymentMethodChange(e.target.value)}
                       className="flex-1 border border-border rounded-lg px-2 py-1.5 text-xs text-text-primary focus:outline-none focus:ring-2 focus:ring-brand-500 bg-surface">
                       <option value="">선택...</option>
-                      {/* 2026-10-06 재설계: 신규 enum 5종 (platform은 레거시만 유지, 신규 선택 금지) */}
-                      <option value="credit_card">신용/체크카드</option>
-                      <option value="corporate_card">법인카드</option>
+                      {/* 2026-10-12 재설계: 신규 enum 4종 (법인카드는 카드결제 통합, platform은 레거시만 유지) */}
+                      <option value="credit_card">카드결제 (신용·체크·법인)</option>
                       <option value="bank_transfer">계좌이체</option>
                       <option value="virtual_account">무통장입금(가상계좌)</option>
                       <option value="cash_untaxed">비과세 현금</option>
@@ -2298,7 +2296,7 @@ export function ServiceManagementPage({
                 </div>
               </Section>
 
-              {/* 포트원 결제 — 2026-10-06 재설계: 카드 결제 2종(신용/법인) 모두 노출 */}
+              {/* 포트원 결제 — 2026-10-12 재설계: credit_card 통합 (법인카드 포함). 레거시 'corporate_card' 레코드도 지원 */}
               {(paymentMethod === '카드(온라인 간편결제)' || paymentMethod === 'credit_card' || paymentMethod === 'corporate_card') && selected && (
                 <Section title="포트원 결제">
                   <div className="space-y-2">

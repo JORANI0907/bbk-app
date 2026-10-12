@@ -13,9 +13,8 @@
  */
 
 export type PaymentMethod =
-  // 신청서(/bbk-care) 노출 4종
-  | 'credit_card'      // 신용/체크카드
-  | 'corporate_card'   // 법인카드
+  // 신청서(/bbk-care) 노출 3종 (법인카드는 2026-10-12 통합 — PortOne 결제창에서 카드 선택 시 법인/개인 모두 선택 가능)
+  | 'credit_card'      // 신용/체크/법인 카드 통합
   | 'bank_transfer'    // 계좌이체 (실시간 출금)
   | 'virtual_account'  // 무통장입금(가상계좌)
   // Admin 전용 (운영팀만 선택 가능)
@@ -35,17 +34,9 @@ interface PaymentMethodMeta {
 
 export const PAYMENT_METHOD_META: Record<PaymentMethod, PaymentMethodMeta> = {
   credit_card: {
-    label: '신용/체크카드',
-    customerLabel: '신용/체크카드',
-    description: '카드로 즉시 결제',
-    hasVat: true,
-    pgMethod: 'CARD',
-    requiresPortOne: true,
-  },
-  corporate_card: {
-    label: '법인카드',
-    customerLabel: '법인카드',
-    description: '법인/사업자 명의 카드로 결제',
+    label: '신용/체크/법인 카드',
+    customerLabel: '카드결제',
+    description: '신용·체크·법인카드 선택 가능 (즉시 결제)',
     hasVat: true,
     pgMethod: 'CARD',
     requiresPortOne: true,
@@ -89,7 +80,6 @@ export const PAYMENT_METHOD_META: Record<PaymentMethod, PaymentMethodMeta> = {
  */
 export const CUSTOMER_FACING_METHODS: readonly PaymentMethod[] = [
   'credit_card',
-  'corporate_card',
   'bank_transfer',
   'virtual_account',
 ] as const
@@ -99,7 +89,6 @@ export const CUSTOMER_FACING_METHODS: readonly PaymentMethod[] = [
  */
 export const ADMIN_METHODS: readonly PaymentMethod[] = [
   'credit_card',
-  'corporate_card',
   'bank_transfer',
   'virtual_account',
   'cash_untaxed',
@@ -122,7 +111,6 @@ export const NO_VAT_METHODS: ReadonlySet<PaymentMethod> = new Set<PaymentMethod>
  */
 export const NO_INVOICE_METHODS: ReadonlySet<PaymentMethod> = new Set<PaymentMethod>([
   'credit_card',
-  'corporate_card',
   'cash_untaxed',
   'platform',
 ])
@@ -132,7 +120,6 @@ export const NO_INVOICE_METHODS: ReadonlySet<PaymentMethod> = new Set<PaymentMet
  */
 export const PORTONE_METHODS: ReadonlySet<PaymentMethod> = new Set<PaymentMethod>([
   'credit_card',
-  'corporate_card',
   'bank_transfer',
   'virtual_account',
 ])
@@ -166,9 +153,11 @@ export function normalizePaymentMethod(raw: string | null | undefined): PaymentM
       return 'cash_untaxed'
     case '플랫폼':
       return 'platform'
+    // 법인카드는 2026-10-12에 credit_card로 통합. 레거시 레코드는 credit_card로 매핑.
+    case 'corporate_card':
+      return 'credit_card'
     // ── 신규 영문 enum (passthrough) ──
     case 'credit_card':
-    case 'corporate_card':
     case 'bank_transfer':
     case 'virtual_account':
     case 'cash_untaxed':
@@ -233,7 +222,8 @@ export function getAdminLabel(method: PaymentMethod): string {
  */
 export function isAnyCardPayment(raw: string | null | undefined): boolean {
   const m = normalizePaymentMethod(raw)
-  return m === 'credit_card' || m === 'corporate_card'
+  // corporate_card 는 normalizePaymentMethod() 에서 credit_card 로 통합됨 (2026-10-12).
+  return m === 'credit_card'
 }
 
 /**

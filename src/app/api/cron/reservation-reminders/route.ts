@@ -345,7 +345,7 @@ export async function GET(request: NextRequest) {
         billingType = '결제알림'
       } else if (pm === 'cash_untaxed') {
         billingType = '결제알림(현금)'
-      } else if (pm === 'credit_card' || pm === 'corporate_card' || pm === 'platform') {
+      } else if (pm === 'credit_card' || pm === 'platform') {
         billingType = '결제요청알림(카드)'
       } else {
         skipped++; continue

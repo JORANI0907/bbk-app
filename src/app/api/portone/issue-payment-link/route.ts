@@ -25,9 +25,10 @@ export async function POST(request: NextRequest) {
       customerId?: string
       stage: 'deposit' | 'balance'
       // 2026-10-06 재설계: 레거시 한글 enum + 신규 영문 enum 모두 지원
+      // 2026-10-12 법인카드(corporate_card) 통합 — credit_card만 받음
       overridePaymentMethod?:
         | '카드(온라인 간편결제)' | '가상계좌' | '계좌이체'  // 레거시
-        | 'credit_card' | 'corporate_card' | 'bank_transfer' | 'virtual_account'  // 신규
+        | 'credit_card' | 'bank_transfer' | 'virtual_account'  // 신규
     }
     const { applicationId, customerId, stage, overridePaymentMethod } = body
     if ((!applicationId && !customerId) || !stage) {
@@ -83,10 +84,10 @@ export async function POST(request: NextRequest) {
 
     // 2026-10-06 재설계: normalizePaymentMethod() 로 레거시+신규 enum 모두 처리.
     //   레거시 '현금(계산서 희망)' → 'virtual_account' 로 자동 변환되어 vbank 플로우로 라우팅.
-    //   신규 'corporate_card' 도 신용카드와 동일한 포트원 CARD 플로우.
+    //   2026-10-12 법인카드(corporate_card) 통합 — normalizePaymentMethod()에서 credit_card로 매핑됨.
     const rawPm = String(app.payment_method ?? '')
     const pm = normalizePaymentMethod(rawPm)
-    const isCard     = pm === 'credit_card' || pm === 'corporate_card'
+    const isCard     = pm === 'credit_card'
     const isVbank    = pm === 'virtual_account'
     const isTransfer = pm === 'bank_transfer'
 

@@ -38,7 +38,7 @@ function pickTemplateBase(paymentMethod: string | null): string | null {
   const pm = normalizePaymentMethod(rawPm)
   if (rawPm === '현금(계산서 희망)' || pm === 'virtual_account' || pm === 'bank_transfer') return '결제알림'
   if (pm === 'cash_untaxed')                                                                return '결제알림(현금)'
-  if (pm === 'credit_card' || pm === 'corporate_card' || pm === 'platform')                return '결제요청알림(카드)'
+  if (pm === 'credit_card' || pm === 'platform')                                            return '결제요청알림(카드)'
   return null
 }
 
