@@ -203,7 +203,7 @@ export async function POST(request: NextRequest) {
       channelKey,
       method: {
         virtualAccount: {
-          bank: selectedBankCode as 'HANA_BANK', // Bank enum 호환 — PortOne SDK는 string 전체 수용
+          bank: selectedBankCode as 'HANA', // server-sdk Bank enum (짧은 코드)
           expiry: { validHours: 24 * 7 },
           option: { type: 'NORMAL' },
           remitteeName: '범빌드코리아',
