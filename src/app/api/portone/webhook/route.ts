@@ -114,6 +114,84 @@ async function handleTransactionPaid(paymentId: string) {
   }
 }
 
+// 가상계좌 발급 완료 웹훅 처리 — PortOne 응답에서 번호/은행/만료일 추출 후 DB 저장
+// 2026-10-12: issue-payment-link의 즉시 응답에 가상계좌 정보가 안 오는 사례(윤현식 건) 발견.
+// PortOne V2 응답 구조가 PG별로 다를 수 있어 여러 경로 방어적으로 탐색.
+async function handleVirtualAccountIssued(paymentId: string, event: Record<string, unknown>): Promise<void> {
+  const data   = (event.data as Record<string, unknown>) ?? {}
+  const method = (data.method as Record<string, unknown>) ?? {}
+  const virtualAccount = (data.virtualAccount as Record<string, unknown>)
+                        ?? (method.virtualAccount as Record<string, unknown>)
+                        ?? {}
+
+  // 여러 가능한 필드명 체크 (PG마다 다름)
+  const accountNumber = String(
+    virtualAccount.accountNumber ?? method.accountNumber ?? data.accountNumber ?? ''
+  )
+  const bankName = String(
+    virtualAccount.bank ?? virtualAccount.bankName
+    ?? method.bank ?? method.bankName
+    ?? data.bank ?? ''
+  )
+  const expiryRaw = virtualAccount.accountExpiry ?? virtualAccount.expiredAt
+                   ?? method.accountExpiry ?? data.expiredAt ?? null
+  const expiredAt = expiryRaw
+    ? (() => { try { return new Date(String(expiryRaw)).toISOString() } catch { return null } })()
+    : null
+
+  // 추출 실패 시 전체 payload Slack 로깅 (운영자가 PortOne 응답 구조 역추적 가능)
+  if (!accountNumber || !bankName) {
+    await sendSlack(
+      `⚠️ *가상계좌 webhook 추출 실패*\n` +
+      `paymentId: ${paymentId}\n` +
+      `payload: \`\`\`${JSON.stringify(data).slice(0, 1500)}\`\`\``
+    ).catch(() => {})
+    return
+  }
+
+  const supabase = createServiceClient()
+  const { data: appRow, error: fetchError } = await supabase
+    .from('service_applications')
+    .select('id, business_name, owner_name, virtual_account_number')
+    .eq('deposit_portone_id', paymentId)
+    .is('deleted_at', null)
+    .maybeSingle()
+
+  if (fetchError || !appRow) {
+    await sendSlack(
+      `⚠️ 가상계좌 webhook: service_applications 조회 실패 paymentId=${paymentId} err=${fetchError?.message ?? 'not found'}`
+    ).catch(() => {})
+    return
+  }
+
+  // 이미 저장돼 있으면 중복 저장 스킵 (멱등성)
+  if (appRow.virtual_account_number) return
+
+  const { error: updateError } = await supabase
+    .from('service_applications')
+    .update({
+      virtual_account_number: accountNumber,
+      virtual_account_bank: bankName,
+      virtual_account_expired_at: expiredAt,
+    })
+    .eq('id', appRow.id)
+
+  if (updateError) {
+    await sendSlack(
+      `❌ 가상계좌 DB 저장 실패: ${appRow.business_name} / ${appRow.owner_name}\n` +
+      `paymentId: ${paymentId}\nerror: ${updateError.message}`
+    ).catch(() => {})
+    return
+  }
+
+  await sendSlack(
+    `✅ 가상계좌 발급·저장 완료\n` +
+    `업체: ${appRow.business_name} (${appRow.owner_name})\n` +
+    `계좌: ${bankName} ${accountNumber}` +
+    (expiredAt ? `\n만료: ${expiredAt.slice(0, 16).replace('T', ' ')} KST` : '')
+  ).catch(() => {})
+}
+
 export async function POST(request: NextRequest) {
   try {
     const rawBody = await request.text()
@@ -140,8 +218,10 @@ export async function POST(request: NextRequest) {
         await handleTransactionPaid(paymentId)
         break
       case 'Transaction.VirtualAccountIssued':
-        // 가상계좌 발급 이벤트 (이미 issue-payment-link에서 처리됨, 로그만)
-        await sendSlack(`📋 가상계좌 발급 웹훅 수신: ${paymentId}`).catch(() => {})
+        // 2026-10-12 수정: 과거엔 "issue-payment-link에서 이미 처리됨"으로 가정하고 로그만 찍었으나,
+        //   PortOne V2 payInstantly 응답에 가상계좌 정보가 즉시 안 올 수 있음(비동기 발급).
+        //   그래서 webhook에서 가상계좌 정보 추출 → DB 저장을 명시적으로 처리.
+        await handleVirtualAccountIssued(paymentId, event)
         break
       case 'Transaction.Failed':
         await sendSlack(`❌ 포트원 결제 실패 웹훅: ${paymentId}`).catch(() => {})

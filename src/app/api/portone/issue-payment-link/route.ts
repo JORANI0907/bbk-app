@@ -212,31 +212,52 @@ export async function POST(request: NextRequest) {
       noticeUrls: [`${APP_BASE_URL}/api/portone/webhook`],
     })
 
-    // 가상계좌 정보 추출
+    // 가상계좌 정보 추출 — PortOne V2 응답 구조가 PG별로 다를 수 있어 방어적 탐색
+    // 2026-10-12 윤현식 건에서 응답 즉시엔 virtualAccount 가 null로 오는 현상 발견
+    //   → 추출 실패해도 저장은 계속 (paymentId/URL만 저장) + Transaction.VirtualAccountIssued webhook 이 뒤에 채움.
     const vbankInfo = (vbankResult as Record<string, unknown>)
-    const accountNumber  = String((vbankInfo.virtualAccount as Record<string,unknown>)?.accountNumber ?? '')
-    const bankName       = String((vbankInfo.virtualAccount as Record<string,unknown>)?.bankName ?? '')
-    const expiredAtRaw   = (vbankInfo.virtualAccount as Record<string,unknown>)?.accountExpiry
+    const vbankMethod = (vbankInfo.method as Record<string, unknown>) ?? {}
+    const vbankObj    = (vbankInfo.virtualAccount as Record<string, unknown>)
+                       ?? (vbankMethod.virtualAccount as Record<string, unknown>)
+                       ?? {}
+    const accountNumber  = String(vbankObj.accountNumber ?? vbankMethod.accountNumber ?? '')
+    const bankName       = String(vbankObj.bankName ?? vbankObj.bank ?? vbankMethod.bank ?? '')
+    const expiredAtRaw   = vbankObj.accountExpiry ?? vbankObj.expiredAt ?? vbankMethod.accountExpiry
     const expiredAt      = expiredAtRaw ? new Date(String(expiredAtRaw)).toISOString() : null
+
+    // 즉시 응답에서 가상계좌 정보 못 받으면 로깅 (webhook이 뒤에 채우도록 fallback)
+    if (!accountNumber && !isCustomerMode) {
+      console.warn('[issue-payment-link] vbank 즉시 응답에서 계좌번호 추출 실패 — webhook fallback 대기', {
+        paymentId,
+        responseKeys: Object.keys(vbankInfo),
+        methodKeys: Object.keys(vbankMethod),
+      })
+    }
 
     const idParamVbank = isCustomerMode ? `custId=${recordId}` : `appId=${recordId}`
     const paymentUrl = `${APP_BASE_URL}/portone/pay/${paymentId}?stage=${stage}&${idParamVbank}`
 
     // 가상계좌 정보는 신청서(service_applications)에만 필드가 존재 — customer 모드는 스킵
-    const vbankUpdates = isCustomerMode
+    // 계좌번호 추출 실패 시 virtual_account_* 필드는 빼고 UPDATE (webhook이 뒤에 채움)
+    const vbankUpdates: Record<string, unknown> = isCustomerMode
       ? { [existingIdField]: paymentId, [existingUrlField]: paymentUrl }
       : {
           [existingIdField]: paymentId,
           [existingUrlField]: paymentUrl,
-          virtual_account_number: accountNumber,
-          virtual_account_bank: bankName,
-          ...(expiredAt ? { virtual_account_expired_at: expiredAt } : {}),
+          ...(accountNumber ? { virtual_account_number: accountNumber } : {}),
+          ...(bankName      ? { virtual_account_bank: bankName }        : {}),
+          ...(expiredAt     ? { virtual_account_expired_at: expiredAt } : {}),
         }
 
-    await supabase
+    const { error: vbankUpdateError } = await supabase
       .from(table)
       .update(vbankUpdates)
       .eq('id', recordId)
+
+    if (vbankUpdateError) {
+      console.error('[issue-payment-link] vbank DB UPDATE 실패:', vbankUpdateError.message, { recordId, paymentId })
+      return NextResponse.json({ error: '가상계좌 발급 후 DB 저장 실패', detail: vbankUpdateError.message }, { status: 500 })
+    }
 
     // service_applications → customers 동기화 (가상계좌 분기)
     if (!isCustomerMode) {
