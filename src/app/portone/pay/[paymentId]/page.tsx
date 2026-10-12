@@ -40,6 +40,9 @@ type AppInfo = {
   virtual_account_expired_at?: string
   deposit_paid_at?: string
   balance_paid_at?: string
+  // paymentId 미스매치 방지: switchMethod 로 결제방법 변경 시 서버가 재발급한 ID를 UI 가 바로 사용
+  deposit_portone_id?: string | null
+  balance_portone_id?: string | null
 }
 
 // 편집 가능한 필드 정의 — /bbk-care 신청서(form.html)에 있는 필드만
@@ -319,6 +322,11 @@ export default function PortOnePayPage() {
 
   const handlePay = useCallback(async () => {
     if (!app) return
+    // paymentId 소스 통일: URL params 가 아니라 DB 최신값(app.*_portone_id)을 쓴다.
+    // switchMethod 로 결제방법 변경 시 서버가 새 paymentId 를 재발급하는데,
+    // URL은 변경되지 않아 params.paymentId 로 요청하면 complete API 가 ID 불일치로 거절한다.
+    // DB 최신값이 없을 때만 URL fallback (초기 로드 직후 등).
+    const activePaymentId = (stage === 'deposit' ? app.deposit_portone_id : app.balance_portone_id) || paymentId
     setStatus('paying')
     try {
       const storeId = process.env.NEXT_PUBLIC_PORTONE_STORE_ID ?? ''
@@ -334,18 +342,20 @@ export default function PortOnePayPage() {
         channelKeyPrefix: channelKey.slice(0, 20) + '...',
         payMethod,
         amount,
+        urlPaymentId: paymentId,
+        activePaymentId,
       })
       const emailToUse = (app.email && app.email.trim())
         || `noemail-${appId.replace(/-/g, '').slice(0, 8)}@bbkorea.co.kr`
 
       const redirectOrigin = typeof window !== 'undefined' ? window.location.origin : 'https://app.bbkorea.co.kr'
-      const redirectParams = new URLSearchParams({ paymentId, stage })
+      const redirectParams = new URLSearchParams({ paymentId: activePaymentId, stage })
       if (appId)  redirectParams.set('appId',  appId)
       if (custId) redirectParams.set('custId', custId)
       const redirectUrl = `${redirectOrigin}/portone/complete?${redirectParams.toString()}`
 
       const result = await requestPayment({
-        storeId, channelKey, paymentId,
+        storeId, channelKey, paymentId: activePaymentId,
         orderName: `범빌드코리아 청소서비스 — ${app.business_name}`,
         totalAmount: amount, currency: 'KRW', payMethod,
         redirectUrl,
@@ -374,7 +384,7 @@ export default function PortOnePayPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          paymentId,
+          paymentId: activePaymentId,
           applicationId: appId || undefined,
           customerId:    custId || undefined,
           stage,
