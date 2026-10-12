@@ -6,6 +6,7 @@ import Image from 'next/image'
 import { requestPayment } from '@portone/browser-sdk/v2'
 import { KbEscrowBadge } from '@/components/KbEscrowBadge'
 import { normalizePaymentMethod, type PaymentMethod } from '@/lib/payment-methods'
+import { BBK_VBANK_BANKS, DEFAULT_VBANK_CODE } from '@/lib/portone-banks'
 
 type AppInfo = {
   id?: string
@@ -190,6 +191,12 @@ export default function PortOnePayPage() {
   const [message, setMessage] = useState('')
   const [selectedMethod, setSelectedMethod] = useState<Method>('credit_card')
 
+  // 2026-10-12 가상계좌 UX 개편: 고객 선택 은행 코드 + 발급 결과 모달 상태
+  const [selectedBankCode, setSelectedBankCode] = useState<string>(DEFAULT_VBANK_CODE)
+  const [vbankIssuing,     setVbankIssuing]     = useState(false)
+  const [vbankResultOpen,  setVbankResultOpen]  = useState(false)
+  const [vbankCompleted,   setVbankCompleted]   = useState(false) // 발급 후 모달 닫은 상태
+
   // 상세보기 모달 상태 — 개별 필드 편집 방식
   const [detailOpen,    setDetailOpen]    = useState(false)
   const [editingKey,    setEditingKey]    = useState<keyof AppInfo | null>(null)
@@ -229,12 +236,23 @@ export default function PortOnePayPage() {
       .catch(() => { setStatus('error'); setMessage('결제 정보를 불러오는 중 오류가 발생했습니다.') })
   }, [appId, custId])
 
-  // 결제 수단 전환 — 서버에 payment_method 업데이트 후 신청서 재조회
+  // 결제 수단 전환 — 서버에 payment_method 업데이트 후 신청서 재조회.
+  // 2026-10-12 UX 개편: virtual_account 는 "라디오 선택만으로 발급" 하지 않고,
+  //   은행 선택 → "결제하기" 버튼에서만 명시적으로 발급 (handleIssueVbank).
+  //   → virtual_account 선택 시엔 UI 상태만 변경, 서버 호출 안 함.
   const switchMethod = useCallback(async (next: Method) => {
     console.log('[pay] switchMethod 호출됨:', { current: selectedMethod, next, appReady: !!app, status })
     if (!app) { console.warn('[pay] app 없음, skip'); return }
     if (next === selectedMethod) { console.warn('[pay] 이미 선택된 방법, skip'); return }
     if (status === 'paying') { console.warn('[pay] 결제 진행 중, skip'); return }
+
+    // 가상계좌는 명시적 발급 전까지 서버 상태 변경 안 함 (유령 가상계좌 생성 방지)
+    if (next === 'virtual_account') {
+      setSelectedMethod('virtual_account')
+      setVbankCompleted(false) // 다시 선택 시 완료 상태 리셋
+      setMessage('')
+      return
+    }
 
     setStatus('switching')
     setMessage('')
@@ -265,6 +283,70 @@ export default function PortOnePayPage() {
       setMessage(e instanceof Error ? e.message : '결제방법 전환 중 오류가 발생했습니다.')
     }
   }, [selectedMethod, app, appId, custId, stage, status])
+
+  // 2026-10-12 UX 개편: 가상계좌 발급 (고객이 "결제하기" 클릭 시).
+  //   - 선택한 은행 코드로 서버에 발급 요청 → DB payment_method=virtual_account 로 변경 + 발급 진행
+  //   - 성공 시 결과 모달 표시 (계좌번호/금액/입금기한)
+  //   - PortOne V2는 webhook 비동기이므로 즉시 응답에 번호가 없을 수 있음 → 폴링으로 재조회
+  const handleIssueVbank = useCallback(async () => {
+    if (!app) return
+    if (vbankIssuing) return
+    setVbankIssuing(true)
+    setMessage('')
+    try {
+      const idBody = appId ? { applicationId: appId } : { customerId: custId }
+      const res = await fetch('/api/portone/issue-payment-link', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...idBody,
+          stage,
+          overridePaymentMethod: 'virtual_account',
+          vbankCode: selectedBankCode,
+        }),
+      })
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}))
+        throw new Error(errData?.error ?? '가상계좌 발급에 실패했습니다.')
+      }
+
+      // 발급 응답에 virtualAccount 가 즉시 담겨있을 수도, webhook 뒤에 채워질 수도 있음.
+      // 최대 10회(약 10초) 폴링하면서 virtual_account_number 가 세팅되길 기다림.
+      let latestApp: AppInfo | null = null
+      for (let i = 0; i < 10; i++) {
+        const q = custId ? `custId=${custId}` : `appId=${appId}`
+        const infoRes = await fetch(`/api/portone/pay-info?${q}`)
+        const infoData = await infoRes.json()
+        latestApp = infoData.app as AppInfo
+        if (latestApp?.virtual_account_number) break
+        await new Promise((r) => setTimeout(r, 1000))
+      }
+
+      setApp(latestApp)
+      setSelectedMethod('virtual_account')
+      setVbankCompleted(false)
+      setVbankResultOpen(true)
+    } catch (e) {
+      console.error('[pay] handleIssueVbank 에러:', e)
+      setMessage(e instanceof Error ? e.message : '가상계좌 발급 중 오류가 발생했습니다.')
+    } finally {
+      setVbankIssuing(false)
+    }
+  }, [app, appId, custId, stage, selectedBankCode, vbankIssuing])
+
+  const closeVbankModal = useCallback(() => {
+    setVbankResultOpen(false)
+    setVbankCompleted(true)
+  }, [])
+
+  const copyAccountNumber = useCallback(() => {
+    if (!app?.virtual_account_number) return
+    try {
+      navigator.clipboard.writeText(app.virtual_account_number)
+    } catch {
+      // 클립보드 접근 실패 — 사용자가 수동 복사
+    }
+  }, [app])
 
   // 모달 열기
   const openDetail = useCallback(() => {
@@ -717,22 +799,130 @@ export default function PortOnePayPage() {
           </section>
         )}
 
-        {/* 가상계좌 발급 실패 */}
-        {isVbankSelected && !app?.virtual_account_number && !isSwitching && (
-          <section className="rounded-3xl border border-rose-200 overflow-hidden shadow-sm bg-rose-50/50">
-            <div className="px-5 py-4">
-              <p className="text-sm font-bold text-rose-700 mb-1">가상계좌 발급에 실패했어요</p>
-              <p className="text-xs text-stone-600 leading-relaxed mb-3">
-                다른 결제 수단을 선택하시거나 아래 버튼으로 다시 시도해 주세요.
+        {/* 가상계좌 — 은행 선택 + 안내 + 결제하기 (발급 전) */}
+        {isVbankSelected && !vbankCompleted && !app?.virtual_account_number && !isSwitching && (
+          <section className="rounded-3xl border border-amber-200 overflow-hidden shadow-sm bg-amber-50/40">
+            <div className="px-5 py-4 space-y-3">
+              <div>
+                <p className="text-sm font-bold text-stone-800 mb-1">무통장입금 (가상계좌)</p>
+                <p className="text-[11px] text-stone-500 leading-relaxed">
+                  입금받을 은행을 선택하고 결제하기를 누르면 전용 가상계좌가 발급됩니다.
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-semibold text-stone-600 mb-1.5">은행 선택</label>
+                <select
+                  value={selectedBankCode}
+                  onChange={(e) => setSelectedBankCode(e.target.value)}
+                  disabled={vbankIssuing}
+                  className="w-full text-sm border border-amber-200 rounded-xl px-3 py-2.5 bg-white focus:outline-none focus:ring-2 focus:ring-amber-400 disabled:bg-stone-100"
+                >
+                  {BBK_VBANK_BANKS.map((b) => (
+                    <option key={b.code} value={b.code}>{b.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <ul className="text-[11px] text-stone-600 leading-relaxed space-y-1 pl-4 list-disc">
+                <li>발급된 가상계좌는 <b>7일간</b> 유효합니다.</li>
+                <li>입금 수수료는 고객 부담입니다 (은행별 상이).</li>
+                <li>입금 확인은 자동이며, 완료 시 알림톡·문자가 발송됩니다.</li>
+                <li>부분 입금·초과 입금은 자동 환불 처리될 수 있습니다.</li>
+              </ul>
+
+              <button
+                onClick={handleIssueVbank}
+                disabled={vbankIssuing}
+                className="w-full py-3 rounded-xl text-sm font-bold bg-amber-600 text-white hover:bg-amber-700 disabled:bg-stone-300 disabled:cursor-not-allowed transition-colors"
+              >
+                {vbankIssuing ? '가상계좌 발급 중…' : `${amount.toLocaleString()}원 결제하기`}
+              </button>
+
+              {message && (
+                <p className="text-[11px] text-rose-600 leading-relaxed">{message}</p>
+              )}
+            </div>
+          </section>
+        )}
+
+        {/* 가상계좌 — 발급 후 모달 닫은 상태 (완료 안내) */}
+        {isVbankSelected && vbankCompleted && app?.virtual_account_number && (
+          <section className="rounded-3xl border border-emerald-200 overflow-hidden shadow-sm bg-emerald-50/40">
+            <div className="px-5 py-4 space-y-2">
+              <div className="flex items-center gap-2">
+                <CheckIcon className="w-5 h-5 text-emerald-600" />
+                <p className="text-sm font-bold text-emerald-800">가상계좌가 발급되었습니다</p>
+              </div>
+              <p className="text-xs text-stone-700 leading-relaxed">
+                입금이 완료되면 완료 알림을 보내드립니다.
               </p>
               <button
-                onClick={() => switchMethod('virtual_account')}
-                className="w-full py-2.5 rounded-xl text-sm font-semibold bg-white text-rose-700 border border-rose-200 hover:bg-rose-50 transition-colors"
+                onClick={() => setVbankResultOpen(true)}
+                className="mt-1 text-[11px] font-semibold text-emerald-700 hover:text-emerald-800 underline underline-offset-2"
               >
-                가상계좌 재발급
+                계좌번호 다시 보기
               </button>
             </div>
           </section>
+        )}
+
+        {/* 가상계좌 발급 결과 모달 */}
+        {vbankResultOpen && app?.virtual_account_number && (
+          <div
+            className="fixed inset-0 z-50 bg-stone-900/60 backdrop-blur-sm flex items-center justify-center p-4"
+            onClick={closeVbankModal}
+          >
+            <div
+              className="w-full max-w-md bg-white rounded-3xl shadow-2xl overflow-hidden"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="px-6 py-5 border-b border-stone-100">
+                <h3 className="text-base font-bold text-stone-800">가상계좌 발급 완료</h3>
+                <p className="text-[11px] text-stone-500 mt-0.5">아래 계좌로 입금해 주세요.</p>
+              </div>
+
+              <div className="px-6 py-5 space-y-4">
+                <div className="bg-stone-50 rounded-2xl p-4 text-center">
+                  <p className="text-xs text-stone-500 mb-1">{app.virtual_account_bank ?? '-'}</p>
+                  <p className="text-xl font-bold text-stone-900 tracking-wider break-all">
+                    {app.virtual_account_number}
+                  </p>
+                  <p className="text-base font-bold text-emerald-700 mt-2">
+                    {amount.toLocaleString()}원
+                  </p>
+                </div>
+
+                {app.virtual_account_expired_at && (
+                  <div className="bg-amber-50 rounded-xl px-3 py-2 text-center">
+                    <p className="text-[11px] text-amber-800">
+                      <b>입금 기한:</b> {app.virtual_account_expired_at.slice(0, 16).replace('T', ' ')} 까지
+                    </p>
+                  </div>
+                )}
+
+                <button
+                  onClick={copyAccountNumber}
+                  className="w-full py-3 rounded-xl text-sm font-semibold bg-emerald-600 text-white hover:bg-emerald-700 transition-colors"
+                >
+                  계좌번호 복사하기
+                </button>
+
+                <ul className="text-[11px] text-stone-600 leading-relaxed space-y-1 pl-4 list-disc">
+                  <li>입금 확인은 자동이며, 완료 시 알림이 발송됩니다.</li>
+                  <li>입금 수수료는 고객 부담입니다.</li>
+                  <li>부분 입금·초과 입금은 자동 환불 처리될 수 있습니다.</li>
+                </ul>
+
+                <button
+                  onClick={closeVbankModal}
+                  className="w-full py-2.5 rounded-xl text-sm font-semibold bg-white text-stone-700 border border-stone-200 hover:bg-stone-50 transition-colors"
+                >
+                  닫기
+                </button>
+              </div>
+            </div>
+          </div>
         )}
 
         {/* 고객센터 */}

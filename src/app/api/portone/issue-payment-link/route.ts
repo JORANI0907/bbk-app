@@ -9,6 +9,7 @@ import {
   calcBalance,
 } from '@/lib/portone'
 import { normalizePaymentMethod } from '@/lib/payment-methods'
+import { isValidBBKVBankCode, DEFAULT_VBANK_CODE } from '@/lib/portone-banks'
 
 const APP_BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.bbkorea.co.kr'
 
@@ -29,8 +30,10 @@ export async function POST(request: NextRequest) {
       overridePaymentMethod?:
         | '카드(온라인 간편결제)' | '가상계좌' | '계좌이체'  // 레거시
         | 'credit_card' | 'bank_transfer' | 'virtual_account'  // 신규
+      // 2026-10-12 가상계좌 UX 개편: 고객이 선택한 은행 코드 (PortOne Bank enum)
+      vbankCode?: string
     }
-    const { applicationId, customerId, stage, overridePaymentMethod } = body
+    const { applicationId, customerId, stage, overridePaymentMethod, vbankCode } = body
     if ((!applicationId && !customerId) || !stage) {
       return NextResponse.json({ error: '필수 항목 누락 (applicationId 또는 customerId 필요)' }, { status: 400 })
     }
@@ -189,13 +192,18 @@ export async function POST(request: NextRequest) {
     const emailForVbank = emailFromApp
       || `noemail-${recordId.replace(/-/g, '').slice(0, 8)}@bbkorea.co.kr`
 
+    // 2026-10-12 UX 개편: 고객이 선택한 은행 코드 사용. 유효하지 않으면 기본값(KOOKMIN).
+    const selectedBankCode = (vbankCode && isValidBBKVBankCode(vbankCode))
+      ? vbankCode
+      : DEFAULT_VBANK_CODE
+
     const vbankResult = await client.payment.payInstantly({
       paymentId,
       storeId: getStoreId(),
       channelKey,
       method: {
         virtualAccount: {
-          bank: 'HANA',
+          bank: selectedBankCode as 'HANA_BANK', // Bank enum 호환 — PortOne SDK는 string 전체 수용
           expiry: { validHours: 24 * 7 },
           option: { type: 'NORMAL' },
           remitteeName: '범빌드코리아',
