@@ -6,7 +6,7 @@ import Image from 'next/image'
 import { requestPayment } from '@portone/browser-sdk/v2'
 import { KbEscrowBadge } from '@/components/KbEscrowBadge'
 import { normalizePaymentMethod, type PaymentMethod } from '@/lib/payment-methods'
-import { BBK_VBANK_BANKS, DEFAULT_VBANK_CODE } from '@/lib/portone-banks'
+import { BBK_VBANK_BANKS, DEFAULT_VBANK_CODE, getBankLabel } from '@/lib/portone-banks'
 
 type AppInfo = {
   id?: string
@@ -780,7 +780,7 @@ export default function PortOnePayPage() {
             <div className="px-5 py-4 space-y-3">
               <div className="flex justify-between items-center">
                 <span className="text-sm text-amber-700">은행</span>
-                <span className="text-sm font-semibold text-amber-900">{app.virtual_account_bank}</span>
+                <span className="text-sm font-semibold text-amber-900">{getBankLabel(app.virtual_account_bank ?? '')}</span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-sm text-amber-700">계좌번호</span>
@@ -884,7 +884,9 @@ export default function PortOnePayPage() {
 
               <div className="px-6 py-5 space-y-4">
                 <div className="bg-stone-50 rounded-2xl p-4 text-center">
-                  <p className="text-xs text-stone-500 mb-1">{app.virtual_account_bank ?? '-'}</p>
+                  {/* 2026-10-12: PortOne 서버가 반환하는 bank 값은 영어 코드(KOOKMIN 등).
+                      getBankLabel 로 한글(국민은행) 변환해서 노출. 매칭 안되면 원본 fallback. */}
+                  <p className="text-xs text-stone-500 mb-1">{getBankLabel(app.virtual_account_bank ?? '')}</p>
                   <p className="text-xl font-bold text-stone-900 tracking-wider break-all">
                     {app.virtual_account_number}
                   </p>

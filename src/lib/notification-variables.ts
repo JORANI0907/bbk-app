@@ -375,8 +375,20 @@ export const AVAILABLE_VARIABLES: VariableDef[] = [
     desc: '정기결제 카드 등록 링크',
     resolve: (c) => c.customer?.billing_card_url ?? '' },
   { label: '가상계좌은행', category: '결제정보', scope: 'application', appliesTo: TAB_ONESHOT_MONTHLY,
-    desc: '입금 전용 가상계좌 은행명',
-    resolve: (c) => c.application?.virtual_account_bank ?? '' },
+    desc: '입금 전용 가상계좌 은행명 (한글)',
+    // 2026-10-12: PortOne 반환값은 영어 코드(KOOKMIN/HANA 등). SMS 발송 시 한글(국민은행)로 변환.
+    resolve: (c) => {
+      const raw = c.application?.virtual_account_bank ?? ''
+      if (!raw) return ''
+      // dynamic import 를 피하기 위해 inline 매핑 (BBK_VBANK_BANKS 와 동일 데이터)
+      const map: Record<string, string> = {
+        'KOOKMIN': '국민은행', 'SHINHAN': '신한은행', 'WOORI': '우리은행',
+        'HANA': '하나은행', 'IBK': '기업은행', 'NONGHYUP': 'NH농협은행',
+        'KAKAO': '카카오뱅크', 'TOSS': '토스뱅크', 'POST': '우체국',
+        'SUHYUP': '수협은행', 'KFCC': '새마을금고', 'STANDARD_CHARTERED': 'SC제일은행',
+      }
+      return map[raw] ?? raw
+    } },
   { label: '가상계좌번호', category: '결제정보', scope: 'application', appliesTo: TAB_ONESHOT_MONTHLY,
     desc: '입금 전용 가상계좌 번호',
     resolve: (c) => c.application?.virtual_account_number ?? '' },
