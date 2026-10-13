@@ -66,7 +66,17 @@ async function handleTransactionPaid(paymentId: string) {
       } catch { /* 동기화 실패 무시 */ }
     }
 
-    await triggerAutoNotify(depositRow.id, '예약확정알림')
+    // 2026-10-13: Slack 결제완료 보고 (가상계좌 입금 → webhook 경로. complete API 와 별개로 필수)
+    sendSlack(
+      `💳 *예약금(1차) 결제 완료 — 가상계좌 입금*\n` +
+      `업체: ${depositRow.business_name ?? '-'} / 고객: ${depositRow.owner_name ?? '-'}\n` +
+      `금액: ${Number(depositRow.deposit ?? 0).toLocaleString('ko-KR')}원\n` +
+      `결제ID: ${paymentId}`,
+    ).catch(() => {})
+
+    // 2026-10-13: '예약확정알림'(수동 발송용)이 아니라 '예약금 입금완료 알림'(자동 발송용) 사용.
+    //   complete API 와 일관성 유지.
+    await triggerAutoNotify(depositRow.id, '예약금 입금완료 알림')
     return
   }
 
@@ -109,6 +119,13 @@ async function handleTransactionPaid(paymentId: string) {
           .eq('id', link.customer_id)
       }
     } catch { /* 동기화 실패 무시 */ }
+
+    // 2026-10-13: Slack 결제완료 보고 (잔금도 가상계좌 입금 경로 포함).
+    sendSlack(
+      `💳 *잔금(2차) 결제 완료*\n` +
+      `업체: ${balanceRow.business_name ?? '-'} / 고객: ${balanceRow.owner_name ?? '-'}\n` +
+      `결제ID: ${paymentId}`,
+    ).catch(() => {})
 
     // triggerAutoNotify → notify API → Slack 으로 통합 처리 (중복 방지)
     await triggerAutoNotify(balanceRow.id, '결제완료알림(잔금)')
