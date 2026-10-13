@@ -81,8 +81,13 @@ type Stage = 'deposit' | 'balance'
  */
 type Method = 'credit_card' | 'bank_transfer' | 'virtual_account'
 
-function calcBalance(supply: number, vat: number, deposit: number) {
-  return (supply + vat) - deposit
+function calcBalance(supply: unknown, vat: unknown, deposit: unknown) {
+  // 2026-10-13: Supabase 의 numeric 컬럼이 JSON 에서 string 으로 반환되는 케이스 대응.
+  //   custId 모드(customers 테이블) 에서 "120000" + "12000" = "12000012000" 문자열 concat 버그 방지.
+  const s = Number(supply ?? 0)
+  const v = Number(vat ?? 0)
+  const d = Number(deposit ?? 0)
+  return (s + v) - d
 }
 
 /**
@@ -207,16 +212,17 @@ export default function PortOnePayPage() {
 
   // 2026-10-13: DB에 저장된 balance 를 우선 사용 → calcBalance 계산 오류(필드 누락 등) 방지.
   //   balance 가 null 이거나 음수면 fallback 으로 계산.
+  //   Supabase numeric 컬럼이 string 반환되는 케이스가 있어 Number() 변환 필수.
   const amount = useMemo(() => {
     if (!app) return 0
-    if (stage === 'deposit') return app.deposit
+    if (stage === 'deposit') return Number(app.deposit ?? 0)
     const dbBalance = Number(app.balance ?? 0)
     if (dbBalance > 0) return dbBalance
     return calcBalance(app.supply_amount, app.vat, app.deposit)
   }, [app, stage])
 
   const totalAmount = useMemo(() =>
-    app ? Number(app.supply_amount || 0) + Number(app.vat || 0) : 0
+    app ? Number(app.supply_amount ?? 0) + Number(app.vat ?? 0) : 0
   , [app])
   const balanceAmount = useMemo(() => {
     if (!app) return 0

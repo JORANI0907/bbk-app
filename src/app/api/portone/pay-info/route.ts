@@ -25,7 +25,8 @@ export async function GET(request: NextRequest) {
           business_hours_start, business_hours_end,
           construction_date, construction_time, meeting_time,
           request_notes, customer_memo,
-          deposit, supply_amount, vat,
+          deposit, supply_amount, vat, balance,
+          deposit_portone_id, balance_portone_id,
           payment_method, payment_status_detail,
           deposit_paid_at, balance_paid_at
         `)
