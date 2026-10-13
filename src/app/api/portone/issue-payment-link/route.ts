@@ -33,12 +33,33 @@ export async function POST(request: NextRequest) {
       // 2026-10-12 가상계좌 UX 개편: 고객이 선택한 은행 코드 (PortOne Bank enum)
       vbankCode?: string
     }
-    const { applicationId, customerId, stage, overridePaymentMethod, vbankCode } = body
+    let { applicationId, customerId } = body
+    const { stage, overridePaymentMethod, vbankCode } = body
     if ((!applicationId && !customerId) || !stage) {
       return NextResponse.json({ error: '필수 항목 누락 (applicationId 또는 customerId 필요)' }, { status: 400 })
     }
 
     const supabase = createServiceClient()
+
+    // 2026-10-13 URL 통일: customerId 모드로 호출되었더라도 해당 고객의 service_applications
+    //   레코드가 있으면 자동으로 applicationId 모드로 전환.
+    //   효과: "진행흐름(고객관리)" 생성 URL == "배정관리(작업완료알림)" 생성 URL 로 수렴.
+    //   같은 고객에 대해 어느 UI 경로로 생성해도 동일한 결제 URL 반환.
+    //   service_application 이 없으면(예: /kg-audit 심사용 고객) customer 모드 유지.
+    if (customerId && !applicationId) {
+      const { data: linkedApp } = await supabase
+        .from('service_applications')
+        .select('id')
+        .eq('customer_id', customerId)
+        .is('deleted_at', null)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      if (linkedApp?.id) {
+        applicationId = linkedApp.id
+        customerId = undefined
+      }
+    }
 
     // Phase A-4: customer 모드 지원. 필드 매핑 후 동일 로직 재사용.
     const isCustomerMode = !!customerId
