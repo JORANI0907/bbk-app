@@ -164,16 +164,27 @@ async function handleVirtualAccountIssued(paymentId: string, event: Record<strin
   }
 
   const supabase = createServiceClient()
-  const { data: appRow, error: fetchError } = await supabase
-    .from('service_applications')
-    .select('id, business_name, owner_name, virtual_account_number')
-    .eq('deposit_portone_id', paymentId)
-    .is('deleted_at', null)
-    .maybeSingle()
+  // 2026-10-13 race condition 안전망: issue-payment-link 가 아직 DB 에 paymentId 를 저장하기 전
+  //   PortOne webhook 이 먼저 도착하는 경우 "not found" 에러 → 1초 간격 3회 재시도.
+  //   pre-write 수정과 함께 적용되므로 보통 1회 안에 성공.
+  let appRow: { id: string; business_name: string | null; owner_name: string | null; virtual_account_number: string | null } | null = null
+  let fetchError: { message: string } | null = null
+  for (let i = 0; i < 3; i++) {
+    const { data, error } = await supabase
+      .from('service_applications')
+      .select('id, business_name, owner_name, virtual_account_number')
+      .eq('deposit_portone_id', paymentId)
+      .is('deleted_at', null)
+      .maybeSingle()
+    appRow = data
+    fetchError = error
+    if (appRow) break
+    if (i < 2) await new Promise((r) => setTimeout(r, 1000))
+  }
 
   if (fetchError || !appRow) {
     await sendSlack(
-      `⚠️ 가상계좌 webhook: service_applications 조회 실패 paymentId=${paymentId} err=${fetchError?.message ?? 'not found'}`
+      `⚠️ 가상계좌 webhook: service_applications 조회 실패 (3회 재시도 후) paymentId=${paymentId} err=${fetchError?.message ?? 'not found'}`
     ).catch(() => {})
     return
   }

@@ -747,13 +747,13 @@ export default function PortOnePayPage() {
               )
             })}
           </div>
-          {isSwitching && (
+          {(isSwitching || vbankIssuing) && (
             <div className="px-5 pb-4 flex items-center justify-center gap-2 text-[11px] text-emerald-500 font-medium">
               <svg className="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24">
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
               </svg>
-              결제 수단을 준비하고 있어요...
+              {vbankIssuing ? '가상계좌를 준비하고 있어요... (최대 10초 소요)' : '결제 수단을 준비하고 있어요...'}
             </div>
           )}
           {/* 결제수단 전환 실패 안내 배너 (idle 상태에서 message가 있을 때만) */}
@@ -770,7 +770,10 @@ export default function PortOnePayPage() {
         {isVbankSelected && app?.virtual_account_number && (
           <section className="rounded-3xl border border-amber-200/60 overflow-hidden shadow-sm" style={{ background: 'linear-gradient(135deg, #FFFBEB 0%, #FEF3C7 100%)' }}>
             <div className="px-5 py-3.5 border-b border-amber-200/40 flex items-center justify-between">
-              <h2 className="text-sm font-bold text-amber-900">입금 계좌</h2>
+              <div className="flex items-center gap-1.5">
+                <CheckIcon className="w-4 h-4 text-emerald-600" />
+                <h2 className="text-sm font-bold text-amber-900">입금 계좌 발급 완료</h2>
+              </div>
               {app.virtual_account_expired_at && (
                 <span className="text-[11px] text-amber-700 font-medium bg-white/60 px-2 py-1 rounded-full">
                   {new Date(app.virtual_account_expired_at).toLocaleDateString('ko-KR', { month: '2-digit', day: '2-digit' })} 만료
@@ -788,12 +791,27 @@ export default function PortOnePayPage() {
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-sm text-amber-700">예금주</span>
-                <span className="text-sm font-semibold text-amber-900">범빌드코리아</span>
+                <span className="text-sm font-semibold text-amber-900">범빌드코리아(주)</span>
               </div>
               <div className="mt-3 pt-3 border-t border-amber-300/30 rounded-2xl bg-white/60 px-3 py-2.5">
                 <p className="text-xs text-amber-900 leading-relaxed">
-                  위 계좌로 <b>{amount.toLocaleString('ko-KR')}원</b>을 입금해 주세요.<br />입금 확인 후 자동으로 예약 접수 처리됩니다.
+                  위 계좌로 <b>{amount.toLocaleString('ko-KR')}원</b>을 입금해 주세요.<br />
+                  입금이 완료되면 완료 알림을 보내드립니다.
                 </p>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={copyAccountNumber}
+                  className="flex-1 py-2.5 rounded-xl text-xs font-semibold bg-amber-600 text-white hover:bg-amber-700 transition-colors"
+                >
+                  계좌번호 복사
+                </button>
+                <button
+                  onClick={() => setVbankResultOpen(true)}
+                  className="flex-1 py-2.5 rounded-xl text-xs font-semibold bg-white text-amber-700 border border-amber-300 hover:bg-amber-50 transition-colors"
+                >
+                  크게 보기
+                </button>
               </div>
             </div>
           </section>
@@ -842,27 +860,6 @@ export default function PortOnePayPage() {
               {message && (
                 <p className="text-[11px] text-rose-600 leading-relaxed">{message}</p>
               )}
-            </div>
-          </section>
-        )}
-
-        {/* 가상계좌 — 발급 후 모달 닫은 상태 (완료 안내) */}
-        {isVbankSelected && vbankCompleted && app?.virtual_account_number && (
-          <section className="rounded-3xl border border-emerald-200 overflow-hidden shadow-sm bg-emerald-50/40">
-            <div className="px-5 py-4 space-y-2">
-              <div className="flex items-center gap-2">
-                <CheckIcon className="w-5 h-5 text-emerald-600" />
-                <p className="text-sm font-bold text-emerald-800">가상계좌가 발급되었습니다</p>
-              </div>
-              <p className="text-xs text-stone-700 leading-relaxed">
-                입금이 완료되면 완료 알림을 보내드립니다.
-              </p>
-              <button
-                onClick={() => setVbankResultOpen(true)}
-                className="mt-1 text-[11px] font-semibold text-emerald-700 hover:text-emerald-800 underline underline-offset-2"
-              >
-                계좌번호 다시 보기
-              </button>
             </div>
           </section>
         )}

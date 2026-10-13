@@ -197,6 +197,24 @@ export async function POST(request: NextRequest) {
       ? vbankCode
       : DEFAULT_VBANK_CODE
 
+    // 2026-10-13 race condition 수정: payInstantly 호출 전에 paymentId 를 DB 에 먼저 저장.
+    //   PortOne 이 payInstantly 응답 전에 Transaction.VirtualAccountIssued webhook 을 발사하는 사례 발견 →
+    //   webhook 핸들러가 deposit_portone_id 로 조회 시 "not found" 에러.
+    //   paymentId 를 미리 저장하면 webhook 이 어느 시점에 도착해도 조회 성공.
+    const idParamVbankPre = isCustomerMode ? `custId=${recordId}` : `appId=${recordId}`
+    const paymentUrlPre = `${APP_BASE_URL}/portone/pay/${paymentId}?stage=${stage}&${idParamVbankPre}`
+    const { error: prewriteError } = await supabase
+      .from(table)
+      .update({
+        [existingIdField]: paymentId,
+        [existingUrlField]: paymentUrlPre,
+      })
+      .eq('id', recordId)
+    if (prewriteError) {
+      console.error('[issue-payment-link] vbank pre-write 실패:', prewriteError.message, { recordId, paymentId })
+      return NextResponse.json({ error: '결제 ID 사전 저장 실패', detail: prewriteError.message }, { status: 500 })
+    }
+
     const vbankResult = await client.payment.payInstantly({
       paymentId,
       storeId: getStoreId(),
@@ -206,7 +224,7 @@ export async function POST(request: NextRequest) {
           bank: selectedBankCode as 'HANA', // server-sdk Bank enum (짧은 코드)
           expiry: { validHours: 24 * 7 },
           option: { type: 'NORMAL' },
-          remitteeName: '범빌드코리아',
+          remitteeName: '범빌드코리아(주)',
         },
       },
       orderName,
