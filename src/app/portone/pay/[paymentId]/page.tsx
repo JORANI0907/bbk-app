@@ -34,6 +34,7 @@ type AppInfo = {
   deposit: number
   supply_amount: number
   vat: number
+  balance?: number | null  // 2026-10-13: DB 저장값. 결제페이지가 계산 대신 이 값 우선 사용
   payment_method: string
   payment_status?: string | null
   virtual_account_number?: string
@@ -204,20 +205,25 @@ export default function PortOnePayPage() {
   const [saveState,     setSaveState]     = useState<'idle' | 'saving' | 'error'>('idle')
   const [saveMessage,   setSaveMessage]   = useState('')
 
-  const amount = useMemo(() =>
-    app
-      ? stage === 'deposit'
-        ? app.deposit
-        : calcBalance(app.supply_amount, app.vat, app.deposit)
-      : 0
-  , [app, stage])
+  // 2026-10-13: DB에 저장된 balance 를 우선 사용 → calcBalance 계산 오류(필드 누락 등) 방지.
+  //   balance 가 null 이거나 음수면 fallback 으로 계산.
+  const amount = useMemo(() => {
+    if (!app) return 0
+    if (stage === 'deposit') return app.deposit
+    const dbBalance = Number(app.balance ?? 0)
+    if (dbBalance > 0) return dbBalance
+    return calcBalance(app.supply_amount, app.vat, app.deposit)
+  }, [app, stage])
 
   const totalAmount = useMemo(() =>
     app ? Number(app.supply_amount || 0) + Number(app.vat || 0) : 0
   , [app])
-  const balanceAmount = useMemo(() =>
-    app ? calcBalance(app.supply_amount, app.vat, app.deposit) : 0
-  , [app])
+  const balanceAmount = useMemo(() => {
+    if (!app) return 0
+    const dbBalance = Number(app.balance ?? 0)
+    if (dbBalance > 0) return dbBalance
+    return calcBalance(app.supply_amount, app.vat, app.deposit)
+  }, [app])
 
   const alreadyPaid = stage === 'deposit'
     ? Boolean(app?.deposit_paid_at)
@@ -656,6 +662,37 @@ export default function PortOnePayPage() {
               <p className="mt-1.5 text-[10px] text-stone-500 leading-relaxed">
                 결제는 총 2회로 진행됩니다. 작업 완료 후 잔금 결제 링크를 문자로 안내드립니다.
               </p>
+            </div>
+          )}
+
+          {/* 2차 결제(잔금) 페이지 — 총액 - 예약금 = 잔금 계산식 */}
+          {stage === 'balance' && (
+            <div className="mt-2 pt-2 pl-2 border-t border-stone-100">
+              <div className="space-y-1">
+                <div className="flex justify-between items-center text-[10px] text-stone-500">
+                  <span>총액 <span className="text-stone-400">(공급가액 + 부가세)</span></span>
+                  <span className="font-semibold text-stone-600">
+                    {totalAmount > 0 ? `${totalAmount.toLocaleString('ko-KR')}원` : '-'}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center text-[10px]">
+                  <span className="text-stone-500"><span className="inline-block w-3 text-center">―</span> 1차 결제 (예약금) 완료</span>
+                  <span className="font-semibold text-stone-600">
+                    {app && app.deposit > 0 ? `― ${app.deposit.toLocaleString('ko-KR')}원` : '-'}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center text-[10px] border-t border-stone-200 pt-1">
+                  <span className="font-bold text-sky-700"><span className="inline-block w-3 text-center">=</span> 2차 결제 (잔금)</span>
+                  <span className="font-bold text-sky-600">
+                    {amount > 0 ? `${amount.toLocaleString('ko-KR')}원` : '-'}
+                  </span>
+                </div>
+              </div>
+              {amount <= 0 && (
+                <p className="mt-1.5 text-[10px] text-rose-600 leading-relaxed">
+                  ⚠️ 잔금 금액이 확인되지 않습니다. 관리자(1522-9597)에게 문의해 주세요.
+                </p>
+              )}
             </div>
           )}
         </section>

@@ -54,6 +54,8 @@ export async function GET(request: NextRequest) {
     }
 
     // ── appId 모드: service_applications 테이블 조회 ──────────────────
+    // 2026-10-13: balance / deposit_portone_id / balance_portone_id 필드 추가.
+    //   잔금 결제 페이지에서 DB에 저장된 balance 를 직접 쓰도록 (계산 오류 방지).
     const { data: app } = await supabase
       .from('service_applications')
       .select(`
@@ -63,7 +65,8 @@ export async function GET(request: NextRequest) {
         business_hours_start, business_hours_end,
         construction_date, construction_time, meeting_time,
         request_notes, customer_memo,
-        deposit, supply_amount, vat, payment_method, payment_status,
+        deposit, supply_amount, vat, balance, payment_method, payment_status,
+        deposit_portone_id, balance_portone_id,
         virtual_account_number, virtual_account_bank, virtual_account_expired_at,
         deposit_paid_at, balance_paid_at
       `)
