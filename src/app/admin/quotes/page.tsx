@@ -241,7 +241,11 @@ export default function QuotesPage() {
 
   const searchTimer        = useRef<ReturnType<typeof setTimeout> | null>(null)
   const historySearchTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const selected    = applications.find(a => a.id === selectedId) ?? null
+
+  // 이력에서 특정 신청서로 이동 시 페이지네이션 외부에 있어도 우측 패널을 유지하기 위한 fallback
+  const [pinnedApp, setPinnedApp] = useState<ApplicationRow | null>(null)
+
+  const selected    = applications.find(a => a.id === selectedId) ?? pinnedApp ?? null
   const totalPages  = Math.max(1, Math.ceil(total / PAGE_SIZE))
 
   // ── 금액 계산 (모드별) ────────────────────────────────────────
@@ -499,7 +503,29 @@ export default function QuotesPage() {
     setQuoteHistoryMode(next)
     setPage(1)
     setSelectedId(null)
+    setPinnedApp(null)
     // useEffect 가 quoteHistoryMode 변경 감지해 재로드하므로 여기선 setState 만
+  }
+
+  // ── 이력 뷰에서 신청서 에디터로 바로 이동 ─────────────────────
+  const handleNavigateToApplication = async (applicationId: string) => {
+    try {
+      const res  = await fetch(`/api/admin/quotes?appId=${applicationId}`)
+      if (!res.ok) throw new Error()
+      const data = await res.json()
+      const app  = data.applications?.[0] as ApplicationRow | undefined
+      if (!app) { toast.error('신청서를 찾을 수 없습니다.'); return }
+
+      // pinnedApp 에 보관 → 페이지 1 목록에 없어도 selected 가 null 이 되지 않음
+      setPinnedApp(app)
+      setSelectedId(applicationId)
+      handleSelect(app)
+      setQuoteHistoryMode(false)
+      setPage(1)
+      setSearch('')
+    } catch {
+      toast.error('신청서를 불러오지 못했습니다.')
+    }
   }
 
   // ── 케어범위 → 견적 항목 파싱 ────────────────────────────────
@@ -1186,17 +1212,36 @@ export default function QuotesPage() {
                             <span>작성 {new Date(q.created_at).toLocaleDateString('ko-KR')}</span>
                           </div>
                         </div>
-                        {/* PDF 링크 */}
-                        {q.pdf_url && (
-                          <a
-                            href={q.pdf_url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="flex-shrink-0 flex items-center gap-1 text-[11px] px-2.5 py-1 rounded-md border border-border-subtle text-text-secondary hover:bg-surface-sunken transition-colors"
+                        {/* 액션 버튼 3개 */}
+                        <div className="flex items-center gap-1 flex-shrink-0 flex-wrap justify-end">
+                          <button
+                            type="button"
+                            onClick={() => handleNavigateToApplication(q.application_id)}
+                            className="flex items-center gap-1 text-[11px] px-2.5 py-1 rounded-md border border-border-subtle text-text-secondary hover:bg-surface-sunken transition-colors"
                           >
-                            <ExternalLink size={11} />PDF
-                          </a>
-                        )}
+                            <FileText size={11} />본문보기
+                          </button>
+                          {q.pdf_url && (
+                            <a
+                              href={q.pdf_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex items-center gap-1 text-[11px] px-2.5 py-1 rounded-md border border-border-subtle text-text-secondary hover:bg-surface-sunken transition-colors"
+                            >
+                              <ExternalLink size={11} />미리보기
+                            </a>
+                          )}
+                          {q.pdf_url && (
+                            <a
+                              href={q.pdf_url}
+                              download
+                              rel="noopener noreferrer"
+                              className="flex items-center gap-1 text-[11px] px-2.5 py-1 rounded-md bg-brand-600 text-white hover:bg-brand-700 transition-colors"
+                            >
+                              <FileText size={11} />PDF
+                            </a>
+                          )}
+                        </div>
                       </div>
                     </li>
                   )
