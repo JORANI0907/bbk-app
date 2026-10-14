@@ -38,6 +38,20 @@ interface SavedQuote {
   updated_at: string
 }
 
+interface FlatQuote {
+  id: string
+  label: string
+  total_amount: number
+  quote_no: string | null
+  pdf_url: string | null
+  sent_at: string | null
+  created_at: string
+  application_id: string
+  owner_name: string
+  business_name: string
+  phone: string
+}
+
 interface ApplicationRow {
   id: string
   owner_name: string
@@ -97,7 +111,8 @@ const BBK_DEFAULTS: CompanyInfo = {
   bank_name: '', bank_account_number: '', bank_account_holder: '',
 }
 const ITEM_NAME_MAX = 40
-const PAGE_SIZE     = 20
+const PAGE_SIZE          = 20
+const HISTORY_PAGE_SIZE  = 30
 
 // ─── 유틸 ────────────────────────────────────────────────────────
 
@@ -165,6 +180,15 @@ export default function QuotesPage() {
   // Phase 27-Q: 견적 이력 모드 — last_quote_no 있는 신청서만, 최근 수정순 정렬
   const [quoteHistoryMode, setQuoteHistoryMode] = useState(false)
 
+  // 견적 이력 전체 목록 뷰 상태
+  const [historyQuotes, setHistoryQuotes]       = useState<FlatQuote[]>([])
+  const [historyTotal, setHistoryTotal]         = useState(0)
+  const [historyLoading, setHistoryLoading]     = useState(false)
+  const [historySearch, setHistorySearch]       = useState('')
+  const [historyDateFrom, setHistoryDateFrom]   = useState('')
+  const [historyDateTo, setHistoryDateTo]       = useState('')
+  const [historyPage, setHistoryPage]           = useState(1)
+
   // 선택
   const [selectedId, setSelectedId] = useState<string | null>(null)
   // 신규 신청서 작성 모드 — 좌측 "새 신청서" 버튼 클릭 시 활성. 저장 시 실제 신청서 생성.
@@ -215,7 +239,8 @@ export default function QuotesPage() {
   const [showBrowseModal, setShowBrowseModal] = useState(false)          // 다른 신청서 견적서 참고 모달
   const historyRef = useRef<HTMLDivElement>(null)
 
-  const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const searchTimer        = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const historySearchTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const selected    = applications.find(a => a.id === selectedId) ?? null
   const totalPages  = Math.max(1, Math.ceil(total / PAGE_SIZE))
 
@@ -416,6 +441,58 @@ export default function QuotesPage() {
   }
   const handlePageChange = (p: number) => { setPage(p); setSelectedId(null); loadApplications(p, search, quoteHistoryMode) }
   const handleRefresh    = () => loadApplications(page, search, quoteHistoryMode)
+
+  // ── 견적 이력 전체 목록 로딩 ──────────────────────────────────
+  const loadHistoryQuotes = useCallback(async (p: number, q: string, dateFrom: string, dateTo: string) => {
+    setHistoryLoading(true)
+    try {
+      const params = new URLSearchParams({
+        page: String(p),
+        limit: String(HISTORY_PAGE_SIZE),
+        ...(q        ? { search: q } : {}),
+        ...(dateFrom ? { dateFrom }  : {}),
+        ...(dateTo   ? { dateTo }    : {}),
+      })
+      const res  = await fetch(`/api/admin/quotes/history?${params}`)
+      if (!res.ok) throw new Error()
+      const data = await res.json()
+      setHistoryQuotes(data.quotes ?? [])
+      setHistoryTotal(data.total   ?? 0)
+    } catch {
+      toast.error('견적 이력을 불러오지 못했습니다.')
+    } finally {
+      setHistoryLoading(false)
+    }
+  }, [])
+
+  // 견적 이력 모드 진입 시 전체 목록 자동 로딩
+  useEffect(() => {
+    if (quoteHistoryMode) loadHistoryQuotes(1, '', '', '')
+  }, [quoteHistoryMode, loadHistoryQuotes])
+
+  const handleHistorySearchChange = (value: string) => {
+    setHistorySearch(value)
+    if (historySearchTimer.current) clearTimeout(historySearchTimer.current)
+    historySearchTimer.current = setTimeout(() => {
+      setHistoryPage(1)
+      loadHistoryQuotes(1, value, historyDateFrom, historyDateTo)
+    }, 500)
+  }
+
+  const handleHistoryDateChange = (field: 'from' | 'to', value: string) => {
+    const nextFrom = field === 'from' ? value : historyDateFrom
+    const nextTo   = field === 'to'   ? value : historyDateTo
+    if (field === 'from') setHistoryDateFrom(value)
+    else setHistoryDateTo(value)
+    setHistoryPage(1)
+    loadHistoryQuotes(1, historySearch, nextFrom, nextTo)
+  }
+
+  const handleHistoryReset = () => {
+    setHistorySearch(''); setHistoryDateFrom(''); setHistoryDateTo(''); setHistoryPage(1)
+    loadHistoryQuotes(1, '', '', '')
+  }
+
   // Phase 27-Q: 이력 모드 토글 (버튼 클릭) — page 리셋 + 선택 해제 + 재로딩
   const handleToggleHistoryMode = () => {
     const next = !quoteHistoryMode
@@ -989,10 +1066,170 @@ export default function QuotesPage() {
 
   // ─── 렌더링 ──────────────────────────────────────────────────
   return (
-    <div className="flex flex-col md:flex-row md:h-full gap-4 md:gap-6 p-3 md:p-6">
+    <div className={`flex md:h-full gap-4 md:gap-6 p-3 md:p-6 ${quoteHistoryMode ? 'flex-col' : 'flex-col md:flex-row'}`}>
 
-      {/* ── 좌측: 신청 목록 ──────────────────────────────────── */}
-      <aside className={`flex-shrink-0 flex flex-col gap-3 w-full md:w-72 ${(selectedId !== null || creatingNewApp) ? 'hidden md:flex' : 'flex'}`}>
+      {/* ── 견적서 이력 전체 목록 뷰 (quoteHistoryMode=true) ──── */}
+      {quoteHistoryMode && (
+        <div className="flex flex-col gap-4 min-h-0 flex-1">
+          {/* 헤더 */}
+          <div className="flex items-center justify-between flex-wrap gap-3">
+            <div>
+              <h1 className="text-xl font-bold text-text-primary tracking-tight">견적서 이력</h1>
+              <p className="text-[11px] text-text-tertiary mt-0.5">
+                전체 {historyTotal}건
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => loadHistoryQuotes(historyPage, historySearch, historyDateFrom, historyDateTo)}
+                disabled={historyLoading}
+                title="새로고침"
+                className="p-1.5 rounded-lg text-text-tertiary hover:text-text-primary hover:bg-surface-sunken transition-colors disabled:opacity-40"
+              >
+                <RefreshCw size={15} className={historyLoading ? 'animate-spin' : ''} />
+              </button>
+              <button
+                type="button"
+                onClick={handleToggleHistoryMode}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg bg-surface-sunken hover:bg-border border border-border-subtle transition-colors"
+              >
+                <ChevronLeft size={14} />신청서 목록
+              </button>
+            </div>
+          </div>
+
+          {/* 필터 */}
+          <div className="flex flex-wrap gap-2">
+            <div className="flex-1 min-w-[180px]">
+              <Input
+                placeholder="업체명 · 담당자 · 연락처"
+                value={historySearch}
+                onChange={e => handleHistorySearchChange(e.target.value)}
+              />
+            </div>
+            <input
+              type="date"
+              value={historyDateFrom}
+              onChange={e => handleHistoryDateChange('from', e.target.value)}
+              className="px-2 py-1.5 text-sm rounded-lg border border-border-subtle bg-surface text-text-primary"
+              title="시작 날짜"
+            />
+            <input
+              type="date"
+              value={historyDateTo}
+              onChange={e => handleHistoryDateChange('to', e.target.value)}
+              className="px-2 py-1.5 text-sm rounded-lg border border-border-subtle bg-surface text-text-primary"
+              title="종료 날짜"
+            />
+            {(historySearch || historyDateFrom || historyDateTo) && (
+              <button
+                type="button"
+                onClick={handleHistoryReset}
+                className="px-2.5 py-1.5 text-xs rounded-lg border border-border-subtle text-text-secondary hover:bg-surface-sunken transition-colors"
+              >
+                초기화
+              </button>
+            )}
+          </div>
+
+          {/* 리스트 */}
+          <div className="flex-1 rounded-xl border border-border-subtle bg-surface overflow-y-auto">
+            {historyLoading ? (
+              <div className="flex items-center justify-center h-32 text-sm text-text-tertiary">로딩 중…</div>
+            ) : historyQuotes.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-32 gap-2 text-text-tertiary">
+                <FileText size={28} className="opacity-20" />
+                <p className="text-sm">견적서 이력이 없습니다.</p>
+              </div>
+            ) : (
+              <ul className="divide-y divide-border-subtle">
+                {historyQuotes.map(q => {
+                  const isSent = !!q.sent_at
+                  return (
+                    <li key={`${q.application_id}-${q.id}`} className="px-4 py-3 hover:bg-surface-sunken transition-colors">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0 flex-1">
+                          {/* 상위 신청서 정보 (업체명·담당자·연락처) */}
+                          <div className="flex items-center gap-2 mb-1 flex-wrap">
+                            {q.business_name && (
+                              <span className="text-xs font-semibold text-text-primary">{q.business_name}</span>
+                            )}
+                            {q.owner_name && (
+                              <span className="text-xs text-text-secondary">{q.owner_name}</span>
+                            )}
+                            {q.phone && (
+                              <span className="text-[11px] text-text-tertiary">{q.phone}</span>
+                            )}
+                          </div>
+                          {/* 견적서 이름 + 상태 */}
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-sm font-medium text-text-primary">{q.label}</span>
+                            {isSent ? (
+                              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-green-50 text-green-700 font-medium flex items-center gap-0.5">
+                                <CheckCircle2 size={10} />발송완료
+                              </span>
+                            ) : (
+                              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-700 font-medium">
+                                미발송
+                              </span>
+                            )}
+                          </div>
+                          {/* 금액 · 번호 · 날짜 */}
+                          <div className="mt-1 text-[11px] text-text-tertiary flex items-center gap-2 flex-wrap">
+                            <span className="tabular-nums font-medium text-text-secondary">{fmtKr(q.total_amount)}원</span>
+                            {q.quote_no && <><span>·</span><span className="tabular-nums">{q.quote_no}</span></>}
+                            {q.sent_at && (
+                              <><span>·</span><span>발송 {new Date(q.sent_at).toLocaleString('ko-KR', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}</span></>
+                            )}
+                            <span>·</span>
+                            <span>작성 {new Date(q.created_at).toLocaleDateString('ko-KR')}</span>
+                          </div>
+                        </div>
+                        {/* PDF 링크 */}
+                        {q.pdf_url && (
+                          <a
+                            href={q.pdf_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex-shrink-0 flex items-center gap-1 text-[11px] px-2.5 py-1 rounded-md border border-border-subtle text-text-secondary hover:bg-surface-sunken transition-colors"
+                          >
+                            <ExternalLink size={11} />PDF
+                          </a>
+                        )}
+                      </div>
+                    </li>
+                  )
+                })}
+              </ul>
+            )}
+          </div>
+
+          {/* 페이지네이션 */}
+          {historyTotal > HISTORY_PAGE_SIZE && (
+            <div className="flex items-center justify-between">
+              <button type="button"
+                onClick={() => { const p = historyPage - 1; setHistoryPage(p); loadHistoryQuotes(p, historySearch, historyDateFrom, historyDateTo) }}
+                disabled={historyPage <= 1 || historyLoading}
+                className="p-1.5 rounded-lg hover:bg-surface-sunken disabled:opacity-30 transition-colors">
+                <ChevronLeft size={15} />
+              </button>
+              <span className="text-xs text-text-tertiary tabular-nums">
+                {historyPage} / {Math.max(1, Math.ceil(historyTotal / HISTORY_PAGE_SIZE))}
+              </span>
+              <button type="button"
+                onClick={() => { const p = historyPage + 1; setHistoryPage(p); loadHistoryQuotes(p, historySearch, historyDateFrom, historyDateTo) }}
+                disabled={historyPage >= Math.ceil(historyTotal / HISTORY_PAGE_SIZE) || historyLoading}
+                className="p-1.5 rounded-lg hover:bg-surface-sunken disabled:opacity-30 transition-colors">
+                <ChevronRight size={15} />
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── 좌측: 신청 목록 (quoteHistoryMode=false) ────────── */}
+      {!quoteHistoryMode && <aside className={`flex-shrink-0 flex flex-col gap-3 w-full md:w-72 ${(selectedId !== null || creatingNewApp) ? 'hidden md:flex' : 'flex'}`}>
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-xl font-bold text-text-primary tracking-tight">견적관리</h1>
@@ -1092,10 +1329,10 @@ export default function QuotesPage() {
               className="p-1.5 rounded-lg hover:bg-surface-sunken disabled:opacity-30 transition-colors"><ChevronRight size={15} /></button>
           </div>
         )}
-      </aside>
+      </aside>}
 
       {/* ── 우측: 세부 패널 ───────────────────────────────────── */}
-      <div className={`flex-1 md:overflow-y-auto min-w-0 ${(selectedId !== null || creatingNewApp) ? 'block' : 'hidden md:block'}`}>
+      {!quoteHistoryMode && <div className={`flex-1 md:overflow-y-auto min-w-0 ${(selectedId !== null || creatingNewApp) ? 'block' : 'hidden md:block'}`}>
         {!selected && !creatingNewApp ? (
           <div className="flex flex-col items-center justify-center h-64 gap-3 text-text-tertiary">
             <FileText size={36} className="opacity-20" />
@@ -1736,10 +1973,10 @@ export default function QuotesPage() {
 
           </div>
         )}
-      </div>
+      </div>}
 
       {/* 다른 견적서 참고 모달 */}
-      {showBrowseModal && (
+      {!quoteHistoryMode && showBrowseModal && (
         <BrowseQuotesModal
           currentApplicationId={selectedId}
           onClose={() => setShowBrowseModal(false)}
@@ -1751,7 +1988,7 @@ export default function QuotesPage() {
       )}
 
       {/* 이력 케밥 드롭다운 (portal → 최상위 z-index) */}
-      {openMenu && selected && typeof window !== 'undefined' && (() => {
+      {!quoteHistoryMode && openMenu && selected && typeof window !== 'undefined' && (() => {
         const q = selected.saved_quotes?.find(x => x.id === openMenu.id)
         if (!q) return null
         const isRegeneratingNow = regeneratingQuoteId === q.id
