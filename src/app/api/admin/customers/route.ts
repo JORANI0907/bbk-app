@@ -741,13 +741,18 @@ export async function PATCH(request: NextRequest) {
   //
   // null 안전장치: 마스터 값이 null/undefined 이면 sync 스킵 (신청서 값 보존).
   // 이는 신청서에 회차별 개별 값이 있고 마스터엔 미설정인 경우 (예: 회차별 시공시간) 를 보호.
+  // 단, PATCH body 에 명시적으로 포함된 필드는 null 이어도 sync — 날짜를 지운 경우
+  // service_applications.construction_date 도 null 로 반영해야 배정관리에서 사라짐.
   // ═════════════════════════════════════════════════════════════════════
   const appUpdates: Record<string, unknown> = {}
   for (const [custKey, appKey] of Object.entries(SYNC_FIELD_MAP)) {
     // updatedCustomer 는 방금 저장된 마스터 최신 상태 (모든 컬럼 포함)
     const v = (updatedCustomer as Record<string, unknown>)[custKey]
-    // null/undefined 는 sync 하지 않음 — 신청서 값 보존 (특히 금액·시공시간 등 회차별 값 방어)
-    if (v === null || v === undefined) continue
+    // undefined 는 항상 스킵
+    if (v === undefined) continue
+    // null 인 경우: body 에 해당 키가 명시적으로 포함된 경우에만 sync
+    // (body 에 없는 null 필드는 기존처럼 스킵해 회차별 값 보호)
+    if (v === null && !(custKey in rest)) continue
     appUpdates[appKey] = v
   }
 
