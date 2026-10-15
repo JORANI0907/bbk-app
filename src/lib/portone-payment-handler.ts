@@ -1,0 +1,129 @@
+/**
+ * PortOne 결제 완료 공통 처리 — webhook 과 폴링 cron 양쪽에서 재사용.
+ *
+ * 2026-10-15 분리 배경:
+ * Next.js App Router 의 route.ts 는 HTTP 핸들러만 export 가능 →
+ * handleTransactionPaid 를 lib 로 꺼내서 webhook/route.ts + cron/vbank-polling 공유.
+ */
+
+import { createServiceClient } from '@/lib/supabase/server'
+import { sendSlack } from '@/lib/slack'
+
+const APP_BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.bbkorea.co.kr'
+
+// 자동 알림 발송 헬퍼 — fire-and-forget (실패해도 결제 처리 성공 유지)
+async function triggerAutoNotify(applicationId: string, type: string) {
+  try {
+    await fetch(`${APP_BASE_URL}/api/admin/notify`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ application_id: applicationId, type, method: 'auto' }),
+    })
+  } catch {
+    // 알림 실패 조용히 무시
+  }
+}
+
+/**
+ * Transaction.Paid 처리 — paymentId 로 deposit/balance 매칭 후 DB 업데이트 + Slack + SMS 트리거.
+ * 멱등: 이미 paid_at 세팅된 건은 조용히 return (중복 호출 안전).
+ */
+export async function handleTransactionPaid(paymentId: string): Promise<void> {
+  const supabase = createServiceClient()
+
+  // deposit 매칭
+  const { data: depositRow } = await supabase
+    .from('service_applications')
+    .select('id, owner_name, business_name, deposit, supply_amount, vat, deposit_paid_at, customer_id')
+    .eq('deposit_portone_id', paymentId)
+    .is('deleted_at', null)
+    .maybeSingle()
+
+  if (depositRow) {
+    if (depositRow.deposit_paid_at) return
+
+    const nowIso = new Date().toISOString()
+    const { data: updated } = await supabase
+      .from('service_applications')
+      .update({
+        deposit_paid_at: nowIso,
+        payment_confirmed_at: nowIso,
+        payment_status: 'paid',
+        payment_status_detail: '예약금 입금',
+        deposit: Number(depositRow.deposit ?? 0),
+      })
+      .eq('id', depositRow.id)
+      .is('deposit_paid_at', null)
+      .select('id')
+
+    if (!updated || updated.length === 0) return
+
+    if (depositRow.customer_id) {
+      try {
+        await supabase
+          .from('customers')
+          .update({ deposit_paid_at: nowIso, deposit: Number(depositRow.deposit ?? 0) })
+          .eq('id', depositRow.customer_id)
+      } catch { /* 동기화 실패 무시 */ }
+    }
+
+    sendSlack(
+      `💳 *예약금(1차) 결제 완료 — 가상계좌 입금*\n` +
+      `업체: ${depositRow.business_name ?? '-'} / 고객: ${depositRow.owner_name ?? '-'}\n` +
+      `금액: ${Number(depositRow.deposit ?? 0).toLocaleString('ko-KR')}원\n` +
+      `결제ID: ${paymentId}`,
+    ).catch(() => {})
+
+    await triggerAutoNotify(depositRow.id, '예약금 입금완료 알림')
+    return
+  }
+
+  // balance 매칭
+  const { data: balanceRow } = await supabase
+    .from('service_applications')
+    .select('id, owner_name, business_name, balance_paid_at')
+    .eq('balance_portone_id', paymentId)
+    .is('deleted_at', null)
+    .maybeSingle()
+
+  if (balanceRow) {
+    if (balanceRow.balance_paid_at) return
+
+    const nowIso = new Date().toISOString()
+    const { data: updated } = await supabase
+      .from('service_applications')
+      .update({
+        balance_paid_at: nowIso,
+        payment_confirmed_at: nowIso,
+        payment_status: 'paid',
+        payment_status_detail: '결제완료',
+      })
+      .eq('id', balanceRow.id)
+      .is('balance_paid_at', null)
+      .select('id')
+
+    if (!updated || updated.length === 0) return
+
+    try {
+      const { data: link } = await supabase
+        .from('service_applications')
+        .select('customer_id')
+        .eq('id', balanceRow.id)
+        .maybeSingle()
+      if (link?.customer_id) {
+        await supabase
+          .from('customers')
+          .update({ balance_paid_at: nowIso })
+          .eq('id', link.customer_id)
+      }
+    } catch { /* 동기화 실패 무시 */ }
+
+    sendSlack(
+      `💳 *잔금(2차) 결제 완료*\n` +
+      `업체: ${balanceRow.business_name ?? '-'} / 고객: ${balanceRow.owner_name ?? '-'}\n` +
+      `결제ID: ${paymentId}`,
+    ).catch(() => {})
+
+    await triggerAutoNotify(balanceRow.id, '결제완료알림(잔금)')
+  }
+}
