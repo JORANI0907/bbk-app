@@ -183,19 +183,32 @@ async function handleVirtualAccountIssued(paymentId: string, event: Record<strin
   const supabase = createServiceClient()
   // 2026-10-13 race condition 안전망: issue-payment-link 가 아직 DB 에 paymentId 를 저장하기 전
   //   PortOne webhook 이 먼저 도착하는 경우 "not found" 에러 → 1초 간격 3회 재시도.
-  //   pre-write 수정과 함께 적용되므로 보통 1회 안에 성공.
+  // 2026-10-15 잔금 가상계좌 발급 지원: deposit_portone_id 조회 실패 시 balance_portone_id 로 재조회.
+  //   잔금 가상계좌 발급 시 paymentId 끝에 '_balance' 가 붙어 depositId와 다름 → 둘 다 체크 필요.
   let appRow: { id: string; business_name: string | null; owner_name: string | null; virtual_account_number: string | null } | null = null
   let fetchError: { message: string } | null = null
+  let matchedField: 'deposit_portone_id' | 'balance_portone_id' | null = null
   for (let i = 0; i < 3; i++) {
-    const { data, error } = await supabase
+    // 먼저 deposit 매칭
+    const { data: depData, error: depErr } = await supabase
       .from('service_applications')
       .select('id, business_name, owner_name, virtual_account_number')
       .eq('deposit_portone_id', paymentId)
       .is('deleted_at', null)
       .maybeSingle()
-    appRow = data
-    fetchError = error
-    if (appRow) break
+    if (depData) { appRow = depData; matchedField = 'deposit_portone_id'; break }
+    fetchError = depErr
+
+    // 없으면 balance 매칭 시도 (잔금 가상계좌)
+    const { data: balData, error: balErr } = await supabase
+      .from('service_applications')
+      .select('id, business_name, owner_name, virtual_account_number')
+      .eq('balance_portone_id', paymentId)
+      .is('deleted_at', null)
+      .maybeSingle()
+    if (balData) { appRow = balData; matchedField = 'balance_portone_id'; break }
+    fetchError = balErr
+
     if (i < 2) await new Promise((r) => setTimeout(r, 1000))
   }
 
@@ -205,6 +218,7 @@ async function handleVirtualAccountIssued(paymentId: string, event: Record<strin
     ).catch(() => {})
     return
   }
+  void matchedField // 추후 구분 로깅 필요 시 사용
 
   // 이미 저장돼 있으면 중복 저장 스킵 (멱등성)
   if (appRow.virtual_account_number) return
@@ -231,6 +245,57 @@ async function handleVirtualAccountIssued(paymentId: string, event: Record<strin
     `업체: ${appRow.business_name} (${appRow.owner_name})\n` +
     `계좌: ${bankName} ${accountNumber}` +
     (expiredAt ? `\n만료: ${expiredAt.slice(0, 16).replace('T', ' ')} KST` : '')
+  ).catch(() => {})
+}
+
+// 결제 실패 웹훅 처리 — PortOne getPayment 호출해서 실패 사유(reason/pgMessage/pgCode) 추출.
+// 2026-10-15: 과거엔 Slack 로그만 찍고 사유 몰랐음(이신열 건) → 상세 사유 로깅으로 디버깅 가능하게.
+async function handleTransactionFailed(paymentId: string): Promise<void> {
+  const client = getPortOneClient()
+  if (!client) {
+    await sendSlack(`❌ 포트원 결제 실패 웹훅 (PortOne 클라이언트 미설정): ${paymentId}`).catch(() => {})
+    return
+  }
+
+  let payment: Record<string, unknown>
+  try {
+    payment = await client.payment.getPayment({ paymentId }) as Record<string, unknown>
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e)
+    await sendSlack(`❌ 포트원 결제 실패 웹훅 (getPayment 실패): ${paymentId}\n${msg}`).catch(() => {})
+    return
+  }
+
+  // PortOne V2: failure 객체에 reason, pgCode, pgMessage 담김
+  const failure = (payment.failure as Record<string, unknown>) ?? {}
+  const reason    = String(failure.reason ?? '-')
+  const pgCode    = String(failure.pgCode ?? '-')
+  const pgMessage = String(failure.pgMessage ?? '-')
+
+  // 신청서 매칭 (deposit/balance 둘 다 체크)
+  const supabase = createServiceClient()
+  const { data: depRow } = await supabase
+    .from('service_applications')
+    .select('business_name, owner_name')
+    .eq('deposit_portone_id', paymentId).is('deleted_at', null).maybeSingle()
+  const { data: balRow } = depRow ? { data: null } : await supabase
+    .from('service_applications')
+    .select('business_name, owner_name')
+    .eq('balance_portone_id', paymentId).is('deleted_at', null).maybeSingle()
+  const matchedRow = depRow ?? balRow
+  const stageLabel = depRow ? '예약금(1차)' : balRow ? '잔금(2차)' : '미매칭'
+  const businessInfo = matchedRow
+    ? `${matchedRow.business_name ?? '-'} (${matchedRow.owner_name ?? '-'})`
+    : '매칭 신청서 없음'
+
+  await sendSlack(
+    `❌ *포트원 결제 실패 — ${stageLabel}*\n` +
+    `업체: ${businessInfo}\n` +
+    `paymentId: ${paymentId}\n` +
+    `━━━━━━━━━━━━━━━━━━━━\n` +
+    `사유(reason): ${reason}\n` +
+    `PG 메시지: ${pgMessage}\n` +
+    `PG 코드: ${pgCode}`
   ).catch(() => {})
 }
 
@@ -266,7 +331,7 @@ export async function POST(request: NextRequest) {
         await handleVirtualAccountIssued(paymentId, event)
         break
       case 'Transaction.Failed':
-        await sendSlack(`❌ 포트원 결제 실패 웹훅: ${paymentId}`).catch(() => {})
+        await handleTransactionFailed(paymentId)
         break
       default:
         // 미처리 이벤트 무시
