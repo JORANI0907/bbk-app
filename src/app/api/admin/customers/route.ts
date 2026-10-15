@@ -804,8 +804,11 @@ export async function PATCH(request: NextRequest) {
   // - 1회성/일반일정: 최근 open 상태 신청서 1건에 배정 (기존 정책 유지).
   // - 정기딥/엔드: 미래 회차 전체에 배정 (완료된 회차는 스냅샷 보존).
   //   그동안 정기케어는 스킵되어 마스터·회차별 배정이 어긋나던 광범위 버그 해결.
-  if (oneShotSyncable && normalizedWorkerIds !== null) {
-    const workerIds = normalizedWorkerIds
+  //
+  // next_visit_date(시공일자) 변경 시에도 실행 — 날짜가 바뀌면 기존 배정을 초기화해
+  // 미배정 상태로 전환. 담당자까지 명시된 경우에만 새 날짜로 재배정.
+  const constructionDateChanged = 'next_visit_date' in rest
+  if (oneShotSyncable && (normalizedWorkerIds !== null || constructionDateChanged)) {
     try {
       // 작업완료·결제 상태도 포함 — 이미 완료된 회차의 담당자 정정을 허용.
       const { data: openApp } = await supabase
@@ -819,11 +822,14 @@ export async function PATCH(request: NextRequest) {
         .maybeSingle()
 
       if (openApp && openApp.construction_date && openApp.business_name) {
+        // 날짜·담당자 변경 어느 쪽이든 기존 배정은 무조건 삭제
         await supabase
           .from('work_assignments')
           .delete()
           .eq('application_id', openApp.id)
 
+        // 담당자가 명시된 경우에만 새 날짜로 재배정 (날짜만 변경 시 → 미배정 유지)
+        const workerIds = normalizedWorkerIds ?? []
         if (workerIds.length > 0) {
           const rows = workerIds.map(worker_id => ({
             worker_id,
