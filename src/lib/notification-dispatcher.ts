@@ -14,7 +14,6 @@
  */
 
 import { sendSmsOrLms } from './solapi'
-import { notifySlack } from './slack'
 import { saveNotificationHistory } from './notification'
 import { createServiceClient } from './supabase/server'
 
@@ -145,22 +144,9 @@ export async function dispatch(type: string, ctx: DispatchContext): Promise<Disp
     }
   }
 
-  // 3. Slack 알림 (관리 인지용 — 알림 발송 사실을 내부에 공유)
-  if (rule.notify_admin) {
-    try {
-      await notifySlack({
-        notifyType: type,
-        customerName: ctx.customer?.name ?? '',
-        phone: ctx.customer?.phone ?? '',
-        businessName: ctx.customer?.businessName ?? '',
-        constructionDate: ctx.slack?.constructionDate ?? null,
-        method: ctx.method ?? 'auto',
-      })
-      result.slack.sent = true
-    } catch {
-      /* Slack 실패는 조용히 무시 */
-    }
-  }
+  // 3. Slack 알림 제거 (2026-10-15).
+  // notify/route.ts 가 이미 상세 Slack(📤 알림 발송)을 쏘기 때문에 dispatcher 내부에서
+  // 또 "알림 발송 완료 - 유형..." 영수증을 쏘면 중복. result.slack.sent 는 false 유지.
 
   // 5. notification_history 기록 — 호출자가 skipHistory: true이면 건너뜀
   // notify/route.ts처럼 SMS를 직접 발송하고 history도 직접 저장하는 호출자는 skipHistory: true를 넘겨
