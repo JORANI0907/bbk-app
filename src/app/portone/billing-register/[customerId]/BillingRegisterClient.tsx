@@ -112,6 +112,9 @@ export function BillingRegisterClient({ customer, isAlreadyActive, token }: Prop
           pc: WindowType.POPUP,
           mobile: WindowType.REDIRECTION,  // 모바일은 반드시 리디렉션 (INIStdPay/Dev Error 방지)
         },
+        offerPeriod: { interval: '1m' },  // KG이니시스 필수 — 매월 1회 자동결제 상품 식별
+        displayAmount: customer.monthlyAmount,  // 결제창에 "매월 N원" 표시용 (실제 결제는 payWithBillingKey)
+        currency: 'KRW',
         customer: {
           customerId: customer.id,
           fullName: customer.ownerName || customer.businessName,
