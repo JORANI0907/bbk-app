@@ -8,6 +8,7 @@ import { MapSelectorModal } from '@/components/MapSelectorModal'
 import { BulkMonthlyScheduleNotifyModal } from './BulkMonthlyScheduleNotifyModal'
 import RegularProgressFlow from './RegularProgressFlow'
 import { BillingAutoScheduleSummary } from '@/components/admin/customers/BillingAutoScheduleSummary'
+import { BillingKeyRegisterPanel } from '@/components/admin/customers/BillingKeyRegisterPanel'
 import { Button } from '@/components/ui'
 import { Phone, ClipboardList, Map, Banknote, Save, Megaphone, Calendar, BookOpen, Archive, Trash2, Copy, Folder, FolderOpen, FolderPlus, CreditCard, FileCheck, ChevronDown, Lock, Unlock } from 'lucide-react'
 import { useDriveFolder } from '@/hooks/useDriveFolder'
@@ -4678,6 +4679,15 @@ export function CustomersManagementView({
                 billingCycle={form.billing_cycle ?? null}
                 paymentDate={form.payment_date ? Number(form.payment_date) : null}
                 billingStartDate={form.billing_start_date ?? null}
+              />
+            )}
+
+            {/* 2026-10-18 Phase I.3: 정기엔드 빌링키 등록 링크 생성 패널 */}
+            {!isWorker && isEndCare && !isNew && selected?.id && (
+              <BillingKeyRegisterPanel
+                customerId={selected.id}
+                monthlyAmount={Number(form.billing_amount || 0)}
+                paymentDate={form.payment_date ? Number(form.payment_date) : null}
               />
             )}
 
