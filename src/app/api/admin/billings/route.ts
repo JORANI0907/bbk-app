@@ -36,8 +36,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: '필수 항목(customer_id, billing_type, billing_period, amount, due_date)이 누락되었습니다.' }, { status: 400 })
   }
 
-  if (!['monthly', 'annual'].includes(billing_type)) {
-    return NextResponse.json({ error: "billing_type은 'monthly' 또는 'annual'이어야 합니다." }, { status: 400 })
+  if (!['monthly', 'annual', 'onetime'].includes(billing_type)) {
+    return NextResponse.json({ error: "billing_type은 'monthly' | 'annual' | 'onetime' 이어야 합니다." }, { status: 400 })
   }
 
   if (billing_timing && !['prepaid', 'postpaid'].includes(billing_timing)) {
@@ -73,7 +73,12 @@ export async function PATCH(request: NextRequest) {
 
   if (!id) return NextResponse.json({ error: 'id가 필요합니다.' }, { status: 400 })
 
-  const ALLOWED = ['status', 'paid_date', 'notes', 'amount', 'due_date', 'tax_invoice_issued', 'tax_invoice_issued_date']
+  const ALLOWED = [
+    'status', 'paid_date', 'notes', 'amount', 'due_date',
+    'tax_invoice_issued', 'tax_invoice_issued_date',
+    // Phase H.1 (2026-10-18): 결제 링크 수동 입력·자동 생성 저장
+    'payment_url', 'payment_portone_id', 'payment_sent_at', 'send_attempts',
+  ]
   const updates: Record<string, unknown> = {}
   for (const key of ALLOWED) {
     if (key in rest) updates[key] = rest[key]

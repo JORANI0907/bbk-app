@@ -6,14 +6,15 @@ import toast from 'react-hot-toast'
 import { useModalBackButton } from '@/hooks/useModalBackButton'
 import { MapSelectorModal } from '@/components/MapSelectorModal'
 import { BulkMonthlyScheduleNotifyModal } from './BulkMonthlyScheduleNotifyModal'
-import { BillingHistoryPanel } from '@/components/admin/BillingHistoryPanel'
+import RegularProgressFlow from './RegularProgressFlow'
+import { BillingAutoScheduleSummary } from '@/components/admin/customers/BillingAutoScheduleSummary'
 import { Button } from '@/components/ui'
 import { Phone, ClipboardList, Map, Banknote, Save, Megaphone, Calendar, BookOpen, Archive, Trash2, Copy, Folder, FolderOpen, FolderPlus, CreditCard, FileCheck, ChevronDown, Lock, Unlock } from 'lucide-react'
 import { useDriveFolder } from '@/hooks/useDriveFolder'
 import { CustomerAccountLink } from '@/components/admin/CustomerAccountLink'
 import { FieldHint } from '@/components/ui/FieldHint'
-import { MonthlyScheduleSection } from '@/components/admin/customers/MonthlyScheduleSection'
-import { ContractScheduleSection } from '@/components/admin/customers/ContractScheduleSection'
+// 2026-10-18 Phase I: ContractScheduleSection·MonthlyScheduleSection 레거시 제거.
+//   조회·편집·월별 SMS 발송 전부 RegularProgressFlow 로 흡수됨.
 import { PaymentIssuesSummary } from '@/components/admin/customers/PaymentIssuesSummary'
 import { ServiceManagementPage } from '@/components/admin/applications/ServiceManagementView'
 import { CustomersCalendarGrid, type CalendarApp } from '@/components/admin/customers/CustomersCalendarGrid'
@@ -4388,10 +4389,11 @@ export function CustomersManagementView({
             {/* Phase 7-I: 1회성 시공일자 섹션은 폼 최상단(유형 선택 아래)으로 이동됨 — 여기 자리는 제거 */}
 
             {/* ── 정기엔드케어 계약 — worker 숨김 ── */}
+            {/* 2026-10-18 Phase I.2: 결제 그룹 색 통일 (purple → emerald "돈 색") */}
             {!isWorker && isEndCare && (
-              <div className="rounded-xl border border-purple-200 overflow-hidden">
-                <div className="bg-purple-50 px-4 py-2.5 border-b border-purple-200">
-                  <p className="text-xs font-semibold text-purple-800">정기엔드케어 계약 정보</p>
+              <div className="rounded-xl border border-emerald-200 overflow-hidden">
+                <div className="bg-emerald-50 px-4 py-2.5 border-b border-emerald-200">
+                  <p className="text-xs font-semibold text-emerald-800">💰 정기엔드케어 계약 정보</p>
                 </div>
                 <div className="p-4 flex flex-col gap-4">
                   {/* 고객 → 범빌드코리아 */}
@@ -4465,37 +4467,9 @@ export function CustomersManagementView({
                         월 환산: {Math.round(((Number(form.supply_amount) || 0) + (isNoVatMethod(form.payment_method) ? 0 : (Number(form.vat) || 0))) / cycleToMonths(form.billing_cycle as BillingCycle)).toLocaleString('ko-KR')}원/월
                       </p>
                     )}
-                    {/* Phase 22 v9: 정기엔드 결제 이력 인라인 드롭다운 — billing_cycle에 따라 월간/연간 이력 표시 */}
-                    {form.billing_cycle && !isNew && selected && (
-                      <>
-                        <button
-                          type="button"
-                          onClick={() => setShowInlineEndCareHistory(v => !v)}
-                          className="w-full py-1 text-[11px] text-purple-700 font-semibold rounded-md border border-purple-200 bg-white hover:bg-purple-100 flex items-center justify-center gap-1"
-                        >
-                          {showInlineEndCareHistory
-                            ? `${form.billing_cycle} 결제 이력 접기 ▲`
-                            : `${form.billing_cycle} 결제 이력 보기 ▼`}
-                        </button>
-                        {showInlineEndCareHistory && (
-                          <BillingHistoryPanel
-                            customerId={selected.id}
-                            customerType={form.customer_type}
-                            billingCycle={form.billing_cycle}
-                            billingAmount={(() => {
-                              const s = Number(form.supply_amount) || 0
-                              const v = isNoVatMethod(form.payment_method) ? 0 : (Number(form.vat) || 0)
-                              return s > 0 ? s + v : (form.billing_amount ? Number(form.billing_amount) : null)
-                            })()}
-                            paymentDay={form.payment_date ? Number(form.payment_date) : null}
-                            contractStartDate={form.contract_start_date || null}
-                            contractEndDate={form.contract_end_date || null}
-                            billingTiming={form.billing_timing ?? 'prepaid'}
-                            onChange={refetchLatestBillings}
-                          />
-                        )}
-                      </>
-                    )}
+                    {/* 2026-10-17 Phase G3: BillingHistoryPanel 레거시 제거.
+                        결제 조회·완료 처리·세금계산서 발행·수동 추가 액션은 전부
+                        진행흐름 섹션의 BillingDetailModal 로 이관됨. */}
                   </div>
 
                   {/* 계약기간 */}
@@ -4527,21 +4501,26 @@ export function CustomersManagementView({
                     </div>
                   </div>
 
-                  {/* 방문 주기 */}
-                  <div className="flex flex-col gap-2">
-                    <p className="text-xs font-semibold text-gray-700">방문 일정</p>
-                    <VisitCycleEditor
-                      unit={form.visit_cycle_unit}
-                      value={form.visit_cycle_value}
-                      config={form.visit_cycle_config as VisitCycleConfig}
-                      color="purple"
-                      onChange={(u, v, c) => setForm(f => ({ ...f, visit_cycle_unit: u, visit_cycle_value: v, visit_cycle_config: c }))}
-                    />
-                  </div>
+                  {/* 2026-10-18 Phase I.3: 방문 + 담당자 묶음 (보라 "조건 그룹" — [수정 반영]/[생성] 버튼의 입력 조건) */}
+                  <div className="rounded-xl border border-purple-200 bg-purple-50/40 p-3 space-y-3">
+                    <p className="text-xs font-bold text-purple-800 flex items-center gap-1.5">
+                      👷 투입 일정 설정 <span className="font-normal text-purple-600">— 아래 [수정 반영] · [생성] 버튼의 조건</span>
+                    </p>
 
-                  {/* Phase 38/39: 방문주기 단위별 담당자·작업자 배정 위젯 (자동 스위칭).
-                      week=요일별 / month=일자별 / day=상단 사용 안내 */}
-                  <RegularAssignmentsWidget
+                    {/* 방문 일정 */}
+                    <div className="bg-white border border-purple-100 rounded-lg p-3">
+                      <VisitCycleEditor
+                        unit={form.visit_cycle_unit}
+                        value={form.visit_cycle_value}
+                        config={form.visit_cycle_config as VisitCycleConfig}
+                        color="purple"
+                        onChange={(u, v, c) => setForm(f => ({ ...f, visit_cycle_unit: u, visit_cycle_value: v, visit_cycle_config: c }))}
+                      />
+                    </div>
+
+                    {/* 일자별 담당자·작업자 */}
+                    <div className="bg-white border border-purple-100 rounded-lg p-3">
+                      <RegularAssignmentsWidget
                     visitCycleUnit={visitCycleUnitLive}
                     monthlyVisitDates={monthlyVisitDates}
                     weekdayAssignments={weekdayAssignments}
@@ -4558,9 +4537,9 @@ export function CustomersManagementView({
                     usersList={usersList}
                     workersList={workersList}
                   />
+                    </div>
 
-                  {/* Phase 5-E: 계약일정 저장·생성 버튼 — 둘 다 기간 모달 오픈.
-                      Phase 38/39: 요일별·일자별 배정 dirty 상태에서는 버튼 차단 + 안내. */}
+                  {/* Phase 5-E: 계약일정 저장·생성 버튼 — 보라 그룹 안으로 이동 (조건 세트 완결). */}
                   {!isNew && selected && (
                     <div className="flex flex-col items-end gap-1 mt-1">
                       {assignmentsDirty && (
@@ -4588,6 +4567,7 @@ export function CustomersManagementView({
                       </div>
                     </div>
                   )}
+                  </div>  {/* ← 보라 외곽 닫기 (Phase I.3 이동) */}
                 </div>
               </div>
             )}
@@ -4691,11 +4671,22 @@ export function CustomersManagementView({
               </div>
             )}
 
+            {/* 2026-10-18 Phase I.2: 정기엔드 자동 발송 예정 미리보기 */}
+            {!isWorker && isEndCare && !isNew && (
+              <BillingAutoScheduleSummary
+                customerType="정기엔드케어"
+                billingCycle={form.billing_cycle ?? null}
+                paymentDate={form.payment_date ? Number(form.payment_date) : null}
+                billingStartDate={form.billing_start_date ?? null}
+              />
+            )}
+
             {/* ── 정기딥케어 계약 — worker 숨김 ── */}
+            {/* 2026-10-18 Phase I.2: 결제 그룹 색 통일 (brand → emerald "돈 색") */}
             {!isWorker && isDipCare && (
-              <div className="rounded-xl border border-brand-200 overflow-hidden">
-                <div className="bg-brand-50 px-4 py-2.5 border-b border-brand-200">
-                  <p className="text-xs font-semibold text-brand-800">정기딥케어 계약 정보</p>
+              <div className="rounded-xl border border-emerald-200 overflow-hidden">
+                <div className="bg-emerald-50 px-4 py-2.5 border-b border-emerald-200">
+                  <p className="text-xs font-semibold text-emerald-800">💰 정기딥케어 계약 정보</p>
                 </div>
                 <div className="p-3 flex flex-col gap-3">
                   {/* Phase 21: 결제 소섹션 — 컴팩트 + 파스텔 blue */}
@@ -4802,35 +4793,8 @@ export function CustomersManagementView({
                         <span className="text-xs text-text-tertiary">일</span>
                       </div>
                     )}
-                    {/* Phase 29: 결제 이력 인라인 드롭다운 — 월간/연간 모두 & 저장된 고객일 때 노출 */}
-                    {form.billing_cycle && !isNew && selected && (
-                      <>
-                        <button
-                          type="button"
-                          onClick={() => setShowInlineAnnualHistory(v => !v)}
-                          className="w-full py-1 text-[11px] text-brand-700 font-semibold rounded-md border border-brand-200 bg-white hover:bg-brand-100 flex items-center justify-center gap-1"
-                        >
-                          {showInlineAnnualHistory ? `${form.billing_cycle} 결제 이력 접기 ▲` : `${form.billing_cycle} 결제 이력 보기 ▼`}
-                        </button>
-                        {showInlineAnnualHistory && (
-                          <BillingHistoryPanel
-                            customerId={selected.id}
-                            customerType={form.customer_type}
-                            billingCycle={form.billing_cycle}
-                            billingAmount={(() => {
-                              const s = Number(form.supply_amount) || 0
-                              const v = isNoVatMethod(form.payment_method) ? 0 : (Number(form.vat) || 0)
-                              return s > 0 ? s + v : (form.billing_amount ? Number(form.billing_amount) : null)
-                            })()}
-                            paymentDay={form.payment_date ? Number(form.payment_date) : null}
-                            contractStartDate={form.contract_start_date || null}
-                            contractEndDate={form.contract_end_date || null}
-                            billingTiming={form.billing_timing ?? 'prepaid'}
-                            onChange={refetchLatestBillings}
-                          />
-                        )}
-                      </>
-                    )}
+                    {/* 2026-10-17 Phase G3: BillingHistoryPanel 레거시 제거 (정기딥 섹션).
+                        결제 액션 전부 진행흐름 섹션의 BillingDetailModal 로 이관됨. */}
                   </div>
 
                   {/* Phase 21: 계약기간 소섹션 — 한 줄 + 파스텔 sky */}
@@ -4845,38 +4809,46 @@ export function CustomersManagementView({
                       className="flex-1 border border-border rounded-md px-2 py-1 text-xs bg-white focus:outline-none focus:ring-1 focus:ring-sky-500" />
                   </div>
 
-                  {/* Phase 21 / Phase 37: 방문 일정 소섹션 (헤더+ⓘ는 VisitCycleEditor 내부) */}
-                  <div className="bg-brand-50 border border-brand-200 rounded-lg p-3 flex flex-col gap-2">
-                    <VisitCycleEditor
-                      unit={form.visit_cycle_unit}
-                      value={form.visit_cycle_value}
-                      config={form.visit_cycle_config as VisitCycleConfig}
-                      color="blue"
-                      onChange={(u, v, c) => setForm(f => ({ ...f, visit_cycle_unit: u, visit_cycle_value: v, visit_cycle_config: c }))}
-                    />
-                  </div>
+                  {/* 2026-10-18 Phase I.3: 방문 + 담당자 묶음 (보라 "조건 그룹" — [수정 반영]/[생성] 버튼의 입력 조건) */}
+                  <div className="rounded-xl border border-purple-200 bg-purple-50/40 p-3 space-y-3">
+                    <p className="text-xs font-bold text-purple-800 flex items-center gap-1.5">
+                      👷 투입 일정 설정 <span className="font-normal text-purple-600">— 아래 [수정 반영] · [생성] 버튼의 조건</span>
+                    </p>
 
-                  {/* Phase 38/39: 방문주기 단위별 담당자·작업자 배정 위젯 (자동 스위칭). */}
-                  <RegularAssignmentsWidget
-                    visitCycleUnit={visitCycleUnitLive}
-                    monthlyVisitDates={monthlyVisitDates}
-                    weekdayAssignments={weekdayAssignments}
-                    onChangeWeekdayAssignments={setWeekdayAssignments}
-                    hasAnyWeekdayAssignment={hasAnyWeekdayAssignment}
-                    weekdayAssignedDayLabels={weekdayAssignedDayLabels}
-                    weekdayAssignmentsDirty={weekdayAssignmentsDirty}
-                    monthlyDateAssignments={monthlyDateAssignments}
-                    onChangeMonthlyDateAssignments={setMonthlyDateAssignments}
-                    hasAnyMonthlyDateAssignment={hasAnyMonthlyDateAssignment}
-                    monthlyDateAssignedDayLabels={monthlyDateAssignedDayLabels}
-                    monthlyDateAssignmentsDirty={monthlyDateAssignmentsDirty}
-                    monthlyOrphanDays={monthlyOrphanDays}
-                    usersList={usersList}
-                    workersList={workersList}
-                  />
+                    {/* 방문 일정 */}
+                    <div className="bg-white border border-purple-100 rounded-lg p-3">
+                      <VisitCycleEditor
+                        unit={form.visit_cycle_unit}
+                        value={form.visit_cycle_value}
+                        config={form.visit_cycle_config as VisitCycleConfig}
+                        color="purple"
+                        onChange={(u, v, c) => setForm(f => ({ ...f, visit_cycle_unit: u, visit_cycle_value: v, visit_cycle_config: c }))}
+                      />
+                    </div>
 
-                  {/* Phase 5-E: 계약일정 저장·생성 버튼 — 둘 다 기간 모달 오픈.
-                      Phase 38/39: 요일별·일자별 배정 dirty 상태에서는 버튼 차단 + 안내. */}
+                    {/* 일자별 담당자·작업자 */}
+                    <div className="bg-white border border-purple-100 rounded-lg p-3">
+                      <RegularAssignmentsWidget
+                        visitCycleUnit={visitCycleUnitLive}
+                        monthlyVisitDates={monthlyVisitDates}
+                        weekdayAssignments={weekdayAssignments}
+                        onChangeWeekdayAssignments={setWeekdayAssignments}
+                        hasAnyWeekdayAssignment={hasAnyWeekdayAssignment}
+                        weekdayAssignedDayLabels={weekdayAssignedDayLabels}
+                        weekdayAssignmentsDirty={weekdayAssignmentsDirty}
+                        monthlyDateAssignments={monthlyDateAssignments}
+                        onChangeMonthlyDateAssignments={setMonthlyDateAssignments}
+                        hasAnyMonthlyDateAssignment={hasAnyMonthlyDateAssignment}
+                        monthlyDateAssignedDayLabels={monthlyDateAssignedDayLabels}
+                        monthlyDateAssignmentsDirty={monthlyDateAssignmentsDirty}
+                        monthlyOrphanDays={monthlyOrphanDays}
+                        usersList={usersList}
+                        workersList={workersList}
+                      />
+                    </div>
+
+                  {/* Phase 5-E: 계약일정 저장·생성 버튼 — 보라 그룹 안으로 이동 (조건 세트 완결).
+                      정기딥 버전은 브랜드 톤 유지 (사장님 기존 운영 흐름 호환). */}
                   {!isNew && selected && (
                     <div className="flex flex-col items-end gap-1 mt-1">
                       {assignmentsDirty && (
@@ -4888,64 +4860,42 @@ export function CustomersManagementView({
                         <button onClick={() => openScheduleGenModal('cleanup', [selected.id])}
                           disabled={saving || assignmentsDirty}
                           title={assignmentsDirty ? '배정 저장 후 사용 가능' : undefined}
-                          className="px-3 py-1.5 text-xs font-medium bg-brand-600 hover:bg-brand-700 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                          className="px-3 py-1.5 text-xs font-medium bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
                           수정 반영
                         </button>
                         <button onClick={() => openScheduleGenModal('create', [selected.id])}
                           disabled={saving || assignmentsDirty}
                           title={assignmentsDirty ? '배정 저장 후 사용 가능' : undefined}
-                          className="px-3 py-1.5 text-xs font-medium bg-white hover:bg-brand-50 text-brand-700 border border-brand-300 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                          className="px-3 py-1.5 text-xs font-medium bg-white hover:bg-purple-50 text-purple-700 border border-purple-300 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
                           생성
                         </button>
                       </div>
                     </div>
                   )}
+                  </div>  {/* ← 보라 외곽 닫기 (Phase I.3 이동) */}
                 </div>
               </div>
             )}
 
+            {/* 2026-10-18 Phase I.2: 정기딥 자동 발송 예정 미리보기 (후불 — 규칙만) */}
+            {!isWorker && isDipCare && !isNew && (
+              <BillingAutoScheduleSummary
+                customerType="정기딥케어"
+                billingCycle={form.billing_cycle ?? null}
+                paymentDate={form.payment_date ? Number(form.payment_date) : null}
+                billingStartDate={form.billing_start_date ?? null}
+              />
+            )}
+
             {/* Phase 22: D-day 요약 → 저장 버튼 아래로 이관됨 (자리 제거) */}
 
-            {/* Phase 22 v6: 결제 상태 요약 — 이번달 일정 위에 미해결 결제/계산서 이슈 컴팩트 노출
-                Phase 27-I: worker에겐 완전 블라인드 */}
-            {!isWorker && selected && !isNew && (form.customer_type === '정기딥케어' || form.customer_type === '정기엔드케어') && (
-              <PaymentIssuesSummary
-                customerId={selected.id}
-                phone={form.contact_phone}
-                businessName={form.business_name}
-                paymentMethod={form.payment_method || null}
-                customerType={form.customer_type}
-              />
-            )}
+            {/* 2026-10-18 Phase I: PaymentIssuesSummary 상세 뷰 호출 제거 — 100% 중복.
+                미해결 결제 요약은 RegularProgressFlow 상단 타임라인(노랑 점 = 대기)과
+                월별 상세 결제이력에서 완전 대체됨. 리스트 뷰 compact 모드(라인 3457) 는 유지. */}
 
-            {/* 일정 섹션 (정기딥/엔드 고객만 노출, worker에겐 블라인드)
-                - 정기딥케어: 월 1~2회라 계약기간 전체 조망이 유리 → ContractScheduleSection
-                - 정기엔드케어: 월 다회 방문 → 기존 이번달 일정 (MonthlyScheduleSection) */}
-            {!isWorker && selected && !isNew && form.customer_type === '정기딥케어' && (
-              <ContractScheduleSection
-                customerId={selected.id}
-                businessName={form.business_name}
-                phone={form.contact_phone}
-                users={usersList.filter(u => u.role === 'admin' || u.role === 'worker')}
-                workers={flexibleWorkers}
-                focusApplicationId={calendarFocus?.appId}
-                parentDriveFolderUrl={selected.drive_folder_url ?? null}
-                customerType={form.customer_type}
-              />
-            )}
-            {!isWorker && selected && !isNew && form.customer_type === '정기엔드케어' && (
-              <MonthlyScheduleSection
-                customerId={selected.id}
-                businessName={form.business_name}
-                phone={form.contact_phone}
-                users={usersList.filter(u => u.role === 'admin' || u.role === 'worker')}
-                workers={flexibleWorkers}
-                initialMonth={calendarFocus?.month}
-                focusApplicationId={calendarFocus?.appId}
-                parentDriveFolderUrl={selected.drive_folder_url ?? null}
-                customerType={form.customer_type}
-              />
-            )}
+            {/* 2026-10-18 Phase I 레거시 섹션 제거 완료.
+                정기딥/엔드 거래처의 월별 일정 조회·편집·결제 안내·일정 안내 SMS 발송 전부
+                RegularProgressFlow 섹션에 흡수됨 (저장 버튼 위에 노출). */}
 
             {/* ── 진행 흐름 인포그래픽 ──────────────────────────────── */}
             {!isWorker && isOnceCare && !isNew && (
@@ -4973,6 +4923,14 @@ export function CustomersManagementView({
                     const balanceDone = !!selected?.balance_paid_at
                     const invoiceDone = form.tax_invoice_issued === true
                     const pm = form.payment_method ?? ''
+
+                    // 2026-10-17: 결제이력 섹션 제거 → 금액·결제일을 진행흐름 각 단계에 통합 표시
+                    const depAmt = Number(selected?.deposit ?? 0)
+                    const totalAmt = Number(selected?.supply_amount ?? 0) + Number(selected?.vat ?? 0)
+                    const balAmt = Math.max(totalAmt - depAmt, 0)
+                    const fmtKrw = (n: number) => n.toLocaleString('ko-KR')
+                    const fmtKrDate = (d: string | null | undefined) =>
+                      d ? d.slice(0, 10).replace(/-/g, '.') : ''
 
                     const CARD_METHODS = ['카드(온라인 간편결제)', 'credit_card', 'corporate_card']
                     const VIRTUAL_METHODS = ['가상계좌', 'virtual_account']
@@ -5066,8 +5024,20 @@ export function CustomersManagementView({
                               { deposit_paid_at: depositDone ? null : new Date().toISOString() },
                               depositDone ? '예약금 입금 취소' : '예약금 입금 완료'
                             ))}
-                            <div className="flex-1 flex items-center justify-between">
-                              <span className="text-xs font-semibold text-gray-700">예약금결제</span>
+                            <div className="flex-1 flex items-center justify-between gap-2 flex-wrap">
+                              <div className="flex items-center gap-2 flex-wrap min-w-0">
+                                <span className="text-xs font-semibold text-gray-700">예약금결제</span>
+                                {depAmt > 0 && (
+                                  <span className="text-xs font-bold text-gray-800">
+                                    {fmtKrw(depAmt)}원
+                                  </span>
+                                )}
+                                {depositDone && selected?.deposit_paid_at && (
+                                  <span className="text-[10px] text-teal-600">
+                                    · {fmtKrDate(selected.deposit_paid_at)} 완료
+                                  </span>
+                                )}
+                              </div>
                               {statusBadge(
                                 depositDone ? '입금완료' : '미입금',
                                 depositDone ? 'bg-teal-50 text-teal-600 border-teal-200' : 'bg-amber-50 text-amber-600 border-amber-200'
@@ -5119,8 +5089,20 @@ export function CustomersManagementView({
                               { balance_paid_at: balanceDone ? null : new Date().toISOString() },
                               balanceDone ? '잔금 결제완료 취소' : '잔금 결제완료 처리'
                             ))}
-                            <div className="flex-1 flex items-center justify-between">
-                              <span className="text-xs font-semibold text-gray-700">잔금결제</span>
+                            <div className="flex-1 flex items-center justify-between gap-2 flex-wrap">
+                              <div className="flex items-center gap-2 flex-wrap min-w-0">
+                                <span className="text-xs font-semibold text-gray-700">잔금결제</span>
+                                {balAmt > 0 && (
+                                  <span className="text-xs font-bold text-gray-800">
+                                    {fmtKrw(balAmt)}원
+                                  </span>
+                                )}
+                                {balanceDone && selected?.balance_paid_at && (
+                                  <span className="text-[10px] text-teal-600">
+                                    · {fmtKrDate(selected.balance_paid_at)} 완료
+                                  </span>
+                                )}
+                              </div>
                               {statusBadge(
                                 balanceDone ? '결제완료' : '미결제',
                                 balanceDone ? 'bg-teal-50 text-teal-600 border-teal-200' : 'bg-gray-50 text-gray-400 border-gray-200'
@@ -5184,6 +5166,22 @@ export function CustomersManagementView({
                   })()}
                 </div>
               </div>
+            )}
+
+            {/* ── 정기 진행 흐름 (2026-10-17 Phase B: Mock 데이터로 UI 확인) ──
+                 결제이력·방문일정·담당자를 "진행 흐름" 섹션 하나로 흡수하는 통합 뷰.
+                 월간결제: 12개월 가로 바 + 연도 토글.
+                 연간결제: 3년 가로 바.
+                 Phase C 에서 Mock → service_billings + service_applications 실데이터 연결.
+            ──────────────────────────────────────────────────────────── */}
+            {!isWorker && (form.customer_type === '정기딥케어' || form.customer_type === '정기엔드케어') && !isNew && (
+              <RegularProgressFlow
+                customerType={form.customer_type as '정기딥케어' | '정기엔드케어'}
+                billingCycle={(form.billing_cycle as '월간' | '연간' | null) ?? null}
+                billingAmount={form.billing_amount ? Number(form.billing_amount) : null}
+                businessName={form.business_name ?? ''}
+                customerId={selected?.id}
+              />
             )}
 
             {/* 저장 버튼 — 토스 스타일 파스텔 + hover 음영 (worker는 읽기 전용) */}

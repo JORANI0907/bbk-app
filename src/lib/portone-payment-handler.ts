@@ -125,5 +125,77 @@ export async function handleTransactionPaid(paymentId: string): Promise<void> {
     ).catch(() => {})
 
     await triggerAutoNotify(balanceRow.id, '결제완료알림(잔금)')
+    return
+  }
+
+  // Phase H.3 (2026-10-17): 정기 결제(service_billings) 매칭
+  // payment_portone_id 컬럼이 아직 마이그레이션 전이면 조회 자체가 에러 — try/catch 로 격리.
+  try {
+    const { data: billingRow } = await supabase
+      .from('service_billings')
+      .select('id, customer_id, amount, billing_type, billing_period, status, service_type')
+      .eq('payment_portone_id', paymentId)
+      .maybeSingle()
+
+    if (!billingRow) return
+    if (billingRow.status === 'paid') return  // 멱등: 이미 완료
+
+    const today = new Date().toISOString().slice(0, 10)
+    const { data: updated } = await supabase
+      .from('service_billings')
+      .update({ status: 'paid', paid_date: today })
+      .eq('id', billingRow.id)
+      .neq('status', 'paid')
+      .select('id')
+
+    if (!updated || updated.length === 0) return
+
+    // customers 조회 (Slack 메시지용)
+    let businessName = '-'
+    if (billingRow.customer_id) {
+      const { data: cust } = await supabase
+        .from('customers')
+        .select('business_name')
+        .eq('id', billingRow.customer_id)
+        .maybeSingle()
+      businessName = cust?.business_name ?? '-'
+    }
+
+    const typeLabel = billingRow.billing_type === 'annual' ? '연간'
+      : billingRow.billing_type === 'onetime' ? '추가' : '월간'
+    sendSlack(
+      `💳 *정기 결제 완료* (${billingRow.service_type ?? ''} · ${typeLabel})\n` +
+      `업체: ${businessName}\n` +
+      `기간: ${billingRow.billing_period} · 금액: ${Number(billingRow.amount ?? 0).toLocaleString('ko-KR')}원\n` +
+      `결제ID: ${paymentId}`,
+    ).catch(() => {})
+
+    // Phase H.5-rev: 결제완료 → 그 월(또는 연) 작업들에 자동 '결제완료알림' 발송
+    //   → notification_log 에 기록 → 📜 알림 발송 이력 섹션에 자동 반영
+    // 대상: 해당 billing_period 와 매칭되는 service_applications 중 첫 번째
+    // (여러 건 있어도 1개만 발송 — 동일 메시지 중복 방지)
+    if (billingRow.customer_id && billingRow.billing_period) {
+      try {
+        const period = billingRow.billing_period
+        const isAnnual = /^\d{4}$/.test(period)
+        const periodStart = isAnnual ? `${period}-01-01` : `${period}-01`
+        const periodEnd   = isAnnual ? `${period}-12-31` : `${period}-31`
+        const { data: targetApp } = await supabase
+          .from('service_applications')
+          .select('id')
+          .eq('customer_id', billingRow.customer_id)
+          .gte('construction_date', periodStart)
+          .lte('construction_date', periodEnd)
+          .is('deleted_at', null)
+          .order('construction_date', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+        if (targetApp?.id) {
+          await triggerAutoNotify(targetApp.id, '결제완료알림')
+        }
+      } catch { /* 알림 실패는 결제 처리에 영향 없음 */ }
+    }
+  } catch {
+    // service_billings 컬럼 미생성 등 schema 미반영 시 조용히 skip
   }
 }
