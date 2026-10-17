@@ -109,8 +109,8 @@ export function BillingRegisterClient({ customer, isAlreadyActive, token }: Prop
         issueName: `${customer.businessName} 매월 자동결제 등록`,
         redirectUrl,
         windowType: {
-          pc: WindowType.IFRAME,            // KG이니시스 PC 는 IFRAME 만 지원 (POPUP 거부)
           mobile: WindowType.REDIRECTION,   // 모바일은 반드시 리디렉션 (INIStdPay/Dev Error 방지)
+          // pc 는 명시하지 않음 → KG 기본값 (IFRAME) 자동 선택
         },
         offerPeriod: { interval: '1m' },  // KG이니시스 필수 — 매월 1회 자동결제 상품 식별
         displayAmount: customer.monthlyAmount,  // 결제창에 "매월 N원" 표시용 (실제 결제는 payWithBillingKey)
