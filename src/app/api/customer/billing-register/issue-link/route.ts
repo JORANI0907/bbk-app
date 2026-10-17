@@ -55,7 +55,9 @@ export async function POST(request: NextRequest) {
     }
 
     const token = randomUUID()
-    const url = `${APP_BASE_URL}/customer/billing-register/${customerId}?t=${token}`
+    // 2026-10-18: /customer/* 는 CustomerLayout 세션 체크 때문에 비로그인 접근 불가.
+    //             PortOne 공개 경로 /portone/billing-register 로 이동.
+    const url = `${APP_BASE_URL}/portone/billing-register/${customerId}?t=${token}`
 
     const { error: updateErr } = await supabase
       .from('customers')
