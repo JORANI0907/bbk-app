@@ -47,7 +47,7 @@ export default async function BillingPayPage({ params }: Props) {
   if (billing.customer_id) {
     const { data: cust } = await supabase
       .from('customers')
-      .select('id, business_name, contact_name, contact_phone, contact_email')
+      .select('id, business_name, contact_name, contact_phone, email')
       .eq('id', billing.customer_id)
       .maybeSingle()
     if (cust) {
@@ -56,7 +56,7 @@ export default async function BillingPayPage({ params }: Props) {
         businessName: (cust.business_name as string) ?? '-',
         ownerName: (cust.contact_name as string) ?? '-',
         phone: (cust.contact_phone as string) ?? '',
-        email: (cust.contact_email as string | null) ?? null,
+        email: (cust.email as string | null) ?? null,
       }
     }
   }

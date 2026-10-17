@@ -31,7 +31,7 @@ export default async function BillingRegisterPage({ params, searchParams }: Prop
   const supabase = createServiceClient()
   const { data: customer } = await supabase
     .from('customers')
-    .select('id, business_name, contact_name, contact_phone, contact_email, billing_card_url, billing_key_status, billing_amount, billing_monthly_amount, payment_date')
+    .select('id, business_name, contact_name, contact_phone, email, billing_card_url, billing_key_status, billing_amount, billing_monthly_amount, payment_date')
     .eq('id', customerId)
     .maybeSingle()
 
@@ -52,7 +52,7 @@ export default async function BillingRegisterPage({ params, searchParams }: Prop
         businessName: (customer.business_name as string) ?? '-',
         ownerName: (customer.contact_name as string) ?? '-',
         phone: (customer.contact_phone as string) ?? '',
-        email: (customer.contact_email as string | null) ?? null,
+        email: (customer.email as string | null) ?? null,
         monthlyAmount,
         paymentDate: (customer.payment_date as number | null) ?? null,
       }}
