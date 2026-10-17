@@ -57,6 +57,7 @@ export default async function BillingRegisterPage({ params, searchParams }: Prop
         paymentDate: (customer.payment_date as number | null) ?? null,
       }}
       isAlreadyActive={isAlreadyActive}
+      token={token}
     />
   )
 }

@@ -13,11 +13,11 @@
  *   3. 등록 완료 화면 (카드 표시명 + 매월 결제일 안내)
  */
 
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { requestIssueBillingKey, Entity } from '@portone/browser-sdk/v2'
 import { Check, CreditCard, AlertCircle, Loader2, ShieldCheck } from 'lucide-react'
 
-const { BillingKeyMethod } = Entity
+const { BillingKeyMethod, WindowType } = Entity
 
 interface CustomerData {
   id: string
@@ -32,16 +32,61 @@ interface CustomerData {
 interface Props {
   customer: CustomerData
   isAlreadyActive: boolean
+  token: string
 }
 
 const STORE_ID = process.env.NEXT_PUBLIC_PORTONE_STORE_ID ?? ''
 const CHANNEL_KEY = process.env.NEXT_PUBLIC_PORTONE_BILLING_CHANNEL_KEY ?? ''
 
-export function BillingRegisterClient({ customer, isAlreadyActive }: Props) {
+export function BillingRegisterClient({ customer, isAlreadyActive, token }: Props) {
   const [issuing, setIssuing] = useState(false)
   const [completed, setCompleted] = useState(isAlreadyActive)
   const [cardName, setCardName] = useState<string | null>(null)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
+  const autoSavedRef = useRef(false)  // StrictMode / 중복 호출 방지
+
+  // 서버에 billingKey 저장 공통 로직
+  const saveBillingKey = async (billingKey: string, issueId: string) => {
+    const saveRes = await fetch('/api/portone/billing-key-save', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ customerId: customer.id, billingKey, issueId }),
+    })
+    if (!saveRes.ok) {
+      const errData = await saveRes.json().catch(() => ({}))
+      throw new Error(errData?.error ?? '빌링키 저장 실패 (서버 오류)')
+    }
+    const saveData = await saveRes.json() as { cardName?: string }
+    setCardName(saveData.cardName ?? null)
+    setCompleted(true)
+  }
+
+  // 모바일 리디렉션 복귀 처리 — URL 쿼리에 billingKey 가 있으면 자동 저장
+  useEffect(() => {
+    if (autoSavedRef.current || isAlreadyActive) return
+    const params = new URLSearchParams(window.location.search)
+    const returnedBillingKey = params.get('billingKey')
+    const returnedTxType = params.get('transactionType')
+    const returnedCode = params.get('code')
+    const returnedMsg = params.get('message')
+    const returnedIssueId = params.get('issueId') ?? `bbk_billkey_${customer.id.replace(/-/g, '').slice(0, 8)}_redirect`
+
+    if (returnedCode) {
+      // 실패 리디렉션
+      autoSavedRef.current = true
+      setErrorMsg(decodeURIComponent(returnedMsg ?? '빌링키 발급 실패'))
+      return
+    }
+    if (returnedBillingKey && returnedTxType === 'ISSUE_BILLING_KEY') {
+      autoSavedRef.current = true
+      setIssuing(true)
+      setErrorMsg(null)
+      saveBillingKey(returnedBillingKey, returnedIssueId)
+        .catch(e => setErrorMsg(e instanceof Error ? e.message : '저장 실패'))
+        .finally(() => setIssuing(false))
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const handleRegister = async () => {
     if (!STORE_ID || !CHANNEL_KEY) {
@@ -52,6 +97,9 @@ export function BillingRegisterClient({ customer, isAlreadyActive }: Props) {
     setErrorMsg(null)
     try {
       const issueId = `bbk_billkey_${customer.id.replace(/-/g, '').slice(0, 8)}_${Date.now()}`
+      // 모바일 리디렉션 복귀 URL (현재 페이지 + token 유지 + issueId 포함)
+      const origin = window.location.origin
+      const redirectUrl = `${origin}/portone/billing-register/${customer.id}?t=${token}&issueId=${issueId}`
 
       const response = await requestIssueBillingKey({
         storeId: STORE_ID,
@@ -59,6 +107,11 @@ export function BillingRegisterClient({ customer, isAlreadyActive }: Props) {
         billingKeyMethod: BillingKeyMethod.CARD,
         issueId,
         issueName: `${customer.businessName} 매월 자동결제 등록`,
+        redirectUrl,
+        windowType: {
+          pc: WindowType.POPUP,
+          mobile: WindowType.REDIRECTION,  // 모바일은 반드시 리디렉션 (INIStdPay/Dev Error 방지)
+        },
         customer: {
           customerId: customer.id,
           fullName: customer.ownerName || customer.businessName,
@@ -67,27 +120,15 @@ export function BillingRegisterClient({ customer, isAlreadyActive }: Props) {
         },
       })
 
-      if (!response || response.code != null) {
-        throw new Error(response?.message ?? response?.pgMessage ?? '빌링키 발급 실패')
+      // 모바일 리디렉션 방식에서는 response 가 undefined — 페이지가 PortOne 쪽으로 이동 중
+      // (useEffect 가 돌아왔을 때 쿼리로 처리)
+      if (!response) return
+
+      if (response.code != null) {
+        throw new Error(response.message ?? response.pgMessage ?? '빌링키 발급 실패')
       }
 
-      // 서버에 billingKey 저장
-      const saveRes = await fetch('/api/portone/billing-key-save', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          customerId: customer.id,
-          billingKey: response.billingKey,
-          issueId,
-        }),
-      })
-      if (!saveRes.ok) {
-        const errData = await saveRes.json().catch(() => ({}))
-        throw new Error(errData?.error ?? '빌링키 저장 실패 (서버 오류)')
-      }
-      const saveData = await saveRes.json() as { cardName?: string }
-      setCardName(saveData.cardName ?? null)
-      setCompleted(true)
+      await saveBillingKey(response.billingKey, issueId)
     } catch (e) {
       setErrorMsg(e instanceof Error ? e.message : '등록 실패')
     } finally {
