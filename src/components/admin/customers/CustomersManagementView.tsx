@@ -3310,8 +3310,12 @@ export function CustomersManagementView({
                     else if (s2)  { progressBorder = 'border-l-orange-300'; paymentBg = 'bg-orange-50' }
                     else          { progressBorder = 'border-l-red-300';    paymentBg = 'bg-red-50' }
                   } else {
+                    // 2026-10-19: 정기 서비스는 행 배경 색상 비활성 (사장님 지시)
+                    //   payment_status_detail 이 1회성 흐름용 상태라 매월 반복 결제인 정기 서비스에선
+                    //   "결제완료" 가 영원히 초록으로 박제돼 혼동 유발.
+                    const isRegular = c.customer_type === '정기딥케어' || c.customer_type === '정기엔드케어'
                     progressBorder = c.progress_status ? (PROGRESS_ROW_BORDER[c.progress_status] ?? 'border-l-transparent') : 'border-l-transparent'
-                    paymentBg = c.payment_status_detail ? (PAYMENT_ROW_BG[c.payment_status_detail] ?? '') : ''
+                    paymentBg = (!isRegular && c.payment_status_detail) ? (PAYMENT_ROW_BG[c.payment_status_detail] ?? '') : ''
                   }
                   const todayStr = new Date().toISOString().slice(0, 10)
                   const isToday = c.next_visit_date?.slice(0, 10) === todayStr
