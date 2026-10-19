@@ -9,9 +9,12 @@
  *
  * 조건:
  *   - service_billings.status = 'pending'
- *   - service_billings.payment_url 존재 (Phase B 에서 생성 시 함께 발급됨)
  *   - 오늘이 due_date - 3 또는 due_date 당일
  *   - send_attempts < 2 (중복 발송 방지)
+ *
+ * 2026-10-19 긴급 수정:
+ *   - payment_url 필터 제거 (벌크 생성분이 전부 null 이라 발송 0건이던 버그)
+ *   - payment_url 없으면 발송 직전에 자동 발급 (Phase D 재작성 시 빠뜨린 로직 복원)
  *
  * 호출 주기: Make.com 매일 KST 09:00
  */
@@ -77,12 +80,11 @@ export async function GET(request: NextRequest) {
   const supabase = createServiceClient()
   const todayIso = todayKstIso()
 
-  // pending 결제 중 payment_url 있는 것만 발송 대상
+  // 2026-10-19: payment_url 필터 제거 — null 이어도 발송 직전 자동 발급으로 처리
   const { data: billings, error: fetchErr } = await supabase
     .from('service_billings')
     .select('id, customer_id, billing_period, due_date, status, service_type, payment_url, payment_sent_at, send_attempts')
     .eq('status', 'pending')
-    .not('payment_url', 'is', null)
 
   if (fetchErr) {
     return NextResponse.json({ error: fetchErr.message }, { status: 500 })
@@ -110,6 +112,21 @@ export async function GET(request: NextRequest) {
 
       const targetAppId = await findTargetApplicationId(supabase, b)
       if (!targetAppId) { results.skipped_no_app++; continue }
+
+      // 2026-10-19 긴급 복원: payment_url 없으면 발송 직전에 자동 발급
+      if (!b.payment_url) {
+        try {
+          const linkRes = await fetch(`${APP_BASE_URL}/api/portone/issue-billing-link`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ billingId: b.id }),
+          })
+          if (linkRes.ok) {
+            const linkData = await linkRes.json() as { paymentUrl?: string }
+            if (linkData.paymentUrl) b.payment_url = linkData.paymentUrl
+          }
+        } catch { /* 링크 발급 실패해도 SMS 발송 계속 (링크 없이) */ }
+      }
 
       const notifyRes = await fetch(`${APP_BASE_URL}/api/admin/notify`, {
         method: 'POST',
