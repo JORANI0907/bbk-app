@@ -228,6 +228,9 @@ export async function PATCH(request: NextRequest) {
     'customer_memo', 'internal_memo',
     // Phase 8-C: 진행/결제 상태 이원화 (UI 수동 편집 허용)
     'progress_status', 'payment_status_detail',
+    // 2026-10-19: 진행흐름 미니스텝 수동 편집 (VisitDetailModal) — ALLOWED 누락으로
+    //   예약금·잔금·계산서 토글이 조용히 실패하던 버그 해결. ALLOWED_POST 와 대칭.
+    'deposit_paid_at', 'balance_paid_at', 'tax_invoice_issued',
     // pending 신청서 → 고객 등록 완료 시 연결
     'customer_id',
     // Batch A-2 후속: 유입 채널 수동 수정 허용
