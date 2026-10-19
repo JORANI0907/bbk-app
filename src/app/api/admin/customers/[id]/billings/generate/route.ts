@@ -26,6 +26,10 @@ export async function POST(request: NextRequest, { params }: Params) {
   const body = await request.json() as {
     periods?: string[]
     regenerate?: boolean
+    // 2026-10-19 긴급: 모달에서 설정한 범위를 generator 에 전달해야
+    //   preview 와 schedule 이 일치. 안 보내면 계약기간 안의 것만 생성됨.
+    fromPeriod?: string
+    toPeriod?: string
   }
 
   const { data: customer, error } = await supabase
@@ -54,6 +58,9 @@ export async function POST(request: NextRequest, { params }: Params) {
     paymentDay: customer.payment_date,
     billingAmount: amount,
     billingTiming: timing,
+    // 2026-10-19 긴급: preview 와 동일 범위 적용
+    fromPeriod: body.fromPeriod,
+    toPeriod: body.toPeriod,
   })
 
   if (schedule.length === 0) {

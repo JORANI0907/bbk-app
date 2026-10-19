@@ -147,6 +147,9 @@ export default function BillingGenerateModal({ customerId, customerName, mode, o
         body: JSON.stringify({
           periods: Array.from(checkedPeriods),
           regenerate: mode === 'regenerate',
+          // 2026-10-19 긴급: generate 가 preview 와 동일 generator 범위를 쓰도록
+          fromPeriod,
+          toPeriod,
         }),
       })
       const data = await res.json() as {
