@@ -13,9 +13,32 @@ import { generateBillingSchedule, computeBillingAmountFromCustomer } from '@/lib
 
 type Params = { params: Promise<{ id: string }> }
 
-export async function POST(_request: NextRequest, { params }: Params) {
+/** 2026-10-19: 사장님이 모달 1단계에서 설정한 생성 범위로 필터 (fromPeriod/toPeriod 모두 'YYYY-MM' 형식) */
+function filterByPeriodRange<T extends { billing_period: string }>(items: T[], fromPeriod?: string, toPeriod?: string): T[] {
+  if (!fromPeriod && !toPeriod) return items
+  const fromYear = fromPeriod?.slice(0, 4)
+  const toYear = toPeriod?.slice(0, 4)
+  return items.filter(s => {
+    const sYear = s.billing_period.slice(0, 4)
+    // 연간 레코드 (billing_period='2026'): 년도만 비교
+    if (s.billing_period.length === 4) {
+      if (fromYear && sYear < fromYear) return false
+      if (toYear && sYear > toYear) return false
+      return true
+    }
+    // 월간 레코드 ('2026-10'): 'YYYY-MM' 문자열 비교
+    if (fromPeriod && s.billing_period < fromPeriod) return false
+    if (toPeriod && s.billing_period > toPeriod) return false
+    return true
+  })
+}
+
+export async function POST(request: NextRequest, { params }: Params) {
   const { id } = await params
   const supabase = createServiceClient()
+
+  const body = await request.json().catch(() => ({})) as { fromPeriod?: string; toPeriod?: string }
+  const { fromPeriod, toPeriod } = body
 
   const { data: customer, error } = await supabase
     .from('customers')
@@ -43,6 +66,9 @@ export async function POST(_request: NextRequest, { params }: Params) {
     paymentDay: customer.payment_date,
     billingAmount: amount,
     billingTiming: timing,
+    // 2026-10-19: 사장님 로직 — 계약기간보다 모달 범위(fromPeriod/toPeriod)가 우선
+    fromPeriod,
+    toPeriod,
   })
 
   if (schedule.length === 0) {
@@ -69,26 +95,33 @@ export async function POST(_request: NextRequest, { params }: Params) {
     ])
   )
 
-  const items = schedule.map(s => {
-    const existingRow = existingMap.get(s.billing_period)
-    return {
-      billing_type: s.billing_type,
-      billing_period: s.billing_period,
-      due_date: s.due_date,
-      amount: s.amount,
-      service_type: customer.customer_type,
-      billing_timing: timing,
-      // 기존 상태 표시용 (사용자가 중복 여부를 UI에서 바로 확인)
-      existing_status: existingRow?.status ?? null,
-      existing_due_date: existingRow?.due_date ?? null,
-    }
-  })
+  // 2026-10-19: 범위는 generator 가 이미 적용. filterByPeriodRange 는 안전망으로만 유지.
+  const items = filterByPeriodRange(
+    schedule.map(s => {
+      const existingRow = existingMap.get(s.billing_period)
+      return {
+        billing_type: s.billing_type,
+        billing_period: s.billing_period,
+        due_date: s.due_date,
+        amount: s.amount,
+        service_type: customer.customer_type,
+        billing_timing: timing,
+        existing_status: existingRow?.status ?? null,
+        existing_due_date: existingRow?.due_date ?? null,
+      }
+    }),
+    fromPeriod,
+    toPeriod,
+  )
 
   return NextResponse.json({
     schedule: items,
+    total_available: items.length,
     customer_name: customer.business_name,
     customer_type: customer.customer_type,
     billing_cycle: customer.billing_cycle,
     billing_timing: timing,
+    contract_start_date: customer.contract_start_date,
+    contract_end_date: customer.contract_end_date,
   })
 }

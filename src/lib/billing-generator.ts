@@ -41,6 +41,11 @@ export interface GenerateInput {
   paymentDay:        number | null  // 결제일 (1~31, 선납일 때만 사용)
   billingAmount:     number | null  // 청구액 (부가세 포함)
   billingTiming?:    BillingTiming  // 'prepaid'(선납) | 'postpaid'(후납), 기본 'prepaid'
+  // 2026-10-19: 사장님이 모달에서 설정한 생성 범위 (계약기간보다 우선)
+  //   계약기간은 "재계약 주기" 참고용. 결제는 이 범위대로 생성.
+  //   둘 다 'YYYY-MM' 형식. 연간은 년도만 사용.
+  fromPeriod?:       string
+  toPeriod?:         string
 }
 
 /** 목표 월 말일로 clamp 하면서 개월 수 더하기 (JS Date 오버플로우 방지) */
@@ -108,24 +113,39 @@ export function generateBillingSchedule(input: GenerateInput): GeneratedBilling[
   const isAnnual = input.billingCycle === '연간'
   const stepMonths = billingCycleStepMonths(input.billingCycle)
 
+  // 2026-10-19: 사장님 로직 — "계약기간은 재계약 주기 참고용", 결제는 모달 범위(toPeriod)대로 생성.
+  //   끝점(endLimit): toPeriod 있으면 그 월(연간은 그 년), 없으면 계약종료, 없으면 오늘+12개월(월간) / +10년(연간)
+  //   시작 필터(fromPeriod): 그 이전은 skip (단 cycleIdx는 유지 — 결제일자 리듬 정렬)
+  const fromMonth: string | null = input.fromPeriod ?? null
+  const fromYear: string | null = input.fromPeriod ? input.fromPeriod.slice(0, 4) : null
+
   if (isAnnual) {
-    // 2026-10-19 수정: 연간 사이클 계산을 "계약기간 안의 사이클만" 기준으로 변경.
-    //  - 1차: 계약시작일부터 (선납 due_date = 계약시작일 / 후납 due_date = 계약시작일+12개월-1일)
-    //  - 2차: 계약시작일+12개월 부터 (선납 due_date = 그 날짜 / 후납 due_date = +24개월-1일)
-    //  - 사이클 시작일이 계약 만료일을 넘으면 생성 중단 (예: 2026-03-05 ~ 2027-03-04 계약은 1건만)
-    //  이전 로직은 선납 2차 이후를 ${y}-01-01 로 하드코딩해서 사장님 계약과 무관한 날짜가 찍히는 버그.
     const stepMonths = 12
+    // 끝점: toPeriod 있으면 그 년도 말일, 없으면 계약종료, 없으면 오늘+10년
+    let endLimit: Date
+    if (input.toPeriod) {
+      const toYear = parseInt(input.toPeriod.slice(0, 4), 10)
+      endLimit = new Date(toYear, 11, 31)
+    } else if (input.contractEndDate) {
+      endLimit = end
+    } else {
+      const now = new Date()
+      endLimit = new Date(now.getFullYear() + 10, 11, 31)
+    }
+
     let cycleIdx = 0
     while (true) {
       cycleIdx++
       const cycleStart = cycleIdx === 1 ? start : addMonthsClamped(start, (cycleIdx - 1) * stepMonths)
-      if (cycleStart > end) break
+      if (cycleStart > endLimit) break
+      const cycleYear = String(cycleStart.getFullYear())
+      if (fromYear && cycleYear < fromYear) continue
       const dueDate = timing === 'postpaid'
         ? computePostpaidDueDate(start, cycleIdx, stepMonths)
         : toISODate(cycleStart)
       results.push({
         billing_type: 'annual',
-        billing_period: String(cycleStart.getFullYear()),
+        billing_period: cycleYear,
         due_date: dueDate,
         amount,
         service_type: sType,
@@ -134,8 +154,19 @@ export function generateBillingSchedule(input: GenerateInput): GeneratedBilling[
     }
   } else {
     // 월간 / 2개월 / 3개월: stepMonths 간격으로 1건
-    const cursor    = new Date(start.getFullYear(), start.getMonth(), 1)
-    const endCursor = new Date(end.getFullYear(), end.getMonth(), 1)
+    const cursor = new Date(start.getFullYear(), start.getMonth(), 1)
+    // 끝점: toPeriod 있으면 그 월, 없으면 계약종료월, 없으면 오늘+12개월
+    let endCursor: Date
+    if (input.toPeriod) {
+      const [ey, em] = input.toPeriod.split('-').map(Number)
+      endCursor = new Date(ey, em - 1, 1)
+    } else if (input.contractEndDate) {
+      endCursor = new Date(end.getFullYear(), end.getMonth(), 1)
+    } else {
+      const now = new Date()
+      endCursor = new Date(now.getFullYear(), now.getMonth() + 12, 1)
+    }
+
     let cycleIdx = 0
     while (cursor <= endCursor) {
       cycleIdx++
@@ -143,12 +174,14 @@ export function generateBillingSchedule(input: GenerateInput): GeneratedBilling[
       const m = cursor.getMonth() + 1
       const period = `${y}-${String(m).padStart(2, '0')}`
 
+      // fromPeriod 이전은 skip (cycleIdx 는 유지 — 사이클 번호 일관성)
+      if (fromMonth && period < fromMonth) {
+        cursor.setMonth(cursor.getMonth() + stepMonths)
+        continue
+      }
+
       let dueDate: string
       if (timing === 'postpaid') {
-        // 후납: 결제일자 필드가 있으면 "사이클 종료 다음달의 결제일자"로 계산
-        //  월간(stepMonths=1)  예) 계약 2026-08-21, payment_day=25 → 첫 due_date = 2026-09-25
-        //  3개월(stepMonths=3) 예) 계약 2026-01, payment_day=25 → 첫 due_date = 2026-04-25
-        // 결제일자 필드 비어있으면 기존 로직(계약시작일 + K사이클 - 1일) 유지
         if (input.paymentDay) {
           const nextMonthIdx = cursor.getMonth() + stepMonths      // 0-based
           const nextY = cursor.getFullYear() + Math.floor(nextMonthIdx / 12)

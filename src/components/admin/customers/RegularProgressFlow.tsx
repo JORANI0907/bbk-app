@@ -439,7 +439,8 @@ export default function RegularProgressFlow({
                   {isOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                 </span>
                 <span className={`text-xs font-semibold ${isCurrent ? 'text-brand-700' : 'text-text-primary'}`}>
-                  {p.year}년 {p.label}
+                  {/* 2026-10-19: 연간(p.month===null) 은 label 이 이미 'YYYY년' 이라 year 중복 제거 */}
+                  {p.month !== null ? `${p.year}년 ${p.label}` : p.label}
                 </span>
                 {isCurrent && (
                   <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-brand-100 text-brand-700">

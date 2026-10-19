@@ -18,6 +18,7 @@ import { FieldHint } from '@/components/ui/FieldHint'
 // 2026-10-18 Phase I: ContractScheduleSection·MonthlyScheduleSection 레거시 제거.
 //   조회·편집·월별 SMS 발송 전부 RegularProgressFlow 로 흡수됨.
 import { PaymentIssuesSummary } from '@/components/admin/customers/PaymentIssuesSummary'
+import { UpcomingVisits, UpcomingBillings } from '@/components/admin/customers/UpcomingEventsBadges'
 import { ServiceManagementPage } from '@/components/admin/applications/ServiceManagementView'
 import { CustomersCalendarGrid, type CalendarApp } from '@/components/admin/customers/CustomersCalendarGrid'
 import { computeAppAmount, fmtAmount } from '@/components/admin/customers/calendar-amount'
@@ -557,14 +558,15 @@ function billingCycleLabel(cycle: string | null): string {
   return cycle  // '2개월', '6개월' 등 그대로
 }
 
-/** 드롭다운 옵션 목록 (1~12개월 + 연간) */
+/** 드롭다운 옵션 목록 (1~11개월 + 연간)
+ *  2026-10-19: "12개월"과 "연간"이 중복이라 "12개월" 제거. 기존 '12개월' 데이터는 '연간'으로 마이그레이션. */
 const BILLING_CYCLE_OPTIONS: { value: string; label: string }[] = [
   { value: '월간',  label: '1개월' },
-  ...Array.from({ length: 11 }, (_, i) => ({
+  ...Array.from({ length: 10 }, (_, i) => ({
     value: `${i + 2}개월`,
     label: `${i + 2}개월`,
   })),
-  { value: '연간', label: '연간 (선결제)' },
+  { value: '연간', label: '연간 (12개월, 선결제)' },
 ]
 
 function calcNextBillingDate(startDate: string, cycle: BillingCycle, prepaidPeriods = 1): string {
@@ -3382,13 +3384,22 @@ export function CustomersManagementView({
                         const selectedArr = Array.from(selectedTypes)
                         const isOneTimeView = selectedArr.length > 0 && selectedArr.every(t => oneTimeGroup.has(t))
                         const isDipCareView = selectedArr.length > 0 && selectedArr.every(t => regularGroup.has(t))
-                        // Phase 22 v6: 정기딥케어 4열 컴팩트 뷰
+                        // 2026-10-19: 정기딥 리스트 — 일반정보만 공통, 그 외 전부 관리자만 (사장님 지시).
+                        //   Col 1 (공통): 일반정보
+                        //   Col 2~5 (관리자만): 유형뱃지, 계약·결제 요약, 방문일정, 결제상태
                         if (isDipCareView) {
                           const contractTotal = (Number(c.supply_amount) || 0) + (Number(c.vat) || 0)
                           const cyclePrefix = c.billing_cycle === '연간' ? '연' : '월'
+                          const timingLabel = c.billing_timing === 'postpaid' ? '후납' : '선납'
+                          const contractDday = daysUntil(c.contract_end_date ?? null)
+                          const paymentDayLabel = c.billing_cycle === '연간'
+                            ? (c.yearly_billing_month && c.yearly_billing_day
+                                ? `매년 ${c.yearly_billing_month}/${c.yearly_billing_day}`
+                                : null)
+                            : (c.payment_date ? `매월 ${c.payment_date}일` : null)
                           return (
                             <>
-                              {/* 1열: 일반정보 — 업체명, 고객명, 연락처, 주소 */}
+                              {/* 1열: 일반정보 — 업체명, 고객명, 연락처, 주소 (공통, worker 도 보임) */}
                               <td className="px-3 py-3 min-w-[180px] max-w-[220px]">
                                 <p className="text-sm font-semibold text-text-primary truncate">{c.business_name}</p>
                                 {c.contact_name && (
@@ -3401,59 +3412,61 @@ export function CustomersManagementView({
                                   <p className="text-[11px] text-text-tertiary mt-0.5 truncate">{c.address}</p>
                                 )}
                               </td>
-                              {/* 2열: 고객상태 — 유형, 등급, 성향 */}
-                              <td className="px-3 py-3 min-w-[110px]">
-                                <div className="flex flex-col gap-1 items-start">
-                                  <span className={`text-[11px] px-1.5 py-0.5 rounded-full font-medium ${tStyle.badge}`}>{type}</span>
-                                  {c.grade && (
-                                    <span className={`text-[11px] px-1.5 py-0.5 rounded-full font-medium ${GRADE_STYLE[c.grade].badge}`}>{c.grade}</span>
-                                  )}
-                                  {(() => {
-                                    const d = (c.disposition ?? '보통') as CustomerDisposition
-                                    return (
-                                      <span className={`text-[11px] px-1.5 py-0.5 rounded-full font-medium ${DISPOSITION_STYLE[d].badge}`}>{d}</span>
-                                    )
-                                  })()}
-                                </div>
-                              </td>
-                              {/* Phase 27-H: worker에겐 계약정보·결제 상태 요약 두 컬럼 통째 숨김 */}
+                              {/* 2~5열: 전부 관리자만 노출 (사장님 2026-10-19 지시) */}
                               {!isWorker && (
                                 <>
-                                  {/* 3열: 계약정보 — 결제주기·총액·계약기간 (방문일정은 별도 컬럼으로 분리 2026-09-24) */}
-                                  <td className="px-3 py-3 min-w-[180px] max-w-[240px]">
+                                  {/* 2열: 고객상태 — 유형, 등급, 성향 */}
+                                  <td className="px-3 py-3 min-w-[110px]">
+                                    <div className="flex flex-col gap-1 items-start">
+                                      <span className={`text-[11px] px-1.5 py-0.5 rounded-full font-medium ${tStyle.badge}`}>{type}</span>
+                                      {c.grade && (
+                                        <span className={`text-[11px] px-1.5 py-0.5 rounded-full font-medium ${GRADE_STYLE[c.grade].badge}`}>{c.grade}</span>
+                                      )}
+                                      {(() => {
+                                        const d = (c.disposition ?? '보통') as CustomerDisposition
+                                        return (
+                                          <span className={`text-[11px] px-1.5 py-0.5 rounded-full font-medium ${DISPOSITION_STYLE[d].badge}`}>{d}</span>
+                                        )
+                                      })()}
+                                    </div>
+                                  </td>
+                                  {/* 3열: 계약·결제 요약 — 주기 · 방식 · 금액 · 결제일 · 계약 D-N */}
+                                  <td className="px-3 py-3 min-w-[200px] max-w-[260px]">
                                     <div className="flex flex-col gap-0.5 text-xs">
                                       <span className="text-text-primary font-semibold">
-                                        {cyclePrefix}
+                                        {cyclePrefix}·{timingLabel}
                                         {contractTotal > 0 && (
                                           <> · {contractTotal.toLocaleString('ko-KR')}<span className="text-text-tertiary font-normal">원</span></>
                                         )}
                                       </span>
+                                      {paymentDayLabel && (
+                                        <span className="text-[11px] text-text-secondary">💰 {paymentDayLabel}</span>
+                                      )}
                                       {(c.contract_start_date || c.contract_end_date) && (
                                         <span className="text-[11px] text-text-tertiary">
                                           {fmtDate(c.contract_start_date)} ~ {fmtDate(c.contract_end_date)}
+                                          {contractDday !== null && contractDday >= 0 && (
+                                            <span className={`ml-1 font-medium ${contractDday <= 30 ? 'text-amber-600' : 'text-text-tertiary'}`}>
+                                              (D-{contractDday})
+                                            </span>
+                                          )}
+                                          {contractDday !== null && contractDday < 0 && (
+                                            <span className="ml-1 font-medium text-rose-600">(만료)</span>
+                                          )}
                                         </span>
                                       )}
                                     </div>
                                   </td>
-                                </>
-                              )}
-                              {/* 4열: 방문일정 — 별도 컬럼. worker 도 보이도록 유지 (배정 판단 참고용) */}
-                              <td className="px-3 py-3 whitespace-nowrap">
-                                {visitScheduleText
-                                  ? <span className="text-xs text-text-secondary">{visitScheduleText}</span>
-                                  : <span className="text-xs text-text-tertiary">-</span>}
-                              </td>
-                              {!isWorker && (
-                                <>
-                                  {/* 5열: 결제 상태 요약 */}
+                                  {/* 4열: 방문일정 — 기본 리듬 + 다음 방문 2건 (lazy fetch) */}
                                   <td className="px-3 py-3 min-w-[140px]">
-                                    <PaymentIssuesSummary
+                                    <UpcomingVisits customerId={c.id} fallbackText={visitScheduleText} />
+                                  </td>
+                                  {/* 5열: 결제 상태 — 자동결제 뱃지 + 다음 결제 2건 (결제대기 카운터는 사장님 지시로 삭제) */}
+                                  <td className="px-3 py-3 min-w-[160px]">
+                                    <UpcomingBillings
                                       customerId={c.id}
-                                      phone={c.contact_phone ?? null}
-                                      businessName={c.business_name}
-                                      paymentMethod={c.payment_method ?? null}
                                       customerType={c.customer_type}
-                                      compact
+                                      paymentMethod={c.payment_method ?? null}
                                     />
                                   </td>
                                 </>
@@ -4146,28 +4159,21 @@ export function CustomersManagementView({
                   <input type="time" value={form.construction_time} onChange={e => set('construction_time')(e.target.value)}
                     className="flex-1 border border-border rounded-lg px-2 py-1.5 text-xs text-text-primary focus:outline-none focus:ring-2 focus:ring-green-500" />
                 </div>
-                {/* 케어 매뉴얼 CTA — 섹션 최하단, worker는 '보기'로 라벨 전환 */}
+                {/* 2026-10-19: 케어 매뉴얼 CTA — 시공정보(green) 톤 통일 + 70% 크기 축소 (1줄) */}
                 {!isNew && selected && isRegular && (
-                  <div className="pt-2">
+                  <div className="pt-1">
                     <button
                       type="button"
                       onClick={() => { window.location.href = `/admin/customers/${selected.id}/care-manual` }}
-                      className="group w-full inline-flex items-center justify-between gap-3 px-4 py-3 rounded-xl bg-gradient-to-r from-brand-600 via-brand-600 to-brand-700 text-white shadow-soft hover:shadow-brand-hover hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.99] transition-all duration-150 ease-out-toss"
+                      className="group w-full inline-flex items-center justify-between gap-2 px-3 py-2 rounded-lg border border-green-200 bg-green-50 hover:bg-green-100 text-green-900 transition-colors"
                     >
-                      <span className="inline-flex items-center gap-2.5">
-                        <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-white/15 ring-1 ring-white/20 group-hover:bg-white/25 transition-colors">
-                          <BookOpen size={15} />
-                        </span>
-                        <span className="flex flex-col items-start leading-tight">
-                          <span className="text-sm font-semibold tracking-tight">
-                            {isWorker ? '케어 매뉴얼 보기' : '케어 매뉴얼 편집'}
-                          </span>
-                          <span className="text-[11px] text-white/70">
-                            {isWorker ? '현장에서 참고할 상세 매뉴얼을 엽니다' : '현장용 상세 매뉴얼을 편집합니다'}
-                          </span>
+                      <span className="inline-flex items-center gap-2">
+                        <BookOpen size={13} className="text-green-700" />
+                        <span className="text-xs font-semibold">
+                          {isWorker ? '케어 매뉴얼 보기' : '케어 매뉴얼 편집'}
                         </span>
                       </span>
-                      <span className="text-white/80 text-sm group-hover:translate-x-0.5 transition-transform">→</span>
+                      <span className="text-green-700 text-xs group-hover:translate-x-0.5 transition-transform">→</span>
                     </button>
                   </div>
                 )}
