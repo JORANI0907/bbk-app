@@ -439,55 +439,8 @@ export async function PATCH(request: NextRequest) {
     }
   }
 
-  // Phase 22 v11: 정기딥 월간 방문 완료 시 그 달 billings 자동 생성 (idempotent)
-  // 진행상태가 '작업완료'로 변경됐고 고객이 정기딥+월간이면 실행
-  if (updates.progress_status === '작업완료') {
-    try {
-      const { data: app } = await supabase
-        .from('service_applications')
-        .select('customer_id, business_name, phone, construction_date')
-        .eq('id', id)
-        .single()
-
-      if (app?.customer_id && app.construction_date) {
-        const { data: customer } = await supabase
-          .from('customers')
-          .select('id, customer_type, billing_cycle, payment_date, supply_amount, vat, billing_amount, payment_method, status')
-          .eq('id', app.customer_id)
-          .is('deleted_at', null)
-          .single()
-
-        // Phase 23: 일시정지 고객은 방문 완료 트리거로도 청구 생성 skip
-        if (customer?.customer_type === '정기딥케어' && customer.billing_cycle === '월간' && customer.status !== 'paused') {
-          const period = toMonthlyPeriod(app.construction_date)
-          // 이미 있으면 skip
-          const { data: existing } = await supabase
-            .from('service_billings')
-            .select('id')
-            .eq('customer_id', customer.id)
-            .eq('billing_period', period)
-            .maybeSingle()
-          if (!existing) {
-            const amount = computeBillingAmountFromCustomer(customer)
-            if (amount && amount > 0) {
-              const dueDate = calcMonthlyDueDate(app.construction_date, customer.payment_date ?? null)
-              await supabase.from('service_billings').insert({
-                customer_id: customer.id,
-                billing_type: 'monthly',
-                billing_period: period,
-                amount,
-                due_date: dueDate,
-                status: 'pending',
-                notes: '방문 완료 자동 생성',
-              })
-            }
-          }
-        }
-      }
-    } catch (e) {
-      console.error('정기딥 월간 billings 자동 생성 실패:', e instanceof Error ? e.message : e)
-    }
-  }
+  // 2026-10-19: 정기딥 월간 방문 완료 시 billings 자동 생성 블록 제거 (수동 UI로 전환)
+  // 원 로직은 git log 로 복구 가능
 
   return NextResponse.json({ success: true })
 }

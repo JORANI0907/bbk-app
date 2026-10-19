@@ -9,6 +9,7 @@ import { BulkMonthlyScheduleNotifyModal } from './BulkMonthlyScheduleNotifyModal
 import RegularProgressFlow from './RegularProgressFlow'
 import { BillingAutoScheduleSummary } from '@/components/admin/customers/BillingAutoScheduleSummary'
 import { BillingKeyRegisterPanel } from '@/components/admin/customers/BillingKeyRegisterPanel'
+import BillingGenerateModal, { type BillingGenerateMode } from '@/components/admin/customers/BillingGenerateModal'
 import { Button } from '@/components/ui'
 import { Phone, ClipboardList, Map, Banknote, Save, Megaphone, Calendar, BookOpen, Archive, Trash2, Copy, Folder, FolderOpen, FolderPlus, CreditCard, FileCheck, ChevronDown, Lock, Unlock } from 'lucide-react'
 import { useDriveFolder } from '@/hooks/useDriveFolder'
@@ -802,6 +803,8 @@ export function CustomersManagementView({
   // 일괄 예약확정알림 모달: 발송 유형(정기딥/정기엔드) 세팅 시 오픈, null 이면 닫힘.
   const [bulkNotifyType, setBulkNotifyType] = useState<'정기딥케어' | '정기엔드케어' | null>(null)
   const [bulkCreating, setBulkCreating] = useState(false)
+  // 2026-10-19 Phase B: 결제청구 수동 생성/수정반영 모달
+  const [billingModal, setBillingModal] = useState<{ customerId: string; customerName: string; mode: BillingGenerateMode } | null>(null)
   const [bulkConfirm, setBulkConfirm] = useState<{ label: string; desc: string; onConfirm: () => void } | null>(null)
   // Phase 5-E: 기간 기반 모달 — mode(create=신규 생성 / cleanup=수정)
   const [scheduleGenModal, setScheduleGenModal] = useState<{
@@ -1511,21 +1514,9 @@ export function CustomersManagementView({
     monthly_date_assignments: monthlyDateAssignments,
   })
 
-  const autoGenerateBillings = (customerId: string, regenerate = false) => {
-    const eligible =
-      (form.customer_type === '정기딥케어' || form.customer_type === '정기엔드케어') &&
-      !!form.contract_start_date &&
-      !!form.billing_cycle
-    if (!eligible) return
-    fetch('/api/admin/customers/generate-billings', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ customer_ids: [customerId], regenerate }),
-    }).then(async res => {
-      const data = await res.json()
-      if (res.ok && data.totalInserted > 0) {
-        toast.success(`청구 ${data.totalInserted}건이 자동 생성되었습니다.`)
-      }
-    }).catch(() => {})
+  const autoGenerateBillings = (_customerId: string, _regenerate = false): void => {
+    // 2026-10-19: 자동 생성 전면 중단 — 수동 UI(Phase B의 "결제청구 생성" 버튼)로 전환
+    // 호출부는 그대로 두되 no-op 처리. Phase B 완성 후 호출부까지 완전 제거 예정.
   }
 
   // Phase 2-F: 저장 후 방문일정에 맞춰 배정관리(service_applications) 자동 갱신
@@ -4397,8 +4388,10 @@ export function CustomersManagementView({
                   <p className="text-xs font-semibold text-emerald-800">💰 정기엔드케어 계약 정보</p>
                 </div>
                 <div className="p-4 flex flex-col gap-4">
+                  {/* 2026-10-19 Phase D: 결제 관련 필드 전체를 파란(sky) 소박스 하나로 묶음 */}
+                  <div className="rounded-xl border border-sky-200 bg-sky-50/40 p-3 flex flex-col gap-3">
                   {/* 고객 → 범빌드코리아 */}
-                  <div className="bg-surface border border-purple-100 rounded-lg p-3 flex flex-col gap-3">
+                  <div className="flex flex-col gap-3">
                     <p className="text-xs font-semibold text-text-primary">고객 → 범빌드코리아</p>
                     <div className="flex items-center gap-2">
                       <span className="text-xs text-text-secondary w-24 shrink-0 inline-flex items-center gap-1">
@@ -4502,6 +4495,55 @@ export function CustomersManagementView({
                     </div>
                   </div>
 
+                  {/* 2026-10-19 Phase D: 결제청구 — 소박스 테두리 제거, 외부 묶음에 쌓임 */}
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-xs font-semibold text-sky-800 flex items-center gap-1.5 group relative cursor-help shrink-0">
+                      💰 결제청구
+                      <span className="text-sky-500 text-[10px]">ⓘ</span>
+                      <span className="absolute left-0 top-full mt-1 z-20 w-72 p-2.5 bg-slate-800 text-white text-[10px] rounded-md shadow-pop opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity leading-relaxed break-keep">
+                        [생성] = 아직 없는 기간만 추가 · [수정반영] = pending 레코드 삭제 후 재생성 · 결제완료(paid) 이력은 절대 삭제되지 않음 · 생성 시 결제 안내 링크도 함께 발급
+                      </span>
+                    </p>
+                    <div className="flex gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => selected && setBillingModal({
+                          customerId: selected.id,
+                          customerName: form.business_name || selected.business_name,
+                          mode: 'regenerate',
+                        })}
+                        disabled={!selected}
+                        className="px-3 py-1.5 bg-sky-600 hover:bg-sky-700 text-white text-xs font-semibold rounded-md disabled:opacity-50"
+                      >
+                        수정 반영
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => selected && setBillingModal({
+                          customerId: selected.id,
+                          customerName: form.business_name || selected.business_name,
+                          mode: 'create',
+                        })}
+                        disabled={!selected}
+                        className="px-3 py-1.5 bg-white hover:bg-sky-50 text-sky-700 text-xs font-semibold rounded-md border border-sky-300 disabled:opacity-50"
+                      >
+                        생성
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* 2026-10-19 Phase D: 결제 안내 자동 발송 예정 — 결제 묶음 안으로 이동 (정기엔드/정기딥 자동 분기) */}
+                  {!isNew && (
+                    <BillingAutoScheduleSummary
+                      customerType={isDipCare ? '정기딥케어' : '정기엔드케어'}
+                      billingCycle={form.billing_cycle ?? null}
+                      paymentDate={form.payment_date ? Number(form.payment_date) : null}
+                      billingStartDate={form.billing_start_date ?? null}
+                      customerId={selected?.id ?? null}
+                    />
+                  )}
+                  </div>  {/* ← 파란(sky) 결제 묶음 닫기 */}
+
                   {/* 2026-10-18 Phase I.3: 방문 + 담당자 묶음 (보라 "조건 그룹" — [수정 반영]/[생성] 버튼의 입력 조건) */}
                   <div className="rounded-xl border border-purple-200 bg-purple-50/40 p-3 space-y-3">
                     <p className="text-xs font-bold text-purple-800 flex items-center gap-1.5">
@@ -4509,7 +4551,7 @@ export function CustomersManagementView({
                     </p>
 
                     {/* 방문 일정 */}
-                    <div className="bg-white border border-purple-100 rounded-lg p-3">
+                    <div>
                       <VisitCycleEditor
                         unit={form.visit_cycle_unit}
                         value={form.visit_cycle_value}
@@ -4520,7 +4562,7 @@ export function CustomersManagementView({
                     </div>
 
                     {/* 일자별 담당자·작업자 */}
-                    <div className="bg-white border border-purple-100 rounded-lg p-3">
+                    <div>
                       <RegularAssignmentsWidget
                     visitCycleUnit={visitCycleUnitLive}
                     monthlyVisitDates={monthlyVisitDates}
@@ -4672,22 +4714,18 @@ export function CustomersManagementView({
               </div>
             )}
 
-            {/* 2026-10-18 Phase I.2: 정기엔드 자동 발송 예정 미리보기 */}
-            {!isWorker && isEndCare && !isNew && (
-              <BillingAutoScheduleSummary
-                customerType="정기엔드케어"
-                billingCycle={form.billing_cycle ?? null}
-                paymentDate={form.payment_date ? Number(form.payment_date) : null}
-                billingStartDate={form.billing_start_date ?? null}
-              />
-            )}
+            {/* 2026-10-19 Phase D: BillingAutoScheduleSummary 를 정기엔드 계약 정보 "결제 묶음" 안으로 이동 */}
 
-            {/* 2026-10-18 Phase I.3: 정기엔드 빌링키 등록 링크 생성 패널 */}
+            {/* 2026-10-18 Phase I.3 + 2026-10-19 Phase E: 정기엔드 빌링키 등록/상태 패널 */}
             {!isWorker && isEndCare && !isNew && selected?.id && (
               <BillingKeyRegisterPanel
                 customerId={selected.id}
                 monthlyAmount={Number(form.billing_amount || 0)}
                 paymentDate={form.payment_date ? Number(form.payment_date) : null}
+                billingKeyStatus={(selected as unknown as { billing_key_status?: string | null }).billing_key_status ?? null}
+                billingKeyCardName={(selected as unknown as { billing_key_card_name?: string | null }).billing_key_card_name ?? null}
+                billingKeyIssuedAt={(selected as unknown as { billing_key_issued_at?: string | null }).billing_key_issued_at ?? null}
+                lastBilledAt={(selected as unknown as { billing_last_billed_at?: string | null }).billing_last_billed_at ?? null}
               />
             )}
 
@@ -4699,8 +4737,9 @@ export function CustomersManagementView({
                   <p className="text-xs font-semibold text-emerald-800">💰 정기딥케어 계약 정보</p>
                 </div>
                 <div className="p-3 flex flex-col gap-3">
-                  {/* Phase 21: 결제 소섹션 — 컴팩트 + 파스텔 blue */}
-                  <div className="bg-brand-50 border border-brand-200 rounded-lg p-3 flex flex-col gap-2.5">
+                  {/* 2026-10-19 Phase D: 결제 관련 필드 전체를 파란(sky) 소박스 하나로 묶음 */}
+                  <div className="rounded-xl border border-sky-200 bg-sky-50/40 p-3 flex flex-col gap-2.5">
+                  <div className="flex flex-col gap-2.5">
                     <div className="flex items-center gap-2">
                       <span className="text-xs text-text-secondary w-20 shrink-0 inline-flex items-center gap-1">
                         결제 주기
@@ -4808,7 +4847,8 @@ export function CustomersManagementView({
                   </div>
 
                   {/* Phase 21: 계약기간 소섹션 — 한 줄 + 파스텔 sky */}
-                  <div className="bg-brand-50 border border-brand-200 rounded-lg p-3 flex items-center gap-2">
+                  {/* 2026-10-19 Phase D: 계약기간 소박스 테두리 제거 */}
+                  <div className="flex items-center gap-2 pt-1 border-t border-dashed border-emerald-100">
                     <p className="text-xs font-semibold text-text-primary shrink-0">
                       계약기간 <span className="text-text-tertiary font-normal">(시작 · 만료)</span>
                     </p>
@@ -4819,6 +4859,55 @@ export function CustomersManagementView({
                       className="flex-1 border border-border rounded-md px-2 py-1 text-xs bg-white focus:outline-none focus:ring-1 focus:ring-sky-500" />
                   </div>
 
+                  {/* 2026-10-19 Phase D: 결제청구 — 소박스 테두리 제거, 외부 묶음에 쌓임 */}
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-xs font-semibold text-sky-800 flex items-center gap-1.5 group relative cursor-help shrink-0">
+                      💰 결제청구
+                      <span className="text-sky-500 text-[10px]">ⓘ</span>
+                      <span className="absolute left-0 top-full mt-1 z-20 w-72 p-2.5 bg-slate-800 text-white text-[10px] rounded-md shadow-pop opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity leading-relaxed break-keep">
+                        [생성] = 아직 없는 기간만 추가 · [수정반영] = pending 레코드 삭제 후 재생성 · 결제완료(paid) 이력은 절대 삭제되지 않음 · 생성 시 결제 안내 링크도 함께 발급
+                      </span>
+                    </p>
+                    <div className="flex gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => selected && setBillingModal({
+                          customerId: selected.id,
+                          customerName: form.business_name || selected.business_name,
+                          mode: 'regenerate',
+                        })}
+                        disabled={!selected}
+                        className="px-3 py-1.5 bg-sky-600 hover:bg-sky-700 text-white text-xs font-semibold rounded-md disabled:opacity-50"
+                      >
+                        수정 반영
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => selected && setBillingModal({
+                          customerId: selected.id,
+                          customerName: form.business_name || selected.business_name,
+                          mode: 'create',
+                        })}
+                        disabled={!selected}
+                        className="px-3 py-1.5 bg-white hover:bg-sky-50 text-sky-700 text-xs font-semibold rounded-md border border-sky-300 disabled:opacity-50"
+                      >
+                        생성
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* 2026-10-19 Phase D: 결제 안내 자동 발송 예정 — 결제 묶음 안으로 이동 (정기엔드/정기딥 자동 분기) */}
+                  {!isNew && (
+                    <BillingAutoScheduleSummary
+                      customerType={isDipCare ? '정기딥케어' : '정기엔드케어'}
+                      billingCycle={form.billing_cycle ?? null}
+                      paymentDate={form.payment_date ? Number(form.payment_date) : null}
+                      billingStartDate={form.billing_start_date ?? null}
+                      customerId={selected?.id ?? null}
+                    />
+                  )}
+                  </div>  {/* ← 파란(sky) 결제 묶음 닫기 */}
+
                   {/* 2026-10-18 Phase I.3: 방문 + 담당자 묶음 (보라 "조건 그룹" — [수정 반영]/[생성] 버튼의 입력 조건) */}
                   <div className="rounded-xl border border-purple-200 bg-purple-50/40 p-3 space-y-3">
                     <p className="text-xs font-bold text-purple-800 flex items-center gap-1.5">
@@ -4826,7 +4915,7 @@ export function CustomersManagementView({
                     </p>
 
                     {/* 방문 일정 */}
-                    <div className="bg-white border border-purple-100 rounded-lg p-3">
+                    <div>
                       <VisitCycleEditor
                         unit={form.visit_cycle_unit}
                         value={form.visit_cycle_value}
@@ -4837,7 +4926,7 @@ export function CustomersManagementView({
                     </div>
 
                     {/* 일자별 담당자·작업자 */}
-                    <div className="bg-white border border-purple-100 rounded-lg p-3">
+                    <div>
                       <RegularAssignmentsWidget
                         visitCycleUnit={visitCycleUnitLive}
                         monthlyVisitDates={monthlyVisitDates}
@@ -4887,15 +4976,7 @@ export function CustomersManagementView({
               </div>
             )}
 
-            {/* 2026-10-18 Phase I.2: 정기딥 자동 발송 예정 미리보기 (후불 — 규칙만) */}
-            {!isWorker && isDipCare && !isNew && (
-              <BillingAutoScheduleSummary
-                customerType="정기딥케어"
-                billingCycle={form.billing_cycle ?? null}
-                paymentDate={form.payment_date ? Number(form.payment_date) : null}
-                billingStartDate={form.billing_start_date ?? null}
-              />
-            )}
+            {/* 2026-10-19 Phase D: BillingAutoScheduleSummary 를 정기딥 계약 정보 "결제 묶음" 안으로 이동 */}
 
             {/* Phase 22: D-day 요약 → 저장 버튼 아래로 이관됨 (자리 제거) */}
 
@@ -5612,6 +5693,16 @@ export function CustomersManagementView({
           </div>
         </div>
       </div>
+    )}
+
+    {/* 2026-10-19 Phase B: 결제청구 수동 생성/수정반영 모달 */}
+    {billingModal && (
+      <BillingGenerateModal
+        customerId={billingModal.customerId}
+        customerName={billingModal.customerName}
+        mode={billingModal.mode}
+        onClose={() => setBillingModal(null)}
+      />
     )}
 
     {/* 일괄 예약확정알림 모달 — 정기딥/엔드 단일 유형 체크 후 [일정 알림] 버튼에서 오픈. */}

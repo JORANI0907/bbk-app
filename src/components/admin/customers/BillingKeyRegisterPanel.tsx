@@ -20,13 +20,53 @@ interface Props {
   customerId: string
   monthlyAmount: number
   paymentDate: number | null
+  // 2026-10-19 Phase E: 빌링키 등록 완료 상태 표시
+  billingKeyStatus?: string | null  // 'active' | 'inactive' | null
+  billingKeyCardName?: string | null
+  billingKeyIssuedAt?: string | null  // ISO
+  lastBilledAt?: string | null  // ISO
 }
 
-export function BillingKeyRegisterPanel({ customerId, monthlyAmount, paymentDate }: Props) {
+export function BillingKeyRegisterPanel({
+  customerId,
+  monthlyAmount,
+  paymentDate,
+  billingKeyStatus,
+  billingKeyCardName,
+  billingKeyIssuedAt,
+  lastBilledAt,
+}: Props) {
   const [url, setUrl] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
+
+  // 2026-10-19 Phase E: 빌링키 활성 상태면 "등록 완료" 뱃지만 표시
+  const isRegistered = billingKeyStatus === 'active'
+  if (isRegistered) {
+    const fmtDate = (iso: string | null | undefined) =>
+      iso ? new Date(iso).toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit' }) : null
+    return (
+      <div className="rounded-lg bg-emerald-50 border border-emerald-300 p-3 space-y-1.5">
+        <p className="text-sm font-bold text-emerald-800 flex items-center gap-1.5">
+          <Check size={14} /> 빌링키 등록 완료 — 매월 자동결제 활성
+        </p>
+        <p className="text-[11px] text-emerald-700 leading-relaxed">
+          이 고객은 매월 {paymentDate ?? '지정'}일에{' '}
+          <strong>{monthlyAmount.toLocaleString('ko-KR')}원</strong>이 자동으로 결제됩니다.
+        </p>
+        {billingKeyCardName && (
+          <p className="text-[11px] text-emerald-700">💳 카드: <strong>{billingKeyCardName}</strong></p>
+        )}
+        {billingKeyIssuedAt && (
+          <p className="text-[11px] text-emerald-600">등록일: {fmtDate(billingKeyIssuedAt)}</p>
+        )}
+        {lastBilledAt && (
+          <p className="text-[11px] text-emerald-600">최근 자동결제: {fmtDate(lastBilledAt)}</p>
+        )}
+      </div>
+    )
+  }
 
   const handleGenerate = async () => {
     setLoading(true)

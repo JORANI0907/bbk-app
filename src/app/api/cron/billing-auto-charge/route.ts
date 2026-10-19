@@ -118,23 +118,10 @@ export async function POST(request: NextRequest) {
     let paymentId = existing?.payment_portone_id as string | undefined
 
     if (!billingId) {
-      const { data: created, error: insertErr } = await supabase
-        .from('service_billings')
-        .insert({
-          customer_id: customer.id,
-          billing_type: 'monthly',
-          billing_period: period,
-          amount,
-          due_date: iso,
-          status: 'pending',
-        })
-        .select('id')
-        .single()
-      if (insertErr || !created) {
-        results.push({ customerId: customer.id, businessName, amount, status: 'failed', reason: `service_billings 생성 실패: ${insertErr?.message ?? 'unknown'}` })
-        continue
-      }
-      billingId = created.id as string
+      // 2026-10-19: 자동 INSERT 제거 — 수동 UI(Phase B)로 생성된 레코드만 결제 시도
+      // 사장님이 "결제청구 생성" 버튼으로 service_billings 를 만들어둬야 이 cron 이 결제함
+      results.push({ customerId: customer.id, businessName, amount, status: 'skipped', reason: '수동 생성된 결제청구 없음 (사장님 수동 생성 필요)' })
+      continue
     }
 
     if (!paymentId) {

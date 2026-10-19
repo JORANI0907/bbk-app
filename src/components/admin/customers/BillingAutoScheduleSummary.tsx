@@ -1,30 +1,31 @@
 'use client'
 
 /**
- * 결제 안내 자동 발송 예정 미리보기 (2026-10-18 Phase I.2)
+ * 결제 안내 자동 발송 예정 미리보기 (2026-10-19 Phase D 재작성)
  *
- * 정기엔드 (선불): payment_date 기준 다음 3개월 due_date → 각각 5일전/3일전/당일/격일 연체 리듬 미리보기
- * 정기딥   (후불): 월 작업 완료 기반 — 예측 불가. 발송 규칙만 안내.
+ * 공통:
+ *   - 파란색(sky) 통일
+ *   - 기본 접힘 → 헤더 클릭 시 펼침
+ *   - 발송 리듬: D-3 + 당일 2회 (Phase D 단순화 규칙)
  *
- * 사장님이 계약 정보 (결제 주기·결제일자) 변경 즉시 미리보기가 갱신됨 → 설정 효과 즉시 체감.
+ * 정기엔드 (선불): payment_date 기준 다음 2개월 due_date 미리보기
+ * 정기딥   (후불): service_billings 의 pending 레코드 → 가까운 due_date 2개
  */
 
-import { Clock } from 'lucide-react'
+import { Clock, ChevronDown, ChevronUp } from 'lucide-react'
+import { useEffect, useState } from 'react'
 
 interface Props {
   customerType: '정기딥케어' | '정기엔드케어'
   billingCycle: string | null       // '월간' | '연간' | '1개월' 등 자유 문자열
   paymentDate: number | null        // 매월 N일 (1~31)
   billingStartDate: string | null
+  // 2026-10-19: 정기딥 pending billings 조회용
+  customerId?: string | null
 }
 
-function pad(n: number): string {
-  return String(n).padStart(2, '0')
-}
-
-function lastDayOfMonth(year: number, month: number): number {
-  return new Date(year, month, 0).getDate()
-}
+function pad(n: number): string { return String(n).padStart(2, '0') }
+function lastDayOfMonth(y: number, m: number): number { return new Date(y, m, 0).getDate() }
 
 function fmtMD(iso: string): string {
   const [, m, d] = iso.split('-')
@@ -44,7 +45,6 @@ function nextDueDates(paymentDate: number, months: number): string[] {
   const now = new Date()
   let y = now.getFullYear()
   let m = now.getMonth() + 1
-  // 이번 달의 payment_date 가 아직 안 지났으면 이번 달부터, 지났으면 다음 달부터
   if (now.getDate() > paymentDate) {
     m += 1
     if (m > 12) { m = 1; y += 1 }
@@ -58,91 +58,134 @@ function nextDueDates(paymentDate: number, months: number): string[] {
   return result
 }
 
+/** 2026-10-19 Phase D 발송 리듬: D-3 + 당일 2회 */
 interface SendPlan { date: string; label: string }
-
-/** 하나의 due_date 에 대한 발송 리듬 5~6개 */
 function buildSendPlan(dueIso: string): SendPlan[] {
   return [
-    { date: addDays(dueIso, -5), label: '5일 전' },
     { date: addDays(dueIso, -3), label: '3일 전' },
     { date: dueIso,              label: '당일' },
-    { date: addDays(dueIso, 2),  label: '연체 1차 (+2일)' },
-    { date: addDays(dueIso, 4),  label: '연체 2차 (+4일)' },
-    { date: addDays(dueIso, 6),  label: '연체 3차 (+6일)' },
   ]
 }
 
 export function BillingAutoScheduleSummary({
-  customerType, billingCycle, paymentDate, billingStartDate,
+  customerType, billingCycle, paymentDate, billingStartDate, customerId,
 }: Props) {
-  void billingCycle; void billingStartDate  // 추후 로직 확장용
+  void billingCycle; void billingStartDate
+  const [open, setOpen] = useState(false)
+  const [deepDueDates, setDeepDueDates] = useState<string[]>([])
+  const [loading, setLoading] = useState(false)
 
-  // 정기딥 (후불): 예측 불가 — 규칙만
-  if (customerType === '정기딥케어') {
-    return (
-      <div className="rounded-lg bg-emerald-50 border border-emerald-200 p-3">
-        <p className="text-xs font-bold text-emerald-800 flex items-center gap-1.5">
-          <Clock size={12} /> 결제 안내 자동 발송 규칙 (정기딥 · 후불)
-        </p>
-        <ul className="mt-2 space-y-1 text-[11px] text-emerald-700 leading-relaxed pl-5 list-disc">
-          <li>월 작업 <strong>전부 완료</strong> 되면 결제 자동 생성</li>
-          <li>결제 기한 = 마지막 작업 완료일 <strong>+7일</strong></li>
-          <li>기한 지난 뒤 <strong>격일</strong>로 자동 발송 (최대 7회, 2주)</li>
-          <li>결제 완료 시 발송 즉시 중단, 2주 지나면 Slack 알림 + 자동 중단</li>
-        </ul>
-        <p className="mt-2 text-[10px] text-emerald-600 border-t border-emerald-200 pt-1.5">
-          💡 cron 매일 아침 9시 KST 자동 실행
-        </p>
-      </div>
-    )
-  }
+  // 정기딥 전용: pending service_billings 조회 (헤더 펼칠 때만 fetch)
+  useEffect(() => {
+    if (!open || customerType !== '정기딥케어' || !customerId) return
+    let aborted = false
+    ;(async () => {
+      setLoading(true)
+      try {
+        const res = await fetch(`/api/admin/customers/${customerId}/billings/preview`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+        })
+        const data = await res.json() as { schedule?: Array<{ due_date: string; existing_status: string | null }> }
+        if (aborted) return
+        const pending = (data.schedule ?? [])
+          .filter(s => s.existing_status === null || s.existing_status === 'pending')
+          .map(s => s.due_date)
+          .sort()
+          .slice(0, 2)
+        setDeepDueDates(pending)
+      } catch {
+        if (!aborted) setDeepDueDates([])
+      } finally {
+        if (!aborted) setLoading(false)
+      }
+    })()
+    return () => { aborted = true }
+  }, [open, customerType, customerId])
 
-  // 정기엔드 (선불): payment_date 기반 미리보기
-  if (!paymentDate || paymentDate < 1 || paymentDate > 31) {
-    return (
-      <div className="rounded-lg bg-amber-50 border border-amber-200 p-3">
-        <p className="text-xs font-semibold text-amber-800">
-          ⚠️ <strong>결제일자</strong>를 1~31일 범위로 입력하면 자동 발송 예정 일정이 여기 표시됩니다.
-        </p>
-      </div>
-    )
-  }
+  // 정기엔드: payment_date 체크
+  const endDueDates = (customerType === '정기엔드케어' && paymentDate && paymentDate >= 1 && paymentDate <= 31)
+    ? nextDueDates(paymentDate, 2)
+    : []
 
-  const dueDates = nextDueDates(paymentDate, 2)  // 다음 2개월
+  const dueDates = customerType === '정기딥케어' ? deepDueDates : endDueDates
   const todayStr = new Date().toISOString().slice(0, 10)
 
+  const headerLabel = customerType === '정기딥케어'
+    ? '결제 안내 자동 발송 예정 (정기딥 · 후불)'
+    : paymentDate
+      ? `결제 안내 자동 발송 예정 (정기엔드 · 선불 · 매월 ${paymentDate}일)`
+      : '결제 안내 자동 발송 예정 (정기엔드 · 선불)'
+
   return (
-    <div className="rounded-lg bg-emerald-50 border border-emerald-200 p-3">
-      <p className="text-xs font-bold text-emerald-800 flex items-center gap-1.5">
-        <Clock size={12} /> 결제 안내 자동 발송 예정 (정기엔드 · 선불 · 매월 {paymentDate}일 결제)
-      </p>
-      <div className="mt-2 space-y-2.5">
-        {dueDates.map(due => {
-          const plan = buildSendPlan(due)
-          return (
-            <div key={due} className="bg-white rounded-md border border-emerald-100 p-2">
-              <p className="text-[11px] font-semibold text-emerald-700 mb-1.5">
-                📅 {fmtMD(due)} 결제 기한
-              </p>
-              <ul className="space-y-0.5 text-[11px] text-text-primary">
-                {plan.map(s => {
-                  const isPast = s.date < todayStr
-                  return (
-                    <li key={s.date} className={`flex items-center gap-1.5 ${isPast ? 'text-text-tertiary line-through' : ''}`}>
-                      <span className="text-emerald-500">⏱️</span>
-                      <span className="font-mono">{fmtMD(s.date)}</span>
-                      <span className="text-text-tertiary text-[10px]">· {s.label}</span>
-                    </li>
-                  )
-                })}
-              </ul>
+    <div className="rounded-lg bg-sky-50 border border-sky-200 overflow-hidden">
+      <button
+        type="button"
+        onClick={() => setOpen(v => !v)}
+        className="w-full flex items-center justify-between gap-2 px-3 py-2 hover:bg-sky-100 transition-colors text-left"
+      >
+        <p className="text-xs font-bold text-sky-800 flex items-center gap-1.5 break-keep">
+          <Clock size={12} /> {headerLabel}
+        </p>
+        {open
+          ? <ChevronUp size={14} className="text-sky-700 shrink-0" />
+          : <ChevronDown size={14} className="text-sky-700 shrink-0" />}
+      </button>
+
+      {open && (
+        <div className="px-3 pb-3 border-t border-sky-200">
+          {/* 정기엔드: payment_date 미설정 안내 */}
+          {customerType === '정기엔드케어' && (!paymentDate || paymentDate < 1 || paymentDate > 31) && (
+            <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1.5 mt-2">
+              ⚠️ 결제일자(1~31)를 입력하면 자동 발송 예정 일정이 여기 표시됩니다.
+            </p>
+          )}
+
+          {/* 정기딥: 로딩 */}
+          {customerType === '정기딥케어' && loading && (
+            <p className="text-[11px] text-sky-700 mt-2">예정 일정 불러오는 중…</p>
+          )}
+
+          {/* 정기딥: 비어있음 */}
+          {customerType === '정기딥케어' && !loading && dueDates.length === 0 && (
+            <p className="text-[11px] text-sky-700 mt-2 break-keep">
+              아직 예정된 결제청구가 없습니다. 위 [결제청구 생성] 버튼으로 청구를 만들면 여기에 발송 예정 일정이 표시됩니다.
+            </p>
+          )}
+
+          {/* 공통: 예정 일정 리스트 */}
+          {dueDates.length > 0 && (
+            <div className="mt-2 space-y-2.5">
+              {dueDates.map(due => {
+                const plan = buildSendPlan(due)
+                return (
+                  <div key={due} className="bg-white rounded-md border border-sky-100 p-2">
+                    <p className="text-[11px] font-semibold text-sky-700 mb-1.5">
+                      📅 {fmtMD(due)} 결제 기한
+                    </p>
+                    <ul className="space-y-0.5 text-[11px] text-text-primary">
+                      {plan.map(s => {
+                        const isPast = s.date < todayStr
+                        return (
+                          <li key={s.date} className={`flex items-center gap-1.5 ${isPast ? 'text-text-tertiary line-through' : ''}`}>
+                            <span className="text-sky-500">⏱️</span>
+                            <span className="font-mono">{fmtMD(s.date)}</span>
+                            <span className="text-text-tertiary text-[10px]">· {s.label}</span>
+                          </li>
+                        )
+                      })}
+                    </ul>
+                  </div>
+                )
+              })}
             </div>
-          )
-        })}
-      </div>
-      <p className="mt-2 text-[10px] text-emerald-600 border-t border-emerald-200 pt-1.5">
-        💡 cron 매일 아침 9시 KST 자동 실행 · 결제 완료 시 즉시 중단 · 지난 날짜는 취소선 표시
-      </p>
+          )}
+
+          <p className="mt-2 text-[10px] text-sky-600 border-t border-sky-200 pt-1.5 break-keep">
+            💡 매일 아침 9시 KST 자동 실행 · D-3 + 당일 2회 발송 · 결제 완료 시 즉시 중단
+          </p>
+        </div>
+      )}
     </div>
   )
 }

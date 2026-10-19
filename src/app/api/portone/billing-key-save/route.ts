@@ -97,6 +97,20 @@ export async function POST(request: NextRequest) {
 
     const supabase = createServiceClient()
 
+    // 2026-10-19 Phase E: 정기엔드케어만 빌링키 등록 허용
+    // 정기딥케어는 선납·일회성 결제라서 빌링키 자동결제가 필요 없음.
+    const { data: custCheck } = await supabase
+      .from('customers')
+      .select('customer_type')
+      .eq('id', customerId)
+      .maybeSingle()
+    if (custCheck?.customer_type !== '정기엔드케어') {
+      return NextResponse.json(
+        { error: '정기엔드케어 고객만 빌링키 등록이 가능합니다.' },
+        { status: 400 },
+      )
+    }
+
     const { error: updateErr } = await supabase
       .from('customers')
       .update({

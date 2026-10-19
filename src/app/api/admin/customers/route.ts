@@ -82,61 +82,10 @@ async function autoGenerateBillings(
   },
   regenerate = false,
 ): Promise<{ inserted: number; skipped: number }> {
-  // Phase 23: 일시정지 고객은 청구 생성 skip
-  if (customer.status === 'paused') return { inserted: 0, skipped: 0 }
-  const amount = computeBillingAmountFromCustomer(customer)
-  const timing = customer.billing_timing ?? 'prepaid'
-  const input = {
-    serviceType: customer.customer_type,
-    billingCycle: customer.billing_cycle,
-    contractStartDate: customer.contract_start_date,
-    contractEndDate: customer.contract_end_date,
-    paymentDay: customer.payment_date,
-    billingAmount: amount,
-    billingTiming: timing,
-  }
-  if (!shouldAutoGenerateBillings(input)) return { inserted: 0, skipped: 0 }
-
-  const schedule = generateBillingSchedule(input)
-  if (schedule.length === 0) return { inserted: 0, skipped: 0 }
-
-  // billing 관련 필드 변경 시 pending 레코드 삭제 후 전체 재생성
-  if (regenerate) {
-    await supabase
-      .from('service_billings')
-      .delete()
-      .eq('customer_id', customer.id)
-      .eq('status', 'pending')
-  }
-
-  // 기존 청구 기간 조회 (paid/overdue 등 non-pending 레코드 보호)
-  const { data: existing } = await supabase
-    .from('service_billings')
-    .select('billing_period')
-    .eq('customer_id', customer.id)
-
-  const existingSet = new Set((existing ?? []).map((r: { billing_period: string }) => r.billing_period))
-  const toInsert = schedule.filter(s => !existingSet.has(s.billing_period))
-
-  if (toInsert.length === 0) return { inserted: 0, skipped: schedule.length }
-
-  const rows = toInsert.map(s => ({
-    customer_id: customer.id,
-    billing_type: s.billing_type,
-    billing_period: s.billing_period,
-    amount: s.amount,
-    due_date: s.due_date,
-    status: 'pending' as const,
-    service_type: customer.customer_type,
-    billing_timing: timing,
-  }))
-
-  const { error } = await supabase.from('service_billings').insert(rows)
-  if (error) {
-    console.error('[autoGenerateBillings] insert 실패:', error.message)
-    return { inserted: 0, skipped: schedule.length }
-  }
-  return { inserted: toInsert.length, skipped: schedule.length - toInsert.length }
+  // 2026-10-19: 자동 생성 전면 중단 — 수동 UI(Phase B)로 전환
+  // 원 로직은 git log 로 복구 가능. Phase B 완성되면 이 함수와 호출부 전부 제거 예정.
+  void supabase; void customer; void regenerate
+  return { inserted: 0, skipped: 0 }
 }
 
 async function createPortalAccount(

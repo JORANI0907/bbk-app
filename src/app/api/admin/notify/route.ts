@@ -178,6 +178,8 @@ function buildVariables(
       return {
         '고객명':   ownerName,
         '청소비용': balance,
+        // 2026-10-19 Phase D: 정기 결제는 service_billings.payment_url 사용, 1회성은 deposit_payment_url 폴백
+        '결제링크': String(app.payment_url ?? app.deposit_payment_url ?? ''),
       }
     case '결제알림(현금)':
       return {
@@ -270,7 +272,13 @@ function buildFallback(type: string, app: Record<string, unknown>): string {
     '작업완료알림(현금)':         `[BBK 공간케어] ${name}님, 케어가 완료되었습니다. 감사합니다.`,
     '작업완료알림(카드,플렛폼)':  `[BBK 공간케어] ${name}님, 케어가 완료되었습니다. 감사합니다.`,
     '작업완료알림(정기엔드케어)': `[BBK 공간케어] ${name}님, 오늘 진행한 청소 작업이 완료되었습니다. 감사합니다.`,
-    '결제알림':               `[BBK 공간케어] ${name}님, 잔금 결제를 요청드립니다.`,
+    '결제알림': (() => {
+      // 2026-10-19 Phase D: 결제링크 있으면 SMS 본문에 포함
+      const url = String(app.payment_url ?? app.deposit_payment_url ?? '')
+      return url
+        ? `[BBK 공간케어] ${name}님, 결제를 요청드립니다.\n결제링크: ${url}`
+        : `[BBK 공간케어] ${name}님, 결제를 요청드립니다.`
+    })(),
     '결제알림(현금)':         `[BBK 공간케어] ${name}님, 잔금 결제를 요청드립니다.`,
     '결제알림(카드,플렛폼)':  `[BBK 공간케어] ${name}님, 잔금 결제를 요청드립니다.`,
     '결제완료알림':       `[BBK 공간케어] ${name}님, 결제가 완료되었습니다. 감사합니다.`,
@@ -307,8 +315,10 @@ export async function POST(request: NextRequest) {
       application_id: string
       type: string
       method?: 'auto' | 'manual'
+      // 2026-10-19 Phase D: 정기 결제 billing_id (service_billings.payment_url 매핑용)
+      billing_id?: string
     }
-    const { application_id, method = 'manual' } = body
+    const { application_id, method = 'manual', billing_id } = body
     let type = body.type
     if (!application_id || !type) {
       return NextResponse.json({ error: '필수 항목 누락' }, { status: 400 })
@@ -467,6 +477,19 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (!app) return NextResponse.json({ error: '신청서를 찾을 수 없습니다.' }, { status: 404 })
+
+    // 2026-10-19 Phase D: billing_id 전달 시 service_billings.payment_url 을 app.payment_url 로 주입
+    // 정기 결제알림 SMS의 '결제링크' 변수가 service_billings.payment_url 을 가리키도록.
+    if (billing_id) {
+      const { data: billing } = await supabase
+        .from('service_billings')
+        .select('payment_url, amount, due_date')
+        .eq('id', billing_id)
+        .maybeSingle()
+      if (billing?.payment_url) {
+        (app as Record<string, unknown>).payment_url = billing.payment_url
+      }
+    }
 
     // 신청서작성완료알림: deposit_payment_url 없으면 자동 생성 후 SMS에 포함
     if (type === '신청서작성완료알림') {
