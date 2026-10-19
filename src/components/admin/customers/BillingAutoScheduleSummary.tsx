@@ -18,6 +18,8 @@ import { useEffect, useState } from 'react'
 interface Props {
   customerType: '정기딥케어' | '정기엔드케어'
   billingCycle: string | null       // '월간' | '연간' | '1개월' 등 자유 문자열
+  // 2026-10-19: 결제 방식 (선납/후납) — 헤더 라벨에 반영. 하드코딩 금지
+  billingTiming?: 'prepaid' | 'postpaid' | null
   paymentDate: number | null        // 매월 N일 (1~31)
   billingStartDate: string | null
   // 2026-10-19: 정기딥 pending billings 조회용
@@ -68,7 +70,7 @@ function buildSendPlan(dueIso: string): SendPlan[] {
 }
 
 export function BillingAutoScheduleSummary({
-  customerType, billingCycle, paymentDate, billingStartDate, customerId,
+  customerType, billingCycle, billingTiming, paymentDate, billingStartDate, customerId,
 }: Props) {
   void billingCycle; void billingStartDate
   const [open, setOpen] = useState(false)
@@ -111,11 +113,12 @@ export function BillingAutoScheduleSummary({
   const dueDates = customerType === '정기딥케어' ? deepDueDates : endDueDates
   const todayStr = new Date().toISOString().slice(0, 10)
 
-  const headerLabel = customerType === '정기딥케어'
-    ? '결제 안내 자동 발송 예정 (정기딥 · 후불)'
-    : paymentDate
-      ? `결제 안내 자동 발송 예정 (정기엔드 · 선불 · 매월 ${paymentDate}일)`
-      : '결제 안내 자동 발송 예정 (정기엔드 · 선불)'
+  // 2026-10-19: 결제 방식(선납/후납)을 실제 billing_timing 값으로 반영
+  const timingLabel = billingTiming === 'postpaid' ? '후불' : '선불'
+  const typeShort = customerType === '정기딥케어' ? '정기딥' : '정기엔드'
+  const headerLabel = customerType === '정기엔드케어' && paymentDate
+    ? `결제 안내 자동 발송 예정 (${typeShort} · ${timingLabel} · 매월 ${paymentDate}일)`
+    : `결제 안내 자동 발송 예정 (${typeShort} · ${timingLabel})`
 
   return (
     <div className="rounded-lg bg-sky-50 border border-sky-200 overflow-hidden">

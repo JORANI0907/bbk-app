@@ -152,7 +152,7 @@ export default function BillingGenerateModal({ customerId, customerName, mode, o
     .reduce((sum, s) => sum + (s.amount || 0), 0)
 
   return (
-    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 bg-black/40 z-[100] flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow-pop w-full max-w-2xl max-h-[85vh] flex flex-col">
         {/* 헤더 */}
         <div className="px-5 py-4 border-b border-border-subtle">

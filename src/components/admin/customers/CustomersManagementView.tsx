@@ -4537,6 +4537,7 @@ export function CustomersManagementView({
                     <BillingAutoScheduleSummary
                       customerType={isDipCare ? '정기딥케어' : '정기엔드케어'}
                       billingCycle={form.billing_cycle ?? null}
+                      billingTiming={(form.billing_timing as 'prepaid' | 'postpaid' | null) ?? null}
                       paymentDate={form.payment_date ? Number(form.payment_date) : null}
                       billingStartDate={form.billing_start_date ?? null}
                       customerId={selected?.id ?? null}
@@ -4901,6 +4902,7 @@ export function CustomersManagementView({
                     <BillingAutoScheduleSummary
                       customerType={isDipCare ? '정기딥케어' : '정기엔드케어'}
                       billingCycle={form.billing_cycle ?? null}
+                      billingTiming={(form.billing_timing as 'prepaid' | 'postpaid' | null) ?? null}
                       paymentDate={form.payment_date ? Number(form.payment_date) : null}
                       billingStartDate={form.billing_start_date ?? null}
                       customerId={selected?.id ?? null}

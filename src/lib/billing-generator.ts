@@ -109,22 +109,23 @@ export function generateBillingSchedule(input: GenerateInput): GeneratedBilling[
   const stepMonths = billingCycleStepMonths(input.billingCycle)
 
   if (isAnnual) {
-    // 연간: 각 연도별 1건
-    // - 선납: 첫 해 계약시작일, 이후 1월1일
-    // - 후납: 계약시작일 + K년 - 1일 (예: 2026-07-18 시작 → 2027-07-17, 2028-07-17, ...)
-    const startYear = start.getFullYear()
-    const endYear   = end.getFullYear()
+    // 2026-10-19 수정: 연간 사이클 계산을 "계약기간 안의 사이클만" 기준으로 변경.
+    //  - 1차: 계약시작일부터 (선납 due_date = 계약시작일 / 후납 due_date = 계약시작일+12개월-1일)
+    //  - 2차: 계약시작일+12개월 부터 (선납 due_date = 그 날짜 / 후납 due_date = +24개월-1일)
+    //  - 사이클 시작일이 계약 만료일을 넘으면 생성 중단 (예: 2026-03-05 ~ 2027-03-04 계약은 1건만)
+    //  이전 로직은 선납 2차 이후를 ${y}-01-01 로 하드코딩해서 사장님 계약과 무관한 날짜가 찍히는 버그.
+    const stepMonths = 12
     let cycleIdx = 0
-    for (let y = startYear; y <= endYear; y++) {
+    while (true) {
       cycleIdx++
+      const cycleStart = cycleIdx === 1 ? start : addMonthsClamped(start, (cycleIdx - 1) * stepMonths)
+      if (cycleStart > end) break
       const dueDate = timing === 'postpaid'
-        ? computePostpaidDueDate(start, cycleIdx, 12)
-        : (y === startYear
-            ? input.contractStartDate!.slice(0, 10)
-            : `${y}-01-01`)
+        ? computePostpaidDueDate(start, cycleIdx, stepMonths)
+        : toISODate(cycleStart)
       results.push({
         billing_type: 'annual',
-        billing_period: String(y),
+        billing_period: String(cycleStart.getFullYear()),
         due_date: dueDate,
         amount,
         service_type: sType,
