@@ -226,14 +226,16 @@ export async function GET(request: NextRequest) {
 
   const results: { type: string; sent: number; failed: number; skipped: number }[] = []
 
-  // ── 1. 예약1일전알림: 내일 시공 + 예약금 완료 + 담당자 배정 ──────────
+  // ── 1. 예약1일전알림: 내일 시공 + (예약금 완료 OR 정기딥) + 담당자 배정 ──
   //     정기엔드케어 제외 (작업완료알림만 발송)
-  //     status 컬럼 대신 deposit_paid_at(예약금 완료 여부)로 필터
+  //     1회성/일반일정은 deposit_paid_at(예약금 완료 여부) 로 필터.
+  //     정기딥케어는 예약금 모델이 없음(service_billings 월 청구) → 예약금 조건 우회,
+  //     construction_date 도래하면 발송. (2026-10-21)
   {
     const { data: apps } = await supabase
       .from('service_applications')
       .select('*')
-      .not('deposit_paid_at', 'is', null)
+      .or('service_type.eq.정기딥케어,deposit_paid_at.not.is.null')
       .eq('construction_date', tomorrowKST)
       .not('assigned_to', 'is', null)
       .neq('service_type', '정기엔드케어')
@@ -257,14 +259,16 @@ export async function GET(request: NextRequest) {
     results.push({ type: '예약1일전알림', sent, failed, skipped })
   }
 
-  // ── 2. 예약당일알림: 오늘 시공 + 예약금 완료 + 담당자 배정 ─
+  // ── 2. 예약당일알림: 오늘 시공 + (예약금 완료 OR 정기딥) + 담당자 배정 ─
   //     정기엔드케어 제외 (작업완료알림만 발송)
-  //     status 컬럼 대신 deposit_paid_at(예약금 완료 여부)로 필터
+  //     1회성/일반일정은 deposit_paid_at(예약금 완료 여부) 로 필터.
+  //     정기딥케어는 예약금 모델이 없음(service_billings 월 청구) → 예약금 조건 우회,
+  //     construction_date 도래하면 발송. (2026-10-21)
   {
     const { data: apps } = await supabase
       .from('service_applications')
       .select('*')
-      .not('deposit_paid_at', 'is', null)
+      .or('service_type.eq.정기딥케어,deposit_paid_at.not.is.null')
       .eq('construction_date', todayKST)
       .not('assigned_to', 'is', null)
       .neq('service_type', '정기엔드케어')
