@@ -679,6 +679,14 @@ export async function PATCH(request: NextRequest) {
     // 결제방식 (마스터 편집이 결제요청알림 템플릿 선택으로 흘러야 함).
     // 크론이 신청서 payment_method 를 참조해 '결제요청알림(카드)' vs '결제알림(현금)' 결정.
     payment_method: 'payment_method',
+    // 결제·작업완료 타임스탬프 — 2026-10-21 추가.
+    // 고객관리 "진행 흐름" UI 토글이 customers 만 UPDATE 하던 탓에
+    // service_applications 쪽은 영원히 null 로 남아 예약1일전/당일알림 cron
+    // (.not('deposit_paid_at','is',null) 조건) 이 매일 조용히 skip 됐음.
+    // 여기 등록해 두면 아래 SINGLE_APP_SYNC_KEYS 분기가 "가장 최근 회차 1건" 에만 반영.
+    deposit_paid_at: 'deposit_paid_at',
+    balance_paid_at: 'balance_paid_at',
+    work_completed_at: 'work_completed_at',
   }
 
   // ═════════════════════════════════════════════════════════════════════
@@ -703,6 +711,18 @@ export async function PATCH(request: NextRequest) {
     // (body 에 없는 null 필드는 기존처럼 스킵해 회차별 값 보호)
     if (v === null && !(custKey in rest)) continue
     appUpdates[appKey] = v
+  }
+
+  // 회차별 개별값(결제·작업완료 시각) 은 전체 미완료 회차에 bulk UPDATE 하면
+  // 같은 customer 의 과거/재방문 회차까지 뒤덮이므로 분리. 아래에서 "가장 최근 회차 1건" 에만 반영.
+  // (정기케어는 service_billings 가 결제 상태를 관리하므로 이 필드들을 적용하지 않음.)
+  const SINGLE_APP_SYNC_KEYS = ['deposit_paid_at', 'balance_paid_at', 'work_completed_at'] as const
+  const singleAppUpdates: Record<string, unknown> = {}
+  for (const k of SINGLE_APP_SYNC_KEYS) {
+    if (k in appUpdates) {
+      singleAppUpdates[k] = appUpdates[k]
+      delete appUpdates[k]
+    }
   }
 
   const oneShotSyncable =
@@ -749,6 +769,35 @@ export async function PATCH(request: NextRequest) {
     } catch (e) {
       console.error(
         'customer→service_applications sync 실패:',
+        e instanceof Error ? e.message : e,
+      )
+    }
+  }
+
+  // 결제·작업완료 타임스탬프 sync (2026-10-21 추가):
+  // 1회성/일반일정에서만 "가장 최근 construction_date 1건" 에 반영.
+  // 고객관리 "진행 흐름" 토글이 customers 만 UPDATE 해 service_applications 가 비어
+  // 예약1일전/당일알림 cron 이 매일 skip 되던 버그 재발 방지. 정기케어는 미적용.
+  if (oneShotSyncable && Object.keys(singleAppUpdates).length > 0) {
+    try {
+      const { data: latestApp } = await supabase
+        .from('service_applications')
+        .select('id')
+        .eq('customer_id', id)
+        .is('deleted_at', null)
+        .order('construction_date', { ascending: false, nullsFirst: false })
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      if (latestApp) {
+        await supabase
+          .from('service_applications')
+          .update(singleAppUpdates)
+          .eq('id', latestApp.id)
+      }
+    } catch (e) {
+      console.error(
+        '결제완료 타임스탬프 sync 실패:',
         e instanceof Error ? e.message : e,
       )
     }
