@@ -656,6 +656,45 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '발송 가능한 전화번호가 없습니다.' }, { status: 400 })
     }
 
+    // 작업완료알림(카드,플렛폼) 발송 전 balance_payment_url 자동 생성 안전망.
+    // 과거 service_applications 금액 shadow mismatch 로 issue-payment-link 가 침묵 실패해
+    // URL 이 비어있는 1회성 신청서가 다수 있음. 재발송 시 매번 수동 "링크 생성" 을 누르지
+    // 않도록 발송 직전 자동 호출. 생성 성공 시 app 객체에 반영되어 {{잔금결제URL}} 치환 OK.
+    // 실패해도 발송은 계속(기존 빈 값 치환 동작 유지). (2026-10-23)
+    if (
+      type === '작업완료알림(카드,플렛폼)' &&
+      app.service_type === '1회성케어' &&
+      !app.balance_paid_at &&
+      !app.balance_payment_url
+    ) {
+      const pm = String(app.payment_method ?? '')
+      const supported =
+        pm === '카드(온라인 간편결제)' ||
+        pm === '가상계좌' ||
+        pm === '현금(계산서 희망)' ||
+        pm === '계좌이체' ||
+        pm === 'credit_card' ||
+        pm === 'virtual_account' ||
+        pm === 'bank_transfer'
+      if (supported) {
+        try {
+          const origin = new URL(request.url).origin
+          const res = await fetch(`${origin}/api/portone/issue-payment-link`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ applicationId: application_id, stage: 'balance' }),
+          })
+          if (res.ok) {
+            const data = await res.json().catch(() => null)
+            const url = data?.paymentUrl as string | undefined
+            if (url) {
+              (app as Record<string, unknown>).balance_payment_url = url
+            }
+          }
+        } catch { /* 자동 생성 실패해도 발송 계속 — 템플릿은 빈 값으로 치환 */ }
+      }
+    }
+
     const variables = buildVariables(type, app as Record<string, unknown>, assignedUserName)
     const fallbackText = buildFallback(type, app as Record<string, unknown>)
 
