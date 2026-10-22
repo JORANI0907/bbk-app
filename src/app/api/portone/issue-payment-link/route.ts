@@ -122,9 +122,32 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const supply  = Number(app.supply_amount ?? 0)
-    const vat     = Number(app.vat ?? 0)
-    const deposit = Number(app.deposit ?? 0)
+    let supply  = Number(app.supply_amount ?? 0)
+    let vat     = Number(app.vat ?? 0)
+    let deposit = Number(app.deposit ?? 0)
+
+    // 2026-10-23: service_applications 금액이 0 인데 customers 쪽엔 세팅돼있는 shadow mismatch 안전망.
+    // 관리자가 고객 저장을 통해 PATCH /api/admin/customers 를 거치지 않은 신청서 생성 경로(예: 포클래식 사례)에서
+    // service_applications.supply_amount 가 0 으로 남아 "잔금 금액이 0원입니다" 에러로 링크 발급이 실패하던 문제 해결.
+    // customers 쪽에서 더 큰 값을 발견하면 fallback + service_applications 쪽도 영구 동기화해 재발 방지.
+    if (!isCustomerMode && supply === 0 && app.customer_id) {
+      const { data: custFallback } = await supabase
+        .from('customers')
+        .select('supply_amount, vat, deposit')
+        .eq('id', app.customer_id as string)
+        .maybeSingle()
+      const fSupply = Number(custFallback?.supply_amount ?? 0)
+      if (fSupply > 0) {
+        supply  = fSupply
+        vat     = Number(custFallback?.vat ?? 0)
+        deposit = Number(custFallback?.deposit ?? deposit)
+        await supabase
+          .from('service_applications')
+          .update({ supply_amount: supply, vat, deposit })
+          .eq('id', recordId)
+      }
+    }
+
     const balance = calcBalance(supply, vat, deposit)
     const amount  = stage === 'deposit' ? deposit : balance
 

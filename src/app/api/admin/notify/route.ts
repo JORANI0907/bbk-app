@@ -447,7 +447,8 @@ export async function POST(request: NextRequest) {
         await saveNotificationHistory({
           category: 'sms',
           type,
-          body: `${type} 발송 완료 — ${worker.name ?? ''} (${worker.phone})`,
+          // 실제 전송된 SMS 본문 저장 (smsText 변수 = 위에서 조립한 텍스트).
+          body: smsText,
           title: type,
           method,
           recipientType: 'worker',
@@ -662,6 +663,9 @@ export async function POST(request: NextRequest) {
     // templateCode(접미사 붙은 코드)로 실제 template 조회. type(baseType)은 이력·상태용.
     const sendErrors: string[] = []
     const channelsUsed: Array<'sms' | 'lms'> = []
+    // 실제 렌더링된 SMS 본문 (첫 성공 발송분 저장) — 발송이력 UI 툴팁에서 "이전에 발송된 알림이라
+    // 문구 보관이 없습니다" 폴백 메시지가 뜨던 문제 해결. (2026-10-23)
+    let renderedBody: string | null = null
     for (const target of targets) {
       const smsResult = await sendByTemplate(templateCode, target, {
         application: app as NotificationContext['application'],
@@ -669,6 +673,7 @@ export async function POST(request: NextRequest) {
       })
       if (smsResult.ok) {
         channelsUsed.push(smsResult.type === 'LMS' ? 'lms' : 'sms')
+        if (renderedBody === null) renderedBody = smsResult.text
         continue
       }
       sendErrors.push(`${target}: ${smsResult.reason}${smsResult.details ? ` (${smsResult.details})` : ''}`)
@@ -818,7 +823,8 @@ export async function POST(request: NextRequest) {
     await saveNotificationHistory({
       category: 'sms',
       type,
-      body: `${type} 발송 완료 — ${app.owner_name ?? ''} (${sentPhoneRecord})`,
+      // 실제 렌더된 본문 저장. 전원 실패해 null 이면 요약 폴백 (customers/notify route와 동일 패턴).
+      body: renderedBody ?? `${type} 발송 완료 — ${app.owner_name ?? ''} (${sentPhoneRecord})`,
       title: type,
       method,
       recipientType: 'customer',
