@@ -5558,27 +5558,31 @@ export function CustomersManagementView({
                           const body = findNotifyBody(notifyBodyMap, log.type, log.sentAt)
                           return (
                             <div key={i}>
+                              {/* 모바일 좁은 폭에서 뱃지·날짜·버튼이 겹치지 않도록 overflow-x-auto 가로 스크롤.
+                                  truncate 제거하고 모든 요소를 whitespace-nowrap + shrink-0 로 유지.
+                                  넓은 뷰에서는 flex-1 spacer 가 공간을 밀어 기존 justify-between 효과 유지. (2026-10-23) */}
                               <div
-                                className="flex items-center justify-between px-3 py-2 gap-2 cursor-pointer hover:bg-surface-sunken transition-colors"
+                                className="flex items-center px-3 py-2 gap-2 cursor-pointer hover:bg-surface-sunken transition-colors overflow-x-auto"
                                 onClick={() => setOpenBodyIdx(prev => prev === i ? null : i)}
                               >
-                                <div className="flex items-center gap-1.5 min-w-0">
+                                <div className="flex items-center gap-1.5 shrink-0">
                                   {isResent && (
-                                    <span className="text-xs px-1.5 py-0.5 bg-surface-sunken text-text-secondary rounded font-medium shrink-0">재발송</span>
+                                    <span className="text-xs px-1.5 py-0.5 bg-surface-sunken text-text-secondary rounded font-medium shrink-0 whitespace-nowrap">재발송</span>
                                   )}
                                   {log.method === 'auto' && (
-                                    <span className="text-xs px-1.5 py-0.5 bg-brand-100 text-brand-600 rounded font-medium shrink-0">[자동]</span>
+                                    <span className="text-xs px-1.5 py-0.5 bg-brand-100 text-brand-600 rounded font-medium shrink-0 whitespace-nowrap">[자동]</span>
                                   )}
-                                  <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium ${cfg?.badge ?? 'bg-surface-sunken text-text-secondary'}`}>
+                                  <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap ${cfg?.badge ?? 'bg-surface-sunken text-text-secondary'}`}>
                                     <span className={`w-1.5 h-1.5 rounded-full ${cfg?.dot ?? 'bg-text-tertiary'} shrink-0`} />
-                                    <span className="truncate">{baseType}</span>
+                                    <span>{baseType}</span>
                                   </span>
                                   {svcLabel && (
-                                    <span className="text-[10px] px-1.5 py-0.5 bg-slate-100 text-slate-600 rounded font-medium shrink-0">{svcLabel}</span>
+                                    <span className="text-[10px] px-1.5 py-0.5 bg-slate-100 text-slate-600 rounded font-medium shrink-0 whitespace-nowrap">{svcLabel}</span>
                                   )}
                                 </div>
+                                <div className="flex-1 min-w-[8px]" />
                                 <div className="flex items-center gap-2 shrink-0">
-                                  <span className="text-xs text-text-tertiary">{new Date(log.sentAt).toLocaleString('ko-KR', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}</span>
+                                  <span className="text-xs text-text-tertiary whitespace-nowrap">{new Date(log.sentAt).toLocaleString('ko-KR', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}</span>
                                   {!isResent && (
                                     <button
                                       onClick={(e) => { e.stopPropagation(); handleResend(baseType) }}
