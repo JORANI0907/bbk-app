@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { getPortOneClient, getStoreId, isPortOneEnabled, calcBalance } from '@/lib/portone'
 import { sendSlack } from '@/lib/slack'
+import { notifyPaymentCompleteAdmin } from '@/lib/solapi'
 
 const APP_BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.bbkorea.co.kr'
 
@@ -260,6 +261,14 @@ export async function POST(request: NextRequest) {
         `금액: ${expectedAmount.toLocaleString('ko-KR')}원\n` +
         `결제ID: ${paymentId}`,
       ).catch(() => {})
+
+      // 관리자 SMS (Slack 과 병행)
+      notifyPaymentCompleteAdmin({
+        stageLabel,
+        businessName: String(app.business_name ?? ''),
+        ownerName: String(ownerName ?? ''),
+        amount: expectedAmount,
+      }).catch(() => {})
     }
 
     // 자동 알림은 service_applications 모드에서만 (customers 모드는 알림 플로우 없음)

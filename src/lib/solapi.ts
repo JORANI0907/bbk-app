@@ -67,6 +67,26 @@ export async function sendOTP(phone: string, otp: string): Promise<void> {
   await sendSMS(phone, text)
 }
 
+/**
+ * 결제 완료 시 관리자(사장)에게 간단 요약 SMS 발송 — Slack 보고와 병행.
+ * 포트원 complete/webhook/정기결제 모든 경로에서 재사용.
+ * (2026-10-23)
+ */
+export async function notifyPaymentCompleteAdmin(opts: {
+  stageLabel: string         // '예약금(1차)' / '잔금(2차)' / '정기 결제 (월간)' 등
+  businessName: string
+  ownerName: string
+  amount: number
+}): Promise<void> {
+  const ADMIN_PHONE = '01054344877'
+  const text =
+    `[BBK] ${opts.stageLabel} 결제 완료\n` +
+    `업체: ${opts.businessName || '-'}\n` +
+    `이름: ${opts.ownerName || '-'}\n` +
+    `금액: ${opts.amount.toLocaleString('ko-KR')}원`
+  await sendSmsOrLms(ADMIN_PHONE, text, {})
+}
+
 export async function sendScheduleAlert(phone: string, customerName: string, date: string): Promise<void> {
   const text = `[BBK Korea] ${customerName}님, ${date} 서비스가 배정되었습니다.`
   await sendSMS(phone, text)

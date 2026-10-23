@@ -8,6 +8,7 @@
 
 import { createServiceClient } from '@/lib/supabase/server'
 import { sendSlack } from '@/lib/slack'
+import { notifyPaymentCompleteAdmin } from '@/lib/solapi'
 
 const APP_BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.bbkorea.co.kr'
 
@@ -74,14 +75,22 @@ export async function handleTransactionPaid(paymentId: string): Promise<void> {
       `결제ID: ${paymentId}`,
     ).catch(() => {})
 
+    // 관리자 SMS (Slack 과 병행)
+    notifyPaymentCompleteAdmin({
+      stageLabel: '예약금(1차)',
+      businessName: depositRow.business_name ?? '',
+      ownerName: depositRow.owner_name ?? '',
+      amount: Number(depositRow.deposit ?? 0),
+    }).catch(() => {})
+
     await triggerAutoNotify(depositRow.id, '예약금 입금완료 알림')
     return
   }
 
-  // balance 매칭
+  // balance 매칭 (SMS 요약용으로 balance 컬럼도 함께 조회)
   const { data: balanceRow } = await supabase
     .from('service_applications')
-    .select('id, owner_name, business_name, balance_paid_at')
+    .select('id, owner_name, business_name, balance_paid_at, balance')
     .eq('balance_portone_id', paymentId)
     .is('deleted_at', null)
     .maybeSingle()
@@ -123,6 +132,14 @@ export async function handleTransactionPaid(paymentId: string): Promise<void> {
       `업체: ${balanceRow.business_name ?? '-'} / 고객: ${balanceRow.owner_name ?? '-'}\n` +
       `결제ID: ${paymentId}`,
     ).catch(() => {})
+
+    // 관리자 SMS (Slack 과 병행)
+    notifyPaymentCompleteAdmin({
+      stageLabel: '잔금(2차)',
+      businessName: balanceRow.business_name ?? '',
+      ownerName: balanceRow.owner_name ?? '',
+      amount: Number(balanceRow.balance ?? 0),
+    }).catch(() => {})
 
     await triggerAutoNotify(balanceRow.id, '결제완료알림(잔금)')
     return
@@ -169,6 +186,14 @@ export async function handleTransactionPaid(paymentId: string): Promise<void> {
       `기간: ${billingRow.billing_period} · 금액: ${Number(billingRow.amount ?? 0).toLocaleString('ko-KR')}원\n` +
       `결제ID: ${paymentId}`,
     ).catch(() => {})
+
+    // 관리자 SMS (Slack 과 병행) — ownerName 은 billingRow 에 없어 빈 값 전달
+    notifyPaymentCompleteAdmin({
+      stageLabel: `정기 결제 (${typeLabel})`,
+      businessName: businessName,
+      ownerName: '',
+      amount: Number(billingRow.amount ?? 0),
+    }).catch(() => {})
 
     // Phase H.5-rev: 결제완료 → 그 월(또는 연) 작업들에 자동 '결제완료알림' 발송
     //   → notification_log 에 기록 → 📜 알림 발송 이력 섹션에 자동 반영
