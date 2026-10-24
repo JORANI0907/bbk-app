@@ -38,7 +38,7 @@ function fmtMD(iso: string): string {
 }
 
 /** 2026-10-19: 영어 enum 결제수단 코드를 사장님 UI 용 한국어 라벨로 */
-const PAYMENT_METHOD_LABEL: Record<string, string> = {
+export const PAYMENT_METHOD_LABEL: Record<string, string> = {
   credit_card:      '카드결제',
   corporate_card:   '법인카드',
   cash:             '현금결제',
@@ -52,7 +52,7 @@ const PAYMENT_METHOD_LABEL: Record<string, string> = {
   escrow:           '에스크로',
   mobile:           '휴대폰결제',
 }
-function paymentMethodLabel(method: string | null): string {
+export function paymentMethodLabel(method: string | null): string {
   if (!method) return '수동결제'
   return PAYMENT_METHOD_LABEL[method] ?? method
 }

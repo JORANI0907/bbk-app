@@ -18,7 +18,7 @@ import { FieldHint } from '@/components/ui/FieldHint'
 // 2026-10-18 Phase I: ContractScheduleSection·MonthlyScheduleSection 레거시 제거.
 //   조회·편집·월별 SMS 발송 전부 RegularProgressFlow 로 흡수됨.
 import { PaymentIssuesSummary } from '@/components/admin/customers/PaymentIssuesSummary'
-import { UpcomingVisits, UpcomingBillings } from '@/components/admin/customers/UpcomingEventsBadges'
+import { UpcomingVisits, UpcomingBillings, PAYMENT_METHOD_LABEL as PAYMENT_METHOD_ENUM_LABEL } from '@/components/admin/customers/UpcomingEventsBadges'
 import { ServiceManagementPage } from '@/components/admin/applications/ServiceManagementView'
 import { CustomersCalendarGrid, type CalendarApp } from '@/components/admin/customers/CustomersCalendarGrid'
 import { computeAppAmount, fmtAmount } from '@/components/admin/customers/calendar-amount'
@@ -871,6 +871,9 @@ export function CustomersManagementView({
   // 직원 필터 (정직원만)
   const [staffList, setStaffList] = useState<Array<{ id: string; name: string; user_id: string | null }>>([])
   const [selectedStaffId, setSelectedStaffId] = useState<string | null>(null)
+  // 결제방법 다중선택 필터 (2026-10-24 추가) — 담당자 필터 옆에 노출.
+  // 빈 집합이면 "전체" 로 간주하고 필터 미적용.
+  const [selectedPaymentMethods, setSelectedPaymentMethods] = useState<Set<string>>(new Set())
 
   // 지도 앱 선택 모달
   const [mapAddress, setMapAddress] = useState<string | null>(null)
@@ -2644,6 +2647,14 @@ export function CustomersManagementView({
       }
     }
 
+    // 결제방법 다중선택 필터 (2026-10-24) — c.payment_method 가 선택 집합에 포함돼야 통과
+    if (selectedPaymentMethods.size > 0) {
+      list = list.filter(c => {
+        const pm = (c.payment_method ?? '') as string
+        return selectedPaymentMethods.has(pm)
+      })
+    }
+
     // 검색: DB의 모든 텍스트/숫자 필드 대상 (고객DB이력 등에서 전체 필드 검색 요구)
     // 성능: search 대신 deferredSearch 사용 → 타이핑 반응성 유지
     if (deferredSearch.trim()) {
@@ -2711,7 +2722,7 @@ export function CustomersManagementView({
     }
 
     return list
-  }, [customers, isAdmin, currentUserId, selectedTypes, deferredSearch, sortKey, sortDir, selectedStaffId, staffList, showUnassignedOnly, pendingApplications, archivedView, usersList])
+  }, [customers, isAdmin, currentUserId, selectedTypes, deferredSearch, sortKey, sortDir, selectedStaffId, staffList, showUnassignedOnly, pendingApplications, archivedView, usersList, selectedPaymentMethods])
 
   // Phase 18: 유형 필터 활성 시 리스트 상단 30일치만 우선 로드 (전체는 "더 보기" 클릭)
   // archivedView(고객DB이력): 시간대가 다양하므로 30일 window가 아닌 "최근 30건" slice.
@@ -3016,6 +3027,52 @@ export function CustomersManagementView({
               <option key={s.id} value={s.id}>{s.name}</option>
             ))}
           </select>
+          {/* 결제방법 다중선택 필터 — details/summary 로 토글, 체크박스 다중 선택.
+              빈 집합 = 전체. 선택된 코드가 c.payment_method 와 일치하는 고객만 리스트에 노출. (2026-10-24) */}
+          <details className="relative">
+            <summary className="py-2.5 px-3 text-sm text-text-primary border border-border rounded-xl bg-surface shadow-soft cursor-pointer list-none min-w-[140px] flex items-center justify-between gap-2 select-none">
+              <span>
+                {selectedPaymentMethods.size === 0
+                  ? '결제방법 전체'
+                  : `결제방법 ${selectedPaymentMethods.size}`}
+              </span>
+              <ChevronDown size={14} className="text-text-tertiary" />
+            </summary>
+            <div className="absolute top-full right-0 mt-1 bg-surface border border-border rounded-xl shadow-pop p-2 min-w-[200px] z-30 max-h-80 overflow-y-auto">
+              {Object.entries(PAYMENT_METHOD_ENUM_LABEL).map(([value, label]) => {
+                const checked = selectedPaymentMethods.has(value)
+                return (
+                  <label
+                    key={value}
+                    className="flex items-center gap-2 px-2 py-1.5 hover:bg-surface-sunken rounded cursor-pointer text-sm"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={e => {
+                        setSelectedPaymentMethods(prev => {
+                          const next = new Set(prev)
+                          if (e.target.checked) next.add(value)
+                          else next.delete(value)
+                          return next
+                        })
+                      }}
+                    />
+                    <span>{label}</span>
+                  </label>
+                )
+              })}
+              {selectedPaymentMethods.size > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setSelectedPaymentMethods(new Set())}
+                  className="w-full mt-1 py-1 text-xs text-text-tertiary hover:text-text-primary border-t border-border-subtle"
+                >
+                  전체 해제
+                </button>
+              )}
+            </div>
+          </details>
         </div>
 
         {/* Phase 27-J: 유형 필터 + 미배정 + 뷰 토글을 한 줄로 통합 (라벨 축약, 토글 1개).
