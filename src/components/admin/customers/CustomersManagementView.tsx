@@ -18,7 +18,7 @@ import { FieldHint } from '@/components/ui/FieldHint'
 // 2026-10-18 Phase I: ContractScheduleSection·MonthlyScheduleSection 레거시 제거.
 //   조회·편집·월별 SMS 발송 전부 RegularProgressFlow 로 흡수됨.
 import { PaymentIssuesSummary } from '@/components/admin/customers/PaymentIssuesSummary'
-import { UpcomingVisits, UpcomingBillings, PAYMENT_METHOD_LABEL as PAYMENT_METHOD_ENUM_LABEL } from '@/components/admin/customers/UpcomingEventsBadges'
+import { UpcomingVisits, UpcomingBillings } from '@/components/admin/customers/UpcomingEventsBadges'
 import { ServiceManagementPage } from '@/components/admin/applications/ServiceManagementView'
 import { CustomersCalendarGrid, type CalendarApp } from '@/components/admin/customers/CustomersCalendarGrid'
 import { computeAppAmount, fmtAmount } from '@/components/admin/customers/calendar-amount'
@@ -308,6 +308,22 @@ const PAYMENT_METHOD_LABEL: Record<string, string> = {
 }
 const normalizePaymentMethodLabel = (method: string | null | undefined): string =>
   method ? (PAYMENT_METHOD_LABEL[method] ?? method) : '-'
+
+// 결제방법 필터 옵션 — 실제 결제정보 select 의 option 값과 1:1 매칭.
+// (CustomersManagementView 결제방법 select 참조. 상수가 어긋나면 체크해도 결과 0건이 되는 사고 발생.)
+// 신규 4종 + 레거시 6종 — DB 값과 정확히 일치해야 함. (2026-10-24)
+const PAYMENT_METHOD_FILTER_OPTIONS: Array<{ value: string; label: string; legacy?: boolean }> = [
+  { value: 'credit_card',       label: '카드결제 (신용·체크·법인)' },
+  { value: 'bank_transfer',     label: '계좌이체' },
+  { value: 'virtual_account',   label: '무통장입금(가상계좌)' },
+  { value: 'cash_untaxed',      label: '비과세 현금' },
+  { value: '카드(온라인 간편결제)', label: '카드(온라인 간편결제)', legacy: true },
+  { value: '계좌이체',          label: '계좌이체', legacy: true },
+  { value: '가상계좌',          label: '가상계좌', legacy: true },
+  { value: '현금(계산서 희망)', label: '현금(계산서 희망)', legacy: true },
+  { value: '현금(비과세)',      label: '현금(비과세)', legacy: true },
+  { value: '플랫폼',            label: '플랫폼', legacy: true },
+]
 
 // 서비스 유형 → 짧은 배지 라벨 (알림 이력 옆에 병기)
 // baseType 저장 통일 후에도 어떤 서비스 유형 template 로 나갔는지 UI 에서 즉시 확인.
@@ -3038,28 +3054,34 @@ export function CustomersManagementView({
               </span>
               <ChevronDown size={14} className="text-text-tertiary" />
             </summary>
-            <div className="absolute top-full right-0 mt-1 bg-surface border border-border rounded-xl shadow-pop p-2 min-w-[200px] z-30 max-h-80 overflow-y-auto">
-              {Object.entries(PAYMENT_METHOD_ENUM_LABEL).map(([value, label]) => {
-                const checked = selectedPaymentMethods.has(value)
+            <div className="absolute top-full right-0 mt-1 bg-surface border border-border rounded-xl shadow-pop p-2 min-w-[240px] z-30 max-h-80 overflow-y-auto">
+              {PAYMENT_METHOD_FILTER_OPTIONS.map((opt, idx) => {
+                const checked = selectedPaymentMethods.has(opt.value)
+                // 레거시 섹션 시작 직전에 가로줄로 시각 분리
+                const prev = PAYMENT_METHOD_FILTER_OPTIONS[idx - 1]
+                const showDivider = opt.legacy && (!prev || !prev.legacy)
                 return (
-                  <label
-                    key={value}
-                    className="flex items-center gap-2 px-2 py-1.5 hover:bg-surface-sunken rounded cursor-pointer text-sm"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={checked}
-                      onChange={e => {
-                        setSelectedPaymentMethods(prev => {
-                          const next = new Set(prev)
-                          if (e.target.checked) next.add(value)
-                          else next.delete(value)
-                          return next
-                        })
-                      }}
-                    />
-                    <span>{label}</span>
-                  </label>
+                  <div key={opt.value}>
+                    {showDivider && (
+                      <div className="my-1 pt-1 border-t border-border-subtle text-[10px] text-text-tertiary px-2">레거시 (과거 데이터)</div>
+                    )}
+                    <label className="flex items-center gap-2 px-2 py-1.5 hover:bg-surface-sunken rounded cursor-pointer text-sm">
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={e => {
+                          setSelectedPaymentMethods(prev => {
+                            const next = new Set(prev)
+                            if (e.target.checked) next.add(opt.value)
+                            else next.delete(opt.value)
+                            return next
+                          })
+                        }}
+                      />
+                      <span>{opt.label}</span>
+                      {opt.legacy && <span className="text-[10px] text-text-tertiary ml-auto">레거시</span>}
+                    </label>
+                  </div>
                 )
               })}
               {selectedPaymentMethods.size > 0 && (
