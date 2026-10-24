@@ -6,7 +6,7 @@ import { notifySlack } from '@/lib/slack'
 import { sendByTemplate } from '@/lib/template-sender'
 import { createServiceClient } from '@/lib/supabase/server'
 import { renderQuotePdf, type QuotePdfData } from '@/lib/quotePdf'
-import { Resend } from 'resend'
+import { sendQuoteEmail } from '@/lib/email'
 import { uploadQuoteToDrive } from '@/lib/driveUpload'
 
 // Vercel Fluid Compute (payload 4.5MB → 무제한 · 함수 타임아웃 60초). (2026-09-29)
@@ -271,45 +271,32 @@ export async function POST(
     }
   }
 
-  // ── 3. 이메일 발송 (Resend) ─────────────────────────────────
-  if (email && process.env.RESEND_API_KEY) {
+  // ── 3. 이메일 발송 (Gmail SMTP via nodemailer) ──────────────
+  // 2026-10-25: Resend → Gmail 전환. RESEND_API_KEY 미설정으로 발송이 조용히 skip
+  // 되던 문제 해결. 급여명세서가 쓰는 GMAIL_USER / GMAIL_APP_PASSWORD 인프라 재사용.
+  // PDF 생성 성공 시 첨부 포함, 실패 시 링크만 포함.
+  if (email) {
     try {
-      const resend  = new Resend(process.env.RESEND_API_KEY)
-      const subject = `[BBK 공간케어] 견적서 안내 (${quoteNo})`
-      const html    = `<!DOCTYPE html>
-<html>
-<body style="font-family:sans-serif;color:#333;line-height:1.7;max-width:600px;margin:0 auto;padding:24px;">
-  <p>안녕하세요, <strong>${owner_name}</strong>님.</p>
-  <p>BBK 공간케어 견적서를 보내드립니다.</p>
-  <table style="border-collapse:collapse;margin:16px 0;width:100%;">
-    <tr style="border-bottom:1px solid #eee;"><td style="padding:6px 16px 6px 0;color:#888;white-space:nowrap;">견적서 번호</td><td>${quoteNo}</td></tr>
-    <tr style="border-bottom:1px solid #eee;"><td style="padding:6px 16px 6px 0;color:#888;white-space:nowrap;">업체명</td><td>${business_name || '-'}</td></tr>
-    <tr style="border-bottom:1px solid #eee;"><td style="padding:6px 16px 6px 0;color:#888;white-space:nowrap;">시공일자</td><td>${construction_date || '-'}</td></tr>
-    ${((discount_amount && discount_amount > 0) || (discount2_amount && discount2_amount > 0))
-      ? `<tr style="border-bottom:1px solid #eee;"><td style="padding:6px 16px 6px 0;color:#888;white-space:nowrap;">${discount_base_label === '총액' ? '합계 (할인 전)' : '공급가액 (할인 전)'}</td><td style="text-decoration:line-through;color:#888;">${fmtKr((discount_base_label === '총액' ? orig_total_amount : orig_supply_amount) ?? 0)}원</td></tr>`
-      : ''}
-    ${discount_amount && discount_amount > 0
-      ? `<tr style="border-bottom:1px solid #eee;"><td style="padding:6px 16px 6px 0;color:#d9534f;white-space:nowrap;">할인${discount_rate ? ` (${discount_rate}%)` : ''}</td><td style="color:#d9534f;">-${fmtKr(discount_amount)}원</td></tr>`
-      : ''}
-    ${discount2_amount && discount2_amount > 0
-      ? `<tr style="border-bottom:1px solid #eee;"><td style="padding:6px 16px 6px 0;color:#d9534f;white-space:nowrap;">할인2 (잔돈)</td><td style="color:#d9534f;">-${fmtKr(discount2_amount)}원</td></tr>`
-      : ''}
-    <tr style="border-bottom:1px solid #eee;"><td style="padding:6px 16px 6px 0;color:#888;white-space:nowrap;">${tax_exempt ? '금액 (면세)' : '공급가액'}</td><td>${fmtKr(supply_amount || 0)}원</td></tr>
-    <tr style="border-bottom:1px solid #eee;"><td style="padding:6px 16px 6px 0;color:#888;white-space:nowrap;">부가세</td><td>${tax_exempt ? '면세' : `${fmtKr(safeVat)}원`}</td></tr>
-    <tr style="border-bottom:1px solid #eee;"><td style="padding:6px 16px 6px 0;color:#888;white-space:nowrap;">합계</td><td><strong>${fmtKr(total_amount || 0)}원</strong></td></tr>
-    <tr><td style="padding:6px 16px 6px 0;color:#888;white-space:nowrap;">유효기간</td><td>${validUntilStr}까지</td></tr>
-  </table>
-  ${pdfUrl ? `<p><a href="${pdfUrl}" style="display:inline-block;padding:12px 28px;background:#1a73e8;color:#fff;text-decoration:none;border-radius:6px;font-weight:bold;font-size:14px;">견적서 바로보기</a></p>` : ''}
-  <hr style="border:none;border-top:1px solid #eee;margin:24px 0;">
-  <p style="margin:0;">감사합니다.<br><strong>BBK 공간케어</strong></p>
-</body>
-</html>`
-
-      await resend.emails.send({
-        from: 'BBK 공간케어 <noreply@bbkorea.co.kr>',
-        to: email,
-        subject,
-        html,
+      await sendQuoteEmail({
+        toEmail: email,
+        ownerName: owner_name,
+        businessName: business_name,
+        quoteNo,
+        constructionDate: construction_date,
+        supplyAmount: supply_amount || 0,
+        vat: safeVat,
+        totalAmount: total_amount || 0,
+        validUntilStr,
+        pdfUrl,
+        pdfBuffer: pdfBuffer ?? undefined,
+        pdfFileName: pdfBuffer ? buildQuoteFileName(business_name, quote_label, quoteNo) : undefined,
+        discountAmount: discount_amount,
+        discountRate: discount_rate,
+        discountBaseLabel: discount_base_label,
+        origSupplyAmount: orig_supply_amount,
+        origTotalAmount: orig_total_amount,
+        discount2Amount: discount2_amount,
+        taxExempt: tax_exempt ?? false,
       })
     } catch (e) {
       softErrors.email = e instanceof Error ? e.message : String(e)
