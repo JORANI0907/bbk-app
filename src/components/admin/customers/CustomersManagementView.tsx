@@ -19,6 +19,7 @@ import { FieldHint } from '@/components/ui/FieldHint'
 //   조회·편집·월별 SMS 발송 전부 RegularProgressFlow 로 흡수됨.
 import { PaymentIssuesSummary } from '@/components/admin/customers/PaymentIssuesSummary'
 import { UpcomingVisits, UpcomingBillings } from '@/components/admin/customers/UpcomingEventsBadges'
+import { HometaxCsvModal } from '@/components/admin/customers/HometaxCsvModal'
 import { ServiceManagementPage } from '@/components/admin/applications/ServiceManagementView'
 import { CustomersCalendarGrid, type CalendarApp } from '@/components/admin/customers/CustomersCalendarGrid'
 import { computeAppAmount, fmtAmount } from '@/components/admin/customers/calendar-amount'
@@ -890,6 +891,9 @@ export function CustomersManagementView({
   // 결제방법 다중선택 필터 (2026-10-24 추가) — 담당자 필터 옆에 노출.
   // 빈 집합이면 "전체" 로 간주하고 필터 미적용.
   const [selectedPaymentMethods, setSelectedPaymentMethods] = useState<Set<string>>(new Set())
+  // 홈택스 CSV 생성 모달 (2026-10-24) — 선택된 고객들의 미발행 결제이력 세부 선택.
+  // 1회성/정기딥/정기엔드 모두 지원. 체크된 고객 id 리스트를 모달에 전달.
+  const [hometaxOpen, setHometaxOpen] = useState(false)
 
   // 지도 앱 선택 모달
   const [mapAddress, setMapAddress] = useState<string | null>(null)
@@ -2239,73 +2243,15 @@ export function CustomersManagementView({
     }
   }
 
-  const handleExportTaxInvoiceCsv = async () => {
-    const oneTimeSelected = customers.filter(
-      c => checkedIds.includes(c.id) && c.customer_type === '1회성케어'
-    )
-    if (oneTimeSelected.length === 0) { toast.error('1회성케어 고객을 선택하세요.'); return }
-    const selectedSet = new Set(oneTimeSelected.map(c => c.id))
-    const t = toast.loading('홈택스 CSV 생성 중...')
-    try {
-      type TC = {
-        customer_id: string | null; is_valid: boolean
-        draft_supplier_id: string | null; construction_date: string | null
-        draft_items: Array<{ name: string; spec?: string; qty?: number; unit_price?: number; supply_amount?: number; vat?: number; remark?: string }> | null
-        draft_invoice_kind: string | null; draft_receipt_type: string | null
-        draft_receiver_business_type: string | null; draft_receiver_business_item: string | null
-        draft_receiver_email_2: string | null
-        business_number: string | null; business_name: string; owner_name: string
-        address: string | null; email: string | null
-        supply_amount: number; vat: number
-      }
-      type Sup = { id: string; registration_number: string; company_name: string; representative: string; address: string; business_type: string; business_item: string; email: string; is_default: boolean }
-      const [sRes, cRes] = await Promise.all([
-        fetch('/api/admin/tax-invoice/suppliers').then(r => r.json()),
-        fetch('/api/admin/tax-invoice/candidates?service_type=1회성케어').then(r => r.json()),
-      ])
-      const supplierList = (sRes.suppliers ?? []) as Sup[]
-      const defaultSup = supplierList.find(s => s.is_default) ?? supplierList[0]
-      if (!defaultSup) { toast.dismiss(t); toast.error('공급자 정보 없음 — 세금계산서 탭에서 공급자를 먼저 등록하세요.'); return }
-      const targets = ((cRes.candidates ?? []) as TC[]).filter(c => selectedSet.has(c.customer_id ?? ''))
-      if (targets.length === 0) { toast.dismiss(t); toast.error('선택된 고객의 발행 대상이 없습니다.'); return }
-      const invalid = targets.filter(c => !c.is_valid)
-      if (invalid.length > 0) { toast.dismiss(t); toast.error(`필수 정보 누락 ${invalid.length}건 — 세금계산서 탭에서 확인하세요.`); return }
-      const yyyymmdd = todayYmdKst()
-      const rows: HometaxRow[] = targets.map(c => {
-        const sup = c.draft_supplier_id ? (supplierList.find(s => s.id === c.draft_supplier_id) ?? defaultSup) : defaultSup
-        const periodLabel = c.construction_date?.slice(0, 10) ?? ''
-        const items: HometaxItem[] = c.draft_items?.length
-          ? c.draft_items.slice(0, 4).map(it => ({ name: it.name, spec: it.spec ?? null, qty: it.qty ?? 1, unit_price: it.unit_price ?? Number(it.supply_amount ?? 0), supply_amount: Number(it.supply_amount ?? 0), vat: Number(it.vat ?? 0), remark: it.remark ?? null }))
-          : [{ name: `1회성케어${periodLabel ? ` - ${periodLabel}` : ''}`, qty: 1, unit_price: c.supply_amount, supply_amount: c.supply_amount, vat: c.vat }]
-        return {
-          invoice_kind: (c.draft_invoice_kind === '02' ? '02' : '01') as '01' | '02',
-          written_date: yyyymmdd,
-          supplier: { registration_number: sup.registration_number, company_name: sup.company_name, representative: sup.representative, address: sup.address, business_type: sup.business_type, business_item: sup.business_item, email: sup.email },
-          receiver: { registration_number: c.business_number, business_name: c.business_name, owner_name: c.owner_name, address: c.address, business_type: c.draft_receiver_business_type, business_item: c.draft_receiver_business_item, email: c.email, email_2: c.draft_receiver_email_2 },
-          items,
-          receipt_type: (c.draft_receipt_type === '02' ? '02' : '01') as '01' | '02',
-        }
-      })
-      let csv: string
-      try { csv = buildHometaxCsv(rows) }
-      catch (e) { toast.dismiss(t); toast.error(e instanceof Error ? e.message : 'CSV 생성 실패'); return }
-      const filename = `홈택스_세금계산서_${yyyymmdd}_${rows.length}건.csv`
-      try {
-        const res = await fetch('/api/admin/tax-invoice/upload-csv', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ filename, csv }) })
-        const json = await res.json()
-        toast.dismiss(t)
-        if (!res.ok) throw new Error(json.error ?? '업로드 실패')
-        toast.success(`${rows.length}건 Google Sheets 저장 완료`, { duration: 6000 })
-      } catch {
-        toast.dismiss(t)
-        const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' })
-        const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = filename; a.click(); URL.revokeObjectURL(url)
-        toast.error('Sheets 저장 실패 — 로컬 CSV로 다운로드', { duration: 5000 })
-      }
-    } catch (e) {
-      toast.dismiss(t)
-      toast.error(e instanceof Error ? e.message : '오류 발생')
+  // 2026-10-24: 1회성/정기딥/정기엔드 통합 지원 모달로 교체.
+  // 과거엔 이 함수가 1회성케어만 즉시 CSV 생성했으나, 정기케어 월별 결제이력 세부 선택이
+  // 필요하다는 요구에 따라 HometaxCsvModal 로 전환. 실제 fetch/변환/업로드는 모달 내부가 담당.
+  const handleExportTaxInvoiceCsv = () => {
+    if (checkedIds.length === 0) {
+      toast.error('먼저 고객을 체크하세요.')
+      return
     }
+    setHometaxOpen(true)
   }
 
   // Phase 7-J: handleCreateApplicationBulk 제거 — "서비스 신청서 생성 →" 버튼 삭제로 미사용
@@ -3219,7 +3165,7 @@ export function CustomersManagementView({
             )}
             {!isWorker && (
               <Button size="sm" disabled={bulkCreating}
-                onClick={() => setBulkConfirm({ label: '홈택스', desc: `선택한 ${checkedIds.length}건의 홈택스 CSV를 생성합니다.`, onConfirm: handleExportTaxInvoiceCsv })}
+                onClick={handleExportTaxInvoiceCsv}
                 className="bg-teal-100 hover:bg-teal-200 !text-teal-800 border border-teal-200 whitespace-nowrap">
                 홈택스
               </Button>
@@ -5700,6 +5646,12 @@ export function CustomersManagementView({
     </div>
 
     {/* bulk 액션 확인 모달 */}
+    <HometaxCsvModal
+      open={hometaxOpen}
+      onClose={() => setHometaxOpen(false)}
+      customerIds={checkedIds}
+    />
+
     {bulkConfirm && (
       <div className="fixed inset-0 z-[95] flex items-center justify-center bg-black/50 p-4" onClick={() => setBulkConfirm(null)}>
         <div className="bg-surface rounded-2xl shadow-modal max-w-sm w-full p-6" onClick={e => e.stopPropagation()}>
