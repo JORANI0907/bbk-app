@@ -475,5 +475,12 @@ export async function DELETE(request: NextRequest) {
     .eq('application_id', id)
     .is('deleted_at', null)
 
+  // 연결된 work_assignments 는 soft delete 컬럼 없음 → hard delete.
+  // 작업자 앱에서도 즉시 사라지도록 (2026-10-24, 정기케어 투입일정 삭제 요구).
+  await supabase
+    .from('work_assignments')
+    .delete()
+    .eq('application_id', id)
+
   return NextResponse.json({ success: true })
 }

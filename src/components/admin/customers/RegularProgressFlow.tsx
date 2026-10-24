@@ -20,7 +20,7 @@
 import { useState, useMemo, useEffect } from 'react'
 import {
   Wallet, Users, ChevronDown, ChevronRight,
-  Check, Clock, AlertCircle,
+  Check, Clock, AlertCircle, Trash2,
 } from 'lucide-react'
 import { VisitDetailModal, type VisitDetailData } from './VisitDetailModal'
 import { BillingDetailModal, type BillingDetailData } from './BillingDetailModal'
@@ -251,6 +251,31 @@ export default function RegularProgressFlow({
       .catch(() => setFetchedPeriods([]))
       .finally(() => setLoading(false))
   }, [customerId, selectedYear, isAnnual, currentYear, refreshTick])
+
+  // 투입일정 삭제 — 관리자·고객·작업자 모든 화면에서 사라지도록
+  // service_applications soft delete + service_schedules cascade + work_assignments hard delete
+  // (DELETE /api/admin/applications 가 전부 처리)
+  async function handleVisitDelete(id: string, date: string, worker: string) {
+    if (typeof window === 'undefined') return
+    const ok = window.confirm(
+      `${date} (${worker}) 투입일정을 삭제하시겠습니까?\n` +
+      `관리자·고객·작업자 모든 화면에서 사라지며, 작업자 배정은 영구 삭제됩니다.`
+    )
+    if (!ok) return
+    try {
+      const res = await fetch(`/api/admin/applications?id=${encodeURIComponent(id)}`, {
+        method: 'DELETE',
+      })
+      if (!res.ok) {
+        const data = await res.json().catch(() => null)
+        window.alert(`삭제 실패: ${data?.error ?? res.statusText}`)
+        return
+      }
+      setRefreshTick(t => t + 1)
+    } catch (e) {
+      window.alert(`삭제 실패: ${e instanceof Error ? e.message : '네트워크 오류'}`)
+    }
+  }
 
   // 실데이터 있으면 실데이터, 없으면 Mock (customerId 미제공 등 fallback)
   const periods = useMemo<PeriodBundle[]>(() => {
@@ -548,6 +573,7 @@ export default function RegularProgressFlow({
                             taxInvoiceIssued: v.taxInvoiceIssued,
                             notificationLog: v.notificationLog,
                           })}
+                          onDelete={() => handleVisitDelete(v.id, v.date, v.worker)}
                         />
                       )
                     })}
@@ -783,7 +809,11 @@ function BillingRow({ item, onClick }: { item: BillingItem; onClick?: () => void
   )
 }
 
-function VisitRow({ item, onClick }: { item: VisitItem; onClick?: () => void }) {
+function VisitRow({ item, onClick, onDelete }: {
+  item: VisitItem
+  onClick?: () => void
+  onDelete?: () => void
+}) {
   const color = VISIT_COLORS[item.status]
   const icon = item.status === 'done'
     ? <Check size={12} />
@@ -792,35 +822,50 @@ function VisitRow({ item, onClick }: { item: VisitItem; onClick?: () => void }) 
     : <Clock size={12} />
   const weekday = ['일','월','화','수','목','금','토'][new Date(item.date).getDay()]
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="w-full flex flex-col gap-1.5 px-2.5 py-2 bg-slate-50 rounded-lg border border-gray-100 hover:bg-white hover:border-brand-200 hover:shadow-sm transition-all duration-150 text-left cursor-pointer"
-    >
-      {/* 상단: 날짜·작업자·상태 */}
-      <div className="flex items-center gap-2.5 w-full">
-        <span className={`flex items-center justify-center w-6 h-6 rounded-full ${color.bg} ${color.text}`}>
-          {icon}
-        </span>
-        <div className="flex-1 min-w-0">
-          <p className="text-xs font-medium text-text-primary">
-            {item.date} ({weekday})
-          </p>
-          <p className="text-[10px] text-text-tertiary">작업자 {item.worker}</p>
+    // 외부 div로 감싸 메인 영역 + 삭제 버튼을 형제 button 으로 배치
+    // (button 중첩 방지)
+    <div className="w-full flex items-stretch gap-1">
+      <button
+        type="button"
+        onClick={onClick}
+        className="flex-1 flex flex-col gap-1.5 px-2.5 py-2 bg-slate-50 rounded-lg border border-gray-100 hover:bg-white hover:border-brand-200 hover:shadow-sm transition-all duration-150 text-left cursor-pointer"
+      >
+        {/* 상단: 날짜·작업자·상태 */}
+        <div className="flex items-center gap-2.5 w-full">
+          <span className={`flex items-center justify-center w-6 h-6 rounded-full ${color.bg} ${color.text}`}>
+            {icon}
+          </span>
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-medium text-text-primary">
+              {item.date} ({weekday})
+            </p>
+            <p className="text-[10px] text-text-tertiary">작업자 {item.worker}</p>
+          </div>
+          <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${color.bg} ${color.text}`}>
+            {color.label}
+          </span>
         </div>
-        <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${color.bg} ${color.text}`}>
-          {color.label}
-        </span>
-      </div>
-      {/* 하단: 미니 진행흐름 (Phase G1-row + H.5-rev) */}
-      {/* 정기케어의 "잔금" 은 월 service_billings.status='paid' 와 동기화 (monthlyBillingPaid) */}
-      <div className="flex items-center gap-1 pl-8 flex-wrap">
-        <MiniStep done={!!item.depositPaidAt}        label="예약금" />
-        <MiniStep done={!!item.workCompletedAt}      label="작업" />
-        <MiniStep done={!!item.balancePaidAt || !!item.monthlyBillingPaid} label="잔금" />
-        <MiniStep done={item.taxInvoiceIssued === true} label="계산서" />
-      </div>
-    </button>
+        {/* 하단: 미니 진행흐름 (Phase G1-row + H.5-rev) */}
+        {/* 정기케어의 "잔금" 은 월 service_billings.status='paid' 와 동기화 (monthlyBillingPaid) */}
+        <div className="flex items-center gap-1 pl-8 flex-wrap">
+          <MiniStep done={!!item.depositPaidAt}        label="예약금" />
+          <MiniStep done={!!item.workCompletedAt}      label="작업" />
+          <MiniStep done={!!item.balancePaidAt || !!item.monthlyBillingPaid} label="잔금" />
+          <MiniStep done={item.taxInvoiceIssued === true} label="계산서" />
+        </div>
+      </button>
+      {onDelete && (
+        <button
+          type="button"
+          onClick={onDelete}
+          className="shrink-0 flex items-center justify-center w-8 bg-slate-50 rounded-lg border border-gray-100 text-text-tertiary hover:bg-red-50 hover:border-red-200 hover:text-red-600 transition-colors"
+          aria-label="투입일정 삭제"
+          title="이 투입일정 삭제 (관리자·고객·작업자 모든 화면에서 사라집니다)"
+        >
+          <Trash2 size={14} />
+        </button>
+      )}
+    </div>
   )
 }
 
