@@ -14,9 +14,20 @@ import { useEffect, useState } from 'react'
 
 interface Visit { id: string; construction_date: string; progress_status: string | null }
 interface Billing { id: string; due_date: string; amount: number; billing_period: string }
+interface PastBilling {
+  id: string
+  due_date: string
+  paid_date: string | null
+  amount: number
+  billing_period: string
+  status: string
+  tax_invoice_issued: boolean | null
+  payment_method_snapshot: string | null
+}
 interface UpcomingEventsResp {
   visits: Visit[]
   billings: Billing[]
+  past_billings?: PastBilling[]
   billing_key_active: boolean
   payment_method?: string | null
 }
@@ -105,28 +116,30 @@ interface BillingsProps {
 export function UpcomingBillings({ customerId, customerType, paymentMethod }: BillingsProps) {
   const { data } = useUpcomingEvents(customerId)
   const billings = (data?.billings ?? []).slice(0, 2)
+  const pastBillings = (data?.past_billings ?? []).slice(0, 2)
   const autoActive = data?.billing_key_active ?? false
   const isEndCare = customerType === '정기엔드케어'
 
   return (
     <div className="flex flex-col gap-1 text-xs">
-      {/* 상단: 자동결제 뱃지 (정기엔드만 해당, 그 외는 결제수단) */}
-      <div className="flex items-center gap-1">
-        {isEndCare && autoActive ? (
-          <span className="text-[10px] px-1.5 py-0.5 bg-emerald-100 text-emerald-700 rounded font-semibold">
-            🔄 자동결제 활성
-          </span>
-        ) : isEndCare ? (
-          <span className="text-[10px] px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded font-medium">
-            ⏳ 빌링키 미등록
-          </span>
-        ) : (
-          <span className="text-[10px] text-text-tertiary">
-            {paymentMethodLabel(paymentMethod)}
-          </span>
+      {/* 상단: 자동결제 뱃지 + 결제수단 (정기엔드/정기딥 모두 결제수단 노출) */}
+      <div className="flex items-center gap-1 flex-wrap">
+        {isEndCare && (
+          autoActive ? (
+            <span className="text-[10px] px-1.5 py-0.5 bg-emerald-100 text-emerald-700 rounded font-semibold">
+              🔄 자동결제 활성
+            </span>
+          ) : (
+            <span className="text-[10px] px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded font-medium">
+              ⏳ 빌링키 미등록
+            </span>
+          )
         )}
+        <span className="text-[10px] px-1.5 py-0.5 bg-slate-100 text-slate-600 rounded font-medium">
+          💳 {paymentMethodLabel(paymentMethod)}
+        </span>
       </div>
-      {/* 하단: 다음 결제 2건 */}
+      {/* 중단: 다음 결제 2건 (예정) */}
       {billings.length > 0 ? (
         <div className="flex flex-col gap-0.5">
           {billings.map(b => (
@@ -138,6 +151,34 @@ export function UpcomingBillings({ customerId, customerType, paymentMethod }: Bi
         </div>
       ) : (
         <span className="text-[11px] text-text-tertiary">예정 없음</span>
+      )}
+      {/* 하단: 과거 결제 2건 (완료 · 계산서 · 결제방법) — 2026-10-24 추가 */}
+      {pastBillings.length > 0 && (
+        <div className="flex flex-col gap-0.5 pt-1 border-t border-border-subtle/60">
+          {pastBillings.map(b => {
+            const invoiced = b.tax_invoice_issued === true
+            const dateLabel = b.paid_date
+              ? fmtMD(b.paid_date)
+              : b.due_date
+                ? fmtMD(b.due_date)
+                : '-'
+            const methodLabel = b.payment_method_snapshot
+              ? paymentMethodLabel(b.payment_method_snapshot)
+              : null
+            return (
+              <span key={b.id} className="text-[11px] text-emerald-700 font-medium leading-tight">
+                ✅ {dateLabel}
+                <span className="ml-1 text-text-primary">{b.amount.toLocaleString('ko-KR')}원</span>
+                {methodLabel && (
+                  <span className="ml-1 text-[10px] text-text-tertiary font-normal">· {methodLabel}</span>
+                )}
+                <span className={`ml-1 text-[10px] font-normal ${invoiced ? 'text-emerald-600' : 'text-text-tertiary'}`}>
+                  · {invoiced ? '📄 계산서발행' : '⏳ 계산서미발행'}
+                </span>
+              </span>
+            )
+          })}
+        </div>
       )}
     </div>
   )
