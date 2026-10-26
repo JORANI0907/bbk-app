@@ -118,6 +118,35 @@ const ITEM_NAME_MAX = 40
 const PAGE_SIZE          = 20
 const HISTORY_PAGE_SIZE  = 30
 
+// 버튼 마우스오버 설명 (2026-10-26). 견적관리 버튼은 신청서(service_applications)에만 저장되며
+// 고객관리 탭의 고객 정보(customers)는 바꾸지 않음 — 예외: 시공 희망일은 연결 고객의 다음 방문일 재계산.
+const TIP = {
+  draftSave:
+    '작성 중인 견적 항목(작업명·수량·단가)과 특이사항만 임시 저장합니다.\n' +
+    '견적서 이름·대상 업체명·주소·유효기간은 저장되지 않습니다.\n' +
+    '견적서로 남기려면 아래 [견적서 완성]을 누르세요.',
+  customerSave:
+    '고객명·업체명·연락처·이메일·주소·시공 희망일을 이 신청서에 저장합니다.\n' +
+    '고객관리 탭의 고객 정보는 바뀌지 않습니다 (시공 희망일만 다음 방문일에 반영).\n' +
+    '견적서 발송 시에도 화면의 고객 정보가 자동 저장됩니다.',
+  createApp: '입력한 고객 정보로 견적용 신청서를 새로 만듭니다. 만든 뒤 견적서를 작성할 수 있습니다.',
+  complete:
+    '현재 견적 항목·조건(이름·대상 업체명·주소·유효기간·특이사항 포함)을\n' +
+    '"저장된 견적서" 목록에 새 견적서로 추가하고 PDF를 Google Drive에 백업합니다. 발송은 하지 않습니다.',
+  completeEdit: '수정 중인 견적서를 덮어써 저장합니다. 발송 기록은 유지되며 PDF는 [PDF 재생성]으로 새로 만듭니다.',
+  cancelEdit: '수정을 취소하고 새 견적서 작성 상태로 돌아갑니다. 저장된 견적서는 바뀌지 않습니다.',
+  addItem: '견적 항목 한 줄을 추가합니다.',
+  send:
+    '이 견적서로 PDF를 새로 만들어 고객에게 카카오 알림톡·이메일로 발송합니다.\n' +
+    '대상 업체명이 있으면 그 이름으로, 없으면 고객 정보의 업체명으로 나갑니다.',
+  more: '편집 · 복사 · PDF 재생성 · 삭제',
+  edit: '이 견적서를 위 입력칸으로 불러와 수정합니다. [수정 저장]을 눌러야 반영됩니다.',
+  copy: '이 견적서 내용을 복사해 새 견적서로 작성합니다. 원본은 그대로 남습니다.',
+  regenerate: 'PDF만 새로 만듭니다. 고객에게 알림은 가지 않습니다. 업체명 등을 고친 뒤 미리보기를 갱신할 때 사용하세요.',
+  delete: '이 견적서를 목록에서 삭제합니다. 되돌릴 수 없습니다.',
+  settingsSave: '공급자(우리 회사) 정보와 계좌를 저장합니다. 이후 만드는 모든 견적서 PDF에 적용됩니다.',
+} as const
+
 // ─── 유틸 ────────────────────────────────────────────────────────
 
 const fmtKr   = (n: number) => n.toLocaleString('ko-KR')
@@ -1440,6 +1469,7 @@ export default function QuotesPage() {
                     <RotateCcw size={13} />
                   </button>
                   <Button size="sm" variant="secondary" onClick={handleSaveSettings} disabled={savingSettings}
+                    title={TIP.settingsSave}
                     className="flex items-center gap-1.5 text-xs">
                     <Save size={12} />
                     {savingSettings ? '저장 중…' : '기본값 저장'}
@@ -1540,12 +1570,14 @@ export default function QuotesPage() {
               <SectionHeader title="고객 정보" tone="violet">
                 {creatingNewApp ? (
                   <Button size="sm" onClick={handleCreateApplication} disabled={savingCustomer}
+                    title={TIP.createApp}
                     className="flex items-center gap-1.5 text-xs bg-brand-600 hover:bg-brand-700 text-white">
                     <Save size={12} />
                     {savingCustomer ? '생성 중…' : '신청서 생성'}
                   </Button>
                 ) : (
                   <Button size="sm" variant="secondary" onClick={handleSaveCustomer} disabled={savingCustomer || !selectedId}
+                    title={TIP.customerSave}
                     className="flex items-center gap-1.5 text-xs">
                     <Save size={12} />
                     {savingCustomer ? '저장 중…' : '고객 정보 저장'}
@@ -1613,9 +1645,10 @@ export default function QuotesPage() {
               <SectionHeader title="견적 항목" tone="brand">
                 <div className="flex items-center gap-2">
                   <Button size="sm" variant="secondary" onClick={handleSaveDraft} disabled={savingDraft || !selectedId}
+                    title={TIP.draftSave}
                     className="flex items-center gap-1.5 text-xs">
                     <Save size={12} />
-                    {savingDraft ? '저장 중…' : '저장'}
+                    {savingDraft ? '저장 중…' : '작성 중 저장'}
                   </Button>
                 {/* 금액 입력 방식 탭 (순서: 항목별 · 공급가기준 · 합계기준 · 면세합계) */}
                 <div className="flex flex-wrap rounded-lg bg-surface-sunken border border-border-subtle p-0.5 gap-0.5">
@@ -1676,7 +1709,7 @@ export default function QuotesPage() {
                 <span className="text-xs text-text-tertiary">
                   {pricingMode === 'itemized' ? `${quoteItems.length}개 항목` : '설명 항목 (선택)'}
                 </span>
-                <Button size="sm" variant="secondary" onClick={addItem} className="flex items-center gap-1 text-xs">
+                <Button size="sm" variant="secondary" onClick={addItem} title={TIP.addItem} className="flex items-center gap-1 text-xs">
                   <Plus size={12} />항목 추가
                 </Button>
               </div>
@@ -1747,11 +1780,15 @@ export default function QuotesPage() {
             <Section tone="amber">
               <SectionHeader title="견적 조건" tone="amber">
                 <Button size="sm" variant="secondary" onClick={handleSaveDraft} disabled={savingDraft || !selectedId}
+                  title={TIP.draftSave}
                   className="flex items-center gap-1.5 text-xs">
                   <Save size={12} />
-                  {savingDraft ? '저장 중…' : '저장'}
+                  {savingDraft ? '저장 중…' : '작성 중 저장'}
                 </Button>
               </SectionHeader>
+              <p className="text-xs text-text-tertiary leading-normal mb-3 break-keep">
+                [작성 중 저장]은 견적 항목·특이사항만 임시 저장됩니다. 견적서로 남기려면 아래 <b className="text-text-secondary">[견적서 완성]</b>을 누르세요.
+              </p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3">
                 <FieldGroup label="견적서 이름 (선택)">
                   <Input value={quoteLabel} onChange={e => setQuoteLabel(e.target.value)}
@@ -1939,13 +1976,14 @@ export default function QuotesPage() {
                   <span className="text-xs text-amber-700 font-medium">
                     수정 모드: {selected.saved_quotes?.find(q => q.id === editingQuoteId)?.label ?? '견적서'}
                   </span>
-                  <button type="button" onClick={resetForm}
+                  <button type="button" onClick={resetForm} title={TIP.cancelEdit}
                     className="text-[11px] text-amber-700 hover:text-amber-800 font-medium underline">
                     취소
                   </button>
                 </div>
               )}
-              <Button onClick={handleComplete} disabled={completing || totalAmount === 0} className="w-full" size="lg">
+              <Button onClick={handleComplete} disabled={completing || totalAmount === 0} className="w-full" size="lg"
+                title={editingQuoteId ? TIP.completeEdit : TIP.complete}>
                 {completing ? '저장 중…' : editingQuoteId ? '수정 저장' : '견적서 완성'}
               </Button>
               <p className="text-[11px] text-text-tertiary mt-2 text-center">
@@ -2020,6 +2058,7 @@ export default function QuotesPage() {
                             <button type="button"
                               onClick={() => handleSendSavedQuote(q)}
                               disabled={isSendingNow}
+                              title={TIP.send}
                               className="flex items-center gap-1 text-[11px] px-2.5 py-1 rounded-md bg-brand-600 text-white hover:bg-brand-700 transition-colors disabled:opacity-50">
                               <Send size={11} />
                               {isSendingNow ? '발송 중…' : isSent ? '재발송' : '발송'}
@@ -2036,7 +2075,7 @@ export default function QuotesPage() {
                                 })
                               }}
                               className="flex items-center justify-center w-7 h-7 rounded-md text-text-tertiary hover:text-text-primary hover:bg-surface-sunken transition-colors"
-                              title="더보기">
+                              title={TIP.more}>
                               <MoreVertical size={13} />
                             </button>
                           </div>
@@ -2087,16 +2126,19 @@ export default function QuotesPage() {
               )}
               <button type="button"
                 onClick={() => { setOpenMenu(null); handleEditSavedQuote(q) }}
+                title={TIP.edit}
                 className="w-full flex items-center gap-2 px-3 py-2 text-xs text-text-secondary hover:bg-surface-sunken text-left">
                 <Pencil size={12} />편집
               </button>
               <button type="button"
                 onClick={() => handleCopyFromQuote(q)}
+                title={TIP.copy}
                 className="w-full flex items-center gap-2 px-3 py-2 text-xs text-text-secondary hover:bg-surface-sunken text-left">
                 <Copy size={12} />복사해서 편집
               </button>
               <button type="button"
                 onClick={() => { setOpenMenu(null); handleRegeneratePdf(q) }}
+                title={TIP.regenerate}
                 disabled={isRegeneratingNow}
                 className="w-full flex items-center gap-2 px-3 py-2 text-xs text-text-secondary hover:bg-surface-sunken text-left disabled:opacity-50">
                 <RefreshCw size={12} className={isRegeneratingNow ? 'animate-spin' : ''} />
@@ -2105,6 +2147,7 @@ export default function QuotesPage() {
               <div className="h-px bg-border-subtle my-1" />
               <button type="button"
                 onClick={() => { setOpenMenu(null); handleDeleteSavedQuote(q) }}
+                title={TIP.delete}
                 className="w-full flex items-center gap-2 px-3 py-2 text-xs text-state-danger hover:bg-state-danger-bg text-left">
                 <Trash2 size={12} />삭제
               </button>
