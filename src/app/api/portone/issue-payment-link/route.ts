@@ -10,6 +10,7 @@ import {
 } from '@/lib/portone'
 import { normalizePaymentMethod } from '@/lib/payment-methods'
 import { isValidBBKVBankCode, DEFAULT_VBANK_CODE } from '@/lib/portone-banks'
+import { resolvePaymentEmail } from '@/lib/payment-email'
 
 const APP_BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.bbkorea.co.kr'
 
@@ -241,9 +242,8 @@ export async function POST(request: NextRequest) {
     const channelKey = getChannelKey('vbank')
 
     // KG 이니시스 가상계좌는 customer.email이 필수 (REQUIRED 룰)
-    const emailFromApp = String(app.email ?? '').trim()
-    const emailForVbank = emailFromApp
-      || `noemail-${recordId.replace(/-/g, '').slice(0, 8)}@bbkorea.co.kr`
+    // 형식이 틀린 이메일(예: '@' 2개)도 PortOne 이 거절하므로 대체 주소 사용 (2026-10-26)
+    const emailForVbank = resolvePaymentEmail(String(app.email ?? ''), recordId)
 
     // 2026-10-12 UX 개편: 고객이 선택한 은행 코드 사용. 유효하지 않으면 기본값(KOOKMIN).
     const selectedBankCode = (vbankCode && isValidBBKVBankCode(vbankCode))

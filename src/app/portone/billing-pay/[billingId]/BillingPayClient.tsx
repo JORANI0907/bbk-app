@@ -16,6 +16,7 @@
 import { useState } from 'react'
 import { requestPayment, Entity } from '@portone/browser-sdk/v2'
 import { BBK_VBANK_BANKS, DEFAULT_VBANK_CODE, getBankLabel } from '@/lib/portone-banks'
+import { isValidPaymentEmail } from '@/lib/payment-email'
 import { Check, Clock, AlertCircle, Loader2, Copy } from 'lucide-react'
 
 const { Bank, CashReceiptType } = Entity
@@ -123,7 +124,8 @@ export function BillingPayClient({ billing, customer }: Props) {
         customer: {
           fullName: customer.ownerName || customer.businessName,
           phoneNumber: customer.phone.replace(/-/g, '') || undefined,
-          email: customer.email || undefined,
+          // 형식이 틀린 이메일은 PortOne 이 거절 → 비어있을 때처럼 생략
+          email: isValidPaymentEmail(customer.email) ? customer.email!.trim() : undefined,
         },
       })
 

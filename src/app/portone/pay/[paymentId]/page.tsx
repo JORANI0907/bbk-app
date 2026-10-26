@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback, useMemo } from 'react'
 import { useParams, useSearchParams } from 'next/navigation'
 import Image from 'next/image'
 import { requestPayment } from '@portone/browser-sdk/v2'
+import { resolvePaymentEmail } from '@/lib/payment-email'
 import { KbEscrowBadge } from '@/components/KbEscrowBadge'
 import { normalizePaymentMethod, type PaymentMethod } from '@/lib/payment-methods'
 import { BBK_VBANK_BANKS, DEFAULT_VBANK_CODE, getBankLabel } from '@/lib/portone-banks'
@@ -438,8 +439,8 @@ export default function PortOnePayPage() {
         urlPaymentId: paymentId,
         activePaymentId,
       })
-      const emailToUse = (app.email && app.email.trim())
-        || `noemail-${appId.replace(/-/g, '').slice(0, 8)}@bbkorea.co.kr`
+      // 형식이 틀린 이메일(예: '@' 2개)은 PortOne 이 거절 → 대체 주소 사용
+      const emailToUse = resolvePaymentEmail(app.email, appId || custId || activePaymentId)
 
       const redirectOrigin = typeof window !== 'undefined' ? window.location.origin : 'https://app.bbkorea.co.kr'
       const redirectParams = new URLSearchParams({ paymentId: activePaymentId, stage })
