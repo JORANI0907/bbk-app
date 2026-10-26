@@ -25,6 +25,9 @@ interface SavedQuote {
   total_amount: number
   valid_days: number
   notes: string
+  // 견적 대상 업체(지점) — 비어있으면 신청서 값 사용 (2026-10-26)
+  business_name?: string
+  address?: string
   quote_no: string | null
   pdf_url: string | null
   sent_at: string | null
@@ -115,6 +118,9 @@ export async function POST(
     .single()
 
   const quoteNo = generateQuoteNo()
+  // 체인 본사 → 여러 지점 견적: 견적서별 대상 업체가 있으면 우선
+  const targetBusinessName = target.business_name || app.business_name || ''
+  const targetAddress = target.address || app.address || ''
   const todayStr = new Date().toISOString().slice(0, 10)
   const validUntilStr = addDays(todayStr, target.valid_days ?? 10)
 
@@ -173,10 +179,10 @@ export async function POST(
     validUntil: validUntilStr,
     // 고객
     ownerName:        app.owner_name ?? '',
-    businessName:     app.business_name ?? '',
+    businessName:     targetBusinessName,
     phone:            app.phone ?? '',
     email:            app.email ?? '',
-    address:          app.address ?? '',
+    address:          targetAddress,
     constructionDate: app.construction_date ?? '',
     // 공급자
     companyName:    settings?.company_name    ?? 'BBK 공간케어',
@@ -220,7 +226,7 @@ export async function POST(
   let pdfUrl: string | null = null
   try {
     const storageKey = `${quoteNo}.pdf`
-    const displayFileName = buildQuoteFileName(app.business_name, target.label, quoteNo)
+    const displayFileName = buildQuoteFileName(targetBusinessName, target.label, quoteNo)
     const { error: uploadError } = await supabase.storage
       .from('quote-pdfs')
       .upload(storageKey, pdfBuffer, { contentType: 'application/pdf', upsert: true })
@@ -236,7 +242,7 @@ export async function POST(
 
   // Google Drive 백업 (non-blocking) — 사용자 친화적 파일명 유지
   try {
-    const fileName = buildQuoteFileName(app.business_name, target.label, quoteNo)
+    const fileName = buildQuoteFileName(targetBusinessName, target.label, quoteNo)
     await uploadQuoteToDrive(pdfBuffer, fileName)
   } catch (e) {
     console.error('[regenerate-pdf] Drive 업로드 실패 (non-critical):', e)

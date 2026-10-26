@@ -31,6 +31,10 @@ interface SavedQuote {
   total_amount: number
   valid_days: number
   notes: string
+  // 견적 대상 업체(지점) — 체인 본사 담당자 1명이 여러 지점 견적을 받는 경우용 (2026-10-26)
+  // 비어있으면 신청서의 업체명·주소 사용
+  business_name?: string
+  address?: string
   quote_no: string | null
   pdf_url: string | null
   sent_at: string | null
@@ -228,6 +232,9 @@ export default function QuotesPage() {
   const [validDays, setValidDays]   = useState(5)
   const [notes, setNotes]           = useState('')
   const [quoteLabel, setQuoteLabel] = useState('')   // 견적서 이름 (파일명·이력 표시용)
+  // 견적 대상 업체명·주소 (견적서별). 비우면 고객 정보의 업체명·주소 사용
+  const [quoteBusinessName, setQuoteBusinessName] = useState('')
+  const [quoteAddress, setQuoteAddress]           = useState('')
   const [savingDraft, setSavingDraft] = useState(false)
 
   // 견적서 저장/발송 관리
@@ -567,6 +574,8 @@ export default function QuotesPage() {
     setDiscountInput(0)
     setNotes(app.quote_notes ?? '')
     setQuoteLabel('')
+    setQuoteBusinessName('')
+    setQuoteAddress('')
     setEditingQuoteId(null)
   }, [])
 
@@ -589,6 +598,8 @@ export default function QuotesPage() {
     setDiscount2Touched(false)
     setNotes('')
     setQuoteLabel('')
+    setQuoteBusinessName('')
+    setQuoteAddress('')
     setEditingQuoteId(null)
   }
 
@@ -755,6 +766,8 @@ export default function QuotesPage() {
     setDiscount2Touched(false)
     setNotes(selected?.quote_notes ?? '')
     setQuoteLabel('')
+    setQuoteBusinessName('')
+    setQuoteAddress('')
     setEditingQuoteId(null)
   }
 
@@ -792,6 +805,8 @@ export default function QuotesPage() {
             total_amount:  totalAmount,
             valid_days:    validDays,
             notes,
+            business_name: quoteBusinessName.trim() || undefined,
+            address:       quoteAddress.trim() || undefined,
             updated_at:    now,
           }
         })
@@ -814,6 +829,8 @@ export default function QuotesPage() {
           total_amount:  totalAmount,
           valid_days:    validDays,
           notes,
+          business_name: quoteBusinessName.trim() || undefined,
+          address:       quoteAddress.trim() || undefined,
           quote_no:  null,
           pdf_url:   null,
           sent_at:   null,
@@ -899,6 +916,8 @@ export default function QuotesPage() {
     setValidDays(q.valid_days)
     setNotes(q.notes)
     setQuoteLabel((q.label || '견적서') + suffix)
+    setQuoteBusinessName(q.business_name ?? '')
+    setQuoteAddress(q.address ?? '')
     setEditingQuoteId(null)   // 신규로 저장됨
     setOpenMenu(null)
     window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -924,6 +943,8 @@ export default function QuotesPage() {
     setValidDays(q.valid_days)
     setNotes(q.notes)
     setQuoteLabel(q.label || '')
+    setQuoteBusinessName(q.business_name ?? '')
+    setQuoteAddress(q.address ?? '')
     setEditingQuoteId(q.id)
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
@@ -1015,13 +1036,14 @@ export default function QuotesPage() {
         body: JSON.stringify({
           ...companyInfo,
           owner_name:        customerInfo.owner_name,
-          business_name:     customerInfo.business_name,
+          // 견적서별 대상 업체가 있으면 그것 우선 (체인 본사 → 여러 지점 견적)
+          business_name:     q.business_name || customerInfo.business_name,
           phone:             customerInfo.phone,
           phone_2:           customerInfo.phone_2 || null,
           phone_notify_1:    customerInfo.phone_notify_1,
           phone_notify_2:    customerInfo.phone_notify_2,
           email:             customerInfo.email,
-          address:           customerInfo.address,
+          address:           q.address || customerInfo.address,
           construction_date: customerInfo.construction_date,
           quote_items:       q.quote_items,
           supply_amount:     q.supply_amount,
@@ -1735,6 +1757,15 @@ export default function QuotesPage() {
                   <Input value={quoteLabel} onChange={e => setQuoteLabel(e.target.value)}
                     placeholder="예: 후드 정비, 초기 견적, 협의안 A 등" />
                 </FieldGroup>
+                {/* 체인 본사가 여러 지점 견적을 요청할 때: 견적서마다 지점명·주소를 따로 지정 */}
+                <FieldGroup label="견적 대상 업체명 (지점이 다를 때만)">
+                  <Input value={quoteBusinessName} onChange={e => setQuoteBusinessName(e.target.value)}
+                    placeholder={customerInfo.business_name ? `비우면 '${customerInfo.business_name}'` : '예: 동녘, 모울'} />
+                </FieldGroup>
+                <FieldGroup label="견적 대상 주소 (지점이 다를 때만)">
+                  <Input value={quoteAddress} onChange={e => setQuoteAddress(e.target.value)}
+                    placeholder="비우면 고객 정보 주소 사용" />
+                </FieldGroup>
                 <FieldGroup label="견적 유효기간">
                   <div className="flex items-center gap-2">
                     <Input type="number" value={validDays} min={1} max={365}
@@ -1956,6 +1987,9 @@ export default function QuotesPage() {
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-2 flex-wrap">
                               <span className="text-sm font-semibold text-text-primary truncate">{q.label}</span>
+                              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-surface-sunken text-text-secondary font-medium">
+                                🏪 {q.business_name || customerInfo.business_name || '업체명 없음'}
+                              </span>
                               {isSent ? (
                                 <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-green-50 text-green-700 font-medium flex items-center gap-0.5">
                                   <CheckCircle2 size={10} />발송완료

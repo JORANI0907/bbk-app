@@ -9,6 +9,7 @@ interface SavedQuote {
   pdf_url: string | null
   sent_at: string | null
   created_at: string
+  business_name?: string  // 견적 대상 업체(지점) — 비어있으면 신청서 값
 }
 
 interface FlatQuote extends SavedQuote {
@@ -52,7 +53,7 @@ export async function GET(request: NextRequest) {
       ...q,
       application_id: app.id,
       owner_name:    app.owner_name    || '',
-      business_name: app.business_name || '',
+      business_name: q.business_name || app.business_name || '',
       phone:         app.phone         || '',
     }))
   })
