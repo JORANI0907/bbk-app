@@ -284,6 +284,14 @@ export default function QuotesPage() {
   const selected    = applications.find(a => a.id === selectedId) ?? pinnedApp ?? null
   const totalPages  = Math.max(1, Math.ceil(total / PAGE_SIZE))
 
+  // 신청서 하나를 목록(applications)과 pinnedApp 양쪽에 같이 반영 (2026-10-26)
+  // Why: 이력에서 들어온 신청서는 목록에 없고 pinnedApp 으로만 보이는데, 목록만 고치면
+  //      [견적서 완성]·삭제 등이 새로고침 전까지 화면에 안 보였음.
+  const updateAppById = (appId: string, patch: (a: ApplicationRow) => ApplicationRow) => {
+    setApplications(prev => prev.map(a => (a.id === appId ? patch(a) : a)))
+    setPinnedApp(prev => (prev && prev.id === appId ? patch(prev) : prev))
+  }
+
   // ── 금액 계산 (모드별) ────────────────────────────────────────
   // 1) 할인 전 원가 (모드별)
   const { origSupply, origVat, origTotal } = (() => {
@@ -695,7 +703,7 @@ export default function QuotesPage() {
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? '저장 실패')
       // 목록에도 반영
-      setApplications(prev => prev.map(a => a.id === selectedId ? {
+      updateAppById(selectedId, a => ({
         ...a,
         owner_name:        customerInfo.owner_name,
         business_name:     customerInfo.business_name,
@@ -706,7 +714,7 @@ export default function QuotesPage() {
         email:             customerInfo.email || null,
         address:           customerInfo.address,
         construction_date: customerInfo.construction_date || null,
-      } : a))
+      }))
       toast.success('고객 정보가 저장되었습니다.')
     } catch (e) {
       toast.error(e instanceof Error ? e.message : '저장 실패')
@@ -741,9 +749,7 @@ export default function QuotesPage() {
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? '저장 실패')
-      setApplications(prev => prev.map(a =>
-        a.id === selectedId ? { ...a, quote_items: quoteItems, quote_notes: notes } : a
-      ))
+      updateAppById(selectedId, a => ({ ...a, quote_items: quoteItems, quote_notes: notes }))
       toast.success('저장되었습니다.')
     } catch (e) {
       toast.error(e instanceof Error ? e.message : '저장 실패')
@@ -877,9 +883,7 @@ export default function QuotesPage() {
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? '저장 실패')
 
-      setApplications(prev => prev.map(a =>
-        a.id === selected.id ? { ...a, saved_quotes: updated } : a
-      ))
+      updateAppById(selected.id, a => ({ ...a, saved_quotes: updated }))
 
       // Phase 27-V: 저장 성공 즉시 Google Drive 백업 (신규 저장만).
       // 수정은 사용자가 명시적으로 "재생성" 버튼을 눌러 백업하도록 유지 (Drive 파일 폭증 방지).
@@ -897,18 +901,14 @@ export default function QuotesPage() {
           .then(async (r) => {
             if (!r.ok) return
             const d = await r.json()
-            setApplications(prev => prev.map(a =>
-              a.id === appId
-                ? {
-                    ...a,
-                    saved_quotes: (a.saved_quotes ?? []).map((q: SavedQuote) =>
-                      q.id === backupTargetId
-                        ? { ...q, quote_no: d.quote_no, pdf_url: d.pdf_url }
-                        : q
-                    ),
-                  }
-                : a
-            ))
+            updateAppById(appId, a => ({
+              ...a,
+              saved_quotes: (a.saved_quotes ?? []).map((q: SavedQuote) =>
+                q.id === backupTargetId
+                  ? { ...q, quote_no: d.quote_no, pdf_url: d.pdf_url }
+                  : q
+              ),
+            }))
             toast.success('Google Drive 백업 완료', { duration: 2000, icon: '📁' })
           })
           .catch(() => {/* non-critical, 재생성 버튼으로 복구 가능 */})
@@ -991,13 +991,27 @@ export default function QuotesPage() {
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? '삭제 실패')
-      setApplications(prev => prev.map(a =>
-        a.id === selected.id ? { ...a, saved_quotes: updated } : a
-      ))
+      updateAppById(selected.id, a => ({ ...a, saved_quotes: updated }))
       if (editingQuoteId === q.id) resetForm()
       toast.success('삭제되었습니다.')
     } catch (e) {
       toast.error(e instanceof Error ? e.message : '삭제 실패')
+    }
+  }
+
+  // 서버에서 견적서가 바뀐 뒤(발송·PDF 재생성) 목록 + pinnedApp 을 함께 다시 불러옴
+  const reloadAfterServerChange = async () => {
+    await loadApplications(page, search, quoteHistoryMode)
+    const pinnedId = pinnedApp?.id
+    if (!pinnedId) return
+    try {
+      const res = await fetch(`/api/admin/quotes?appId=${pinnedId}`)
+      if (!res.ok) return
+      const data = await res.json()
+      const fresh = data.applications?.[0] as ApplicationRow | undefined
+      if (fresh) setPinnedApp(prev => (prev && prev.id === fresh.id ? fresh : prev))
+    } catch {
+      // 다음 새로고침 때 반영 — 화면 갱신 실패가 발송 결과를 바꾸지는 않음
     }
   }
 
@@ -1102,13 +1116,13 @@ export default function QuotesPage() {
           if (result.warnings?.seal) toast(parts.join('\n'), { duration: 6000, icon: '⚠️' })
           else toast.success(parts.join('\n'))
         }
-        await loadApplications(page, search, quoteHistoryMode)
+        await reloadAfterServerChange()
       } else {
         const msg = result.errors
           ? Object.entries(result.errors as Record<string, string>).filter(([k]) => k !== 'kakao').map(([, v]) => v).join(', ')
           : '발송 실패'
         toast.error(`발송 오류: ${msg}`)
-        await loadApplications(page, search, quoteHistoryMode)
+        await reloadAfterServerChange()
       }
     } catch (e) {
       toast.error(e instanceof Error ? e.message : '오류가 발생했습니다.')
@@ -1133,7 +1147,7 @@ export default function QuotesPage() {
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? '재생성 실패')
       toast.success(`'${q.label}' PDF 재생성 완료 (${data.quote_no})`)
-      await loadApplications(page, search, quoteHistoryMode)
+      await reloadAfterServerChange()
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'PDF 재생성 실패')
     } finally {
