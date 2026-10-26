@@ -26,6 +26,7 @@ import { computeAppAmount, fmtAmount } from '@/components/admin/customers/calend
 import { TODAY_ROW_BORDER, TODAY_ROW_BG, TODAY_ROW_SHADOW } from '@/lib/ui/today-styles'
 import { readCache, writeCache, clearCache } from '@/lib/browser-cache'
 import { VisitCycleEditor } from '@/components/admin/customers/VisitCycleEditor'
+import { CustomerSearchInput } from '@/components/admin/customers/CustomerSearchInput'
 import { RegularAssignmentsWidget } from '@/components/admin/customers/RegularAssignmentsWidget'
 import type { VisitCycleUnit, VisitCycleConfig } from '@/lib/schedule-generator'
 import { buildHometaxCsv, todayYmdKst, type HometaxRow, type HometaxItem } from '@/lib/hometax-csv'
@@ -788,6 +789,12 @@ export function CustomersManagementView({
   // 성능: 검색어를 useDeferredValue 로 감싸 타이핑 시 리스트 필터링을 렌더 우선순위 뒤로 미룸
   // → 타자를 빠르게 쳐도 input 반응성이 유지되고, 필터링은 브라우저가 여유 있을 때 실행
   const deferredSearch = useDeferredValue(search)
+  // 모바일 검색창 포커스 여부 — true 면 담당자·결제방법 필터를 접고 검색창을 넓힘 (2026-10-26)
+  const [searchFocused, setSearchFocused] = useState(false)
+  // 접힘: 폭 0 + gap(8px)만큼 -ml-2 로 상쇄. 펼침: 검색창과 1:1:1.
+  const filterCollapseClass = searchFocused
+    ? 'basis-0 grow-0 shrink -ml-2 opacity-0 invisible overflow-hidden'
+    : 'basis-0 grow shrink min-w-0'
   const [selected, setSelected] = useState<Customer | null>(null)
   const [isNew, setIsNew] = useState(false)
   // Phase 27-AB: pending 신청서 세부화면 진입 여부 (자동 발송 이력 감사 패널 노출 조건)
@@ -2969,36 +2976,38 @@ export function CustomersManagementView({
 
 
         {/* 검색 + 직원 필터 — Phase 6-H: embed 활성 시 숨김 (embed 뷰 자체 검색·필터 사용) */}
+        {/* 2026-10-26 모바일: 검색·담당자·결제방법 1:1:1 배치, 검색창 포커스 시 필터 2개가 접히고
+            검색창이 오른쪽으로 늘어남. 데스크톱(md 이상)은 기존 배치 그대로. */}
         <div className={`gap-2 mb-4 ${isEmbedActive ? 'hidden' : 'flex'}`}>
-          <div className="relative flex-1">
-            <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-tertiary pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" />
-            </svg>
-            <input type="text" value={search} onChange={e => setSearch(e.target.value)}
+          <div className="flex-1 min-w-0 transition-all duration-200 ease-out">
+            <CustomerSearchInput
+              onChange={setSearch}
+              onFocusChange={setSearchFocused}
               placeholder="업체명, 담당자, 연락처, 주소, 케어범위, 계좌·사업자번호, 금액 검색..."
-              className="w-full pl-10 pr-9 py-2.5 text-sm text-text-primary border border-border rounded-xl bg-surface shadow-soft focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 placeholder:text-text-tertiary" />
-            {search && <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-text-tertiary hover:text-text-secondary text-sm">✕</button>}
+            />
           </div>
-          <select
-            value={selectedStaffId ?? ''}
-            onChange={e => setSelectedStaffId(e.target.value || null)}
-            className="py-2.5 px-3 text-sm text-text-primary border border-border rounded-xl bg-surface shadow-soft focus:outline-none focus:ring-2 focus:ring-brand-500 min-w-[120px]"
-          >
-            <option value="">담당자 전체</option>
-            {staffList.map(s => (
-              <option key={s.id} value={s.id}>{s.name}</option>
-            ))}
-          </select>
+          <div className={`${filterCollapseClass} transition-all duration-200 ease-out md:flex-none md:basis-auto md:ml-0 md:opacity-100 md:visible md:overflow-visible`}>
+            <select
+              value={selectedStaffId ?? ''}
+              onChange={e => setSelectedStaffId(e.target.value || null)}
+              className="w-full truncate py-2.5 px-2 md:px-3 text-sm text-text-primary border border-border rounded-xl bg-surface shadow-soft focus:outline-none focus:ring-2 focus:ring-brand-500 md:w-auto md:min-w-[120px]"
+            >
+              <option value="">담당자 전체</option>
+              {staffList.map(s => (
+                <option key={s.id} value={s.id}>{s.name}</option>
+              ))}
+            </select>
+          </div>
           {/* 결제방법 다중선택 필터 — details/summary 로 토글, 체크박스 다중 선택.
               빈 집합 = 전체. 선택된 코드가 c.payment_method 와 일치하는 고객만 리스트에 노출. (2026-10-24) */}
-          <details className="relative">
-            <summary className="py-2.5 px-3 text-sm text-text-primary border border-border rounded-xl bg-surface shadow-soft cursor-pointer list-none min-w-[140px] flex items-center justify-between gap-2 select-none">
-              <span>
+          <details className={`relative ${filterCollapseClass} transition-all duration-200 ease-out md:flex-none md:basis-auto md:ml-0 md:opacity-100 md:visible md:overflow-visible`}>
+            <summary className="py-2.5 px-2 md:px-3 text-sm text-text-primary border border-border rounded-xl bg-surface shadow-soft cursor-pointer list-none w-full md:min-w-[140px] flex items-center justify-between gap-1 md:gap-2 select-none">
+              <span className="truncate">
                 {selectedPaymentMethods.size === 0
                   ? '결제방법 전체'
                   : `결제방법 ${selectedPaymentMethods.size}`}
               </span>
-              <ChevronDown size={14} className="text-text-tertiary" />
+              <ChevronDown size={14} className="text-text-tertiary shrink-0" />
             </summary>
             <div className="absolute top-full right-0 mt-1 bg-surface border border-border rounded-xl shadow-pop p-2 min-w-[240px] z-30 max-h-80 overflow-y-auto">
               {PAYMENT_METHOD_FILTER_OPTIONS.map((opt, idx) => {
