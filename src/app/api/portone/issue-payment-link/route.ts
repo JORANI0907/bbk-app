@@ -159,6 +159,15 @@ export async function POST(request: NextRequest) {
     const existingUrlField = stage === 'deposit' ? 'deposit_payment_url' : 'balance_payment_url'
     const existingIdField  = stage === 'deposit' ? 'deposit_portone_id'   : 'balance_portone_id'
     if (app[existingIdField] && app[existingUrlField]) {
+      // 2026-10-26: 재사용 시에도 연결된 고객 레코드에 동기화.
+      //   신청서엔 링크가 있는데 customers 쪽이 비어 고객관리 진행흐름에 "미생성"으로 남던 문제 해결.
+      if (!isCustomerMode && app.customer_id) {
+        const { error: syncErr } = await supabase.from('customers').update({
+          [existingIdField]: app[existingIdField],
+          [existingUrlField]: app[existingUrlField],
+        }).eq('id', app.customer_id as string)
+        if (syncErr) console.error('[issue-payment-link] reuse customers 동기화 실패:', syncErr.message)
+      }
       return NextResponse.json({
         success: true,
         reused: true,

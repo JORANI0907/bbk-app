@@ -811,7 +811,8 @@ export function CustomersManagementView({
   const [saving, setSaving] = useState(false)
   const [statusToggling, setStatusToggling] = useState(false)
   const [copiedUrl, setCopiedUrl] = useState<'deposit' | 'balance' | null>(null)
-  const [generatingBalanceUrl, setGeneratingBalanceUrl] = useState(false)
+  // 결제링크 생성 중인 단계 (예약금/잔금) — 2026-10-26 예약금도 수동 생성 가능하도록 확장
+  const [generatingUrlStage, setGeneratingUrlStage] = useState<'deposit' | 'balance' | null>(null)
   // 결제방법 편집 잠금 (카드 단일화 정책 실수 방지 · 고객 열 때마다 잠금으로 리셋)
   const [paymentMethodUnlocked, setPaymentMethodUnlocked] = useState(false)
   // 진행 흐름 인포그래픽 편집 잠금 — 고객 열 때마다 잠금으로 초기화
@@ -1849,34 +1850,41 @@ export function CustomersManagementView({
     return () => clearInterval(interval)
   }, [selected?.id, selected?.balance_payment_url, selected?.balance_paid_at])
 
-  const handleGenerateBalanceUrl = async () => {
-    if (!selected?.id || generatingBalanceUrl) return
-    setGeneratingBalanceUrl(true)
+  // 예약금·잔금 결제링크 생성. 이미 발급된 링크가 있으면 서버가 같은 링크를 돌려줌(reused)
+  // → 신청 직후 결제창에서 결제를 못 한 고객에게 신청서 재작성 없이 링크 재전달 가능.
+  const handleGeneratePaymentUrl = async (stage: 'deposit' | 'balance') => {
+    if (!selected?.id || generatingUrlStage) return
+    const stageLabel = stage === 'deposit' ? '예약금' : '잔금'
+    const urlField = stage === 'deposit' ? 'deposit_payment_url' : 'balance_payment_url'
+    const idField = stage === 'deposit' ? 'deposit_portone_id' : 'balance_portone_id'
+    setGeneratingUrlStage(stage)
     try {
       const res = await fetch('/api/portone/issue-payment-link', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ customerId: selected.id, stage: 'balance' }),
+        body: JSON.stringify({ customerId: selected.id, stage }),
       })
       const data = await res.json()
       if (data.success && data.paymentUrl) {
         setSelected(prev => prev ? {
           ...prev,
-          balance_payment_url: data.paymentUrl,
-          balance_portone_id: data.paymentId ?? prev.balance_portone_id,
+          [urlField]: data.paymentUrl,
+          [idField]: data.paymentId ?? prev[idField],
         } : prev)
         setCustomers(prev => prev.map(c => c.id === selected.id
-          ? { ...c, balance_payment_url: data.paymentUrl }
+          ? { ...c, [urlField]: data.paymentUrl }
           : c
         ))
-        toast.success('잔금 결제 링크가 생성되었습니다.')
+        toast.success(data.reused
+          ? `기존 ${stageLabel} 결제 링크를 불러왔습니다.`
+          : `${stageLabel} 결제 링크가 생성되었습니다.`)
       } else {
         toast.error(data.error || '링크 생성에 실패했습니다.')
       }
     } catch {
       toast.error('네트워크 오류가 발생했습니다.')
     } finally {
-      setGeneratingBalanceUrl(false)
+      setGeneratingUrlStage(null)
     }
   }
 
@@ -5193,8 +5201,17 @@ export function CustomersManagementView({
                                 >
                                   {copiedUrl === 'deposit' ? '복사완료 ✓' : '링크 복사'}
                                 </button>
+                              ) : depositDone ? (
+                                <span className="text-[9px] text-gray-300">입금완료</span>
                               ) : (
-                                <span className="text-[9px] text-gray-300">미생성</span>
+                                <button
+                                  type="button"
+                                  onClick={() => handleGeneratePaymentUrl('deposit')}
+                                  disabled={!!generatingUrlStage || statusToggling}
+                                  className="text-[10px] px-2 py-0.5 bg-brand-50 border border-brand-200 text-brand-600 rounded-lg hover:bg-brand-100 disabled:opacity-50 font-medium transition-colors"
+                                >
+                                  {generatingUrlStage === 'deposit' ? '생성 중...' : '링크 생성'}
+                                </button>
                               )}
                             </div>
                           </div>
@@ -5261,11 +5278,11 @@ export function CustomersManagementView({
                               ) : (
                                 <button
                                   type="button"
-                                  onClick={handleGenerateBalanceUrl}
-                                  disabled={generatingBalanceUrl || statusToggling}
+                                  onClick={() => handleGeneratePaymentUrl('balance')}
+                                  disabled={!!generatingUrlStage || statusToggling}
                                   className="text-[10px] px-2 py-0.5 bg-brand-50 border border-brand-200 text-brand-600 rounded-lg hover:bg-brand-100 disabled:opacity-50 font-medium transition-colors"
                                 >
-                                  {generatingBalanceUrl ? '생성 중...' : '링크 생성'}
+                                  {generatingUrlStage === 'balance' ? '생성 중...' : '링크 생성'}
                                 </button>
                               )}
                             </div>
