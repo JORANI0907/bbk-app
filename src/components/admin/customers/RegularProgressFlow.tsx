@@ -53,6 +53,7 @@ interface VisitItem {
   status: Exclude<VisitStatus, 'none'>
   // Phase C: 모달 편집용 확장 필드 (API 에서 함께 반환)
   assignedTo?: string          // Phase F: 담당자 변경용 UUID
+  workerIds?: string[]         // 2026-10-29: 회차별 작업자 (work_assignments)
   constructionTime?: string
   progressStatus?: string
   paymentStatus?: string
@@ -231,6 +232,7 @@ export default function RegularProgressFlow({
   // Phase C: 실데이터 fetch
   const [fetchedPeriods, setFetchedPeriods] = useState<PeriodBundle[] | null>(null)
   const [availableAssignees, setAvailableAssignees] = useState<{ id: string; name: string }[]>([])
+  const [availableWorkers, setAvailableWorkers] = useState<{ id: string; name: string }[]>([])
   const [loading, setLoading] = useState(false)
   const [refreshTick, setRefreshTick] = useState(0)
 
@@ -244,9 +246,11 @@ export default function RegularProgressFlow({
       .then((data: {
         periods: PeriodBundle[]
         availableAssignees?: { id: string; name: string }[]
+        availableWorkers?: { id: string; name: string }[]
       }) => {
         setFetchedPeriods(data.periods ?? [])
         setAvailableAssignees(data.availableAssignees ?? [])
+        setAvailableWorkers(data.availableWorkers ?? [])
       })
       .catch(() => setFetchedPeriods([]))
       .finally(() => setLoading(false))
@@ -557,7 +561,7 @@ export default function RegularProgressFlow({
                             weekday,
                             worker: v.worker,
                             assignedTo: v.assignedTo,
-                            additionalWorkers: [],
+                            workerIds: v.workerIds ?? [],
                             constructionTime: v.constructionTime ?? '',
                             progressStatus: v.progressStatus
                               ?? (v.status === 'done' ? '작업완료'
@@ -591,6 +595,19 @@ export default function RegularProgressFlow({
       onClose={() => setVisitModalData(null)}
       data={visitModalData}
       availableAssignees={availableAssignees}
+      availableWorkers={availableWorkers}
+      onSaveWorkers={async (id, workerIds) => {
+        // 이 회차만 변경 — 고객 투입 설정(기본 작업자)은 유지 (sync_master: false)
+        const res = await fetch(`/api/admin/applications/${id}/assign-worker`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ worker_ids: workerIds, sync_master: false }),
+        })
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}))
+          throw new Error(err?.error ?? '작업자 저장 실패')
+        }
+      }}
       onSave={async (id, patch) => {
         const res = await fetch('/api/admin/applications', {
           method: 'PATCH',

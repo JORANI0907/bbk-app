@@ -8,6 +8,8 @@ import { createServiceClient } from '@/lib/supabase/server'
  *   - { worker_ids: string[] } — 신규 (다중 배정)
  *   - { worker_id: string | null } — 하위호환 (단일 배정 · 자동으로 [worker_id] 로 변환)
  *   - worker_ids: []  또는 worker_id: null → 배정 해제
+ *   - sync_master: false → 고객 마스터(assigned_worker_ids) 갱신 안 함 (기본 true)
+ *     투입일정 회차 1건만 바꿀 때 사용 — 고객의 투입 설정(기본 작업자)은 그대로 유지
  *
  * 저장 위치: work_assignments 테이블 (다중 배정 · 급여 정산 기준).
  * service_applications.assigned_to 는 담당자(users.id) 전용 컬럼이므로 이 API 에서
@@ -23,7 +25,7 @@ export async function POST(
     return NextResponse.json({ error: 'application id가 필요합니다.' }, { status: 400 })
   }
 
-  let body: { worker_id?: string | null; worker_ids?: string[] }
+  let body: { worker_id?: string | null; worker_ids?: string[]; sync_master?: boolean }
   try {
     body = await request.json()
   } catch {
@@ -54,7 +56,7 @@ export async function POST(
   // 그동안 회차별에서 작업자 뺐어도 마스터 assigned_worker_ids 는 그대로라
   // UI 상단(마스터 표시)에서 옛 작업자가 계속 보이던 버그 해결.
   const syncCustomerMaster = async () => {
-    if (!app.customer_id) return
+    if (!app.customer_id || body.sync_master === false) return
     try {
       await supabase
         .from('customers')

@@ -58,6 +58,8 @@ interface VisitItem {
   notificationLog?: Array<{ type: string; sent_at: string; method?: string }>
   // Phase H.5-rev: 그 방문이 속한 월의 service_billings 결제 완료 여부 (정기딥/엔드 매핑)
   monthlyBillingPaid?: boolean
+  // 2026-10-29: 회차별 작업자 (work_assignments.worker_id[]) — 투입일정 모달 수정용
+  workerIds?: string[]
 }
 
 interface PeriodBundle {
@@ -137,6 +139,21 @@ export async function GET(
       }
     }
 
+    // 4-1) 회차별 작업자(work_assignments) 매핑 + 선택용 작업자 목록 (2026-10-29)
+    const workerIdsByApp = await loadWorkerIdsByApp(supabase, (applications ?? []).map(a => a.id as string))
+    const periodsWithWorkers = periods.map(p => ({
+      ...p,
+      visits: p.visits.map(v => ({ ...v, workerIds: workerIdsByApp.get(v.id) ?? [] })),
+    }))
+    const { data: workerList } = await supabase
+      .from('workers')
+      .select('id, name')
+      .is('deleted_at', null)
+      .order('name', { ascending: true })
+    const availableWorkers = (workerList ?? [])
+      .filter(w => w.name)
+      .map(w => ({ id: w.id as string, name: w.name as string }))
+
     // 5) Phase F: 담당자 변경용 전체 users 리스트
     const { data: allUsers } = await supabase
       .from('users')
@@ -146,7 +163,7 @@ export async function GET(
       .filter(u => u.name)
       .map(u => ({ id: u.id as string, name: u.name as string }))
 
-    return NextResponse.json({ periods, availableAssignees })
+    return NextResponse.json({ periods: periodsWithWorkers, availableAssignees, availableWorkers })
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
     return NextResponse.json({ error: msg }, { status: 500 })
@@ -197,6 +214,25 @@ function toBillingItem(b: RawBilling, monthLabel: string): BillingItem {
     taxInvoiceIssued: b.tax_invoice_issued === true,
     paymentUrl: b.payment_url ?? undefined,
   }
+}
+
+/** application_id → worker_id[] (work_assignments) */
+async function loadWorkerIdsByApp(
+  supabase: ReturnType<typeof createServiceClient>,
+  appIds: string[],
+): Promise<Map<string, string[]>> {
+  const map = new Map<string, string[]>()
+  if (appIds.length === 0) return map
+  const { data } = await supabase
+    .from('work_assignments')
+    .select('application_id, worker_id')
+    .in('application_id', appIds)
+  for (const r of (data ?? [])) {
+    const appId = r.application_id as string | null
+    if (!appId || !r.worker_id) continue
+    map.set(appId, [...(map.get(appId) ?? []), r.worker_id as string])
+  }
+  return map
 }
 
 // 기존 PATCH /api/admin/billings 가 payment_url 받도록 하기 위해 아래 핸들러 개량은 별도 작업

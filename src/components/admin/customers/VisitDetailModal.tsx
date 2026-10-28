@@ -8,6 +8,7 @@
  * Phase F:   담당자 셀렉트 활성화
  * Phase G1:  📊 "이 방문의 진행" 미니 진행흐름 (예약금/작업완료/잔금/계산서)
  * Phase G2:  🔔 알림 발송 섹션 (알림 종류별 발송 + 이력)
+ * 2026-10-29: 작업자(복수) 수정 활성화 — 이 회차만 변경 (고객 투입 설정은 유지)
  */
 
 import { useEffect, useState } from 'react'
@@ -20,7 +21,7 @@ export interface VisitDetailData {
   weekday?: string
   worker: string
   assignedTo?: string
-  additionalWorkers?: string[]
+  workerIds?: string[]          // work_assignments.worker_id[]
   constructionTime?: string
   progressStatus?: string
   paymentStatus?: string
@@ -44,6 +45,9 @@ interface Props {
   data: VisitDetailData | null
   onSave?: (id: string, patch: Record<string, unknown>) => Promise<void>
   availableAssignees?: { id: string; name: string }[]
+  availableWorkers?: { id: string; name: string }[]
+  /** 작업자 변경 저장 (POST assign-worker). 없으면 작업자 필드는 읽기 전용 */
+  onSaveWorkers?: (id: string, workerIds: string[]) => Promise<void>
 }
 
 const PROGRESS_OPTIONS = ['예정', '진행중', '작업완료', '예약취소']
@@ -63,13 +67,16 @@ const NOTIFY_TYPES = [
 const todayIso = () => new Date().toISOString().slice(0, 10)
 const nowIsoFull = () => new Date().toISOString()
 
-export function VisitDetailModal({ open, onClose, data, onSave, availableAssignees }: Props) {
+export function VisitDetailModal({
+  open, onClose, data, onSave, availableAssignees, availableWorkers, onSaveWorkers,
+}: Props) {
   const [form, setForm] = useState<VisitDetailData | null>(data)
   const [saving, setSaving] = useState(false)
   const [togglingStep, setTogglingStep] = useState<string | null>(null)
   const [sendingNotify, setSendingNotify] = useState<string | null>(null)
+  const [workerPickerOpen, setWorkerPickerOpen] = useState(false)
 
-  useEffect(() => { setForm(data) }, [data])
+  useEffect(() => { setForm(data); setWorkerPickerOpen(false) }, [data])
 
   useEffect(() => {
     if (!open) return
@@ -105,6 +112,10 @@ export function VisitDetailModal({ open, onClose, data, onSave, availableAssigne
       }
       if (availableAssignees) {
         patch.assigned_to = form.assignedTo || null
+      }
+      // 작업자는 work_assignments 테이블이라 별도 API — 바뀐 경우에만 먼저 저장
+      if (onSaveWorkers && !sameIds(form.workerIds, data?.workerIds)) {
+        await onSaveWorkers(form.id, form.workerIds ?? [])
       }
       await onSave(form.id, patch)
       toast.success('저장되었습니다')
@@ -189,6 +200,14 @@ export function VisitDetailModal({ open, onClose, data, onSave, availableAssigne
     } finally {
       setSendingNotify(null)
     }
+  }
+
+  const canEditWorkers = !!onSaveWorkers && (availableWorkers?.length ?? 0) > 0
+  const workerNameOf = (id: string) => availableWorkers?.find(w => w.id === id)?.name ?? '(알 수 없음)'
+  const selectedWorkerNames = (form.workerIds ?? []).map(workerNameOf).join(', ')
+  const toggleWorker = (id: string) => {
+    const cur = form.workerIds ?? []
+    update({ workerIds: cur.includes(id) ? cur.filter(x => x !== id) : [...cur, id] })
   }
 
   const title = `${form.date}${form.weekday ? ` (${form.weekday})` : ''} · ${form.worker}`
@@ -311,10 +330,29 @@ export function VisitDetailModal({ open, onClose, data, onSave, availableAssigne
                 <Input value={form.worker} readOnly muted />
               )}
             </Field>
-            <Field label="작업자 (복수 선택)" hint="추후 Phase">
-              <Input value={form.additionalWorkers?.join(', ') || '선택 없음'} readOnly muted />
+            <Field label="작업자 (복수 선택)" hint={canEditWorkers ? '이 회차만 변경' : undefined}>
+              {canEditWorkers ? (
+                <button
+                  type="button"
+                  onClick={() => setWorkerPickerOpen(o => !o)}
+                  disabled={saving}
+                  className="w-full text-left border border-gray-300 rounded-md px-2.5 py-1.5 text-sm bg-white text-text-primary hover:border-brand-300 focus:outline-none focus:ring-2 focus:ring-brand-200 truncate"
+                >
+                  {selectedWorkerNames || <span className="text-text-tertiary">선택 없음</span>}
+                </button>
+              ) : (
+                <Input value={selectedWorkerNames || '선택 없음'} readOnly muted />
+              )}
             </Field>
           </div>
+          {canEditWorkers && workerPickerOpen && (
+            <WorkerPicker
+              workers={availableWorkers ?? []}
+              selected={form.workerIds ?? []}
+              onToggle={toggleWorker}
+              onClose={() => setWorkerPickerOpen(false)}
+            />
+          )}
 
           <div className="grid grid-cols-2 gap-3">
             <Field label="시공일자">
@@ -523,5 +561,47 @@ function Textarea({ className = '', ...rest }: TextareaProps) {
         ${className}
       `}
     />
+  )
+}
+
+// ─── 작업자 복수 선택 (2026-10-29) ─────────────────────────────
+
+function sameIds(a: string[] | undefined, b: string[] | undefined): boolean {
+  const x = [...(a ?? [])].sort()
+  const y = [...(b ?? [])].sort()
+  return x.length === y.length && x.every((v, i) => v === y[i])
+}
+
+function WorkerPicker({ workers, selected, onToggle, onClose }: {
+  workers: { id: string; name: string }[]
+  selected: string[]
+  onToggle: (id: string) => void
+  onClose: () => void
+}) {
+  return (
+    <div className="border border-gray-200 rounded-lg p-3 bg-slate-50">
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-xs text-text-secondary">작업자를 눌러 선택/해제 ({selected.length}명 선택)</span>
+        <button type="button" onClick={onClose} className="text-xs text-brand-600 hover:underline">완료</button>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        {workers.map(w => {
+          const on = selected.includes(w.id)
+          return (
+            <button
+              key={w.id}
+              type="button"
+              onClick={() => onToggle(w.id)}
+              className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs border transition-colors ${
+                on ? 'bg-brand-600 text-white border-brand-600' : 'bg-white text-text-primary border-gray-300 hover:border-brand-300'
+              }`}
+            >
+              {on && <Check size={12} />}
+              {w.name}
+            </button>
+          )
+        })}
+      </div>
+    </div>
   )
 }
