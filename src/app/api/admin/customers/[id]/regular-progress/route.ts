@@ -145,11 +145,13 @@ export async function GET(
       ...p,
       visits: p.visits.map(v => ({ ...v, workerIds: workerIdsByApp.get(v.id) ?? [] })),
     }))
-    const { data: workerList } = await supabase
+    // workers 테이블엔 deleted_at 없음 — 고객관리 투입 설정과 같은 기준(고용형태 지정된 작업자)
+    const { data: workerList, error: workerErr } = await supabase
       .from('workers')
       .select('id, name')
-      .is('deleted_at', null)
+      .not('employment_type', 'is', null)
       .order('name', { ascending: true })
+    if (workerErr) console.error('[regular-progress] 작업자 목록 조회 실패:', workerErr.message)
     const availableWorkers = (workerList ?? [])
       .filter(w => w.name)
       .map(w => ({ id: w.id as string, name: w.name as string }))
