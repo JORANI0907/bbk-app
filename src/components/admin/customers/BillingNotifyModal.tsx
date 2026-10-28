@@ -7,12 +7,10 @@
  * - 월별 service_billings 1건에 대해 '결제알림' SMS 를 수동 발송.
  * - 발송 전 "텍스트 미리보기" 노출 — 사장님이 뭐 보낼지 확인 후 전송.
  *
- * 실제 발송 파이프라인:
- *   POST /api/admin/notify
- *     application_id = 그 월 마지막 service_application
- *     type = '결제알림'
- *   서버의 notification_templates 테이블 '결제알림' 코드 템플릿 적용.
- *   (미리보기는 간단 조립 — 실제 템플릿과 약간 다를 수 있음을 명시)
+ * 실제 발송 파이프라인 (2026-10-29 변경):
+ *   POST /api/admin/billings/notify { billing_id }
+ *   문자알림관리 '정기결제알림(_카드)_정기딥/정기엔드' 템플릿 사용 — 자동 발송 cron 과 동일.
+ *   미리보기도 같은 API(dry_run)로 서버에서 렌더 → 미리보기 = 실제 발송 문구.
  */
 
 import { useEffect, useState } from 'react'
@@ -23,7 +21,7 @@ interface Props {
   customerId: string
   month: string          // 'YYYY-MM' or 'YYYY'(연간)
   customerName: string
-  customerType: string
+  customerType: string   // (호환용 — 템플릿은 서버가 고객 유형으로 선택)
   onClose: () => void
   onSent?: () => void
 }
@@ -38,11 +36,6 @@ interface BillingPreview {
   payment_url: string | null
 }
 
-interface AppLite {
-  id: string
-  construction_date: string | null
-}
-
 function monthLabelOf(key: string): string {
   if (/^\d{4}$/.test(key)) return `${key}년`
   const [y, m] = key.split('-')
@@ -50,10 +43,12 @@ function monthLabelOf(key: string): string {
 }
 
 export function BillingNotifyModal({
-  customerId, month, customerName, customerType, onClose, onSent,
+  customerId, month, customerName, onClose, onSent,
 }: Props) {
   const [billing, setBilling] = useState<BillingPreview | null>(null)
-  const [targetAppId, setTargetAppId] = useState<string | null>(null)
+  const [previewText, setPreviewText] = useState('')
+  const [previewError, setPreviewError] = useState<string | null>(null)
+  const [templateCode, setTemplateCode] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [sending, setSending] = useState(false)
 
@@ -67,25 +62,35 @@ export function BillingNotifyModal({
     let cancelled = false
     const run = async () => {
       setLoading(true)
+      setPreviewText('')
+      setPreviewError(null)
       try {
-        const [billingRes, appRes] = await Promise.all([
-          fetch(`/api/admin/billings?customer_id=${customerId}`),
-          fetch(`/api/admin/applications?customer_id=${customerId}&month=${month}`),
-        ])
+        const billingRes = await fetch(`/api/admin/billings?customer_id=${customerId}`)
         const billingData = await billingRes.json() as { billings?: BillingPreview[] }
-        const appData = await appRes.json() as { applications?: AppLite[] }
-        if (cancelled) return
         const monthBilling = (billingData.billings ?? [])
           .find(b => b.billing_period === month) ?? null
-        const monthApps = (appData.applications ?? [])
-          .filter(a => a.construction_date?.startsWith(month))
-          .sort((a, b) => (b.construction_date ?? '').localeCompare(a.construction_date ?? ''))
+        if (cancelled) return
         setBilling(monthBilling)
-        setTargetAppId(monthApps[0]?.id ?? null)
+        if (!monthBilling) return
+
+        // 문자알림관리 템플릿으로 서버에서 실제 렌더한 문구 = 발송될 문구
+        const previewRes = await fetch('/api/admin/billings/notify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ billing_id: monthBilling.id, dry_run: true }),
+        })
+        const previewData = await previewRes.json() as { text?: string; templateCode?: string; error?: string }
+        if (cancelled) return
+        if (!previewRes.ok) {
+          setPreviewError(previewData.error ?? '미리보기를 만들지 못했어요')
+          return
+        }
+        setPreviewText(previewData.text ?? '')
+        setTemplateCode(previewData.templateCode ?? null)
       } catch {
         if (!cancelled) {
           setBilling(null)
-          setTargetAppId(null)
+          setPreviewError('결제 정보를 불러오지 못했어요')
         }
       } finally {
         if (!cancelled) setLoading(false)
@@ -97,36 +102,17 @@ export function BillingNotifyModal({
 
   const label = monthLabelOf(month)
 
-  const previewText = billing ? [
-    `[BBK 공간케어] ${customerName}님,`,
-    `${label} ${customerType === '정기엔드케어' ? '정기엔드' : '정기딥'} 결제 안내 드립니다.`,
-    ``,
-    `금액: ${Number(billing.amount ?? 0).toLocaleString('ko-KR')}원`,
-    `결제 기한: ${billing.due_date ?? '-'}`,
-    billing.payment_url
-      ? `결제 링크: ${billing.payment_url}`
-      : `※ 결제 링크 아직 생성 안 됨 — 모달에서 자동 생성 후 재발송 추천`,
-  ].join('\n') : ''
-
   const handleSend = async () => {
     if (!billing) {
       toast.error(`${label} 결제 레코드가 없어요`)
       return
     }
-    if (!targetAppId) {
-      toast.error(`${label} 방문이 없어 SMS 대상 매칭 실패 — 월 작업 먼저 등록해주세요`)
-      return
-    }
     setSending(true)
     try {
-      const res = await fetch('/api/admin/notify', {
+      const res = await fetch('/api/admin/billings/notify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          application_id: targetAppId,
-          type: '결제알림',
-          method: 'manual',
-        }),
+        body: JSON.stringify({ billing_id: billing.id }),
       })
       if (!res.ok) {
         const err = await res.json().catch(() => ({}))
@@ -174,17 +160,18 @@ export function BillingNotifyModal({
           </label>
           {loading ? (
             <div className="text-xs text-text-tertiary py-6 text-center">로딩 중...</div>
+          ) : billing && previewError ? (
+            <div className="px-3 py-4 bg-amber-50 border border-amber-200 rounded-lg">
+              <p className="text-xs text-amber-900">⚠️ {previewError}</p>
+            </div>
           ) : billing ? (
             <>
               <pre className="whitespace-pre-wrap text-xs text-text-primary bg-slate-50 p-3 rounded-lg border border-gray-200 font-sans leading-relaxed">
                 {previewText}
               </pre>
               <p className="text-[10px] text-text-tertiary leading-relaxed">
-                💡 위 미리보기는 간단 조립 버전. 실제 발송 시 서버의 <strong>&apos;결제알림&apos; 템플릿</strong>이
-                적용되어 약간 다를 수 있습니다.
-                {!billing.payment_url && (
-                  <> <br/>⚠️ <strong>결제 링크 비어있음</strong> — 결제 모달에서 &quot;자동 생성&quot; 먼저 추천.</>
-                )}
+                💡 문자알림관리의 <strong>{templateCode}</strong> 템플릿으로 그대로 발송됩니다.
+                문구 수정은 문자알림관리 탭에서 해주세요.
               </p>
             </>
           ) : (
@@ -207,7 +194,7 @@ export function BillingNotifyModal({
           </button>
           <button
             onClick={handleSend}
-            disabled={sending || loading || !billing || !targetAppId}
+            disabled={sending || loading || !billing || !!previewError}
             className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-semibold bg-brand-500 text-white rounded-lg hover:bg-brand-600 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Send size={14} />

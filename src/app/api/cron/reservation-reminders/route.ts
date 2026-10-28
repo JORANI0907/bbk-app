@@ -6,6 +6,7 @@ import type { NotificationContext } from '@/lib/notification-variables'
 import { saveNotificationHistory } from '@/lib/notification'
 import { appendBothNotificationLogs } from '@/lib/notification-log'
 import { normalizePaymentMethod } from '@/lib/payment-methods'
+import { pickRecurringBillingTemplate, buildRecurringBillingContext } from '@/lib/recurring-billing-notice'
 
 const CRON_SECRET = process.env.CRON_SECRET
 
@@ -385,6 +386,7 @@ export async function GET(request: NextRequest) {
       billing_period: string
       due_date: string
       amount: number
+      payment_url: string | null
       last_notified_at: string | null
       customers: {
         id: string
@@ -406,7 +408,7 @@ export async function GET(request: NextRequest) {
     const { data: billings } = await supabase
       .from('service_billings')
       .select(`
-        id, billing_type, billing_period, due_date, amount, last_notified_at,
+        id, billing_type, billing_period, due_date, amount, payment_url, last_notified_at,
         customers!inner(
           id, business_name, contact_name, contact_phone,
           customer_type, payment_method, account_number,
@@ -482,23 +484,9 @@ export async function GET(request: NextRequest) {
       const phone = (cust.contact_phone ?? '').replace(/-/g, '')
       if (!phone) { skipped++; continue }
 
-      const pm = cust.payment_method ?? ''
-      const isCard = pm === '카드(온라인 간편결제)'
-      const suffix = cust.customer_type === '정기딥케어' ? '_정기딥' : '_정기엔드'
-      const templateCode = isCard ? `정기결제알림(카드)${suffix}` : `정기결제알림${suffix}`
-
-      // billing 실제 금액·결제일로 context 채우기
-      const ctx: NotificationContext = {
-        customer: {
-          business_name: cust.business_name,
-          contact_name: cust.contact_name,
-          contact_phone: cust.contact_phone,
-          payment_method: cust.payment_method,
-          account_number: cust.account_number,
-          billing_amount: row.amount,        // {{계약금액}} 소스
-          billing_next_date: row.due_date,   // {{다음결제일}} 소스
-        },
-      }
+      // 템플릿 선택·변수 채우기는 수동 발송 버튼과 공용 (lib/recurring-billing-notice)
+      const templateCode = pickRecurringBillingTemplate(cust.customer_type, cust.payment_method)
+      const ctx = buildRecurringBillingContext(cust, row)
 
       try {
         const result = await sendByTemplate(templateCode, phone, ctx)
