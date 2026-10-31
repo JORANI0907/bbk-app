@@ -52,7 +52,8 @@ function todayKST(): { year: number; month: number; day: number; iso: string; pe
 
 export async function POST(request: NextRequest) {
   const auth = request.headers.get('authorization')
-  if (CRON_SECRET && auth !== `Bearer ${CRON_SECRET}`) {
+  if (!CRON_SECRET) return NextResponse.json({ error: 'CRON_SECRET 미설정' }, { status: 500 })
+  if (auth !== `Bearer ${CRON_SECRET}`) {
     return NextResponse.json({ error: 'unauthorized' }, { status: 403 })
   }
 
@@ -64,11 +65,13 @@ export async function POST(request: NextRequest) {
   const supabase = createServiceClient()
   const client = getPortOneClient()!
 
-  // 1) 오늘이 payment_date 인 active 빌링키 정기엔드 고객 조회
+  // 1) 오늘이 payment_date 인 active 빌링키 정기 고객 조회
+  //    2026-11-01: 정기딥도 포함. 건별(per_visit) 고객은 작업완료 시점에 바로 결제되므로 여기선 매월 지정일 고객만.
   const { data: rawCustomers, error: queryErr } = await supabase
     .from('customers')
     .select('id, business_name, contact_name, contact_phone, customer_type, billing_key, billing_amount, billing_monthly_amount, payment_date')
-    .eq('customer_type', '정기엔드케어')
+    .in('customer_type', ['정기딥케어', '정기엔드케어'])
+    .or('billing_trigger.is.null,billing_trigger.neq.per_visit')
     .eq('billing_key_status', 'active')
     .eq('payment_date', day)
     .is('deleted_at', null)
@@ -187,7 +190,7 @@ export async function POST(request: NextRequest) {
 
   if (customers.length > 0) {
     const lines = [
-      `💳 *정기엔드 매월 자동결제* (${iso})`,
+      `💳 *정기 매월 자동결제(빌링키)* (${iso})`,
       `• 대상: ${customers.length}건 · 결제완료: ${chargedCount}건 · 실패: ${failedCount}건`,
       `• 결제 총액: ${totalChargedAmount.toLocaleString('ko-KR')}원`,
     ]
