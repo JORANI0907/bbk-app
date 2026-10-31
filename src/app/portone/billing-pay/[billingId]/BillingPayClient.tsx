@@ -97,6 +97,13 @@ const METHODS: Array<{ key: Method; title: string; desc: string; Icon: typeof Cr
 
 export function BillingPayClient({ billing, customer }: Props) {
   const [method, setMethod] = useState<Method>('card')
+  // 2026-11-01: KG이니시스 빌링 결제창이 500 을 내는 문제가 해결될 때까지 '카드 자동결제 등록'은
+  //   주소에 ?autopay=1 을 붙인 내부 테스트에서만 보인다. 해결 확인 후 이 가드를 제거.
+  const [showAutopay, setShowAutopay] = useState(false)
+  useEffect(() => {
+    setShowAutopay(new URLSearchParams(window.location.search).get('autopay') === '1')
+  }, [])
+  const visibleMethods = METHODS.filter(m => m.key !== 'autopay' || showAutopay)
   const [vbankCode, setVbankCode] = useState<string>(DEFAULT_VBANK_CODE)
   const [busy, setBusy] = useState(false)
   const [busyLabel, setBusyLabel] = useState('처리 중...')
@@ -285,12 +292,13 @@ export function BillingPayClient({ billing, customer }: Props) {
       channelKey: BILLING_CHANNEL_KEY,
       billingKeyMethod: BillingKeyMethod.CARD,
       issueId,
-      issueName: `${customer.businessName} 정기 자동결제 등록`,
+      // KG 결제창 제목: 대괄호·따옴표 등 특수문자는 PG 가 거절할 수 있어 제거
+      issueName: `${customer.businessName.replace(/[\[\]<>&'"]/g, '').trim()} 정기 자동결제 등록`,
       redirectUrl,
       windowType: { mobile: WindowType.REDIRECTION },
       offerPeriod: { interval: '1m' },
-      displayAmount: billing.amount,
-      currency: 'KRW',
+      // 2026-11-01: displayAmount+currency 는 KG '신규 PC 결제창' 을 켜는 조합인데, 이 결제창에서
+      //   /pay/card/billing 500 이 발생. 기본(공동인증서) 결제창으로 시도하기 위해 두 값을 보내지 않는다.
       customer: {
         customerId: customer.id,
         fullName: customer.ownerName || customer.businessName,
@@ -426,7 +434,7 @@ export function BillingPayClient({ billing, customer }: Props) {
         <div className="space-y-2">
           <p className="text-xs font-semibold text-text-secondary">결제 방법 선택</p>
           <div className="space-y-2">
-            {METHODS.map(({ key, title, desc, Icon }) => {
+            {visibleMethods.map(({ key, title, desc, Icon }) => {
               const selected = method === key
               const disabled = key === 'autopay' && (alreadyHasKey || !customer.id)
               return (
