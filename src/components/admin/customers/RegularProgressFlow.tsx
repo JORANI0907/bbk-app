@@ -26,6 +26,7 @@ import { VisitDetailModal, type VisitDetailData } from './VisitDetailModal'
 import { BillingDetailModal, type BillingDetailData } from './BillingDetailModal'
 import { MonthlyScheduleNotifyModal } from './MonthlyScheduleNotifyModal'
 import { BillingNotifyModal } from './BillingNotifyModal'
+import { VisitAddModal } from './VisitAddModal'
 
 // ─── 타입 ─────────────────────────────────────────────────────
 type BillingStatus = 'paid' | 'pending' | 'overdue' | 'none'
@@ -228,6 +229,8 @@ export default function RegularProgressFlow({
   const [monthlyNotifyMonth, setMonthlyNotifyMonth] = useState<string | null>(null)
   // Phase I.1-rev: 결제 안내 SMS 발송 모달 (BillingNotifyModal)
   const [billingNotifyMonth, setBillingNotifyMonth] = useState<string | null>(null)
+  // 2026-11-01: 투입일정 수동 추가 모달 ('YYYY-MM' 또는 null)
+  const [visitAddMonth, setVisitAddMonth] = useState<string | null>(null)
 
   // Phase C: 실데이터 fetch
   const [fetchedPeriods, setFetchedPeriods] = useState<PeriodBundle[] | null>(null)
@@ -508,6 +511,23 @@ export default function RegularProgressFlow({
                     title="결제이력"
                     count={p.billings.length}
                     empty="아직 생성되지 않은 결제입니다."
+                    action={
+                      <button
+                        type="button"
+                        onClick={() => setBillingModalData({
+                          id: '',  // 빈 id = 신규 생성 모드
+                          billingType: 'onetime',
+                          billingPeriod: p.key,
+                          amount: 0,
+                          dueDate: new Date().toISOString().slice(0, 10),
+                          status: 'pending',
+                          taxInvoiceIssued: false,
+                        })}
+                        className="w-full py-1.5 text-[10px] font-semibold text-brand-700 border border-dashed border-brand-200 bg-brand-50/40 rounded-lg hover:bg-brand-50 transition-colors"
+                      >
+                        + 결제 추가
+                      </button>
+                    }
                   >
                     {p.billings.map(b => (
                       <BillingRow
@@ -526,28 +546,21 @@ export default function RegularProgressFlow({
                         })}
                       />
                     ))}
-                    {/* Phase H.5: 추가 결제 수동 생성 */}
-                    <button
-                      type="button"
-                      onClick={() => setBillingModalData({
-                        id: '',  // 빈 id = 신규 생성 모드
-                        billingType: 'onetime',
-                        billingPeriod: p.key,
-                        amount: 0,
-                        dueDate: new Date().toISOString().slice(0, 10),
-                        status: 'pending',
-                        taxInvoiceIssued: false,
-                      })}
-                      className="w-full py-1.5 text-[10px] font-semibold text-brand-700 border border-dashed border-brand-200 bg-brand-50/40 rounded-lg hover:bg-brand-50 transition-colors"
-                    >
-                      + 결제 추가
-                    </button>
                   </SubSection>
                   <SubSection
                     icon={<Users size={11} />}
                     title="투입일정"
                     count={p.visits.length}
                     empty="아직 생성되지 않은 방문입니다."
+                    action={customerId ? (
+                      <button
+                        type="button"
+                        onClick={() => setVisitAddMonth(p.month !== null ? p.key : `${p.year}-${String(currentMonth).padStart(2, '0')}`)}
+                        className="w-full py-1.5 text-[10px] font-semibold text-brand-700 border border-dashed border-brand-200 bg-brand-50/40 rounded-lg hover:bg-brand-50 transition-colors"
+                      >
+                        + 일정 추가
+                      </button>
+                    ) : null}
                   >
                     {p.visits.map(v => {
                       const weekday = ['일','월','화','수','목','금','토'][new Date(v.date).getDay()]
@@ -672,6 +685,28 @@ export default function RegularProgressFlow({
       }}
     />
 
+    {/* 2026-11-01: 투입일정 수동 추가 */}
+    <VisitAddModal
+      open={visitAddMonth !== null}
+      onClose={() => setVisitAddMonth(null)}
+      month={visitAddMonth}
+      availableAssignees={availableAssignees}
+      availableWorkers={availableWorkers}
+      onCreate={async (payload) => {
+        if (!customerId) throw new Error('고객 ID 가 없습니다.')
+        const res = await fetch(`/api/admin/customers/${customerId}/visits`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        })
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}))
+          throw new Error(err?.error ?? '추가 실패')
+        }
+        setRefreshTick(t => t + 1)
+      }}
+    />
+
     {/* Phase I.1: 월별 일정 안내 SMS 발송 모달 (레거시 MonthlyScheduleNotifyModal 재사용) */}
     {monthlyNotifyMonth && customerId && (
       <MonthlyScheduleNotifyModal
@@ -772,12 +807,14 @@ function StatusBadge({ icon, color, count }: {
   )
 }
 
-function SubSection({ icon, title, count, empty, children }: {
+// 2026-11-01: action(추가 버튼)은 항목이 0건이어도 항상 보이게 — 비어 있을 때 '+ 결제 추가' 가 사라지던 문제 수정
+function SubSection({ icon, title, count, empty, children, action }: {
   icon: React.ReactNode
   title: string
   count: number
   empty: string
   children: React.ReactNode
+  action?: React.ReactNode
 }) {
   return (
     <div className="pt-2.5">
@@ -789,6 +826,7 @@ function SubSection({ icon, title, count, empty, children }: {
       ) : (
         <div className="space-y-1">{children}</div>
       )}
+      {action && <div className="mt-1">{action}</div>}
     </div>
   )
 }
