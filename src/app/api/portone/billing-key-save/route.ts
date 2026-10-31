@@ -1,57 +1,49 @@
 /**
- * 빌링키 저장 API (2026-10-18 Phase I.2)
+ * 빌링키(자동결제 카드) 저장 API (2026-10-18 Phase I.2 → 2026-11-01 보강)
  *
  * 역할:
  *   고객이 PortOne UI 에서 카드 등록 완료 후, 클라이언트가 응답으로 받은 billingKey 를
  *   서버로 전송 → customers 테이블에 저장 + 상태 'active' 전환.
+ *   billingId 가 있으면 등록 직후 그 청구서를 바로 결제한다 (결제 페이지 '카드 자동결제 등록' 흐름).
  *
- * 보안:
+ * 보안 (2026-11-01):
  *   - PortOne 서버에 getBillingKey 재조회로 검증 (위조 방지)
- *   - card 상품명 / 카드 번호 마스킹 등 메타 함께 저장
+ *   - PortOne 이 돌려준 발급 정보의 customer.id 가 요청 customerId 와 같아야 함
+ *     (카드 등록창을 열 때 customer.customerId 로 우리 고객 ID 를 넘기므로, 남의 고객 ID 로 끼워 넣기 불가)
+ *   - billingId 는 그 고객의 청구서여야 함 (남의 청구서를 내 카드로/내 청구서를 남의 카드로 결제 불가)
+ *   - 이미 active 카드가 있으면 덮어쓰기 거부 (해제는 관리자 화면에서)
  *
  * 입력:
  *   POST /api/portone/billing-key-save
- *   body: { customerId: string, billingKey: string, issueId?: string }
- *
- * 출력:
- *   { ok: true, cardName: string }
- *   or { error: string }
+ *   body: { customerId: string, billingKey: string, issueId?: string, billingId?: string }
  */
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
+import { chargeBillingWithKey } from '@/lib/billing-charge'
 
 const PORTONE_V2_API_SECRET = process.env.PORTONE_V2_API_SECRET ?? ''
 const PORTONE_API_BASE = 'https://api.portone.io'
+const REGULAR_TYPES = new Set(['정기딥케어', '정기엔드케어'])
 
 interface PortOneBillingKeyInfo {
   billingKey?: string
   status?: string
+  issueId?: string
+  customer?: { id?: string }
   methods?: Array<{
     type?: string
-    card?: {
-      issuer?: string
-      publisher?: string
-      brand?: string
-      name?: string
-      number?: string
-    }
+    card?: { issuer?: string; publisher?: string; brand?: string; name?: string; number?: string }
   }>
 }
 
 async function fetchBillingKeyFromPortOne(billingKey: string): Promise<PortOneBillingKeyInfo | null> {
   if (!PORTONE_V2_API_SECRET) return null
   try {
-    const res = await fetch(
-      `${PORTONE_API_BASE}/billing-keys/${encodeURIComponent(billingKey)}`,
-      {
-        method: 'GET',
-        headers: {
-          Authorization: `PortOne ${PORTONE_V2_API_SECRET}`,
-          'Content-Type': 'application/json',
-        },
-      },
-    )
+    const res = await fetch(`${PORTONE_API_BASE}/billing-keys/${encodeURIComponent(billingKey)}`, {
+      method: 'GET',
+      headers: { Authorization: `PortOne ${PORTONE_V2_API_SECRET}`, 'Content-Type': 'application/json' },
+    })
     if (!res.ok) return null
     return await res.json() as PortOneBillingKeyInfo
   } catch {
@@ -69,48 +61,65 @@ function extractCardName(info: PortOneBillingKeyInfo | null): string | null {
   return last4 ? `${issuer} ${last4}` : issuer
 }
 
+type Supabase = ReturnType<typeof createServiceClient>
+
+/** 요청의 customerId·billingId 가 서로, 그리고 PortOne 발급 정보와 맞는지 확인 */
+async function validateOwnership(
+  supabase: Supabase,
+  customerId: string,
+  billingId: string | undefined,
+  info: PortOneBillingKeyInfo,
+): Promise<{ ok: true } | { ok: false; status: number; error: string }> {
+  const { data: cust } = await supabase
+    .from('customers')
+    .select('id, customer_type, billing_key_status')
+    .eq('id', customerId)
+    .is('deleted_at', null)
+    .maybeSingle()
+  if (!cust) return { ok: false, status: 404, error: '고객을 찾을 수 없습니다.' }
+  if (!REGULAR_TYPES.has(String(cust.customer_type ?? ''))) {
+    return { ok: false, status: 400, error: '정기딥케어·정기엔드케어 고객만 자동결제 카드 등록이 가능합니다.' }
+  }
+  if (cust.billing_key_status === 'active') {
+    return { ok: false, status: 409, error: '이미 자동결제 카드가 등록되어 있습니다. 변경은 고객센터로 문의해 주세요.' }
+  }
+  if (info.customer?.id && info.customer.id !== customerId) {
+    return { ok: false, status: 403, error: '카드 등록 정보가 이 고객의 것이 아닙니다.' }
+  }
+  if (billingId) {
+    const { data: billing } = await supabase
+      .from('service_billings')
+      .select('id, customer_id')
+      .eq('id', billingId)
+      .maybeSingle()
+    if (!billing || billing.customer_id !== customerId) {
+      return { ok: false, status: 403, error: '청구서가 이 고객의 것이 아닙니다.' }
+    }
+  }
+  return { ok: true }
+}
+
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json() as {
-      customerId?: string
-      billingKey?: string
-      issueId?: string
-    }
-    const { customerId, billingKey, issueId } = body
-
+    const body = await request.json() as { customerId?: string; billingKey?: string; issueId?: string; billingId?: string }
+    const { customerId, billingKey, issueId, billingId } = body
     if (!customerId || !billingKey) {
-      return NextResponse.json(
-        { error: 'customerId, billingKey 모두 필요합니다' },
-        { status: 400 },
-      )
+      return NextResponse.json({ error: 'customerId, billingKey 모두 필요합니다' }, { status: 400 })
     }
 
-    // PortOne 서버 재조회로 billingKey 유효성 검증
     const info = await fetchBillingKeyFromPortOne(billingKey)
     if (!info) {
-      return NextResponse.json(
-        { error: 'PortOne 서버에서 빌링키를 확인할 수 없습니다. 다시 시도해주세요.' },
-        { status: 400 },
-      )
+      return NextResponse.json({ error: 'PortOne 서버에서 빌링키를 확인할 수 없습니다. 다시 시도해주세요.' }, { status: 400 })
     }
-    const cardName = extractCardName(info)
+    if (issueId && info.issueId && info.issueId !== issueId) {
+      return NextResponse.json({ error: '카드 등록 요청 정보가 일치하지 않습니다.' }, { status: 403 })
+    }
 
     const supabase = createServiceClient()
+    const owner = await validateOwnership(supabase, customerId, billingId, info)
+    if (!owner.ok) return NextResponse.json({ error: owner.error }, { status: owner.status })
 
-    // 2026-10-19 Phase E: 정기엔드케어만 빌링키 등록 허용
-    // 정기딥케어는 선납·일회성 결제라서 빌링키 자동결제가 필요 없음.
-    const { data: custCheck } = await supabase
-      .from('customers')
-      .select('customer_type')
-      .eq('id', customerId)
-      .maybeSingle()
-    if (custCheck?.customer_type !== '정기엔드케어') {
-      return NextResponse.json(
-        { error: '정기엔드케어 고객만 빌링키 등록이 가능합니다.' },
-        { status: 400 },
-      )
-    }
-
+    const cardName = extractCardName(info)
     const { error: updateErr } = await supabase
       .from('customers')
       .update({
@@ -119,18 +128,19 @@ export async function POST(request: NextRequest) {
         billing_key_status: 'active',
         billing_key_card_name: cardName,
         billing_key_issued_at: new Date().toISOString(),
-        billing_card_url: null,  // 토큰 소각 → URL 재사용 차단
+        billing_card_url: null,       // 등록 링크 토큰 소각
         payment_status_detail: null,  // 기존 실패 사유 초기화
       })
       .eq('id', customerId)
-
+      .neq('billing_key_status', 'active')
     if (updateErr) {
-      return NextResponse.json(
-        { error: `DB 저장 실패: ${updateErr.message}` },
-        { status: 500 },
-      )
+      return NextResponse.json({ error: `DB 저장 실패: ${updateErr.message}` }, { status: 500 })
     }
 
+    if (billingId) {
+      const charged = await chargeBillingWithKey(supabase, billingId)
+      return NextResponse.json({ ok: true, cardName, charged: charged.ok, chargeError: charged.ok ? null : charged.message })
+    }
     return NextResponse.json({ ok: true, cardName })
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
