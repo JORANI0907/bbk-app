@@ -157,7 +157,7 @@ export async function handleTransactionPaid(paymentId: string): Promise<void> {
     if (!billingRow) return
     if (billingRow.status === 'paid') return  // 멱등: 이미 완료
 
-    const today = new Date().toISOString().slice(0, 10)
+    const today = new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10)  // KST 날짜
     const { data: updated } = await supabase
       .from('service_billings')
       .update({ status: 'paid', paid_date: today })
@@ -203,8 +203,10 @@ export async function handleTransactionPaid(paymentId: string): Promise<void> {
       try {
         const period = billingRow.billing_period
         const isAnnual = /^\d{4}$/.test(period)
-        const periodStart = isAnnual ? `${period}-01-01` : `${period}-01`
-        const periodEnd   = isAnnual ? `${period}-12-31` : `${period}-31`
+        // 2026-11-01: 건별 청구서는 billing_period 가 'YYYY-MM-DD' (시공일) — 그날 하루만 매칭
+        const isDaily = /^\d{4}-\d{2}-\d{2}$/.test(period)
+        const periodStart = isAnnual ? `${period}-01-01` : isDaily ? period : `${period}-01`
+        const periodEnd   = isAnnual ? `${period}-12-31` : isDaily ? period : `${period}-31`
         const { data: targetApp } = await supabase
           .from('service_applications')
           .select('id')
