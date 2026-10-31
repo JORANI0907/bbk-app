@@ -368,8 +368,9 @@ export const AVAILABLE_VARIABLES: VariableDef[] = [
   { label: '예약금결제URL', category: '결제정보', scope: 'application', appliesTo: TAB_ONESHOT_MONTHLY,
     desc: 'PG 예약금 결제 링크',
     resolve: (c) => c.application?.deposit_payment_url ?? c.customer?.deposit_payment_url ?? '' },
-  { label: '잔금결제URL', category: '결제정보', scope: 'application', appliesTo: TAB_ONESHOT_MONTHLY,
-    desc: 'PG 잔금 결제 링크',
+  // 2026-11-01: 정기 결제 안내 템플릿(정기딥/정기엔드)에서도 이 변수로 청구서 결제 링크를 넣는다.
+  { label: '잔금결제URL', category: '결제정보', scope: 'application', appliesTo: TAB_ALL,
+    desc: 'PG 잔금 결제 링크 (정기 고객은 이번 청구서 결제 링크)',
     resolve: (c) => c.application?.balance_payment_url ?? c.customer?.balance_payment_url ?? '' },
   { label: '카드등록URL', category: '결제정보', scope: 'customer', appliesTo: TAB_RECURRING,
     desc: '정기결제 카드 등록 링크',
