@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { generateBillingSchedule, computeBillingAmountFromCustomer } from '@/lib/billing-generator'
+import { computeNotifyStartDate, type BillingTrigger } from '@/lib/billing-notify-policy'
 
 /**
  * 결제청구 생성 (수동 트리거) + payment_url 동시 발급 (2026-10-19 Phase B)
@@ -34,13 +35,18 @@ export async function POST(request: NextRequest, { params }: Params) {
 
   const { data: customer, error } = await supabase
     .from('customers')
-    .select('id, business_name, customer_type, billing_cycle, billing_timing, supply_amount, vat, billing_amount, payment_method, payment_date, contract_start_date, contract_end_date, status')
+    .select('id, business_name, customer_type, billing_cycle, billing_timing, billing_trigger, supply_amount, vat, billing_amount, payment_method, payment_date, contract_start_date, contract_end_date, status')
     .eq('id', id)
     .is('deleted_at', null)
     .single()
 
   if (error || !customer) {
     return NextResponse.json({ error: '고객을 찾을 수 없습니다' }, { status: 404 })
+  }
+
+  // 2026-11-01: 건별(시공 1건마다) 결제 고객은 작업완료 시점에 청구서가 자동 생성된다 — 월 단위 미리 생성 금지
+  if (customer.billing_trigger === 'per_visit') {
+    return NextResponse.json({ error: '결제 기준이 "시공 1건마다"인 고객은 시공 건이 작업완료로 바뀔 때 청구서가 자동 생성됩니다. 미리 생성하지 않습니다.' }, { status: 400 })
   }
 
   if (customer.status === 'paused') {
@@ -113,6 +119,10 @@ export async function POST(request: NextRequest, { params }: Params) {
     status: 'pending' as const,
     service_type: customer.customer_type,
     billing_timing: timing,
+    // 2026-11-01: 알림 시작일을 생성 시점에 확정 (선불 D-3 / 후불 당일) — cron·화면이 같은 값을 본다
+    notify_start_date: computeNotifyStartDate({
+      trigger: (customer.billing_trigger as BillingTrigger | null) ?? null, timing, dueDate: s.due_date,
+    }),
   }))
 
   const { data: inserted, error: insertError } = await supabase
