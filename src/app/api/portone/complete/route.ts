@@ -3,6 +3,7 @@ import { createServiceClient } from '@/lib/supabase/server'
 import { getPortOneClient, getStoreId, isPortOneEnabled, calcBalance } from '@/lib/portone'
 import { sendSlack } from '@/lib/slack'
 import { notifyPaymentCompleteAdmin } from '@/lib/solapi'
+import { paymentMethodFromPortOne } from '@/lib/portone-method'
 
 const APP_BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.bbkorea.co.kr'
 
@@ -120,6 +121,9 @@ export async function POST(request: NextRequest) {
 
     const client = getPortOneClient()!
 
+    // 2026-11-01: 이번 단계(예약금/잔금)의 실제 결제수단 — 빌링키 결제는 카드
+    let paidMethod: string | null = billingKey ? 'credit_card' : null
+
     if (billingKey) {
       // ─── 정기결제(BillPay) 흐름 — 서버가 저장된 billingKey로 재청구 ───
       const orderName    = `BBK 공간케어 ${stage === 'deposit' ? '예약금' : '잔금'} — ${String(app.business_name ?? '')}`
@@ -189,6 +193,7 @@ export async function POST(request: NextRequest) {
           { status: 400 },
         )
       }
+      paidMethod = paymentMethodFromPortOne(payment)
     }
 
     const nowIso = new Date().toISOString()
@@ -208,6 +213,9 @@ export async function POST(request: NextRequest) {
     } else {
       updates.balance_paid_at = nowIso
     }
+    // 단계별 실제 결제수단 기록 (예약금 가상계좌 + 잔금 카드 같은 혼합 결제 구분용)
+    const stageMethodField = stage === 'deposit' ? 'deposit_payment_method' : 'balance_payment_method'
+    if (paidMethod) updates[stageMethodField] = paidMethod
 
     // 원자적 업데이트: paid_at IS NULL 조건 추가 → 동시 호출 시 1건만 성공 (race condition 방어)
     const paidAtField = stage === 'deposit' ? 'deposit_paid_at' : 'balance_paid_at'
@@ -242,6 +250,7 @@ export async function POST(request: NextRequest) {
           const custUpdate: Record<string, unknown> = stage === 'deposit'
             ? { deposit_paid_at: nowIso, deposit: expectedAmount }
             : { balance_paid_at: nowIso }
+          if (paidMethod) custUpdate[stageMethodField] = paidMethod
           await supabase.from('customers').update(custUpdate).eq('id', appLink.customer_id)
         }
       } catch {
