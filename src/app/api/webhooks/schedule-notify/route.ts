@@ -14,6 +14,7 @@ import { notifySlack } from '@/lib/slack'
 import { saveNotificationHistory } from '@/lib/notification'
 import type { NotificationContext } from '@/lib/notification-variables'
 import { appendBothNotificationLogs } from '@/lib/notification-log'
+import { activatePerVisitBillingSafe } from '@/lib/per-visit-billing'
 
 // 알림 발송 대상 계약상태
 const VALID_STATUSES = ['예약확정', '배정완료', '계약완료']
@@ -165,6 +166,11 @@ export async function POST(request: NextRequest) {
         entry,
         extraAppFields,
       })
+
+      // 2026-11-01: 이 알림으로 진행상태가 '작업완료' 가 되면 건별(per_visit) 고객 청구서 연결 + 즉시 결제 안내
+      if (extraAppFields.progress_status === '작업완료') {
+        await activatePerVisitBillingSafe(supabase, app.id, 'webhooks/schedule-notify')
+      }
 
       // 수정 C: notification_history 기록 (문자알림관리 탭 표시 + Slack 로그)
       await saveNotificationHistory({
