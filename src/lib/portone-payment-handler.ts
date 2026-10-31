@@ -7,6 +7,7 @@
  */
 
 import { createServiceClient } from '@/lib/supabase/server'
+import { fetchPaidMethod } from '@/lib/portone-method'
 import { sendSlack } from '@/lib/slack'
 import { notifyPaymentCompleteAdmin } from '@/lib/solapi'
 
@@ -44,9 +45,11 @@ export async function handleTransactionPaid(paymentId: string): Promise<void> {
     if (depositRow.deposit_paid_at) return
 
     const nowIso = new Date().toISOString()
+    const paidMethod = await fetchPaidMethod(paymentId)   // 2026-11-01: 예약금 실제 수단
     const { data: updated } = await supabase
       .from('service_applications')
       .update({
+        ...(paidMethod ? { deposit_payment_method: paidMethod } : {}),
         deposit_paid_at: nowIso,
         payment_confirmed_at: nowIso,
         payment_status: 'paid',
@@ -63,7 +66,7 @@ export async function handleTransactionPaid(paymentId: string): Promise<void> {
       try {
         await supabase
           .from('customers')
-          .update({ deposit_paid_at: nowIso, deposit: Number(depositRow.deposit ?? 0) })
+          .update({ deposit_paid_at: nowIso, deposit: Number(depositRow.deposit ?? 0), ...(paidMethod ? { deposit_payment_method: paidMethod } : {}) })
           .eq('id', depositRow.customer_id)
       } catch { /* 동기화 실패 무시 */ }
     }
@@ -99,9 +102,11 @@ export async function handleTransactionPaid(paymentId: string): Promise<void> {
     if (balanceRow.balance_paid_at) return
 
     const nowIso = new Date().toISOString()
+    const paidMethod = await fetchPaidMethod(paymentId)   // 2026-11-01: 잔금 실제 수단
     const { data: updated } = await supabase
       .from('service_applications')
       .update({
+        ...(paidMethod ? { balance_payment_method: paidMethod } : {}),
         balance_paid_at: nowIso,
         payment_confirmed_at: nowIso,
         payment_status: 'paid',
@@ -122,7 +127,7 @@ export async function handleTransactionPaid(paymentId: string): Promise<void> {
       if (link?.customer_id) {
         await supabase
           .from('customers')
-          .update({ balance_paid_at: nowIso })
+          .update({ balance_paid_at: nowIso, ...(paidMethod ? { balance_payment_method: paidMethod } : {}) })
           .eq('id', link.customer_id)
       }
     } catch { /* 동기화 실패 무시 */ }
