@@ -203,7 +203,7 @@ export async function GET(request: NextRequest) {
     // 세금계산서 발행 후에도 실제 결제 안 됐으면 알림 계속
     .in('status', ['작업완료', '결제', '계산서발행완료'])
     // 1회성케어 전용. 정기딥/정기엔드는 service_billings 기반의
-    // billing-payment-reminders 크론이 담당하므로 여기서 제외.
+    // cron/billing-notify 가 담당하므로 여기서 제외.
     .eq('service_type', '1회성케어')
     // supply_amount 필터 제거: 신청서 값이 sync 안 됐어도 마스터 값을 아래 로직에서 우선 참조.
     // 대신 아래 for 루프에서 supply(customer 우선) > 0 검증.
