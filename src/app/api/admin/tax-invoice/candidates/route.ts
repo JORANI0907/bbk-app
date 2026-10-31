@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { getServerSession } from '@/lib/session'
-import { hasVat } from '@/lib/payment-methods'
+import { hasVat, normalizePaymentMethod } from '@/lib/payment-methods'
 
 export const dynamic = 'force-dynamic'
 
@@ -43,6 +43,8 @@ interface Candidate {
   supply_amount: number
   vat: number
   total_amount: number
+  /** 2026-11-01: 예약금·잔금 수단이 달라 일부만 계산서 대상일 때 내역 설명 */
+  invoice_note?: string | null
   billing_id: string | null
   billing_period: string | null   // '2026-07' or '2026'
   billing_type: 'monthly' | 'annual' | null
@@ -122,6 +124,40 @@ function calcAmounts(amount: number, payment_method: string | null): { supply: n
   }
   const supply = Math.round(amount / 1.1)
   return { supply, vat: amount - supply }
+}
+
+// ── 2026-11-01: 1회성 혼합 결제(예약금·잔금 수단 다름) → 계좌 쪽(가상계좌·계좌이체) 금액만 계산서 대상 ──
+const INVOICE_METHODS = new Set(['virtual_account', 'bank_transfer'])
+function isInvoiceMethod(m: string | null | undefined): boolean {
+  const n = normalizePaymentMethod(m ?? null)
+  return !!n && INVOICE_METHODS.has(n)
+}
+function methodKo(m: string | null | undefined): string {
+  const n = normalizePaymentMethod(m ?? null)
+  if (n === 'credit_card') return '카드'
+  if (n === 'virtual_account') return '가상계좌'
+  if (n === 'bank_transfer') return '계좌이체'
+  if (n === 'cash_untaxed') return '현금'
+  if (n === 'platform') return '플랫폼'
+  return m ?? '미지정'
+}
+/**
+ * 예약금·잔금 중 한쪽만 계좌 결제면 그쪽 금액만 돌려준다. 둘 다 같으면 null (기존 총액 방식 유지).
+ */
+function splitByStageMethod(p: { total: number; deposit: number; depMethod: string | null; balMethod: string | null }) {
+  if (p.deposit <= 0 || p.total <= 0) return null
+  const depOk = isInvoiceMethod(p.depMethod)
+  const balOk = isInvoiceMethod(p.balMethod)
+  if (depOk === balOk) return null
+  const balance = Math.max(p.total - p.deposit, 0)
+  const amount = depOk ? p.deposit : balance
+  const method = (depOk ? p.depMethod : p.balMethod) ?? null
+  const { supply, vat } = calcAmounts(amount, method)
+  const fmt = (n: number) => n.toLocaleString('ko-KR')
+  const note = depOk
+    ? `예약금 ${fmt(p.deposit)}원(${methodKo(p.depMethod)}) 포함 · 잔금 ${fmt(balance)}원(${methodKo(p.balMethod)}) 제외`
+    : `잔금 ${fmt(balance)}원(${methodKo(p.balMethod)}) 포함 · 예약금 ${fmt(p.deposit)}원(${methodKo(p.depMethod)}) 제외`
+  return { supply, vat, method, note }
 }
 
 // billing_period + billing_type + due_date → 표시용 기간 문자열
@@ -204,6 +240,9 @@ export async function GET(request: NextRequest) {
       deleted_at: string | null
       balance_paid_at?: string | null
       deposit_transferred_at?: string | null
+      deposit?: number | null
+      deposit_payment_method?: string | null
+      balance_payment_method?: string | null
     }
     interface OneTimeCust {
       id: string
@@ -225,6 +264,10 @@ export async function GET(request: NextRequest) {
       billing_email?: string | null
       billing_address?: string | null
       billing_business_number?: string | null
+      // 2026-11-01: 단계별 결제수단 (혼합 결제 분리용)
+      deposit?: number | null
+      deposit_payment_method?: string | null
+      balance_payment_method?: string | null
       service_applications: SaRow[]
     }
 
@@ -232,13 +275,13 @@ export async function GET(request: NextRequest) {
     const SELECT_NEW = `
       id, business_name, business_number, contact_name, address, email, contact_phone,
       payment_method, payment_status_detail, created_at, account_number,
-      supply_amount, vat,
+      supply_amount, vat, deposit, deposit_payment_method, balance_payment_method,
       billing_contact_name, billing_email, billing_address, billing_business_number,
       service_applications (
         id, construction_date, status, payment_status_detail,
         tax_invoice_issued, tax_invoice_issued_at,
         supply_amount, vat, payment_method, created_at, deleted_at,
-        balance_paid_at, deposit_transferred_at
+        balance_paid_at, deposit_transferred_at, deposit, deposit_payment_method, balance_payment_method
       )
     `
     const SELECT_LEGACY = `
@@ -262,7 +305,7 @@ export async function GET(request: NextRequest) {
         .is('deleted_at', null)
         .is('archived_at', null)
         .order('created_at', { ascending: false })
-      if (r.error && /(billing_contact_name|billing_email|billing_address|billing_business_number|deposit_transferred_at)/i.test(r.error.message)) {
+      if (r.error && /(billing_contact_name|billing_email|billing_address|billing_business_number|deposit_transferred_at|deposit_payment_method|balance_payment_method)/i.test(r.error.message)) {
         // 신규 컬럼 미배포 → legacy 로 재시도
         const r2 = await supabase
           .from('customers')
@@ -325,6 +368,27 @@ export async function GET(request: NextRequest) {
           supply = 0; vat = 0
         }
 
+        // 2026-11-01: 예약금·잔금 수단이 다르면(예: 예약금 가상계좌 + 잔금 카드) 계좌 쪽 금액만 계산서 대상.
+        //   발행 완료 건·사용자 편집 초안(draft)이 있는 건은 손대지 않는다.
+        let invoiceNote: string | null = null
+        let candidateMethod: string | null = isIssued
+          ? (sa.payment_method ?? c.payment_method ?? null)
+          : (c.payment_method ?? sa.payment_method ?? null)
+        if (!isIssued && !(draft?.items && draft.items.length > 0)) {
+          const split = splitByStageMethod({
+            total: supply + vat,
+            deposit: Number(c.deposit ?? sa.deposit ?? 0),
+            depMethod: c.deposit_payment_method ?? sa.deposit_payment_method ?? c.payment_method ?? sa.payment_method ?? null,
+            balMethod: c.balance_payment_method ?? sa.balance_payment_method ?? c.payment_method ?? sa.payment_method ?? null,
+          })
+          if (split) {
+            supply = split.supply
+            vat = split.vat
+            invoiceNote = split.note
+            candidateMethod = split.method
+          }
+        }
+
         results.push({
           source: 'application',
           source_id: sa.id,
@@ -340,12 +404,11 @@ export async function GET(request: NextRequest) {
           // 발행 완료된 회차는 발행 시점 스냅샷(sa.payment_method) 유지 → 세무 기록 무결성.
           // 미발행 회차는 마스터(c.payment_method) 우선 → 고객관리 탭에서 결제방법 변경 시
           // 즉시 계산서 발행 탭에 반영됨. supply/vat 금액은 스냅샷 그대로 (표기만 동기화).
-          payment_method: isIssued
-            ? (sa.payment_method ?? c.payment_method ?? null)
-            : (c.payment_method ?? sa.payment_method ?? null),
+          payment_method: candidateMethod,
           supply_amount: supply,
           vat,
           total_amount: supply + vat,
+          invoice_note: invoiceNote,
           billing_id: null,
           billing_period: null,
           billing_type: null,
