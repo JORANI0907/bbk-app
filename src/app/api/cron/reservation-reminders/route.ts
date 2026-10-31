@@ -1,12 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
-import { sendSmsOrLms } from '@/lib/solapi'
 import { sendByTemplate } from '@/lib/template-sender'
 import type { NotificationContext } from '@/lib/notification-variables'
 import { saveNotificationHistory } from '@/lib/notification'
 import { appendBothNotificationLogs } from '@/lib/notification-log'
 import { normalizePaymentMethod } from '@/lib/payment-methods'
-import { pickRecurringBillingTemplate, buildRecurringBillingContext } from '@/lib/recurring-billing-notice'
 
 const CRON_SECRET = process.env.CRON_SECRET
 
@@ -322,7 +320,7 @@ export async function GET(request: NextRequest) {
       // 세금계산서 발행(tax_invoice_issued)이나 순서 변경과 무관하게 작동
       .eq('progress_status', '작업완료')
       // 1회성케어 전용. 정기딥/정기엔드는 service_billings 기반의
-      // billing-payment-reminders 크론이 담당하므로 여기서 제외.
+      // cron/billing-notify 가 담당하므로 여기서 제외.
       .eq('service_type', '1회성케어')
       .gt('supply_amount', 0)
       .is('deleted_at', null)
@@ -368,210 +366,9 @@ export async function GET(request: NextRequest) {
     results.push({ type: '결제알림', sent, failed, skipped })
   }
 
-  // ── 4. 정기결제알림: service_billings 기반 ─────────────────
-  //     Phase 27-U (v11 완전 반영): 유형별 트리거 조건 분리
-  //     - 정기엔드케어: due_date <= today (결제일 도래 후 매일)
-  //     - 정기딥케어  : 그 달 시공(service_applications) 모두 '작업완료' 후 매일
-  //                     (PaymentIssuesSummary v11 판정과 100% 동일 조건)
-  //     - annual (재계약 안내): due_date <= today, 1회성 status='reminded' 로 종료
-  //     - 공통: status='pending' AND last_notified_at 오늘 아니면 발송
-  //     - 정기딥: 그 달의 마지막 시공 notification_log 에도 기록 → UI 노출
-  {
-    const ADMIN_PHONE = '01054344877'
-    const currentMonth = todayKST.slice(0, 7)   // '2026-08'
-
-    type BillingRow = {
-      id: string
-      billing_type: string
-      billing_period: string
-      due_date: string
-      amount: number
-      payment_url: string | null
-      last_notified_at: string | null
-      customers: {
-        id: string
-        business_name: string
-        contact_name: string | null
-        contact_phone: string | null
-        customer_type: string | null
-        payment_method: string | null
-        account_number: string | null
-        billing_amount: number | null
-        billing_next_date: string | null
-      }
-    }
-
-    // due_date 조건 제거 — 유형별 트리거는 아래에서 각자 판정
-    // customers.deleted_at IS NULL 필수: soft-delete 된 고객의 pending billing 이
-    // 남아있는 경우 매일 SMS 재발송되는 사고 방지 (2026-09-30, 테스트업체5 케이스).
-    // service_billings 테이블은 deleted_at 컬럼이 없으므로 오직 customers 쪽 필터로만 방어.
-    const { data: billings } = await supabase
-      .from('service_billings')
-      .select(`
-        id, billing_type, billing_period, due_date, amount, payment_url, last_notified_at,
-        customers!inner(
-          id, business_name, contact_name, contact_phone,
-          customer_type, payment_method, account_number,
-          billing_amount, billing_next_date
-        )
-      `)
-      .eq('status', 'pending')
-      .in('customers.customer_type', ['정기딥케어', '정기엔드케어'])
-      .is('customers.deleted_at', null)
-
-    let sent = 0, failed = 0, skipped = 0
-
-    for (const row of (billings ?? []) as unknown as BillingRow[]) {
-      const cust = row.customers
-
-      // 일시정지 고객은 정기결제알림 대상에서 제외
-      if (pausedCustomerIds.has(cust.id)) { skipped++; continue }
-
-      // 오늘 이미 발송한 청구는 skip (KST 기준 날짜 비교)
-      if (row.last_notified_at && row.last_notified_at.slice(0, 10) === todayKST) {
-        skipped++
-        continue
-      }
-
-      const nowKSTIso = new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().replace('Z', '+09:00')
-
-      // ── 연간: 관리자에게 재계약 안내 SMS (due_date 도래 후 1회, status='reminded' 로 종료) ──
-      if (row.billing_type === 'annual') {
-        if (row.due_date > todayKST) { skipped++; continue }
-        const msg = `[BBK 공간케어] 연간 계약 갱신 필요\n${cust.business_name} 고객의 연간 계약 결제일(${row.due_date})이 도래했습니다.\n재계약 진행을 확인해 주세요.`
-        try {
-          await sendSmsOrLms(ADMIN_PHONE, msg, {})
-          await supabase.from('service_billings')
-            .update({ status: 'reminded', last_notified_at: nowKSTIso })
-            .eq('id', row.id)
-          sent++
-        } catch { failed++ }
-        continue
-      }
-
-      // ── 월간 유형별 트리거 조건 판정 ─────────────────────────────
-      if (cust.customer_type === '정기엔드케어') {
-        // 정기엔드: 결제일 도래 후만 발송
-        if (row.due_date > todayKST) { skipped++; continue }
-      } else if (cust.customer_type === '정기딥케어') {
-        // 정기딥: 미래 달 청구는 제외
-        if (row.billing_period > currentMonth) { skipped++; continue }
-
-        // 그 달의 시공(service_applications) 모두 '작업완료' 여야 발송
-        const [y, m] = row.billing_period.split('-').map(Number)
-        const monthStart = `${row.billing_period}-01`
-        const nextMonth = m === 12
-          ? `${y + 1}-01-01`
-          : `${y}-${String(m + 1).padStart(2, '0')}-01`
-
-        const { data: monthApps } = await supabase
-          .from('service_applications')
-          .select('id, progress_status')
-          .eq('customer_id', cust.id)
-          .gte('construction_date', monthStart)
-          .lt('construction_date', nextMonth)
-          .is('deleted_at', null)
-
-        // 그 달에 시공 스케줄 없으면 발송 안 함 (이상 케이스, 데이터 확인 필요)
-        if (!monthApps || monthApps.length === 0) { skipped++; continue }
-
-        // 하나라도 '작업완료' 아닌 것이 있으면 발송 안 함
-        const allCompleted = monthApps.every(a => a.progress_status === '작업완료')
-        if (!allCompleted) { skipped++; continue }
-      }
-
-      // ── 월간: 고객에게 정기결제알림 (매일 반복) ──
-      const phone = (cust.contact_phone ?? '').replace(/-/g, '')
-      if (!phone) { skipped++; continue }
-
-      // 템플릿 선택·변수 채우기는 수동 발송 버튼과 공용 (lib/recurring-billing-notice)
-      const templateCode = pickRecurringBillingTemplate(cust.customer_type, cust.payment_method)
-      const ctx = buildRecurringBillingContext(cust, row)
-
-      try {
-        const result = await sendByTemplate(templateCode, phone, ctx)
-        if (result.ok) {
-          // 매일 반복 발송을 위해 status 는 pending 유지, last_notified_at 만 업데이트
-          await supabase.from('service_billings')
-            .update({ last_notified_at: nowKSTIso })
-            .eq('id', row.id)
-
-          await saveNotificationHistory({
-            category: 'sms',
-            type: '정기결제알림',
-            body: result.text,
-            method: 'auto',
-            recipientType: 'customer',
-            recipientPhone: phone,
-            metadata: {
-              billing_id: row.id,
-              customer_id: cust.id,
-              business_name: cust.business_name,
-              channel: result.type,
-              source: 'cron/reservation-reminders',
-            },
-            status: 'sent',
-          })
-
-          const newEntry = {
-            type: '정기결제알림',
-            sent_at: nowKSTIso,
-            phone,
-            method: 'auto' as const,
-            channel: result.type,
-            billing_id: row.id,
-            billing_period: row.billing_period,
-          }
-
-          // 정기딥 UI 노출: 그 달 마지막 시공 행 notification_log 에도 기록
-          if (cust.customer_type === '정기딥케어') {
-            const [y, m] = row.billing_period.split('-').map(Number)
-            const monthStart = `${row.billing_period}-01`
-            const nextMonth = m === 12 ? `${y + 1}-01-01` : `${y}-${String(m + 1).padStart(2, '0')}-01`
-            const { data: latestApp } = await supabase
-              .from('service_applications')
-              .select('id, notification_log')
-              .eq('customer_id', cust.id)
-              .gte('construction_date', monthStart)
-              .lt('construction_date', nextMonth)
-              .is('deleted_at', null)
-              .order('construction_date', { ascending: false })
-              .limit(1)
-              .maybeSingle()
-
-            if (latestApp) {
-              const existLog = Array.isArray(latestApp.notification_log)
-                ? (latestApp.notification_log as Array<Record<string, unknown>>)
-                : []
-              await supabase.from('service_applications')
-                .update({ notification_log: [...existLog, newEntry] })
-                .eq('id', latestApp.id)
-            }
-          }
-
-          // 고객관리 마스터 DB 알림이력 노출: customers.notification_log 갱신
-          // (정기딥·정기엔드 공통 — ScheduleAccordionRow 는 customers.notification_log 만 읽음)
-          const { data: custRow } = await supabase
-            .from('customers')
-            .select('notification_log')
-            .eq('id', cust.id)
-            .single()
-          const existCustLog = Array.isArray(custRow?.notification_log)
-            ? (custRow.notification_log as Array<Record<string, unknown>>)
-            : []
-          await supabase.from('customers')
-            .update({ notification_log: [newEntry, ...existCustLog] })
-            .eq('id', cust.id)
-
-          sent++
-        } else {
-          skipped++
-        }
-      } catch { failed++ }
-    }
-
-    results.push({ type: '정기결제알림', sent, failed, skipped })
-  }
+  // ── 4. 정기결제알림 — 2026-11-01 cron/billing-notify 로 이관 ─────────
+  //     정기(딥/엔드) 결제 안내는 /api/cron/billing-notify 하나가 전담한다.
+  //     (청구서 notify_start_date 기준 당일·3일·7일 최대 3회, 결제 링크 포함, 빌링키 고객은 자동결제)
 
   return NextResponse.json({ ok: true, date: todayKST, results })
 }
