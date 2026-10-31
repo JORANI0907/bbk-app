@@ -29,6 +29,7 @@ interface Candidate {
   supply_amount: number
   vat: number
   total_amount: number
+  invoice_note?: string | null   // 2026-11-01: 혼합 결제 시 포함/제외 내역
   billing_period: string | null
   display_period: string | null
   construction_date: string | null
@@ -357,6 +358,9 @@ export function HometaxCsvModal({ open, onClose, customerIds }: Props) {
                         </label>
                       )}
                     </div>
+                    {!isMultiBilling && first.invoice_note && (
+                      <p className="px-3 pb-2 -mt-1 text-[11px] text-amber-700 break-keep">ℹ️ {first.invoice_note}</p>
+                    )}
 
                     {/* 아코디언 본문 (정기케어 등 다건) */}
                     {isMultiBilling && isExpanded && (
