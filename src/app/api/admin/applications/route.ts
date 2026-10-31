@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { sendSlack } from '@/lib/slack'
-import { computeBillingAmountFromCustomer, toMonthlyPeriod, calcMonthlyDueDate } from '@/lib/billing-generator'
+import { activatePerVisitBillingSafe } from '@/lib/per-visit-billing'
 
 // 배정관리/캘린더 등 리스트 뷰에서 실제로 렌더링·조작되는 필드만 (약 45개).
 // 무거운 jsonb(quote_items, quote_log, saved_quotes, spare_data, recommended_services 등)와
@@ -241,6 +241,17 @@ export async function PATCH(request: NextRequest) {
     if (key in rest) updates[key] = rest[key]
   }
 
+  // 2026-11-01: 작업완료 '전환' 감지용 — 이미 작업완료였던 건은 건별 청구 훅을 다시 부르지 않는다
+  let wasCompleted = false
+  if (updates.progress_status === '작업완료') {
+    const { data: before } = await supabase
+      .from('service_applications')
+      .select('progress_status')
+      .eq('id', id)
+      .maybeSingle()
+    wasCompleted = before?.progress_status === '작업완료'
+  }
+
   const { error } = await supabase
     .from('service_applications')
     .update(updates)
@@ -442,8 +453,11 @@ export async function PATCH(request: NextRequest) {
     }
   }
 
-  // 2026-10-19: 정기딥 월간 방문 완료 시 billings 자동 생성 블록 제거 (수동 UI로 전환)
-  // 원 로직은 git log 로 복구 가능
+  // 2026-11-01: 건별(per_visit) 결제 고객 — 작업완료로 바뀌면 청구서 연결/생성 + 즉시 결제 안내
+  //   (정기 고객 중 billing_trigger='per_visit' 만 해당. 나머지는 lib 안에서 조용히 skip)
+  if (updates.progress_status === '작업완료' && !wasCompleted) {
+    await activatePerVisitBillingSafe(supabase, id, 'applications/PATCH')
+  }
 
   return NextResponse.json({ success: true })
 }
