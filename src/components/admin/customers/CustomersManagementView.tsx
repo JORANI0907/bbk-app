@@ -8,6 +8,7 @@ import { MapSelectorModal } from '@/components/MapSelectorModal'
 import { BulkMonthlyScheduleNotifyModal } from './BulkMonthlyScheduleNotifyModal'
 import RegularProgressFlow from './RegularProgressFlow'
 import { BillingAutoScheduleSummary } from '@/components/admin/customers/BillingAutoScheduleSummary'
+import { toBillingMode, fromBillingMode, type BillingTrigger, type BillingMode } from '@/lib/billing-notify-policy'
 import { BillingKeyRegisterPanel } from '@/components/admin/customers/BillingKeyRegisterPanel'
 import BillingGenerateModal, { type BillingGenerateMode } from '@/components/admin/customers/BillingGenerateModal'
 import { Button } from '@/components/ui'
@@ -72,6 +73,7 @@ interface Customer {
   status: CustomerStatus | null
   billing_cycle: BillingCycle | null
   billing_timing: BillingTiming | null
+  billing_trigger: BillingTrigger | null   // 결제 기준: 매월 지정일 / 매월 말일 / 시공 1건마다 / 연 1회
   billing_amount: number | null
   auto_notification_paused: boolean | null
   auto_notification_pause_reason: string | null
@@ -419,6 +421,7 @@ const EMPTY_FORM = {
   pipeline_status: 'inquiry',
   billing_cycle: '월간' as BillingCycle,
   billing_timing: 'prepaid' as BillingTiming,
+  billing_trigger: '' as BillingTrigger | '',
   billing_amount: '',
   auto_notification_paused: false,
   auto_notification_pause_reason: '',
@@ -1162,6 +1165,7 @@ export function CustomersManagementView({
     pipeline_status: c.pipeline_status ?? 'inquiry',
     billing_cycle: c.billing_cycle ?? '월간',
     billing_timing: (c.billing_timing ?? 'prepaid') as BillingTiming,
+    billing_trigger: (c.billing_trigger ?? '') as BillingTrigger | '',
     billing_amount: c.billing_amount?.toString() ?? '',
     auto_notification_paused: c.auto_notification_paused ?? false,
     auto_notification_pause_reason: c.auto_notification_pause_reason ?? '',
@@ -1359,7 +1363,7 @@ export function CustomersManagementView({
         pipeline_status: '',
         customer_type: (app.service_type as CustomerType) ?? '1회성케어',
         status: 'active',
-        billing_cycle: null, billing_timing: 'prepaid', billing_amount: null, billing_start_date: null, billing_next_date: null,
+        billing_cycle: null, billing_timing: 'prepaid', billing_trigger: null, billing_amount: null, billing_start_date: null, billing_next_date: null,
         auto_notification_paused: false, auto_notification_pause_reason: null,
         contract_start_date: null, contract_end_date: null,
         unit_price: null, visit_interval_days: null,
@@ -1428,6 +1432,18 @@ export function CustomersManagementView({
     setPrepaidPeriods(1)
   }
 
+  // 2026-11-01: 화면의 '결제 방식' 3종 ↔ DB 의 billing_trigger + billing_timing 두 칸
+  const billingMode: BillingMode = toBillingMode(
+    (form.billing_trigger as BillingTrigger | '') || null,
+    (form.billing_timing as 'prepaid' | 'postpaid' | '') || null,
+  )
+  const setBillingMode = (mode: BillingMode) => {
+    const { trigger, timing } = fromBillingMode(mode)
+    setForm(prev => ({ ...prev, billing_trigger: trigger, billing_timing: timing }))
+  }
+  // 결제일자를 비우면 계약 시작일의 '일'로 결제
+  const contractStartDay = form.contract_start_date ? Number(form.contract_start_date.slice(8, 10)) : null
+
   const set = (key: keyof typeof EMPTY_FORM) => (v: string) =>
     setForm(prev => {
       const next = { ...prev, [key]: v }
@@ -1489,6 +1505,7 @@ export function CustomersManagementView({
     pipeline_status: form.pipeline_status || 'inquiry',
     billing_cycle: form.billing_cycle || null,
     billing_timing: form.billing_timing || 'prepaid',
+    billing_trigger: form.billing_trigger || null,
     auto_notification_paused: !!form.auto_notification_paused,
     auto_notification_pause_reason: form.auto_notification_pause_reason?.trim() || null,
     supply_amount: form.supply_amount ? Number(form.supply_amount) : null,
@@ -2569,7 +2586,7 @@ export function CustomersManagementView({
           pipeline_status: '',
           customer_type: (a.service_type as CustomerType) ?? '1회성케어',
           status: 'active',
-          billing_cycle: null, billing_timing: 'prepaid', billing_amount: null, billing_start_date: null, billing_next_date: null,
+          billing_cycle: null, billing_timing: 'prepaid', billing_trigger: null, billing_amount: null, billing_start_date: null, billing_next_date: null,
         auto_notification_paused: false, auto_notification_pause_reason: null,
           contract_start_date: null, contract_end_date: null,
           unit_price: a.unit_price_per_visit ?? null,
@@ -3436,7 +3453,7 @@ export function CustomersManagementView({
                         if (isDipCareView) {
                           const contractTotal = (Number(c.supply_amount) || 0) + (Number(c.vat) || 0)
                           const cyclePrefix = c.billing_cycle === '연간' ? '연' : '월'
-                          const timingLabel = c.billing_timing === 'postpaid' ? '후납' : '선납'
+                          const timingLabel = c.billing_trigger === 'per_visit' ? '시공 건마다 후납' : (c.billing_timing === 'postpaid' ? '후납' : '선납')
                           const contractDday = daysUntil(c.contract_end_date ?? null)
                           const paymentDayLabel = c.billing_cycle === '연간'
                             ? (c.yearly_billing_month && c.yearly_billing_day
@@ -4464,15 +4481,16 @@ export function CustomersManagementView({
                     <div className="flex items-center gap-2">
                       <span className="text-xs text-text-secondary w-24 shrink-0 inline-flex items-center gap-1">
                         결제 방식
-                        <FieldHint text="선납=서비스 사이클과 같은 달에 결제일 도래. 후납=사이클 종료일(계약시작일+K사이클-1일)에 결제일 도래. 예) 7/18 계약 월간 후납 → 8/17, 9/17 …" />
+                        <FieldHint text="결제주기마다 선납=서비스 받기 전, 주기 시작일(결제일자)에 결제. 결제주기마다 후납=주기만큼 서비스 받은 뒤 다음 결제일자에 결제. 예) 1/1 계약·3개월 후납 → 4/1 결제. 시공 건마다 후납=시공 1건이 작업완료될 때마다 결제. 안내는 모두 결제일 당일 → 3일 뒤 → 7일 뒤 최대 3회." />
                       </span>
                       <select
-                        value={form.billing_timing ?? 'prepaid'}
-                        onChange={e => set('billing_timing')(e.target.value as BillingTiming)}
+                        value={billingMode}
+                        onChange={e => setBillingMode(e.target.value as BillingMode)}
                         className="flex-1 border border-purple-200 rounded-lg px-2 py-1.5 text-xs bg-white text-text-primary focus:outline-none focus:ring-2 focus:ring-purple-400"
                       >
-                        <option value="prepaid">선납</option>
-                        <option value="postpaid">후납</option>
+                        <option value="cycle_prepaid">결제주기마다 선납</option>
+                        <option value="cycle_postpaid">결제주기마다 후납</option>
+                        <option value="per_visit_postpaid">시공 건마다 후납</option>
                       </select>
                     </div>
                     {/* 금액 섹션 */}
@@ -4537,11 +4555,12 @@ export function CustomersManagementView({
                     <div className="flex items-center gap-2">
                       <span className="text-xs text-text-secondary w-24 shrink-0 inline-flex items-center gap-1">
                         결제일자
-                        <FieldHint text="매월 청구가 도래하는 날짜 (1~31). 세금계산서 발행 후보 리스트는 이 날짜가 지난 청구건을 자동 감지." />
+                        <FieldHint text="결제주기마다 결제가 도래하는 날짜 (1~31). 비우면 계약 시작일의 일자로 결제합니다. '시공 건마다 후납'에서는 쓰지 않습니다." />
                       </span>
                       <input type="number" min={1} max={31} value={form.payment_date}
                         onChange={e => set('payment_date')(e.target.value)}
-                        placeholder="1~31"
+                        disabled={billingMode === 'per_visit_postpaid'}
+                        placeholder={contractStartDay ? `기본 ${contractStartDay}` : '1~31'}
                         className="w-20 border border-border rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-purple-500 text-center text-text-primary" />
                       <span className="text-xs text-text-tertiary">일</span>
                     </div>
@@ -4588,11 +4607,11 @@ export function CustomersManagementView({
                   {!isNew && (
                     <BillingAutoScheduleSummary
                       customerType={isDipCare ? '정기딥케어' : '정기엔드케어'}
-                      billingCycle={form.billing_cycle ?? null}
-                      billingTiming={(form.billing_timing as 'prepaid' | 'postpaid' | null) ?? null}
+                      billingMode={billingMode}
+                      billingCycle={form.billing_cycle || null}
                       paymentDate={form.payment_date ? Number(form.payment_date) : null}
-                      billingStartDate={form.billing_start_date ?? null}
-                      customerId={selected?.id ?? null}
+                      contractStartDate={form.contract_start_date || null}
+                      contractEndDate={form.contract_end_date || null}
                     />
                   )}
                   </div>  {/* ← 파란(sky) 결제 묶음 닫기 */}
@@ -4812,15 +4831,16 @@ export function CustomersManagementView({
                     <div className="flex items-center gap-2">
                       <span className="text-xs text-text-secondary w-20 shrink-0 inline-flex items-center gap-1">
                         결제 방식
-                        <FieldHint text="선납=서비스 사이클과 같은 달 결제. 후납=사이클 종료일(계약시작일+K사이클-1일) 결제. 예) 7/18 계약 월간 후납 → 8/17, 9/17 …" />
+                        <FieldHint text="결제주기마다 선납=서비스 받기 전, 주기 시작일(결제일자)에 결제. 결제주기마다 후납=주기만큼 서비스 받은 뒤 다음 결제일자에 결제. 예) 1/1 계약·3개월 후납 → 4/1 결제. 시공 건마다 후납=시공 1건이 작업완료될 때마다 결제. 안내는 모두 결제일 당일 → 3일 뒤 → 7일 뒤 최대 3회." />
                       </span>
                       <select
-                        value={form.billing_timing ?? 'prepaid'}
-                        onChange={e => set('billing_timing')(e.target.value as BillingTiming)}
+                        value={billingMode}
+                        onChange={e => setBillingMode(e.target.value as BillingMode)}
                         className="flex-1 border border-brand-200 rounded-md px-2 py-1 text-xs bg-white text-text-primary focus:outline-none focus:ring-1 focus:ring-brand-500"
                       >
-                        <option value="prepaid">선납</option>
-                        <option value="postpaid">후납</option>
+                        <option value="cycle_prepaid">결제주기마다 선납</option>
+                        <option value="cycle_postpaid">결제주기마다 후납</option>
+                        <option value="per_visit_postpaid">시공 건마다 후납</option>
                       </select>
                     </div>
                     {/* Phase 22 v2: 연간 선결제 안내 멘트 삭제 → 대신 연간 이력 인라인 드롭다운 (컴포넌트 렌더는 아래 총액 아래에서) */}
@@ -4868,11 +4888,12 @@ export function CustomersManagementView({
                       <div className="flex items-center gap-2">
                         <span className="text-[10px] text-text-secondary w-20 shrink-0 inline-flex items-center gap-1">
                           결제일자
-                          <FieldHint text="매월 청구가 도래하는 날짜 (1~31). 지정일이 되면 자동 청구 알림이 발송됩니다." />
+                          <FieldHint text="결제주기마다 결제가 도래하는 날짜 (1~31). 비우면 계약 시작일의 일자로 결제합니다. '시공 건마다 후납'에서는 쓰지 않습니다." />
                         </span>
                         <input type="number" min={1} max={31} value={form.payment_date}
                           onChange={e => set('payment_date')(e.target.value)}
-                          placeholder="1~31"
+                          disabled={billingMode === 'per_visit_postpaid'}
+                          placeholder={contractStartDay ? `기본 ${contractStartDay}` : '1~31'}
                           className="w-20 border border-border rounded-md px-1.5 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-brand-500 text-center text-text-primary" />
                         <span className="text-xs text-text-tertiary">일</span>
                       </div>
@@ -4953,11 +4974,11 @@ export function CustomersManagementView({
                   {!isNew && (
                     <BillingAutoScheduleSummary
                       customerType={isDipCare ? '정기딥케어' : '정기엔드케어'}
-                      billingCycle={form.billing_cycle ?? null}
-                      billingTiming={(form.billing_timing as 'prepaid' | 'postpaid' | null) ?? null}
+                      billingMode={billingMode}
+                      billingCycle={form.billing_cycle || null}
                       paymentDate={form.payment_date ? Number(form.payment_date) : null}
-                      billingStartDate={form.billing_start_date ?? null}
-                      customerId={selected?.id ?? null}
+                      contractStartDate={form.contract_start_date || null}
+                      contractEndDate={form.contract_end_date || null}
                     />
                   )}
                   </div>  {/* ← 파란(sky) 결제 묶음 닫기 */}
