@@ -7,6 +7,7 @@ import { saveNotificationHistory } from '@/lib/notification'
 import { sendSlack } from '@/lib/slack'
 import { dispatch, lookupFranchiseHqIdsForCustomer } from '@/lib/notification-dispatcher'
 import { normalizePaymentMethod } from '@/lib/payment-methods'
+import { activatePerVisitBillingSafe } from '@/lib/per-visit-billing'
 
 const APP_BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.bbkorea.co.kr'
 
@@ -836,6 +837,11 @@ export async function POST(request: NextRequest) {
       .from('service_applications')
       .update(dbUpdates)
       .eq('id', application_id)
+
+    // 2026-11-01: 작업완료알림 → 진행상태 '작업완료' 가 되면 건별(per_visit) 고객 청구서 연결 + 즉시 결제 안내
+    if (newProgressStatus === '작업완료') {
+      await activatePerVisitBillingSafe(supabase, application_id, 'admin/notify')
+    }
 
     // Phase 27-BH: customer.notification_log 동기화.
     //   관리자 세부화면의 "알림 이력" 섹션은 customer.notification_log 만 읽는데
