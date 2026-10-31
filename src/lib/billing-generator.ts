@@ -94,9 +94,10 @@ export function shouldAutoGenerateBillings(input: GenerateInput): boolean {
 /**
  * 계약 기간 전체에 대해 billings 레코드 목록 생성
  *
- * 선납(prepaid): 사이클 시작월의 payment_day 가 due_date
- * 후납(postpaid): 사이클 종료일(= 다음 사이클 시작 전일)이 due_date
- *   예) 계약 2026-07-18 · 월간 후납 → 첫 due_date = 2026-08-17
+ * 선납(prepaid): 사이클 시작월의 결제일자가 due_date
+ * 후납(postpaid): 다음 사이클 시작월의 결제일자가 due_date
+ *   결제일자(paymentDay)가 비어 있으면 계약 시작일의 '일'을 쓴다 (2026-11-01 단순화)
+ *   예) 계약 2026-07-18 · 월간 후납 · 결제일자 없음 → 첫 due_date = 2026-08-18
  */
 export function generateBillingSchedule(input: GenerateInput): GeneratedBilling[] {
   if (!shouldAutoGenerateBillings(input)) return []
@@ -167,14 +168,12 @@ export function generateBillingSchedule(input: GenerateInput): GeneratedBilling[
       endCursor = new Date(now.getFullYear(), now.getMonth() + 12, 1)
     }
 
-    let cycleIdx = 0
     while (cursor <= endCursor) {
-      cycleIdx++
       const y = cursor.getFullYear()
       const m = cursor.getMonth() + 1
       const period = `${y}-${String(m).padStart(2, '0')}`
 
-      // fromPeriod 이전은 skip (cycleIdx 는 유지 — 사이클 번호 일관성)
+      // fromPeriod 이전은 skip
       if (fromMonth && period < fromMonth) {
         cursor.setMonth(cursor.getMonth() + stepMonths)
         continue
@@ -182,16 +181,13 @@ export function generateBillingSchedule(input: GenerateInput): GeneratedBilling[
 
       let dueDate: string
       if (timing === 'postpaid') {
-        if (input.paymentDay) {
-          const nextMonthIdx = cursor.getMonth() + stepMonths      // 0-based
-          const nextY = cursor.getFullYear() + Math.floor(nextMonthIdx / 12)
-          const nextM = (((nextMonthIdx % 12) + 12) % 12) + 1       // 1-based
-          const lastDay = new Date(nextY, nextM, 0).getDate()
-          const dueDay  = Math.min(input.paymentDay, lastDay)
-          dueDate = `${nextY}-${String(nextM).padStart(2, '0')}-${String(dueDay).padStart(2, '0')}`
-        } else {
-          dueDate = computePostpaidDueDate(start, cycleIdx, stepMonths)
-        }
+        // 2026-11-01: 결제일자 유무와 관계없이 '다음 주기 시작월의 결제일자(기본 = 계약 시작일의 일)'
+        const nextMonthIdx = cursor.getMonth() + stepMonths      // 0-based
+        const nextY = cursor.getFullYear() + Math.floor(nextMonthIdx / 12)
+        const nextM = (((nextMonthIdx % 12) + 12) % 12) + 1       // 1-based
+        const lastDay = new Date(nextY, nextM, 0).getDate()
+        const dueDay  = Math.min(day, lastDay)
+        dueDate = `${nextY}-${String(nextM).padStart(2, '0')}-${String(dueDay).padStart(2, '0')}`
       } else {
         const lastDay = new Date(y, m, 0).getDate()
         const dueDay  = Math.min(day, lastDay)
