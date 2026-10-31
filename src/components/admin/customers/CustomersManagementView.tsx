@@ -138,6 +138,9 @@ interface Customer {
   balance_portone_id: string | null
   deposit_paid_at: string | null
   balance_paid_at: string | null
+  // 2026-11-01: 예약금·잔금 단계별 실제 결제수단 (없으면 payment_method 로 표시)
+  deposit_payment_method?: string | null
+  balance_payment_method?: string | null
   billing_key: string | null
   virtual_account_number: string | null
   virtual_account_bank: string | null
@@ -1781,6 +1784,8 @@ export function CustomersManagementView({
       payment_status_detail?: string | null
       tax_invoice_issued?: boolean | null
       payment_method?: string | null
+      deposit_payment_method?: string | null
+      balance_payment_method?: string | null
       deposit_paid_at?: string | null
       balance_paid_at?: string | null
       work_completed_at?: string | null
@@ -5109,21 +5114,30 @@ export function CustomersManagementView({
                       if (method) return '기타'
                       return null
                     }
-                    const activeBranch = getActiveBranch(pm)
+                    // 2026-11-01: 예약금·잔금 결제수단을 따로 저장. 비어 있으면 기본 결제수단(pm)으로 표시.
+                    //   (과거엔 칩 두 줄이 같은 칸 하나를 읽고 써서 한쪽을 바꾸면 다른 쪽도 같이 바뀌었음)
+                    type PayStage = 'deposit' | 'balance'
+                    const stageMethod = (stage: PayStage): string =>
+                      (stage === 'deposit' ? selected?.deposit_payment_method : selected?.balance_payment_method) ?? pm
                     const BRANCHES = ['카드결제', '계좌이체', '가상계좌', '기타'] as const
 
-                    const handleBranchClick = (branch: string) => {
+                    const handleBranchClick = (stage: PayStage, branch: string) => {
                       if (infographicLocked || statusToggling) return
-                      const oldLabel = activeBranch ?? '미지정'
+                      const current = stageMethod(stage)
+                      if (getActiveBranch(current) === branch) return
+                      const oldLabel = getActiveBranch(current) ?? '미지정'
                       const methodMap: Record<string, string> = {
-                        '카드결제': '카드(온라인 간편결제)',
-                        '계좌이체': '계좌이체',
-                        '가상계좌': '가상계좌',
+                        '카드결제': 'credit_card',
+                        '계좌이체': 'bank_transfer',
+                        '가상계좌': 'virtual_account',
                         '기타': '기타',
                       }
                       const newMethod = methodMap[branch] ?? branch
-                      if (newMethod === pm) return
-                      handleInfographicSave({ payment_method: newMethod }, `결제방법 변경: ${oldLabel} → ${branch}`)
+                      const stageLabel = stage === 'deposit' ? '예약금' : '잔금'
+                      handleInfographicSave(
+                        stage === 'deposit' ? { deposit_payment_method: newMethod } : { balance_payment_method: newMethod },
+                        `${stageLabel} 결제방법 변경: ${oldLabel} → ${branch}`,
+                      )
                     }
 
                     const renderCheck = () => (
@@ -5149,27 +5163,30 @@ export function CustomersManagementView({
 
                     const connector = <div className="ml-3.5 w-px h-4 bg-gray-100 my-0.5" />
 
-                    const renderBranches = () => (
-                      <div className="ml-10">
-                        <div className="flex gap-1 flex-wrap">
-                          {BRANCHES.map(b => (
-                            <button
-                              key={b}
-                              type="button"
-                              onClick={() => handleBranchClick(b)}
-                              disabled={infographicLocked || statusToggling}
-                              className={`text-[10px] px-2 py-0.5 rounded-full border font-medium transition-all disabled:cursor-default ${
-                                activeBranch === b
-                                  ? 'bg-brand-50 border-brand-200 text-brand-700'
-                                  : 'bg-gray-50 border-gray-200 text-gray-400 enabled:hover:border-gray-300 enabled:hover:text-gray-500'
-                              }`}
-                            >
-                              {b}
-                            </button>
-                          ))}
+                    const renderBranches = (stage: PayStage) => {
+                      const activeBranch = getActiveBranch(stageMethod(stage))
+                      return (
+                        <div className="ml-10">
+                          <div className="flex gap-1 flex-wrap">
+                            {BRANCHES.map(b => (
+                              <button
+                                key={b}
+                                type="button"
+                                onClick={() => handleBranchClick(stage, b)}
+                                disabled={infographicLocked || statusToggling}
+                                className={`text-[10px] px-2 py-0.5 rounded-full border font-medium transition-all disabled:cursor-default ${
+                                  activeBranch === b
+                                    ? 'bg-brand-50 border-brand-200 text-brand-700'
+                                    : 'bg-gray-50 border-gray-200 text-gray-400 enabled:hover:border-gray-300 enabled:hover:text-gray-500'
+                                }`}
+                              >
+                                {b}
+                              </button>
+                            ))}
+                          </div>
                         </div>
-                      </div>
-                    )
+                      )
+                    }
 
                     return (
                       <div>
@@ -5210,7 +5227,7 @@ export function CustomersManagementView({
                               )}
                             </div>
                           </div>
-                          {renderBranches()}
+                          {renderBranches('deposit')}
                           <div className="ml-10">
                             <div className="flex items-center gap-2 px-2.5 py-1.5 bg-gray-50 rounded-xl border border-gray-100">
                               <span className="text-[10px] text-gray-400 flex-1">예약금 결제링크</span>
@@ -5284,7 +5301,7 @@ export function CustomersManagementView({
                               )}
                             </div>
                           </div>
-                          {renderBranches()}
+                          {renderBranches('balance')}
                           <div className="ml-10 space-y-1">
                             <div className="flex items-center gap-2 px-2.5 py-1.5 bg-gray-50 rounded-xl border border-gray-100">
                               <span className="text-[10px] text-gray-400 flex-1">잔금 결제링크</span>
