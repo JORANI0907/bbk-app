@@ -21,6 +21,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { chargeBillingWithKey } from '@/lib/billing-charge'
+import { sendSlack } from '@/lib/slack'
+import { triggerLabel, type BillingTrigger } from '@/lib/billing-notify-policy'
 
 const PORTONE_V2_API_SECRET = process.env.PORTONE_V2_API_SECRET ?? ''
 const PORTONE_API_BASE = 'https://api.portone.io'
@@ -63,19 +65,30 @@ function extractCardName(info: PortOneBillingKeyInfo | null): string | null {
 
 type Supabase = ReturnType<typeof createServiceClient>
 
+interface CustRow {
+  id: string
+  business_name: string | null
+  customer_type: string | null
+  billing_key_status: string | null
+  billing_trigger: string | null
+  payment_date: number | null
+  notification_log: unknown
+}
+
 /** 요청의 customerId·billingId 가 서로, 그리고 PortOne 발급 정보와 맞는지 확인 */
 async function validateOwnership(
   supabase: Supabase,
   customerId: string,
   billingId: string | undefined,
   info: PortOneBillingKeyInfo,
-): Promise<{ ok: true } | { ok: false; status: number; error: string }> {
-  const { data: cust } = await supabase
+): Promise<{ ok: true; cust: CustRow } | { ok: false; status: number; error: string }> {
+  const { data: custRaw } = await supabase
     .from('customers')
-    .select('id, customer_type, billing_key_status')
+    .select('id, business_name, customer_type, billing_key_status, billing_trigger, payment_date, notification_log')
     .eq('id', customerId)
     .is('deleted_at', null)
     .maybeSingle()
+  const cust = custRaw as CustRow | null
   if (!cust) return { ok: false, status: 404, error: '고객을 찾을 수 없습니다.' }
   if (!REGULAR_TYPES.has(String(cust.customer_type ?? ''))) {
     return { ok: false, status: 400, error: '정기딥케어·정기엔드케어 고객만 자동결제 카드 등록이 가능합니다.' }
@@ -96,7 +109,41 @@ async function validateOwnership(
       return { ok: false, status: 403, error: '청구서가 이 고객의 것이 아닙니다.' }
     }
   }
-  return { ok: true }
+  return { ok: true, cust }
+}
+
+/** 다음 결제 시점 한글 설명 (Slack·이력용) */
+function nextChargeLabel(cust: CustRow): string {
+  if (cust.billing_trigger === 'per_visit') return '시공 건 작업완료 시 자동결제'
+  return `${triggerLabel((cust.billing_trigger as BillingTrigger | null) ?? null, cust.payment_date)} 자동결제`
+}
+
+/** 2026-11-01: 등록 사실을 관리자(Slack)와 고객관리 알림 이력에 남긴다 */
+async function recordRegistration(
+  supabase: Supabase,
+  cust: CustRow,
+  cardName: string | null,
+  charge: { attempted: boolean; ok: boolean; message?: string; amount?: number },
+): Promise<void> {
+  const nowIso = new Date().toISOString()
+  const existing = Array.isArray(cust.notification_log) ? (cust.notification_log as object[]) : []
+  const entry = {
+    type: '자동결제 카드 등록', sent_at: nowIso, phone: '', method: 'auto', channel: 'system',
+    card_name: cardName, next_charge: nextChargeLabel(cust),
+  }
+  await supabase.from('customers').update({ notification_log: [entry, ...existing] }).eq('id', cust.id)
+
+  const chargeLine = !charge.attempted
+    ? '이번 결제: 없음 (등록만)'
+    : charge.ok
+      ? `이번 결제: ${Number(charge.amount ?? 0).toLocaleString('ko-KR')}원 결제 완료`
+      : `⚠️ 이번 결제 실패: ${charge.message ?? '사유 미상'}`
+  sendSlack(
+    `🔄 *자동결제 카드 등록* (${cust.customer_type ?? '-'})\n` +
+    `업체: ${cust.business_name ?? '-'}\n` +
+    `카드: ${cardName ?? '-'} · 다음부터 ${nextChargeLabel(cust)}\n` +
+    chargeLine,
+  ).catch(() => {})
 }
 
 export async function POST(request: NextRequest) {
@@ -139,8 +186,13 @@ export async function POST(request: NextRequest) {
 
     if (billingId) {
       const charged = await chargeBillingWithKey(supabase, billingId)
+      const { data: b } = await supabase.from('service_billings').select('amount').eq('id', billingId).maybeSingle()
+      await recordRegistration(supabase, owner.cust, cardName, {
+        attempted: true, ok: charged.ok, message: charged.ok ? undefined : charged.message, amount: Number(b?.amount ?? 0),
+      })
       return NextResponse.json({ ok: true, cardName, charged: charged.ok, chargeError: charged.ok ? null : charged.message })
     }
+    await recordRegistration(supabase, owner.cust, cardName, { attempted: false, ok: true })
     return NextResponse.json({ ok: true, cardName })
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
