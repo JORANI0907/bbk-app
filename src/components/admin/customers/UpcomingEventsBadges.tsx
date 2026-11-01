@@ -118,13 +118,14 @@ export function UpcomingBillings({ customerId, customerType, paymentMethod }: Bi
   const billings = (data?.billings ?? []).slice(0, 2)
   const pastBillings = (data?.past_billings ?? []).slice(0, 2)
   const autoActive = data?.billing_key_active ?? false
-  const isEndCare = customerType === '정기엔드케어'
+  // 2026-11-01: 정기딥도 자동결제 카드 등록 가능 → 뱃지 공통 노출
+  const isRegular = customerType === '정기엔드케어' || customerType === '정기딥케어'
 
   return (
     <div className="flex flex-col gap-1 text-xs">
       {/* 상단: 자동결제 뱃지 + 결제수단 (정기엔드/정기딥 모두 결제수단 노출) */}
       <div className="flex items-center gap-1 flex-wrap">
-        {isEndCare && (
+        {isRegular && (
           autoActive ? (
             <span className="text-[10px] px-1.5 py-0.5 bg-emerald-100 text-emerald-700 rounded font-semibold">
               🔄 자동결제 활성
