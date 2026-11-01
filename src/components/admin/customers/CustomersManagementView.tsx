@@ -4793,8 +4793,8 @@ export function CustomersManagementView({
 
             {/* 2026-10-19 Phase D: BillingAutoScheduleSummary 를 정기엔드 계약 정보 "결제 묶음" 안으로 이동 */}
 
-            {/* 2026-10-18 Phase I.3 + 2026-10-19 Phase E: 정기엔드 빌링키 등록/상태 패널 */}
-            {!isWorker && isEndCare && !isNew && selected?.id && (
+            {/* 2026-10-18 Phase I.3 + 2026-10-19 Phase E: 빌링키 등록/상태 패널 (2026-11-01: 정기딥도 노출) */}
+            {!isWorker && (isEndCare || isDipCare) && !isNew && selected?.id && (
               <BillingKeyRegisterPanel
                 customerId={selected.id}
                 monthlyAmount={Number(form.billing_amount || 0)}
