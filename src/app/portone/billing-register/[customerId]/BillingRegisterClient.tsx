@@ -1,49 +1,90 @@
 'use client'
 
 /**
- * 빌링키 등록 클라이언트 컴포넌트 (2026-10-18 Phase I.2)
+ * 자동결제 카드 등록 클라이언트 컴포넌트 (2026-10-18 Phase I.2 → 2026-11-01 리디자인)
  *
  * 역할:
  *   PortOne browser-sdk `requestIssueBillingKey` 호출 → 카드 등록 UI
  *   발급된 billingKey 를 BBK 서버 API `/api/portone/billing-key-save` 로 전달 → customers 테이블 저장
  *
- * UI 3단계:
- *   1. 안내 화면 (매월 자동결제 약관 + "카드 등록하기" 버튼)
- *   2. (PortOne UI 가 자체 모달로 뜸)
- *   3. 등록 완료 화면 (카드 표시명 + 매월 결제일 안내)
+ * 2026-11-01:
+ *   - 청구서 결제 페이지(/portone/billing-pay)와 같은 공용 뼈대(BillingShell) 사용
+ *   - 공급가액·부가세·합계 분리 표기, 안내사항 보강, 이모지 제거
+ *   - KG '신규 PC 결제창'(displayAmount+currency)에서 500 이 나서 기본 결제창으로 호출
  */
 
 import { useState, useEffect, useRef } from 'react'
 import { requestIssueBillingKey, Entity } from '@portone/browser-sdk/v2'
-import { Check, CreditCard, AlertCircle, Loader2, ShieldCheck } from 'lucide-react'
+import { Check, CreditCard, AlertCircle, ShieldCheck, Clock, Receipt, Phone } from 'lucide-react'
+import { Button } from '@/components/ui'
+import { hasVat, normalizePaymentMethod } from '@/lib/payment-methods'
+import { isValidPaymentEmail } from '@/lib/payment-email'
+import { Shell, Section, Row, Notes, Figure, SUPPORT, won, fmtDate, billingStyles as styles } from '../../_shared/BillingShell'
 
 const { BillingKeyMethod, WindowType } = Entity
 
-interface CustomerData {
+export interface BillingRegisterCustomer {
   id: string
   businessName: string
   ownerName: string
   phone: string
   email: string | null
-  monthlyAmount: number
+  customerType: string | null
+  /** 주기당 결제 금액(부가세 포함 총액). 건별 고객은 회당 금액 */
+  amount: number
   paymentDate: number | null
+  billingTrigger: string | null
+  billingCycle: string | null
+  paymentMethod: string | null
+  cardName: string | null
+  issuedAt: string | null
 }
 
 interface Props {
-  customer: CustomerData
+  customer: BillingRegisterCustomer
   isAlreadyActive: boolean
   token: string
 }
 
 const STORE_ID = process.env.NEXT_PUBLIC_PORTONE_STORE_ID ?? ''
-const CHANNEL_KEY = process.env.NEXT_PUBLIC_PORTONE_BILLING_CHANNEL_KEY ?? ''
+const CHANNEL_KEY = process.env.NEXT_PUBLIC_PORTONE_BILLING_CHANNEL_KEY
+  ?? process.env.NEXT_PUBLIC_PORTONE_CHANNEL_KEY_BILLING ?? ''
+
+function serviceLabel(t: string | null): string {
+  if (t === '정기딥케어') return '정기 딥케어'
+  if (t === '정기엔드케어') return '정기 엔드케어'
+  return '정기 서비스'
+}
+
+function cycleLabel(cycle: string | null): string {
+  if (!cycle || cycle === '월간') return '1개월'
+  if (cycle === '연간') return '12개월'
+  return cycle
+}
+
+/** 언제 자동결제가 되는지 한 문장 */
+function scheduleText(c: BillingRegisterCustomer): string {
+  if (c.billingTrigger === 'per_visit') return '시공 1건이 완료될 때마다 등록한 카드로 자동 결제됩니다.'
+  if (c.paymentDate) return `${cycleLabel(c.billingCycle)}마다 ${c.paymentDate}일에 등록한 카드로 자동 결제됩니다.`
+  return `${cycleLabel(c.billingCycle)}마다 결제일에 등록한 카드로 자동 결제됩니다.`
+}
+
+function splitVat(total: number, paymentMethod: string | null) {
+  if (!hasVat(paymentMethod)) return { supply: total, vat: 0, taxable: false }
+  const supply = Math.round(total / 1.1)
+  return { supply, vat: total - supply, taxable: true }
+}
 
 export function BillingRegisterClient({ customer, isAlreadyActive, token }: Props) {
   const [issuing, setIssuing] = useState(false)
   const [completed, setCompleted] = useState(isAlreadyActive)
-  const [cardName, setCardName] = useState<string | null>(null)
+  const [cardName, setCardName] = useState<string | null>(customer.cardName)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
   const autoSavedRef = useRef(false)  // StrictMode / 중복 호출 방지
+
+  const { supply, vat, taxable } = splitVat(customer.amount, customer.paymentMethod)
+  const isCash = normalizePaymentMethod(customer.paymentMethod) === 'cash_untaxed'
+  const amountTitle = customer.billingTrigger === 'per_visit' ? '회당 결제 금액' : `${cycleLabel(customer.billingCycle)}마다 결제 금액`
 
   // 서버에 billingKey 저장 공통 로직
   const saveBillingKey = async (billingKey: string, issueId: string) => {
@@ -54,7 +95,7 @@ export function BillingRegisterClient({ customer, isAlreadyActive, token }: Prop
     })
     if (!saveRes.ok) {
       const errData = await saveRes.json().catch(() => ({}))
-      throw new Error(errData?.error ?? '빌링키 저장 실패 (서버 오류)')
+      throw new Error(errData?.error ?? '카드 저장에 실패했습니다. 잠시 후 다시 시도해 주세요.')
     }
     const saveData = await saveRes.json() as { cardName?: string }
     setCardName(saveData.cardName ?? null)
@@ -72,9 +113,8 @@ export function BillingRegisterClient({ customer, isAlreadyActive, token }: Prop
     const returnedIssueId = params.get('issueId') ?? `bbk_billkey_${customer.id.replace(/-/g, '').slice(0, 8)}_redirect`
 
     if (returnedCode) {
-      // 실패 리디렉션
       autoSavedRef.current = true
-      setErrorMsg(decodeURIComponent(returnedMsg ?? '빌링키 발급 실패'))
+      setErrorMsg(returnedMsg ?? '카드 등록창에서 오류가 발생했습니다.')
       return
     }
     if (returnedBillingKey && returnedTxType === 'ISSUE_BILLING_KEY') {
@@ -90,14 +130,13 @@ export function BillingRegisterClient({ customer, isAlreadyActive, token }: Prop
 
   const handleRegister = async () => {
     if (!STORE_ID || !CHANNEL_KEY) {
-      setErrorMsg('결제 시스템 환경변수가 설정되지 않았습니다. 관리자에게 연락해주세요.')
+      setErrorMsg('결제 시스템 설정이 없습니다. 고객센터로 연락해 주세요.')
       return
     }
     setIssuing(true)
     setErrorMsg(null)
     try {
       const issueId = `bbk_billkey_${customer.id.replace(/-/g, '').slice(0, 8)}_${Date.now()}`
-      // 모바일 리디렉션 복귀 URL (현재 페이지 + token 유지 + issueId 포함)
       const origin = window.location.origin
       const redirectUrl = `${origin}/portone/billing-register/${customer.id}?t=${token}&issueId=${issueId}`
 
@@ -106,31 +145,26 @@ export function BillingRegisterClient({ customer, isAlreadyActive, token }: Prop
         channelKey: CHANNEL_KEY,
         billingKeyMethod: BillingKeyMethod.CARD,
         issueId,
-        issueName: `${customer.businessName} 매월 자동결제 등록`,
+        // KG 결제창 제목: 대괄호·따옴표 등 특수문자는 PG 가 거절할 수 있어 제거
+        issueName: `${customer.businessName.replace(/[\[\]<>&'"]/g, '').trim()} 정기 자동결제 등록`,
         redirectUrl,
-        windowType: {
-          mobile: WindowType.REDIRECTION,   // 모바일은 반드시 리디렉션 (INIStdPay/Dev Error 방지)
-          // pc 는 명시하지 않음 → KG 기본값 (IFRAME) 자동 선택
-        },
-        offerPeriod: { interval: '1m' },  // KG이니시스 필수 — 매월 1회 자동결제 상품 식별
-        displayAmount: customer.monthlyAmount,  // 결제창에 "매월 N원" 표시용 (실제 결제는 payWithBillingKey)
-        currency: 'KRW',
+        windowType: { mobile: WindowType.REDIRECTION },
+        offerPeriod: { interval: '1m' },
+        // displayAmount+currency 는 KG '신규 PC 결제창' 조합 → /pay/card/billing 500. 기본 결제창으로 호출한다.
         customer: {
           customerId: customer.id,
           fullName: customer.ownerName || customer.businessName,
           phoneNumber: customer.phone.replace(/-/g, '') || undefined,
-          email: customer.email || undefined,
+          email: isValidPaymentEmail(customer.email) ? customer.email!.trim() : undefined,
         },
       })
 
-      // 모바일 리디렉션 방식에서는 response 가 undefined — 페이지가 PortOne 쪽으로 이동 중
-      // (useEffect 가 돌아왔을 때 쿼리로 처리)
-      if (!response) return
-
+      if (!response) return  // 모바일 리디렉션 중
       if (response.code != null) {
-        throw new Error(response.message ?? response.pgMessage ?? '빌링키 발급 실패')
+        const isCancel = String(response.code).toUpperCase().includes('CANCEL') || String(response.message ?? '').includes('취소')
+        if (isCancel) return
+        throw new Error(response.message ?? response.pgMessage ?? '카드 등록에 실패했습니다.')
       }
-
       await saveBillingKey(response.billingKey, issueId)
     } catch (e) {
       setErrorMsg(e instanceof Error ? e.message : '등록 실패')
@@ -139,129 +173,103 @@ export function BillingRegisterClient({ customer, isAlreadyActive, token }: Prop
     }
   }
 
-  // ─── 등록 완료 화면 ─────────────────────────────────
+  const kicker = `BBK 공간케어 · ${serviceLabel(customer.customerType)} 자동결제`
+
+  // ═══════════════════════════════════════════════════
+  // 등록 완료 화면
+  // ═══════════════════════════════════════════════════
   if (completed) {
     return (
-      <Shell>
-        <div className="text-center space-y-4 py-10">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-emerald-100 text-emerald-700">
-            <Check size={32} />
+      <Shell kicker={kicker} businessName={customer.businessName} subtitle="자동결제 카드 등록" tone="done">
+        <Section delay={0}>
+          <div className="flex flex-col items-center text-center gap-3 pt-2">
+            <span className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-state-success-bg text-state-success">
+              <Check size={26} strokeWidth={2.5} />
+            </span>
+            <h1 className="text-xl font-semibold text-text-primary leading-snug">카드 등록이 완료되었습니다</h1>
+            {cardName && (
+              <p className="inline-flex items-center gap-2 text-sm text-text-primary bg-surface-sunken border border-border-subtle px-3 py-1.5 rounded-lg">
+                <CreditCard size={14} className="text-text-secondary" /> {cardName}
+              </p>
+            )}
           </div>
-          <h1 className="text-xl font-bold text-text-primary">카드 등록이 완료되었습니다</h1>
-          <p className="text-sm text-text-secondary">
-            {customer.businessName}
-          </p>
-          {cardName && (
-            <p className="inline-flex items-center gap-1.5 text-xs text-text-primary bg-slate-100 px-3 py-1.5 rounded-lg">
-              <CreditCard size={12} /> {cardName}
-            </p>
-          )}
-          <div className="rounded-lg bg-emerald-50 border border-emerald-200 p-3 text-left">
-            <p className="text-xs text-emerald-800 leading-relaxed">
-              ✅ <strong>매월 {customer.paymentDate ?? '지정'}일</strong> 자동 결제됩니다<br/>
-              💳 결제 금액: <strong>{customer.monthlyAmount.toLocaleString('ko-KR')}원</strong><br/>
-              📧 결제 결과는 등록된 연락처로 안내됩니다
-            </p>
+        </Section>
+        <Section delay={1}>
+          <dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-2 text-sm">
+            <Row k="업체" v={customer.businessName} />
+            <Row k="서비스" v={serviceLabel(customer.customerType)} />
+            <Row k={amountTitle} v={won(customer.amount)} />
+            {customer.issuedAt && <Row k="등록일" v={fmtDate(customer.issuedAt)} />}
+          </dl>
+          <div className="mt-4 rounded-lg border border-brand-100 bg-brand-50 p-4 text-sm text-brand-800 leading-normal break-keep">
+            {scheduleText(customer)}
           </div>
-          <p className="text-[10px] text-text-tertiary pt-2">
-            카드 변경이 필요하시면 BBK 범빌드코리아에 연락해주세요
-          </p>
-        </div>
+        </Section>
+        <Section delay={2}>
+          <Notes items={[
+            { Icon: ShieldCheck, text: '결제가 이루어질 때마다 등록된 연락처로 확인 문자를 보내드립니다.' },
+            { Icon: CreditCard, text: `카드 변경·해지는 고객센터(${SUPPORT.phone})로 연락 주시면 바로 처리해 드립니다.` },
+          ]} />
+        </Section>
       </Shell>
     )
   }
 
-  // ─── 안내 + 등록 요청 화면 ───────────────────────────
+  // ═══════════════════════════════════════════════════
+  // 등록 안내 화면
+  // ═══════════════════════════════════════════════════
   return (
-    <Shell>
-      <div className="space-y-5 py-2">
-        {/* 소개 */}
-        <div className="text-center space-y-2">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-brand-100 text-brand-700">
-            <CreditCard size={28} />
+    <Shell kicker={kicker} businessName={customer.businessName} subtitle="자동결제 카드 등록">
+      <Section delay={0} title="결제 안내">
+        <dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-2 text-sm">
+          <Row k="서비스" v={serviceLabel(customer.customerType)} />
+          <Row k="결제 시점" v={customer.billingTrigger === 'per_visit' ? '시공 건 완료 시' : (customer.paymentDate ? `${cycleLabel(customer.billingCycle)}마다 ${customer.paymentDate}일` : `${cycleLabel(customer.billingCycle)}마다`)} />
+        </dl>
+        <div className="mt-4 rounded-xl border border-border-subtle bg-surface-sunken px-4 py-3 space-y-2">
+          <div className="flex items-baseline justify-between text-sm">
+            <span className="text-text-secondary">공급가액</span>
+            <span className={`${styles.figure} text-text-primary`}>{won(supply)}</span>
           </div>
-          <h1 className="text-lg font-bold text-text-primary">매월 자동결제 카드 등록</h1>
-          <p className="text-xs text-text-secondary">
-            {customer.businessName}
-          </p>
-        </div>
-
-        {/* 요약 */}
-        <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 space-y-2">
-          <div className="flex items-center justify-between text-xs text-emerald-700">
-            <span>월 결제 금액</span>
-            <span className="text-base font-bold text-text-primary">
-              {customer.monthlyAmount.toLocaleString('ko-KR')}원
-            </span>
+          <div className="flex items-baseline justify-between text-sm">
+            <span className="text-text-secondary">{taxable ? '부가세 (10%)' : isCash ? '부가세 (현금 비과세)' : '부가세'}</span>
+            <span className={`${styles.figure} text-text-primary`}>{taxable ? won(vat) : '해당 없음'}</span>
           </div>
-          <div className="flex items-center justify-between text-xs text-emerald-700 pt-2 border-t border-emerald-200">
-            <span>결제일</span>
-            <span className="font-semibold">
-              매월 {customer.paymentDate ?? '-'}일
-            </span>
+          <div className={styles.dashed} />
+          <div className="flex items-baseline justify-between">
+            <span className="text-sm font-medium text-text-primary">{amountTitle}</span>
+            <Figure amount={customer.amount} size="lg" />
           </div>
         </div>
+        <p className="mt-3 text-sm text-text-secondary leading-normal break-keep">
+          카드를 한 번만 등록해 두시면 {scheduleText(customer).replace('등록한 카드로 자동 결제됩니다.', '자동으로 결제됩니다.')} 지금 등록만 하며, 이 화면에서 결제가 일어나지는 않습니다.
+        </p>
+      </Section>
 
-        {/* 안내 사항 */}
-        <div className="rounded-lg bg-slate-50 border border-slate-200 p-3 space-y-1.5">
-          <p className="text-xs font-semibold text-text-primary flex items-center gap-1.5">
-            <ShieldCheck size={14} className="text-brand-600" />
-            카드 등록 안내
-          </p>
-          <ul className="text-[11px] text-text-secondary space-y-1 leading-relaxed pl-5 list-disc">
-            <li>지금 등록한 카드로 <strong>매월 자동 결제</strong>됩니다</li>
-            <li>카드 정보는 <strong>포트원(PortOne)에만 안전하게 보관</strong>되며, BBK는 카드번호를 받지 않습니다</li>
-            <li>해지·카드 변경은 언제든 BBK에 연락해 요청 가능합니다</li>
-            <li>결제 실패 시 <strong>즉시 안내 SMS</strong>가 발송됩니다</li>
-          </ul>
-        </div>
-
-        {/* 에러 */}
+      <Section delay={1} title="카드 등록">
         {errorMsg && (
-          <div className="rounded-lg bg-rose-50 border border-rose-200 p-3 flex items-start gap-2">
-            <AlertCircle size={14} className="text-rose-600 shrink-0 mt-0.5" />
-            <p className="text-xs text-rose-700 leading-relaxed">{errorMsg}</p>
+          <div role="alert" className="mb-4 rounded-lg border border-red-200 bg-state-danger-bg p-4 flex items-start gap-2">
+            <AlertCircle size={16} className="text-state-danger shrink-0 mt-0.5" />
+            <p className="text-sm text-state-danger leading-normal break-keep">{errorMsg}</p>
           </div>
         )}
-
-        {/* 등록 버튼 */}
-        <button
-          onClick={handleRegister}
-          disabled={issuing}
-          className="w-full py-3.5 text-sm font-bold bg-brand-600 hover:bg-brand-700 text-white rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center justify-center gap-2"
-        >
-          {issuing
-            ? <><Loader2 size={16} className="animate-spin" /> 카드 등록 창 여는 중...</>
-            : <><CreditCard size={16} /> 카드 등록하기</>}
-        </button>
-
-        <p className="text-[10px] text-text-tertiary text-center leading-relaxed">
-          등록 후 PortOne 공식 UI 를 통해 카드번호를 입력합니다<br/>
-          BBK 서버는 카드번호를 받지도, 저장하지도 않습니다
+        <Button size="lg" onClick={handleRegister} isLoading={issuing} disabled={issuing} className="w-full h-12">
+          {issuing ? '카드 등록창 여는 중...' : '카드 등록하기'}
+        </Button>
+        <p className="mt-2 text-xs text-text-tertiary text-center leading-normal break-keep">
+          포트원(KG이니시스) 보안 창에서 카드번호를 입력합니다. 저희 서버는 카드번호를 받지도, 저장하지도 않습니다.
         </p>
-      </div>
-    </Shell>
-  )
-}
+      </Section>
 
-// ─── Shell (전체 레이아웃) ────────────────────────────────────
-function Shell({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="min-h-screen bg-slate-50 py-8 px-4">
-      <div className="max-w-md mx-auto bg-white rounded-2xl shadow-soft border border-gray-200 overflow-hidden">
-        <header className="px-5 py-4 border-b border-gray-200 bg-brand-50/50">
-          <p className="text-[10px] text-text-tertiary">BBK 공간케어</p>
-          <h2 className="text-base font-bold text-brand-700 mt-0.5">정기엔드케어 자동결제</h2>
-        </header>
-        <main className="px-5 pb-6">
-          {children}
-        </main>
-        <footer className="px-5 py-3 border-t border-gray-100 bg-slate-50 text-center">
-          <p className="text-[10px] text-text-tertiary">
-            범빌드코리아(주) · 문의 02-xxxx-xxxx
-          </p>
-        </footer>
-      </div>
-    </div>
+      <Section delay={2} title="안내 사항">
+        <Notes items={[
+          { Icon: ShieldCheck, text: '카드 정보는 포트원에만 안전하게 보관되며, 저희는 결제 요청만 보냅니다.' },
+          { Icon: Clock, text: '결제가 이루어질 때마다 확인 문자를 보내드리고, 실패하면 결제 링크가 담긴 안내를 보내드립니다.' },
+          { Icon: Receipt, text: taxable
+              ? '카드 결제분은 카드 매출전표로 갈음되며 별도 세금계산서는 발행되지 않습니다.'
+              : '현금 결제 건은 부가세가 포함되지 않은 금액입니다.' },
+          { Icon: Phone, text: `해지·카드 변경 문의: ${SUPPORT.phone} · ${SUPPORT.hours}` },
+        ]} />
+      </Section>
+    </Shell>
   )
 }
