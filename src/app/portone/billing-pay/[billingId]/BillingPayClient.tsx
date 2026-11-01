@@ -14,20 +14,14 @@
  * 모바일은 결제창이 리디렉션 방식이라 이 페이지로 돌아온다 → URL 쿼리를 보고 마무리 처리.
  */
 
-import { useEffect, useRef, useState, type ReactNode } from 'react'
-import { Fraunces } from 'next/font/google'
+import { useEffect, useRef, useState } from 'react'
 import { requestPayment, requestIssueBillingKey, Entity } from '@portone/browser-sdk/v2'
 import { BBK_VBANK_BANKS, DEFAULT_VBANK_CODE, getBankLabel } from '@/lib/portone-banks'
 import { isValidPaymentEmail } from '@/lib/payment-email'
 import { hasVat, normalizePaymentMethod } from '@/lib/payment-methods'
 import { Button, Select } from '@/components/ui'
-import {
-  Check, AlertCircle, Copy, CreditCard, Landmark, RefreshCw,
-  ShieldCheck, Receipt, Clock, Phone, MessageCircle,
-} from 'lucide-react'
-import styles from './billing-pay.module.css'
-
-const figureFont = Fraunces({ subsets: ['latin'], weight: ['500', '600'], display: 'swap' })
+import { Check, AlertCircle, Copy, CreditCard, Landmark, RefreshCw, ShieldCheck, Receipt, Clock, Phone } from 'lucide-react'
+import { Shell, Section, Row, Notes, Figure, SUPPORT, won, fmtDate, billingStyles as styles } from '../../_shared/BillingShell'
 
 const { Bank, CashReceiptType, BillingKeyMethod, WindowType } = Entity
 
@@ -88,18 +82,6 @@ const VBANK_CHANNEL_KEY = process.env.NEXT_PUBLIC_PORTONE_VBANK_CHANNEL_KEY
   ?? process.env.NEXT_PUBLIC_PORTONE_CHANNEL_KEY ?? ''
 const BILLING_CHANNEL_KEY = process.env.NEXT_PUBLIC_PORTONE_BILLING_CHANNEL_KEY
   ?? process.env.NEXT_PUBLIC_PORTONE_CHANNEL_KEY_BILLING ?? ''
-
-const SUPPORT = {
-  phone: '1522-9597',
-  mobile: '010-5434-4877',
-  hours: '평일·토요일 09:00 – 18:00 (일요일·공휴일 휴무)',
-  kakao: 'http://pf.kakao.com/_JTNxin',
-  company: '범빌드코리아 주식회사',
-  bizNo: '398-81-04260',
-}
-
-const won = (n: number) => `${n.toLocaleString('ko-KR')}원`
-const fmtDate = (iso: string) => iso ? iso.slice(0, 10).replace(/-/g, '.') : '-'
 
 function periodLabel(period: string): string {
   if (/^\d{4}$/.test(period)) return `${period}년 연간`
@@ -377,16 +359,14 @@ export function BillingPayClient({ billing, customer }: Props) {
   // ═══════════════════════════════════════════════════
   if (paid) {
     return (
-      <Shell businessName={customer.businessName} subtitle={totalLabel} tone="done">
+      <Shell kicker="BBK 공간케어 · 정기 서비스 결제" businessName={customer.businessName} subtitle={totalLabel} tone="done">
         <Section delay={0}>
           <div className="flex flex-col items-center text-center gap-3 pt-2">
             <span className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-state-success-bg text-state-success">
               <Check size={26} strokeWidth={2.5} />
             </span>
             <h1 className="text-xl font-semibold text-text-primary leading-snug">결제가 완료되었습니다</h1>
-            <p className={`${figureFont.className} ${styles.figure} text-4xl text-text-primary`}>
-              {billing.amount.toLocaleString('ko-KR')}<span className="font-sans text-xl ml-1 text-text-secondary">원</span>
-            </p>
+            <p><Figure amount={billing.amount} size="xl" /></p>
           </div>
         </Section>
         <Section delay={1}>
@@ -420,7 +400,7 @@ export function BillingPayClient({ billing, customer }: Props) {
   // ═══════════════════════════════════════════════════
   if (issuedAccount) {
     return (
-      <Shell businessName={customer.businessName} subtitle={totalLabel}>
+      <Shell kicker="BBK 공간케어 · 정기 서비스 결제" businessName={customer.businessName} subtitle={totalLabel}>
         <Section delay={0}>
           <h1 className="text-lg font-semibold text-text-primary leading-snug">입금 전용 계좌가 발급되었습니다</h1>
           <p className="mt-1 text-sm text-text-secondary leading-normal break-keep">
@@ -451,9 +431,7 @@ export function BillingPayClient({ billing, customer }: Props) {
             </div>
             <div className="flex items-baseline justify-between text-sm">
               <span className="text-text-tertiary">입금 금액</span>
-              <span className={`${figureFont.className} ${styles.figure} text-xl text-text-primary`}>
-                {billing.amount.toLocaleString('ko-KR')}<span className="font-sans text-sm ml-0.5 text-text-secondary">원</span>
-              </span>
+              <Figure amount={billing.amount} size="md" />
             </div>
             {issuedAccount.expiry && (
               <div className="flex items-baseline justify-between text-sm">
@@ -483,7 +461,7 @@ export function BillingPayClient({ billing, customer }: Props) {
     : `카드 등록하고 ${won(billing.amount)} 결제`
 
   return (
-    <Shell businessName={customer.businessName} subtitle={totalLabel} dueDate={billing.dueDate}>
+    <Shell kicker="BBK 공간케어 · 정기 서비스 결제" businessName={customer.businessName} subtitle={totalLabel} dueDate={billing.dueDate}>
       {/* 청구 내역 */}
       <Section delay={0} title="청구 내역">
         <dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-2 text-sm">
@@ -503,9 +481,7 @@ export function BillingPayClient({ billing, customer }: Props) {
           <div className={styles.dashed} />
           <div className="flex items-baseline justify-between">
             <span className="text-sm font-medium text-text-primary">합계 금액</span>
-            <span className={`${figureFont.className} ${styles.figure} text-3xl text-text-primary`}>
-              {billing.amount.toLocaleString('ko-KR')}<span className="font-sans text-base ml-1 text-text-secondary">원</span>
-            </span>
+            <Figure amount={billing.amount} size="lg" />
           </div>
         </div>
       </Section>
@@ -607,39 +583,6 @@ export function BillingPayClient({ billing, customer }: Props) {
   )
 }
 
-// ─── 작은 조각들 ──────────────────────────────────────────────
-
-function Row({ k, v }: { k: string; v: string }) {
-  return (
-    <>
-      <dt className="text-text-tertiary whitespace-nowrap">{k}</dt>
-      <dd className="text-text-primary text-right break-keep">{v}</dd>
-    </>
-  )
-}
-
-function Notes({ items }: { items: Array<{ Icon: typeof Clock; text: string }> }) {
-  return (
-    <ul className="space-y-3">
-      {items.map(({ Icon, text }, i) => (
-        <li key={i} className="flex items-start gap-3 text-sm text-text-secondary leading-normal break-keep">
-          <Icon size={16} strokeWidth={1.75} className="text-brand-600 shrink-0 mt-0.5" />
-          <span>{text}</span>
-        </li>
-      ))}
-    </ul>
-  )
-}
-
-function Section({ title, delay, children }: { title?: string; delay: number; children: ReactNode }) {
-  return (
-    <section className={`${styles.reveal} px-5 py-5 sm:px-6`} style={{ animationDelay: `${80 + delay * 90}ms` }}>
-      {title && <h2 className="text-xs font-semibold tracking-widest text-text-tertiary uppercase mb-4">{title}</h2>}
-      {children}
-    </section>
-  )
-}
-
 /** 같은 결제 ID 로 이미 가상계좌가 발급된 뒤 다른 수단을 시도하면 PG 가 거절한다 — 안내 문구로 바꿔준다 */
 function friendlyPgError(msg: string): string {
   const m = msg.toLowerCase()
@@ -647,53 +590,4 @@ function friendlyPgError(msg: string): string {
     return `이미 가상계좌가 발급된 청구입니다. 발급된 계좌로 입금하시거나, 다른 방법을 원하시면 고객센터(${SUPPORT.phone})로 연락 주세요.`
   }
   return msg
-}
-
-/** 상단 잉크 밴드 + 겹쳐 올라오는 청구서 카드 */
-function Shell({ businessName, subtitle, dueDate, tone = 'default', children }: {
-  businessName: string
-  subtitle: string
-  dueDate?: string
-  tone?: 'default' | 'done'
-  children: ReactNode
-}) {
-  return (
-    <div className="min-h-screen bg-surface-sunken">
-      <header className={`${styles.band} text-white`}>
-        <div className="max-w-lg mx-auto px-5 sm:px-6 pt-8 pb-24">
-          <p className="text-xs tracking-widest uppercase text-brand-200">BBK 공간케어 · 정기 서비스 결제</p>
-          <h1 className="mt-3 text-2xl sm:text-3xl font-semibold leading-tight break-keep">{businessName}</h1>
-          <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-brand-100">
-            <span>{subtitle}</span>
-            {dueDate && (
-              <span className="inline-flex items-center gap-1 rounded-full border border-white/20 bg-white/10 px-2.5 py-0.5 text-xs text-white">
-                <Clock size={12} /> 결제 기한 {fmtDate(dueDate)}
-              </span>
-            )}
-            {tone === 'done' && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-state-success-bg px-2.5 py-0.5 text-xs text-state-success font-medium">
-                <Check size={12} /> 결제 완료
-              </span>
-            )}
-          </div>
-        </div>
-      </header>
-
-      <main className="max-w-lg mx-auto px-4 sm:px-6 -mt-16 pb-16">
-        <div className={`${styles.paper} rounded-2xl border border-border-subtle shadow-card divide-y divide-border-subtle overflow-hidden`}>
-          {children}
-        </div>
-
-        <footer className="mt-6 px-2 text-xs text-text-tertiary leading-normal space-y-1 break-keep">
-          <p className="font-medium text-text-secondary">{SUPPORT.company} · 사업자등록번호 {SUPPORT.bizNo}</p>
-          <p>고객센터 {SUPPORT.phone} · {SUPPORT.mobile} · {SUPPORT.hours}</p>
-          <p>
-            <a href={SUPPORT.kakao} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-text-secondary underline underline-offset-2">
-              <MessageCircle size={12} /> 카카오톡 상담
-            </a>
-          </p>
-        </footer>
-      </main>
-    </div>
-  )
 }
