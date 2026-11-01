@@ -16,6 +16,7 @@ import { sendSlack } from '@/lib/slack'
 import { todayKstIso } from '@/lib/billing-notify-policy'
 
 type Supabase = ReturnType<typeof createServiceClient>
+const APP_BASE_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://app.bbkorea.co.kr'
 
 export type ChargeResult =
   | { ok: true; paymentId: string; alreadyPaid?: boolean }
@@ -30,6 +31,7 @@ interface BillingRow {
   billing_period: string | null
   service_type: string | null
   payment_portone_id: string | null
+  application_id: string | null
 }
 
 interface CustomerRow {
@@ -39,6 +41,42 @@ interface CustomerRow {
   contact_phone: string | null
   billing_key: string | null
   billing_key_status: string | null
+}
+
+/**
+ * 자동결제 성공 → 고객에게 '결제완료알림' 문자 (링크로 직접 결제했을 때와 같은 경로·템플릿).
+ * 건별 청구서는 연결된 시공 건으로, 월 청구서는 그 달의 마지막 시공 건으로 보낸다.
+ */
+async function notifyCustomerPaid(supabase: Supabase, billing: BillingRow): Promise<void> {
+  try {
+    let appId: string | null = billing.application_id
+    if (!appId && billing.customer_id && billing.billing_period) {
+      const period = billing.billing_period
+      const isAnnual = /^\d{4}$/.test(period)
+      const isDaily = /^\d{4}-\d{2}-\d{2}$/.test(period)
+      const start = isAnnual ? `${period}-01-01` : isDaily ? period : `${period}-01`
+      const end = isAnnual ? `${period}-12-31` : isDaily ? period : `${period}-31`
+      const { data: app } = await supabase
+        .from('service_applications')
+        .select('id')
+        .eq('customer_id', billing.customer_id)
+        .gte('construction_date', start)
+        .lte('construction_date', end)
+        .is('deleted_at', null)
+        .order('construction_date', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      appId = (app?.id as string | undefined) ?? null
+    }
+    if (!appId) return
+    await fetch(`${APP_BASE_URL}/api/admin/notify`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ application_id: appId, type: '결제완료알림', method: 'auto' }),
+    })
+  } catch {
+    // 알림 실패는 결제 처리에 영향 없음
+  }
 }
 
 async function markPaid(supabase: Supabase, billing: BillingRow, customer: CustomerRow, paymentId: string) {
@@ -59,6 +97,8 @@ async function markPaid(supabase: Supabase, billing: BillingRow, customer: Custo
     `기간: ${billing.billing_period ?? '-'} · 금액: ${Number(billing.amount ?? 0).toLocaleString('ko-KR')}원\n` +
     `결제ID: ${paymentId}`,
   ).catch(() => {})
+
+  await notifyCustomerPaid(supabase, billing)
 }
 
 async function isPaidOnPortOne(paymentId: string): Promise<boolean> {
@@ -78,7 +118,7 @@ export async function chargeBillingWithKey(supabase: Supabase, billingId: string
 
   const { data: billingRaw } = await supabase
     .from('service_billings')
-    .select('id, customer_id, amount, status, billing_type, billing_period, service_type, payment_portone_id')
+    .select('id, customer_id, amount, status, billing_type, billing_period, service_type, payment_portone_id, application_id')
     .eq('id', billingId)
     .maybeSingle()
   const billing = billingRaw as BillingRow | null
