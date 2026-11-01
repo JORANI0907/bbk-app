@@ -4,6 +4,7 @@
  * 정기 결제 클라이언트 컴포넌트
  *   2026-10-18 Phase H.6: 가상계좌 전용
  *   2026-11-01: 결제수단 3종 — ① 카드 결제 ② 계좌이체(가상계좌) ③ 카드 자동결제 등록
+ *   2026-11-01 리디자인: '청구서' 구성 — 공급가액·부가세·합계 분리 표기, 안내사항 보강, 이모지 제거
  *
  * ① 카드: PortOne requestPayment(CARD) → /api/portone/billing-complete 로 서버 검증 → 완료
  * ② 가상계좌: 은행 선택 → requestPayment(VIRTUAL_ACCOUNT) → 계좌번호 표시 → 입금 시 webhook 이 paid 처리
@@ -13,11 +14,20 @@
  * 모바일은 결제창이 리디렉션 방식이라 이 페이지로 돌아온다 → URL 쿼리를 보고 마무리 처리.
  */
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { Fraunces } from 'next/font/google'
 import { requestPayment, requestIssueBillingKey, Entity } from '@portone/browser-sdk/v2'
 import { BBK_VBANK_BANKS, DEFAULT_VBANK_CODE, getBankLabel } from '@/lib/portone-banks'
 import { isValidPaymentEmail } from '@/lib/payment-email'
-import { Check, Clock, AlertCircle, Loader2, Copy, CreditCard, Landmark, RefreshCw } from 'lucide-react'
+import { hasVat, normalizePaymentMethod } from '@/lib/payment-methods'
+import { Button, Select } from '@/components/ui'
+import {
+  Check, AlertCircle, Copy, CreditCard, Landmark, RefreshCw,
+  ShieldCheck, Receipt, Clock, Phone, MessageCircle,
+} from 'lucide-react'
+import styles from './billing-pay.module.css'
+
+const figureFont = Fraunces({ subsets: ['latin'], weight: ['500', '600'], display: 'swap' })
 
 const { Bank, CashReceiptType, BillingKeyMethod, WindowType } = Entity
 
@@ -60,6 +70,8 @@ export interface BillingPayCustomer {
   billingKeyStatus: string
   /** 매월 지정일 고객의 결제일. 건별 고객은 null */
   paymentDate: number | null
+  /** 기본 결제수단 — 부가세 포함 여부 판단용 (현금 비과세는 부가세 없음) */
+  paymentMethod: string | null
 }
 
 interface Props {
@@ -77,22 +89,41 @@ const VBANK_CHANNEL_KEY = process.env.NEXT_PUBLIC_PORTONE_VBANK_CHANNEL_KEY
 const BILLING_CHANNEL_KEY = process.env.NEXT_PUBLIC_PORTONE_BILLING_CHANNEL_KEY
   ?? process.env.NEXT_PUBLIC_PORTONE_CHANNEL_KEY_BILLING ?? ''
 
-function monthLabel(period: string): string {
-  if (/^\d{4}$/.test(period)) return `${period}년`
-  const [y, m, d] = period.split('-')
-  return d ? `${y}년 ${parseInt(m, 10)}월 ${parseInt(d, 10)}일` : `${y}년 ${parseInt(m, 10)}월`
+const SUPPORT = {
+  phone: '1522-9597',
+  mobile: '010-5434-4877',
+  hours: '평일·토요일 09:00 – 18:00 (일요일·공휴일 휴무)',
+  kakao: 'http://pf.kakao.com/_JTNxin',
+  company: '범빌드코리아 주식회사',
+  bizNo: '398-81-04260',
 }
 
-function typeLabel(t: string): string {
-  if (t === 'annual') return '연간'
-  if (t === 'onetime') return '시공 건'
-  return '월간'
+const won = (n: number) => `${n.toLocaleString('ko-KR')}원`
+const fmtDate = (iso: string) => iso ? iso.slice(0, 10).replace(/-/g, '.') : '-'
+
+function periodLabel(period: string): string {
+  if (/^\d{4}$/.test(period)) return `${period}년 연간`
+  const [y, m, d] = period.split('-')
+  return d ? `${y}년 ${parseInt(m, 10)}월 ${parseInt(d, 10)}일 시공분` : `${y}년 ${parseInt(m, 10)}월분`
+}
+
+function serviceLabel(t: string | null): string {
+  if (t === '정기딥케어') return '정기 딥케어'
+  if (t === '정기엔드케어') return '정기 엔드케어'
+  return '정기 서비스'
+}
+
+/** 합계에서 공급가액·부가세 역산 (부가세 포함 결제수단일 때만) */
+function splitVat(total: number, paymentMethod: string | null) {
+  if (!hasVat(paymentMethod)) return { supply: total, vat: 0, taxable: false }
+  const supply = Math.round(total / 1.1)
+  return { supply, vat: total - supply, taxable: true }
 }
 
 const METHODS: Array<{ key: Method; title: string; desc: string; Icon: typeof CreditCard }> = [
-  { key: 'card',    title: '카드 결제',        desc: '신용·체크·법인카드로 이번 건 결제',            Icon: CreditCard },
-  { key: 'vbank',   title: '계좌이체(가상계좌)', desc: '은행을 고르면 입금 전용 계좌가 발급됩니다',   Icon: Landmark },
-  { key: 'autopay', title: '카드 자동결제 등록', desc: '카드를 한 번 등록하면 다음부터 자동 결제',    Icon: RefreshCw },
+  { key: 'card',    title: '카드 결제',          desc: '신용·체크·법인카드로 이번 청구분을 결제합니다',          Icon: CreditCard },
+  { key: 'vbank',   title: '가상계좌 입금',       desc: '은행을 고르면 이 청구 전용 입금 계좌가 발급됩니다',       Icon: Landmark },
+  { key: 'autopay', title: '카드 자동결제 등록',  desc: '카드를 한 번 등록하면 다음 결제부터 자동으로 처리됩니다', Icon: RefreshCw },
 ]
 
 export function BillingPayClient({ billing, customer }: Props) {
@@ -114,8 +145,9 @@ export function BillingPayClient({ billing, customer }: Props) {
   const [copied, setCopied] = useState(false)
   const redirectHandled = useRef(false)
 
-  const totalLabel = `${monthLabel(billing.billingPeriod)} ${typeLabel(billing.billingType)} 결제`
-  const amountLabel = `${billing.amount.toLocaleString('ko-KR')}원`
+  const totalLabel = `${periodLabel(billing.billingPeriod)} ${serviceLabel(customer.customerType)} 결제`
+  const { supply, vat, taxable } = splitVat(billing.amount, customer.paymentMethod)
+  const isCashMethod = normalizePaymentMethod(customer.paymentMethod) === 'cash_untaxed'
 
   // ─── 서버 검증 / 저장 ───────────────────────────────
   const verifyCardPayment = async (paymentId: string) => {
@@ -149,7 +181,7 @@ export function BillingPayClient({ billing, customer }: Props) {
       })
       return
     }
-    throw new Error(data.error ?? '가상계좌 정보를 확인하지 못했습니다. 잠시 후 SMS로 안내됩니다.')
+    throw new Error(data.error ?? '가상계좌 정보를 확인하지 못했습니다. 잠시 후 문자로 안내됩니다.')
   }
 
   const saveBillingKeyAndCharge = async (billingKey: string, issueId: string) => {
@@ -208,8 +240,8 @@ export function BillingPayClient({ billing, customer }: Props) {
 
   // ─── ① 카드 결제 ──────────────────────────────────
   const payWithCard = async () => {
-    if (!billing.paymentPortoneId) throw new Error('결제 ID가 생성되지 않았습니다. 관리자에게 연락해주세요.')
-    if (!STORE_ID || !CARD_CHANNEL_KEY) throw new Error('카드 결제 설정이 없습니다. 관리자에게 연락해주세요.')
+    if (!billing.paymentPortoneId) throw new Error('결제 ID가 생성되지 않았습니다. 고객센터로 연락해 주세요.')
+    if (!STORE_ID || !CARD_CHANNEL_KEY) throw new Error('카드 결제 설정이 없습니다. 고객센터로 연락해 주세요.')
     const redirectUrl = `${window.location.origin}/portone/billing-pay/${billing.id}?pid=${billing.paymentPortoneId}`
     const result = await requestPayment({
       storeId: STORE_ID,
@@ -238,8 +270,8 @@ export function BillingPayClient({ billing, customer }: Props) {
 
   // ─── ② 가상계좌 ───────────────────────────────────
   const issueVirtualAccount = async () => {
-    if (!billing.paymentPortoneId) throw new Error('결제 ID가 생성되지 않았습니다. 관리자에게 연락해주세요.')
-    if (!STORE_ID || !VBANK_CHANNEL_KEY) throw new Error('가상계좌 설정이 없습니다. 관리자에게 연락해주세요.')
+    if (!billing.paymentPortoneId) throw new Error('결제 ID가 생성되지 않았습니다. 고객센터로 연락해 주세요.')
+    if (!STORE_ID || !VBANK_CHANNEL_KEY) throw new Error('가상계좌 설정이 없습니다. 고객센터로 연락해 주세요.')
     const redirectUrl = `${window.location.origin}/portone/billing-pay/${billing.id}?pid=${billing.paymentPortoneId}&flow=vbank`
     const response = await requestPayment({
       storeId: STORE_ID,
@@ -277,14 +309,14 @@ export function BillingPayClient({ billing, customer }: Props) {
         expiry: expLabel,
       })
     } else {
-      setIssuedAccount({ bank: getBankLabel(vbankCode), accountNumber: '발급 중... (잠시 후 SMS로 안내됩니다)' })
+      setIssuedAccount({ bank: getBankLabel(vbankCode), accountNumber: '발급 중 (잠시 후 문자로 안내됩니다)' })
     }
   }
 
   // ─── ③ 카드 자동결제 등록 ─────────────────────────
   const registerAutopay = async () => {
     if (!customer.id) throw new Error('고객 정보가 없어 자동결제를 등록할 수 없습니다.')
-    if (!STORE_ID || !BILLING_CHANNEL_KEY) throw new Error('자동결제 설정이 없습니다. 관리자에게 연락해주세요.')
+    if (!STORE_ID || !BILLING_CHANNEL_KEY) throw new Error('자동결제 설정이 없습니다. 고객센터로 연락해 주세요.')
     const issueId = `bbk_billkey_${customer.id.replace(/-/g, '').slice(0, 8)}_${Date.now()}`
     const redirectUrl = `${window.location.origin}/portone/billing-pay/${billing.id}?pid=${billing.paymentPortoneId ?? ''}&issueId=${issueId}`
     const response = await requestIssueBillingKey({
@@ -336,181 +368,275 @@ export function BillingPayClient({ billing, customer }: Props) {
     } catch { /* 무시 */ }
   }
 
-  // ─── 결제 완료 화면 ─────────────────────────────────
+  const nextChargeText = customer.paymentDate
+    ? `다음 결제부터는 매월 ${customer.paymentDate}일에 등록한 카드로 자동 결제됩니다.`
+    : '다음 결제부터는 서비스 완료 후 등록한 카드로 자동 결제됩니다.'
+
+  // ═══════════════════════════════════════════════════
+  // 화면 1 · 결제 완료 (영수증)
+  // ═══════════════════════════════════════════════════
   if (paid) {
     return (
-      <Shell>
-        <div className="text-center space-y-4 py-10">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-emerald-100 text-emerald-700">
-            <Check size={32} />
-          </div>
-          <h1 className="text-xl font-bold text-text-primary">결제가 완료되었습니다</h1>
-          <p className="text-sm text-text-secondary">{customer.businessName} · {totalLabel}</p>
-          <p className="text-2xl font-bold text-text-primary">{amountLabel}</p>
-          {billing.paidDate && <p className="text-xs text-text-tertiary">완료일: {billing.paidDate}</p>}
-          {autopayRegistered && (
-            <div className="mx-auto max-w-xs rounded-lg bg-sky-50 border border-sky-200 p-3 text-left">
-              <p className="text-xs font-semibold text-sky-800">카드 자동결제 등록 완료 · {autopayRegistered}</p>
-              <p className="text-[11px] text-sky-700 mt-1 leading-relaxed">
-                {customer.paymentDate
-                  ? `다음부터는 매월 ${customer.paymentDate}일에 자동으로 결제됩니다.`
-                  : '다음부터는 서비스 완료 후 자동으로 결제됩니다.'}
-              </p>
-            </div>
-          )}
-        </div>
-      </Shell>
-    )
-  }
-
-  // ─── 가상계좌 발급 완료 화면 ────────────────────────
-  if (issuedAccount) {
-    return (
-      <Shell>
-        <div className="space-y-5 py-4">
-          <div className="text-center">
-            <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-sky-100 text-sky-700">
-              <Clock size={28} />
-            </div>
-            <h1 className="text-lg font-bold text-text-primary mt-3">가상계좌 발급 완료</h1>
-            <p className="text-xs text-text-secondary mt-1">아래 계좌로 <strong>{amountLabel}</strong> 입금해주세요</p>
-          </div>
-
-          <div className="rounded-xl border-2 border-sky-200 bg-sky-50 p-4 space-y-2">
-            <Row label="은행" value={issuedAccount.bank} />
-            <div className="pt-2 border-t border-sky-200">
-              <p className="text-xs text-sky-700 mb-1">계좌번호</p>
-              <div className="flex items-center gap-2">
-                <p className="text-lg font-bold text-text-primary flex-1 font-mono">{issuedAccount.accountNumber}</p>
-                <button
-                  type="button"
-                  onClick={handleCopy}
-                  className={`inline-flex items-center gap-1 text-xs px-3 py-1.5 rounded-lg border font-semibold ${
-                    copied ? 'bg-emerald-100 text-emerald-700 border-emerald-300' : 'bg-white text-text-primary border-gray-300 hover:bg-gray-50'
-                  }`}
-                >
-                  {copied ? <><Check size={12} /> 복사됨</> : <><Copy size={12} /> 복사</>}
-                </button>
-              </div>
-            </div>
-            <div className="pt-2 border-t border-sky-200 space-y-2">
-              <Row label="예금주" value="범빌드코리아(주)" />
-              <Row label="금액" value={amountLabel} strong />
-              {issuedAccount.expiry && <Row label="입금 기한" value={issuedAccount.expiry.slice(0, 10).replace(/-/g, '.')} />}
-            </div>
-          </div>
-
-          <div className="rounded-lg bg-amber-50 border border-amber-200 p-3">
-            <p className="text-[11px] text-amber-900 leading-relaxed">
-              💡 입금 확인 즉시 결제 완료 처리됩니다. 입금 후 몇 분 안에 안내 SMS가 발송됩니다.
+      <Shell businessName={customer.businessName} subtitle={totalLabel} tone="done">
+        <Section delay={0}>
+          <div className="flex flex-col items-center text-center gap-3 pt-2">
+            <span className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-state-success-bg text-state-success">
+              <Check size={26} strokeWidth={2.5} />
+            </span>
+            <h1 className="text-xl font-semibold text-text-primary leading-snug">결제가 완료되었습니다</h1>
+            <p className={`${figureFont.className} ${styles.figure} text-4xl text-text-primary`}>
+              {billing.amount.toLocaleString('ko-KR')}<span className="font-sans text-xl ml-1 text-text-secondary">원</span>
             </p>
           </div>
-        </div>
+        </Section>
+        <Section delay={1}>
+          <dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-2 text-sm">
+            <Row k="업체" v={customer.businessName} />
+            <Row k="내역" v={totalLabel} />
+            <Row k="결제일" v={fmtDate(billing.paidDate ?? new Date().toISOString())} />
+            {taxable && <Row k="공급가액 / 부가세" v={`${won(supply)} / ${won(vat)}`} />}
+          </dl>
+          {autopayRegistered && (
+            <div className="mt-4 rounded-lg border border-brand-100 bg-brand-50 p-4 text-sm text-brand-800 leading-normal break-keep">
+              <p className="font-semibold">카드 자동결제 등록 완료 · {autopayRegistered}</p>
+              <p className="mt-1 text-brand-700">{nextChargeText} 해지는 고객센터로 연락 주세요.</p>
+            </div>
+          )}
+        </Section>
+        <Section delay={2}>
+          <Notes items={[
+            { Icon: ShieldCheck, text: '결제 내역은 저희 시스템에 바로 반영되며, 확인 문자가 발송됩니다.' },
+            taxable
+              ? { Icon: Receipt, text: '가상계좌·계좌이체 결제분은 세금계산서 발행 대상이며, 카드 결제분은 카드 매출전표로 갈음됩니다.' }
+              : { Icon: Receipt, text: '현금 결제 건은 부가세가 포함되지 않은 금액입니다.' },
+          ]} />
+        </Section>
       </Shell>
     )
   }
 
-  // ─── 결제 요청 화면 ─────────────────────────────────
-  const alreadyHasKey = customer.billingKeyStatus === 'active'
-  return (
-    <Shell>
-      <div className="space-y-5 py-2">
-        <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 space-y-2">
-          <p className="text-xs text-emerald-700">{customer.businessName}</p>
-          <p className="text-sm font-semibold text-text-primary">{totalLabel}</p>
-          <div className="pt-2 border-t border-emerald-200 flex items-center justify-between">
-            <span className="text-xs text-emerald-700">결제 금액</span>
-            <span className="text-2xl font-bold text-text-primary">{amountLabel}</span>
-          </div>
-          {billing.dueDate && (
-            <div className="flex items-center justify-between text-xs text-emerald-700">
-              <span>결제 기한</span>
-              <span>{billing.dueDate.replace(/-/g, '.')}</span>
+  // ═══════════════════════════════════════════════════
+  // 화면 2 · 가상계좌 발급 완료
+  // ═══════════════════════════════════════════════════
+  if (issuedAccount) {
+    return (
+      <Shell businessName={customer.businessName} subtitle={totalLabel}>
+        <Section delay={0}>
+          <h1 className="text-lg font-semibold text-text-primary leading-snug">입금 전용 계좌가 발급되었습니다</h1>
+          <p className="mt-1 text-sm text-text-secondary leading-normal break-keep">
+            아래 계좌로 <strong className="text-text-primary">{won(billing.amount)}</strong>을 입금해 주세요. 입금이 확인되면 바로 결제 완료로 처리됩니다.
+          </p>
+        </Section>
+        <Section delay={1}>
+          <div className="rounded-xl border border-border bg-surface-sunken p-4 space-y-3">
+            <div className="flex items-baseline justify-between text-sm">
+              <span className="text-text-tertiary">은행</span>
+              <span className="font-medium text-text-primary">{issuedAccount.bank}</span>
             </div>
-          )}
-        </div>
-
-        {/* 결제수단 선택 */}
-        <div className="space-y-2">
-          <p className="text-xs font-semibold text-text-secondary">결제 방법 선택</p>
-          <div className="space-y-2">
-            {visibleMethods.map(({ key, title, desc, Icon }) => {
-              const selected = method === key
-              const disabled = key === 'autopay' && (alreadyHasKey || !customer.id)
-              return (
-                <button
-                  key={key}
-                  type="button"
-                  disabled={busy || disabled}
-                  onClick={() => setMethod(key)}
-                  className={`w-full text-left rounded-xl border-2 p-3 flex items-center gap-3 transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
-                    selected ? 'border-brand-500 bg-brand-50' : 'border-gray-200 bg-white hover:border-gray-300'
-                  }`}
-                >
-                  <span className={`inline-flex items-center justify-center w-9 h-9 rounded-lg shrink-0 ${selected ? 'bg-brand-600 text-white' : 'bg-gray-100 text-text-secondary'}`}>
-                    <Icon size={18} />
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block text-sm font-semibold text-text-primary">{title}</span>
-                    <span className="block text-[11px] text-text-tertiary leading-snug">
-                      {key === 'autopay' && alreadyHasKey ? '이미 자동결제 카드가 등록되어 있습니다' : desc}
-                    </span>
-                  </span>
-                  <span className={`w-4 h-4 rounded-full border-2 shrink-0 ${selected ? 'border-brand-600 bg-brand-600' : 'border-gray-300'}`} />
-                </button>
-              )
-            })}
+            <div>
+              <p className="text-sm text-text-tertiary mb-1">계좌번호</p>
+              <div className="flex items-center gap-2">
+                <p className={`${styles.figure} flex-1 text-2xl font-semibold text-text-primary tracking-tight break-all`}>
+                  {issuedAccount.accountNumber}
+                </p>
+                <Button variant="secondary" size="sm" onClick={handleCopy} className="shrink-0">
+                  {copied ? <><Check size={14} /> 복사됨</> : <><Copy size={14} /> 복사</>}
+                </Button>
+              </div>
+            </div>
+            <div className={styles.dashed} />
+            <div className="flex items-baseline justify-between text-sm">
+              <span className="text-text-tertiary">예금주</span>
+              <span className="font-medium text-text-primary">{SUPPORT.company}</span>
+            </div>
+            <div className="flex items-baseline justify-between text-sm">
+              <span className="text-text-tertiary">입금 금액</span>
+              <span className={`${figureFont.className} ${styles.figure} text-xl text-text-primary`}>
+                {billing.amount.toLocaleString('ko-KR')}<span className="font-sans text-sm ml-0.5 text-text-secondary">원</span>
+              </span>
+            </div>
+            {issuedAccount.expiry && (
+              <div className="flex items-baseline justify-between text-sm">
+                <span className="text-text-tertiary">입금 기한</span>
+                <span className="font-medium text-text-primary">{fmtDate(issuedAccount.expiry)}</span>
+              </div>
+            )}
           </div>
+        </Section>
+        <Section delay={2}>
+          <Notes items={[
+            { Icon: Clock, text: '가상계좌는 발급일로부터 7일간 유효합니다. 기한이 지나면 이 페이지에서 다시 발급받을 수 있습니다.' },
+            { Icon: ShieldCheck, text: '입금 금액이 청구 금액과 정확히 일치해야 자동으로 처리됩니다. 입금 후 몇 분 안에 확인 문자가 발송됩니다.' },
+            { Icon: Receipt, text: '가상계좌 입금분은 세금계산서 발행 대상입니다. 발행 시 문자로 안내드립니다.' },
+          ]} />
+        </Section>
+      </Shell>
+    )
+  }
+
+  // ═══════════════════════════════════════════════════
+  // 화면 3 · 결제 요청 (청구서)
+  // ═══════════════════════════════════════════════════
+  const alreadyHasKey = customer.billingKeyStatus === 'active'
+  const ctaLabel = method === 'card' ? `${won(billing.amount)} 카드로 결제`
+    : method === 'vbank' ? '입금 계좌 발급받기'
+    : `카드 등록하고 ${won(billing.amount)} 결제`
+
+  return (
+    <Shell businessName={customer.businessName} subtitle={totalLabel} dueDate={billing.dueDate}>
+      {/* 청구 내역 */}
+      <Section delay={0} title="청구 내역">
+        <dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-2 text-sm">
+          <Row k="서비스" v={serviceLabel(customer.customerType)} />
+          <Row k="청구 기간" v={periodLabel(billing.billingPeriod)} />
+          <Row k="결제 기한" v={fmtDate(billing.dueDate)} />
+        </dl>
+        <div className="mt-4 rounded-xl border border-border-subtle bg-surface-sunken px-4 py-3 space-y-2">
+          <div className="flex items-baseline justify-between text-sm">
+            <span className="text-text-secondary">공급가액</span>
+            <span className={`${styles.figure} text-text-primary`}>{won(supply)}</span>
+          </div>
+          <div className="flex items-baseline justify-between text-sm">
+            <span className="text-text-secondary">{taxable ? '부가세 (10%)' : isCashMethod ? '부가세 (현금 비과세)' : '부가세'}</span>
+            <span className={`${styles.figure} text-text-primary`}>{taxable ? won(vat) : '해당 없음'}</span>
+          </div>
+          <div className={styles.dashed} />
+          <div className="flex items-baseline justify-between">
+            <span className="text-sm font-medium text-text-primary">합계 금액</span>
+            <span className={`${figureFont.className} ${styles.figure} text-3xl text-text-primary`}>
+              {billing.amount.toLocaleString('ko-KR')}<span className="font-sans text-base ml-1 text-text-secondary">원</span>
+            </span>
+          </div>
+        </div>
+      </Section>
+
+      {/* 결제 방법 */}
+      <Section delay={1} title="결제 방법">
+        <div className="space-y-2" role="radiogroup" aria-label="결제 방법">
+          {visibleMethods.map(({ key, title, desc, Icon }) => {
+            const selected = method === key
+            const disabled = key === 'autopay' && (alreadyHasKey || !customer.id)
+            return (
+              <button
+                key={key}
+                type="button"
+                role="radio"
+                aria-checked={selected}
+                disabled={busy || disabled}
+                onClick={() => setMethod(key)}
+                className={`w-full text-left rounded-xl border p-4 flex items-center gap-4 transition-all duration-150 ease-out-toss disabled:opacity-50 disabled:cursor-not-allowed ${
+                  selected
+                    ? 'border-brand-600 bg-brand-50 shadow-focus'
+                    : 'border-border bg-surface hover:border-border-strong hover:shadow-soft active:scale-[0.99]'
+                }`}
+              >
+                <span className={`inline-flex items-center justify-center w-10 h-10 rounded-lg shrink-0 ${selected ? 'bg-brand-600 text-white' : 'bg-surface-sunken text-text-secondary'}`}>
+                  <Icon size={18} strokeWidth={1.75} />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-semibold text-text-primary">{title}</span>
+                  <span className="block text-xs text-text-secondary leading-normal break-keep mt-0.5">
+                    {key === 'autopay' && alreadyHasKey ? '이미 자동결제 카드가 등록되어 있습니다' : desc}
+                  </span>
+                </span>
+                <span className={`w-5 h-5 rounded-full border-2 shrink-0 flex items-center justify-center ${selected ? 'border-brand-600' : 'border-border-strong'}`}>
+                  {selected && <span className="w-2.5 h-2.5 rounded-full bg-brand-600" />}
+                </span>
+              </button>
+            )
+          })}
         </div>
 
         {method === 'vbank' && (
-          <div className="space-y-2">
-            <label className="block text-xs font-semibold text-text-secondary">입금받을 은행 선택</label>
-            <select
+          <div className="mt-4">
+            <Select
+              label="입금받을 은행"
               value={vbankCode}
               onChange={e => setVbankCode(e.target.value)}
               disabled={busy}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-200"
+              fullWidth
+              hint="선택한 은행의 이 청구 전용 계좌가 발급됩니다. 7일간 유효합니다."
             >
               {BBK_VBANK_BANKS.map(b => <option key={b.code} value={b.code}>{b.name}</option>)}
-            </select>
-            <p className="text-[11px] text-text-tertiary">선택한 은행으로 7일간 유효한 가상계좌가 발급됩니다.</p>
+            </Select>
           </div>
         )}
 
         {method === 'autopay' && (
-          <div className="rounded-lg bg-sky-50 border border-sky-200 p-3 text-[11px] text-sky-800 leading-relaxed space-y-1">
-            <p>· 카드를 한 번 등록하면 <strong>이번 결제({amountLabel})가 바로 진행</strong>됩니다.</p>
-            <p>· {customer.paymentDate ? `다음부터는 매월 ${customer.paymentDate}일에` : '다음부터는 서비스 완료 후'} 등록한 카드로 자동 결제됩니다.</p>
-            <p>· 해지를 원하시면 고객센터(1522-9597)로 연락 주세요.</p>
-          </div>
+          <ul className="mt-4 rounded-lg border border-brand-100 bg-brand-50 p-4 text-sm text-brand-800 leading-normal break-keep space-y-1.5 list-disc pl-5">
+            <li>카드를 등록하면 <strong>이번 청구분 {won(billing.amount)}이 바로 결제</strong>됩니다.</li>
+            <li>{nextChargeText}</li>
+            <li>결제가 이루어질 때마다 확인 문자를 보내드립니다.</li>
+            <li>해지를 원하시면 고객센터({SUPPORT.phone})로 연락 주세요.</li>
+          </ul>
         )}
 
         {errorMsg && (
-          <div className="rounded-lg bg-rose-50 border border-rose-200 p-3 flex items-start gap-2">
-            <AlertCircle size={14} className="text-rose-600 shrink-0 mt-0.5" />
-            <p className="text-xs text-rose-700 leading-relaxed">{errorMsg}</p>
+          <div role="alert" className="mt-4 rounded-lg border border-red-200 bg-state-danger-bg p-4 flex items-start gap-2">
+            <AlertCircle size={16} className="text-state-danger shrink-0 mt-0.5" />
+            <p className="text-sm text-state-danger leading-normal break-keep">{errorMsg}</p>
           </div>
         )}
 
-        <button
-          type="button"
+        <Button
+          size="lg"
           onClick={handleSubmit}
+          isLoading={busy}
           disabled={busy}
-          className="w-full py-3.5 text-sm font-bold bg-brand-600 hover:bg-brand-700 text-white rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center justify-center gap-2"
+          className="mt-5 w-full h-12"
         >
-          {busy
-            ? <><Loader2 size={16} className="animate-spin" /> {busyLabel}</>
-            : method === 'card' ? `카드로 ${amountLabel} 결제하기`
-            : method === 'vbank' ? '가상계좌 발급받기'
-            : `카드 등록하고 ${amountLabel} 결제하기`}
-        </button>
-
-        <p className="text-[10px] text-text-tertiary text-center leading-relaxed">
-          결제 완료 즉시 자동 처리되며 안내 SMS가 발송됩니다.
+          {busy ? busyLabel : ctaLabel}
+        </Button>
+        <p className="mt-2 text-xs text-text-tertiary text-center leading-normal">
+          결제 완료 즉시 자동 반영되며 확인 문자가 발송됩니다.
         </p>
-      </div>
+      </Section>
+
+      {/* 안내 사항 */}
+      <Section delay={2} title="안내 사항">
+        <Notes items={[
+          { Icon: Receipt, text: taxable
+              ? '가상계좌·계좌이체 결제분은 세금계산서가 발행되며, 카드 결제분은 카드 매출전표로 갈음됩니다.'
+              : '현금 결제 건은 부가세가 포함되지 않은 금액입니다.' },
+          { Icon: Clock, text: `결제 기한은 ${fmtDate(billing.dueDate)}입니다. 기한이 지나도 이 페이지에서 결제하실 수 있습니다.` },
+          { Icon: ShieldCheck, text: '결제는 포트원(KG이니시스)을 통해 안전하게 처리되며, 카드 정보는 저희 서버에 저장되지 않습니다.' },
+          { Icon: Phone, text: `문의: ${SUPPORT.phone} · ${SUPPORT.hours}` },
+        ]} />
+      </Section>
     </Shell>
+  )
+}
+
+// ─── 작은 조각들 ──────────────────────────────────────────────
+
+function Row({ k, v }: { k: string; v: string }) {
+  return (
+    <>
+      <dt className="text-text-tertiary whitespace-nowrap">{k}</dt>
+      <dd className="text-text-primary text-right break-keep">{v}</dd>
+    </>
+  )
+}
+
+function Notes({ items }: { items: Array<{ Icon: typeof Clock; text: string }> }) {
+  return (
+    <ul className="space-y-3">
+      {items.map(({ Icon, text }, i) => (
+        <li key={i} className="flex items-start gap-3 text-sm text-text-secondary leading-normal break-keep">
+          <Icon size={16} strokeWidth={1.75} className="text-brand-600 shrink-0 mt-0.5" />
+          <span>{text}</span>
+        </li>
+      ))}
+    </ul>
+  )
+}
+
+function Section({ title, delay, children }: { title?: string; delay: number; children: ReactNode }) {
+  return (
+    <section className={`${styles.reveal} px-5 py-5 sm:px-6`} style={{ animationDelay: `${80 + delay * 90}ms` }}>
+      {title && <h2 className="text-xs font-semibold tracking-widest text-text-tertiary uppercase mb-4">{title}</h2>}
+      {children}
+    </section>
   )
 }
 
@@ -518,33 +644,56 @@ export function BillingPayClient({ billing, customer }: Props) {
 function friendlyPgError(msg: string): string {
   const m = msg.toLowerCase()
   if (m.includes('already') || msg.includes('이미') || m.includes('duplicate')) {
-    return '이미 가상계좌가 발급된 결제입니다. 발급된 계좌로 입금하시거나, 다른 방법을 원하시면 고객센터(1522-9597)로 연락 주세요.'
+    return `이미 가상계좌가 발급된 청구입니다. 발급된 계좌로 입금하시거나, 다른 방법을 원하시면 고객센터(${SUPPORT.phone})로 연락 주세요.`
   }
   return msg
 }
 
-function Row({ label, value, strong = false }: { label: string; value: string; strong?: boolean }) {
+/** 상단 잉크 밴드 + 겹쳐 올라오는 청구서 카드 */
+function Shell({ businessName, subtitle, dueDate, tone = 'default', children }: {
+  businessName: string
+  subtitle: string
+  dueDate?: string
+  tone?: 'default' | 'done'
+  children: ReactNode
+}) {
   return (
-    <div className="flex items-center justify-between text-xs text-sky-700">
-      <span>{label}</span>
-      <span className={strong ? 'font-bold text-base text-text-primary' : 'font-semibold'}>{value}</span>
-    </div>
-  )
-}
+    <div className="min-h-screen bg-surface-sunken">
+      <header className={`${styles.band} text-white`}>
+        <div className="max-w-lg mx-auto px-5 sm:px-6 pt-8 pb-24">
+          <p className="text-xs tracking-widest uppercase text-brand-200">BBK 공간케어 · 정기 서비스 결제</p>
+          <h1 className="mt-3 text-2xl sm:text-3xl font-semibold leading-tight break-keep">{businessName}</h1>
+          <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-brand-100">
+            <span>{subtitle}</span>
+            {dueDate && (
+              <span className="inline-flex items-center gap-1 rounded-full border border-white/20 bg-white/10 px-2.5 py-0.5 text-xs text-white">
+                <Clock size={12} /> 결제 기한 {fmtDate(dueDate)}
+              </span>
+            )}
+            {tone === 'done' && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-state-success-bg px-2.5 py-0.5 text-xs text-state-success font-medium">
+                <Check size={12} /> 결제 완료
+              </span>
+            )}
+          </div>
+        </div>
+      </header>
 
-function Shell({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="min-h-screen bg-slate-50 py-8 px-4">
-      <div className="max-w-md mx-auto bg-white rounded-2xl shadow-soft border border-gray-200 overflow-hidden">
-        <header className="px-5 py-4 border-b border-gray-200 bg-brand-50/50">
-          <p className="text-[10px] text-text-tertiary">BBK 공간케어</p>
-          <h2 className="text-base font-bold text-brand-700 mt-0.5">정기 결제</h2>
-        </header>
-        <main className="px-5 pb-6">{children}</main>
-        <footer className="px-5 py-3 border-t border-gray-100 bg-slate-50 text-center">
-          <p className="text-[10px] text-text-tertiary">범빌드코리아(주) · 고객센터 1522-9597</p>
+      <main className="max-w-lg mx-auto px-4 sm:px-6 -mt-16 pb-16">
+        <div className={`${styles.paper} rounded-2xl border border-border-subtle shadow-card divide-y divide-border-subtle overflow-hidden`}>
+          {children}
+        </div>
+
+        <footer className="mt-6 px-2 text-xs text-text-tertiary leading-normal space-y-1 break-keep">
+          <p className="font-medium text-text-secondary">{SUPPORT.company} · 사업자등록번호 {SUPPORT.bizNo}</p>
+          <p>고객센터 {SUPPORT.phone} · {SUPPORT.mobile} · {SUPPORT.hours}</p>
+          <p>
+            <a href={SUPPORT.kakao} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-text-secondary underline underline-offset-2">
+              <MessageCircle size={12} /> 카카오톡 상담
+            </a>
+          </p>
         </footer>
-      </div>
+      </main>
     </div>
   )
 }
