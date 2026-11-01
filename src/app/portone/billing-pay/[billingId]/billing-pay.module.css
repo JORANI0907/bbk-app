@@ -1,0 +1,45 @@
+/* 정기 결제 페이지 전용 연출 (2026-11-01 리디자인)
+   - 상단 잉크 밴드 위로 종이 느낌 카드가 겹치는 '청구서' 구성
+   - 첫 진입 시 섹션이 순서대로 떠오르는 연출만 두고, 그 외 움직임은 최소화 */
+
+.band {
+  background:
+    radial-gradient(120% 90% at 85% -10%, rgba(42, 171, 226, 0.35) 0%, rgba(42, 171, 226, 0) 60%),
+    radial-gradient(80% 60% at 0% 100%, rgba(21, 112, 153, 0.45) 0%, rgba(21, 112, 153, 0) 70%),
+    #0a3c54;
+}
+
+/* 아주 옅은 종이 결 — 카드 표면 */
+.paper {
+  background-color: #ffffff;
+  background-image:
+    repeating-linear-gradient(0deg, rgba(15, 23, 42, 0.012) 0 1px, transparent 1px 7px);
+}
+
+.reveal {
+  opacity: 0;
+  transform: translateY(10px);
+  animation: billingReveal 520ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+@keyframes billingReveal {
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* 금액 숫자 — 세리프 디스플레이 폰트 + 고정폭 숫자 */
+.figure {
+  font-feature-settings: 'tnum' 1, 'lnum' 1;
+  letter-spacing: -0.02em;
+}
+
+/* 절취선 느낌의 구분선 */
+.dashed {
+  background-image: linear-gradient(90deg, #cbd5e1 0 6px, transparent 6px 12px);
+  background-size: 12px 1px;
+  background-repeat: repeat-x;
+  height: 1px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal { animation: none; opacity: 1; transform: none; }
+}
