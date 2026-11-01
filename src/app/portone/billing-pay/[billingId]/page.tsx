@@ -34,12 +34,12 @@ export default async function BillingPayPage({ params }: Props) {
 
   let customer: BillingPayCustomer = {
     id: null, businessName: '-', ownerName: '-', phone: '', email: null,
-    customerType: null, billingKeyStatus: 'none', paymentDate: null,
+    customerType: null, billingKeyStatus: 'none', paymentDate: null, paymentMethod: null,
   }
   if (billing.customer_id) {
     const { data: cust } = await supabase
       .from('customers')
-      .select('id, business_name, contact_name, contact_phone, email, customer_type, billing_key_status, payment_date, billing_trigger')
+      .select('id, business_name, contact_name, contact_phone, email, customer_type, billing_key_status, payment_date, billing_trigger, payment_method')
       .eq('id', billing.customer_id)
       .maybeSingle()
     if (cust) {
@@ -52,6 +52,7 @@ export default async function BillingPayPage({ params }: Props) {
         customerType: (cust.customer_type as string | null) ?? null,
         billingKeyStatus: (cust.billing_key_status as string | null) ?? 'none',
         paymentDate: cust.billing_trigger === 'per_visit' ? null : ((cust.payment_date as number | null) ?? null),
+        paymentMethod: (cust.payment_method as string | null) ?? null,
       }
     }
   }
