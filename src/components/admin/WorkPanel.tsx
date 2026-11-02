@@ -1,5 +1,8 @@
 'use client'
 
+import type { VisitCycleConfig } from '@/lib/schedule-generator'
+import { isRecommendRequired } from '@/lib/recommend-service-rule'
+
 import { useState, useEffect } from 'react'
 import toast from 'react-hot-toast'
 import { Folder, PenLine, Megaphone, CheckCircle } from 'lucide-react'
@@ -50,7 +53,8 @@ interface WorkApp {
   notification_sent_at: string | null
   drive_folder_url: string | null
   // 폴더 저장 이원화 방어: service_applications 에 없어도 customer 마스터 에 있으면 폴백.
-  customer?: { drive_folder_url?: string | null } | null
+  customer?: { drive_folder_url?: string | null; visit_cycle_config?: VisitCycleConfig | null } | null
+  construction_date?: string | null
   business_name: string
   owner_name: string
   service_type?: string | null
@@ -115,6 +119,8 @@ export function WorkPanel({ app, onUpdate, isAdmin = false }: Props) {
   const [reportSaving, setReportSaving] = useState(false)
 
   const isRegularService = app.service_type === '정기딥케어' || app.service_type === '정기엔드케어'
+  // 2026-11-03: '추가 서비스 추천'은 고객관리에서 고른 요일 회차에서만 필수 (요일 미선택이면 매번)
+  const recommendRequired = isRegularService && isRecommendRequired(app.customer?.visit_cycle_config, app.construction_date)
   const status = app.work_status ?? 'pending'
   const elapsed = useElapsed(app.work_started_at, status === 'in_progress')
 
@@ -140,7 +146,7 @@ export function WorkPanel({ app, onUpdate, isAdmin = false }: Props) {
     photosChecked &&
     customerMemo.trim().length > 0 &&
     (!isRegularService || !!conditionScore) &&
-    (!isRegularService || Object.keys(recommendations).length > 0)
+    (!recommendRequired || Object.keys(recommendations).length > 0)
 
   async function saveMemos() {
     const res = await fetch(`/api/admin/applications/${app.id}/work`, {
@@ -386,16 +392,20 @@ export function WorkPanel({ app, onUpdate, isAdmin = false }: Props) {
                     ))}
                   </div>
                 </div>
-                <div>
-                  <p className="text-xs font-semibold text-gray-600 mb-1.5">
-                    추가 서비스 추천 <span className="text-red-400">*</span>
-                  </p>
-                  <RecommendServicePicker
-                    serviceType={app.service_type as '정기딥케어' | '정기엔드케어'}
-                    value={recommendations}
-                    onChange={setRecommendations}
-                  />
-                </div>
+                {recommendRequired ? (
+                  <div>
+                    <p className="text-xs font-semibold text-gray-600 mb-1.5">
+                      추가 서비스 추천 <span className="text-red-400">*</span>
+                    </p>
+                    <RecommendServicePicker
+                      serviceType={app.service_type as '정기딥케어' | '정기엔드케어'}
+                      value={recommendations}
+                      onChange={setRecommendations}
+                    />
+                  </div>
+                ) : (
+                  <p className="text-[11px] text-gray-400 break-keep">추가 서비스 추천은 이 고객의 지정 요일 회차에서만 입력합니다.</p>
+                )}
               </div>
             )}
           </div>
@@ -405,7 +415,7 @@ export function WorkPanel({ app, onUpdate, isAdmin = false }: Props) {
               {!photosChecked && <p>• 사진 업로드 체크박스를 모두 확인해주세요</p>}
               {customerMemo.trim().length === 0 && <p>• 고객 전달 특이사항을 작성해주세요</p>}
               {isRegularService && !conditionScore && <p>• 전반적 상태를 선택해주세요</p>}
-              {isRegularService && Object.keys(recommendations).length === 0 && (
+              {recommendRequired && Object.keys(recommendations).length === 0 && (
                 <p>• 추가 서비스 추천 항목을 1개 이상 선택해주세요</p>
               )}
             </div>
