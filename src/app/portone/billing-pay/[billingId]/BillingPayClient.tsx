@@ -21,7 +21,7 @@ import { isValidPaymentEmail } from '@/lib/payment-email'
 import { hasVat, normalizePaymentMethod } from '@/lib/payment-methods'
 import { Button, Select } from '@/components/ui'
 import { Check, AlertCircle, Copy, CreditCard, Landmark, RefreshCw, ShieldCheck, Receipt, Clock, Phone } from 'lucide-react'
-import { Shell, Section, Row, Notes, Figure, SUPPORT, won, fmtDate } from '../../_shared/BillingShell'
+import { Shell, Section, Row, Notes, Figure, SUPPORT, CTA_CLASS, won, fmtDate } from '../../_shared/BillingShell'
 
 const { Bank, CashReceiptType, BillingKeyMethod, WindowType } = Entity
 
@@ -370,9 +370,9 @@ export function BillingPayClient({ billing, customer }: Props) {
             {taxable && <Row k="공급가액 / 부가세" v={`${won(supply)} / ${won(vat)}`} />}
           </dl>
           {autopayRegistered && (
-            <div className="mt-4 rounded-lg border border-brand-100 bg-brand-50 p-4 text-sm text-brand-800 leading-normal break-keep">
+            <div className="mt-4 rounded-lg border border-sky-100 bg-sky-50 p-4 text-sm text-sky-900 leading-normal break-keep">
               <p className="font-semibold">카드 자동결제 등록 완료 · {autopayRegistered}</p>
-              <p className="mt-1 text-brand-700">{nextChargeText} 해지는 고객센터로 연락 주세요.</p>
+              <p className="mt-1 text-sky-800">{nextChargeText} 해지는 고객센터로 연락 주세요.</p>
             </div>
           )}
         </Section>
@@ -494,11 +494,11 @@ export function BillingPayClient({ billing, customer }: Props) {
                 onClick={() => setMethod(key)}
                 className={`w-full text-left rounded-xl border p-4 flex items-center gap-4 transition-all duration-150 ease-out-toss disabled:opacity-50 disabled:cursor-not-allowed ${
                   selected
-                    ? 'border-brand-600 bg-brand-50 shadow-focus'
+                    ? 'border-sky-400 bg-sky-50 ring-2 ring-sky-100'
                     : 'border-border bg-surface hover:border-border-strong hover:shadow-soft active:scale-[0.99]'
                 }`}
               >
-                <span className={`inline-flex items-center justify-center w-10 h-10 rounded-lg shrink-0 ${selected ? 'bg-brand-600 text-white' : 'bg-surface-sunken text-text-secondary'}`}>
+                <span className={`inline-flex items-center justify-center w-10 h-10 rounded-lg shrink-0 ${selected ? 'bg-sky-400 text-white' : 'bg-sky-50 text-sky-500'}`}>
                   <Icon size={18} strokeWidth={1.75} />
                 </span>
                 <span className="min-w-0 flex-1">
@@ -507,8 +507,8 @@ export function BillingPayClient({ billing, customer }: Props) {
                     {key === 'autopay' && alreadyHasKey ? '이미 자동결제 카드가 등록되어 있습니다' : desc}
                   </span>
                 </span>
-                <span className={`w-5 h-5 rounded-full border-2 shrink-0 flex items-center justify-center ${selected ? 'border-brand-600' : 'border-border-strong'}`}>
-                  {selected && <span className="w-2.5 h-2.5 rounded-full bg-brand-600" />}
+                <span className={`w-5 h-5 rounded-full border-2 shrink-0 flex items-center justify-center ${selected ? 'border-sky-400' : 'border-border-strong'}`}>
+                  {selected && <span className="w-2.5 h-2.5 rounded-full bg-sky-400" />}
                 </span>
               </button>
             )
@@ -531,7 +531,7 @@ export function BillingPayClient({ billing, customer }: Props) {
         )}
 
         {method === 'autopay' && (
-          <ul className="mt-4 rounded-lg border border-brand-100 bg-brand-50 p-4 text-sm text-brand-800 leading-normal break-keep space-y-1.5 list-disc pl-5">
+          <ul className="mt-4 rounded-lg border border-sky-100 bg-sky-50 p-4 text-sm text-sky-900 leading-normal break-keep space-y-1.5 list-disc pl-5">
             <li>카드를 등록하면 <strong>이번 청구분 {won(billing.amount)}이 바로 결제</strong>됩니다.</li>
             <li>{nextChargeText}</li>
             <li>결제가 이루어질 때마다 확인 문자를 보내드립니다.</li>
@@ -551,7 +551,7 @@ export function BillingPayClient({ billing, customer }: Props) {
           onClick={handleSubmit}
           isLoading={busy}
           disabled={busy}
-          className="mt-5 w-full h-12"
+          className={`mt-5 w-full h-12 ${CTA_CLASS}`}
         >
           {busy ? busyLabel : ctaLabel}
         </Button>
