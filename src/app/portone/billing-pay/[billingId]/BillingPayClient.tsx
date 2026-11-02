@@ -284,8 +284,26 @@ export function BillingPayClient({ billing, customer }: Props) {
         expiry: expLabel,
       })
     } else {
-      setIssuedAccount({ bank: getBankLabel(vbankCode), accountNumber: '발급 중 (잠시 후 문자로 안내됩니다)' })
+      // 2026-11-03: KG이니시스는 결제창 응답에 계좌번호를 안 담아줌 → 서버(포트원 조회)에서 받아 화면에 바로 표시
+      setBusyLabel('계좌번호 확인 중...')
+      await pollIssuedAccount(billing.paymentPortoneId)
     }
+  }
+
+  /** 포트원에 발급 결과가 반영될 때까지 최대 8회(약 12초) 조회 */
+  const pollIssuedAccount = async (paymentId: string) => {
+    let lastError = ''
+    for (let i = 0; i < 8; i++) {
+      try {
+        await fetchIssuedAccount(paymentId)
+        return
+      } catch (e) {
+        lastError = e instanceof Error ? e.message : String(e)
+      }
+      await new Promise(r => setTimeout(r, 1500))
+    }
+    setIssuedAccount({ bank: getBankLabel(vbankCode), accountNumber: '발급 중 (잠시 후 문자로 안내됩니다)' })
+    console.warn('[billing-pay] 가상계좌 조회 실패:', lastError)
   }
 
   // ─── ③ 카드 자동결제 등록 ─────────────────────────
