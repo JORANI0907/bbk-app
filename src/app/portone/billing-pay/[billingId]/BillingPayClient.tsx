@@ -117,6 +117,13 @@ function AdminPreviewBanner() {
   )
 }
 
+/**
+ * 2026-11-03: KG이니시스 빌링키 발급 창이 PC(/pay/card/billing)·모바일(/pay/billkey) 모두 HTTP 500 을 내서
+ *   '정기결제(카드 자동결제)' 선택지를 잠시 숨긴다. KG/포트원 확인 후 false 로 되돌리면 다시 노출된다.
+ *   (코드·안내 문구는 그대로 두어 되돌리기 쉽게 유지)
+ */
+const AUTOPAY_HIDDEN = true
+
 const METHODS: Array<{ key: Method; title: string; desc: string; Icon: typeof CreditCard }> = [
   { key: 'card',    title: '카드 결제',          desc: '신용·체크·법인카드로 이번 청구분을 결제합니다',          Icon: CreditCard },
   { key: 'vbank',   title: '가상계좌 입금',       desc: '은행을 고르면 이 청구 전용 입금 계좌가 발급됩니다',       Icon: Landmark },
@@ -551,7 +558,7 @@ export function BillingPayClient({ billing, customer, adminPreview = false }: Pr
       {/* 결제 방법 */}
       <Section delay={1} title="결제 방법">
         <div className="space-y-2" role="radiogroup" aria-label="결제 방법">
-          {METHODS.map(({ key, title, desc, Icon }) => {
+          {METHODS.filter(m => !(AUTOPAY_HIDDEN && m.key === 'autopay')).map(({ key, title, desc, Icon }) => {
             const selected = method === key
             const disabled = key === 'autopay' && (alreadyHasKey || !customer.id)
             return (
