@@ -21,7 +21,7 @@ import { isValidPaymentEmail } from '@/lib/payment-email'
 import { hasVat, normalizePaymentMethod } from '@/lib/payment-methods'
 import { Button, Select } from '@/components/ui'
 import { Check, AlertCircle, Copy, CreditCard, Landmark, RefreshCw, ShieldCheck, Receipt, Clock, Phone } from 'lucide-react'
-import { Shell, Section, Row, Notes, Figure, SUPPORT, won, fmtDate, billingStyles as styles } from '../../_shared/BillingShell'
+import { Shell, Section, Row, Notes, Figure, SUPPORT, won, fmtDate } from '../../_shared/BillingShell'
 
 const { Bank, CashReceiptType, BillingKeyMethod, WindowType } = Entity
 
@@ -105,18 +105,11 @@ function splitVat(total: number, paymentMethod: string | null) {
 const METHODS: Array<{ key: Method; title: string; desc: string; Icon: typeof CreditCard }> = [
   { key: 'card',    title: '카드 결제',          desc: '신용·체크·법인카드로 이번 청구분을 결제합니다',          Icon: CreditCard },
   { key: 'vbank',   title: '가상계좌 입금',       desc: '은행을 고르면 이 청구 전용 입금 계좌가 발급됩니다',       Icon: Landmark },
-  { key: 'autopay', title: '카드 자동결제 등록',  desc: '카드를 한 번 등록하면 다음 결제부터 자동으로 처리됩니다', Icon: RefreshCw },
+  { key: 'autopay', title: '정기결제 (카드 자동결제)', desc: '카드를 등록하면 이번 청구분이 바로 결제되고, 다음부터는 결제일에 자동으로 결제됩니다', Icon: RefreshCw },
 ]
 
 export function BillingPayClient({ billing, customer }: Props) {
   const [method, setMethod] = useState<Method>('card')
-  // 2026-11-01: KG이니시스 빌링 결제창이 500 을 내는 문제가 해결될 때까지 '카드 자동결제 등록'은
-  //   주소에 ?autopay=1 을 붙인 내부 테스트에서만 보인다. 해결 확인 후 이 가드를 제거.
-  const [showAutopay, setShowAutopay] = useState(false)
-  useEffect(() => {
-    setShowAutopay(new URLSearchParams(window.location.search).get('autopay') === '1')
-  }, [])
-  const visibleMethods = METHODS.filter(m => m.key !== 'autopay' || showAutopay)
   const [vbankCode, setVbankCode] = useState<string>(DEFAULT_VBANK_CODE)
   const [busy, setBusy] = useState(false)
   const [busyLabel, setBusyLabel] = useState('처리 중...')
@@ -416,7 +409,7 @@ export function BillingPayClient({ billing, customer }: Props) {
             <div>
               <p className="text-sm text-text-tertiary mb-1">계좌번호</p>
               <div className="flex items-center gap-2">
-                <p className={`${styles.figure} flex-1 text-2xl font-semibold text-text-primary tracking-tight break-all`}>
+                <p className="flex-1 text-2xl font-semibold tabular-nums text-text-primary tracking-tight break-all">
                   {issuedAccount.accountNumber}
                 </p>
                 <Button variant="secondary" size="sm" onClick={handleCopy} className="shrink-0">
@@ -424,7 +417,7 @@ export function BillingPayClient({ billing, customer }: Props) {
                 </Button>
               </div>
             </div>
-            <div className={styles.dashed} />
+            <div className="border-t border-border-subtle" />
             <div className="flex items-baseline justify-between text-sm">
               <span className="text-text-tertiary">예금주</span>
               <span className="font-medium text-text-primary">{SUPPORT.company}</span>
@@ -461,24 +454,23 @@ export function BillingPayClient({ billing, customer }: Props) {
     : `카드 등록하고 ${won(billing.amount)} 결제`
 
   return (
-    <Shell kicker="BBK 공간케어 · 정기 서비스 결제" businessName={customer.businessName} subtitle={totalLabel} dueDate={billing.dueDate}>
+    <Shell kicker="BBK 공간케어 · 정기 서비스 결제" businessName={customer.businessName} subtitle={totalLabel}>
       {/* 청구 내역 */}
       <Section delay={0} title="청구 내역">
         <dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-2 text-sm">
           <Row k="서비스" v={serviceLabel(customer.customerType)} />
           <Row k="청구 기간" v={periodLabel(billing.billingPeriod)} />
-          <Row k="결제 기한" v={fmtDate(billing.dueDate)} />
         </dl>
         <div className="mt-4 rounded-xl border border-border-subtle bg-surface-sunken px-4 py-3 space-y-2">
           <div className="flex items-baseline justify-between text-sm">
             <span className="text-text-secondary">공급가액</span>
-            <span className={`${styles.figure} text-text-primary`}>{won(supply)}</span>
+            <span className="font-medium tabular-nums text-text-primary">{won(supply)}</span>
           </div>
           <div className="flex items-baseline justify-between text-sm">
             <span className="text-text-secondary">{taxable ? '부가세 (10%)' : isCashMethod ? '부가세 (현금 비과세)' : '부가세'}</span>
-            <span className={`${styles.figure} text-text-primary`}>{taxable ? won(vat) : '해당 없음'}</span>
+            <span className="font-medium tabular-nums text-text-primary">{taxable ? won(vat) : '해당 없음'}</span>
           </div>
-          <div className={styles.dashed} />
+          <div className="border-t border-border-subtle" />
           <div className="flex items-baseline justify-between">
             <span className="text-sm font-medium text-text-primary">합계 금액</span>
             <Figure amount={billing.amount} size="lg" />
@@ -489,7 +481,7 @@ export function BillingPayClient({ billing, customer }: Props) {
       {/* 결제 방법 */}
       <Section delay={1} title="결제 방법">
         <div className="space-y-2" role="radiogroup" aria-label="결제 방법">
-          {visibleMethods.map(({ key, title, desc, Icon }) => {
+          {METHODS.map(({ key, title, desc, Icon }) => {
             const selected = method === key
             const disabled = key === 'autopay' && (alreadyHasKey || !customer.id)
             return (
@@ -574,7 +566,7 @@ export function BillingPayClient({ billing, customer }: Props) {
           { Icon: Receipt, text: taxable
               ? '가상계좌·계좌이체 결제분은 세금계산서가 발행되며, 카드 결제분은 카드 매출전표로 갈음됩니다.'
               : '현금 결제 건은 부가세가 포함되지 않은 금액입니다.' },
-          { Icon: Clock, text: `결제 기한은 ${fmtDate(billing.dueDate)}입니다. 기한이 지나도 이 페이지에서 결제하실 수 있습니다.` },
+          { Icon: Clock, text: '이 페이지는 결제가 완료될 때까지 계속 사용하실 수 있습니다.' },
           { Icon: ShieldCheck, text: '결제는 포트원(KG이니시스)을 통해 안전하게 처리되며, 카드 정보는 저희 서버에 저장되지 않습니다.' },
           { Icon: Phone, text: `문의: ${SUPPORT.phone} · ${SUPPORT.hours}` },
         ]} />
