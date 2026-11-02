@@ -13,6 +13,8 @@ export interface VisitCycleConfig {
   month_offset?: number   // quarter: 분기 내 몇 번째 달 (0=첫달, 1=둘째, 2=셋째)
   date?:        number    // quarter/year: 방문 날짜
   month?:       number    // year: 방문 월 (1-12)
+  /** 2026-11-03: 작업완료 시 '추가 서비스 추천' 입력을 요구할 요일 [0-6]. 비어 있으면 매번 요구 (lib/recommend-service-rule) */
+  recommend_weekdays?: number[]
 }
 
 export interface VisitCycleInput {
