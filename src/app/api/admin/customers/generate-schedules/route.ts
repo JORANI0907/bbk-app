@@ -4,6 +4,7 @@ import { notifySlack } from '@/lib/slack'
 import { triggerDriveFolderCreation } from '@/lib/drive-server'
 import { dispatch, lookupFranchiseHqIdsForCustomer } from '@/lib/notification-dispatcher'
 import { generateVisitSchedule, type VisitCycleUnit, type VisitCycleConfig } from '@/lib/schedule-generator'
+import { pickAssignment, buildSchedulePlan, syncKeptServiceSchedules, type CustomerPlan } from '@/lib/schedule-regenerate-plan'
 
 interface CustomerRow {
   id: string
@@ -49,54 +50,16 @@ interface CustomerRow {
   monthly_date_assignments: Record<string, { user_id: string | null; worker_ids: string[] }> | null
 }
 
-// Phase 38/39: 회차 하나의 담당자·작업자 결정.
-// 정책 (하단 우선): visit_cycle_unit 별로 다른 매핑을 참조.
-//   - unit=week : weekday_assignments (요일 키 0~6) 에 하나라도 있으면 그 매핑만 사용
-//   - unit=month: monthly_date_assignments (일자 키 1~31) 에 하나라도 있으면 그 매핑만 사용
-//   - unit=day / 매핑 전체 비어있음: customer.assigned_user_id / assigned_worker_id 사용
-// 매핑이 있는데 해당 키(요일/일자)만 비어있으면 배정 없음(null / 빈배열) — 정책 의도.
-function pickAssignment(customer: CustomerRow, dateStr: string): { assigned_to: string | null; worker_ids: string[] } {
-  const unit = customer.visit_cycle_unit
-  const fallback = () => ({
-    assigned_to: customer.assigned_user_id ?? null,
-    worker_ids: customer.assigned_worker_id ? [customer.assigned_worker_id] : [],
-  })
-
-  if (unit === 'week') {
-    const wa = customer.weekday_assignments ?? {}
-    const hasAny = Object.values(wa).some(v =>
-      (!!v?.user_id) || (Array.isArray(v?.worker_ids) && v.worker_ids.length > 0)
-    )
-    if (!hasAny) return fallback()
-    const day = String(new Date(dateStr + 'T00:00:00').getDay())
-    const entry = wa[day]
-    return {
-      assigned_to: entry?.user_id ?? null,
-      worker_ids: Array.isArray(entry?.worker_ids) ? entry.worker_ids : [],
-    }
-  }
-
-  if (unit === 'month') {
-    const mda = customer.monthly_date_assignments ?? {}
-    const hasAny = Object.values(mda).some(v =>
-      (!!v?.user_id) || (Array.isArray(v?.worker_ids) && v.worker_ids.length > 0)
-    )
-    if (!hasAny) return fallback()
-    const dom = String(new Date(dateStr + 'T00:00:00').getDate())
-    const entry = mda[dom]
-    return {
-      assigned_to: entry?.user_id ?? null,
-      worker_ids: Array.isArray(entry?.worker_ids) ? entry.worker_ids : [],
-    }
-  }
-
-  return fallback()
-}
+// 회차별 담당자·작업자 결정(pickAssignment)은 src/lib/schedule-regenerate-plan.ts 로 이동 (2026-11-03)
 
 interface GenerateResult {
   customer_id: string
   inserted: number
   skipped: number
+  /** 수정 반영: 담당자·작업자가 실제로 바뀐 유지 회차 수 */
+  updated?: number
+  /** 수정 반영: 새 방문일정에 없어 정리된 미완료 회차 수 */
+  deleted?: number
 }
 
 function getNextMonth(): { year: number; month: number; label: string } {
@@ -138,6 +101,7 @@ export async function POST(request: NextRequest) {
     end_day: reqEndDay,
     regenerate,
     cleanup_only,
+    dry_run,
   }: {
     customer_ids: string[]
     year?: number
@@ -149,6 +113,8 @@ export async function POST(request: NextRequest) {
     regenerate?: boolean
     /** Phase 5-D: true면 대상 월의 미완료 일정 중 새 방문일정에 없는 것만 삭제 (신규 INSERT 스킵) */
     cleanup_only?: boolean
+    /** 2026-11-03: true면 아무것도 쓰지 않고 신규/변경/삭제 계획(plans)만 돌려준다 (모달 미리보기용) */
+    dry_run?: boolean
   } = body
 
   if (!Array.isArray(customer_ids) || customer_ids.length === 0) {
@@ -199,6 +165,7 @@ export async function POST(request: NextRequest) {
   const customers = (customersData ?? []) as unknown as CustomerRow[]
 
   const results: GenerateResult[] = []
+  const plans: CustomerPlan[] = []
   let totalInserted = 0
 
   for (const customer of customers) {
@@ -236,8 +203,19 @@ export async function POST(request: NextRequest) {
 
     if (scheduledDates.length === 0) {
       results.push({ customer_id: customer.id, inserted: 0, skipped: 0 })
+      if (dry_run) plans.push({ customer_id: customer.id, business_name: customer.business_name, create: [], update: [], delete: [], completed: [], existing: [] })
       continue
     }
+
+    // 미리보기: 계획만 계산하고 다음 고객으로
+    if (dry_run) {
+      plans.push(await buildSchedulePlan(supabase, customer, scheduledDates, startDateStr, endDateStr, !!regenerate))
+      results.push({ customer_id: customer.id, inserted: 0, skipped: 0 })
+      continue
+    }
+
+    let updatedCount = 0
+    let deletedCount = 0
 
     // regenerate 모드 = "수정 반영":
     //   1) 기간 내 미완료 회차 중 새 방문일정 날짜와 겹치는 것 → 마스터 필드 재복사 (UPDATE)
@@ -245,6 +223,11 @@ export async function POST(request: NextRequest) {
     //   3) 새 방문일정 중 회차 없는 날짜 → 아래 INSERT 로직에서 신규 생성
     //   4) 완료된 회차(work_status='completed')는 이력 보존 위해 손대지 않음
     if (regenerate) {
+      // 변경 건수 집계용 계획 (쓰기 전 상태 기준)
+      const plan = await buildSchedulePlan(supabase, customer, scheduledDates, startDateStr, endDateStr, true)
+      updatedCount = plan.update.filter(r => r.changed).length
+      deletedCount = plan.delete.length
+
       // 기간 내 미완료 회차 조회
       const { data: existingApps } = await supabase
         .from('service_applications')
@@ -354,10 +337,15 @@ export async function POST(request: NextRequest) {
           }
         }
         if (workerRows.length > 0) {
-          await supabase
+          const { error: waErr } = await supabase
             .from('work_assignments')
             .upsert(workerRows, { onConflict: 'worker_id,application_id', ignoreDuplicates: true })
+          // 2026-11-03: 전에는 오류를 버려서 작업자 배정이 조용히 빠졌음 (부분 유니크 인덱스 때문에 ON CONFLICT 실패)
+          if (waErr) console.error('[generate-schedules] 작업자 재배정 실패:', customer.business_name, waErr.message)
         }
+
+        // 4) 직원 일정표(service_schedules) 담당자 동기화 — 전에는 빠져 있어 옛 담당자 일정에 남아 있었음 (2026-11-03)
+        await syncKeptServiceSchedules(supabase, customer, keptApps)
       }
     }
 
@@ -379,7 +367,6 @@ export async function POST(request: NextRequest) {
           r.construction_date && !scheduledSet.has(r.construction_date) &&
           (r.work_status == null || r.work_status !== 'completed'))
         .map(r => r.id)
-      let deletedCount = 0
       if (toDelete.length > 0) {
         const { error: delErr } = await supabase
           .from('service_applications')
@@ -387,7 +374,7 @@ export async function POST(request: NextRequest) {
           .in('id', toDelete)
         if (!delErr) deletedCount = toDelete.length
       }
-      results.push({ customer_id: customer.id, inserted: 0, skipped: deletedCount })
+      results.push({ customer_id: customer.id, inserted: 0, skipped: deletedCount, updated: updatedCount, deleted: deletedCount })
       continue
     }
 
@@ -404,7 +391,7 @@ export async function POST(request: NextRequest) {
     const skipped = scheduledDates.length - newDates.length
 
     if (newDates.length === 0) {
-      results.push({ customer_id: customer.id, inserted: 0, skipped })
+      results.push({ customer_id: customer.id, inserted: 0, skipped, updated: updatedCount, deleted: deletedCount })
       continue
     }
 
@@ -466,7 +453,7 @@ export async function POST(request: NextRequest) {
       .select('id, assigned_to, construction_date, business_hours_start, business_hours_end, care_scope, request_notes, phone')
 
     if (insertError) {
-      results.push({ customer_id: customer.id, inserted: 0, skipped })
+      results.push({ customer_id: customer.id, inserted: 0, skipped, updated: updatedCount, deleted: deletedCount })
       continue
     }
 
@@ -500,9 +487,10 @@ export async function POST(request: NextRequest) {
       }
       if (workerRows.length > 0) {
         // Phase 27-BJ: (worker_id, application_id) 유니크 제약과 정합
-        await supabase
+        const { error: waErr } = await supabase
           .from('work_assignments')
           .upsert(workerRows, { onConflict: 'worker_id,application_id', ignoreDuplicates: true })
+        if (waErr) console.error('[generate-schedules] 작업자 배정 실패:', customer.business_name, waErr.message)
       }
     }
 
@@ -642,8 +630,9 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    results.push({ customer_id: customer.id, inserted: insertedCount, skipped })
+    results.push({ customer_id: customer.id, inserted: insertedCount, skipped, updated: updatedCount, deleted: deletedCount })
   }
 
+  if (dry_run) return NextResponse.json({ dryRun: true, results, totalInserted: 0, targetMonth: label, plans })
   return NextResponse.json({ results, totalInserted, targetMonth: label })
 }
