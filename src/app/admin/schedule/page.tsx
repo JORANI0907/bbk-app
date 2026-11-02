@@ -755,17 +755,34 @@ export default function SchedulePage() {
   // 성능: 검색어를 useDeferredValue 로 감싸 타이핑 반응성 유지 (필터링은 렌더 우선순위 뒤로 미룸)
   const deferredSearch = useDeferredValue(search)
   const [selected, setSelectedRaw] = useState<Application | null>(null)
-  // Phase 9-E: customer 접두사 아이템은 배정관리에서 편집 불가 → 고객관리로 라우팅
+  // customer: 접두사 아이템 = 고객관리에만 있고 이번 달 신청서가 없는 1회성 고객.
+  // 2026-11-03: 예전엔 고객관리로 튕겼지만, 이제 실제 신청서를 찾거나 만들어(ensure-application)
+  // 목록 항목을 교체한 뒤 정기 건과 똑같이 작업시작/완료 세부화면을 연다.
+  const resolveCustomerItem = useCallback(async (pseudo: Application) => {
+    const customerId = pseudo.id.slice('customer:'.length)
+    const toastId = toast.loading('신청서를 불러오는 중…')
+    try {
+      const res = await fetch(`/api/admin/customers/${customerId}/ensure-application`, { method: 'POST' })
+      const data = await res.json()
+      if (!res.ok || !data.application) throw new Error(data.error ?? '신청서를 불러오지 못했습니다.')
+      const real = { ...pseudo, ...(data.application as Application) }
+      setApplications(prev => prev.map(a => (a.id === pseudo.id ? real : a)))
+      setSelectedRaw(real)
+      toast.dismiss(toastId)
+    } catch (e) {
+      toast.error(`${e instanceof Error ? e.message : String(e)}\n고객관리에서 확인해주세요.`, { id: toastId })
+      router.push(`/admin/customers?detail=${customerId}`)
+    }
+  }, [router])
+
   const setSelected = useCallback((app: Application | null | ((prev: Application | null) => Application | null)) => {
     if (typeof app === 'function') { setSelectedRaw(app); return }
     if (app && app.id.startsWith('customer:')) {
-      const customerId = app.id.slice('customer:'.length)
-      toast('신규 등록 1회성 고객은 고객관리에서 편집하세요.', { icon: 'ℹ️' })
-      router.push(`/admin/customers?detail=${customerId}`)
+      void resolveCustomerItem(app)
       return
     }
     setSelectedRaw(app)
-  }, [router])
+  }, [resolveCustomerItem])
 
   // 날짜 클릭 (캘린더 → 날짜 목록 패널)
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
