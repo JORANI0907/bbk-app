@@ -1,18 +1,17 @@
 'use client'
 
 /**
- * 고객용 결제 페이지 공용 뼈대 (2026-11-01)
+ * 고객용 결제 페이지 공용 뼈대
  *   /portone/billing-pay (청구서 결제) · /portone/billing-register (자동결제 카드 등록) 가 같은 모습을 갖도록
- *   잉크 밴드 + 종이 카드 + 안내 목록 + 회사 정보 푸터를 여기서 한 번만 정의한다.
+ *   머리말 + 카드 섹션 + 안내 목록 + 회사 정보 푸터를 여기서 한 번만 정의한다.
+ *
+ * 2026-11-03: 장식 제거 — 잉크 밴드·종이 질감·세리프 금액 폰트를 걷어내고
+ *   앱 전체와 같은 토큰(bg-surface, shadow-soft, rounded-2xl, Pretendard)만 쓰는 담백한 구성으로 정리.
  */
 
 import type { ReactNode } from 'react'
-import { Fraunces } from 'next/font/google'
 import { Check, Clock, MessageCircle } from 'lucide-react'
 import styles from './billing-ui.module.css'
-
-export const figureFont = Fraunces({ subsets: ['latin'], weight: ['500', '600'], display: 'swap' })
-export { styles as billingStyles }
 
 export const SUPPORT = {
   phone: '1522-9597',
@@ -26,13 +25,13 @@ export const SUPPORT = {
 export const won = (n: number) => `${n.toLocaleString('ko-KR')}원`
 export const fmtDate = (iso: string) => (iso ? iso.slice(0, 10).replace(/-/g, '.') : '-')
 
-/** 큰 금액 숫자 (세리프 디스플레이 + 고정폭 숫자) */
+/** 큰 금액 숫자 — 본문과 같은 폰트, 고정폭 숫자만 적용 */
 export function Figure({ amount, size = 'lg' }: { amount: number; size?: 'md' | 'lg' | 'xl' }) {
-  const cls = size === 'xl' ? 'text-4xl' : size === 'lg' ? 'text-3xl' : 'text-xl'
-  const unit = size === 'xl' ? 'text-xl' : size === 'lg' ? 'text-base' : 'text-sm'
+  const cls = size === 'xl' ? 'text-3xl' : size === 'lg' ? 'text-2xl' : 'text-lg'
+  const unit = size === 'xl' ? 'text-lg' : size === 'lg' ? 'text-base' : 'text-sm'
   return (
-    <span className={`${figureFont.className} ${styles.figure} ${cls} text-text-primary`}>
-      {amount.toLocaleString('ko-KR')}<span className={`font-sans ${unit} ml-1 text-text-secondary`}>원</span>
+    <span className={`${cls} font-semibold tabular-nums tracking-tight text-text-primary`}>
+      {amount.toLocaleString('ko-KR')}<span className={`${unit} font-medium ml-0.5 text-text-secondary`}>원</span>
     </span>
   )
 }
@@ -59,39 +58,37 @@ export function Notes({ items }: { items: Array<{ Icon: typeof Clock; text: stri
   )
 }
 
+/** 흰 카드 한 장 = 섹션 하나 */
 export function Section({ title, delay, children }: { title?: string; delay: number; children: ReactNode }) {
   return (
-    <section className={`${styles.reveal} px-5 py-5 sm:px-6`} style={{ animationDelay: `${80 + delay * 90}ms` }}>
-      {title && <h2 className="text-xs font-semibold tracking-widest text-text-tertiary uppercase mb-4">{title}</h2>}
+    <section
+      className={`${styles.reveal} bg-surface rounded-2xl border border-border-subtle shadow-soft p-5 sm:p-6`}
+      style={{ animationDelay: `${60 + delay * 70}ms` }}
+    >
+      {title && <h2 className="text-sm font-semibold text-text-primary mb-4">{title}</h2>}
       {children}
     </section>
   )
 }
 
-/** 상단 잉크 밴드 + 겹쳐 올라오는 종이 카드 */
-export function Shell({ kicker, businessName, subtitle, dueDate, tone = 'default', children }: {
+/** 머리말 + 카드 묶음 + 푸터 */
+export function Shell({ kicker, businessName, subtitle, tone = 'default', children }: {
   kicker: string
   businessName: string
   subtitle: string
-  dueDate?: string
   tone?: 'default' | 'done'
   children: ReactNode
 }) {
   return (
     <div className="min-h-screen bg-surface-sunken">
-      <header className={`${styles.band} text-white`}>
-        <div className="max-w-lg mx-auto px-5 sm:px-6 pt-8 pb-24">
-          <p className="text-xs tracking-widest uppercase text-brand-200">{kicker}</p>
-          <h1 className="mt-3 text-2xl sm:text-3xl font-semibold leading-tight break-keep">{businessName}</h1>
-          <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-brand-100">
+      <header className="bg-surface border-b border-border-subtle">
+        <div className="max-w-lg mx-auto px-5 sm:px-6 pt-8 pb-6">
+          <p className="text-xs font-medium text-brand-600">{kicker}</p>
+          <h1 className="mt-2 text-2xl font-semibold text-text-primary leading-tight break-keep">{businessName}</h1>
+          <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-text-secondary">
             <span>{subtitle}</span>
-            {dueDate && (
-              <span className="inline-flex items-center gap-1 rounded-full border border-white/20 bg-white/10 px-2.5 py-0.5 text-xs text-white">
-                <Clock size={12} /> 결제 기한 {fmtDate(dueDate)}
-              </span>
-            )}
             {tone === 'done' && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-state-success-bg px-2.5 py-0.5 text-xs text-state-success font-medium">
+              <span className="inline-flex items-center gap-1 rounded-full bg-state-success-bg px-2.5 py-0.5 text-xs font-medium text-state-success">
                 <Check size={12} /> 완료
               </span>
             )}
@@ -99,12 +96,10 @@ export function Shell({ kicker, businessName, subtitle, dueDate, tone = 'default
         </div>
       </header>
 
-      <main className="max-w-lg mx-auto px-4 sm:px-6 -mt-16 pb-16">
-        <div className={`${styles.paper} rounded-2xl border border-border-subtle shadow-card divide-y divide-border-subtle overflow-hidden`}>
-          {children}
-        </div>
+      <main className="max-w-lg mx-auto px-4 sm:px-6 py-5 pb-16 space-y-4">
+        {children}
 
-        <footer className="mt-6 px-2 text-xs text-text-tertiary leading-normal space-y-1 break-keep">
+        <footer className="px-2 pt-2 text-xs text-text-tertiary leading-normal space-y-1 break-keep">
           <p className="font-medium text-text-secondary">{SUPPORT.company} · 사업자등록번호 {SUPPORT.bizNo}</p>
           <p>고객센터 {SUPPORT.phone} · {SUPPORT.mobile} · {SUPPORT.hours}</p>
           <p>
