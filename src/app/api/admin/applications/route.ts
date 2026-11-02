@@ -51,8 +51,8 @@ export async function GET(request: NextRequest) {
   // 성능 최적화: fields=slim 이면 리스트 필드만 반환 (기본은 * 유지 → 하위호환)
   const useSlim = searchParams.get('fields') === 'slim'
   const selectClause = useSlim
-    ? `${APP_FIELDS_SLIM}, customer:customers(drive_folder_url)`
-    : '*, customer:customers(drive_folder_url)'
+    ? `${APP_FIELDS_SLIM}, customer:customers(drive_folder_url, visit_cycle_config)`
+    : '*, customer:customers(drive_folder_url, visit_cycle_config)'
 
   let query = supabase
     .from('service_applications')
