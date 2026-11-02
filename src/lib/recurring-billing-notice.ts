@@ -32,12 +32,19 @@ export interface RecurringBillingRow {
   payment_url?: string | null
 }
 
-/** 카드 고객 → 정기결제알림(카드)_*, 그 외 → 정기결제알림_* */
+/** 비과세 현금 고객 — 결제창(포트원) 대신 개인 계좌를 안내하고 결제 링크를 만들지 않는다 (2026-11-03) */
+export function isCashUntaxedCustomer(paymentMethod: string | null): boolean {
+  return normalizePaymentMethod(paymentMethod) === 'cash_untaxed'
+}
+
+/** 카드 고객 → 정기결제알림(카드)_*, 비과세 현금 → 정기결제알림(현금)_*, 그 외 → 정기결제알림_* */
 export function pickRecurringBillingTemplate(customerType: string | null, paymentMethod: string | null): string {
   const suffix = customerType === '정기딥케어' ? '_정기딥' : '_정기엔드'
   // 레거시 한글('카드(온라인 간편결제)')·신규 영문('credit_card') 모두 카드로 인식
-  const isCard = normalizePaymentMethod(paymentMethod) === 'credit_card'
-  return isCard ? `정기결제알림(카드)${suffix}` : `정기결제알림${suffix}`
+  const pm = normalizePaymentMethod(paymentMethod)
+  if (pm === 'credit_card') return `정기결제알림(카드)${suffix}`
+  if (pm === 'cash_untaxed') return `정기결제알림(현금)${suffix}`
+  return `정기결제알림${suffix}`
 }
 
 export function buildRecurringBillingContext(
@@ -171,8 +178,10 @@ export async function sendRecurringBillingNotice(
   const phone = String(b.customer.contact_phone ?? '').replace(/-/g, '')
   if (!phone) return { ok: false, reason: 'no_phone', message: '고객 연락처가 없습니다' }
 
-  let paymentUrl = b.payment_url
-  if (!paymentUrl) {
+  // 비과세 현금 고객은 결제 링크를 만들지 않는다 (템플릿에 개인 계좌만 안내)
+  const cashOnly = isCashUntaxedCustomer(b.customer.payment_method)
+  let paymentUrl = cashOnly ? null : b.payment_url
+  if (!cashOnly && !paymentUrl) {
     const link = await issueBillingLink(supabase, b.id)
     if (!link.ok) return { ok: false, reason: 'send_failed', message: `결제 링크 발급 실패: ${link.error}` }
     paymentUrl = link.paymentUrl
