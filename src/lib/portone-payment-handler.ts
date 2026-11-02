@@ -153,11 +153,18 @@ export async function handleTransactionPaid(paymentId: string): Promise<void> {
   // Phase H.3 (2026-10-17): 정기 결제(service_billings) 매칭
   // payment_portone_id 컬럼이 아직 마이그레이션 전이면 조회 자체가 에러 — try/catch 로 격리.
   try {
-    const { data: billingRow } = await supabase
+    const { data: currentRow } = await supabase
       .from('service_billings')
       .select('id, customer_id, amount, billing_type, billing_period, status, service_type')
       .eq('payment_portone_id', paymentId)
       .maybeSingle()
+    // 2026-11-03: 결제 ID 초기화 후 옛 가상계좌로 입금된 경우 → previous_payment_ids 로 매칭
+    const { data: previousRow } = currentRow ? { data: null } : await supabase
+      .from('service_billings')
+      .select('id, customer_id, amount, billing_type, billing_period, status, service_type')
+      .contains('previous_payment_ids', [paymentId])
+      .maybeSingle()
+    const billingRow = currentRow ?? previousRow
 
     if (!billingRow) return
     if (billingRow.status === 'paid') return  // 멱등: 이미 완료
