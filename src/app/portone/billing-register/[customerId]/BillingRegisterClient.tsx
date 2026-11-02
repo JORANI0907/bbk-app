@@ -19,7 +19,7 @@ import { Check, CreditCard, AlertCircle, ShieldCheck, Clock, Receipt, Phone } fr
 import { Button } from '@/components/ui'
 import { hasVat, normalizePaymentMethod } from '@/lib/payment-methods'
 import { isValidPaymentEmail } from '@/lib/payment-email'
-import { Shell, Section, Row, Notes, Figure, SUPPORT, won, fmtDate, billingStyles as styles } from '../../_shared/BillingShell'
+import { Shell, Section, Row, Notes, Figure, SUPPORT, won, fmtDate } from '../../_shared/BillingShell'
 
 const { BillingKeyMethod, WindowType } = Entity
 
@@ -228,13 +228,13 @@ export function BillingRegisterClient({ customer, isAlreadyActive, token }: Prop
         <div className="mt-4 rounded-xl border border-border-subtle bg-surface-sunken px-4 py-3 space-y-2">
           <div className="flex items-baseline justify-between text-sm">
             <span className="text-text-secondary">공급가액</span>
-            <span className={`${styles.figure} text-text-primary`}>{won(supply)}</span>
+            <span className="font-medium tabular-nums text-text-primary">{won(supply)}</span>
           </div>
           <div className="flex items-baseline justify-between text-sm">
             <span className="text-text-secondary">{taxable ? '부가세 (10%)' : isCash ? '부가세 (현금 비과세)' : '부가세'}</span>
-            <span className={`${styles.figure} text-text-primary`}>{taxable ? won(vat) : '해당 없음'}</span>
+            <span className="font-medium tabular-nums text-text-primary">{taxable ? won(vat) : '해당 없음'}</span>
           </div>
-          <div className={styles.dashed} />
+          <div className="border-t border-border-subtle" />
           <div className="flex items-baseline justify-between">
             <span className="text-sm font-medium text-text-primary">{amountTitle}</span>
             <Figure amount={customer.amount} size="lg" />
