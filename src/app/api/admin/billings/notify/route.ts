@@ -16,6 +16,7 @@ import { renderTemplate } from '@/lib/notification-renderer'
 import { issueBillingLink } from '@/lib/billing-link'
 import {
   pickRecurringBillingTemplate,
+  isCashUntaxedCustomer,
   buildRecurringBillingContext,
   loadBillingForNotice,
   sendRecurringBillingNotice,
@@ -27,9 +28,10 @@ async function renderPreview(supabase: Supabase, billingId: string): Promise<{ t
   const b = await loadBillingForNotice(supabase, billingId)
   if (!b) return { error: '결제 레코드를 찾을 수 없습니다.' }
 
-  // 미리보기에도 실제 링크가 보이도록 없으면 발급
-  let paymentUrl = b.payment_url
-  if (!paymentUrl) {
+  // 미리보기에도 실제 링크가 보이도록 없으면 발급 (비과세 현금 고객은 링크 없이 개인 계좌만 안내)
+  const cashOnly = isCashUntaxedCustomer(b.customer.payment_method)
+  let paymentUrl = cashOnly ? null : b.payment_url
+  if (!cashOnly && !paymentUrl) {
     const link = await issueBillingLink(supabase, b.id)
     if (link.ok) paymentUrl = link.paymentUrl
   }
