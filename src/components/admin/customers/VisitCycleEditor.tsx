@@ -28,13 +28,18 @@ export function VisitCycleEditor({ unit, value, config, color = 'blue', onChange
 
   const [showHelp, setShowHelp] = useState(false)
 
-  const setUnit  = (u: VisitCycleUnit) => onChange(u, value, {})
+  // 단위를 바꿔도 '추천 서비스 입력 요일'은 방문 패턴과 무관한 설정이라 유지한다
+  const setUnit  = (u: VisitCycleUnit) => onChange(u, value, config.recommend_weekdays?.length ? { recommend_weekdays: config.recommend_weekdays } : {})
   const setValue = (v: number)          => onChange(unit as VisitCycleUnit, v, config)
   const setConfig = (c: VisitCycleConfig) => onChange(unit as VisitCycleUnit, value, c)
 
   const toggleWeekday = (day: number) => {
     const prev = config.weekdays ?? []
     setConfig({ ...config, weekdays: prev.includes(day) ? prev.filter(d => d !== day) : [...prev, day] })
+  }
+  const toggleRecommendWeekday = (day: number) => {
+    const prev = config.recommend_weekdays ?? []
+    setConfig({ ...config, recommend_weekdays: prev.includes(day) ? prev.filter(d => d !== day) : [...prev, day].sort() })
   }
   const toggleDate = (date: number) => {
     const prev = config.dates ?? []
@@ -151,6 +156,33 @@ export function VisitCycleEditor({ unit, value, config, color = 'blue', onChange
               {d}
             </button>
           ))}
+        </div>
+      )}
+
+      {/* 2026-11-03: 추천 서비스 입력 요일 — 체크한 요일 회차에서만 작업완료 시 '추가 서비스 추천' 필수 */}
+      {unit && (
+        <div className="flex flex-col gap-1.5 pt-2 border-t border-border-subtle">
+          <div className="flex items-baseline justify-between gap-2">
+            <p className="text-xs font-semibold text-text-primary">추천 서비스 입력 요일</p>
+            <span className="text-[11px] text-text-tertiary break-keep">
+              {(config.recommend_weekdays ?? []).length > 0
+                ? `${(config.recommend_weekdays ?? []).map(w => WEEKDAY_LABELS[w]).join('·')}요일 회차에서만 입력`
+                : '미선택 — 매 회차 입력 (기본)'}
+            </span>
+          </div>
+          <div className="flex gap-1">
+            {WEEKDAY_LABELS.map((label, wd) => (
+              <button key={wd} type="button" onClick={() => toggleRecommendWeekday(wd)}
+                className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-colors ${
+                  (config.recommend_weekdays ?? []).includes(wd) ? active : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}>
+                {label}
+              </button>
+            ))}
+          </div>
+          <p className="text-[11px] text-text-tertiary break-keep">
+            작업완료 때 작성하는 &quot;추가 서비스 추천&quot;을 매일 대신 고른 요일에만 받습니다. 세부창 하단 [저장]을 눌러야 반영됩니다.
+          </p>
         </div>
       )}
 
