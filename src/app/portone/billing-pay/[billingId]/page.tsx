@@ -10,6 +10,10 @@
 
 import { notFound } from 'next/navigation'
 import { createServiceClient } from '@/lib/supabase/server'
+import { getServerSession } from '@/lib/session'
+
+// 관리자 세션(쿠키)을 읽어 미리보기 모드를 판별하므로 항상 요청 시점에 렌더링
+export const dynamic = 'force-dynamic'
 import { BillingPayClient, type BillingPayCustomer } from './BillingPayClient'
 
 interface Props {
@@ -31,6 +35,11 @@ export default async function BillingPayPage({ params }: Props) {
     .maybeSingle()
 
   if (!billing) notFound()
+
+  // 2026-11-03: 관리자·직원이 로그인한 브라우저에서 열면 미리보기 모드 — 결제창을 실제로 열지 않는다.
+  //   (관리자가 고객 링크로 가상계좌를 발급해 버리면 결제 ID가 소진돼 고객이 다른 방법을 못 고르는 사고 방지)
+  const session = getServerSession()
+  const adminPreview = !!session && session.role !== 'customer'
 
   let customer: BillingPayCustomer = {
     id: null, businessName: '-', ownerName: '-', phone: '', email: null,
@@ -70,6 +79,7 @@ export default async function BillingPayPage({ params }: Props) {
         paymentPortoneId: (billing.payment_portone_id as string | null) ?? null,
       }}
       customer={customer}
+      adminPreview={adminPreview}
     />
   )
 }
