@@ -111,7 +111,7 @@ function AdminPreviewBanner() {
       <p className="font-semibold">관리자 미리보기</p>
       <p className="mt-0.5 text-amber-800">
         관리자로 로그인된 브라우저라 결제창이 열리지 않습니다. 고객에게는 이 띠 없이 같은 화면이 보입니다.
-        실제 결제 흐름을 확인하려면 테스트 전용 고객의 청구를 쓰거나 시크릿 창에서 여세요.
+        결제를 직접 해 보시려면 시크릿 창(로그인 안 된 창)이나 휴대폰에서 이 링크를 열어 주세요.
       </p>
     </div>
   )
@@ -385,7 +385,7 @@ export function BillingPayClient({ billing, customer, adminPreview = false }: Pr
 
   const handleSubmit = async () => {
     if (adminPreview) {
-      setErrorMsg('관리자 미리보기 모드입니다. 결제창은 열리지 않습니다. 실제 결제 흐름은 테스트 전용 고객의 청구로 확인해 주세요.')
+      setErrorMsg('관리자로 로그인된 브라우저라 결제창을 열지 않습니다. 결제를 직접 해 보시려면 시크릿 창(로그인 안 된 창)이나 휴대폰에서 이 링크를 열어 주세요.')
       return
     }
     setBusy(true)
