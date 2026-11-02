@@ -77,9 +77,9 @@ type Method = 'card' | 'vbank' | 'autopay'
 
 const STORE_ID = process.env.NEXT_PUBLIC_PORTONE_STORE_ID ?? ''
 const CARD_CHANNEL_KEY = process.env.NEXT_PUBLIC_PORTONE_CHANNEL_KEY_CARD ?? ''
-const VBANK_CHANNEL_KEY = process.env.NEXT_PUBLIC_PORTONE_VBANK_CHANNEL_KEY
-  ?? process.env.NEXT_PUBLIC_PORTONE_CHANNEL_KEY_VBANK
-  ?? process.env.NEXT_PUBLIC_PORTONE_CHANNEL_KEY ?? ''
+// 2026-11-03: KG이니시스는 일반결제 채널 하나로 카드·가상계좌를 모두 처리한다 (src/lib/portone.ts getChannelKey 참고).
+//   별도 VBANK 변수를 먼저 읽던 탓에 프로덕션에서 "channelKey is not correct" 가 났음 → 1회성 결제와 같은 카드 채널 키 사용.
+const VBANK_CHANNEL_KEY = CARD_CHANNEL_KEY
 const BILLING_CHANNEL_KEY = process.env.NEXT_PUBLIC_PORTONE_BILLING_CHANNEL_KEY
   ?? process.env.NEXT_PUBLIC_PORTONE_CHANNEL_KEY_BILLING ?? ''
 
