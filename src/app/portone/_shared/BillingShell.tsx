@@ -22,6 +22,9 @@ export const SUPPORT = {
   bizNo: '398-81-04260',
 }
 
+/** 결제 페이지 전용 강조색 — 앱 브랜드색(brand-600)보다 밝고 청량한 하늘색. 결제 버튼은 Button 기본색을 덮어쓴다. */
+export const CTA_CLASS = '!bg-sky-500 hover:!bg-sky-600 text-white'
+
 export const won = (n: number) => `${n.toLocaleString('ko-KR')}원`
 export const fmtDate = (iso: string) => (iso ? iso.slice(0, 10).replace(/-/g, '.') : '-')
 
@@ -50,7 +53,7 @@ export function Notes({ items }: { items: Array<{ Icon: typeof Clock; text: stri
     <ul className="space-y-3">
       {items.map(({ Icon, text }, i) => (
         <li key={i} className="flex items-start gap-3 text-sm text-text-secondary leading-normal break-keep">
-          <Icon size={16} strokeWidth={1.75} className="text-brand-600 shrink-0 mt-0.5" />
+          <Icon size={16} strokeWidth={1.75} className="text-sky-500 shrink-0 mt-0.5" />
           <span>{text}</span>
         </li>
       ))}
@@ -81,9 +84,9 @@ export function Shell({ kicker, businessName, subtitle, tone = 'default', childr
 }) {
   return (
     <div className="min-h-screen bg-surface-sunken">
-      <header className="bg-surface border-b border-border-subtle">
+      <header className="bg-gradient-to-b from-sky-100 via-sky-50 to-surface border-b border-sky-100">
         <div className="max-w-lg mx-auto px-5 sm:px-6 pt-8 pb-6">
-          <p className="text-xs font-medium text-brand-600">{kicker}</p>
+          <p className="text-xs font-medium text-sky-600">{kicker}</p>
           <h1 className="mt-2 text-2xl font-semibold text-text-primary leading-tight break-keep">{businessName}</h1>
           <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-text-secondary">
             <span>{subtitle}</span>
