@@ -132,22 +132,35 @@ export function BillingDetailModal({ open, onClose, data, onSave, onDelete, onCr
   // Phase H.1: PortOne 결제링크 자동 생성
   const handleAutoGenerate = async () => {
     if (!form || isCreateMode) return
-    if (form.paymentUrl && !confirm('기존 링크를 새 링크로 교체합니다. 계속하시겠습니까?')) return
+    // 2026-11-03: 링크가 이미 있으면 '결제 ID 초기화' — 소진된 결제 ID(가상계좌 발급 등)를 버리고 새 링크 발급
+    const force = !!form.paymentUrl
+    if (force && !confirm([
+      '결제 ID를 초기화하고 새 링크를 발급합니다.',
+      '· 이미 발급된 가상계좌는 취소를 시도하고, 고객은 새 링크에서 결제 방법을 다시 고릅니다.',
+      '· 이미 보낸 옛 링크는 그대로 열리지만 결제 ID가 바뀌므로 고객에게 새 링크를 다시 보내주세요.',
+      '',
+      '계속하시겠습니까?',
+    ].join('\n'))) return
     setGeneratingLink(true)
     try {
       const res = await fetch('/api/portone/issue-billing-link', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ billingId: form.id }),
+        body: JSON.stringify({ billingId: form.id, force }),
       })
       if (!res.ok) {
         const err = await res.json().catch(() => ({}))
         throw new Error(err?.error ?? '링크 생성 실패')
       }
-      const resData = await res.json() as { paymentUrl?: string }
+      const resData = await res.json() as { paymentUrl?: string; rotated?: boolean; vbankCancelled?: boolean; note?: string | null }
       if (resData.paymentUrl) {
         update({ paymentUrl: resData.paymentUrl })
-        toast.success('결제 링크가 생성되었습니다. 저장을 눌러 반영하세요.')
+        if (resData.rotated) {
+          toast.success(resData.vbankCancelled ? '결제 ID를 초기화했고 기존 가상계좌를 취소했습니다.' : '결제 ID를 초기화했습니다.')
+          if (resData.note) toast(resData.note, { icon: '⚠️', duration: 8000 })
+        } else {
+          toast.success('결제 링크가 생성되었습니다. 저장을 눌러 반영하세요.')
+        }
       }
     } catch (e) {
       toast.error(e instanceof Error ? e.message : '링크 생성 실패')
@@ -273,10 +286,10 @@ export function BillingDetailModal({ open, onClose, data, onSave, onDelete, onCr
                   onClick={handleAutoGenerate}
                   disabled={saving || generatingLink}
                   className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded border font-semibold bg-indigo-50 text-indigo-700 border-indigo-200 hover:bg-indigo-100 disabled:opacity-50"
-                  title="PortOne 자동 생성"
+                  title={form.paymentUrl ? '결제 ID를 새로 발급합니다 (가상계좌가 이미 발급된 경우 등)' : 'PortOne 자동 생성'}
                 >
                   <Zap size={10} />
-                  {generatingLink ? '생성 중...' : form.paymentUrl ? '재생성' : '자동 생성'}
+                  {generatingLink ? '처리 중...' : form.paymentUrl ? '결제 ID 초기화' : '자동 생성'}
                 </button>
               </div>
 
