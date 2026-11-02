@@ -47,6 +47,22 @@ const NOTIFY_TO_STATUS: Record<string, string> = {
 // notification_templates.code는 서비스 타입별로 파티셔닝되어 있음:
 //   작업완료알림_1회성, 작업완료알림(카드,플렛폼)_1회성, 작업완료알림(정기엔드케어)_정기엔드 …
 // 프론트/자동화가 넘기는 baseType(예: '작업완료알림')에 아래 접미사를 붙여 DB code 를 조회.
+/** 정기 고객의 결제방법은 고객 마스터(customers)가 기준. 없으면 신청서 값으로 대체. */
+async function loadCustomerPaymentMethod(
+  supabase: ReturnType<typeof createServiceClient>,
+  customerId: string | null,
+  fallback: string | null,
+): Promise<string | null> {
+  if (!customerId) return fallback
+  try {
+    const { data } = await supabase.from('customers').select('payment_method').eq('id', customerId).maybeSingle()
+    return (data?.payment_method as string | null) ?? fallback
+  } catch (e) {
+    console.error('[admin/notify] 고객 결제방법 조회 실패:', e instanceof Error ? e.message : e)
+    return fallback
+  }
+}
+
 function serviceTypeSuffix(serviceType: string): string {
   if (serviceType === '정기딥케어') return '_정기딥'
   if (serviceType === '정기엔드케어') return '_정기엔드'
@@ -536,13 +552,16 @@ export async function POST(request: NextRequest) {
     // 관리자 운영 방침: 현금(계산서 희망)·현금(비과세) 둘 다 '작업완료알림' 템플릿을 공용
     // (작업완료알림_1회성.trigger_desc 참조). 카드/플랫폼만 별도 템플릿.
     if (type === '작업완료알림') {
-      if (String(app.service_type ?? '') === '정기엔드케어') {
-        type = '작업완료알림(정기엔드케어)'
-      } else if (String(app.service_type ?? '') === '정기딥케어') {
-        // Phase 27-BF: 정기딥케어는 결제방법 무관하게 통합 template 하나만 사용.
-        //   회차별 결제 안내가 불필요(월간 정기딥은 cron 자동결제·연간 정기딥은 선결제)하므로
-        //   정기엔드와 동일 패턴(감사·사진 위주)의 단일 template로 통합.
-        type = '작업완료알림(정기딥케어)'
+      const svc = String(app.service_type ?? '')
+      if (svc === '정기엔드케어' || svc === '정기딥케어') {
+        // 2026-11-03: 정기 고객 중 비과세 현금(cash_untaxed) 고객은 결제창 대신 개인 계좌를 안내하는
+        //   '작업완료알림(현금)_정기딥/_정기엔드' 템플릿을 쓴다. 그 외는 기존 통합 템플릿(감사·사진 위주).
+        const regularPm = await loadCustomerPaymentMethod(supabase, app.customer_id as string | null, app.payment_method as string | null)
+        if (normalizePaymentMethod(regularPm) === 'cash_untaxed') {
+          type = '작업완료알림(현금)'
+        } else {
+          type = svc === '정기엔드케어' ? '작업완료알림(정기엔드케어)' : '작업완료알림(정기딥케어)'
+        }
       } else {
         // 2026-10-08 재설계: 온라인 결제수단(카드/계좌이체/가상계좌/플랫폼) 모두 URL 포함 템플릿으로 통합.
         //   - credit_card/corporate_card/bank_transfer/virtual_account/platform → '작업완료알림(카드,플렛폼)'
