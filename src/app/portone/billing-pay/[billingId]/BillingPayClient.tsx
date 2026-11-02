@@ -23,7 +23,7 @@ import { Button, Select } from '@/components/ui'
 import { Check, AlertCircle, Copy, CreditCard, Landmark, RefreshCw, ShieldCheck, Receipt, Clock, Phone } from 'lucide-react'
 import { Shell, Section, Row, Notes, Figure, SUPPORT, CTA_CLASS, won, fmtDate } from '../../_shared/BillingShell'
 
-const { Bank, CashReceiptType, BillingKeyMethod, WindowType } = Entity
+const { Bank, BillingKeyMethod, WindowType } = Entity
 
 type BrowserBank = typeof Bank[keyof typeof Bank]
 
@@ -260,7 +260,7 @@ export function BillingPayClient({ billing, customer }: Props) {
       virtualAccount: {
         accountExpiry: { validHours: 24 * 7 },
         bankCode: SERVER_TO_BROWSER_BANK[vbankCode] ?? Bank.KOOKMIN_BANK,
-        cashReceiptType: CashReceiptType.CORPORATE,
+        // 2026-11-03: cashReceiptType(CORPORATE)는 KG이니시스 V2 미지원 → 지정하지 않음 (1회성 결제와 동일). 현금영수증은 입금 후 별도 처리.
       },
       customer: {
         fullName: customer.ownerName || customer.businessName,
