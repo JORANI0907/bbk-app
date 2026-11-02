@@ -19,7 +19,7 @@ import { Check, CreditCard, AlertCircle, ShieldCheck, Clock, Receipt, Phone } fr
 import { Button } from '@/components/ui'
 import { hasVat, normalizePaymentMethod } from '@/lib/payment-methods'
 import { isValidPaymentEmail } from '@/lib/payment-email'
-import { Shell, Section, Row, Notes, Figure, SUPPORT, won, fmtDate } from '../../_shared/BillingShell'
+import { Shell, Section, Row, Notes, Figure, SUPPORT, CTA_CLASS, won, fmtDate } from '../../_shared/BillingShell'
 
 const { BillingKeyMethod, WindowType } = Entity
 
@@ -201,7 +201,7 @@ export function BillingRegisterClient({ customer, isAlreadyActive, token }: Prop
             <Row k={amountTitle} v={won(customer.amount)} />
             {customer.issuedAt && <Row k="등록일" v={fmtDate(customer.issuedAt)} />}
           </dl>
-          <div className="mt-4 rounded-lg border border-brand-100 bg-brand-50 p-4 text-sm text-brand-800 leading-normal break-keep">
+          <div className="mt-4 rounded-lg border border-sky-100 bg-sky-50 p-4 text-sm text-sky-900 leading-normal break-keep">
             {scheduleText(customer)}
           </div>
         </Section>
@@ -252,7 +252,7 @@ export function BillingRegisterClient({ customer, isAlreadyActive, token }: Prop
             <p className="text-sm text-state-danger leading-normal break-keep">{errorMsg}</p>
           </div>
         )}
-        <Button size="lg" onClick={handleRegister} isLoading={issuing} disabled={issuing} className="w-full h-12">
+        <Button size="lg" onClick={handleRegister} isLoading={issuing} disabled={issuing} className={`w-full h-12 ${CTA_CLASS}`}>
           {issuing ? '카드 등록창 여는 중...' : '카드 등록하기'}
         </Button>
         <p className="mt-2 text-xs text-text-tertiary text-center leading-normal break-keep">
