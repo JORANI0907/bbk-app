@@ -735,16 +735,25 @@ export async function PATCH(request: NextRequest) {
     updatedCustomer.customer_type === '정기딥케어' ||
     updatedCustomer.customer_type === '정기엔드케어'
 
+  // 1회성/일반일정 sync 대상 status — 취소·환급(예약취소, 예약금환급완료)만 제외.
+  const ONE_SHOT_SYNC_STATUSES = [
+    '신규', '신규접수', '견적발송', '방문견적', 'A/S방문',
+    '예약확정', '예약1일전', '예약당일', '예약금 입금', '기존고객',
+    '작업완료', '작업완료(엔드)', '결제', '결제완료', '카드결제 완료', '계산서발행완료', '비과세',
+  ]
+
   if (Object.keys(appUpdates).length > 0) {
     try {
       if (oneShotSyncable) {
         // 1회성/일반일정: 작업완료·결제 상태도 포함해서 사후 정정 허용.
+        // 2026-11-03: 허용 목록에서 빠져 있던 '예약금 입금'·'신규접수' 등 때문에 시공일자가 신청서로
+        // 안 넘어가 배정관리에 가짜(customer:) 항목이 생기던 버그 수정 → 취소·환급만 제외하고 전부 sync.
         await supabase
           .from('service_applications')
           .update(appUpdates)
           .eq('customer_id', id)
           .is('deleted_at', null)
-          .in('status', ['신규', '예약확정', '예약1일전', '예약당일', '기존고객', '작업완료', '결제'])
+          .in('status', ONE_SHOT_SYNC_STATUSES)
       } else if (regularSyncable) {
         // 정기케어: 미래 회차만 sync. 완료·결제·계산서 상태는 제외.
         //
