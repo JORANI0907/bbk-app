@@ -11,6 +11,8 @@ import { BillingAutoScheduleSummary } from '@/components/admin/customers/Billing
 import { toBillingMode, fromBillingMode, type BillingTrigger, type BillingMode } from '@/lib/billing-notify-policy'
 import { BillingKeyRegisterPanel } from '@/components/admin/customers/BillingKeyRegisterPanel'
 import BillingGenerateModal, { type BillingGenerateMode } from '@/components/admin/customers/BillingGenerateModal'
+import { ScheduleGenPreview } from './ScheduleGenPreview'
+import type { CustomerPlan } from '@/lib/schedule-regenerate-plan'
 import { Button } from '@/components/ui'
 import { Phone, ClipboardList, Map, Banknote, Save, Megaphone, Calendar, BookOpen, Archive, Trash2, Copy, Folder, FolderOpen, FolderPlus, CreditCard, FileCheck, ChevronDown, Lock, Unlock } from 'lucide-react'
 import { useDriveFolder } from '@/hooks/useDriveFolder'
@@ -846,7 +848,10 @@ export function CustomersManagementView({
     startDate: string
     endDate: string
     submitting: boolean
-  }>({ open: false, mode: 'create', startDate: '', endDate: '', submitting: false })
+    /** 2026-11-03: 반영 전 미리보기(dry_run) 결과. null 이면 아직 조회 전 */
+    preview: CustomerPlan[] | null
+    previewing: boolean
+  }>({ open: false, mode: 'create', startDate: '', endDate: '', submitting: false, preview: null, previewing: false })
   const [sortKey, setSortKey] = useState<string | null>(null)
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
   const [visitWeekdays, setVisitWeekdays] = useState<number[]>([])
@@ -2054,7 +2059,79 @@ export function CustomersManagementView({
     const startDate = now.toISOString().slice(0, 10)
     const endOfNextMonth = new Date(now.getFullYear(), now.getMonth() + 2, 0)
     const endDate = endOfNextMonth.toISOString().slice(0, 10)
-    setScheduleGenModal({ open: true, mode, startDate, endDate, submitting: false })
+    setScheduleGenModal({ open: true, mode, startDate, endDate, submitting: false, preview: null, previewing: false })
+  }
+
+  /** 기간을 (년, 월, 시작일, 종료일) 월 단위 조각으로 나눈다 — 생성 API 가 월 단위로만 받기 때문 */
+  const buildMonthSegments = (startDate: string, endDate: string) => {
+    const [sy, sm, sd] = startDate.split('-').map(Number)
+    const [ey, em, ed] = endDate.split('-').map(Number)
+    const segments: Array<{ year: number; month: number; start_day: number; end_day: number }> = []
+    let curY = sy, curM = sm
+    while (curY < ey || (curY === ey && curM <= em)) {
+      const isFirst = (curY === sy && curM === sm)
+      const isLast = (curY === ey && curM === em)
+      const daysInMonth = new Date(curY, curM, 0).getDate()
+      segments.push({ year: curY, month: curM, start_day: isFirst ? sd : 1, end_day: isLast ? ed : daysInMonth })
+      curM += 1
+      if (curM > 12) { curM = 1; curY += 1 }
+    }
+    return segments
+  }
+
+  /**
+   * 2026-11-03: [수정 반영]/[생성] 전에 무엇이 바뀌는지 미리보기 (dry_run).
+   *   수정 반영은 아직 저장 안 된 요일별 담당자·작업자를 먼저 저장해야 서버가 새 값으로 계산하므로,
+   *   세부창에서 열렸으면 계약 정보를 먼저 PATCH 한다 (실제 반영 때와 같은 순서).
+   */
+  const previewSchedulePlan = async () => {
+    const { startDate, endDate, mode } = scheduleGenModal
+    const regularIds = checkedIds.filter(id => {
+      const c = customers.find(c => c.id === id)
+      return c?.customer_type === '정기딥케어' || c?.customer_type === '정기엔드케어'
+    })
+    if (regularIds.length === 0) return
+    if (startDate > endDate) { toast.error('종료일이 시작일보다 앞섭니다.'); return }
+    setScheduleGenModal(s => ({ ...s, previewing: true }))
+    try {
+      if (mode === 'cleanup' && selected) {
+        const saveRes = await fetch('/api/admin/customers', {
+          method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: selected.id, ...buildBody() }),
+        })
+        if (!saveRes.ok) {
+          const errBody = await saveRes.json().catch(() => ({}))
+          throw new Error(`계약 정보 저장 실패: ${errBody?.error ?? saveRes.status}`)
+        }
+      }
+      // 이 파일에서 Map 은 lucide 아이콘 이름과 겹쳐서 객체로 모은다
+      const merged: Record<string, CustomerPlan> = {}
+      for (const seg of buildMonthSegments(startDate, endDate)) {
+        const res = await fetch('/api/admin/customers/generate-schedules', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            customer_ids: regularIds, year: seg.year, month: seg.month,
+            start_day: seg.start_day, end_day: seg.end_day,
+            regenerate: mode === 'cleanup', dry_run: true,
+          }),
+        })
+        const data = await res.json().catch(() => ({})) as { plans?: CustomerPlan[]; error?: string }
+        if (!res.ok) throw new Error(data.error ?? '미리보기 조회 실패')
+        for (const p of data.plans ?? []) {
+          const prev = merged[p.customer_id]
+          merged[p.customer_id] = prev ? {
+            ...prev,
+            create: [...prev.create, ...p.create], update: [...prev.update, ...p.update],
+            delete: [...prev.delete, ...p.delete], completed: [...prev.completed, ...p.completed],
+            existing: [...prev.existing, ...p.existing],
+          } : p
+        }
+      }
+      setScheduleGenModal(s => ({ ...s, preview: Object.values(merged), previewing: false }))
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : '미리보기 조회 실패')
+      setScheduleGenModal(s => ({ ...s, previewing: false }))
+    }
   }
 
   /**
@@ -2081,22 +2158,7 @@ export function CustomersManagementView({
     w[LOCK_KEY] = true
 
     // 기간 내의 (year, month) 세그먼트 생성
-    const [sy, sm, sd] = startDate.split('-').map(Number)
-    const [ey, em, ed] = endDate.split('-').map(Number)
-    const segments: Array<{ year: number; month: number; start_day: number; end_day: number }> = []
-    let curY = sy, curM = sm
-    while (curY < ey || (curY === ey && curM <= em)) {
-      const isFirst = (curY === sy && curM === sm)
-      const isLast = (curY === ey && curM === em)
-      const daysInMonth = new Date(curY, curM, 0).getDate()
-      segments.push({
-        year: curY, month: curM,
-        start_day: isFirst ? sd : 1,
-        end_day: isLast ? ed : daysInMonth,
-      })
-      curM += 1
-      if (curM > 12) { curM = 1; curY += 1 }
-    }
+    const segments = buildMonthSegments(startDate, endDate)
 
     // cleanup 모드는 기존 미완료 회차를 소프트 삭제하고 재생성.
     // 실수 클릭으로 배정된 미래 회차가 통째로 사라지는 사고 방지 위해 명시적 확인.
@@ -2143,6 +2205,8 @@ export function CustomersManagementView({
     try {
       let totalInserted = 0
       let totalSkipped = 0
+      let totalUpdated = 0
+      let totalDeleted = 0
       for (const seg of segments) {
         const res = await fetch('/api/admin/customers/generate-schedules', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -2158,9 +2222,10 @@ export function CustomersManagementView({
         const data = await res.json().catch(() => ({}))
         if (res.ok) {
           totalInserted += Number(data.totalInserted ?? 0)
-          const segSkipped = (data.results as Array<{ skipped: number }> | undefined)
-            ?.reduce((s, r) => s + Number(r.skipped ?? 0), 0) ?? 0
-          totalSkipped += segSkipped
+          const rows = (data.results as Array<{ skipped: number; updated?: number; deleted?: number }> | undefined) ?? []
+          totalSkipped += rows.reduce((s, r) => s + Number(r.skipped ?? 0), 0)
+          totalUpdated += rows.reduce((s, r) => s + Number(r.updated ?? 0), 0)
+          totalDeleted += rows.reduce((s, r) => s + Number(r.deleted ?? 0), 0)
         }
       }
       if (mode === 'cleanup') {
@@ -2173,9 +2238,14 @@ export function CustomersManagementView({
           // 보이거나 위젯이 stale 로 보이는 사고 발생. 저장된 값 그대로 selected 에 반영.
           setSelected(prev => prev ? { ...prev, ...savedBody } as Customer : prev)
         }
-        toast.success(totalInserted > 0
-          ? `기간 내 기존 일정 정리 후 ${totalInserted}건이 새 방문일정으로 재생성되었습니다.`
-          : '기간 내 재생성할 일정이 없습니다. (방문 주기 확인)')
+        // 2026-11-03: 수정 반영은 "생성 0건"이어도 담당자·작업자 갱신이 본업 — 갱신·정리 건수를 따로 알린다
+        const parts = [
+          totalInserted > 0 ? `신규 ${totalInserted}건` : null,
+          totalUpdated > 0 ? `담당자/작업자 갱신 ${totalUpdated}건` : null,
+          totalDeleted > 0 ? `정리 ${totalDeleted}건` : null,
+        ].filter(Boolean)
+        if (parts.length > 0) toast.success(`수정 반영 완료 — ${parts.join(' · ')}`)
+        else toast('바뀐 내용이 없습니다. 기존 일정은 그대로 유지됩니다.', { icon: 'ℹ️' })
       } else {
         if (totalInserted === 0) toast(`기간 내 신규 생성할 일정이 없습니다. (${totalSkipped}건 이미 존재)`, { icon: 'ℹ️' })
         else toast.success(`${totalInserted}건 생성 완료${totalSkipped > 0 ? ` (${totalSkipped}건 이미 존재)` : ''}`)
@@ -5758,7 +5828,7 @@ export function CustomersManagementView({
               <input
                 type="date"
                 value={scheduleGenModal.startDate}
-                onChange={(e) => setScheduleGenModal((s) => ({ ...s, startDate: e.target.value }))}
+                onChange={(e) => setScheduleGenModal((s) => ({ ...s, startDate: e.target.value, preview: null }))}
                 className="px-3 py-2 border border-border rounded-md text-sm bg-surface focus:outline-none focus:ring-2 focus:ring-brand-600"
               />
             </label>
@@ -5767,7 +5837,7 @@ export function CustomersManagementView({
               <input
                 type="date"
                 value={scheduleGenModal.endDate}
-                onChange={(e) => setScheduleGenModal((s) => ({ ...s, endDate: e.target.value }))}
+                onChange={(e) => setScheduleGenModal((s) => ({ ...s, endDate: e.target.value, preview: null }))}
                 className="px-3 py-2 border border-border rounded-md text-sm bg-surface focus:outline-none focus:ring-2 focus:ring-brand-600"
               />
             </label>
@@ -5780,27 +5850,49 @@ export function CustomersManagementView({
               : ' 방문 주기(요일/월간 날짜) 패턴대로 신규 일정을 만듭니다.'}
           </p>
 
+          {/* 2026-11-03: 반영 전 미리보기 — 무엇이 신규/변경/삭제되는지 확인한 뒤 반영 */}
+          {scheduleGenModal.preview && <ScheduleGenPreview plans={scheduleGenModal.preview} mode={scheduleGenModal.mode} />}
+
           <div className="flex items-center justify-end gap-2">
             <button
               onClick={() => setScheduleGenModal((s) => ({ ...s, open: false }))}
-              disabled={scheduleGenModal.submitting}
+              disabled={scheduleGenModal.submitting || scheduleGenModal.previewing}
               className="px-4 py-2 text-sm font-semibold text-text-secondary hover:bg-surface-sunken rounded-lg disabled:opacity-50"
             >
               취소
             </button>
-            <button
-              onClick={() => handleGenerateSchedulesBulk(scheduleGenModal.startDate, scheduleGenModal.endDate, scheduleGenModal.mode)}
-              disabled={scheduleGenModal.submitting}
-              className={`px-4 py-2 text-white text-sm font-semibold rounded-lg disabled:opacity-50 ${
-                scheduleGenModal.mode === 'cleanup'
-                  ? 'bg-purple-600 hover:bg-purple-700'
-                  : 'bg-brand-600 hover:bg-brand-700'
-              }`}
-            >
-              {scheduleGenModal.submitting
-                ? '처리 중...'
-                : scheduleGenModal.mode === 'cleanup' ? '수정 반영' : '생성'}
-            </button>
+            {!scheduleGenModal.preview ? (
+              <button
+                onClick={previewSchedulePlan}
+                disabled={scheduleGenModal.previewing}
+                className="px-4 py-2 text-white text-sm font-semibold rounded-lg disabled:opacity-50 bg-brand-600 hover:bg-brand-700"
+              >
+                {scheduleGenModal.previewing ? '조회 중...' : '변경 내용 확인'}
+              </button>
+            ) : (
+              <>
+                <button
+                  onClick={previewSchedulePlan}
+                  disabled={scheduleGenModal.submitting || scheduleGenModal.previewing}
+                  className="px-4 py-2 text-sm font-semibold text-text-secondary border border-border hover:bg-surface-sunken rounded-lg disabled:opacity-50"
+                >
+                  다시 조회
+                </button>
+                <button
+                  onClick={() => handleGenerateSchedulesBulk(scheduleGenModal.startDate, scheduleGenModal.endDate, scheduleGenModal.mode)}
+                  disabled={scheduleGenModal.submitting || scheduleGenModal.previewing}
+                  className={`px-4 py-2 text-white text-sm font-semibold rounded-lg disabled:opacity-50 ${
+                    scheduleGenModal.mode === 'cleanup'
+                      ? 'bg-purple-600 hover:bg-purple-700'
+                      : 'bg-brand-600 hover:bg-brand-700'
+                  }`}
+                >
+                  {scheduleGenModal.submitting
+                    ? '처리 중...'
+                    : scheduleGenModal.mode === 'cleanup' ? '이대로 수정 반영' : '이대로 생성'}
+                </button>
+              </>
+            )}
           </div>
         </div>
       </div>
