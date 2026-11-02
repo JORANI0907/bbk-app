@@ -213,6 +213,24 @@ export function BillingPayClient({ billing, customer }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  // ─── 첫 진입 시 이미 발급된 가상계좌 / 완료된 결제 확인 ─────
+  //   포트원은 결제 ID 하나로 가상계좌를 한 번만 발급해 주므로, 발급 뒤 다시 들어온 고객에게는
+  //   결제창 대신 기존 계좌번호를 바로 보여준다. (2026-11-03)
+  useEffect(() => {
+    if (paid || !billing.paymentPortoneId) return
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('transactionType') || params.get('code')) return  // 리디렉션 복귀는 위 effect 가 처리
+    const pid = billing.paymentPortoneId
+    ;(async () => {
+      try {
+        await fetchIssuedAccount(pid)
+      } catch {
+        // 아직 결제 전(READY)이면 조회가 실패하는 것이 정상 → 결제 방법 선택 화면 유지
+      }
+    })()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   // ─── ① 카드 결제 ──────────────────────────────────
   const payWithCard = async () => {
     if (!billing.paymentPortoneId) throw new Error('결제 ID가 생성되지 않았습니다. 고객센터로 연락해 주세요.')
@@ -247,6 +265,8 @@ export function BillingPayClient({ billing, customer }: Props) {
   const issueVirtualAccount = async () => {
     if (!billing.paymentPortoneId) throw new Error('결제 ID가 생성되지 않았습니다. 고객센터로 연락해 주세요.')
     if (!STORE_ID || !VBANK_CHANNEL_KEY) throw new Error('가상계좌 설정이 없습니다. 고객센터로 연락해 주세요.')
+    // 이미 발급된 계좌가 있으면 결제창을 다시 열지 않고 그 계좌를 보여준다 ("이미 결제된 payment id" 오류 방지)
+    if (await tryShowExistingAccount(billing.paymentPortoneId)) return
     const redirectUrl = `${window.location.origin}/portone/billing-pay/${billing.id}?pid=${billing.paymentPortoneId}&flow=vbank`
     const response = await requestPayment({
       storeId: STORE_ID,
@@ -287,6 +307,17 @@ export function BillingPayClient({ billing, customer }: Props) {
       // 2026-11-03: KG이니시스는 결제창 응답에 계좌번호를 안 담아줌 → 서버(포트원 조회)에서 받아 화면에 바로 표시
       setBusyLabel('계좌번호 확인 중...')
       await pollIssuedAccount(billing.paymentPortoneId)
+    }
+  }
+
+  /** 기존 발급 계좌가 있으면 표시하고 true, 아직 미발급(READY)이면 false */
+  const tryShowExistingAccount = async (paymentId: string): Promise<boolean> => {
+    setBusyLabel('기존 발급 내역 확인 중...')
+    try {
+      await fetchIssuedAccount(paymentId)
+      return true
+    } catch {
+      return false
     }
   }
 
