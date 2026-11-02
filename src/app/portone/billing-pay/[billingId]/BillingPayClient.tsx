@@ -71,6 +71,8 @@ export interface BillingPayCustomer {
 interface Props {
   billing: BillingData
   customer: BillingPayCustomer
+  /** 관리자·직원 로그인 브라우저에서 열었을 때 true — 화면만 확인하고 결제창은 열지 않는다 */
+  adminPreview?: boolean
 }
 
 type Method = 'card' | 'vbank' | 'autopay'
@@ -102,13 +104,26 @@ function splitVat(total: number, paymentMethod: string | null) {
   return { supply, vat: total - supply, taxable: true }
 }
 
+/** 관리자 미리보기 안내 띠 — 로그아웃했거나 시크릿 창이면 고객과 같은 화면이 된다 */
+function AdminPreviewBanner() {
+  return (
+    <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 break-keep">
+      <p className="font-semibold">관리자 미리보기</p>
+      <p className="mt-0.5 text-amber-800">
+        관리자로 로그인된 브라우저라 결제창이 열리지 않습니다. 고객에게는 이 띠 없이 같은 화면이 보입니다.
+        실제 결제 흐름을 확인하려면 테스트 전용 고객의 청구를 쓰거나 시크릿 창에서 여세요.
+      </p>
+    </div>
+  )
+}
+
 const METHODS: Array<{ key: Method; title: string; desc: string; Icon: typeof CreditCard }> = [
   { key: 'card',    title: '카드 결제',          desc: '신용·체크·법인카드로 이번 청구분을 결제합니다',          Icon: CreditCard },
   { key: 'vbank',   title: '가상계좌 입금',       desc: '은행을 고르면 이 청구 전용 입금 계좌가 발급됩니다',       Icon: Landmark },
   { key: 'autopay', title: '정기결제 (카드 자동결제)', desc: '카드를 등록하면 이번 청구분이 바로 결제되고, 다음부터는 결제일에 자동으로 결제됩니다', Icon: RefreshCw },
 ]
 
-export function BillingPayClient({ billing, customer }: Props) {
+export function BillingPayClient({ billing, customer, adminPreview = false }: Props) {
   const [method, setMethod] = useState<Method>('card')
   const [vbankCode, setVbankCode] = useState<string>(DEFAULT_VBANK_CODE)
   const [busy, setBusy] = useState(false)
@@ -369,6 +384,10 @@ export function BillingPayClient({ billing, customer }: Props) {
   }
 
   const handleSubmit = async () => {
+    if (adminPreview) {
+      setErrorMsg('관리자 미리보기 모드입니다. 결제창은 열리지 않습니다. 실제 결제 흐름은 테스트 전용 고객의 청구로 확인해 주세요.')
+      return
+    }
     setBusy(true)
     setErrorMsg(null)
     setBusyLabel(method === 'card' ? '카드 결제창 여는 중...' : method === 'vbank' ? '가상계좌 발급 중...' : '카드 등록창 여는 중...')
@@ -504,6 +523,8 @@ export function BillingPayClient({ billing, customer }: Props) {
 
   return (
     <Shell kicker="BBK 공간케어 · 정기 서비스 결제" businessName={customer.businessName} subtitle={totalLabel}>
+      {adminPreview && <AdminPreviewBanner />}
+
       {/* 청구 내역 */}
       <Section delay={0} title="청구 내역">
         <dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-2 text-sm">
