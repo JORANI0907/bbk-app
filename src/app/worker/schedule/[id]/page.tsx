@@ -1,5 +1,8 @@
 'use client'
 
+import type { VisitCycleConfig } from '@/lib/schedule-generator'
+import { isRecommendRequired } from '@/lib/recommend-service-rule'
+
 import { useEffect, useState, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import {
@@ -165,6 +168,11 @@ export default function ScheduleDetailPage() {
   }
 
   const isRegularService = serviceType === '정기딥케어' || serviceType === '정기엔드케어'
+  // 2026-11-03: '추가 서비스 추천'은 고객관리에서 고른 요일 회차에서만 필수 (요일 미선택이면 매번)
+  const recommendRequired = isRegularService && isRecommendRequired(
+    (schedule?.customer as { visit_cycle_config?: VisitCycleConfig | null } | undefined)?.visit_cycle_config,
+    schedule?.scheduled_date ?? null,
+  )
 
   const handleFinalComplete = async () => {
     const allChecked = CLOSING_ITEMS.every((item) => closingState[item.key])
@@ -176,7 +184,7 @@ export default function ScheduleDetailPage() {
       toast.error('전반적 상태를 선택해주세요.')
       return
     }
-    if (isRegularService && Object.keys(recommendations).length === 0) {
+    if (recommendRequired && Object.keys(recommendations).length === 0) {
       toast.error('추가 서비스 추천 항목을 1개 이상 선택해주세요.')
       return
     }
@@ -408,18 +416,22 @@ export default function ScheduleDetailPage() {
                   </div>
                 </div>
 
-                {/* 추가 추천 서비스 */}
-                <div className="flex flex-col gap-2">
-                  <div>
-                    <h3 className="text-base font-bold text-text-primary">추가 서비스 추천 <span className="text-red-500">*</span></h3>
-                    <p className="text-xs text-text-tertiary mt-0.5">고객에게 권장할 서비스를 1개 이상 선택하고 이유를 적어주세요.</p>
+                {/* 추가 추천 서비스 — 고객별 지정 요일 회차에서만 */}
+                {recommendRequired ? (
+                  <div className="flex flex-col gap-2">
+                    <div>
+                      <h3 className="text-base font-bold text-text-primary">추가 서비스 추천 <span className="text-red-500">*</span></h3>
+                      <p className="text-xs text-text-tertiary mt-0.5">고객에게 권장할 서비스를 1개 이상 선택하고 이유를 적어주세요.</p>
+                    </div>
+                    <RecommendServicePicker
+                      serviceType={serviceType as '정기딥케어' | '정기엔드케어'}
+                      value={recommendations}
+                      onChange={setRecommendations}
+                    />
                   </div>
-                  <RecommendServicePicker
-                    serviceType={serviceType as '정기딥케어' | '정기엔드케어'}
-                    value={recommendations}
-                    onChange={setRecommendations}
-                  />
-                </div>
+                ) : (
+                  <p className="text-xs text-text-tertiary break-keep">추가 서비스 추천은 이 고객의 지정 요일에만 입력합니다. 오늘은 건너뜁니다.</p>
+                )}
               </>
             )}
 
@@ -429,7 +441,7 @@ export default function ScheduleDetailPage() {
                 isSubmitting ||
                 !CLOSING_ITEMS.every((i) => closingState[i.key]) ||
                 (isRegularService && !conditionScore) ||
-                (isRegularService && Object.keys(recommendations).length === 0)
+                (recommendRequired && Object.keys(recommendations).length === 0)
               }
               isLoading={isSubmitting}
               variant="primary"
