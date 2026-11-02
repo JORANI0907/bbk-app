@@ -150,7 +150,9 @@ function buildTimeline(data: UpcomingEventsResp | null, today: string): Timeline
   return [...past, ...future]
 }
 
-function TimelineLine({ row }: { row: TimelineRow }) {
+/** currentMethod: 고객의 현재 결제수단 — 행의 결제방법이 이것과 같으면 상단 배지와 중복이라 숨긴다 */
+function TimelineLine({ row, currentMethod }: { row: TimelineRow; currentMethod: string | null }) {
+  const methodDiffers = !!row.method && paymentMethodLabel(row.method) !== paymentMethodLabel(currentMethod)
   const icon = row.kind === 'paid' ? '✅' : row.kind === 'overdue' ? '⚠️' : '💰'
   const tone = row.kind === 'paid' ? 'text-emerald-700' : row.kind === 'overdue' ? 'text-state-danger' : 'text-amber-700'
   const statusLabel = row.kind === 'paid' ? '결제완료' : row.kind === 'overdue' ? '미결제(기한 지남)' : '결제예정'
@@ -160,7 +162,7 @@ function TimelineLine({ row }: { row: TimelineRow }) {
       <span className="ml-1 text-text-tertiary font-normal">{fmtMD(row.date)}</span>
       <span className="ml-1 text-text-primary">{row.amount.toLocaleString('ko-KR')}원</span>
       <span className="ml-1 text-[10px] font-normal">· {statusLabel}</span>
-      {row.method && (
+      {methodDiffers && (
         <span className="ml-1 text-[10px] text-text-tertiary font-normal">· {paymentMethodLabel(row.method)}</span>
       )}
       {row.kind === 'paid' && (
@@ -207,7 +209,7 @@ export function UpcomingBillings({ customerId, customerType, paymentMethod }: Bi
       {/* 하단: 결제 이력 타임라인 — 완료 3건(오래된 순) 다음 예정 1건 */}
       {rows.length > 0 ? (
         <div className="flex flex-col gap-0.5">
-          {rows.map(row => <TimelineLine key={row.id} row={row} />)}
+          {rows.map(row => <TimelineLine key={row.id} row={row} currentMethod={paymentMethod} />)}
         </div>
       ) : (
         <span className="text-[11px] text-text-tertiary">결제 이력 없음</span>
