@@ -7,8 +7,8 @@
  */
 
 import { useEffect, useMemo, useState } from 'react'
-import { AlertTriangle, BookOpen, Maximize2, X } from 'lucide-react'
-import type { CareManualV2, CareManualItemV2, CareManualZoneV2 } from '@/types/care-manual'
+import { AlertTriangle, Bell, BookOpen, ChevronDown, Maximize2, X } from 'lucide-react'
+import type { CareManualV2, CareManualItemV2, CareManualZoneV2, ManualUpdate } from '@/types/care-manual'
 import { isManualEmpty } from '@/types/care-manual'
 import { ZONE_THEME, FREQUENCY_LABEL } from './zone-theme'
 import styles from './care-manual.module.css'
@@ -45,6 +45,7 @@ export function CareManualViewer({ manual, bottomTabs = false, emptyText = '케�
 
   return (
     <div className={`flex flex-col gap-4 ${bottomTabs ? 'pb-20' : ''}`}>
+      <UpdatesNotice updates={manual.updates ?? []} zones={zones} onSelectZone={setActiveId} />
       {!bottomTabs && tabs}
       <ZonePanel key={active.id} zone={active} onImage={setLightbox} />
       {bottomTabs && (
@@ -53,6 +54,61 @@ export function CareManualViewer({ manual, bottomTabs = false, emptyText = '케�
         </div>
       )}
       {lightbox && <Lightbox src={lightbox} onClose={() => setLightbox(null)} />}
+    </div>
+  )
+}
+
+// ─── 최신화 알림창 ─────────────────────────────────────────────────
+const fmtUpdateDate = (iso: string) => {
+  const d = new Date(new Date(iso).getTime() + 9 * 60 * 60 * 1000)
+  return `${d.getUTCMonth() + 1}/${d.getUTCDate()}`
+}
+
+/**
+ * 상단 알림창 — 최근 최신화된 구역 이름만 (내용은 넣지 않음). 3개까지 보이고 더보기로 펼친다.
+ *   클릭하면 그 구역 탭으로 이동. onDismiss 가 있으면(관리자) 항목을 알림창에서만 지울 수 있다.
+ */
+export function UpdatesNotice({ updates, zones, onSelectZone, onDismiss }: {
+  updates: ManualUpdate[]
+  zones: CareManualZoneV2[]
+  onSelectZone: (zoneId: string) => void
+  onDismiss?: (updateId: string) => void
+}) {
+  const [showAll, setShowAll] = useState(false)
+  const visible = updates.filter(u => zones.some(z => z.id === u.zone_id))
+  if (visible.length === 0) return null
+  const rows = showAll ? visible : visible.slice(0, 3)
+  return (
+    <div className={`${styles.reveal} rounded-2xl border border-sky-100 bg-sky-50/70 px-4 py-3`}>
+      <div className="flex items-center gap-2 text-xs font-semibold text-sky-800">
+        <Bell size={14} className="text-sky-500" /> 최근 최신화
+      </div>
+      <ul className="mt-2 space-y-1">
+        {rows.map(u => {
+          const zone = zones.find(z => z.id === u.zone_id)
+          const t = zone ? ZONE_THEME[zone.color] : null
+          return (
+            <li key={u.id} className="flex items-center gap-2">
+              <button type="button" onClick={() => onSelectZone(u.zone_id)} className="group flex min-w-0 flex-1 items-center gap-2 rounded-lg px-2 py-1 text-left text-sm transition-colors hover:bg-white/70">
+                {t && <span className={`h-2 w-2 shrink-0 rounded-full ${t.dot}`} />}
+                <span className="truncate font-medium text-text-primary group-hover:underline">{zone?.name || u.zone_name || '구역'} 구역 최신화</span>
+                <span className="shrink-0 text-xs text-text-tertiary">{fmtUpdateDate(u.at)}</span>
+              </button>
+              {onDismiss && (
+                <button type="button" onClick={() => onDismiss(u.id)} className="rounded-md p-1 text-text-tertiary transition-colors hover:bg-white hover:text-rose-600" aria-label="알림에서 지우기" title="알림창에서만 지웁니다 (내용은 그대로)">
+                  <X size={13} />
+                </button>
+              )}
+            </li>
+          )
+        })}
+      </ul>
+      {visible.length > 3 && (
+        <button type="button" onClick={() => setShowAll(v => !v)} className="mt-1 inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold text-sky-700 hover:bg-white/70">
+          {showAll ? '접기' : `더보기 (${visible.length - 3})`}
+          <ChevronDown size={13} className={`transition-transform ${showAll ? 'rotate-180' : ''}`} />
+        </button>
+      )}
     </div>
   )
 }
