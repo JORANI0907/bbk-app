@@ -3,7 +3,16 @@ import { createServiceClient } from '@/lib/supabase/server'
 import { createAuthUser, updateAuthUserEmailAndPassword, updateAuthUserEmail, customerEmail } from '@/lib/auth-helpers'
 import { generateBillingSchedule, computeBillingAmountFromCustomer, shouldAutoGenerateBillings } from '@/lib/billing-generator'
 import { getServerSession } from '@/lib/session'
-import { translateDbError } from '@/lib/db-error-translator'
+import { translateDbError } from '@/lib/db-error-translator'
+
+/** 요일별(weekday_assignments)·일자별(monthly_date_assignments) 담당자·작업자 배정표에 값이 하나라도 있는지 */
+function hasRoleAssignmentMap(customer: { weekday_assignments?: unknown; monthly_date_assignments?: unknown }): boolean {
+  type Entry = { user_id?: string | null; worker_ids?: string[] | null } | null | undefined
+  const filled = (map: unknown) => Object.values((map ?? {}) as Record<string, Entry>)
+    .some(v => !!v?.user_id || (Array.isArray(v?.worker_ids) && v!.worker_ids!.length > 0))
+  return filled(customer.weekday_assignments) || filled(customer.monthly_date_assignments)
+}
+
 
 const ALLOWED = [
   // 일반정보
@@ -762,6 +771,11 @@ export async function PATCH(request: NextRequest) {
         // 을 sync 하면 마스터의 단일 값이 미래 회차 전체를 덮어 도미노로 날짜가 통일되는
         // 데이터 손실 발생 (예: 10월 회차들이 모두 9월 16일 로 통일). 명시적으로 제외.
         const REGULAR_EXCLUDE = new Set(['construction_date', 'construction_time'])
+        // 2026-11-03: 요일별·일자별 담당자 배정표가 있으면 상단 담당자(assigned_user_id)를 회차에 덮어쓰지 않는다.
+        //   작업자 sync 는 이미 이 예외가 있었는데 담당자 sync 엔 없어서, 고객 저장(수정 반영 직전 자동 저장 포함)
+        //   때마다 미래 회차 담당자가 전부 상단 값으로 바뀌던 문제 (욜로피시카페 2nd — 요일별 강주미/송지은 → 조동환).
+        //   요일별 담당자 반영은 generate-schedules 의 수정 반영(pickAssignment)이 담당.
+        if (hasRoleAssignmentMap(updatedCustomer)) REGULAR_EXCLUDE.add('assigned_to')
         const regularUpdates: Record<string, unknown> = {}
         for (const [k, v] of Object.entries(appUpdates)) {
           if (REGULAR_EXCLUDE.has(k)) continue
@@ -875,12 +889,7 @@ export async function PATCH(request: NextRequest) {
   // 요일별 재배정은 generate-schedules 라우트의 regenerate 블록("수정 반영" 버튼)
   // 이 담당 — pickAssignment() 로 요일별 매핑을 참조해 회차별로 재삽입.
   if (regularSyncable && normalizedWorkerIds !== null) {
-    type AssignmentEntry = { user_id?: string | null; worker_ids?: string[] | null } | null | undefined
-    const wa  = (updatedCustomer.weekday_assignments        ?? {}) as Record<string, AssignmentEntry>
-    const mda = (updatedCustomer.monthly_date_assignments  ?? {}) as Record<string, AssignmentEntry>
-    const hasRoleMap =
-      Object.values(wa).some(v => !!v?.user_id || (Array.isArray(v?.worker_ids) && v!.worker_ids!.length > 0)) ||
-      Object.values(mda).some(v => !!v?.user_id || (Array.isArray(v?.worker_ids) && v!.worker_ids!.length > 0))
+    const hasRoleMap = hasRoleAssignmentMap(updatedCustomer)
 
     if (!hasRoleMap) {
       const workerIds = normalizedWorkerIds
