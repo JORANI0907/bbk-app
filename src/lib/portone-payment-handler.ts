@@ -7,7 +7,7 @@
  */
 
 import { createServiceClient } from '@/lib/supabase/server'
-import { fetchPaidMethod } from '@/lib/portone-method'
+import { fetchPaidInfo } from '@/lib/portone-method'
 import { sendSlack } from '@/lib/slack'
 import { notifyPaymentCompleteAdmin } from '@/lib/solapi'
 
@@ -45,7 +45,9 @@ export async function handleTransactionPaid(paymentId: string): Promise<void> {
     if (depositRow.deposit_paid_at) return
 
     const nowIso = new Date().toISOString()
-    const paidMethod = await fetchPaidMethod(paymentId)   // 2026-11-01: 예약금 실제 수단
+    const paid = await fetchPaidInfo(paymentId)   // 2026-11-01: 예약금 실제 수단 / 2026-11-03: 실제 금액
+    const paidMethod = paid.method
+    const depositAmount = paid.amount ?? Number(depositRow.deposit ?? 0)
     const { data: updated } = await supabase
       .from('service_applications')
       .update({
@@ -54,7 +56,7 @@ export async function handleTransactionPaid(paymentId: string): Promise<void> {
         payment_confirmed_at: nowIso,
         payment_status: 'paid',
         payment_status_detail: '예약금 입금',
-        deposit: Number(depositRow.deposit ?? 0),
+        deposit: depositAmount,
       })
       .eq('id', depositRow.id)
       .is('deposit_paid_at', null)
@@ -66,7 +68,7 @@ export async function handleTransactionPaid(paymentId: string): Promise<void> {
       try {
         await supabase
           .from('customers')
-          .update({ deposit_paid_at: nowIso, deposit: Number(depositRow.deposit ?? 0), ...(paidMethod ? { deposit_payment_method: paidMethod } : {}) })
+          .update({ deposit_paid_at: nowIso, deposit: depositAmount, ...(paidMethod ? { deposit_payment_method: paidMethod } : {}) })
           .eq('id', depositRow.customer_id)
       } catch { /* 동기화 실패 무시 */ }
     }
@@ -83,7 +85,7 @@ export async function handleTransactionPaid(paymentId: string): Promise<void> {
       stageLabel: '예약금(1차)',
       businessName: depositRow.business_name ?? '',
       ownerName: depositRow.owner_name ?? '',
-      amount: Number(depositRow.deposit ?? 0),
+      amount: depositAmount,
     }).catch(() => {})
 
     await triggerAutoNotify(depositRow.id, '예약금 입금완료 알림')
@@ -93,7 +95,7 @@ export async function handleTransactionPaid(paymentId: string): Promise<void> {
   // balance 매칭 (SMS 요약용으로 balance 컬럼도 함께 조회)
   const { data: balanceRow } = await supabase
     .from('service_applications')
-    .select('id, owner_name, business_name, balance_paid_at, balance')
+    .select('id, owner_name, business_name, balance_paid_at, balance, supply_amount, vat, deposit')
     .eq('balance_portone_id', paymentId)
     .is('deleted_at', null)
     .maybeSingle()
@@ -102,11 +104,18 @@ export async function handleTransactionPaid(paymentId: string): Promise<void> {
     if (balanceRow.balance_paid_at) return
 
     const nowIso = new Date().toISOString()
-    const paidMethod = await fetchPaidMethod(paymentId)   // 2026-11-01: 잔금 실제 수단
+    const paid = await fetchPaidInfo(paymentId)   // 2026-11-01: 잔금 실제 수단 / 2026-11-03: 실제 금액
+    const paidMethod = paid.method
+    // 2026-11-03: 신청서 잔금 칸이 0 으로 남는 경우(견적은 고객 마스터에만 저장)가 있어 실제 결제 금액을 우선,
+    //   없으면 저장된 잔금, 그것도 없으면 공급가+부가세-예약금으로 계산해 문자·Slack·DB 에 기록
+    const storedBalance = Number(balanceRow.balance ?? 0)
+    const computedBalance = Number(balanceRow.supply_amount ?? 0) + Number(balanceRow.vat ?? 0) - Number(balanceRow.deposit ?? 0)
+    const balanceAmount = paid.amount ?? (storedBalance > 0 ? storedBalance : Math.max(computedBalance, 0))
     const { data: updated } = await supabase
       .from('service_applications')
       .update({
         ...(paidMethod ? { balance_payment_method: paidMethod } : {}),
+        ...(storedBalance <= 0 && balanceAmount > 0 ? { balance: balanceAmount } : {}),
         balance_paid_at: nowIso,
         payment_confirmed_at: nowIso,
         payment_status: 'paid',
@@ -135,6 +144,7 @@ export async function handleTransactionPaid(paymentId: string): Promise<void> {
     sendSlack(
       `💳 *잔금(2차) 결제 완료*\n` +
       `업체: ${balanceRow.business_name ?? '-'} / 고객: ${balanceRow.owner_name ?? '-'}\n` +
+      `금액: ${balanceAmount.toLocaleString('ko-KR')}원\n` +
       `결제ID: ${paymentId}`,
     ).catch(() => {})
 
@@ -143,7 +153,7 @@ export async function handleTransactionPaid(paymentId: string): Promise<void> {
       stageLabel: '잔금(2차)',
       businessName: balanceRow.business_name ?? '',
       ownerName: balanceRow.owner_name ?? '',
-      amount: Number(balanceRow.balance ?? 0),
+      amount: balanceAmount,
     }).catch(() => {})
 
     await triggerAutoNotify(balanceRow.id, '결제완료알림(잔금)')
