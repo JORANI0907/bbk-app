@@ -55,6 +55,7 @@ interface VisitItem {
   // Phase C: 모달 편집용 확장 필드 (API 에서 함께 반환)
   assignedTo?: string          // Phase F: 담당자 변경용 UUID
   workerIds?: string[]         // 2026-10-29: 회차별 작업자 (work_assignments)
+  workerNames?: string[]       // 2026-11-03: 회차별 작업자 이름 (worker 는 담당자 이름)
   constructionTime?: string
   progressStatus?: string
   paymentStatus?: string
@@ -894,7 +895,10 @@ function VisitRow({ item, onClick, onDelete }: {
             <p className="text-xs font-medium text-text-primary">
               {item.date} ({weekday})
             </p>
-            <p className="text-[10px] text-text-tertiary">작업자 {item.worker}</p>
+            {/* 2026-11-03: '작업자 {담당자이름}' 오표기 → 작업인원 = 담당자, 작업자… 순 */}
+            <p className="text-[10px] text-text-tertiary break-keep">
+              작업인원 {[item.worker, ...(item.workerNames ?? [])].filter((n, i, arr) => !!n && n !== '-' && n !== '미배정' && arr.indexOf(n) === i).join(', ') || '미배정'}
+            </p>
           </div>
           <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${color.bg} ${color.text}`}>
             {color.label}
