@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { getServerSession } from '@/lib/session'
+import { isManualV2, normalizeCareManual, countManualItems } from '@/types/care-manual'
 import type { CareManualSection } from '@/types/care-manual'
 
 export const dynamic = 'force-dynamic'
@@ -13,6 +14,9 @@ const NO_CACHE_HEADERS = {
   'Expires': '0',
 } as const
 
+/**
+ * GET: 저장된 값을 v2 로 변환해 돌려준다 (manual). 옛 호출부 호환으로 raw 값도 sections 에 담는다.
+ */
 export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -28,12 +32,13 @@ export async function GET(
 
     if (error || !data) {
       return NextResponse.json(
-        { sections: [], business_name: '', customer_type: '' },
+        { manual: normalizeCareManual(null), sections: [], business_name: '', customer_type: '' },
         { headers: NO_CACHE_HEADERS }
       )
     }
     return NextResponse.json(
       {
+        manual: normalizeCareManual(data.care_manual),
         sections: data.care_manual ?? [],
         business_name: data.business_name ?? '',
         customer_type: data.customer_type ?? '',
@@ -45,6 +50,9 @@ export async function GET(
   }
 }
 
+/**
+ * PUT: body.manual (v2) 로 저장. 옛 편집기 호환으로 body.sections (v1 배열) 도 받아 v2 로 바꿔 저장한다.
+ */
 export async function PUT(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -62,15 +70,17 @@ export async function PUT(
     }
 
     const { id } = await params
-    const { sections } = await req.json() as { sections: CareManualSection[] }
-    if (!Array.isArray(sections)) {
+    const body = await req.json() as { manual?: unknown; sections?: CareManualSection[] }
+    const source = body.manual ?? body.sections
+    if (!isManualV2(source) && !Array.isArray(source)) {
       return NextResponse.json({ error: '잘못된 데이터 형식' }, { status: 400 })
     }
+    const manual = normalizeCareManual(source)
 
     const supabase = createServiceClient()
     const { data: updated, error } = await supabase
       .from('customers')
-      .update({ care_manual: sections })
+      .update({ care_manual: manual })
       .eq('id', id)
       .select('id, business_name, care_manual')
 
@@ -81,13 +91,14 @@ export async function PUT(
         { status: 404 }
       )
     }
-    const savedSections = updated[0]?.care_manual ?? sections
+    const saved = normalizeCareManual(updated[0]?.care_manual ?? manual)
     return NextResponse.json({
       success: true,
       customer_id: updated[0]?.id,
       business_name: updated[0]?.business_name,
-      sections: savedSections,
-      sections_count: Array.isArray(savedSections) ? savedSections.length : 0,
+      manual: saved,
+      zones_count: saved.zones.length,
+      items_count: countManualItems(saved),
     }, { headers: NO_CACHE_HEADERS })
   } catch (e) {
     return NextResponse.json(
