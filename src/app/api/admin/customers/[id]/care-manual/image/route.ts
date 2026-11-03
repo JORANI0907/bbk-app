@@ -23,15 +23,19 @@ export async function POST(
     const file = formData.get('file') as File | null
     const si = formData.get('si') as string | null
     const ii = formData.get('ii') as string | null
+    // 2026-11-03 v2 편집기: tag(묶음id-항목id) 로 파일명 구분. 옛 si/ii 도 계속 받는다.
+    const tag = formData.get('tag') as string | null
 
     if (!file) return NextResponse.json({ error: '파일 없음' }, { status: 400 })
 
     const arrayBuffer = await file.arrayBuffer()
     const buffer = Buffer.from(arrayBuffer)
-    // ii 있으면 항목 이미지, 없으면 섹션 이미지
-    const path = ii !== null
-      ? `${id}/s${si ?? '0'}_i${ii}_${Date.now()}.webp`
-      : `${id}/s${si ?? '0'}_${Date.now()}.webp`
+    const safeTag = tag ? tag.replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 40) : ''
+    const path = safeTag
+      ? `${id}/${safeTag}_${Date.now()}.webp`
+      : ii !== null
+        ? `${id}/s${si ?? '0'}_i${ii}_${Date.now()}.webp`
+        : `${id}/s${si ?? '0'}_${Date.now()}.webp`
 
     const supabase = createServiceClient()
     const { error } = await supabase.storage.from(BUCKET).upload(path, buffer, {
