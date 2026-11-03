@@ -60,6 +60,8 @@ interface VisitItem {
   monthlyBillingPaid?: boolean
   // 2026-10-29: 회차별 작업자 (work_assignments.worker_id[]) — 투입일정 모달 수정용
   workerIds?: string[]
+  // 2026-11-03: 회차별 작업자 이름 — 카드 '작업인원' 표시용 (worker 는 담당자 이름)
+  workerNames?: string[]
 }
 
 interface PeriodBundle {
@@ -141,9 +143,14 @@ export async function GET(
 
     // 4-1) 회차별 작업자(work_assignments) 매핑 + 선택용 작업자 목록 (2026-10-29)
     const workerIdsByApp = await loadWorkerIdsByApp(supabase, (applications ?? []).map(a => a.id as string))
+    // 2026-11-03: 작업자 이름까지 함께 — 카드에 담당자·작업자를 '작업인원'으로 나열
+    const workerNameById = await loadWorkerNames(supabase, [...new Set([...workerIdsByApp.values()].flat())])
     const periodsWithWorkers = periods.map(p => ({
       ...p,
-      visits: p.visits.map(v => ({ ...v, workerIds: workerIdsByApp.get(v.id) ?? [] })),
+      visits: p.visits.map(v => {
+        const ids = workerIdsByApp.get(v.id) ?? []
+        return { ...v, workerIds: ids, workerNames: ids.map(id => workerNameById.get(id)).filter((n): n is string => !!n) }
+      }),
     }))
     // workers 테이블엔 deleted_at 없음 — 고객관리 투입 설정과 같은 기준(고용형태 지정된 작업자)
     const { data: workerList, error: workerErr } = await supabase
@@ -216,6 +223,16 @@ function toBillingItem(b: RawBilling, monthLabel: string): BillingItem {
     taxInvoiceIssued: b.tax_invoice_issued === true,
     paymentUrl: b.payment_url ?? undefined,
   }
+}
+
+/** worker_id → 이름 (workers) */
+async function loadWorkerNames(supabase: ReturnType<typeof createServiceClient>, ids: string[]): Promise<Map<string, string>> {
+  const map = new Map<string, string>()
+  if (ids.length === 0) return map
+  const { data, error } = await supabase.from('workers').select('id, name').in('id', ids)
+  if (error) { console.error('[regular-progress] 작업자 이름 조회 실패:', error.message); return map }
+  for (const w of (data ?? []) as Array<{ id: string; name: string | null }>) if (w.name) map.set(w.id, w.name)
+  return map
 }
 
 /** application_id → worker_id[] (work_assignments) */
