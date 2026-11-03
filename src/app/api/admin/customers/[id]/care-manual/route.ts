@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { getServerSession } from '@/lib/session'
-import { isManualV2, normalizeCareManual, countManualItems } from '@/types/care-manual'
+import { isManualV2, normalizeCareManual, countManualItems, appendZoneUpdates } from '@/types/care-manual'
 import type { CareManualSection } from '@/types/care-manual'
 
 export const dynamic = 'force-dynamic'
@@ -75,9 +75,12 @@ export async function PUT(
     if (!isManualV2(source) && !Array.isArray(source)) {
       return NextResponse.json({ error: '잘못된 데이터 형식' }, { status: 400 })
     }
-    const manual = normalizeCareManual(source)
+    const incoming = normalizeCareManual(source)
 
     const supabase = createServiceClient()
+    // 2026-11-03: 이전 저장본과 비교해 바뀐 구역을 최신화 알림(updates)에 자동 기록
+    const { data: before } = await supabase.from('customers').select('care_manual').eq('id', id).maybeSingle()
+    const manual = appendZoneUpdates(normalizeCareManual(before?.care_manual), incoming)
     const { data: updated, error } = await supabase
       .from('customers')
       .update({ care_manual: manual })
