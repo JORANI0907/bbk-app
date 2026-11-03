@@ -12,7 +12,7 @@ import toast from 'react-hot-toast'
 import type { CareManualV2, CareManualZoneV2, ZoneColor } from '@/types/care-manual'
 import { ZONE_COLORS, countManualItems, emptyGroup, emptyZone } from '@/types/care-manual'
 import { ZONE_THEME } from './zone-theme'
-import { ZoneTabs, Lightbox } from './CareManualViewer'
+import { ZoneTabs, Lightbox, UpdatesNotice } from './CareManualViewer'
 import { ZoneEditor } from './ZoneEditor'
 import { useManualImages } from './useManualImages'
 import styles from './care-manual.module.css'
@@ -52,9 +52,12 @@ export function CareManualEditor({ customerId, initial }: Props) {
         method: 'PUT', headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-cache' },
         body: JSON.stringify({ manual: current }),
       })
-      const body = await res.json().catch(() => ({})) as { error?: string }
+      const body = await res.json().catch(() => ({})) as { error?: string; manual?: CareManualV2 }
       if (!res.ok) throw new Error(body.error ?? '저장 실패')
-      setSavedSnapshot(JSON.stringify(current))
+      // 서버가 최신화 기록(updates)을 붙여 돌려주므로 그 값을 화면 상태로 삼는다 (구역 편집 중 내용은 current 와 같음)
+      const saved = body.manual ?? current
+      setManual(saved)
+      setSavedSnapshot(JSON.stringify(saved))
       const now = new Date()
       setSavedAt(`${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`)
       setFlash(true); setTimeout(() => setFlash(false), 900)
@@ -127,6 +130,11 @@ export function CareManualEditor({ customerId, initial }: Props) {
     }))
   }
 
+  const dismissUpdate = (updateId: string) => {
+    setManual(m => ({ ...m, updates: (m.updates ?? []).filter(u => u.id !== updateId) }))
+    toast('알림에서 지웠습니다. 저장을 누르면 반영됩니다.', { icon: '🔔' })
+  }
+
   // ─── 사진 ─────────────────────────────────────────────────────
   const handleUpload = async (zoneId: string, groupId: string, itemId: string, files: File[]) => {
     const { urls, failed } = await upload(files, `${groupId}-${itemId}`)
@@ -160,6 +168,7 @@ export function CareManualEditor({ customerId, initial }: Props) {
         <EmptyStart onStarter={addStarter} onBlank={() => addZone()} />
       ) : (
         <>
+          <UpdatesNotice updates={manual.updates ?? []} zones={manual.zones} onSelectZone={id => { setActiveId(id); setRenaming(false) }} onDismiss={dismissUpdate} />
           <div className="rounded-2xl border border-border-subtle bg-surface px-3 py-2 shadow-soft">
             <ZoneTabs
               zones={manual.zones}
