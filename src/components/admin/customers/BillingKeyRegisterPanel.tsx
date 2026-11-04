@@ -1,86 +1,88 @@
 'use client'
 
 /**
- * 빌링키 등록 링크 패널 (2026-10-18 Phase I.3)
+ * 자동결제 카드 등록 링크 패널 (2026-10-18 Phase I.3 → 2026-11-05 접이식·파스텔로 개편)
  *
- * 역할:
- *   사장님이 고객관리 → 정기엔드케어 섹션에서
- *   "매월 자동결제 카드 등록 링크"를 생성·복사할 수 있는 미니 패널.
- *
- * MVP 범위:
- *   - "링크 생성" 버튼 → POST /api/customer/billing-register/issue-link
- *   - 생성된 URL 표시 + "복사" 버튼 (사장님이 톡/SMS 수동 전송)
- *   - 상태 뱃지·해지·재등록 등은 테스트 후 Phase I.4 이상으로 확장.
+ * 위치: 고객관리 세부창 결제청구 묶음 맨 아래.
+ * 모양: 파스텔 하늘색 버튼 한 줄 → 누르면 설명·링크 생성·복사가 아래로 펼쳐진다.
+ *       등록 완료 고객은 민트색 상태 줄 → 누르면 카드·등록일·최근 결제일이 펼쳐진다.
  */
 
 import { useState } from 'react'
-import { CreditCard, Copy, Check, AlertCircle, Loader2, RefreshCw } from 'lucide-react'
+import { CreditCard, Copy, Check, AlertCircle, Loader2, RefreshCw, ChevronDown } from 'lucide-react'
 
 interface Props {
   customerId: string
   monthlyAmount: number
   paymentDate: number | null
-  // 2026-10-19 Phase E: 빌링키 등록 완료 상태 표시
   billingKeyStatus?: string | null  // 'active' | 'inactive' | null
   billingKeyCardName?: string | null
   billingKeyIssuedAt?: string | null  // ISO
   lastBilledAt?: string | null  // ISO
 }
 
-export function BillingKeyRegisterPanel({
-  customerId,
-  monthlyAmount,
-  paymentDate,
-  billingKeyStatus,
-  billingKeyCardName,
-  billingKeyIssuedAt,
-  lastBilledAt,
-}: Props) {
+const fmtDate = (iso: string | null | undefined) =>
+  iso ? new Date(iso).toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit' }) : null
+
+export function BillingKeyRegisterPanel(props: Props) {
+  const [open, setOpen] = useState(false)
+  const registered = props.billingKeyStatus === 'active'
+
+  return (
+    <div className={`rounded-xl border ${registered ? 'border-emerald-200 bg-emerald-50/60' : 'border-sky-200 bg-sky-50/60'}`}>
+      <button
+        type="button"
+        onClick={() => setOpen(v => !v)}
+        aria-expanded={open}
+        className={`flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-left text-sm font-semibold transition-colors ${
+          registered ? 'text-emerald-800 hover:bg-emerald-100/70' : 'text-sky-800 hover:bg-sky-100/70'
+        }`}
+      >
+        <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${registered ? 'bg-emerald-100 text-emerald-600' : 'bg-sky-100 text-sky-600'}`}>
+          {registered ? <Check size={15} /> : <CreditCard size={15} />}
+        </span>
+        <span className="min-w-0 flex-1 truncate">
+          {registered ? '정기결제 등록됨 · 매월 자동결제 중' : '정기결제 카드 등록 링크'}
+        </span>
+        <ChevronDown size={16} className={`shrink-0 transition-transform duration-200 ${open ? 'rotate-180' : ''}`} />
+      </button>
+      {open && (
+        <div className="px-3 pb-3">
+          {registered ? <RegisteredBody {...props} /> : <RegisterBody {...props} />}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function RegisteredBody({ monthlyAmount, paymentDate, billingKeyCardName, billingKeyIssuedAt, lastBilledAt }: Props) {
+  return (
+    <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs text-emerald-800">
+      <dt className="text-emerald-600">결제</dt>
+      <dd>매월 {paymentDate ?? '지정'}일 · <strong>{monthlyAmount.toLocaleString('ko-KR')}원</strong> 자동 결제</dd>
+      {billingKeyCardName && (<><dt className="text-emerald-600">카드</dt><dd>{billingKeyCardName}</dd></>)}
+      {billingKeyIssuedAt && (<><dt className="text-emerald-600">등록일</dt><dd>{fmtDate(billingKeyIssuedAt)}</dd></>)}
+      {lastBilledAt && (<><dt className="text-emerald-600">최근 결제</dt><dd>{fmtDate(lastBilledAt)}</dd></>)}
+      <dd className="col-span-2 pt-1 text-[11px] text-emerald-600 break-keep">해지는 고객센터 요청 시 포트원 콘솔에서 빌링키를 삭제하면 됩니다.</dd>
+    </dl>
+  )
+}
+
+function RegisterBody({ customerId, monthlyAmount, paymentDate }: Props) {
   const [url, setUrl] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
-
-  // 2026-10-19 Phase E: 빌링키 활성 상태면 "등록 완료" 뱃지만 표시
-  const isRegistered = billingKeyStatus === 'active'
-  if (isRegistered) {
-    const fmtDate = (iso: string | null | undefined) =>
-      iso ? new Date(iso).toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit' }) : null
-    return (
-      <div className="rounded-lg bg-emerald-50 border border-emerald-300 p-3 space-y-1.5">
-        <p className="text-sm font-bold text-emerald-800 flex items-center gap-1.5">
-          <Check size={14} /> 빌링키 등록 완료 — 매월 자동결제 활성
-        </p>
-        <p className="text-[11px] text-emerald-700 leading-relaxed">
-          이 고객은 매월 {paymentDate ?? '지정'}일에{' '}
-          <strong>{monthlyAmount.toLocaleString('ko-KR')}원</strong>이 자동으로 결제됩니다.
-        </p>
-        {billingKeyCardName && (
-          <p className="text-[11px] text-emerald-700">💳 카드: <strong>{billingKeyCardName}</strong></p>
-        )}
-        {billingKeyIssuedAt && (
-          <p className="text-[11px] text-emerald-600">등록일: {fmtDate(billingKeyIssuedAt)}</p>
-        )}
-        {lastBilledAt && (
-          <p className="text-[11px] text-emerald-600">최근 자동결제: {fmtDate(lastBilledAt)}</p>
-        )}
-      </div>
-    )
-  }
 
   const handleGenerate = async () => {
     setLoading(true)
     setErrorMsg(null)
     try {
       const res = await fetch('/api/customer/billing-register/issue-link', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ customerId }),
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ customerId }),
       })
       const data = await res.json() as { url?: string; error?: string }
-      if (!res.ok || !data.url) {
-        throw new Error(data.error ?? '링크 생성 실패')
-      }
+      if (!res.ok || !data.url) throw new Error(data.error ?? '링크 생성 실패')
       setUrl(data.url)
     } catch (e) {
       setErrorMsg(e instanceof Error ? e.message : '링크 생성 실패')
@@ -95,66 +97,42 @@ export function BillingKeyRegisterPanel({
       await navigator.clipboard.writeText(url)
       setCopied(true)
       setTimeout(() => setCopied(false), 1500)
-    } catch { /* 무시 */ }
+    } catch { /* 클립보드 거부 — 사용자가 직접 복사 */ }
   }
 
+  const pastelBtn = 'inline-flex items-center justify-center gap-1.5 rounded-lg border border-sky-200 bg-sky-100 px-3 py-2 text-xs font-semibold text-sky-800 transition-colors hover:bg-sky-200 disabled:opacity-50'
+
   return (
-    <div className="rounded-lg bg-sky-50 border border-sky-200 p-3 space-y-2.5">
-      <p className="text-xs font-bold text-sky-800 flex items-center gap-1.5">
-        <CreditCard size={12} /> 매월 자동결제 카드 등록 (빌링키)
-      </p>
-
-      <p className="text-[11px] text-sky-700 leading-relaxed">
-        고객이 <strong>1번만</strong> 카드 등록하면 매월 {paymentDate ?? '지정'}일에 {' '}
-        <strong>{monthlyAmount.toLocaleString('ko-KR')}원</strong>이 자동 결제됩니다.
-        아래 "링크 생성" 버튼을 눌러 URL을 복사해 톡·SMS로 전송하세요.
-      </p>
-
-      {errorMsg && (
-        <div className="rounded bg-rose-50 border border-rose-200 p-2 flex items-start gap-1.5">
-          <AlertCircle size={12} className="text-rose-600 shrink-0 mt-0.5" />
-          <p className="text-[11px] text-rose-700 leading-relaxed">{errorMsg}</p>
-        </div>
-      )}
-
+    <div className="space-y-2">
       {url ? (
-        <div className="space-y-1.5">
-          <div className="rounded bg-white border border-sky-200 p-2 text-[11px] text-text-primary font-mono break-all">
-            {url}
-          </div>
+        <>
+          <div className="rounded-lg border border-sky-200 bg-white p-2 font-mono text-[11px] text-text-primary break-all">{url}</div>
           <div className="flex gap-2">
-            <button
-              onClick={handleCopy}
-              className={`flex-1 inline-flex items-center justify-center gap-1 text-xs px-3 py-1.5 rounded-md border font-semibold transition-colors ${
-                copied
-                  ? 'bg-emerald-100 text-emerald-700 border-emerald-300'
-                  : 'bg-white text-text-primary border-sky-300 hover:bg-sky-50'
-              }`}
-            >
-              {copied ? <><Check size={12} /> 복사됨</> : <><Copy size={12} /> URL 복사</>}
+            <button type="button" onClick={handleCopy} className={`flex-1 ${pastelBtn} ${copied ? '!bg-emerald-100 !text-emerald-700 !border-emerald-200' : ''}`}>
+              {copied ? <><Check size={13} /> 복사됨</> : <><Copy size={13} /> 링크 복사</>}
             </button>
-            <button
-              onClick={handleGenerate}
-              disabled={loading}
-              className="inline-flex items-center gap-1 text-xs px-3 py-1.5 rounded-md border border-sky-300 bg-white text-text-primary hover:bg-sky-50 disabled:opacity-50"
-            >
-              {loading ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
-              재생성
+            <button type="button" onClick={handleGenerate} disabled={loading} className={pastelBtn} title="이전 링크는 무효화됩니다">
+              {loading ? <Loader2 size={13} className="animate-spin" /> : <RefreshCw size={13} />} 재생성
             </button>
           </div>
-          <p className="text-[10px] text-sky-600 pt-0.5">
-            💡 재생성 시 이전 URL은 자동 무효화됩니다 (토큰 1회성)
-          </p>
-        </div>
+        </>
       ) : (
-        <button
-          onClick={handleGenerate}
-          disabled={loading}
-          className="w-full inline-flex items-center justify-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-md bg-sky-600 hover:bg-sky-700 text-white disabled:opacity-50"
-        >
-          {loading ? <><Loader2 size={12} className="animate-spin" /> 생성 중...</> : <><CreditCard size={12} /> 카드 등록 링크 생성</>}
+        <button type="button" onClick={handleGenerate} disabled={loading} className={`w-full ${pastelBtn}`}>
+          {loading ? <><Loader2 size={13} className="animate-spin" /> 생성 중…</> : <><CreditCard size={13} /> 카드 등록 링크 만들기</>}
         </button>
       )}
+
+      {errorMsg && (
+        <div className="flex items-start gap-1.5 rounded-lg border border-rose-200 bg-rose-50 p-2">
+          <AlertCircle size={12} className="mt-0.5 shrink-0 text-rose-600" />
+          <p className="text-[11px] leading-relaxed text-rose-700">{errorMsg}</p>
+        </div>
+      )}
+
+      <p className="text-[11px] leading-relaxed text-sky-700 break-keep">
+        고객이 링크에서 카드를 한 번 등록하면 매월 {paymentDate ?? '지정'}일에 {monthlyAmount.toLocaleString('ko-KR')}원이 자동 결제됩니다.
+        링크를 복사해 톡·문자로 보내 주세요. 재생성하면 이전 링크는 쓸 수 없습니다.
+      </p>
     </div>
   )
 }
