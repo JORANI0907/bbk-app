@@ -4689,6 +4689,19 @@ export function CustomersManagementView({
                       contractEndDate={form.contract_end_date || null}
                     />
                   )}
+
+                  {/* 2026-11-05: 자동결제 카드 등록 패널 — 결제청구 묶음 맨 아래로 이동 (접이식·파스텔) */}
+                  {!isNew && selected?.id && (
+                    <BillingKeyRegisterPanel
+                      customerId={selected.id}
+                      monthlyAmount={Number(form.billing_amount || 0)}
+                      paymentDate={form.payment_date ? Number(form.payment_date) : null}
+                      billingKeyStatus={(selected as unknown as { billing_key_status?: string | null }).billing_key_status ?? null}
+                      billingKeyCardName={(selected as unknown as { billing_key_card_name?: string | null }).billing_key_card_name ?? null}
+                      billingKeyIssuedAt={(selected as unknown as { billing_key_issued_at?: string | null }).billing_key_issued_at ?? null}
+                      lastBilledAt={(selected as unknown as { billing_last_billed_at?: string | null }).billing_last_billed_at ?? null}
+                    />
+                  )}
                   </div>  {/* ← 파란(sky) 결제 묶음 닫기 */}
 
                   {/* 2026-10-18 Phase I.3: 방문 + 담당자 묶음 (보라 "조건 그룹" — [수정 반영]/[생성] 버튼의 입력 조건) */}
@@ -4862,19 +4875,6 @@ export function CustomersManagementView({
             )}
 
             {/* 2026-10-19 Phase D: BillingAutoScheduleSummary 를 정기엔드 계약 정보 "결제 묶음" 안으로 이동 */}
-
-            {/* 2026-10-18 Phase I.3 + 2026-10-19 Phase E: 빌링키 등록/상태 패널 (2026-11-01: 정기딥도 노출) */}
-            {!isWorker && (isEndCare || isDipCare) && !isNew && selected?.id && (
-              <BillingKeyRegisterPanel
-                customerId={selected.id}
-                monthlyAmount={Number(form.billing_amount || 0)}
-                paymentDate={form.payment_date ? Number(form.payment_date) : null}
-                billingKeyStatus={(selected as unknown as { billing_key_status?: string | null }).billing_key_status ?? null}
-                billingKeyCardName={(selected as unknown as { billing_key_card_name?: string | null }).billing_key_card_name ?? null}
-                billingKeyIssuedAt={(selected as unknown as { billing_key_issued_at?: string | null }).billing_key_issued_at ?? null}
-                lastBilledAt={(selected as unknown as { billing_last_billed_at?: string | null }).billing_last_billed_at ?? null}
-              />
-            )}
 
             {/* ── 정기딥케어 계약 — worker 숨김 ── */}
             {/* 2026-10-18 Phase I.2: 결제 그룹 색 통일 (brand → emerald "돈 색") */}
@@ -5054,6 +5054,19 @@ export function CustomersManagementView({
                       paymentDate={form.payment_date ? Number(form.payment_date) : null}
                       contractStartDate={form.contract_start_date || null}
                       contractEndDate={form.contract_end_date || null}
+                    />
+                  )}
+
+                  {/* 2026-11-05: 자동결제 카드 등록 패널 — 결제청구 묶음 맨 아래로 이동 (접이식·파스텔) */}
+                  {!isNew && selected?.id && (
+                    <BillingKeyRegisterPanel
+                      customerId={selected.id}
+                      monthlyAmount={Number(form.billing_amount || 0)}
+                      paymentDate={form.payment_date ? Number(form.payment_date) : null}
+                      billingKeyStatus={(selected as unknown as { billing_key_status?: string | null }).billing_key_status ?? null}
+                      billingKeyCardName={(selected as unknown as { billing_key_card_name?: string | null }).billing_key_card_name ?? null}
+                      billingKeyIssuedAt={(selected as unknown as { billing_key_issued_at?: string | null }).billing_key_issued_at ?? null}
+                      lastBilledAt={(selected as unknown as { billing_last_billed_at?: string | null }).billing_last_billed_at ?? null}
                     />
                   )}
                   </div>  {/* ← 파란(sky) 결제 묶음 닫기 */}
