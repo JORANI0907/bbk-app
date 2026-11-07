@@ -676,6 +676,7 @@ export default function RegularProgressFlow({
             status: payload.status,
             tax_invoice_issued: payload.taxInvoiceIssued,
             service_type: customerType,
+            notes: payload.notes?.trim() || null,
           }),
         })
         if (!res.ok) {
