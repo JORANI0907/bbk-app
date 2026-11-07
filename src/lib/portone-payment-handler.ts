@@ -10,6 +10,7 @@ import { createServiceClient } from '@/lib/supabase/server'
 import { fetchPaidInfo } from '@/lib/portone-method'
 import { sendSlack } from '@/lib/slack'
 import { notifyPaymentCompleteAdmin } from '@/lib/solapi'
+import { isExtraBilling, sendExtraBillingPaidNotice } from '@/lib/extra-billing-notice'
 
 const APP_BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.bbkorea.co.kr'
 
@@ -24,6 +25,34 @@ async function triggerAutoNotify(applicationId: string, type: string) {
   } catch {
     // 알림 실패 조용히 무시
   }
+}
+
+/** 1회성 추가 결제 입금 확인 → Slack + 관리자 문자 + 고객 완료 문자 (2026-11-08) */
+async function notifyExtraBillingPaid(
+  supabase: ReturnType<typeof createServiceClient>,
+  row: { id: string; customer_id: string | null; amount: number | null; notes: string | null },
+  paymentId: string,
+): Promise<void> {
+  let businessName = '-'
+  let ownerName = ''
+  if (row.customer_id) {
+    const { data: cust } = await supabase
+      .from('customers')
+      .select('business_name, contact_name')
+      .eq('id', row.customer_id)
+      .maybeSingle()
+    businessName = (cust?.business_name as string | null) ?? '-'
+    ownerName = (cust?.contact_name as string | null) ?? ''
+  }
+  const amount = Number(row.amount ?? 0)
+  sendSlack(
+    `💳 *추가 결제 완료* (1회성케어)\n` +
+    `업체: ${businessName} / 고객: ${ownerName || '-'}\n` +
+    `내용: ${row.notes ?? '-'} · 금액: ${amount.toLocaleString('ko-KR')}원\n` +
+    `결제ID: ${paymentId}`,
+  ).catch(() => {})
+  notifyPaymentCompleteAdmin({ stageLabel: '추가 결제', businessName, ownerName, amount }).catch(() => {})
+  await sendExtraBillingPaidNotice(supabase, row.id, paymentId)
 }
 
 /**
@@ -163,15 +192,16 @@ export async function handleTransactionPaid(paymentId: string): Promise<void> {
   // Phase H.3 (2026-10-17): 정기 결제(service_billings) 매칭
   // payment_portone_id 컬럼이 아직 마이그레이션 전이면 조회 자체가 에러 — try/catch 로 격리.
   try {
+    const BILLING_COLS = 'id, customer_id, amount, billing_type, billing_period, status, service_type, notes'
     const { data: currentRow } = await supabase
       .from('service_billings')
-      .select('id, customer_id, amount, billing_type, billing_period, status, service_type')
+      .select(BILLING_COLS)
       .eq('payment_portone_id', paymentId)
       .maybeSingle()
     // 2026-11-03: 결제 ID 초기화 후 옛 가상계좌로 입금된 경우 → previous_payment_ids 로 매칭
     const { data: previousRow } = currentRow ? { data: null } : await supabase
       .from('service_billings')
-      .select('id, customer_id, amount, billing_type, billing_period, status, service_type')
+      .select(BILLING_COLS)
       .contains('previous_payment_ids', [paymentId])
       .maybeSingle()
     const billingRow = currentRow ?? previousRow
@@ -179,15 +209,23 @@ export async function handleTransactionPaid(paymentId: string): Promise<void> {
     if (!billingRow) return
     if (billingRow.status === 'paid') return  // 멱등: 이미 완료
 
+    // 2026-11-08: 실제 결제수단을 스냅샷에 남긴다 (결제상태 요약·세금계산서 분리 판정에 사용)
+    const paid = await fetchPaidInfo(paymentId)
     const today = new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10)  // KST 날짜
     const { data: updated } = await supabase
       .from('service_billings')
-      .update({ status: 'paid', paid_date: today })
+      .update({ status: 'paid', paid_date: today, ...(paid.method ? { payment_method_snapshot: paid.method } : {}) })
       .eq('id', billingRow.id)
       .neq('status', 'paid')
       .select('id')
 
     if (!updated || updated.length === 0) return
+
+    // 1회성 추가 결제는 정기 흐름과 분리 — 신청서 진행상태를 건드리지 않고 전용 완료 문자만 보낸다
+    if (isExtraBilling(billingRow)) {
+      await notifyExtraBillingPaid(supabase, billingRow, paymentId)
+      return
+    }
 
     // customers 조회 (Slack 메시지용)
     let businessName = '-'
