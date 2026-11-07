@@ -144,20 +144,55 @@ function methodKo(m: string | null | undefined): string {
 /**
  * 예약금·잔금 중 한쪽만 계좌 결제면 그쪽 금액만 돌려준다. 둘 다 같으면 null (기존 총액 방식 유지).
  */
-function splitByStageMethod(p: { total: number; deposit: number; depMethod: string | null; balMethod: string | null }) {
-  if (p.deposit <= 0 || p.total <= 0) return null
-  const depOk = isInvoiceMethod(p.depMethod)
-  const balOk = isInvoiceMethod(p.balMethod)
-  if (depOk === balOk) return null
+/** 1회성 추가 결제 1건 — 결제수단은 실제 결제된 수단(스냅샷), 없으면 잔금 수단을 따른다 */
+interface ExtraPart { amount: number; method: string | null; label: string }
+
+function splitByStageMethod(p: {
+  total: number; deposit: number; depMethod: string | null; balMethod: string | null; extras?: ExtraPart[]
+}) {
+  if (p.total <= 0) return null
   const balance = Math.max(p.total - p.deposit, 0)
-  const amount = depOk ? p.deposit : balance
-  const method = (depOk ? p.depMethod : p.balMethod) ?? null
-  const { supply, vat } = calcAmounts(amount, method)
-  const fmt = (n: number) => n.toLocaleString('ko-KR')
-  const note = depOk
-    ? `예약금 ${fmt(p.deposit)}원(${methodKo(p.depMethod)}) 포함 · 잔금 ${fmt(balance)}원(${methodKo(p.balMethod)}) 제외`
-    : `잔금 ${fmt(balance)}원(${methodKo(p.balMethod)}) 포함 · 예약금 ${fmt(p.deposit)}원(${methodKo(p.depMethod)}) 제외`
-  return { supply, vat, method, note }
+  const parts: ExtraPart[] = [
+    ...(p.deposit > 0 ? [{ amount: p.deposit, method: p.depMethod, label: '예약금' }] : []),
+    { amount: balance, method: p.balMethod, label: p.deposit > 0 ? '잔금' : '시공비' },
+    ...(p.extras ?? []).map(e => ({ ...e, method: e.method ?? p.balMethod })),
+  ].filter(x => x.amount > 0)
+  const included = parts.filter(x => isInvoiceMethod(x.method))
+  const excluded = parts.filter(x => !isInvoiceMethod(x.method))
+  // 전부 계산서 대상이거나 전부 아니면 나눌 필요 없음 (기존 통째 계산 경로)
+  if (included.length === 0 || excluded.length === 0) return null
+  const sums = included.reduce((acc, x) => {
+    const a = calcAmounts(x.amount, x.method)
+    return { supply: acc.supply + a.supply, vat: acc.vat + a.vat }
+  }, { supply: 0, vat: 0 })
+  return { ...sums, method: included[0].method ?? null, note: buildSplitNote(included, excluded) }
+}
+
+function buildSplitNote(included: ExtraPart[], excluded: ExtraPart[]): string {
+  const fmt = (x: ExtraPart) => `${x.label} ${x.amount.toLocaleString('ko-KR')}원(${methodKo(x.method)})`
+  return `${included.map(fmt).join(' + ')} 포함 · ${excluded.map(fmt).join(', ')} 제외`
+}
+
+/** 신청서 id → 1회성 추가 결제 목록 (취소 제외). 2026-11-08 */
+async function loadExtraPartsByApp(supabase: ReturnType<typeof createServiceClient>): Promise<Map<string, ExtraPart[]>> {
+  const map = new Map<string, ExtraPart[]>()
+  try {
+    const { data } = await supabase
+      .from('service_billings')
+      .select('application_id, amount, notes, payment_method_snapshot, status')
+      .eq('billing_type', 'onetime')
+      .eq('service_type', '1회성케어')
+      .not('application_id', 'is', null)
+      .neq('status', 'cancelled')
+    type Row = { application_id: string; amount: number | null; notes: string | null; payment_method_snapshot: string | null }
+    for (const r of (data ?? []) as Row[]) {
+      const part: ExtraPart = { amount: Number(r.amount ?? 0), method: r.payment_method_snapshot, label: `추가(${r.notes ?? '추가 결제'})` }
+      map.set(r.application_id, [...(map.get(r.application_id) ?? []), part])
+    }
+  } catch (e) {
+    console.error('[tax-invoice/candidates] 추가 결제 조회 실패:', e instanceof Error ? e.message : e)
+  }
+  return map
 }
 
 // billing_period + billing_type + due_date → 표시용 기간 문자열
@@ -325,6 +360,8 @@ export async function GET(request: NextRequest) {
     if (oneTimeErr) {
       return NextResponse.json({ error: `1회성케어: ${oneTimeErr.message}` }, { status: 500 })
     }
+    // 2026-11-08: 추가 결제는 별도 행이 아니라 그 시공 건 금액에 합친다 (사장님 결정)
+    const extraPartsByApp = await loadExtraPartsByApp(supabase)
 
     for (const c of ((oneTimeCusts ?? []) as unknown) as OneTimeCust[]) {
       const apps = (Array.isArray(c.service_applications) ? c.service_applications : [])
@@ -374,18 +411,31 @@ export async function GET(request: NextRequest) {
         let candidateMethod: string | null = isIssued
           ? (sa.payment_method ?? c.payment_method ?? null)
           : (c.payment_method ?? sa.payment_method ?? null)
+        const extraParts = extraPartsByApp.get(sa.id) ?? []
         if (!isIssued && !(draft?.items && draft.items.length > 0)) {
+          const balMethod = c.balance_payment_method ?? sa.balance_payment_method ?? c.payment_method ?? sa.payment_method ?? null
           const split = splitByStageMethod({
             total: supply + vat,
             deposit: Number(c.deposit ?? sa.deposit ?? 0),
             depMethod: c.deposit_payment_method ?? sa.deposit_payment_method ?? c.payment_method ?? sa.payment_method ?? null,
-            balMethod: c.balance_payment_method ?? sa.balance_payment_method ?? c.payment_method ?? sa.payment_method ?? null,
+            balMethod,
+            extras: extraParts,
           })
           if (split) {
             supply = split.supply
             vat = split.vat
             invoiceNote = split.note
             candidateMethod = split.method
+          } else {
+            // 나눌 필요 없는 건: 추가 결제를 시공 건 금액에 그대로 더한다
+            for (const e of extraParts) {
+              const a = calcAmounts(e.amount, e.method ?? balMethod)
+              supply += a.supply
+              vat += a.vat
+            }
+            if (extraParts.length > 0) {
+              invoiceNote = `추가 결제 ${extraParts.length}건 (${extraParts.reduce((s, e) => s + e.amount, 0).toLocaleString('ko-KR')}원) 포함`
+            }
           }
         }
 
