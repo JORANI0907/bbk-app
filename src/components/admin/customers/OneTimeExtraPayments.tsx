@@ -37,9 +37,16 @@ export function OneTimeExtraAmountPanel({ customerId, baseTotal }: AmountPanelPr
   const actions = useExtraBillingActions(customerId)
   const [modal, setModal] = useState<BillingDetailData | null>(null)
 
+  const hasExtra = sums.total > 0
+
   return (
-    <div className="pt-2 border-t border-border-subtle flex flex-col gap-2">
-      <div className="flex items-center justify-between gap-2">
+    <div className="pt-1 border-t border-border-subtle flex flex-col gap-2">
+      {/* 총액 — 기존 "공급가액 + 부가세" 총액을 대체. 추가 결제가 있으면 그만큼 더한 금액이 총액이다 */}
+      <div className="flex justify-between items-center text-xs">
+        <span className="text-text-secondary">총액 (공급가액 + 부가세{hasExtra ? ' + 추가 결제' : ''})</span>
+        <span className="font-bold text-text-primary">{fmtKrw(baseTotal + sums.total)}원</span>
+      </div>
+      <div className="flex items-center justify-between gap-2 pt-1 border-t border-border-subtle">
         <span className="text-xs font-semibold text-text-primary">추가 결제 {rows.length > 0 && <span className="text-text-tertiary font-normal">({rows.length}건)</span>}</span>
         <button
           type="button"
@@ -72,15 +79,9 @@ export function OneTimeExtraAmountPanel({ customerId, baseTotal }: AmountPanelPr
         )
       })}
       {rows.length > 0 && (
-        <div className="flex flex-col gap-1 text-xs pt-1 border-t border-border-subtle">
-          <div className="flex justify-between items-center">
-            <span className="text-text-secondary">추가 결제 합계{sums.pending > 0 && <span className="text-amber-600"> · 미결제 {fmtKrw(sums.pending)}원</span>}</span>
-            <span className="font-semibold text-text-primary">{fmtKrw(sums.total)}원</span>
-          </div>
-          <div className="flex justify-between items-center">
-            <span className="text-text-secondary">총 청구액 (총액 + 추가 결제)</span>
-            <span className="font-bold text-text-primary">{fmtKrw(baseTotal + sums.total)}원</span>
-          </div>
+        <div className="flex justify-between items-center text-xs">
+          <span className="text-text-secondary">추가 결제 합계{sums.pending > 0 && <span className="text-amber-600"> · 미결제 {fmtKrw(sums.pending)}원</span>}</span>
+          <span className="font-semibold text-text-primary">{fmtKrw(sums.total)}원</span>
         </div>
       )}
       <BillingDetailModal
