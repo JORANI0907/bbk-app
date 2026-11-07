@@ -144,6 +144,8 @@ interface Customer {
   // 2026-11-01: 예약금·잔금 단계별 실제 결제수단 (없으면 payment_method 로 표시)
   deposit_payment_method?: string | null
   balance_payment_method?: string | null
+  /** 2026-11-08: 1회성 추가 결제 합계 — 총액에 합산 (API 계산값) */
+  extra_total?: number | null
   billing_key: string | null
   virtual_account_number: string | null
   virtual_account_bank: string | null
@@ -1054,6 +1056,7 @@ export function CustomersManagementView({
           supply_amount: number | null
           vat: number | null
           payment_method: string | null
+          extra_total?: number | null
         }>
         let monthSum = 0
         let weekSum = 0
@@ -3615,7 +3618,8 @@ export function CustomersManagementView({
                         }
                         // Phase 10: 1회성 뷰 — 예전 서비스관리 스타일 컬럼
                         if (isOneTimeView) {
-                          const total = (Number(c.supply_amount) || 0) + (Number(c.vat) || 0)
+                          // 2026-11-08: 총액 = 공급가액 + 부가세 + 추가 결제
+                          const total = (Number(c.supply_amount) || 0) + (Number(c.vat) || 0) + (Number(c.extra_total) || 0)
                           const managerName = usersList.find(u => u.id === c.assigned_user_id)?.name
                           return (
                             <>
@@ -4513,18 +4517,20 @@ export function CustomersManagementView({
                         className="w-full border border-border rounded-lg px-2 py-1.5 text-xs bg-surface-sunken text-text-secondary cursor-default" />
                     </div>
                   </div>
-                  <div className="flex justify-between items-center text-xs pt-1 border-t border-border-subtle">
-                    <span className="text-text-secondary">총액 (공급가액 + 부가세)</span>
-                    <span className="font-bold text-text-primary">
-                      {((Number(form.supply_amount) || 0) + (isNoVatMethod(form.payment_method) ? 0 : (Number(form.vat) || 0))).toLocaleString('ko-KR')}원
-                    </span>
-                  </div>
-                  {/* 2026-11-08: 추가 결제 — 여기서 만들면 진행 흐름 섹션에도 같이 보인다 (저장된 고객만) */}
-                  {!isNew && selected?.id && !selected.id.startsWith('app:') && (
+                  {/* 2026-11-08: 총액 줄은 추가 결제 패널이 그린다 (공급가액 + 부가세 + 추가 결제).
+                      저장 전 신규 고객은 추가 결제를 만들 수 없으니 예전 총액 줄만 보여 준다. */}
+                  {!isNew && selected?.id && !selected.id.startsWith('app:') ? (
                     <OneTimeExtraAmountPanel
                       customerId={selected.id}
                       baseTotal={(Number(form.supply_amount) || 0) + (isNoVatMethod(form.payment_method) ? 0 : (Number(form.vat) || 0))}
                     />
+                  ) : (
+                    <div className="flex justify-between items-center text-xs pt-1 border-t border-border-subtle">
+                      <span className="text-text-secondary">총액 (공급가액 + 부가세)</span>
+                      <span className="font-bold text-text-primary">
+                        {((Number(form.supply_amount) || 0) + (isNoVatMethod(form.payment_method) ? 0 : (Number(form.vat) || 0))).toLocaleString('ko-KR')}원
+                      </span>
+                    </div>
                   )}
                 </div>
               </div>
