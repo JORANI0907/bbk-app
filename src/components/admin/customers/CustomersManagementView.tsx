@@ -7,6 +7,7 @@ import { useModalBackButton } from '@/hooks/useModalBackButton'
 import { MapSelectorModal } from '@/components/MapSelectorModal'
 import { BulkMonthlyScheduleNotifyModal } from './BulkMonthlyScheduleNotifyModal'
 import RegularProgressFlow from './RegularProgressFlow'
+import { OneTimeExtraPayments } from './OneTimeExtraPayments'
 import { BillingAutoScheduleSummary } from '@/components/admin/customers/BillingAutoScheduleSummary'
 import { toBillingMode, fromBillingMode, type BillingTrigger, type BillingMode } from '@/lib/billing-notify-policy'
 import { BillingKeyRegisterPanel } from '@/components/admin/customers/BillingKeyRegisterPanel'
@@ -5414,6 +5415,11 @@ export function CustomersManagementView({
                             </p>
                           </div>
                         </div>
+                        {connector}
+                        {/* 2026-11-08: 추가 결제 — 잔금 뒤·세금계산서 앞. service_billings(onetime·1회성케어) */}
+                        {selected?.id && !selected.id.startsWith('app:') && (
+                          <OneTimeExtraPayments customerId={selected.id} locked={infographicLocked} />
+                        )}
                         {connector}
 
                         {/* 5. 세금계산서발행 */}
