@@ -133,7 +133,45 @@ export async function GET(request: NextRequest) {
     }
   }
 
+  // 2026-11-08: 1회성 추가 결제 합계 → 리스트·캘린더 총액에 합산
+  if (apps.length > 0) {
+    const extraTotals = await loadExtraTotals(supabase, 'application_id', apps.map(a => a.id))
+    for (const app of apps) {
+      ;(app as Record<string, unknown>).extra_total = extraTotals.get(app.id) ?? 0
+    }
+  }
+
   return NextResponse.json({ applications: apps })
+}
+
+/**
+ * 2026-11-08: 1회성 추가 결제 합계 (service_billings onetime · 1회성케어 · 취소 제외)
+ *   keyCol 기준으로 묶어 돌려준다. 리스트·캘린더·금액정보의 "총액"은 공급가액+부가세에 이 값을 더한 금액이다.
+ */
+async function loadExtraTotals(
+  supabase: ReturnType<typeof createServiceClient>,
+  keyCol: 'application_id' | 'customer_id',
+  ids: string[],
+): Promise<Map<string, number>> {
+  const map = new Map<string, number>()
+  if (ids.length === 0) return map
+  try {
+    const { data } = await supabase
+      .from('service_billings')
+      .select(`${keyCol}, amount`)
+      .eq('billing_type', 'onetime')
+      .eq('service_type', '1회성케어')
+      .neq('status', 'cancelled')
+      .in(keyCol, ids)
+    for (const row of (data ?? []) as Array<Record<string, unknown>>) {
+      const key = row[keyCol] as string | null
+      if (!key) continue
+      map.set(key, (map.get(key) ?? 0) + Number(row.amount ?? 0))
+    }
+  } catch (e) {
+    console.error('[extra-total] 추가 결제 합계 조회 실패:', e instanceof Error ? e.message : e)
+  }
+  return map
 }
 
 export async function POST(request: NextRequest) {
