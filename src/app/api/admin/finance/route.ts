@@ -98,6 +98,9 @@ export async function GET(request: NextRequest) {
   // endCareRes 오류는 무시 (테이블이 없을 수도 있음)
 
   const apps = appsRes.data ?? []
+  // 2026-11-08: 1회성 추가 결제(service_billings onetime·결제완료)는 "원래 하던 대로" 그 시공 건 매출에 합산
+  //   → 시공일 기준 월에 잡히고, 공급가액/부가세는 그 건의 결제방법 기준으로 나눈다.
+  const extraByApp = await loadPaidExtraByApp(supabase, apps.map(a => a.id))
   const payrolls = payrollRes.data ?? []
   const fixedRecords = fixedRes.data ?? []
   const variableRecords = variableRes.data ?? []
@@ -116,15 +119,20 @@ export async function GET(request: NextRequest) {
       return true
     })
     .map(a => {
-      const total = (a.supply_amount ?? 0) + (isNoVat(a.payment_method) ? 0 : (a.vat ?? 0))
+      const noVat = isNoVat(a.payment_method)
+      const extra = extraByApp.get(a.id) ?? 0
+      const extraSupply = noVat ? extra : Math.round(extra / 1.1)
+      const extraVat = extra - extraSupply
+      const total = (a.supply_amount ?? 0) + (noVat ? 0 : (a.vat ?? 0)) + extra
       return {
         id: a.id,
         business_name: a.business_name,
-        supply_amount: a.supply_amount,
-        vat: a.vat,
+        supply_amount: (a.supply_amount ?? 0) + extraSupply,
+        vat: (a.vat ?? 0) + extraVat,
         payment_method: a.payment_method,
         service_type: a.service_type,
         construction_date: a.construction_date,
+        extra_total: extra,
         total,
       }
     })
@@ -247,6 +255,31 @@ export async function GET(request: NextRequest) {
       future:   { count: pendingFuture.length,  total: futureTotal,  items: pendingFuture  },
     },
   })
+}
+
+/** 신청서 id → 결제완료된 1회성 추가 결제 합계 (service_billings onetime · 1회성케어 · paid) */
+async function loadPaidExtraByApp(
+  supabase: ReturnType<typeof createServiceClient>,
+  appIds: string[],
+): Promise<Map<string, number>> {
+  const map = new Map<string, number>()
+  if (appIds.length === 0) return map
+  try {
+    const { data } = await supabase
+      .from('service_billings')
+      .select('application_id, amount')
+      .eq('billing_type', 'onetime')
+      .eq('service_type', '1회성케어')
+      .eq('status', 'paid')
+      .in('application_id', appIds)
+    for (const row of (data ?? []) as Array<{ application_id: string | null; amount: number | null }>) {
+      if (!row.application_id) continue
+      map.set(row.application_id, (map.get(row.application_id) ?? 0) + Number(row.amount ?? 0))
+    }
+  } catch (e) {
+    console.error('[finance] 1회성 추가 결제 합산 실패:', e instanceof Error ? e.message : e)
+  }
+  return map
 }
 
 // POST /api/admin/finance — 고정비/변동비 항목 추가
