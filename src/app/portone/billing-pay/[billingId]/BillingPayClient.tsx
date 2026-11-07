@@ -52,6 +52,9 @@ interface BillingData {
   paidDate: string | null
   status: string
   paymentPortoneId: string | null
+  /** 2026-11-08: 청구 내용 메모 (1회성 추가 결제는 이 문구가 제목이 된다) */
+  notes?: string | null
+  serviceType?: string | null
 }
 
 export interface BillingPayCustomer {
@@ -94,7 +97,13 @@ function periodLabel(period: string): string {
 function serviceLabel(t: string | null): string {
   if (t === '정기딥케어') return '정기 딥케어'
   if (t === '정기엔드케어') return '정기 엔드케어'
+  if (t === '1회성케어') return '1회성 케어 추가 결제'
   return '정기 서비스'
+}
+
+/** 1회성 추가 결제 청구서인지 — 제목·결제수단(자동결제 제외)이 달라진다 */
+function isExtraBilling(billing: BillingData, customerType: string | null): boolean {
+  return billing.billingType === 'onetime' && (billing.serviceType === '1회성케어' || customerType === '1회성케어')
 }
 
 /** 합계에서 공급가액·부가세 역산 (부가세 포함 결제수단일 때만) */
@@ -142,7 +151,12 @@ export function BillingPayClient({ billing, customer, adminPreview = false }: Pr
   const [copied, setCopied] = useState(false)
   const redirectHandled = useRef(false)
 
-  const totalLabel = `${periodLabel(billing.billingPeriod)} ${serviceLabel(customer.customerType)} 결제`
+  const extra = isExtraBilling(billing, customer.customerType)
+  const totalLabel = extra
+    ? `추가 결제${billing.notes ? ` · ${billing.notes}` : ''}`
+    : `${periodLabel(billing.billingPeriod)} ${serviceLabel(customer.customerType)} 결제`
+  const kicker = extra ? 'BBK 공간케어 · 추가 결제' : 'BBK 공간케어 · 정기 서비스 결제'
+  const methods = METHODS.filter(m => !(AUTOPAY_HIDDEN && m.key === 'autopay') && !(extra && m.key === 'autopay'))
   const { supply, vat, taxable } = splitVat(billing.amount, customer.paymentMethod)
   const isCashMethod = normalizePaymentMethod(customer.paymentMethod) === 'cash_untaxed'
 
@@ -427,7 +441,7 @@ export function BillingPayClient({ billing, customer, adminPreview = false }: Pr
   // ═══════════════════════════════════════════════════
   if (paid) {
     return (
-      <Shell kicker="BBK 공간케어 · 정기 서비스 결제" businessName={customer.businessName} subtitle={totalLabel} tone="done">
+      <Shell kicker={kicker} businessName={customer.businessName} subtitle={totalLabel} tone="done">
         <Section delay={0}>
           <div className="flex flex-col items-center text-center gap-3 pt-2">
             <span className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-state-success-bg text-state-success">
@@ -468,7 +482,7 @@ export function BillingPayClient({ billing, customer, adminPreview = false }: Pr
   // ═══════════════════════════════════════════════════
   if (issuedAccount) {
     return (
-      <Shell kicker="BBK 공간케어 · 정기 서비스 결제" businessName={customer.businessName} subtitle={totalLabel}>
+      <Shell kicker={kicker} businessName={customer.businessName} subtitle={totalLabel}>
         <Section delay={0}>
           <h1 className="text-lg font-semibold text-text-primary leading-snug">입금 전용 계좌가 발급되었습니다</h1>
           <p className="mt-1 text-sm text-text-secondary leading-normal break-keep">
@@ -529,14 +543,16 @@ export function BillingPayClient({ billing, customer, adminPreview = false }: Pr
     : `카드 등록하고 ${won(billing.amount)} 결제`
 
   return (
-    <Shell kicker="BBK 공간케어 · 정기 서비스 결제" businessName={customer.businessName} subtitle={totalLabel}>
+    <Shell kicker={kicker} businessName={customer.businessName} subtitle={totalLabel}>
       {adminPreview && <AdminPreviewBanner />}
 
       {/* 청구 내역 */}
       <Section delay={0} title="청구 내역">
         <dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-2 text-sm">
           <Row k="서비스" v={serviceLabel(customer.customerType)} />
-          <Row k="청구 기간" v={periodLabel(billing.billingPeriod)} />
+          {extra
+            ? <Row k="내용" v={billing.notes || '추가 결제'} />
+            : <Row k="청구 기간" v={periodLabel(billing.billingPeriod)} />}
         </dl>
         <div className="mt-4 rounded-xl border border-border-subtle bg-surface-sunken px-4 py-3 space-y-2">
           <div className="flex items-baseline justify-between text-sm">
@@ -558,7 +574,7 @@ export function BillingPayClient({ billing, customer, adminPreview = false }: Pr
       {/* 결제 방법 */}
       <Section delay={1} title="결제 방법">
         <div className="space-y-2" role="radiogroup" aria-label="결제 방법">
-          {METHODS.filter(m => !(AUTOPAY_HIDDEN && m.key === 'autopay')).map(({ key, title, desc, Icon }) => {
+          {methods.map(({ key, title, desc, Icon }) => {
             const selected = method === key
             const disabled = key === 'autopay' && (alreadyHasKey || !customer.id)
             return (
