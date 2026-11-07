@@ -52,6 +52,8 @@ interface Application {
   parking: string | null
   payment_method: string | null
   account_number: string | null
+  /** 2026-11-08: 1회성 추가 결제 합계 (API 계산값) — 총액에 합산 */
+  extra_total?: number | null
   request_notes: string | null
   admin_request_notes: string | null
   status: ApplicationStatus
@@ -175,8 +177,9 @@ const fmtDate = (d: string | null) => d ? d.slice(0, 10).replace(/-/g, '.') : '-
 const isNoVatMethod = (method: string | null | undefined): boolean =>
   !!method && (method.includes('비과세') || method.includes('미희망') || method === '현금(부가세 X)')
 
+// 2026-11-08: 총액 = 공급가액 + 부가세 + 추가 결제(1회성)
 const rowTotal = (app: Application) => {
-  return (app.supply_amount ?? 0) + (isNoVatMethod(app.payment_method) ? 0 : (app.vat ?? 0))
+  return (app.supply_amount ?? 0) + (isNoVatMethod(app.payment_method) ? 0 : (app.vat ?? 0)) + Number(app.extra_total ?? 0)
 }
 
 // 서비스 유형 → 짧은 배지 라벨 (알림 이력 옆에 병기)
