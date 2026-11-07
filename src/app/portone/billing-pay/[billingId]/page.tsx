@@ -30,7 +30,7 @@ export default async function BillingPayPage({ params }: Props) {
 
   const { data: billing } = await supabase
     .from('service_billings')
-    .select('id, customer_id, billing_type, billing_period, amount, due_date, paid_date, status, payment_url, payment_portone_id')
+    .select('id, customer_id, billing_type, billing_period, amount, due_date, paid_date, status, payment_url, payment_portone_id, notes, service_type')
     .eq('id', billingId)
     .maybeSingle()
 
@@ -77,6 +77,8 @@ export default async function BillingPayPage({ params }: Props) {
         paidDate: (billing.paid_date as string | null) ?? null,
         status: (billing.status as string) ?? 'pending',
         paymentPortoneId: (billing.payment_portone_id as string | null) ?? null,
+        notes: (billing.notes as string | null) ?? null,
+        serviceType: (billing.service_type as string | null) ?? null,
       }}
       customer={customer}
       adminPreview={adminPreview}
