@@ -3,7 +3,8 @@ import { createServiceClient } from '@/lib/supabase/server'
 import { createAuthUser, updateAuthUserEmailAndPassword, updateAuthUserEmail, customerEmail } from '@/lib/auth-helpers'
 import { generateBillingSchedule, computeBillingAmountFromCustomer, shouldAutoGenerateBillings } from '@/lib/billing-generator'
 import { getServerSession } from '@/lib/session'
-import { translateDbError } from '@/lib/db-error-translator'
+import { translateDbError } from '@/lib/db-error-translator'
+
 
 /** 요일별(weekday_assignments)·일자별(monthly_date_assignments) 담당자·작업자 배정표에 값이 하나라도 있는지 */
 function hasRoleAssignmentMap(customer: { weekday_assignments?: unknown; monthly_date_assignments?: unknown }): boolean {
@@ -364,6 +365,15 @@ export async function GET(request: NextRequest) {
     }
   }
 
+  // 2026-11-08: 1회성 추가 결제 합계 → 고객 목록 "총액" 칸에 합산
+  const oneTimeIds = customers.filter(c => c.customer_type === '1회성케어').map(c => c.id)
+  if (oneTimeIds.length > 0) {
+    const extraTotals = await loadExtraTotals(supabase, 'customer_id', oneTimeIds)
+    for (const c of customers) {
+      if (c.customer_type === '1회성케어') (c as Record<string, unknown>).extra_total = extraTotals.get(c.id) ?? 0
+    }
+  }
+
   // 페이지네이션 응답: total/hasMore 포함. 아니면 기존 형식 유지 (하위호환)
   if (paginationMode) {
     const total = count ?? 0
@@ -371,6 +381,36 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ customers, total, page, limit, hasMore })
   }
   return NextResponse.json({ customers })
+}
+
+/**
+ * 2026-11-08: 1회성 추가 결제 합계 (service_billings onetime · 1회성케어 · 취소 제외)
+ *   keyCol 기준으로 묶어 돌려준다. 리스트·캘린더·금액정보의 "총액"은 공급가액+부가세에 이 값을 더한 금액이다.
+ */
+async function loadExtraTotals(
+  supabase: ReturnType<typeof createServiceClient>,
+  keyCol: 'application_id' | 'customer_id',
+  ids: string[],
+): Promise<Map<string, number>> {
+  const map = new Map<string, number>()
+  if (ids.length === 0) return map
+  try {
+    const { data } = await supabase
+      .from('service_billings')
+      .select(`${keyCol}, amount`)
+      .eq('billing_type', 'onetime')
+      .eq('service_type', '1회성케어')
+      .neq('status', 'cancelled')
+      .in(keyCol, ids)
+    for (const row of (data ?? []) as Array<Record<string, unknown>>) {
+      const key = row[keyCol] as string | null
+      if (!key) continue
+      map.set(key, (map.get(key) ?? 0) + Number(row.amount ?? 0))
+    }
+  } catch (e) {
+    console.error('[extra-total] 추가 결제 합계 조회 실패:', e instanceof Error ? e.message : e)
+  }
+  return map
 }
 
 export async function POST(request: NextRequest) {
