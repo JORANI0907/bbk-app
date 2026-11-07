@@ -7,7 +7,7 @@ import { useModalBackButton } from '@/hooks/useModalBackButton'
 import { MapSelectorModal } from '@/components/MapSelectorModal'
 import { BulkMonthlyScheduleNotifyModal } from './BulkMonthlyScheduleNotifyModal'
 import RegularProgressFlow from './RegularProgressFlow'
-import { OneTimeExtraPayments } from './OneTimeExtraPayments'
+import { OneTimeExtraPayments, OneTimeExtraAmountPanel } from './OneTimeExtraPayments'
 import { BillingAutoScheduleSummary } from '@/components/admin/customers/BillingAutoScheduleSummary'
 import { toBillingMode, fromBillingMode, type BillingTrigger, type BillingMode } from '@/lib/billing-notify-policy'
 import { BillingKeyRegisterPanel } from '@/components/admin/customers/BillingKeyRegisterPanel'
@@ -4519,6 +4519,13 @@ export function CustomersManagementView({
                       {((Number(form.supply_amount) || 0) + (isNoVatMethod(form.payment_method) ? 0 : (Number(form.vat) || 0))).toLocaleString('ko-KR')}원
                     </span>
                   </div>
+                  {/* 2026-11-08: 추가 결제 — 여기서 만들면 진행 흐름 섹션에도 같이 보인다 (저장된 고객만) */}
+                  {!isNew && selected?.id && !selected.id.startsWith('app:') && (
+                    <OneTimeExtraAmountPanel
+                      customerId={selected.id}
+                      baseTotal={(Number(form.supply_amount) || 0) + (isNoVatMethod(form.payment_method) ? 0 : (Number(form.vat) || 0))}
+                    />
+                  )}
                 </div>
               </div>
             )}
