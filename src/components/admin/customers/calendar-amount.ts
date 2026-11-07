@@ -14,6 +14,8 @@ export interface AmountApp {
   supply_amount?: number | null
   vat?: number | null
   payment_method?: string | null
+  /** 2026-11-08: 1회성 추가 결제 합계 (API 가 service_billings 에서 계산해 붙여 줌) */
+  extra_total?: number | null
 }
 
 /** 부가세 미적용 결제 방법 판별 (서비스관리 로직과 동일) */
@@ -34,10 +36,12 @@ export function computeAppAmount(app: AmountApp): number {
   if (app.service_type === '일반일정') return 0
 
   const supply = Number(app.supply_amount ?? 0)
-  if (supply <= 0) return 0
+  const extra = Number(app.extra_total ?? 0)
+  if (supply <= 0 && extra <= 0) return 0
 
-  const vat = isNoVatMethod(app.payment_method) ? 0 : Number(app.vat ?? 0)
-  return supply + vat
+  const vat = supply > 0 && !isNoVatMethod(app.payment_method) ? Number(app.vat ?? 0) : 0
+  // 2026-11-08: 총액 = 공급가액 + 부가세 + 추가 결제 (추가 결제는 부가세 포함 금액으로 저장됨)
+  return supply + vat + extra
 }
 
 /** 금액 → "333,000원" 풀 표기 */
