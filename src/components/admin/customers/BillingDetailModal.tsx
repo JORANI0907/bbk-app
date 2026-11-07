@@ -25,6 +25,8 @@ export interface BillingDetailData {
   taxInvoiceIssued: boolean
   // Phase H.5-rev: 결제 링크 (Phase H.1 자동 생성 전엔 비어있을 수 있음)
   paymentUrl?: string
+  /** 2026-11-08: 청구 내용 메모 — 1회성 추가 결제 문자의 {{추가결제내용}} 에 들어간다 */
+  notes?: string
 }
 
 interface Props {
@@ -86,6 +88,7 @@ export function BillingDetailModal({ open, onClose, data, onSave, onDelete, onCr
           paidDate: form.paidDate,
           status: form.status,
           taxInvoiceIssued: form.taxInvoiceIssued,
+          notes: form.notes,
         })
         toast.success('추가되었습니다')
       } else {
@@ -104,6 +107,7 @@ export function BillingDetailModal({ open, onClose, data, onSave, onDelete, onCr
             ? (form.paidDate || todayIso())
             : null,
           payment_url: form.paymentUrl || null,
+          notes: form.notes?.trim() || null,
         })
         toast.success('저장되었습니다')
       }
@@ -185,9 +189,12 @@ export function BillingDetailModal({ open, onClose, data, onSave, onDelete, onCr
   }
 
   const typeLabel = TYPE_LABEL[form.billingType] ?? form.billingType
-  const title = isCreateMode
-    ? `➕ ${typeLabel} 결제 추가 · ${form.billingPeriod}`
-    : `💰 ${typeLabel} 결제 · ${form.billingPeriod}`
+  const isExtra = form.billingType === 'onetime'
+  const title = isExtra
+    ? (isCreateMode ? '➕ 추가 결제 등록' : `💰 추가 결제 · ${form.billingPeriod}`)
+    : isCreateMode
+      ? `➕ ${typeLabel} 결제 추가 · ${form.billingPeriod}`
+      : `💰 ${typeLabel} 결제 · ${form.billingPeriod}`
 
   return (
     <div
@@ -229,6 +236,16 @@ export function BillingDetailModal({ open, onClose, data, onSave, onDelete, onCr
 
         {/* 폼 */}
         <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
+          <Field label={isExtra ? '내용 (고객 문자에 그대로 들어갑니다)' : '메모'}>
+            <input
+              type="text"
+              value={form.notes ?? ''}
+              onChange={e => update({ notes: e.target.value })}
+              disabled={saving}
+              placeholder={isExtra ? '예: 에어컨 2대 추가 세척' : '선택 입력'}
+              className="w-full border border-gray-300 rounded-md px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-200"
+            />
+          </Field>
           <div className="grid grid-cols-2 gap-3">
             <Field label="금액 (원)">
               <input
