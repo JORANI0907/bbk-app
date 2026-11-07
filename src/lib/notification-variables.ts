@@ -130,6 +130,13 @@ export interface NotificationContext {
     request_notes?: string | null
     customer_memo?: string | null
   } | null
+  /** 2026-11-08: 1회성 추가 결제 청구서(service_billings) — 추가결제알림 템플릿 전용 */
+  billing?: {
+    amount?: number | null
+    notes?: string | null
+    due_date?: string | null
+    payment_url?: string | null
+  } | null
   /** 이번달 일정(service_schedules) — 회차별 시공/결제 정보 */
   schedule?: {
     scheduled_date?: string | null
@@ -393,6 +400,20 @@ export const AVAILABLE_VARIABLES: VariableDef[] = [
   { label: '가상계좌번호', category: '결제정보', scope: 'application', appliesTo: TAB_ONESHOT_MONTHLY,
     desc: '입금 전용 가상계좌 번호',
     resolve: (c) => c.application?.virtual_account_number ?? '' },
+
+  // 2026-11-08: 1회성 추가 결제 (service_billings 1건) — 추가결제알림_1회성 템플릿에서 사용
+  { label: '추가결제금액', category: '결제정보', scope: 'application', appliesTo: ['1회성케어'],
+    desc: '추가 결제 청구 금액 (잔금과 별개)',
+    resolve: (c) => fmtMoney(c.billing?.amount) },
+  { label: '추가결제내용', category: '결제정보', scope: 'application', appliesTo: ['1회성케어'],
+    desc: '추가 결제 내용 (예: 에어컨 2대 추가)',
+    resolve: (c) => c.billing?.notes ?? '' },
+  { label: '추가결제기한', category: '결제정보', scope: 'application', appliesTo: ['1회성케어'],
+    desc: '추가 결제 예정일',
+    resolve: (c) => fmtDate(c.billing?.due_date) },
+  { label: '추가결제URL', category: '결제정보', scope: 'application', appliesTo: ['1회성케어'],
+    desc: '추가 결제 전용 결제 링크 (카드·가상계좌)',
+    resolve: (c) => c.billing?.payment_url ?? '' },
 
   // ══════ 계약정보 (정기케어 전용) ══════
   { label: '계약금액', category: '계약정보', scope: 'customer', appliesTo: TAB_RECURRING,
