@@ -16,12 +16,17 @@ const NO_CACHE_HEADERS = {
 
 /**
  * GET: 저장된 값을 v2 로 변환해 돌려준다 (manual). 옛 호출부 호환으로 raw 값도 sections 에 담는다.
+ *   2026-11-08: 관리자·직원 세션 필수 (미들웨어가 /api/admin 을 통과시키므로 여기서 막는다).
  */
 export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const session = getServerSession()
+    if (!session || !['admin', 'worker'].includes(session.role)) {
+      return NextResponse.json({ error: '권한 없음' }, { status: 403, headers: NO_CACHE_HEADERS })
+    }
     const { id } = await params
     const supabase = createServiceClient()
     const { data, error } = await supabase
