@@ -144,11 +144,12 @@ export async function GET(request: NextRequest) {
     let insertedApps: Array<{ id: string; assigned_to: string | null; construction_date: string; business_hours_start?: string | null; business_hours_end?: string | null }> | null = null
 
     if (!dryRun) {
-      // service_applications 중복 확인 (업체명 + 방문일자 기준)
+      // service_applications 중복 확인 (customer_id 또는 업체명 + 방문일자 기준)
+      //   2026-11-09: 업체명만 보면 고객 이름을 바꾼 뒤 옛 이름의 신청서를 못 찾아 같은 날 일정이 두 번 생긴다 → id 를 함께 본다
       const { data: existingApps } = await supabase
         .from('service_applications')
         .select('construction_date')
-        .eq('business_name', customer.business_name)
+        .or(`customer_id.eq.${customer.id},business_name.eq.${JSON.stringify(customer.business_name)}`)
         .in('construction_date', dates)
         .is('deleted_at', null)
 
