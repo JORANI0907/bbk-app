@@ -1,7 +1,7 @@
 'use client'
 
 /**
- * 작업 항목 하나의 펼친 편집 폼
+ * 품목 하나의 펼친 편집 폼
  *   제목 · 작업 지시(자동으로 늘어나는 메모장) · 주의사항(선택) · 빈도 칩 · 사진 여러 장 · 다른 구역으로 이동
  */
 
@@ -55,7 +55,7 @@ export function ItemEditor({ item, zones, currentZoneId, uploading, onChange, on
           />
         </Field>
 
-        <Field label="주의사항" hint="선택 · 빨간 띠로 따로 표시됩니다">
+        <Field label="주의사항" hint="선택 · 고객 화면에 빨간 글자로 표시됩니다">
           <div className="flex items-start gap-2">
             <AlertTriangle size={16} className="mt-2.5 shrink-0 text-rose-400" />
             <textarea

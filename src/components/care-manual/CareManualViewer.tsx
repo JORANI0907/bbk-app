@@ -7,11 +7,18 @@
  */
 
 import { useEffect, useMemo, useState } from 'react'
-import { AlertTriangle, Bell, BookOpen, ChevronDown, Maximize2, X } from 'lucide-react'
-import type { CareManualV2, CareManualItemV2, CareManualZoneV2, ManualUpdate } from '@/types/care-manual'
+import { AlertTriangle, Bell, BookOpen, CheckCircle2, ChevronDown, Loader2, Maximize2, X } from 'lucide-react'
+import type { CareManualV2, CareManualItemV2, CareManualZoneV2, Frequency, ManualUpdate, MarkerRef } from '@/types/care-manual'
 import { isManualEmpty } from '@/types/care-manual'
+import type { CheckStatus, ItemStatus, LatestChecks } from '@/lib/care-manual-status'
+import { fmtCheckDate } from '@/lib/care-manual-status'
 import { ZONE_THEME, FREQUENCY_LABEL } from './zone-theme'
+import { StatusChip } from './space/StatusChip'
+import { MarkerRefList } from './space/MarkerRefList'
 import styles from './care-manual.module.css'
+
+/** 직원 점검 입력 — 완료(ok) 또는 특이사항(issue, 메모 필수) */
+export type CheckHandler = (item: CareManualItemV2, zoneId: string, status: CheckStatus, memo: string) => Promise<void>
 
 interface Props {
   manual: CareManualV2
@@ -20,16 +27,53 @@ interface Props {
   /** 비어 있을 때 보여줄 문구 */
   emptyText?: string
   emptyHint?: string
+  /** 품목별 관리 상태 (있으면 상태 칩 표시) */
+  statuses?: Record<string, ItemStatus>
+  /** 품목별 최신 점검 1건 */
+  latest?: LatestChecks
+  /** 바깥에서 탭을 정하고 싶을 때 (공간 보기와 동기화) */
+  activeZoneId?: string | null
+  onActiveZoneChange?: (zoneId: string) => void
+  /** 이 품목으로 스크롤 + 강조. focusKey 가 바뀔 때마다 다시 */
+  focusItemId?: string | null
+  focusKey?: number
+  /** 있으면 직원 점검 버튼(완료·특이사항)이 붙는다 */
+  onCheck?: CheckHandler
+  /** 품목 → 사진 위 표시. onShowMarker 가 있으면 [사진에서 보기] 가 붙는다 */
+  markerIndex?: Record<string, MarkerRef[]>
+  onShowMarker?: (ref: MarkerRef) => void
 }
 
-export function CareManualViewer({ manual, bottomTabs = false, emptyText = '케어매뉴얼이 아직 준비되지 않았습니다', emptyHint = '담당자에게 문의해주세요.' }: Props) {
+export function CareManualViewer({
+  manual, bottomTabs = false, emptyText = '케어매뉴얼이 아직 준비되지 않았습니다', emptyHint = '담당자에게 문의해주세요.',
+  statuses, latest, activeZoneId, onActiveZoneChange, focusItemId = null, focusKey = 0, onCheck, markerIndex, onShowMarker,
+}: Props) {
   const zones = manual.zones
-  const [activeId, setActiveId] = useState<string | null>(zones[0]?.id ?? null)
+  const [innerActiveId, setInnerActiveId] = useState<string | null>(zones[0]?.id ?? null)
+  const activeId = activeZoneId !== undefined ? activeZoneId : innerActiveId
+  const setActiveId = (id: string | null) => { setInnerActiveId(id); if (id && onActiveZoneChange) onActiveZoneChange(id) }
   const [lightbox, setLightbox] = useState<string | null>(null)
+  const [highlightId, setHighlightId] = useState<string | null>(null)
+  /** 주기 필터 — 'all' 이면 전부, 'none' 이면 주기 미지정만 (2026-11-09) */
+  const [freq, setFreq] = useState<FreqFilter>('all')
+  const freqCounts = useMemo(() => countByFrequency(zones), [zones])
   useEffect(() => {
-    if (!zones.some(z => z.id === activeId)) setActiveId(zones[0]?.id ?? null)
-  }, [zones, activeId])
+    if (activeZoneId === undefined && !zones.some(z => z.id === innerActiveId)) setInnerActiveId(zones[0]?.id ?? null)
+  }, [zones, innerActiveId, activeZoneId])
   const active = useMemo(() => zones.find(z => z.id === activeId) ?? zones[0] ?? null, [zones, activeId])
+
+  // 공간 보기에서 "메뉴얼에서 보기" → 해당 구역 탭으로 바꾸고 품목까지 스크롤
+  useEffect(() => {
+    if (!focusItemId) return
+    const zone = zones.find(z => z.groups.some(g => g.items.some(i => i.id === focusItemId)))
+    if (zone && zone.id !== activeId) setActiveId(zone.id)
+    setFreq('all')
+    setHighlightId(focusItemId)
+    const t = setTimeout(() => document.getElementById(`cm-item-${focusItemId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 80)
+    const t2 = setTimeout(() => setHighlightId(null), 2600)
+    return () => { clearTimeout(t); clearTimeout(t2) }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusItemId, focusKey])
 
   if (isManualEmpty(manual) || !active) {
     return (
@@ -47,7 +91,8 @@ export function CareManualViewer({ manual, bottomTabs = false, emptyText = '케�
     <div className={`flex flex-col gap-4 ${bottomTabs ? 'pb-20' : ''}`}>
       <UpdatesNotice updates={manual.updates ?? []} zones={zones} onSelectZone={setActiveId} />
       {!bottomTabs && tabs}
-      <ZonePanel key={active.id} zone={active} onImage={setLightbox} />
+      <FrequencyFilter value={freq} counts={freqCounts} onChange={setFreq} />
+      <ZonePanel key={active.id} zone={active} filter={freq} onImage={setLightbox} statuses={statuses} latest={latest} highlightId={highlightId} onCheck={onCheck} markerIndex={markerIndex} onShowMarker={onShowMarker} />
       {bottomTabs && (
         <div className={`fixed inset-x-0 bottom-0 z-30 border-t border-border-subtle bg-surface/95 backdrop-blur px-3 py-2 ${styles.bottomTabs}`}>
           {tabs}
@@ -114,14 +159,17 @@ export function UpdatesNotice({ updates, zones, onSelectZone, onDismiss }: {
 }
 
 // ─── 탭 ───────────────────────────────────────────────────────────
-export function ZoneTabs({ zones, activeId, onSelect, trailing }: {
+export function ZoneTabs({ zones, activeId, onSelect, trailing, showLabel = true }: {
   zones: CareManualZoneV2[]
   activeId: string
   onSelect: (id: string) => void
   trailing?: React.ReactNode
+  /** 앞에 "구역" 꼬리표 (상위 단계인 보기 모드와 구분) */
+  showLabel?: boolean
 }) {
   return (
     <div className="flex items-center gap-1.5 overflow-x-auto pb-1 -mx-1 px-1" role="tablist">
+      {showLabel && <span className="mr-0.5 shrink-0 text-[11px] font-semibold tracking-wide text-text-tertiary">구역</span>}
       {zones.map(z => {
         const t = ZONE_THEME[z.color]
         const selected = z.id === activeId
@@ -132,7 +180,7 @@ export function ZoneTabs({ zones, activeId, onSelect, trailing }: {
             role="tab"
             aria-selected={selected}
             onClick={() => onSelect(z.id)}
-            className={`shrink-0 inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-sm font-semibold transition-colors duration-150 ${
+            className={`shrink-0 inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors duration-150 ${
               selected ? t.tabActive : `text-text-secondary ${t.tabHover}`
             }`}
           >
@@ -147,12 +195,65 @@ export function ZoneTabs({ zones, activeId, onSelect, trailing }: {
 }
 
 // ─── 구역 패널 ─────────────────────────────────────────────────────
-function ZonePanel({ zone, onImage }: { zone: CareManualZoneV2; onImage: (url: string) => void }) {
+// ─── 주기 필터 (2026-11-09) ────────────────────────────────────────
+export type FreqFilter = 'all' | Frequency | 'none'
+const FREQ_FILTER_ORDER: FreqFilter[] = ['all', 'every', 'weekly', 'biweekly', 'monthly', 'none']
+const FREQ_FILTER_LABEL: Record<FreqFilter, string> = { all: '전체', ...FREQUENCY_LABEL, none: '주기 없음' } as Record<FreqFilter, string>
+
+function matchesFrequency(item: CareManualItemV2, f: FreqFilter): boolean {
+  if (f === 'all') return true
+  if (f === 'none') return !item.frequency
+  return item.frequency === f
+}
+
+/** 전체 구역 기준 주기별 품목 수 — 칩 옆 숫자용 */
+function countByFrequency(zones: CareManualZoneV2[]): Record<FreqFilter, number> {
+  const c: Record<FreqFilter, number> = { all: 0, every: 0, weekly: 0, biweekly: 0, monthly: 0, none: 0 }
+  for (const z of zones) for (const g of z.groups) for (const i of g.items) {
+    c.all += 1
+    if (i.frequency && i.frequency in c) c[i.frequency] += 1
+    else c.none += 1
+  }
+  return c
+}
+
+function FrequencyFilter({ value, counts, onChange }: { value: FreqFilter; counts: Record<FreqFilter, number>; onChange: (f: FreqFilter) => void }) {
+  // 품목이 하나도 없는 주기는 칩을 만들지 않는다 (전체는 항상)
+  const visible = FREQ_FILTER_ORDER.filter(f => f === 'all' || counts[f] > 0)
+  if (visible.length <= 2) return null
+  return (
+    <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5" role="tablist" aria-label="주기별 보기">
+      <span className="shrink-0 text-xs font-semibold text-text-tertiary">주기</span>
+      {visible.map(f => {
+        const on = value === f
+        return (
+          <button
+            key={f} type="button" role="tab" aria-selected={on} onClick={() => onChange(f)}
+            className={`inline-flex min-h-[36px] shrink-0 items-center gap-1 rounded-full border px-3 text-xs font-semibold transition-colors ${on ? 'border-brand-600 bg-brand-600 text-white' : 'border-border bg-surface text-text-secondary hover:border-brand-300 hover:text-brand-700'}`}
+          >
+            {FREQ_FILTER_LABEL[f]}
+            <span className={`rounded-full px-1.5 text-[11px] ${on ? 'bg-white/20' : 'bg-surface-sunken text-text-tertiary'}`}>{counts[f]}</span>
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
+function ZonePanel({ zone, filter, onImage, statuses, latest, highlightId, onCheck, markerIndex, onShowMarker }: {
+  zone: CareManualZoneV2; filter: FreqFilter; onImage: (url: string) => void
+  statuses?: Record<string, ItemStatus>; latest?: LatestChecks; highlightId: string | null; onCheck?: CheckHandler
+  markerIndex?: Record<string, MarkerRef[]>; onShowMarker?: (ref: MarkerRef) => void
+}) {
   const t = ZONE_THEME[zone.color]
   let n = 0
+  // 주기 필터 — 맞는 품목이 하나도 없는 묶음은 통째로 숨긴다
+  const groups = zone.groups
+    .map(g => ({ ...g, items: g.items.filter(i => matchesFrequency(i, filter)) }))
+    .filter(g => g.items.length > 0)
   return (
     <div className="flex flex-col gap-4">
-      {zone.groups.map((g, gi) => (
+      {groups.map((g, gi) => (
         <section
           key={g.id}
           className={`${styles.reveal} relative overflow-hidden rounded-2xl border border-border-subtle bg-surface shadow-soft`}
@@ -160,13 +261,21 @@ function ZonePanel({ zone, onImage }: { zone: CareManualZoneV2; onImage: (url: s
         >
           <span className={`absolute inset-y-0 left-0 w-1.5 ${t.bar}`} aria-hidden />
           <header className="pl-6 pr-5 pt-4 pb-3">
-            <h2 className="text-base font-bold text-text-primary leading-snug break-keep">{g.title || '제목 없는 작업 묶음'}</h2>
+            <h2 className="text-base font-bold text-text-primary leading-snug break-keep">{g.title || '이름 없는 작업 묶음'}</h2>
             {g.summary && <p className="mt-0.5 text-sm text-text-secondary break-keep">{g.summary}</p>}
           </header>
           <ol className="divide-y divide-border-subtle">
             {g.items.map(item => {
               n += 1
-              return <ViewItem key={item.id} item={item} index={n} badge={t.badge} onImage={onImage} />
+              return (
+                <ViewItem
+                  key={item.id} item={item} index={n} badge={t.badge} onImage={onImage}
+                  status={statuses?.[item.id]} latest={latest?.[item.id]} highlighted={highlightId === item.id}
+                  onCheck={onCheck ? (status, memo) => onCheck(item, zone.id, status, memo) : undefined}
+                  markerRefs={markerIndex?.[item.id] ?? []}
+                  onShowMarker={onShowMarker}
+                />
+              )
             })}
           </ol>
         </section>
@@ -174,29 +283,40 @@ function ZonePanel({ zone, onImage }: { zone: CareManualZoneV2; onImage: (url: s
       {zone.groups.length === 0 && (
         <p className="text-sm text-text-tertiary text-center py-10">이 구역에는 아직 작업이 없습니다.</p>
       )}
+      {zone.groups.length > 0 && groups.length === 0 && (
+        <p className="text-sm text-text-tertiary text-center py-10 break-keep">이 구역에는 &ldquo;{FREQ_FILTER_LABEL[filter]}&rdquo; 품목이 없습니다. 다른 구역 탭을 눌러 보세요.</p>
+      )}
     </div>
   )
 }
 
-function ViewItem({ item, index, badge, onImage }: { item: CareManualItemV2; index: number; badge: string; onImage: (url: string) => void }) {
+function ViewItem({ item, index, badge, onImage, status, latest, highlighted, onCheck, markerRefs = [], onShowMarker }: {
+  item: CareManualItemV2; index: number; badge: string; onImage: (url: string) => void
+  status?: ItemStatus; latest?: LatestChecks[string]; highlighted: boolean
+  onCheck?: (status: CheckStatus, memo: string) => Promise<void>
+  markerRefs?: MarkerRef[]; onShowMarker?: (ref: MarkerRef) => void
+}) {
   return (
-    <li className="pl-6 pr-5 py-4 flex gap-3">
+    <li id={`cm-item-${item.id}`} className={`pl-6 pr-5 py-4 flex gap-3 transition-colors ${highlighted ? styles.focusPulse : ''}`}>
       <span className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold tabular-nums ${badge}`}>{index}</span>
       <div className="min-w-0 flex-1 space-y-2">
         <div className="flex flex-wrap items-center gap-2">
-          <h3 className="text-base font-semibold text-text-primary leading-snug break-keep">{item.title || '제목 없는 작업'}</h3>
+          <h3 className="text-base font-semibold text-text-primary leading-snug break-keep">{item.title || '이름 없는 품목'}</h3>
           {item.frequency && (
             <span className="rounded-full bg-surface-sunken px-2 py-0.5 text-xs font-medium text-text-secondary">{FREQUENCY_LABEL[item.frequency] ?? item.frequency}</span>
           )}
+          {status && status !== 'none' && <StatusChip status={status} small />}
         </div>
+        {latest && (
+          <p className={`text-xs ${latest.status === 'issue' ? 'text-red-700' : 'text-text-tertiary'}`}>
+            {latest.status === 'issue' ? '특이사항' : '점검 완료'} {fmtCheckDate(latest.checked_at)}{latest.worker_name ? ` · ${latest.worker_name}` : ''}{latest.memo ? ` — ${latest.memo}` : ''}
+          </p>
+        )}
         {item.instructions && (
           <p className="text-base leading-relaxed text-text-secondary whitespace-pre-line break-keep">{item.instructions}</p>
         )}
         {item.caution && (
-          <div className="flex items-start gap-2 rounded-xl border border-rose-100 bg-rose-50 px-3 py-2 text-sm text-rose-800 break-keep">
-            <AlertTriangle size={16} className="mt-0.5 shrink-0 text-rose-500" />
-            <p className="whitespace-pre-line">{item.caution}</p>
-          </div>
+          <p className="text-sm leading-relaxed text-red-700 whitespace-pre-line break-keep"><span className="font-semibold">주의</span> {item.caution}</p>
         )}
         {item.images.length > 0 && (
           <div className="flex flex-wrap gap-2 pt-1">
@@ -211,8 +331,46 @@ function ViewItem({ item, index, badge, onImage }: { item: CareManualItemV2; ind
             ))}
           </div>
         )}
+        {onShowMarker && markerRefs.length > 0 && <MarkerRefList refs={markerRefs} onShow={onShowMarker} compact />}
+        {onCheck && <CheckBar onCheck={onCheck} />}
       </div>
     </li>
+  )
+}
+
+/** 직원 점검 버튼 — [완료] 한 번 · [특이사항] 은 메모를 적고 저장 */
+function CheckBar({ onCheck }: { onCheck: (status: CheckStatus, memo: string) => Promise<void> }) {
+  const [mode, setMode] = useState<'idle' | 'issue'>('idle')
+  const [memo, setMemo] = useState('')
+  const [busy, setBusy] = useState(false)
+  const run = async (status: CheckStatus) => {
+    setBusy(true)
+    try { await onCheck(status, memo); setMode('idle'); setMemo('') } finally { setBusy(false) }
+  }
+  return (
+    <div className="pt-1">
+      {mode === 'idle' ? (
+        <div className="flex gap-2">
+          <button type="button" disabled={busy} onClick={() => void run('ok')} className="btn-toss inline-flex min-h-[40px] items-center gap-1.5 rounded-lg bg-state-success-bg px-3 py-2 text-sm font-semibold text-green-800 hover:bg-green-200 disabled:opacity-50">
+            {busy ? <Loader2 size={15} className="animate-spin" /> : <CheckCircle2 size={15} />} 완료
+          </button>
+          <button type="button" disabled={busy} onClick={() => setMode('issue')} className="btn-toss inline-flex min-h-[40px] items-center gap-1.5 rounded-lg bg-state-danger-bg px-3 py-2 text-sm font-semibold text-red-800 hover:bg-red-200 disabled:opacity-50">
+            <AlertTriangle size={15} /> 특이사항
+          </button>
+        </div>
+      ) : (
+        <div className="flex flex-col gap-2 rounded-xl border border-red-200 bg-red-50/60 p-3">
+          <p className="text-xs text-red-700">이 메모와 작성자 이름은 고객 화면에도 그대로 보입니다. 고객이 읽는다고 생각하고 적어주세요.</p>
+          <textarea autoFocus value={memo} onChange={e => setMemo(e.target.value)} rows={2} maxLength={500} placeholder="무엇이 문제인지 한두 줄 (예: 커피 얼룩 2곳, 다음 회차 약품 처리 예정)" className="w-full resize-none rounded-md border border-border bg-surface px-3 py-2 text-sm text-text-primary placeholder:text-text-tertiary focus:outline-none focus:ring-2 focus:ring-red-200" />
+          <div className="flex gap-2">
+            <button type="button" disabled={busy || !memo.trim()} onClick={() => void run('issue')} className="inline-flex min-h-[40px] flex-1 items-center justify-center gap-1 rounded-lg bg-red-600 px-3 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-40">
+              {busy ? <Loader2 size={15} className="animate-spin" /> : <AlertTriangle size={15} />} 특이사항 저장
+            </button>
+            <button type="button" onClick={() => { setMode('idle'); setMemo('') }} className="min-h-[40px] rounded-lg border border-border px-3 py-2 text-sm font-semibold text-text-secondary hover:bg-surface-sunken">취소</button>
+          </div>
+        </div>
+      )}
+    </div>
   )
 }
 

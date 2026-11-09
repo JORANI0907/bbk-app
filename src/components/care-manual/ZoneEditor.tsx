@@ -1,15 +1,17 @@
 'use client'
 
 /**
- * 구역 하나의 편집 패널 — 작업 묶음 카드 + 번호 매긴 작업 항목 (드래그로 순서 변경)
+ * 구역 하나의 편집 패널 — 작업 묶음 카드 + 번호 매긴 품목 (드래그로 순서 변경)
+ *   용어: 구역 › 작업 묶음 › 품목. 품목은 공간 보기의 "표시"가 가리키는 대상이다.
  *   항목은 접힌 줄(제목·칩)로 보이고 하나만 펼쳐 집중한다.
  */
 
 import { useState } from 'react'
 import { DragDropContext, Droppable, Draggable, type DropResult } from '@hello-pangea/dnd'
 import { ChevronDown, GripVertical, ImageIcon, Plus, Trash2 } from 'lucide-react'
-import type { CareManualGroupV2, CareManualItemV2, CareManualZoneV2 } from '@/types/care-manual'
+import type { CareManualGroupV2, CareManualItemV2, CareManualZoneV2, MarkerRef } from '@/types/care-manual'
 import { emptyGroup, emptyItem } from '@/types/care-manual'
+import { MarkerRefChip, MarkerRefList } from './space/MarkerRefList'
 import { ZONE_THEME, FREQUENCY_LABEL } from './zone-theme'
 import { ItemEditor } from './ItemEditor'
 import styles from './care-manual.module.css'
@@ -23,6 +25,9 @@ interface Props {
   onUpload: (groupId: string, itemId: string, files: File[]) => Promise<void>
   onRemoveImage: (groupId: string, itemId: string, url: string) => void
   onPreview: (url: string) => void
+  /** 품목 → 사진 위 표시 (공간 보기와 연동) */
+  markerIndex?: Record<string, MarkerRef[]>
+  onShowMarker?: (ref: MarkerRef) => void
 }
 
 const titleCls = 'w-full bg-transparent text-base font-bold text-text-primary placeholder:text-text-tertiary placeholder:font-semibold focus:outline-none'
@@ -35,7 +40,7 @@ function reorder<T>(list: T[], from: number, to: number): T[] {
   return next
 }
 
-export function ZoneEditor({ zone, zones, uploadingKey, onChange, onMoveItem, onUpload, onRemoveImage, onPreview }: Props) {
+export function ZoneEditor({ zone, zones, uploadingKey, onChange, onMoveItem, onUpload, onRemoveImage, onPreview, markerIndex = {}, onShowMarker }: Props) {
   const t = ZONE_THEME[zone.color]
   const [openItemId, setOpenItemId] = useState<string | null>(null)
 
@@ -51,7 +56,7 @@ export function ZoneEditor({ zone, zones, uploadingKey, onChange, onMoveItem, on
   const addGroup = () => onChange({ ...zone, groups: [...zone.groups, emptyGroup()] })
   const removeGroup = (groupId: string) => {
     const g = zone.groups.find(x => x.id === groupId)
-    if (g && g.items.some(i => i.title || i.instructions || i.images.length) && !confirm(`"${g.title || '제목 없는 작업 묶음'}" 과 안의 작업 ${g.items.length}개를 삭제할까요?`)) return
+    if (g && g.items.some(i => i.title || i.instructions || i.images.length) && !confirm(`"${g.title || '이름 없는 작업 묶음'}" 과 안의 품목 ${g.items.length}개를 삭제할까요?`)) return
     onChange({ ...zone, groups: zone.groups.filter(x => x.id !== groupId) })
   }
   const addItem = (groupId: string) => {
@@ -62,7 +67,7 @@ export function ZoneEditor({ zone, zones, uploadingKey, onChange, onMoveItem, on
   const removeItem = (groupId: string, itemId: string) => {
     const g = zone.groups.find(x => x.id === groupId)
     const i = g?.items.find(x => x.id === itemId)
-    if (i && (i.title || i.instructions || i.images.length) && !confirm(`"${i.title || '제목 없는 작업'}" 을 삭제할까요?`)) return
+    if (i && (i.title || i.instructions || i.images.length) && !confirm(`"${i.title || '이름 없는 품목'}" 을 삭제할까요?`)) return
     patchGroup(groupId, { items: (g?.items ?? []).filter(x => x.id !== itemId) })
   }
 
@@ -119,7 +124,7 @@ export function ZoneEditor({ zone, zones, uploadingKey, onChange, onMoveItem, on
                           <GripVertical size={16} />
                         </button>
                         <div className="min-w-0 flex-1 space-y-0.5">
-                          <input value={g.title} onChange={e => patchGroup(g.id, { title: e.target.value })} placeholder="작업 묶음 제목 (예: 후드·덕트)" className={titleCls} />
+                          <input value={g.title} onChange={e => patchGroup(g.id, { title: e.target.value })} placeholder="작업 묶음 이름 (예: 후드·덕트)" className={titleCls} />
                           <input value={g.summary ?? ''} onChange={e => patchGroup(g.id, { summary: e.target.value || undefined })} placeholder="한 줄 요약 (선택)" className={smallCls} />
                         </div>
                         <button type="button" onClick={() => removeGroup(g.id)} className="rounded-lg p-1.5 text-text-tertiary transition-colors hover:bg-rose-50 hover:text-rose-600" aria-label="작업 묶음 삭제">
@@ -140,7 +145,7 @@ export function ZoneEditor({ zone, zones, uploadingKey, onChange, onMoveItem, on
                                   {(ip, isnap) => (
                                     <li ref={ip.innerRef} {...ip.draggableProps} className={`bg-surface ${isnap.isDragging ? 'shadow-card rounded-xl' : ''}`}>
                                       <div className="flex items-center gap-2 pl-4 pr-3 py-2">
-                                        <button type="button" {...ip.dragHandleProps} className="cursor-grab text-text-tertiary hover:text-text-secondary active:cursor-grabbing" aria-label="작업 순서 이동">
+                                        <button type="button" {...ip.dragHandleProps} className="cursor-grab text-text-tertiary hover:text-text-secondary active:cursor-grabbing" aria-label="품목 순서 이동">
                                           <GripVertical size={14} />
                                         </button>
                                         <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] font-bold tabular-nums ${t.badge}`}>{index}</span>
@@ -148,7 +153,7 @@ export function ZoneEditor({ zone, zones, uploadingKey, onChange, onMoveItem, on
                                           value={item.title}
                                           onChange={e => patchItem(g.id, item.id, { title: e.target.value })}
                                           onFocus={() => setOpenItemId(item.id)}
-                                          placeholder="작업 제목 (예: 후드 필터 분리 세척)"
+                                          placeholder="품목 이름 (예: 후드 필터 분리 세척)"
                                           className="min-w-0 flex-1 bg-transparent text-sm font-semibold text-text-primary placeholder:font-medium placeholder:text-text-tertiary focus:outline-none"
                                         />
                                         <div className="hidden items-center gap-1 sm:flex">
@@ -157,16 +162,22 @@ export function ZoneEditor({ zone, zones, uploadingKey, onChange, onMoveItem, on
                                             <span className="inline-flex items-center gap-0.5 rounded-full bg-surface-sunken px-2 py-0.5 text-[11px] font-medium text-text-secondary"><ImageIcon size={11} /> {item.images.length}</span>
                                           )}
                                           {item.caution && <span className="h-1.5 w-1.5 rounded-full bg-rose-400" title="주의사항 있음" />}
+                                          <MarkerRefChip refs={markerIndex[item.id] ?? []} onClick={() => setOpenItemId(item.id)} />
                                         </div>
                                         <button type="button" onClick={() => setOpenItemId(open ? null : item.id)} className="rounded-lg p-1.5 text-text-tertiary transition-colors hover:bg-surface-sunken" aria-label={open ? '접기' : '펼치기'}>
                                           <ChevronDown size={16} className={`transition-transform duration-200 ${open ? 'rotate-180' : ''}`} />
                                         </button>
-                                        <button type="button" onClick={() => removeItem(g.id, item.id)} className="rounded-lg p-1.5 text-text-tertiary transition-colors hover:bg-rose-50 hover:text-rose-600" aria-label="작업 삭제">
+                                        <button type="button" onClick={() => removeItem(g.id, item.id)} className="rounded-lg p-1.5 text-text-tertiary transition-colors hover:bg-rose-50 hover:text-rose-600" aria-label="품목 삭제">
                                           <Trash2 size={14} />
                                         </button>
                                       </div>
                                       <div className={`${styles.expand} ${open ? styles.expandOpen : ''}`}>
                                         <div className={styles.expandInner}>
+                                          {open && onShowMarker && (markerIndex[item.id]?.length ?? 0) > 0 && (
+                                            <div className="px-4 pb-2 pl-12">
+                                              <MarkerRefList refs={markerIndex[item.id] ?? []} onShow={onShowMarker} compact />
+                                            </div>
+                                          )}
                                           {open && (
                                             <ItemEditor
                                               item={item}
@@ -190,7 +201,7 @@ export function ZoneEditor({ zone, zones, uploadingKey, onChange, onMoveItem, on
                             {itemsProvided.placeholder}
                             <li className="pl-12 pr-3 py-2">
                               <button type="button" onClick={() => addItem(g.id)} className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold text-brand-600 transition-colors hover:bg-brand-50">
-                                <Plus size={14} /> 작업 추가
+                                <Plus size={14} /> 품목 추가
                               </button>
                             </li>
                           </ol>
