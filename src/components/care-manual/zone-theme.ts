@@ -87,6 +87,16 @@ export const ZONE_THEME: Record<ZoneColor, ZoneTheme> = {
   },
 }
 
+/** 3D 모형·SVG 처럼 Tailwind 클래스를 못 쓰는 곳용 hex (Tailwind *-300 과 같은 값) */
+export const ZONE_HEX: Record<ZoneColor, string> = {
+  sky: '#7dd3fc',
+  mint: '#6ee7b7',
+  apricot: '#fdba74',
+  lavender: '#c4b5fd',
+  lemon: '#fcd34d',
+  rose: '#fda4af',
+}
+
 export const FREQUENCY_LABEL: Record<string, string> = {
   every: '매회', weekly: '주 1회', biweekly: '격주', monthly: '월 1회',
 }

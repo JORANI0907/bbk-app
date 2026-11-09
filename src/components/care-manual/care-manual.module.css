@@ -33,6 +33,17 @@
   100% { background-color: inherit; }
 }
 
+/* 공간 보기 → "메뉴얼에서 보기"로 넘어온 품목 강조 (2.6초) */
+.focusPulse {
+  animation: cmFocus 2600ms ease-out;
+  border-radius: 12px;
+}
+@keyframes cmFocus {
+  0%   { background-color: rgb(224 242 254); box-shadow: inset 4px 0 0 rgb(2 132 199); }
+  70%  { background-color: rgb(224 242 254 / 0.6); box-shadow: inset 4px 0 0 rgb(2 132 199); }
+  100% { background-color: transparent; box-shadow: none; }
+}
+
 /* 모바일 하단 고정 탭의 안전 영역 */
 .bottomTabs {
   padding-bottom: env(safe-area-inset-bottom);
@@ -42,4 +53,5 @@
   .reveal { animation: none; opacity: 1; transform: none; }
   .expand { transition: none; }
   .savedFlash { animation: none; }
+  .focusPulse { animation: none; background-color: rgb(224 242 254); }
 }
