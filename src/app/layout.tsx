@@ -1,5 +1,4 @@
 import type { Metadata, Viewport } from 'next'
-import { Noto_Sans_KR } from 'next/font/google'
 import { headers } from 'next/headers'
 import { Toaster } from 'react-hot-toast'
 import { AuthProvider } from '@/components/AuthProvider'
@@ -8,12 +7,10 @@ import { SwUpdateReloader } from '@/components/SwUpdateReloader'
 import { GlobalFooter } from '@/components/GlobalFooter'
 import './globals.css'
 
-const notoSansKR = Noto_Sans_KR({
-  subsets: ['latin'],
-  weight: ['400', '500', '700', '900'],
-  variable: '--font-noto-sans-kr',
-  display: 'swap',
-})
+// Noto Sans KR 은 globals.css 에서 Google Fonts 스타일시트로 불러온다.
+// next/font/google 은 빌드 때 Google 서버에서 글꼴 정보를 받아오는데, 2026-11-09 Vercel 빌드가
+// 그 단계에서 계속 실패해(loader.js "Cannot read properties of null") 빌드 시점 의존을 없앴다.
+const NOTO_SANS_KR_CSS = 'https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap'
 
 const SITE_URL = 'https://app.bbkorea.co.kr'
 const SITE_TITLE = 'BBK 공간케어'
@@ -107,8 +104,13 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="ko" className={notoSansKR.variable} style={{ colorScheme: 'only light' }}>
-      <body className={`${notoSansKR.className} antialiased`}>
+    <html lang="ko" style={{ colorScheme: 'only light' }}>
+      <head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link rel="stylesheet" href={NOTO_SANS_KR_CSS} />
+      </head>
+      <body className="font-noto-sans-kr antialiased">
         <SwUpdateReloader />
         <SplashScreen />
         <AuthProvider>
