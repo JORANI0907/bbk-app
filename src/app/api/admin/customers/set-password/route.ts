@@ -86,7 +86,11 @@ export async function POST(request: NextRequest) {
     // customers 테이블의 user_id 연결
     await adminSupabase.from('customers').update({ user_id: userId }).eq('id', customer_id)
 
-    return NextResponse.json({ success: true })
+    // 발급 결과를 반환해 프론트가 usersList·selected 를 즉시 갱신할 수 있게 한다.
+    return NextResponse.json({
+      success: true,
+      user: { id: userId, name: name.trim(), phone: normalizedPhone },
+    })
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error)
     return NextResponse.json({ error: msg }, { status: 500 })

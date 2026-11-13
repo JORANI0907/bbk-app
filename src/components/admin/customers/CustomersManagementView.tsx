@@ -4217,8 +4217,18 @@ export function CustomersManagementView({
                     ? `${target.business_name} (${target.customer_type})`
                     : target.business_name
                 })()}
+                customerName={(selected.contact_name || selected.business_name || '').trim()}
+                customerPhone={selected.contact_phone}
+                businessNumber={selected.business_number}
+                hasAccount={!!selected.user_id}
                 showMerger={isRegular}
                 onUpdated={(next) => setSelected(prev => prev ? { ...prev, account_user_id: next } : prev)}
+                onAccountIssued={(user) => {
+                  setUsersList(prev => prev.some(u => u.id === user.id)
+                    ? prev.map(u => u.id === user.id ? { ...u, name: user.name, phone: user.phone } : u)
+                    : [...prev, { id: user.id, name: user.name, role: 'customer', phone: user.phone }])
+                  setSelected(prev => prev ? { ...prev, user_id: user.id } : prev)
+                }}
               />
             )}
 

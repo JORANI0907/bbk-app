@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
-import { createAuthUser, updateAuthUserEmailAndPassword, updateAuthUserEmail, customerEmail } from '@/lib/auth-helpers'
+import { updateAuthUserEmail, customerEmail } from '@/lib/auth-helpers'
 import { generateBillingSchedule, computeBillingAmountFromCustomer, shouldAutoGenerateBillings } from '@/lib/billing-generator'
 import { getServerSession } from '@/lib/session'
 import { translateDbError } from '@/lib/db-error-translator'
@@ -100,50 +100,11 @@ async function autoGenerateBillings(
   return { inserted: 0, skipped: 0 }
 }
 
-async function createPortalAccount(
-  supabase: ReturnType<typeof createServiceClient>,
-  customerId: string,
-  phone: string,
-  name: string,
-  businessNumber?: string,
-): Promise<string> {
-  const normalizedPhone = phone.replace(/-/g, '')
-  const email = customerEmail(normalizedPhone)
-  // 초기 비밀번호: 사업자등록번호 (없으면 전화번호)
-  const normalizedBN = (businessNumber ?? '').replace(/-/g, '')
-  const password = normalizedBN || normalizedPhone
-
-  const { data: existingUser } = await supabase
-    .from('users')
-    .select('id, auth_id')
-    .eq('phone', normalizedPhone)
-    .eq('role', 'customer')
-    .single()
-
-  let userId: string
-
-  if (existingUser) {
-    userId = existingUser.id
-    if (existingUser.auth_id) {
-      await updateAuthUserEmailAndPassword(existingUser.auth_id, email, password)
-    } else {
-      const authUser = await createAuthUser(email, password, { role: 'customer', name })
-      await supabase.from('users').update({ auth_id: authUser.id }).eq('id', existingUser.id)
-    }
-  } else {
-    const authUser = await createAuthUser(email, password, { role: 'customer', name })
-    const { data: newUser, error: insertError } = await supabase
-      .from('users')
-      .insert({ auth_id: authUser.id, role: 'customer', name, phone: normalizedPhone, is_active: true })
-      .select('id')
-      .single()
-    if (insertError) throw new Error(insertError.message)
-    userId = newUser!.id
-  }
-
-  await supabase.from('customers').update({ user_id: userId }).eq('id', customerId)
-  return password
-}
+// 포털 계정 자동 생성 제거(B안, 2026-11-13).
+// 같은 연락처로 여러 매장(산하 지점)을 관리하는 프렌차이즈 구조에서, 등록 시마다 계정을
+// 자동 생성하면 users.phone UNIQUE 충돌·비밀번호 덮어쓰기·본사 계정 발급 차단이 발생했다.
+// 이제 계정은 필요할 때만 고객 상세의 "계정 발급" 버튼 → POST /api/admin/customers/set-password
+// 으로 수동 발급한다. 산하 매장은 계정 없이 customers 레코드만 두고 franchise_branch_map 으로 연결.
 
 // 리스트 화면 카드에서 실제로 렌더링·판독되는 필드 세트.
 // 케어범위·총액·계산서발행상태·계약기간·방문주기·방문일정 등 리스트 UI 에 표시되는
@@ -490,17 +451,8 @@ export async function POST(request: NextRequest) {
 
   if (error) return NextResponse.json({ error: translateDbError(error.message) }, { status: 500 })
 
-  // 연락처가 있으면 포털 계정 자동 생성
-  let generatedPassword: string | null = null
-  if (body.contact_phone) {
-    try {
-      const name = (body.contact_name || body.business_name || '').trim()
-      generatedPassword = await createPortalAccount(supabase, data.id, body.contact_phone, name, body.business_number)
-    } catch (e) {
-      // 포털 계정 생성 실패해도 고객 등록은 성공 처리
-      console.error('포털 계정 자동 생성 실패:', e instanceof Error ? e.message : e)
-    }
-  }
+  // 포털 계정 자동 생성 제거(B안): 등록 시 계정을 만들지 않는다.
+  // 로그인 계정이 필요한 고객은 상세화면 "계정 발급" 버튼으로 수동 발급한다.
 
   // Phase 22 v11: 계약 정보가 충분하면 billings 자동 생성 (정기딥 연간·정기엔드 월/연간 대상)
   try {
@@ -538,7 +490,7 @@ export async function POST(request: NextRequest) {
     console.error('customer→service_applications 자동 생성 실패:', e instanceof Error ? e.message : e)
   }
 
-  return NextResponse.json({ customer: data, generatedPassword }, { status: 201 })
+  return NextResponse.json({ customer: data }, { status: 201 })
 }
 
 export async function PATCH(request: NextRequest) {

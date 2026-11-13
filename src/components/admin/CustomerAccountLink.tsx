@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import toast from 'react-hot-toast'
-import { Link2, Link2Off, Users } from 'lucide-react'
+import { Link2, Link2Off, Users, KeyRound } from 'lucide-react'
 
 type Candidate = {
   id: string
@@ -19,18 +19,37 @@ interface Props {
   linkedLabel?: string | null
   /** 이 고객이 소유한 포털 계정 표시용 라벨 (예: "홍길동 · 010-1234-5678"). 미생성 시 null */
   ownerAccountLabel?: string | null
+  /** 계정 발급/비밀번호 설정에 쓰는 고객 정보 */
+  customerName: string
+  customerPhone: string | null
+  businessNumber?: string | null
+  /** 이 고객이 이미 포털 로그인 계정을 가지고 있는지 (user_id 존재 여부) */
+  hasAccount: boolean
   /** 계정 통합(다른 고객 계정 병합) UI 노출 여부. 기본 true (정기케어에서만 의미 있음) */
   showMerger?: boolean
   onUpdated: (nextAccountUserId: string | null) => void
+  /** 포털 계정 발급/재설정 성공 시 호출 — 부모가 usersList·selected 를 즉시 갱신 */
+  onAccountIssued?: (user: { id: string; name: string; phone: string }) => void
 }
 
 export function CustomerAccountLink({
-  customerId, accountUserId, linkedLabel, ownerAccountLabel = null, showMerger = true, onUpdated,
+  customerId, accountUserId, linkedLabel, ownerAccountLabel = null,
+  customerName, customerPhone, businessNumber = null, hasAccount,
+  showMerger = true, onUpdated, onAccountIssued,
 }: Props) {
   const [expanded, setExpanded] = useState(false)
   const [candidates, setCandidates] = useState<Candidate[]>([])
   const [loading, setLoading] = useState(false)
   const [submitting, setSubmitting] = useState(false)
+
+  // 포털 계정 발급/비밀번호 설정
+  const [issuing, setIssuing] = useState(false)
+  const [password, setPassword] = useState('')
+  const [savingPw, setSavingPw] = useState(false)
+
+  // 초기 비밀번호 기본값: 사업자등록번호(숫자) → 없으면 전화번호(숫자)
+  const defaultPassword =
+    (businessNumber ?? '').replace(/\D/g, '') || (customerPhone ?? '').replace(/\D/g, '')
 
   useEffect(() => {
     if (!expanded || accountUserId) return
@@ -62,6 +81,34 @@ export function CustomerAccountLink({
     }
   }
 
+  async function issueAccount() {
+    const pw = password.trim()
+    if (!customerPhone) { toast.error('연락처를 먼저 입력·저장하세요.'); return }
+    if (pw.length < 6) { toast.error('비밀번호는 6자 이상이어야 합니다.'); return }
+    setSavingPw(true)
+    try {
+      const res = await fetch('/api/admin/customers/set-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          customer_id: customerId,
+          name: customerName,
+          phone: customerPhone,
+          password: pw,
+        }),
+      })
+      const j = await res.json()
+      if (!res.ok) throw new Error(j?.error ?? '실패')
+      toast.success(hasAccount ? '비밀번호가 변경되었습니다.' : `계정이 발급되었습니다. (초기 비밀번호: ${pw})`)
+      if (j.user && onAccountIssued) onAccountIssued(j.user)
+      setIssuing(false)
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : '실패')
+    } finally {
+      setSavingPw(false)
+    }
+  }
+
   const isLinked = !!accountUserId
 
   return (
@@ -90,6 +137,51 @@ export function CustomerAccountLink({
           <span className="text-xs font-medium text-text-primary truncate">{ownerAccountLabel}</span>
         ) : (
           <span className="text-xs text-text-tertiary">포털 계정 미생성</span>
+        )}
+      </div>
+
+      {/* 포털 계정 발급 / 비밀번호 재설정 (수동) — 산하 매장은 발급하지 않고 계정 없이 둔다 */}
+      <div className="flex flex-col gap-1.5">
+        {!issuing ? (
+          <button
+            type="button"
+            onClick={() => { setPassword(defaultPassword); setIssuing(true) }}
+            disabled={!customerPhone}
+            className="inline-flex items-center justify-center gap-1 text-[11px] font-semibold px-2.5 py-1.5 rounded-md border border-border bg-surface text-text-primary hover:bg-surface-sunken disabled:opacity-50"
+          >
+            <KeyRound size={12} />
+            {hasAccount ? '비밀번호 재설정' : '포털 계정 발급'}
+          </button>
+        ) : (
+          <div className="flex flex-col gap-1.5">
+            <input
+              type="text"
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+              placeholder="초기 비밀번호 (6자 이상)"
+              className="w-full rounded-md border border-border bg-surface px-2.5 py-1.5 text-xs text-text-primary focus:outline-none focus:ring-2 focus:ring-brand-500"
+            />
+            <div className="flex gap-1.5">
+              <button
+                type="button"
+                onClick={issueAccount}
+                disabled={savingPw || password.trim().length < 6}
+                className="inline-flex items-center justify-center gap-1 text-[11px] font-semibold px-2.5 py-1.5 rounded-md bg-brand-600 text-white hover:bg-brand-700 disabled:opacity-50"
+              >
+                {hasAccount ? '변경' : '발급'}
+              </button>
+              <button
+                type="button"
+                onClick={() => setIssuing(false)}
+                className="text-[11px] text-text-tertiary px-2 hover:text-text-secondary"
+              >
+                취소
+              </button>
+            </div>
+          </div>
+        )}
+        {!customerPhone && (
+          <p className="text-[11px] text-text-tertiary">연락처를 먼저 입력·저장하면 계정을 발급할 수 있습니다.</p>
         )}
       </div>
 
