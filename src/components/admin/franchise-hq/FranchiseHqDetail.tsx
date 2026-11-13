@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import toast from 'react-hot-toast'
 import { LogoUploader } from './LogoUploader'
@@ -39,18 +39,28 @@ export function FranchiseHqDetail({ hq, mappedBranches, candidates }: Props) {
   const [search, setSearch] = useState('')
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [busy, setBusy] = useState(false)
+  const [results, setResults] = useState<BranchCustomer[]>(candidates.slice(0, 30))
+  const [searching, setSearching] = useState(false)
 
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase()
-    if (!q) return candidates.slice(0, 30)
-    return candidates
-      .filter(
-        (c) =>
-          c.business_name.toLowerCase().includes(q) ||
-          c.address.toLowerCase().includes(q)
-      )
-      .slice(0, 30)
-  }, [candidates, search])
+  // 검색어가 바뀌면 서버에서 후보를 다시 조회(디바운스 250ms).
+  // 전체 customers 를 대상으로 서버가 직접 검색하므로 500건 캡에 걸리지 않는다.
+  useEffect(() => {
+    const t = setTimeout(async () => {
+      setSearching(true)
+      try {
+        const res = await fetch(
+          `/api/admin/franchise-hq/${hq.id}/branches?q=${encodeURIComponent(search.trim())}`
+        )
+        const data = await res.json()
+        if (res.ok) setResults((data.candidates ?? []) as BranchCustomer[])
+      } catch {
+        /* 네트워크 오류 시 기존 결과 유지 */
+      } finally {
+        setSearching(false)
+      }
+    }, 250)
+    return () => clearTimeout(t)
+  }, [search, hq.id])
 
   const toggleSelect = (id: string) => {
     setSelected((prev) => {
@@ -281,10 +291,12 @@ export function FranchiseHqDetail({ hq, mappedBranches, candidates }: Props) {
         />
 
         <div className="max-h-96 overflow-y-auto flex flex-col gap-1.5">
-          {filtered.length === 0 ? (
-            <p className="text-xs text-text-tertiary py-4 text-center">검색 결과가 없습니다.</p>
+          {results.length === 0 ? (
+            <p className="text-xs text-text-tertiary py-4 text-center">
+              {searching ? '검색 중...' : '검색 결과가 없습니다.'}
+            </p>
           ) : (
-            filtered.map((c) => (
+            results.map((c) => (
               <label
                 key={c.id}
                 className="flex items-center gap-3 p-2.5 rounded-lg hover:bg-surface-sunken cursor-pointer"

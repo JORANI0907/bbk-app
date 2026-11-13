@@ -35,13 +35,14 @@ export default async function FranchiseHqDetailPage({ params }: { params: { id: 
         .is('deleted_at', null)
     : { data: [] as { id: string; business_name: string; address: string }[] }
 
-  // 매핑되지 않은 customer 후보 (이름 검색용)
+  // 초기 표시용 후보 30건만 전달. 실제 검색은 GET /branches?q= 로 서버사이드 처리하므로
+  // 여기서 전체를 받을 필요가 없다(과거 limit(500) + 클라 필터는 고객 500건 초과 시 누락 발생).
   const { data: allCustomers } = await supabase
     .from('customers')
     .select('id, business_name, address')
     .is('deleted_at', null)
     .order('business_name', { ascending: true })
-    .limit(500)
+    .limit(30)
 
   const mappedSet = new Set(mappedIds)
   const candidates = (allCustomers ?? []).filter((c) => !mappedSet.has(c.id))
