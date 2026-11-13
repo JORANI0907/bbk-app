@@ -25,7 +25,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
 
     let query = supabase
       .from('customers')
-      .select('id, business_name, address')
+      .select('id, business_name, address, customer_type')
       .is('deleted_at', null)
       .order('business_name', { ascending: true })
       .limit(30)

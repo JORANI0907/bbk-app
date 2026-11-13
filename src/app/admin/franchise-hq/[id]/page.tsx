@@ -30,16 +30,16 @@ export default async function FranchiseHqDetailPage({ params }: { params: { id: 
   const { data: mappedCustomers } = mappedIds.length
     ? await supabase
         .from('customers')
-        .select('id, business_name, address')
+        .select('id, business_name, address, customer_type')
         .in('id', mappedIds)
         .is('deleted_at', null)
-    : { data: [] as { id: string; business_name: string; address: string }[] }
+    : { data: [] as { id: string; business_name: string; address: string; customer_type: string | null }[] }
 
   // 초기 표시용 후보 30건만 전달. 실제 검색은 GET /branches?q= 로 서버사이드 처리하므로
   // 여기서 전체를 받을 필요가 없다(과거 limit(500) + 클라 필터는 고객 500건 초과 시 누락 발생).
   const { data: allCustomers } = await supabase
     .from('customers')
-    .select('id, business_name, address')
+    .select('id, business_name, address, customer_type')
     .is('deleted_at', null)
     .order('business_name', { ascending: true })
     .limit(30)
@@ -51,7 +51,7 @@ export default async function FranchiseHqDetailPage({ params }: { params: { id: 
   const customerMap = new Map((mappedCustomers ?? []).map((c) => [c.id, c]))
   const orderedMapped = mappedIds
     .map((id) => customerMap.get(id))
-    .filter((c): c is { id: string; business_name: string; address: string } => !!c)
+    .filter((c): c is { id: string; business_name: string; address: string; customer_type: string | null } => !!c)
 
   return (
     <div className="max-w-4xl mx-auto">

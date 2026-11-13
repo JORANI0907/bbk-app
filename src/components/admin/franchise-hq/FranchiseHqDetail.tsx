@@ -9,6 +9,24 @@ interface BranchCustomer {
   id: string
   business_name: string
   address: string
+  customer_type: string | null
+}
+
+// 서비스 타입 뱃지 — 지점 선택 시 정기딥/정기엔드/1회성 구분용.
+// (1회성케어는 방문 건마다 독립 customer 가 생성되므로 같은 매장이 여러 건 보일 수 있다.)
+function TypeBadge({ type }: { type: string | null }) {
+  if (!type) return null
+  const cls =
+    type === '정기딥케어'
+      ? 'bg-brand-50 text-brand-700'
+      : type === '정기엔드케어'
+        ? 'bg-state-info-bg text-state-info'
+        : 'bg-surface-sunken text-text-secondary'
+  return (
+    <span className={`shrink-0 text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${cls}`}>
+      {type}
+    </span>
+  )
 }
 
 interface HqInfo {
@@ -253,7 +271,10 @@ export function FranchiseHqDetail({ hq, mappedBranches, candidates }: Props) {
             {mappedBranches.map((b) => (
               <div key={b.id} className="flex items-center justify-between gap-3 p-3 bg-surface-sunken rounded-lg">
                 <div className="min-w-0">
-                  <p className="text-sm font-semibold text-text-primary truncate">{b.business_name}</p>
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <p className="text-sm font-semibold text-text-primary truncate">{b.business_name}</p>
+                    <TypeBadge type={b.customer_type} />
+                  </div>
                   <p className="text-[11px] text-text-tertiary truncate break-keep">{b.address}</p>
                 </div>
                 <button
@@ -308,7 +329,10 @@ export function FranchiseHqDetail({ hq, mappedBranches, candidates }: Props) {
                   className="w-4 h-4 shrink-0"
                 />
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm font-semibold text-text-primary truncate">{c.business_name}</p>
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <p className="text-sm font-semibold text-text-primary truncate">{c.business_name}</p>
+                    <TypeBadge type={c.customer_type} />
+                  </div>
                   <p className="text-[11px] text-text-tertiary truncate break-keep">{c.address}</p>
                 </div>
               </label>
