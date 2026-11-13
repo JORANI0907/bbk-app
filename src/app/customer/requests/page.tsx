@@ -11,7 +11,7 @@ export default async function CustomerRequestsPage() {
 
   const supabase = createServiceClient()
 
-  const { ids: customerIds } = await getPortalCustomers(supabase, session.userId)
+  const { ids: customerIds } = await getPortalCustomers(supabase, session.userId, session.previewCustomerId)
 
   const requests: CustomerRequest[] = []
   if (customerIds.length > 0) {

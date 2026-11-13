@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '해당 지점에 접근 권한이 없습니다.' }, { status: 403 })
     }
 
-    // 지점의 customer 사용자 정보 조회
+    // 지점 customer 정보 조회 (지점 계정이 없어도 열람 가능 — customer_id 기준)
     const { data: customer } = await supabase
       .from('customers')
       .select('id, business_name, user_id')
@@ -47,13 +47,15 @@ export async function POST(request: NextRequest) {
       .is('deleted_at', null)
       .single()
 
-    if (!customer || !customer.user_id) {
-      return NextResponse.json({ error: '지점 사용자 정보가 없습니다.' }, { status: 404 })
+    if (!customer) {
+      return NextResponse.json({ error: '지점 정보를 찾을 수 없습니다.' }, { status: 404 })
     }
 
-    // preview 세션 발급 — customer 포털이 이 토큰을 통해 해당 지점으로 진입
+    // preview 세션 발급 — 지점 로그인 계정(user_id) 유무와 무관하게 previewCustomerId(지점 customer.id)로 진입.
+    // 본사 로그인 + franchise_branch_map 매핑으로 이미 접근 권한이 검증됐으므로 지점 계정은 불필요하다.
     const previewToken = signSession({
-      userId: customer.user_id,
+      userId: customer.user_id ?? '',
+      previewCustomerId: customer.id,
       role: 'customer',
       name: customer.business_name,
       isPreview: 'true',

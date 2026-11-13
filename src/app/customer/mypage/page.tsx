@@ -64,13 +64,17 @@ export default async function CustomerMyPage() {
 
   const supabase = createServiceClient()
 
-  const { data: user } = await supabase
-    .from('users')
-    .select('id, name, phone, email, password_hint')
-    .eq('id', session.userId)
-    .single()
+  // 본사(프렌차이즈) 지점 미리보기: 지점은 로그인 계정이 없을 수 있으므로 user 가 없을 수 있고,
+  // 고객 정보는 previewCustomerId(지점 customer.id) 로 로드한다.
+  const { data: user } = session.userId
+    ? await supabase
+        .from('users')
+        .select('id, name, phone, email, password_hint')
+        .eq('id', session.userId)
+        .single()
+    : { data: null }
 
-  const { data: rawCustomer } = await supabase
+  const custQuery = supabase
     .from('customers')
     .select(
       'id, business_name, contact_name, contact_phone, address, address_detail, ' +
@@ -78,11 +82,13 @@ export default async function CustomerMyPage() {
       'contract_start_date, contract_end_date, billing_next_date, billing_cycle, billing_amount, supply_amount, vat, ' +
       'care_scope, next_visit_date, visit_interval_days'
     )
-    .eq('user_id', session.userId)
-    .maybeSingle()
+  const { data: rawCustomer } = session.previewCustomerId
+    ? await custQuery.eq('id', session.previewCustomerId).maybeSingle()
+    : await custQuery.eq('user_id', session.userId).maybeSingle()
   const customer = rawCustomer as CustomerData | null
 
-  if (!user) redirect('/login')
+  // 계정 없는 지점 미리보기에서는 user 가 없을 수 있다 → 로그인 튕김 방지.
+  if (!user && !session.previewCustomerId) redirect('/login')
 
   const typeInfo = customer?.customer_type ? CUSTOMER_TYPE_LABELS[customer.customer_type] : null
   const statusInfo = customer?.status ? STATUS_LABELS[customer.status] : null
@@ -105,9 +111,9 @@ export default async function CustomerMyPage() {
           <span className="text-sm font-bold text-text-primary">계정 정보</span>
         </div>
         <div className="px-5 py-1 pb-4">
-          <InfoRow label="이름" value={user.name} />
-          <InfoRow label="아이디" value={user.phone ? formatPhone(user.phone) : undefined} />
-          {(user as { password_hint?: string | null }).password_hint ? (
+          <InfoRow label="이름" value={user?.name ?? customer?.contact_name ?? undefined} />
+          <InfoRow label="아이디" value={user?.phone ? formatPhone(user.phone) : undefined} />
+          {(user as { password_hint?: string | null } | null)?.password_hint ? (
             <PasswordField password={(user as { password_hint: string }).password_hint} />
           ) : (
             <div className="flex items-start gap-3 py-2.5 border-b border-border-subtle last:border-0">

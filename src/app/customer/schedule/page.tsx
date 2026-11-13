@@ -11,7 +11,7 @@ export default async function CustomerSchedulePage() {
 
   const supabase = createServiceClient()
 
-  const { primary, ids: customerIds } = await getPortalCustomers(supabase, session.userId)
+  const { primary, ids: customerIds } = await getPortalCustomers(supabase, session.userId, session.previewCustomerId)
 
   if (!primary) redirect('/customer')
 

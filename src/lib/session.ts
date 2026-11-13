@@ -37,6 +37,7 @@ export function getCustomerSession(): {
   isPreview?: boolean
   originRole?: string
   franchiseHqId?: string
+  previewCustomerId?: string
 } | null {
   const cookieStore = cookies()
   const previewToken = cookieStore.get('bbk_preview_session')?.value
@@ -50,6 +51,7 @@ export function getCustomerSession(): {
         isPreview: true
         originRole?: string
         franchiseHqId?: string
+        previewCustomerId?: string
       }
     }
   }

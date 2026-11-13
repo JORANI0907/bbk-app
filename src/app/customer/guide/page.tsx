@@ -11,7 +11,7 @@ export default async function CustomerGuidePage() {
   if (!session || session.role !== 'customer') redirect('/login')
 
   const supabase = createServiceClient()
-  const { ids: customerIds } = await getPortalCustomers(supabase, session.userId)
+  const { ids: customerIds } = await getPortalCustomers(supabase, session.userId, session.previewCustomerId)
 
   const today = new Date().toISOString().slice(0, 10)
   let upcomingSchedules: ServiceSchedule[] = []

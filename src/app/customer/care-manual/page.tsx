@@ -20,7 +20,7 @@ export default async function CustomerCareManualPage() {
 
   const supabase = createServiceClient()
 
-  const { primary } = await getPortalCustomers(supabase, session.userId)
+  const { primary } = await getPortalCustomers(supabase, session.userId, session.previewCustomerId)
   const customer = primary
 
   const isEligible =

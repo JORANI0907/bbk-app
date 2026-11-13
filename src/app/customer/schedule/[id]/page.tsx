@@ -141,7 +141,7 @@ export default async function CustomerScheduleDetailPage({ params }: PageProps) 
 
   const supabase = createServiceClient()
 
-  const { ids: customerIds } = await getPortalCustomers(supabase, session.userId)
+  const { ids: customerIds } = await getPortalCustomers(supabase, session.userId, session.previewCustomerId)
 
   if (customerIds.length === 0) redirect('/customer')
 

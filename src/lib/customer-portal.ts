@@ -30,19 +30,27 @@ const SELECT_COLS =
 export async function getPortalCustomers(
   supabase: SupabaseClient,
   userId: string,
+  // 본사(프렌차이즈)가 지점을 미리보기할 때 사용. 지점 customer.id 가 주어지면
+  // 로그인 계정(user_id) 없이도 그 지점 한 곳을 id 기준으로 로드한다.
+  previewCustomerId?: string | null,
 ): Promise<{
   all: PortalCustomerRow[]
   primary: PortalCustomerRow | null
   ids: string[]
 }> {
-  const { data } = await supabase
-    .from('customers')
-    .select(SELECT_COLS)
-    .or(`user_id.eq.${userId},account_user_id.eq.${userId}`)
-    .is('deleted_at', null)
+  let query = supabase.from('customers').select(SELECT_COLS).is('deleted_at', null)
+  if (previewCustomerId) {
+    query = query.eq('id', previewCustomerId)
+  } else {
+    query = query.or(`user_id.eq.${userId},account_user_id.eq.${userId}`)
+  }
+
+  const { data } = await query
 
   const all = (data ?? []) as PortalCustomerRow[]
-  const primary = all.find((r) => r.user_id === userId) ?? all[0] ?? null
+  const primary = previewCustomerId
+    ? all[0] ?? null
+    : all.find((r) => r.user_id === userId) ?? all[0] ?? null
   const ids = all.map((r) => r.id)
   return { all, primary, ids }
 }

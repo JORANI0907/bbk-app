@@ -18,7 +18,7 @@ export default async function CustomerLayout({
   if (!session) redirect('/login')
 
   const supabase = createServiceClient()
-  const { primary } = await getPortalCustomers(supabase, session.userId)
+  const { primary } = await getPortalCustomers(supabase, session.userId, session.previewCustomerId)
   const customerType = primary?.customer_type ?? null
 
   const isFranchiseView = session.isPreview && session.originRole === 'franchise_hq'

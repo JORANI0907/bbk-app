@@ -53,7 +53,7 @@ export default async function CustomerHomePage() {
     .eq('id', session.userId)
     .single()
 
-  const { primary, ids: customerIds } = await getPortalCustomers(supabase, session.userId)
+  const { primary, ids: customerIds } = await getPortalCustomers(supabase, session.userId, session.previewCustomerId)
 
   const customer = primary
     ? {
