@@ -163,11 +163,15 @@ export async function GET(
       .filter(w => w.name)
       .map(w => ({ id: w.id as string, name: w.name as string }))
 
-    // 5) Phase F: 담당자 변경용 전체 users 리스트
-    const { data: allUsers } = await supabase
+    // 5) Phase F: 담당자 변경용 직원 리스트
+    // users 테이블엔 고객(customer)·가맹본부(franchise_hq) 계정도 섞여 있으므로
+    // 고객관리 다른 화면과 같은 기준(admin·worker)으로 직원만 추린다
+    const { data: allUsers, error: usersErr } = await supabase
       .from('users')
       .select('id, name')
+      .in('role', ['admin', 'worker'])
       .order('name', { ascending: true })
+    if (usersErr) console.error('[regular-progress] 담당자 목록 조회 실패:', usersErr.message)
     const availableAssignees = (allUsers ?? [])
       .filter(u => u.name)
       .map(u => ({ id: u.id as string, name: u.name as string }))
