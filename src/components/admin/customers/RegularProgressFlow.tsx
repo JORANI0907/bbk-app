@@ -72,6 +72,8 @@ interface VisitItem {
   notificationLog?: Array<{ type: string; sent_at: string; method?: string }>
   // Phase H.5-rev: 월 결제 완료 여부 (service_billings)
   monthlyBillingPaid?: boolean
+  // 2026-11-17: 회차 Drive 폴더 (모달 상단 폴더 버튼용)
+  driveFolderUrl?: string | null
 }
 
 interface PeriodBundle {
@@ -89,6 +91,8 @@ interface Props {
   billingAmount: number | null
   businessName?: string
   customerId?: string  // Phase C 에서 실데이터 fetch 할 때 사용
+  /** 고객 마스터 Drive 폴더 URL — 회차 폴더를 그 하위로 바로 생성할 때 사용 */
+  masterDriveFolderUrl?: string | null
 }
 
 // ─── Mock 데이터 생성 ────────────────────────────────────────
@@ -185,7 +189,7 @@ const LS_PREFIX = 'bbk_regular_progress_'  // 선택 월 기억용
 
 // ─── 메인 컴포넌트 ────────────────────────────────────────────
 export default function RegularProgressFlow({
-  customerType, billingCycle, billingAmount, businessName, customerId,
+  customerType, billingCycle, billingAmount, businessName, customerId, masterDriveFolderUrl,
 }: Props) {
   const now = new Date()
   const currentYear = now.getFullYear()
@@ -590,6 +594,7 @@ export default function RegularProgressFlow({
                             balancePaidAt: v.balancePaidAt,
                             taxInvoiceIssued: v.taxInvoiceIssued,
                             notificationLog: v.notificationLog,
+                            driveFolderUrl: v.driveFolderUrl ?? null,
                           })}
                           onDelete={() => handleVisitDelete(v.id, v.date, v.worker)}
                         />
@@ -608,6 +613,8 @@ export default function RegularProgressFlow({
       open={visitModalData !== null}
       onClose={() => setVisitModalData(null)}
       data={visitModalData}
+      businessName={businessName}
+      masterDriveFolderUrl={masterDriveFolderUrl}
       availableAssignees={availableAssignees}
       availableWorkers={availableWorkers}
       onSaveWorkers={async (id, workerIds) => {

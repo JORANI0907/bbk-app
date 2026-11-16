@@ -24,13 +24,18 @@ interface UseDriveFolderOptions {
    * (과거엔 null 이면 오늘 날짜로 조용히 대체됐지만, 사장님 지시로 제거함 — 2026-08-26)
    */
   dateForName: string | null
+  /**
+   * 우선 부모 폴더 id (예: 고객 마스터 폴더). 지정돼 있으면 createOrChange(true) 가
+   * 쿠키에 저장된 위치보다 이 폴더를 먼저 써서 "고객 폴더 안에 회차 폴더" 구조를 만든다.
+   */
+  preferredParentId?: string | null
 }
 
 interface DriveFolderState {
   apisReady: boolean
   savedDefaultParent: DriveFolder | null
   saving: boolean
-  /** 기본 부모(cookie) 에 그대로 생성 · 없으면 피커 열기. 위치 변경도 이 함수로 */
+  /** 우선 부모 → 기본 부모(cookie) 순으로 그대로 생성 · 둘 다 없으면 피커 열기. 위치 변경도 이 함수로 */
   createOrChange: (useSaved: boolean) => Promise<void>
   /** 무조건 피커 열기 (위치 변경 강제) */
   pickParentAndCreate: () => Promise<void>
@@ -44,7 +49,7 @@ interface DriveFolderState {
  * OAuth token 은 브라우저 user gesture 안에서만 팝업 뜨는 제약 → 모든 create 함수는
  * 이벤트 핸들러(onClick) 안에서 직접 await 되어야 함.
  */
-export function useDriveFolder({ onSaved, businessName, dateForName }: UseDriveFolderOptions): DriveFolderState {
+export function useDriveFolder({ onSaved, businessName, dateForName, preferredParentId }: UseDriveFolderOptions): DriveFolderState {
   const [apisReady, setApisReady] = useState(false)
   const [savedDefaultParent, setSavedDefaultParent] = useState<DriveFolder | null>(null)
   const [saving, setSaving] = useState(false)
@@ -78,7 +83,10 @@ export function useDriveFolder({ onSaved, businessName, dateForName }: UseDriveF
     }
     setSaving(true)
     try {
-      if (useSaved && savedDefaultParent) {
+      if (useSaved && preferredParentId) {
+        const token = await requestGoogleToken()
+        await createInParent(preferredParentId, token)
+      } else if (useSaved && savedDefaultParent) {
         const token = await requestGoogleToken()
         await createInParent(savedDefaultParent.id, token)
       } else {

@@ -5485,6 +5485,7 @@ export function CustomersManagementView({
                 billingAmount={form.billing_amount ? Number(form.billing_amount) : null}
                 businessName={form.business_name ?? ''}
                 customerId={selected?.id}
+                masterDriveFolderUrl={selected?.drive_folder_url ?? null}
               />
             )}
 

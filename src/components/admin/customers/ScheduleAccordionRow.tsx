@@ -2,14 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { ChevronDown, ChevronUp, Trash2, Send, Folder, FolderOpen, FolderPlus, Camera, Save } from 'lucide-react'
-import { requestGoogleToken, createWorkFolderStructure } from '@/lib/googleDrive'
-
-/** URL 에서 Google Drive 폴더 id 추출 (…/folders/{id} 형태) */
-function extractDriveFolderId(url: string | null | undefined): string | null {
-  if (!url) return null
-  const m = url.match(/\/folders\/([a-zA-Z0-9_-]+)/)
-  return m ? m[1] : null
-}
+import { requestGoogleToken, createWorkFolderStructure, extractDriveFolderId } from '@/lib/googleDrive'
 import toast from 'react-hot-toast'
 import { NOTIFY_TYPES } from './CustomersManagementView'
 

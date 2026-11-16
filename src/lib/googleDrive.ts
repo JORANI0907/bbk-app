@@ -9,6 +9,13 @@ export interface DriveFolder {
   name: string
 }
 
+/** URL 에서 Google Drive 폴더 id 추출 (…/folders/{id} 형태) */
+export function extractDriveFolderId(url: string | null | undefined): string | null {
+  if (!url) return null
+  const m = url.match(/\/folders\/([a-zA-Z0-9_-]+)/)
+  return m ? m[1] : null
+}
+
 let _scriptsLoaded = false
 
 /** Google API 스크립트 로드 (gapi.picker + Google Identity Services) */

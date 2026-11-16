@@ -9,11 +9,15 @@
  * Phase G1:  📊 "이 방문의 진행" 미니 진행흐름 (예약금/작업완료/잔금/계산서)
  * Phase G2:  🔔 알림 발송 섹션 (알림 종류별 발송 + 이력)
  * 2026-10-29: 작업자(복수) 수정 활성화 — 이 회차만 변경 (고객 투입 설정은 유지)
+ * 2026-11-17: 상단 폴더 버튼 활성화 — 회차 Drive 폴더 열기/생성/위치 변경
+ *             (고객 마스터 폴더가 있으면 그 안에 바로 생성, 없으면 저장된 위치 또는 피커)
  */
 
 import { useEffect, useState } from 'react'
 import toast from 'react-hot-toast'
-import { X, Folder, Image as ImageIcon, Camera, Save, Check } from 'lucide-react'
+import { X, Folder, FolderPlus, Image as ImageIcon, Camera, Save, Check } from 'lucide-react'
+import { useDriveFolder } from '@/hooks/useDriveFolder'
+import { extractDriveFolderId } from '@/lib/googleDrive'
 
 export interface VisitDetailData {
   id: string
@@ -48,6 +52,10 @@ interface Props {
   availableWorkers?: { id: string; name: string }[]
   /** 작업자 변경 저장 (POST assign-worker). 없으면 작업자 필드는 읽기 전용 */
   onSaveWorkers?: (id: string, workerIds: string[]) => Promise<void>
+  /** 회차 폴더명("YYYYMMDD 업체명")에 쓸 업체명 */
+  businessName?: string
+  /** 고객 마스터 Drive 폴더 URL — 있으면 회차 폴더를 그 하위에 바로 생성 */
+  masterDriveFolderUrl?: string | null
 }
 
 const PROGRESS_OPTIONS = ['예정', '진행중', '작업완료', '예약취소']
@@ -69,6 +77,7 @@ const nowIsoFull = () => new Date().toISOString()
 
 export function VisitDetailModal({
   open, onClose, data, onSave, availableAssignees, availableWorkers, onSaveWorkers,
+  businessName, masterDriveFolderUrl,
 }: Props) {
   const [form, setForm] = useState<VisitDetailData | null>(data)
   const [saving, setSaving] = useState(false)
@@ -77,6 +86,20 @@ export function VisitDetailModal({
   const [workerPickerOpen, setWorkerPickerOpen] = useState(false)
 
   useEffect(() => { setForm(data); setWorkerPickerOpen(false) }, [data])
+
+  // 회차 Drive 폴더 생성/위치 변경 — 훅 규칙상 아래 early return 보다 먼저 호출
+  const masterFolderId = extractDriveFolderId(masterDriveFolderUrl)
+  const drive = useDriveFolder({
+    businessName: businessName ?? '',
+    dateForName: form?.date || null,
+    preferredParentId: masterFolderId,
+    onSaved: async (url) => {
+      if (!form) return
+      if (!onSave) throw new Error('저장 기능이 연결되지 않았습니다')
+      await onSave(form.id, { drive_folder_url: url })
+      setForm(prev => prev ? { ...prev, driveFolderUrl: url } : prev)
+    },
+  })
 
   useEffect(() => {
     if (!open) return
@@ -248,20 +271,55 @@ export function VisitDetailModal({
           </button>
         </div>
 
-        {/* 액션 바 */}
-        <div className="px-5 py-3 border-b border-gray-100 flex items-center gap-2 flex-wrap">
-          <button disabled title="추후 Phase"
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-200 bg-white text-text-secondary disabled:opacity-50">
-            <Folder size={13} /> 회차 폴더
-          </button>
-          <button disabled
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-700 disabled:opacity-50">
-            <ImageIcon size={13} /> 사진 보기
-          </button>
-          <button disabled
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-200 bg-white text-text-secondary disabled:opacity-50">
-            <Camera size={13} /> 사진 올리기
-          </button>
+        {/* 액션 바 — 회차 Drive 폴더 (2026-11-17 활성화) */}
+        <div className="px-5 py-3 border-b border-gray-100 flex flex-col gap-1.5">
+          <div className="flex items-center gap-2 flex-wrap">
+            {form.driveFolderUrl ? (
+              <>
+                <a href={form.driveFolderUrl} target="_blank" rel="noreferrer" title="Drive 회차 폴더 열기"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100">
+                  <ImageIcon size={13} /> 사진 보기
+                </a>
+                <a href={form.driveFolderUrl} target="_blank" rel="noreferrer" title="Drive 폴더에서 사진 업로드"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-200 bg-white text-text-secondary hover:bg-slate-50">
+                  <Camera size={13} /> 사진 올리기
+                </a>
+                <button type="button" title="다른 위치에 새 회차 폴더 생성 (기존 폴더는 그대로 남음)"
+                  disabled={drive.saving || !drive.apisReady}
+                  onClick={() => drive.pickParentAndCreate()}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-200 bg-white text-text-secondary hover:bg-slate-50 disabled:opacity-50">
+                  <Folder size={13} /> {drive.saving ? '생성 중...' : '위치 변경'}
+                </button>
+              </>
+            ) : (
+              <>
+                <button type="button"
+                  disabled={drive.saving || !drive.apisReady}
+                  onClick={() => drive.createOrChange(true)}
+                  title={masterFolderId ? '고객 마스터 폴더 안에 회차 폴더 생성' : (drive.savedDefaultParent ? '저장된 위치에 회차 폴더 생성' : '위치를 고른 뒤 회차 폴더 생성')}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50">
+                  <FolderPlus size={13} />
+                  {drive.saving ? '생성 중...'
+                    : masterFolderId ? '회차 폴더 생성 (고객 폴더 안)'
+                    : drive.savedDefaultParent ? `"${drive.savedDefaultParent.name}"에 회차 폴더 생성`
+                    : '회차 폴더 생성 (위치 선택)'}
+                </button>
+                {(masterFolderId || drive.savedDefaultParent) && (
+                  <button type="button"
+                    disabled={drive.saving || !drive.apisReady}
+                    onClick={() => drive.pickParentAndCreate()}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-200 bg-white text-text-secondary hover:bg-slate-50 disabled:opacity-50">
+                    다른 위치
+                  </button>
+                )}
+              </>
+            )}
+          </div>
+          <p className="text-[10px] text-text-tertiary truncate">
+            {form.driveFolderUrl
+              ? form.driveFolderUrl
+              : `폴더명 "${(form.date || 'YYYY-MM-DD').replace(/-/g, '')} ${businessName || '업체명'}" · 작업 전/후 하위 폴더 자동 생성`}
+          </p>
         </div>
 
         {/* 폼 영역 */}

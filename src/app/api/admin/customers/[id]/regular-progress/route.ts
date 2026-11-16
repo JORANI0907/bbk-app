@@ -58,6 +58,8 @@ interface VisitItem {
   notificationLog?: Array<{ type: string; sent_at: string; method?: string }>
   // Phase H.5-rev: 그 방문이 속한 월의 service_billings 결제 완료 여부 (정기딥/엔드 매핑)
   monthlyBillingPaid?: boolean
+  // 2026-11-17: 회차 Drive 폴더 — 투입일정 모달 상단 폴더 버튼(열기/생성)용
+  driveFolderUrl?: string | null
   // 2026-10-29: 회차별 작업자 (work_assignments.worker_id[]) — 투입일정 모달 수정용
   workerIds?: string[]
   // 2026-11-03: 회차별 작업자 이름 — 카드 '작업인원' 표시용 (worker 는 담당자 이름)
@@ -102,7 +104,7 @@ export async function GET(
     // 2) service_applications 조회 (해당 고객의 방문 건들)
     const { data: applications } = await supabase
       .from('service_applications')
-      .select('id, construction_date, construction_time, assigned_to, progress_status, payment_status_detail, care_scope, request_notes, admin_notes, work_completed_at, notification_sent_at, deposit_paid_at, balance_paid_at, tax_invoice_issued, notification_log')
+      .select('id, construction_date, construction_time, assigned_to, progress_status, payment_status_detail, care_scope, request_notes, admin_notes, work_completed_at, notification_sent_at, deposit_paid_at, balance_paid_at, tax_invoice_issued, notification_log, drive_folder_url')
       .eq('customer_id', customerId)
       .gte('construction_date', yearStart)
       .lte('construction_date', yearEnd)
@@ -201,6 +203,7 @@ type RawApplication = {
   deposit_paid_at: string | null; balance_paid_at: string | null
   tax_invoice_issued: boolean | null
   notification_log: unknown
+  drive_folder_url?: string | null
 }
 
 function normalizeBillingStatus(status: string | null): BillingStatus {
@@ -303,6 +306,7 @@ function toVisitItem(
     balancePaidAt: a.balance_paid_at ? a.balance_paid_at.slice(0, 10) : undefined,
     taxInvoiceIssued: a.tax_invoice_issued === true,
     notificationLog: log,
+    driveFolderUrl: a.drive_folder_url ?? null,
     monthlyBillingPaid,
   }
 }
