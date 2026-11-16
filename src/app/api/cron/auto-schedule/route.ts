@@ -345,15 +345,22 @@ export async function GET(request: NextRequest) {
       }
 
       // ── Make 웹훅으로 구글 드라이브 폴더 자동생성 요청 (건별) ─────────────────
+      // Vercel 서버리스: return 전에 반드시 await 해야 함. 기다리지 않고 흘려보내면
+      // 함수가 응답을 끝내는 순간 아직 안 나간 fetch가 끊겨, 한 배치의 마지막 건에
+      // 폴더가 안 생기는 사고가 났다 (2026-10-23 미미고찹쌀꽈배기 11/16 건).
       if (insertedApps && insertedApps.length > 0) {
-        for (const app of insertedApps) {
-          triggerDriveFolderCreation(
-            app.id,
-            customer.business_name,
-            (app.construction_date as string).slice(0, 10),
-            customer.customer_type,
-          ).catch(() => {})
-        }
+        await Promise.all(
+          insertedApps.map((app) =>
+            triggerDriveFolderCreation(
+              app.id,
+              customer.business_name,
+              (app.construction_date as string).slice(0, 10),
+              customer.customer_type,
+            ).catch((e: unknown) => {
+              console.error('[auto-schedule] 드라이브 폴더 웹훅 실패:', app.id, e instanceof Error ? e.message : String(e))
+            })
+          )
+        )
       }
     }
 
