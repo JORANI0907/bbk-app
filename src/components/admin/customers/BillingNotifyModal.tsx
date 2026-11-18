@@ -118,7 +118,9 @@ export function BillingNotifyModal({
         const err = await res.json().catch(() => ({}))
         throw new Error(err?.error ?? '발송 실패')
       }
-      toast.success('결제 안내 SMS 발송됨')
+      // 2026-11-18: 자동결제 카드 고객은 결제 링크 대신 '결제 예정일 안내'가 나간다
+      const result = await res.json().catch(() => ({})) as { autopayNotice?: boolean }
+      toast.success(result.autopayNotice ? '자동결제 예정 안내 SMS 발송됨 (결제 링크 없음)' : '결제 안내 SMS 발송됨')
       onSent?.()
       onClose()
     } catch (e) {

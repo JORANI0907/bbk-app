@@ -16,27 +16,43 @@ import { renderTemplate } from '@/lib/notification-renderer'
 import { issueBillingLink } from '@/lib/billing-link'
 import {
   pickRecurringBillingTemplate,
+  pickAutopayNoticeTemplate,
+  shouldSendAutopayNoticeInstead,
   isCashUntaxedCustomer,
   buildRecurringBillingContext,
   loadBillingForNotice,
   sendRecurringBillingNotice,
 } from '@/lib/recurring-billing-notice'
+import { todayKstIso } from '@/lib/billing-notify-policy'
 
 type Supabase = ReturnType<typeof createServiceClient>
 
-async function renderPreview(supabase: Supabase, billingId: string): Promise<{ templateCode: string; text: string } | { error: string }> {
+interface PreviewResult {
+  templateCode: string
+  text: string
+  /** 자동결제 카드 고객 — 결제 링크 대신 결제 예정일 안내가 나간다 */
+  autopayNotice: boolean
+}
+
+async function renderPreview(supabase: Supabase, billingId: string): Promise<PreviewResult | { error: string }> {
   const b = await loadBillingForNotice(supabase, billingId)
   if (!b) return { error: '결제 레코드를 찾을 수 없습니다.' }
 
-  // 미리보기에도 실제 링크가 보이도록 없으면 발급 (비과세 현금 고객은 링크 없이 개인 계좌만 안내)
+  // 2026-11-18: 자동결제 카드 고객은 결제 페이지를 보내지 않는다 — 미리보기도 실제 발송과 같은 템플릿으로
+  const autopayNotice = shouldSendAutopayNoticeInstead(b, todayKstIso())
+
+  // 미리보기에도 실제 링크가 보이도록 없으면 발급 (비과세 현금·자동결제 고객은 링크 없음)
   const cashOnly = isCashUntaxedCustomer(b.customer.payment_method)
-  let paymentUrl = cashOnly ? null : b.payment_url
-  if (!cashOnly && !paymentUrl) {
+  const noLink = cashOnly || autopayNotice
+  let paymentUrl = noLink ? null : b.payment_url
+  if (!noLink && !paymentUrl) {
     const link = await issueBillingLink(supabase, b.id)
     if (link.ok) paymentUrl = link.paymentUrl
   }
 
-  const templateCode = pickRecurringBillingTemplate(b.customer.customer_type, b.customer.payment_method)
+  const templateCode = autopayNotice
+    ? pickAutopayNoticeTemplate(b.customer.customer_type)
+    : pickRecurringBillingTemplate(b.customer.customer_type, b.customer.payment_method)
   const { data: tpl } = await supabase
     .from('notification_templates')
     .select('body, is_active')
@@ -45,7 +61,7 @@ async function renderPreview(supabase: Supabase, billingId: string): Promise<{ t
   if (!tpl || !tpl.is_active) return { error: `템플릿이 없거나 꺼져 있어요: ${templateCode}` }
 
   const ctx = buildRecurringBillingContext(b.customer, { amount: b.amount, due_date: b.due_date, payment_url: paymentUrl })
-  return { templateCode, text: renderTemplate(String(tpl.body), ctx) }
+  return { templateCode, text: renderTemplate(String(tpl.body), ctx), autopayNotice }
 }
 
 export async function POST(request: NextRequest) {
@@ -70,6 +86,9 @@ export async function POST(request: NextRequest) {
     }
     if (r.kind === 'auto_charged') {
       return NextResponse.json({ ok: true, autoCharged: true, paymentId: r.paymentId })
+    }
+    if (r.kind === 'autopay_notice') {
+      return NextResponse.json({ ok: true, autopayNotice: true, templateCode: r.templateCode, channel: r.channel })
     }
     return NextResponse.json({ ok: true, templateCode: r.templateCode, channel: r.channel, attempt: r.attemptNo })
   } catch (e) {

@@ -20,7 +20,7 @@ type Supabase = ReturnType<typeof createServiceClient>
 const REGULAR_TYPES = new Set(['정기딥케어', '정기엔드케어'])
 
 export type ActivateResult =
-  | { ok: true; billingId: string; created: boolean; notified: 'sent' | 'auto_charged' | 'none' }
+  | { ok: true; billingId: string; created: boolean; notified: 'sent' | 'auto_charged' | 'autopay_notice' | 'none' }
   | { ok: false; skipped: 'not_completed' | 'no_customer' | 'not_per_visit' | 'paused' | 'zero_amount' | 'already_linked' | 'already_paid' | 'error'; message: string }
 
 interface AppRow {
@@ -164,7 +164,7 @@ export async function activatePerVisitBilling(
     created = true
   }
 
-  let notified: 'sent' | 'auto_charged' | 'none' = 'none'
+  let notified: 'sent' | 'auto_charged' | 'autopay_notice' | 'none' = 'none'
   const shouldSendNow = sendNow && !cust.auto_notification_paused && !!notifyStart && notifyStart <= today
   if (shouldSendNow) {
     const r = await sendRecurringBillingNotice(supabase, billingId, { method: 'auto', source })

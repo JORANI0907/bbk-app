@@ -59,6 +59,8 @@ export interface NotificationContext {
     deposit_payment_url?: string | null
     balance_payment_url?: string | null
     billing_card_url?: string | null
+    /** 2026-11-18: 등록된 자동결제 카드 표시명 (예: 신한카드 1234) — 정기결제예정알림 */
+    billing_key_card_name?: string | null
     // 계약정보 (정기)
     billing_cycle?: string | null
     billing_amount?: number | null
@@ -382,6 +384,10 @@ export const AVAILABLE_VARIABLES: VariableDef[] = [
   { label: '카드등록URL', category: '결제정보', scope: 'customer', appliesTo: TAB_RECURRING,
     desc: '정기결제 카드 등록 링크',
     resolve: (c) => c.customer?.billing_card_url ?? '' },
+  // 2026-11-18: 자동결제 카드 등록 고객에게 결제 링크 대신 보내는 '정기결제예정알림' 템플릿용
+  { label: '자동결제카드', category: '결제정보', scope: 'customer', appliesTo: TAB_RECURRING,
+    desc: '등록된 자동결제 카드 (예: 신한카드 1234)',
+    resolve: (c) => c.customer?.billing_key_card_name ?? '등록된 카드' },
   { label: '가상계좌은행', category: '결제정보', scope: 'application', appliesTo: TAB_ONESHOT_MONTHLY,
     desc: '입금 전용 가상계좌 은행명 (한글)',
     // 2026-10-12: PortOne 반환값은 영어 코드(KOOKMIN/HANA 등). SMS 발송 시 한글(국민은행)로 변환.

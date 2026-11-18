@@ -297,6 +297,8 @@ const NOTIFY_TYPE_CONFIG: Record<string, { badge: string; dot: string }> = {
   'A/S방문알림':        { badge: 'bg-yellow-100 text-yellow-700',  dot: 'bg-yellow-500' },
   '방문견적알림':       { badge: 'bg-brand-100 text-brand-700',  dot: 'bg-brand-500' },
   '정기결제알림':       { badge: 'bg-emerald-100 text-emerald-700', dot: 'bg-emerald-500' },
+  // 2026-11-18: 자동결제 카드 고객에게 결제 링크 대신 보내는 결제 예정일 안내
+  '정기결제예정알림':   { badge: 'bg-teal-100 text-teal-700',       dot: 'bg-teal-500' },
   '정기방문알림':       { badge: 'bg-brand-100 text-brand-700',    dot: 'bg-brand-500' },
   '계약갱신알림':       { badge: 'bg-purple-100 text-purple-700',  dot: 'bg-purple-500' },
   '건당결제알림':       { badge: 'bg-orange-100 text-orange-700',  dot: 'bg-orange-500' },

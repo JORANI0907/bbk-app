@@ -21,10 +21,10 @@ import { createServiceClient } from '@/lib/supabase/server'
 import { sendSlack } from '@/lib/slack'
 import { sendSmsOrLms } from '@/lib/solapi'
 import {
-  computeNotifyStartDate, decideSend, todayKstIso, diffDaysIso, MAX_NOTIFY_ATTEMPTS,
+  computeNotifyStartDate, decideSend, decideAutopayNotice, todayKstIso, diffDaysIso, MAX_NOTIFY_ATTEMPTS,
   type BillingTrigger, type BillingTiming,
 } from '@/lib/billing-notify-policy'
-import { sendRecurringBillingNotice } from '@/lib/recurring-billing-notice'
+import { sendRecurringBillingNotice, sendAutopayScheduleNotice } from '@/lib/recurring-billing-notice'
 
 const CRON_SECRET = process.env.CRON_SECRET
 const ADMIN_PHONE = process.env.ADMIN_PHONE ?? '01054344877'
@@ -39,6 +39,7 @@ type BillingRow = {
   notify_start_date: string | null
   send_attempts: number | null
   last_notified_at: string | null
+  autopay_notice_sent_at: string | null
   application_id: string | null
   customers: {
     id: string
@@ -59,6 +60,8 @@ interface Summary {
   scanned: number
   sent: number
   autoCharged: number
+  /** 자동결제 카드 고객에게 보낸 '결제 예정일 안내' 건수 (결제 링크 없음) */
+  autopayNoticed: number
   failed: number
   skipped: Record<string, number>
   maxReached: string[]
@@ -89,13 +92,13 @@ export async function GET(request: NextRequest) {
   const dryRun = request.nextUrl.searchParams.get('dry_run') === '1'
   const supabase = createServiceClient()
   const today = todayKstIso()
-  const summary: Summary = { date: today, scanned: 0, sent: 0, autoCharged: 0, failed: 0, skipped: {}, maxReached: [], wouldSend: [], errors: [] }
+  const summary: Summary = { date: today, scanned: 0, sent: 0, autoCharged: 0, autopayNoticed: 0, failed: 0, skipped: {}, maxReached: [], wouldSend: [], errors: [] }
 
   const { data, error } = await supabase
     .from('service_billings')
     .select(`
       id, billing_type, billing_period, due_date, amount, billing_timing,
-      notify_start_date, send_attempts, last_notified_at, application_id,
+      notify_start_date, send_attempts, last_notified_at, autopay_notice_sent_at, application_id,
       customers!inner(id, business_name, customer_type, billing_trigger, status, auto_notification_paused, billing_key_status)
     `)
     .eq('status', 'pending')
@@ -131,9 +134,23 @@ export async function GET(request: NextRequest) {
         if (!dryRun) await supabase.from('service_billings').update({ notify_start_date: notifyStart }).eq('id', row.id)
       }
 
-      // 자동결제 카드 등록 고객: 미리 문자를 보내지 않고 결제기한 당일에 바로 결제. 실패하면 그때부터 문자 안내.
+      // 자동결제 카드 등록 고객: 결제 페이지 링크를 보내지 않는다.
+      //   결제기한 3일 전 → "예정일에 등록 카드로 결제됩니다" 안내 1회 (2026-11-18)
+      //   결제기한 당일   → 바로 결제. 실패하면 그때부터 링크 문자 안내.
       const hasKey = cust.billing_key_status === 'active'
-      if (hasKey && row.due_date && today < row.due_date) { bump(summary, 'autopay_waiting_due'); continue }
+      if (hasKey && row.due_date && today < row.due_date) {
+        const notice = decideAutopayNotice({ todayIso: today, dueDate: row.due_date, noticeSentAt: row.autopay_notice_sent_at })
+        if (!notice.send) { bump(summary, notice.reason === 'already_sent' ? 'autopay_noticed_waiting_due' : 'autopay_waiting_due'); continue }
+        if (dryRun) { summary.wouldSend.push(`${cust.business_name ?? '-'} (${row.billing_period}) 자동결제 예정 안내 D-${notice.daysBefore}`); continue }
+        const n = await sendAutopayScheduleNotice(supabase, row.id, { method: 'auto', source: 'cron/billing-notify' })
+        if (!n.ok) {
+          summary.failed++
+          summary.errors.push({ billing_id: row.id, reason: `${cust.business_name ?? '-'} 자동결제 예정 안내: ${n.message}` })
+          continue
+        }
+        summary.autopayNoticed++
+        continue
+      }
 
       const decision = decideSend({
         todayIso: today, notifyStartDate: notifyStart,
@@ -149,6 +166,7 @@ export async function GET(request: NextRequest) {
         continue
       }
       if (r.kind === 'auto_charged') { summary.autoCharged++; continue }
+      if (r.kind === 'autopay_notice') { summary.autopayNoticed++; continue }
       summary.sent++
       if (r.attemptNo >= MAX_NOTIFY_ATTEMPTS) summary.maxReached.push(`${cust.business_name ?? '-'} (${row.billing_period})`)
     } catch (e) {
@@ -157,10 +175,10 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  if (!dryRun && (summary.sent > 0 || summary.autoCharged > 0 || summary.failed > 0 || summary.maxReached.length > 0)) {
+  if (!dryRun && (summary.sent > 0 || summary.autoCharged > 0 || summary.autopayNoticed > 0 || summary.failed > 0 || summary.maxReached.length > 0)) {
     const lines = [
       `📩 *정기 결제 안내* (${today})`,
-      `발송 ${summary.sent}건 · 자동결제 ${summary.autoCharged}건 · 실패 ${summary.failed}건 (대상 ${summary.scanned}건)`,
+      `링크 문자 ${summary.sent}건 · 자동결제 예정 안내 ${summary.autopayNoticed}건 · 자동결제 ${summary.autoCharged}건 · 실패 ${summary.failed}건 (대상 ${summary.scanned}건)`,
     ]
     if (summary.maxReached.length > 0) {
       lines.push(`⚠️ 3회 발송 완료 후 미납 → 수동 확인 필요: ${summary.maxReached.join(', ')}`)
