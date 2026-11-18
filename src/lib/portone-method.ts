@@ -49,3 +49,13 @@ export async function fetchPaidInfo(paymentId: string): Promise<PaidInfo> {
 export async function fetchPaidMethod(paymentId: string): Promise<PaidMethod | null> {
   return (await fetchPaidInfo(paymentId)).method
 }
+
+/** Slack·관리자 문자용 결제수단 한글 라벨 (2026-11-18: "정기 결제 완료"가 자동결제로 오해되던 문제) */
+export function paidMethodLabel(method: PaidMethod | null | undefined): string {
+  switch (method) {
+    case 'credit_card':     return '카드 결제'
+    case 'virtual_account': return '가상계좌 입금'
+    case 'bank_transfer':   return '계좌이체'
+    default:                return '결제수단 미확인'
+  }
+}

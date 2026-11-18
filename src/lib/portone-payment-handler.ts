@@ -7,7 +7,7 @@
  */
 
 import { createServiceClient } from '@/lib/supabase/server'
-import { fetchPaidInfo } from '@/lib/portone-method'
+import { fetchPaidInfo, paidMethodLabel, type PaidMethod } from '@/lib/portone-method'
 import { sendSlack } from '@/lib/slack'
 import { notifyPaymentCompleteAdmin } from '@/lib/solapi'
 import { isExtraBilling, sendExtraBillingPaidNotice } from '@/lib/extra-billing-notice'
@@ -32,6 +32,7 @@ async function notifyExtraBillingPaid(
   supabase: ReturnType<typeof createServiceClient>,
   row: { id: string; customer_id: string | null; amount: number | null; notes: string | null },
   paymentId: string,
+  paidMethod: PaidMethod | null,
 ): Promise<void> {
   let businessName = '-'
   let ownerName = ''
@@ -45,13 +46,15 @@ async function notifyExtraBillingPaid(
     ownerName = (cust?.contact_name as string | null) ?? ''
   }
   const amount = Number(row.amount ?? 0)
+  const methodLabel = paidMethodLabel(paidMethod)
   sendSlack(
-    `💳 *추가 결제 완료* (1회성케어)\n` +
+    `💳 *추가 결제 완료 — ${methodLabel}* (1회성케어)\n` +
     `업체: ${businessName} / 고객: ${ownerName || '-'}\n` +
     `내용: ${row.notes ?? '-'} · 금액: ${amount.toLocaleString('ko-KR')}원\n` +
+    `결제수단: ${methodLabel}\n` +
     `결제ID: ${paymentId}`,
   ).catch(() => {})
-  notifyPaymentCompleteAdmin({ stageLabel: '추가 결제', businessName, ownerName, amount }).catch(() => {})
+  notifyPaymentCompleteAdmin({ stageLabel: `추가 결제 (${methodLabel})`, businessName, ownerName, amount }).catch(() => {})
   await sendExtraBillingPaidNotice(supabase, row.id, paymentId)
 }
 
@@ -103,9 +106,9 @@ export async function handleTransactionPaid(paymentId: string): Promise<void> {
     }
 
     sendSlack(
-      `💳 *예약금(1차) 결제 완료 — 가상계좌 입금*\n` +
+      `💳 *예약금(1차) 결제 완료 — ${paidMethodLabel(paidMethod)}*\n` +
       `업체: ${depositRow.business_name ?? '-'} / 고객: ${depositRow.owner_name ?? '-'}\n` +
-      `금액: ${Number(depositRow.deposit ?? 0).toLocaleString('ko-KR')}원\n` +
+      `금액: ${depositAmount.toLocaleString('ko-KR')}원\n` +
       `결제ID: ${paymentId}`,
     ).catch(() => {})
 
@@ -171,7 +174,7 @@ export async function handleTransactionPaid(paymentId: string): Promise<void> {
     } catch { /* 동기화 실패 무시 */ }
 
     sendSlack(
-      `💳 *잔금(2차) 결제 완료*\n` +
+      `💳 *잔금(2차) 결제 완료 — ${paidMethodLabel(paidMethod)}*\n` +
       `업체: ${balanceRow.business_name ?? '-'} / 고객: ${balanceRow.owner_name ?? '-'}\n` +
       `금액: ${balanceAmount.toLocaleString('ko-KR')}원\n` +
       `결제ID: ${paymentId}`,
@@ -223,7 +226,7 @@ export async function handleTransactionPaid(paymentId: string): Promise<void> {
 
     // 1회성 추가 결제는 정기 흐름과 분리 — 신청서 진행상태를 건드리지 않고 전용 완료 문자만 보낸다
     if (isExtraBilling(billingRow)) {
-      await notifyExtraBillingPaid(supabase, billingRow, paymentId)
+      await notifyExtraBillingPaid(supabase, billingRow, paymentId, paid.method)
       return
     }
 
@@ -240,16 +243,20 @@ export async function handleTransactionPaid(paymentId: string): Promise<void> {
 
     const typeLabel = billingRow.billing_type === 'annual' ? '연간'
       : billingRow.billing_type === 'onetime' ? '추가' : '월간'
+    // 2026-11-18: 고객이 링크에서 직접 낸 결제(카드/가상계좌/이체)다. 저장 카드 자동결제는 billing-charge 가
+    //   "카드 자동결제 완료"로 따로 보고하므로, 여기서는 실제 수단을 제목에 붙여 둘을 구분한다.
+    const methodLabel = paidMethodLabel(paid.method)
     sendSlack(
-      `💳 *정기 결제 완료* (${billingRow.service_type ?? ''} · ${typeLabel})\n` +
+      `💳 *정기 고객 결제 완료 — ${methodLabel}* (${billingRow.service_type ?? ''} · ${typeLabel})\n` +
       `업체: ${businessName}\n` +
       `기간: ${billingRow.billing_period} · 금액: ${Number(billingRow.amount ?? 0).toLocaleString('ko-KR')}원\n` +
+      `결제수단: ${methodLabel} (고객이 결제 링크에서 직접 결제)\n` +
       `결제ID: ${paymentId}`,
     ).catch(() => {})
 
     // 관리자 SMS (Slack 과 병행) — ownerName 은 billingRow 에 없어 빈 값 전달
     notifyPaymentCompleteAdmin({
-      stageLabel: `정기 결제 (${typeLabel})`,
+      stageLabel: `정기 고객 결제 (${typeLabel} · ${methodLabel})`,
       businessName: businessName,
       ownerName: '',
       amount: Number(billingRow.amount ?? 0),
