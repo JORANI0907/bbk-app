@@ -27,6 +27,16 @@ export interface BillingDetailData {
   paymentUrl?: string
   /** 2026-11-08: 청구 내용 메모 — 1회성 추가 결제 문자의 {{추가결제내용}} 에 들어간다 */
   notes?: string
+  /**
+   * 2026-11-18: 결제 페이지에 '정기결제(카드 자동결제)' 선택지를 보여줄지.
+   * 미지정(undefined)이면 청구 종류 기본값 — 추가(onetime)는 숨김, 월간·연간은 표시.
+   */
+  allowAutopay?: boolean
+}
+
+/** allowAutopay 미지정일 때의 기본값 (서버 resolveAllowAutopay 와 같은 규칙) */
+function defaultAllowAutopay(billingType: string): boolean {
+  return billingType !== 'onetime'
 }
 
 interface Props {
@@ -89,6 +99,7 @@ export function BillingDetailModal({ open, onClose, data, onSave, onDelete, onCr
           status: form.status,
           taxInvoiceIssued: form.taxInvoiceIssued,
           notes: form.notes,
+          allowAutopay: form.allowAutopay ?? defaultAllowAutopay(form.billingType),
         })
         toast.success('추가되었습니다')
       } else {
@@ -108,6 +119,7 @@ export function BillingDetailModal({ open, onClose, data, onSave, onDelete, onCr
             : null,
           payment_url: form.paymentUrl || null,
           notes: form.notes?.trim() || null,
+          allow_autopay: form.allowAutopay ?? defaultAllowAutopay(form.billingType),
         })
         toast.success('저장되었습니다')
       }
@@ -190,6 +202,7 @@ export function BillingDetailModal({ open, onClose, data, onSave, onDelete, onCr
 
   const typeLabel = TYPE_LABEL[form.billingType] ?? form.billingType
   const isExtra = form.billingType === 'onetime'
+  const allowAutopay = form.allowAutopay ?? defaultAllowAutopay(form.billingType)
   const title = isExtra
     ? (isCreateMode ? '➕ 추가 결제 등록' : `💰 추가 결제 · ${form.billingPeriod}`)
     : isCreateMode
@@ -290,6 +303,24 @@ export function BillingDetailModal({ open, onClose, data, onSave, onDelete, onCr
               />
             </Field>
           </div>
+
+          {/* ─── 2026-11-18: 결제 페이지 정기결제(카드 자동결제) 선택지 ─────── */}
+          <Field label="결제 페이지 · 정기결제(카드 자동결제) 선택지">
+            <select
+              value={allowAutopay ? 'show' : 'hide'}
+              onChange={e => update({ allowAutopay: e.target.value === 'show' })}
+              disabled={saving}
+              className="w-full border border-gray-300 rounded-md px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-200 bg-white"
+            >
+              <option value="show">표시 — 고객이 카드를 등록하면 이번 건 결제 + 다음부터 자동결제</option>
+              <option value="hide">숨김 — 카드 결제·가상계좌만 (이번 한 번만 받는 금액)</option>
+            </select>
+            <p className="mt-1 text-[10px] text-text-tertiary leading-relaxed break-keep">
+              {isExtra
+                ? '추가 결제는 기본 숨김입니다. 1회성 금액에 자동결제가 걸리지 않도록 그대로 두세요.'
+                : '월간·연간 청구서는 기본 표시입니다. 이번 달에 1회성 금액이 합쳐져 있으면 숨김으로 바꾸세요.'}
+            </p>
+          </Field>
 
           {/* ─── 결제 링크 (Phase H.5-rev + H.1) ─────────────── */}
           {!isCreateMode && (

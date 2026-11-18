@@ -33,6 +33,8 @@ interface BillingItem {
   taxInvoiceIssued: boolean
   // Phase H.5-rev: 결제링크 복사용
   paymentUrl?: string
+  /** 2026-11-18: 결제 페이지 정기결제(카드 자동결제) 선택지 표시 여부 (미지정이면 청구 종류 기본값) */
+  allowAutopay?: boolean
 }
 
 interface VisitItem {
@@ -95,7 +97,7 @@ export async function GET(
     // 1) service_billings 조회 (payment_url 포함 — DB 마이그레이션 apply 완료)
     const { data: billings } = await supabase
       .from('service_billings')
-      .select('id, billing_type, billing_period, amount, due_date, paid_date, status, tax_invoice_issued, payment_url')
+      .select('id, billing_type, billing_period, amount, due_date, paid_date, status, tax_invoice_issued, payment_url, allow_autopay')
       .eq('customer_id', customerId)
       .gte('due_date', yearStart)
       .lte('due_date', yearEnd)
@@ -193,6 +195,8 @@ type RawBilling = {
   status: string | null; tax_invoice_issued: boolean | null
   // payment_url 은 schema apply 후 복원 (지금은 undefined)
   payment_url?: string | null
+  /** 2026-11-18: 결제 페이지 정기결제(카드 자동결제) 선택지 표시 여부 (null = 청구 종류 기본값) */
+  allow_autopay?: boolean | null
 }
 type RawApplication = {
   id: string; construction_date: string | null; construction_time: string | null
@@ -229,6 +233,7 @@ function toBillingItem(b: RawBilling, monthLabel: string): BillingItem {
     billingPeriod: b.billing_period ?? '',
     taxInvoiceIssued: b.tax_invoice_issued === true,
     paymentUrl: b.payment_url ?? undefined,
+    allowAutopay: typeof b.allow_autopay === 'boolean' ? b.allow_autopay : undefined,
   }
 }
 

@@ -7,6 +7,8 @@ import {
   addDaysIso,
   diffDaysIso,
   triggerLabel,
+  decideAutopayNotice,
+  resolveAllowAutopay,
 } from '../billing-notify-policy'
 
 describe('날짜 유틸', () => {
@@ -117,5 +119,47 @@ describe('planSendDates / triggerLabel', () => {
     expect(triggerLabel('monthly_date', 16)).toBe('매월 16일')
     expect(triggerLabel(null, 5)).toBe('매월 5일')
     expect(triggerLabel(null)).toBe('결제 기준 미설정')
+  })
+})
+
+describe('decideAutopayNotice — 자동결제 고객 사전 안내', () => {
+  const base = { dueDate: '2026-11-20', noticeSentAt: null }
+
+  it('결제기한 3일 전부터 전날까지 보낸다', () => {
+    expect(decideAutopayNotice({ ...base, todayIso: '2026-11-17' })).toEqual({ send: true, daysBefore: 3 })
+    expect(decideAutopayNotice({ ...base, todayIso: '2026-11-19' })).toEqual({ send: true, daysBefore: 1 })
+  })
+
+  it('4일 전은 아직 이르다', () => {
+    expect(decideAutopayNotice({ ...base, todayIso: '2026-11-16' })).toEqual({ send: false, reason: 'too_early' })
+  })
+
+  it('결제기한 당일·지난 뒤에는 안내 대신 결제 흐름으로 넘긴다', () => {
+    expect(decideAutopayNotice({ ...base, todayIso: '2026-11-20' })).toEqual({ send: false, reason: 'due_reached' })
+    expect(decideAutopayNotice({ ...base, todayIso: '2026-11-25' })).toEqual({ send: false, reason: 'due_reached' })
+  })
+
+  it('이미 보냈으면 다시 보내지 않는다', () => {
+    expect(decideAutopayNotice({ ...base, todayIso: '2026-11-18', noticeSentAt: '2026-11-17T00:10:00Z' }))
+      .toEqual({ send: false, reason: 'already_sent' })
+  })
+
+  it('결제기한이 없으면 보내지 않는다', () => {
+    expect(decideAutopayNotice({ todayIso: '2026-11-18', dueDate: null, noticeSentAt: null }))
+      .toEqual({ send: false, reason: 'no_due_date' })
+  })
+})
+
+describe('resolveAllowAutopay — 결제 페이지 정기결제 선택지', () => {
+  it('명시 값이 있으면 그대로', () => {
+    expect(resolveAllowAutopay(true, 'onetime')).toBe(true)
+    expect(resolveAllowAutopay(false, 'monthly')).toBe(false)
+  })
+
+  it('없으면 추가 청구서만 숨기고 월간·연간은 표시', () => {
+    expect(resolveAllowAutopay(null, 'onetime')).toBe(false)
+    expect(resolveAllowAutopay(undefined, 'monthly')).toBe(true)
+    expect(resolveAllowAutopay(null, 'annual')).toBe(true)
+    expect(resolveAllowAutopay(null, null)).toBe(true)
   })
 })

@@ -155,3 +155,41 @@ export function billingModeLabel(mode: BillingMode): string {
 export function timingLabel(timing: BillingTiming | null | undefined): string {
   return timing === 'postpaid' ? '후불' : '선불'
 }
+
+// ─── 자동결제(빌링키) 고객 사전 안내 (2026-11-18) ───────────────────────
+//
+// 자동결제 카드가 등록된 고객에게는 결제 링크 대신 "며칠 뒤 등록 카드로 결제됩니다" 안내를 보낸다.
+// 결제기한(due_date) D-3 부터 결제기한 전날까지 1회. 결제기한 당일에는 바로 결제(기존 흐름).
+
+export const AUTOPAY_NOTICE_DAYS_BEFORE = 3
+
+export interface AutopayNoticeInput {
+  todayIso: string
+  dueDate: string | null
+  /** 이미 예정 안내를 보낸 시각 (UTC ISO). 있으면 다시 보내지 않는다 */
+  noticeSentAt: string | null
+}
+
+export type AutopayNoticeDecision =
+  | { send: true; daysBefore: number }
+  | { send: false; reason: 'no_due_date' | 'already_sent' | 'too_early' | 'due_reached' }
+
+export function decideAutopayNotice(input: AutopayNoticeInput): AutopayNoticeDecision {
+  if (!input.dueDate) return { send: false, reason: 'no_due_date' }
+  if (input.noticeSentAt) return { send: false, reason: 'already_sent' }
+  const daysBefore = diffDaysIso(input.todayIso, input.dueDate)
+  if (daysBefore <= 0) return { send: false, reason: 'due_reached' }
+  if (daysBefore > AUTOPAY_NOTICE_DAYS_BEFORE) return { send: false, reason: 'too_early' }
+  return { send: true, daysBefore }
+}
+
+// ─── 결제 페이지 '정기결제(카드 자동결제)' 선택지 표시 여부 (2026-11-18) ──
+//
+// service_billings.allow_autopay 가 명시돼 있으면 그 값, 없으면 청구 종류로 기본값:
+//   추가(onetime) 청구서 → 숨김 (1회성 금액이라 자동결제를 걸면 안 된다)
+//   월간/연간 청구서     → 표시
+
+export function resolveAllowAutopay(allowAutopay: boolean | null | undefined, billingType: string | null | undefined): boolean {
+  if (typeof allowAutopay === 'boolean') return allowAutopay
+  return billingType !== 'onetime'
+}

@@ -25,6 +25,8 @@ export interface ExtraBillingRow {
   payment_url: string | null
   payment_sent_at: string | null
   send_attempts: number | null
+  /** 2026-11-18: 결제 페이지 정기결제(카드 자동결제) 선택지 표시 여부 (null = 추가 결제 기본값 숨김) */
+  allow_autopay?: boolean | null
 }
 
 export interface NoticeResult {
@@ -96,12 +98,14 @@ export function toExtraModalData(row: ExtraBillingRow): BillingDetailData {
     dueDate: row.due_date, paidDate: row.paid_date ?? undefined, status: row.status,
     taxInvoiceIssued: row.tax_invoice_issued ?? false, paymentUrl: row.payment_url ?? undefined,
     notes: row.notes ?? '',
+    allowAutopay: typeof row.allow_autopay === 'boolean' ? row.allow_autopay : undefined,
   }
 }
 
 export function newExtraModalData(): BillingDetailData {
   const today = todayKst()
-  return { id: '', billingType: 'onetime', billingPeriod: today, amount: 0, dueDate: today, status: 'pending', taxInvoiceIssued: false, notes: '' }
+  // 추가 결제는 1회성 금액 — 결제 페이지의 정기결제(카드 자동결제) 선택지를 기본 숨김
+  return { id: '', billingType: 'onetime', billingPeriod: today, amount: 0, dueDate: today, status: 'pending', taxInvoiceIssued: false, notes: '', allowAutopay: false }
 }
 
 function showNoticeToast(notice: NoticeResult | null | undefined) {
@@ -126,6 +130,7 @@ export function useExtraBillingActions(customerId: string) {
         customer_id: customerId, billing_type: 'onetime', service_type: '1회성케어',
         billing_period: payload.billingPeriod, amount: payload.amount, due_date: payload.dueDate,
         notes: payload.notes.trim(), auto_notify: true,
+        allow_autopay: payload.allowAutopay ?? false,
       }),
     })
     if (!res.ok) throw new Error(await readApiError(res, '추가 실패'))

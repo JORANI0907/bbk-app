@@ -11,6 +11,7 @@
 import { notFound } from 'next/navigation'
 import { createServiceClient } from '@/lib/supabase/server'
 import { getServerSession } from '@/lib/session'
+import { resolveAllowAutopay } from '@/lib/billing-notify-policy'
 
 // 관리자 세션(쿠키)을 읽어 미리보기 모드를 판별하므로 항상 요청 시점에 렌더링
 export const dynamic = 'force-dynamic'
@@ -30,7 +31,7 @@ export default async function BillingPayPage({ params }: Props) {
 
   const { data: billing } = await supabase
     .from('service_billings')
-    .select('id, customer_id, billing_type, billing_period, amount, due_date, paid_date, status, payment_url, payment_portone_id, notes, service_type')
+    .select('id, customer_id, billing_type, billing_period, amount, due_date, paid_date, status, payment_url, payment_portone_id, notes, service_type, allow_autopay')
     .eq('id', billingId)
     .maybeSingle()
 
@@ -79,6 +80,8 @@ export default async function BillingPayPage({ params }: Props) {
         paymentPortoneId: (billing.payment_portone_id as string | null) ?? null,
         notes: (billing.notes as string | null) ?? null,
         serviceType: (billing.service_type as string | null) ?? null,
+        // 2026-11-18: 관리자가 청구서마다 정기결제(카드 자동결제) 선택지를 켜고 끈다. 미지정이면 추가 청구서만 숨김
+        allowAutopay: resolveAllowAutopay(billing.allow_autopay as boolean | null, billing.billing_type as string | null),
       }}
       customer={customer}
       adminPreview={adminPreview}

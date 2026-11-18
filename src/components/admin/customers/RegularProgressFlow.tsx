@@ -45,6 +45,8 @@ interface BillingItem {
   taxInvoiceIssued?: boolean
   // Phase H.5-rev: 결제링크 복사용
   paymentUrl?: string
+  /** 2026-11-18: 결제 페이지 정기결제(카드 자동결제) 선택지 표시 여부 (미지정이면 청구 종류 기본값) */
+  allowAutopay?: boolean
 }
 
 interface VisitItem {
@@ -548,6 +550,7 @@ export default function RegularProgressFlow({
                           status: b.status,
                           taxInvoiceIssued: b.taxInvoiceIssued ?? false,
                           paymentUrl: b.paymentUrl,
+                          allowAutopay: b.allowAutopay,
                         })}
                       />
                     ))}
@@ -684,6 +687,8 @@ export default function RegularProgressFlow({
             tax_invoice_issued: payload.taxInvoiceIssued,
             service_type: customerType,
             notes: payload.notes?.trim() || null,
+            // 2026-11-18: 모달에서 고른 '정기결제 선택지' 표시 여부 (추가 결제는 기본 숨김)
+            allow_autopay: payload.allowAutopay ?? null,
           }),
         })
         if (!res.ok) {

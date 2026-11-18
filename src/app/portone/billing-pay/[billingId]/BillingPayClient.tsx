@@ -55,6 +55,8 @@ interface BillingData {
   /** 2026-11-08: 청구 내용 메모 (1회성 추가 결제는 이 문구가 제목이 된다) */
   notes?: string | null
   serviceType?: string | null
+  /** 2026-11-18: '정기결제(카드 자동결제)' 선택지 표시 여부 — 서버(page.tsx)가 청구서 설정·종류로 결정 */
+  allowAutopay: boolean
 }
 
 export interface BillingPayCustomer {
@@ -156,7 +158,8 @@ export function BillingPayClient({ billing, customer, adminPreview = false }: Pr
     ? `추가 결제${billing.notes ? ` · ${billing.notes}` : ''}`
     : `${periodLabel(billing.billingPeriod)} ${serviceLabel(customer.customerType)} 결제`
   const kicker = extra ? 'BBK 공간케어 · 추가 결제' : 'BBK 공간케어 · 정기 서비스 결제'
-  const methods = METHODS.filter(m => !(AUTOPAY_HIDDEN && m.key === 'autopay') && !(extra && m.key === 'autopay'))
+  // 자동결제 선택지: 전역 숨김(AUTOPAY_HIDDEN) 또는 이 청구서에서 꺼져 있으면(추가 결제 기본 숨김) 제외
+  const methods = METHODS.filter(m => m.key !== 'autopay' || (!AUTOPAY_HIDDEN && billing.allowAutopay))
   const { supply, vat, taxable } = splitVat(billing.amount, customer.paymentMethod)
   const isCashMethod = normalizePaymentMethod(customer.paymentMethod) === 'cash_untaxed'
 

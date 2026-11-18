@@ -49,11 +49,13 @@ export async function POST(request: NextRequest) {
   const body = await request.json()
   const {
     customer_id, billing_type, billing_period, amount, due_date,
-    notes, billing_timing, service_type, application_id, auto_notify,
+    notes, billing_timing, service_type, application_id, auto_notify, allow_autopay,
   } = body as {
     customer_id?: string; billing_type?: string; billing_period?: string; amount?: number | string; due_date?: string
     notes?: string | null; billing_timing?: string | null; service_type?: string | null
     application_id?: string | null; auto_notify?: boolean
+    /** 2026-11-18: 결제 페이지 '정기결제(카드 자동결제)' 선택지 표시 여부. 생략 시 청구 종류 기본값 */
+    allow_autopay?: boolean | null
   }
 
   if (!customer_id || !billing_type || !billing_period || !amount || !due_date) {
@@ -79,6 +81,7 @@ export async function POST(request: NextRequest) {
   }
   if (billing_timing) insertPayload.billing_timing = billing_timing
   if (service_type)   insertPayload.service_type   = service_type
+  if (typeof allow_autopay === 'boolean') insertPayload.allow_autopay = allow_autopay
   const isExtra = billing_type === 'onetime' && service_type === '1회성케어'
   if (isExtra) {
     insertPayload.application_id = await resolveApplicationId(supabase, String(customer_id), application_id)
@@ -116,6 +119,8 @@ export async function PATCH(request: NextRequest) {
     'tax_invoice_issued', 'tax_invoice_issued_date',
     // Phase H.1 (2026-10-18): 결제 링크 수동 입력·자동 생성 저장
     'payment_url', 'payment_portone_id', 'payment_sent_at', 'send_attempts',
+    // 2026-11-18: 결제 페이지 정기결제(카드 자동결제) 선택지 표시 여부
+    'allow_autopay',
   ]
   const updates: Record<string, unknown> = {}
   for (const key of ALLOWED) {
