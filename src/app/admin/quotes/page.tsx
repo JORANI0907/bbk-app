@@ -122,7 +122,7 @@ const HISTORY_PAGE_SIZE  = 30
 // 고객관리 탭의 고객 정보(customers)는 바꾸지 않음 — 예외: 시공 희망일은 연결 고객의 다음 방문일 재계산.
 const TIP = {
   draftSave:
-    '작성 중인 견적 항목(작업명·수량·단가)과 특이사항만 임시 저장합니다.\n' +
+    '작성 중인 견적 항목(작업명·수량·단가)과 안내사항만 임시 저장합니다.\n' +
     '견적서 이름·대상 업체명·주소·유효기간은 저장되지 않습니다.\n' +
     '견적서로 남기려면 아래 [견적서 완성]을 누르세요.',
   customerSave:
@@ -131,7 +131,7 @@ const TIP = {
     '견적서 발송 시에도 화면의 고객 정보가 자동 저장됩니다.',
   createApp: '입력한 고객 정보로 견적용 신청서를 새로 만듭니다. 만든 뒤 견적서를 작성할 수 있습니다.',
   complete:
-    '현재 견적 항목·조건(이름·대상 업체명·주소·유효기간·특이사항 포함)을\n' +
+    '현재 견적 항목·조건(이름·대상 업체명·주소·유효기간·안내사항 포함)을\n' +
     '"저장된 견적서" 목록에 새 견적서로 추가하고 PDF를 Google Drive에 백업합니다. 발송은 하지 않습니다.',
   completeEdit: '수정 중인 견적서를 덮어써 저장합니다. 발송 기록은 유지되며 PDF는 [PDF 재생성]으로 새로 만듭니다.',
   cancelEdit: '수정을 취소하고 새 견적서 작성 상태로 돌아갑니다. 저장된 견적서는 바뀌지 않습니다.',
@@ -1845,7 +1845,7 @@ export default function QuotesPage() {
                 </Button>
               </SectionHeader>
               <p className="text-xs text-text-tertiary leading-normal mb-3 break-keep">
-                [작성 중 저장]은 견적 항목·특이사항만 임시 저장됩니다. 견적서로 남기려면 아래 <b className="text-text-secondary">[견적서 완성]</b>을 누르세요.
+                [작성 중 저장]은 견적 항목·안내사항만 임시 저장됩니다. 견적서로 남기려면 아래 <b className="text-text-secondary">[견적서 완성]</b>을 누르세요.
               </p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3">
                 <FieldGroup label="견적서 이름 (선택)">
@@ -1874,7 +1874,7 @@ export default function QuotesPage() {
                 이름은 이력 표시와 PDF 파일명(<span className="tabular-nums">업체명_이름_견적번호.pdf</span>)에 사용됩니다. 비워두면 자동으로 &apos;견적서 #N&apos;.
               </p>
               <div className="mt-3">
-                <FieldGroup label="특이사항 (선택 — PDF에 포함)">
+                <FieldGroup label="안내사항 (선택 — PDF에 포함)">
                   <Textarea value={notes} onChange={e => setNotes(e.target.value)}
                     placeholder="견적서에 포함할 안내사항 또는 주의사항을 입력하세요." rows={3} />
                 </FieldGroup>
