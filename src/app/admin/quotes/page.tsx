@@ -221,6 +221,8 @@ export default function QuotesPage() {
   const [historyDateFrom, setHistoryDateFrom]   = useState('')
   const [historyDateTo, setHistoryDateTo]       = useState('')
   const [historyPage, setHistoryPage]           = useState(1)
+  // 견적 이력 뷰에서 발송 전 PDF 생성 중인 견적서 id
+  const [historyPdfGenId, setHistoryPdfGenId]   = useState<string | null>(null)
 
   // 선택
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -539,6 +541,33 @@ export default function QuotesPage() {
   const handleHistoryReset = () => {
     setHistorySearch(''); setHistoryDateFrom(''); setHistoryDateTo(''); setHistoryPage(1)
     loadHistoryQuotes(1, '', '', '')
+  }
+
+  // ── 견적 이력 뷰에서 발송 전 PDF 생성 (알림·이메일 없음) ─────
+  // 저장된 견적서 중 아직 PDF가 없는(미발송/직접생성) 건을 발송 전에 PDF로 만든다.
+  // regenerate-pdf 재사용: PDF 렌더 → Storage 업로드 → Drive 백업 → saved_quotes 갱신.
+  const handleGenerateHistoryPdf = async (q: FlatQuote) => {
+    setHistoryPdfGenId(q.id)
+    try {
+      const res = await fetch(`/api/admin/quotes/${q.application_id}/regenerate-pdf`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ saved_quote_id: q.id }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error ?? 'PDF 생성 실패')
+      // 목록 즉시 갱신 → pdf_url 반영되어 미리보기·PDF 버튼 노출
+      setHistoryQuotes(prev => prev.map(x =>
+        x.application_id === q.application_id && x.id === q.id
+          ? { ...x, quote_no: data.quote_no, pdf_url: data.pdf_url }
+          : x,
+      ))
+      toast.success(`'${q.label}' PDF 생성 완료 (${data.quote_no})`)
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'PDF 생성 실패')
+    } finally {
+      setHistoryPdfGenId(null)
+    }
   }
 
   // Phase 27-Q: 이력 모드 토글 (버튼 클릭) — page 리셋 + 선택 해제 + 재로딩
@@ -1286,6 +1315,21 @@ export default function QuotesPage() {
                           >
                             <FileText size={11} />본문보기
                           </button>
+                          {!q.pdf_url && (
+                            <button
+                              type="button"
+                              onClick={() => handleGenerateHistoryPdf(q)}
+                              disabled={historyPdfGenId === q.id}
+                              title="발송 없이 PDF만 생성합니다. 생성 후 미리보기·다운로드할 수 있습니다."
+                              className="flex items-center gap-1 text-[11px] px-2.5 py-1 rounded-md bg-brand-600 text-white hover:bg-brand-700 transition-colors disabled:opacity-50"
+                            >
+                              {historyPdfGenId === q.id ? (
+                                <><RefreshCw size={11} className="animate-spin" />생성 중…</>
+                              ) : (
+                                <><FileText size={11} />PDF 생성</>
+                              )}
+                            </button>
+                          )}
                           {q.pdf_url && (
                             <a
                               href={q.pdf_url}
