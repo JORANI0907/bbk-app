@@ -1,6 +1,6 @@
 import path from 'path'
 import React from 'react'
-import { Document, Page, Text, View, Image, StyleSheet, Font } from '@react-pdf/renderer'
+import { Document, Page, Text, View, Image, StyleSheet, Font, type DocumentProps } from '@react-pdf/renderer'
 
 // ─── Pretendard 폰트 ──────────────────────────────────────────
 const fontDir = path.join(process.cwd(), 'public', 'fonts')
@@ -206,13 +206,16 @@ const s = StyleSheet.create({
   },
 
   // ── Table ──
+  // 2026-11-20: 블록 사이 간격은 '다음 블록의 marginTop' 으로만 준다.
+  //   react-pdf 는 어떤 블록이 페이지에 들어가더라도 그 블록의 marginBottom 까지 안 들어가면
+  //   블록 전체를 다음 페이지로 넘긴다 → 항목 표가 1페이지 끝에 딱 맞게 끝나면 표 전체가 2페이지로 밀렸다.
   tableWrap: {
     borderWidth: 0.75,
     borderColor: C.border,
     borderStyle: 'solid',
     borderRadius: 4,
     overflow: 'hidden',
-    marginBottom: 10,
+    marginBottom: 0,
   },
   tableHead: {
     flexDirection: 'row',
@@ -255,7 +258,8 @@ const s = StyleSheet.create({
   totalsWrap: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
-    marginBottom: 14,
+    marginTop: 10,
+    marginBottom: 0,
   },
   totalsBox: {
     width: '46%',
@@ -317,7 +321,8 @@ const s = StyleSheet.create({
     paddingBottom: 8,
     paddingLeft: 12,
     paddingRight: 12,
-    marginBottom: 12,
+    marginTop: 14,
+    marginBottom: 0,
   },
   bankRow: {
     flexDirection: 'row',
@@ -344,7 +349,7 @@ const s = StyleSheet.create({
   },
 
   // ── Notes ──
-  notesWrap: { marginBottom: 14 },
+  notesWrap: { marginTop: 14, marginBottom: 0 },
   notesLabel: {
     fontSize: 8.5,
     fontWeight: 'bold',
@@ -368,8 +373,8 @@ const s = StyleSheet.create({
   signWrap: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
-    marginBottom: 10,
-    marginTop: 4,
+    marginTop: 16,
+    marginBottom: 0,
   },
   signInner: {
     alignItems: 'flex-end',
@@ -402,7 +407,7 @@ const s = StyleSheet.create({
     borderTopColor: C.border,
     borderTopStyle: 'solid',
     paddingTop: 7,
-    marginTop: 6,
+    marginTop: 16,
     textAlign: 'center',
     fontSize: 8,
     color: C.textTertiary,
@@ -411,7 +416,10 @@ const s = StyleSheet.create({
 })
 
 // ─── Document ─────────────────────────────────────────────────
-function QuotePdfDocument({ d }: { d: QuotePdfData }) {
+/** react-pdf 가 레이아웃을 끝낸 뒤 호출하는 콜백 (페이지 트리 포함) — 페이지 나눔 단위 테스트에서만 쓴다 */
+export type QuotePdfOnRender = NonNullable<DocumentProps['onRender']>
+
+export function QuotePdfDocument({ d, onRender }: { d: QuotePdfData; onRender?: QuotePdfOnRender }) {
   const customerFields: [string, string][] = [
     ['업체명', d.businessName],
     ['대표자', d.ownerName],
@@ -432,7 +440,7 @@ function QuotePdfDocument({ d }: { d: QuotePdfData }) {
   const items = d.quoteItems.filter(i => i.name.trim())
 
   return (
-    <Document>
+    <Document onRender={onRender}>
       <Page size="A4" style={s.page}>
 
         {/* ── Header ── */}
@@ -565,7 +573,7 @@ function QuotePdfDocument({ d }: { d: QuotePdfData }) {
         {/* ── Notes ── */}
         {d.notes && (
           <View style={s.notesWrap}>
-            <Text style={s.notesLabel}>특이사항</Text>
+            <Text style={s.notesLabel}>안내사항</Text>
             <Text style={s.notesText}>{d.notes}</Text>
           </View>
         )}
