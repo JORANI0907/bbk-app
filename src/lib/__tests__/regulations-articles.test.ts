@@ -99,3 +99,39 @@ describe('formatKoreanDate', () => {
     expect(formatKoreanDate(null)).toBe('')
   })
 })
+
+describe('renderRegulationHtml — 목차 이동이 깨지던 실제 사례 (2026-11-23)', () => {
+  it('블록 사이에 줄바꿈이 있어도(인사 규정) 모든 조에 앵커가 붙는다', () => {
+    const html =
+      '<h2>제1장 총칙</h2>\n<p><strong>제1조 (목적)</strong></p>\n<p>목적이다.</p>\n' +
+      '<p><strong>제2조 (적용 범위)</strong></p>\n<p>① 범위다.</p>\n<p>② 둘째.</p>\n'
+    const out = renderRegulationHtml(html, '2026-12-01')
+    expect(out).toContain('<p id="art-1">')
+    expect(out).toContain('<p id="art-2">')
+  })
+
+  it('표가 <p> 안에 잘못 들어간 본문(환불 규정)이라도 조 제목 앵커는 붙는다', () => {
+    const html =
+      '<p><strong>제3조 (취소 및 환불)</strong></p><p>다음과 같이 처리한다.</p>' +
+      '<p><table><tbody><tr><td><p><strong>시점</strong></p></td><td><p>위약금</p></td></tr></tbody></table></p>' +
+      '<p><strong>제4조 (정기서비스 해약)</strong></p><p>해약 기준.</p>'
+    const out = renderRegulationHtml(html, null)
+    expect(out).toContain('<p id="art-3">')
+    expect(out).toContain('<p id="art-4">')
+  })
+
+  it('제목에 괄호가 겹친 조(쿠키(Cookie))도 목차와 앵커에 들어간다', () => {
+    const html = '<p><strong>제12조 (쿠키(Cookie)의 운영 및 거부 방법)</strong></p><p>본문</p>'
+    const toc = buildToc(html)
+    expect(toc[0].articles[0]).toMatchObject({ id: 'art-12', title: '쿠키(Cookie)의 운영 및 거부 방법' })
+    expect(renderRegulationHtml(html, null)).toContain('<p id="art-12">')
+  })
+
+  it('이미 id 가 있는 조 제목에는 다시 붙이지 않고 다른 속성은 유지한다', () => {
+    const html = '<p id="custom"><strong>제1조 (목적)</strong></p><p style="text-align:left"><strong>제2조 (범위)</strong></p>'
+    const out = renderRegulationHtml(html, null)
+    expect(out).toContain('<p id="custom">')
+    expect(out).not.toContain('id="art-1"')
+    expect(out).toContain('<p id="art-2" style="text-align:left">')
+  })
+})

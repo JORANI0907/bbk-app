@@ -55,17 +55,17 @@ export interface ArticleBlock extends ArticleRef {
 }
 
 const CHAPTER_RE = /<h2[^>]*>([\s\S]*?)<\/h2>/i
-const ARTICLE_RE = /^<p[^>]*>\s*<strong>\s*(제\s*\d+\s*조(?:\s*의\s*\d+)?)\s*(?:\(([^)]*)\))?\s*<\/strong>\s*<\/p>$/i
+/**
+ * 조 제목 한 줄: <p><strong>제N조 (제목)</strong></p>
+ * 제목 괄호는 탐욕(.*)으로 잡는다 — "제12조 (쿠키(Cookie)의 운영)" 처럼 괄호가 겹치는 제목이 있다.
+ */
+const ARTICLE_RE = /^<p[^>]*>\s*<strong>\s*(제\s*\d+\s*조(?:\s*의\s*\d+)?)\s*(?:\((.*)\))?\s*<\/strong>\s*<\/p>$/i
+/** 최상위 블록 하나(h1~6, p, table, ul, ol, hr, blockquote). 사용할 때마다 lastIndex 가 섞이지 않도록 새로 만든다. */
+const blockRegex = () => /<(h[1-6]|p|table|ul|ol|hr|blockquote)\b[^>]*>[\s\S]*?<\/\1>|<hr\b[^>]*\/?>/gi
 
 /** html 을 블록 단위(최상위 태그 하나씩)로 쪼갠다. 중첩 테이블은 하나의 블록으로 유지. */
 export function splitBlocks(html: string): string[] {
-  const out: string[] = []
-  const re = /<(h[1-6]|p|table|ul|ol|hr|blockquote)\b[^>]*>[\s\S]*?<\/\1>|<hr\b[^>]*\/?>/gi
-  let m: RegExpExecArray | null
-  while ((m = re.exec(html)) !== null) {
-    out.push(m[0].trim())
-  }
-  return out
+  return Array.from(html.matchAll(blockRegex()), (m) => m[0].trim())
 }
 
 export function stripTags(html: string): string {
@@ -144,16 +144,16 @@ export function formatKoreanDate(iso: string | null | undefined): string {
  */
 export function renderRegulationHtml(html: string, effectiveDate: string | null | undefined): string {
   const dateText = formatKoreanDate(effectiveDate) || '(시행일 미정)'
-  let out = html.replace(/\{\{\s*시행일\s*\}\}/g, dateText)
-  for (const a of parseArticles(html)) {
-    const withId = a.html.slice(0, a.html.indexOf(a.number))
-    // 조 제목 <p> 하나만 id 삽입 (첫 <p 에 id 추가)
-    const head = a.html.match(/^<p([^>]*)>/i)
-    if (!head || withId.includes(' id=')) continue
-    const replaced = a.html.replace(/^<p([^>]*)>/i, `<p id="${a.id}"$1>`)
-    out = out.replace(a.html, replaced)
-  }
-  return out
+  // 블록을 제자리에서 바꾼다. 예전에는 조 전체 html 을 문자열 치환했는데, 블록 사이 줄바꿈이나
+  // 깨진 <p><table> 구조가 있으면 원문과 일치하지 않아 앵커가 통째로 빠졌다 (2026-11-23).
+  const withAnchors = html.replace(blockRegex(), (block) => {
+    const art = block.match(ARTICLE_RE)
+    const head = block.match(/^<p([^>]*)>/i)
+    if (!art || !head || /\sid=/i.test(head[1])) return block
+    const id = articleId(art[1].replace(/\s+/g, ''))
+    return `<p id="${id}"${head[1]}>${block.slice(head[0].length)}`
+  })
+  return withAnchors.replace(/\{\{\s*시행일\s*\}\}/g, dateText)
 }
 
 export type ArticleChangeKind = 'added' | 'removed' | 'changed'
