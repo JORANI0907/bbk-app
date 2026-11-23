@@ -26,6 +26,8 @@ const NAV_ITEMS: NavItem[] = [
       { href: '/admin/quotes', label: '견적관리' },
       { href: '/admin/contracts', label: '계약서 관리' },
       { href: '/admin/snippets', label: '문자 단축어' },
+      { href: '/admin/pricing', label: '비용 기준' },
+      { href: '/admin/pricing-calculator', label: '비용 계산기' },
     ],
   },
   {
@@ -47,6 +49,7 @@ const NAV_ITEMS: NavItem[] = [
       { href: '/admin/incidents', label: '경위서' },
       { href: '/admin/claims', label: '고객 A/S 요청' },
       { href: '/admin/inventory', label: '재고관리', badgeKey: 'inventory' },
+      { href: '/admin/regulations', label: '회사 규정' },
     ],
   },
   {

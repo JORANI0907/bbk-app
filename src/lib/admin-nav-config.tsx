@@ -75,6 +75,9 @@ export const NAV_ITEMS: NavItem[] = [
       { href: '/admin/quotes', label: '견적관리' },
       { href: '/admin/contracts', label: '계약서 관리' },
       { href: '/admin/snippets', label: '문자 단축어' },
+      // 2026-11-23: 서비스 비용 기준(규모×난이도) + 계산기. 관리자 전용 1차.
+      { href: '/admin/pricing', label: '비용 기준' },
+      { href: '/admin/pricing-calculator', label: '비용 계산기' },
     ],
   },
   {
@@ -107,6 +110,8 @@ export const NAV_ITEMS: NavItem[] = [
       { href: '/admin/incidents', label: '경위서', badgeKey: 'incidents' },
       { href: '/admin/claims', label: '고객 클레임' },
       { href: '/admin/inventory', label: '재고관리', badgeKey: 'inventory' },
+      // 2026-11-23: 회사 규정 (전자법령 스타일). 1차는 관리자 전용 — 직원·고객 포털 연결은 2차.
+      { href: '/admin/regulations', label: '회사 규정' },
     ],
   },
   {
