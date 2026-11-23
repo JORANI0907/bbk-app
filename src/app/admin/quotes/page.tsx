@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/Input'
 import { Textarea } from '@/components/ui/Textarea'
 import { Plus, X, FileText, ExternalLink, RefreshCw, ChevronLeft, ChevronRight, Save, RotateCcw, Upload, Trash2, Send, Pencil, CheckCircle2, MoreVertical, Copy, Search, HelpCircle } from 'lucide-react'
 import { BrowseQuotesModal } from './BrowseQuotesModal'
+import { ImportCalculationModal, calculationToQuote, type SavedCalculation } from '@/components/pricing/ImportCalculationModal'
 
 // ─── 타입 ────────────────────────────────────────────────────────
 
@@ -275,6 +276,7 @@ export default function QuotesPage() {
   const [regeneratingQuoteId, setRegeneratingQuoteId] = useState<string | null>(null)
   const [openMenu, setOpenMenu] = useState<{ id: string; top: number; right: number } | null>(null)
   const [showBrowseModal, setShowBrowseModal] = useState(false)          // 다른 신청서 견적서 참고 모달
+  const [showCalcModal, setShowCalcModal] = useState(false)              // 2026-11-23: 비용 계산기 저장 결과 불러오기
   const historyRef = useRef<HTMLDivElement>(null)
 
   const searchTimer        = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -785,6 +787,25 @@ export default function QuotesPage() {
     } finally {
       setSavingDraft(false)
     }
+  }
+
+  // ── 비용 계산기 결과 불러오기 (2026-11-23) ───────────────────────
+  //   계산 결과의 기본 금액·할증은 항목으로, 할인 합계는 할인(금액) 칸으로 넣는다.
+  //   잔돈 할인은 기존 자동 계산(mod 1000)에 맡긴다.
+  const applyCalculation = (calc: SavedCalculation) => {
+    const { items, discountTotal, discountLabel } = calculationToQuote(calc)
+    setPricingMode('itemized')
+    setDirectAmount(0)
+    setQuoteItems(items)
+    if (discountTotal > 0) {
+      setDiscountMode('amount')
+      setDiscountInput(discountTotal)
+    } else {
+      setDiscountMode('none')
+      setDiscountInput(0)
+    }
+    if (!quoteLabel && calc.label) setQuoteLabel(calc.label)
+    toast.success(`계산 결과를 불러왔습니다${discountTotal > 0 ? ` (할인: ${discountLabel})` : ''}.`)
   }
 
   // ── 견적 항목 편집 ────────────────────────────────────────────
@@ -1767,9 +1788,14 @@ export default function QuotesPage() {
                 <span className="text-xs text-text-tertiary">
                   {pricingMode === 'itemized' ? `${quoteItems.length}개 항목` : '설명 항목 (선택)'}
                 </span>
-                <Button size="sm" variant="secondary" onClick={addItem} title={TIP.addItem} className="flex items-center gap-1 text-xs">
-                  <Plus size={12} />항목 추가
-                </Button>
+                <div className="flex gap-1.5">
+                  <Button size="sm" variant="secondary" onClick={() => setShowCalcModal(true)} title="비용 계산기에서 저장한 결과를 항목과 할인으로 채웁니다" className="flex items-center gap-1 text-xs">
+                    계산기 결과 불러오기
+                  </Button>
+                  <Button size="sm" variant="secondary" onClick={addItem} title={TIP.addItem} className="flex items-center gap-1 text-xs">
+                    <Plus size={12} />항목 추가
+                  </Button>
+                </div>
               </div>
 
               {quoteItems.length === 0 ? (
@@ -2150,6 +2176,11 @@ export default function QuotesPage() {
           </div>
         )}
       </div>}
+
+      {/* 비용 계산기 결과 불러오기 모달 (2026-11-23) */}
+      {!quoteHistoryMode && (
+        <ImportCalculationModal open={showCalcModal} onClose={() => setShowCalcModal(false)} onPick={applyCalculation} />
+      )}
 
       {/* 다른 견적서 참고 모달 */}
       {!quoteHistoryMode && showBrowseModal && (
