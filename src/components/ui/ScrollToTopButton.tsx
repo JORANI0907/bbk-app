@@ -14,11 +14,16 @@ interface ScrollToTopButtonProps {
   className?: string
 }
 
+/**
+ * 가장 가까운 스크롤 컨테이너(overflow-y: auto|scroll)를 찾는다.
+ * 내용 길이는 보지 않는다 — 편집기처럼 나중에 로딩되는 본문이 있으면 처음엔 짧아서
+ * 컨테이너를 놓치고 버튼이 영영 안 보이는 문제가 있었다 (2026-11-23).
+ */
 function findScrollParent(el: HTMLElement | null): HTMLElement | null {
   let node = el?.parentElement ?? null
   while (node) {
     const { overflowY } = getComputedStyle(node)
-    if ((overflowY === 'auto' || overflowY === 'scroll') && node.scrollHeight > node.clientHeight) return node
+    if (overflowY === 'auto' || overflowY === 'scroll') return node
     node = node.parentElement
   }
   return null
@@ -54,8 +59,8 @@ export function ScrollToTopButton({ threshold = 320, className = '' }: ScrollToT
         onClick={scrollToTop}
         aria-label="맨 위로"
         className={
-          'fixed right-4 bottom-24 md:right-8 md:bottom-8 z-30 w-11 h-11 rounded-full bg-brand-600 text-white shadow-pop ' +
-          'flex items-center justify-center transition-all duration-150 ease-out-toss hover:bg-brand-700 active:scale-95 ' +
+          'fixed right-4 bottom-24 md:right-8 md:bottom-8 z-30 w-11 h-11 rounded-full bg-brand-100 text-brand-700 shadow-pop ' +
+          'flex items-center justify-center transition-all duration-150 ease-out-toss hover:bg-brand-200 active:scale-95 ' +
           (visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-3 pointer-events-none') + ' ' + className
         }
       >

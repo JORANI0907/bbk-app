@@ -110,7 +110,7 @@ export default function RegulationDetailPage() {
 
       <div className="inline-flex gap-1 bg-surface-sunken rounded-xl p-1">
         {TABS.map((t) => (
-          <button key={t.key} onClick={() => setTab(t.key)} className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${tab === t.key ? 'bg-brand-600 text-white' : 'text-text-secondary hover:text-text-primary'}`}>
+          <button key={t.key} onClick={() => setTab(t.key)} className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${tab === t.key ? 'bg-brand-100 text-brand-800 shadow-soft' : 'text-text-secondary hover:text-text-primary hover:bg-surface'}`}>
             {t.label}
           </button>
         ))}
@@ -159,8 +159,8 @@ export default function RegulationDetailPage() {
         <div className="space-y-3">
           {draft && current && (
             <div className="inline-flex gap-1 bg-surface-sunken rounded-xl p-1">
-              <button onClick={() => setPreviewDraft(true)} className={`px-3 py-1.5 rounded-lg text-xs font-medium ${previewDraft ? 'bg-surface shadow-soft' : 'text-text-secondary'}`}>편집본</button>
-              <button onClick={() => setPreviewDraft(false)} className={`px-3 py-1.5 rounded-lg text-xs font-medium ${!previewDraft ? 'bg-surface shadow-soft' : 'text-text-secondary'}`}>시행본</button>
+              <button onClick={() => setPreviewDraft(true)} className={`px-3 py-1.5 rounded-lg text-xs font-medium ${previewDraft ? 'bg-brand-100 text-brand-800 shadow-soft' : 'text-text-secondary'}`}>편집본</button>
+              <button onClick={() => setPreviewDraft(false)} className={`px-3 py-1.5 rounded-lg text-xs font-medium ${!previewDraft ? 'bg-brand-100 text-brand-800 shadow-soft' : 'text-text-secondary'}`}>시행본</button>
             </div>
           )}
           <RegulationViewer

@@ -94,7 +94,7 @@ export default function RegulationsPage() {
           <button
             key={t}
             onClick={() => setTab(t)}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${tab === t ? 'bg-brand-600 text-white' : 'text-text-secondary hover:text-text-primary'}`}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${tab === t ? 'bg-brand-100 text-brand-800 shadow-soft' : 'text-text-secondary hover:text-text-primary hover:bg-surface'}`}
           >
             {t === 'all' ? '전체' : CATEGORY_LABELS[t]}
           </button>
