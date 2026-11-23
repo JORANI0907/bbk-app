@@ -14,8 +14,8 @@ interface Line { key: string; label: string; value: string; num: number | null; 
 
 function buildLines(r: CalcResult, regular: boolean): Line[] {
   const lines: Line[] = [
-    { key: 'hpw', label: `1명당 시간 (규모 ${r.base_hours_per_worker}시/1인 × 난이도 ${r.time_factor})`, value: `${r.hours_per_worker}시/1인`, num: r.hours_per_worker },
-    { key: 'workers', label: '투입 인원', value: `${r.workers}명${r.workers_increased ? ' (자동 증원)' : ''}`, num: r.workers },
+    { key: 'hpw', label: `1명당 시간 (입력 ${r.input_hours_per_worker}시/1인 × 난이도 ${r.time_factor})`, value: `${r.hours_per_worker}시/1인`, num: r.hours_per_worker },
+    { key: 'workers', label: '투입 인원', value: `${r.workers}명`, num: r.workers },
     { key: 'hours', label: '총 작업시간 (인원 × 시/1인)', value: `${r.total_hours}시간`, num: r.total_hours },
     { key: 'gross', label: '총 작업시간 × 시간당 단가', value: won(r.gross), num: r.gross },
   ]

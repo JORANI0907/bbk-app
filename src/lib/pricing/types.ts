@@ -1,6 +1,7 @@
 /**
- * 서비스 비용 기준 — 타입. 규모(평수 구간: 인원·시/1인) × 난이도 → 총 작업시간 → 금액.
- * 품목표는 두지 않는다 (2026-11-23 대표 결정: 서비스 4종 × 규모 × 난이도만).
+ * 서비스 비용 기준 — 타입. 견적자가 적은 (인원, 1명당 시간) × 난이도 → 총 작업시간 → 금액.
+ * 품목표는 두지 않는다 (2026-11-23 대표 결정: 서비스 4종 × 난이도만).
+ * 규모(평수) 구간도 두지 않는다 (2026-11-23 대표 결정: 헷갈려서 제거. 시간은 전문가가 현장을 보고 직접 적는다).
  */
 
 export type PricingServiceType = 'onetime_deep' | 'onetime_end' | 'regular_deep' | 'regular_end'
@@ -21,22 +22,10 @@ export interface DifficultyGrade {
   name: string
   /** 견적자가 고를 때 보는 판단 기준 */
   criteria: string
-  /** 규모 기준 1명당 시간(시/1인)에 곱함 */
+  /** 견적자가 적은 1명당 시간(시/1인)에 곱함 */
   time_factor: number
   /** 시간당 단가에 곱함 (대부분 1.0) */
   price_factor: number
-}
-
-export interface SizeTier {
-  id: string
-  name: string
-  /** 평수 구간 (표시용). max_pyeong null = 상한 없음 */
-  min_pyeong: number
-  max_pyeong: number | null
-  /** 난이도 "보통" 기준 투입 인원 */
-  workers: number
-  /** 난이도 "보통" 기준 1명당 작업시간 (시/1인). 전문가가 계산기에서 덮어쓸 수 있다 */
-  hours_per_worker: number
 }
 
 export interface DistanceTier { from_km: number; to_km: number | null; amount: number }
@@ -57,6 +46,7 @@ export type DiscountRule =
 export interface PricingConfig {
   hourly_rate: number
   hourly_labor_cost: number
+  /** 난이도 적용 후 1명당 시간이 이 값을 넘으면 경고 */
   max_hours_per_worker: number
   max_revenue_per_worker: number
   max_workers: number
@@ -66,7 +56,6 @@ export interface PricingConfig {
   /** 정기 서비스만: 1회성 산출 금액에 곱해 회당 금액을 만든다 */
   regular_factor: number
   difficulty_grades: DifficultyGrade[]
-  size_tiers: SizeTier[]
   surcharges: SurchargeRule[]
   discounts: DiscountRule[]
 }
@@ -85,12 +74,11 @@ export interface PricingRuleRow {
 /** 계산기 입력 — 선택 사항은 생략 가능 */
 export interface CalcInput {
   service_type: PricingServiceType
-  size_tier_id: string | null
   difficulty_id: string
-  /** 전문가 덮어쓰기: 1명당 작업시간(시/1인). null 이면 규모×난이도로 산출 */
-  hours_per_worker_override: number | null
-  /** 전문가 덮어쓰기: 투입 인원 */
-  workers_override: number | null
+  /** 투입 인원. 견적자가 현장을 보고 적는다 */
+  workers: number | null
+  /** 1명당 작업시간(시/1인), 난이도 적용 전. 견적자가 적는다 */
+  hours_per_worker: number | null
   distance_km: number | null
   days_until_visit: number | null
   /** 정기 전용 */
@@ -106,16 +94,15 @@ export interface CalcInput {
 export interface CalcLine { label: string; amount: number; note?: string }
 
 export interface CalcResult {
-  /** 규모 기준 인원·1인당 시간 (난이도 적용 전) */
-  base_workers: number
-  base_hours_per_worker: number
+  /** 입력한 1명당 시간 (난이도 적용 전) */
+  input_hours_per_worker: number
   time_factor: number
-  /** 확정 인원·1인당 시간·총 작업시간(인원 × 1인당 시간) */
+  /** 확정 인원·1인당 시간(난이도 적용 후)·총 작업시간(인원 × 1인당 시간) */
   workers: number
   hours_per_worker: number
   total_hours: number
-  /** 1인당 시간이 1인 최대를 넘어 인원을 늘렸는지 */
-  workers_increased: boolean
+  /** 난이도 적용 후 1명당 시간이 1인 최대를 넘었는지 */
+  over_max_hours: boolean
   over_max_workers: boolean
   gross: number
   extra_worker_discount: number

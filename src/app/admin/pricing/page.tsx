@@ -1,15 +1,17 @@
 'use client'
 
 /**
- * 비용 기준 탭 (관리자) — 서비스 유형별 기준값을 4단계로 편집하고 새 판으로 저장한다.
+ * 비용 기준 탭 (관리자) — 서비스 유형별 기준값을 3단계로 편집하고 새 판으로 저장한다.
  *   - 편집 중인 내용은 브라우저에 남아 화면을 오가도 유지된다 (서비스 유형별로 따로).
  *   - 저장하면 새 판이 생기고 이전 판은 이력에 남는다.
+ *   - 인원·1명당 시간은 여기서 정하지 않는다. 견적자가 계산기에서 현장을 보고 직접 적는다.
  */
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button, Modal, ScrollToTopButton, SectionHeader, Spinner, Textarea } from '@/components/ui'
 import { PricingBasicFields } from '@/components/pricing/PricingBasicFields'
-import { GradeTable, TierTable } from '@/components/pricing/GradeAndTierTables'
+import { GradeTable } from '@/components/pricing/GradeTable'
+import { PricingSection, SubGroup } from '@/components/pricing/PricingSection'
 import { SurchargeEditor, DiscountEditor } from '@/components/pricing/RuleListEditor'
 import { usePricingRules } from '@/components/pricing/usePricingRules'
 import { DEFAULT_PRICING } from '@/lib/pricing/defaults'
@@ -28,7 +30,7 @@ const EMPTY_DRAFT: SettingsDraft = { type: 'onetime_deep', edits: {} }
 export default function PricingSettingsPage() {
   const router = useRouter()
   const { rules, isLoading, isSaving, save, history } = usePricingRules()
-  const { value: draft, update: setDraft } = useLocalDraft<SettingsDraft>('bbk_pricing_settings_v2', EMPTY_DRAFT)
+  const { value: draft, update: setDraft } = useLocalDraft<SettingsDraft>('bbk_pricing_settings_v3', EMPTY_DRAFT)
   const [showSave, setShowSave] = useState(false)
   const [note, setNote] = useState('')
   const [versions, setVersions] = useState<PricingRuleRow[] | null>(null)
@@ -64,7 +66,7 @@ export default function PricingSettingsPage() {
       <SectionHeader
         level="page"
         title="비용 기준"
-        subtitle="계산기가 쓰는 숫자를 정하는 곳입니다. ①~④를 채우고 '새 판으로 저장'을 누르면 적용됩니다. 편집 중인 내용은 이 브라우저에 남습니다."
+        subtitle="계산기가 쓰는 숫자를 정하는 곳입니다. ①~③을 채우고 '새 판으로 저장'을 누르면 적용됩니다. 편집 중인 내용은 이 브라우저에 남습니다."
         action={
           <div className="flex gap-2 flex-wrap">
             <Button variant="secondary" size="sm" onClick={() => router.push('/admin/pricing-calculator')}>계산기 열기</Button>
@@ -74,21 +76,21 @@ export default function PricingSettingsPage() {
         }
       />
 
-      <details className="bg-surface-sunken rounded-2xl p-4 text-sm">
+      <details className="bg-surface-sunken border border-border-subtle rounded-2xl p-4 text-sm">
         <summary className="font-semibold cursor-pointer">이 화면은 어떻게 쓰나요?</summary>
         <ol className="list-decimal pl-5 mt-2 space-y-1 text-text-secondary break-keep">
           <li>서비스 종류를 고릅니다. 종류마다 숫자가 따로 저장됩니다.</li>
-          <li>① 기본값: 시간당 단가와 인원 한도. 금액의 뼈대입니다.</li>
-          <li>② 난이도: 현장 상태에 따라 시간을 얼마나 늘릴지. 견적자가 고르는 등급입니다.</li>
-          <li>③ 규모: 평수 구간별로 보통 난이도일 때 몇 명이 각각 몇 시간(시/1인) 일하는지. 계산기에서 전문가가 덮어쓸 수 있으니 평균으로 적습니다.</li>
-          <li>④ 할증·할인: 켜 둔 규칙만 계산기에 나타납니다.</li>
+          <li>① 기본값: 시간당 단가와 한도. 금액의 뼈대입니다.</li>
+          <li>② 난이도: 현장 상태에 따라 시간을 얼마나 늘릴지. 견적자가 계산기에서 고르는 등급입니다.</li>
+          <li>③ 할증·할인: 켜 둔 규칙만 계산기에 나타납니다.</li>
+          <li>몇 명이 몇 시간 일하는지는 여기서 정하지 않습니다. 견적자가 계산기에서 현장을 보고 직접 적습니다.</li>
           <li>저장하면 &ldquo;제N판&rdquo;이 생기고, 그 뒤 계산은 새 판을 씁니다. 이전 판은 변경 이력에서 다시 불러올 수 있습니다.</li>
         </ol>
       </details>
 
-      <div className="inline-flex gap-1 bg-surface-sunken rounded-xl p-1 flex-wrap">
+      <div className="inline-flex gap-1 bg-surface-sunken border border-border-subtle rounded-xl p-1 flex-wrap">
         {SERVICE_TYPES.map((t) => (
-          <button key={t} onClick={() => setType(t)} className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${type === t ? 'bg-brand-600 text-white' : 'text-text-secondary hover:text-text-primary'}`}>
+          <button key={t} onClick={() => setType(t)} className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${type === t ? 'bg-brand-100 text-brand-800 shadow-soft' : 'text-text-secondary hover:text-text-primary hover:bg-surface'}`}>
             {SERVICE_TYPE_LABELS[t]}{draft.edits[t] ? ' •' : ''}
           </button>
         ))}
@@ -100,15 +102,24 @@ export default function PricingSettingsPage() {
         <button className="underline" onClick={() => update(DEFAULT_PRICING[type])}>초기 기본값으로 채우기</button>
       </div>
 
-      <Section n={1} title="기본값" hint="시간당 단가 × 총 작업시간(인원 × 시/1인)이 금액의 출발점입니다. 인건비는 내부 마진 계산에만 쓰입니다."><PricingBasicFields serviceType={type} config={config} onChange={update} /></Section>
-      <Section n={2} title="난이도 등급" hint="등급별 판단 기준을 글로 적어 두면 누가 견적해도 같은 등급을 고릅니다."><GradeTable grades={config.difficulty_grades} onChange={(g) => update({ ...config, difficulty_grades: g })} /></Section>
-      <Section n={3} title="규모 구간 → 인원과 1명당 시간" hint="평수 구간마다 보통 난이도일 때 몇 명이 각각 몇 시간(시/1인) 일하는지. 전문가가 계산기에서 덮어쓸 수 있습니다."><TierTable tiers={config.size_tiers} onChange={(t) => update({ ...config, size_tiers: t })} /></Section>
-      <Section n={4} title="할증·할인 규칙" hint="'사용'에 체크한 규칙만 계산기에 나타나고, 조건이 맞을 때만 금액에 반영됩니다.">
-        <p className="text-xs font-semibold text-text-secondary">할증</p>
-        <SurchargeEditor rules={config.surcharges} onChange={(s) => update({ ...config, surcharges: s })} />
-        <p className="text-xs font-semibold text-text-secondary mt-4">할인</p>
-        <DiscountEditor rules={config.discounts} onChange={(d) => update({ ...config, discounts: d })} />
-      </Section>
+      <PricingSection n={1} title="기본값" hint="시간당 단가 × 총 작업시간(인원 × 시/1인)이 금액의 출발점입니다. 인건비는 내부 마진 계산에만 쓰입니다.">
+        <PricingBasicFields serviceType={type} config={config} onChange={update} />
+      </PricingSection>
+
+      <PricingSection n={2} title="난이도 등급" hint="견적자가 현장을 보고 고르는 등급입니다. 시간 계수는 견적자가 적은 1명당 시간에 곱하고, 단가 계수는 시간당 단가에 곱합니다(대부분 1.0).">
+        <SubGroup title="등급 목록" hint="판단 기준을 글로 적어 두면 누가 견적해도 같은 등급을 고릅니다.">
+          <GradeTable grades={config.difficulty_grades} onChange={(g) => update({ ...config, difficulty_grades: g })} />
+        </SubGroup>
+      </PricingSection>
+
+      <PricingSection n={3} title="할증·할인 규칙" hint="'사용'에 체크한 규칙만 계산기에 나타나고, 조건이 맞을 때만 금액에 반영됩니다.">
+        <SubGroup title="할증" hint="금액을 올리는 규칙">
+          <SurchargeEditor rules={config.surcharges} onChange={(s) => update({ ...config, surcharges: s })} />
+        </SubGroup>
+        <SubGroup title="할인" hint="금액을 내리는 규칙">
+          <DiscountEditor rules={config.discounts} onChange={(d) => update({ ...config, discounts: d })} />
+        </SubGroup>
+      </PricingSection>
 
       <ScrollToTopButton />
 
@@ -138,20 +149,5 @@ export default function PricingSettingsPage() {
         </div>
       </Modal>
     </div>
-  )
-}
-
-function Section({ n, title, hint, children }: { n: number; title: string; hint: string; children: React.ReactNode }) {
-  return (
-    <section className="bg-surface border border-border-subtle rounded-2xl p-4 md:p-6 space-y-4">
-      <div className="flex items-start gap-3">
-        <span className="shrink-0 w-7 h-7 rounded-full bg-brand-600 text-white text-xs font-bold flex items-center justify-center">{n}</span>
-        <div>
-          <p className="text-base font-semibold leading-snug">{title}</p>
-          <p className="text-xs text-text-secondary mt-0.5 break-keep">{hint}</p>
-        </div>
-      </div>
-      {children}
-    </section>
   )
 }

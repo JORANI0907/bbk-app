@@ -3,6 +3,7 @@
 /** 할증·할인 규칙 편집 — 종류별로 필요한 숫자만 보여 준다 */
 import { Button, Input, Select } from '@/components/ui'
 import { NumberField } from './NumberField'
+import { ROW_CLASS } from './PricingSection'
 import type { DiscountRule, SurchargeRule } from '@/lib/pricing/types'
 
 const newId = (prefix: string) => `${prefix}_${Math.random().toString(36).slice(2, 7)}`
@@ -39,7 +40,7 @@ type AnyRule = SurchargeRule | DiscountRule
 function RuleRow<T extends AnyRule>({ rule, onChange, onRemove }: { rule: T; onChange: (r: T) => void; onRemove: () => void }) {
   const set = (patch: Partial<T>) => onChange({ ...rule, ...patch })
   return (
-    <div className="bg-surface-sunken rounded-xl p-3 space-y-2">
+    <div className={`${ROW_CLASS} space-y-2`}>
       <div className="flex flex-col md:flex-row gap-2 md:items-end">
         <label className="flex items-center gap-2 text-xs font-medium shrink-0 pb-2.5">
           <input type="checkbox" checked={rule.enabled} onChange={(e) => set({ enabled: e.target.checked } as Partial<T>)} /> 사용
