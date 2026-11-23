@@ -59,3 +59,8 @@ scripts/marketing/characters/cache/
 # 스크립트 실행 결과 캐시 (_ 접두어)
 scripts/_*.json
 .env*
+
+# 2026-11-23: 고객 개인정보가 들어 있는 1회성 시드 스크립트·생성 결과물은 저장소에 올리지 않는다
+scripts/_contract-v4-out/
+scripts/seed-itfirst-franchise.mjs
+scripts/contract-templates-deepcare-v4.mjs
