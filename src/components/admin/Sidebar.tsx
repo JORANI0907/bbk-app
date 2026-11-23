@@ -8,6 +8,7 @@ import { OpsHelpSheet } from '@/components/admin/ops/OpsHelpSheet'
 import { NavLayoutEditor } from '@/components/admin/NavLayoutEditor'
 import { getNavItemsForRole, COLOR_MAP } from '@/lib/admin-nav-config'
 import { mergeNavLayout, type NavLayout } from '@/lib/nav-layout'
+import { isPathActive } from '@/lib/nav-active'
 
 // ─── Props ────────────────────────────────────────────────────
 
@@ -60,10 +61,10 @@ export function Sidebar({ role, userName, navBadges = {}, navLayout, onLayoutSav
   }, [router])
 
   const isLeafActive = (href: string) =>
-    href === '/admin' ? pathname === '/admin' : pathname.startsWith(href)
+    href === '/admin' ? pathname === '/admin' : isPathActive(pathname, href)
 
   const isGroupActive = (children: { href: string }[]) =>
-    children.some(c => pathname.startsWith(c.href))
+    children.some(c => isPathActive(pathname, c.href))
 
   const defaultOpen = items
     .filter((item): item is Extract<typeof items[number], { type: 'group' }> => item.type === 'group')
@@ -178,7 +179,7 @@ export function Sidebar({ role, userName, navBadges = {}, navLayout, onLayoutSav
               {isOpen && (
                 <div className={`ml-4 mt-0.5 space-y-0.5 border-l-2 pl-3 ${c?.border ?? 'border-border-subtle'}`}>
                   {item.children.map(child => {
-                    const childActive = pathname.startsWith(child.href)
+                    const childActive = isPathActive(pathname, child.href)
                     const childCount = getBadgeCount(child.badgeKey)
                     return (
                       <Link

@@ -6,6 +6,7 @@ import { useState, useCallback } from 'react'
 import type { ReactNode } from 'react'
 import { Home, Building2, Users, TrendingUp, Settings, Trash2, X, Activity } from 'lucide-react'
 import { useModalBackButton } from '@/hooks/useModalBackButton'
+import { isPathActive } from '@/lib/nav-active'
 
 // ─── 메뉴 구조 (Sidebar와 동일) ────────────────────────────────
 
@@ -215,10 +216,7 @@ export function AdminMobileNav({ role, unreadIncidentCount = 0, navConfig = {}, 
   const allItems = NAV_ITEMS.filter(item => item.roles.includes(role))
 
   const isActive = (href: string, exact?: boolean) =>
-    exact ? pathname === href : pathname.startsWith(href)
-
-  const isGroupActive = (children: { href: string }[]) =>
-    children.some(c => pathname.startsWith(c.href))
+    exact ? pathname === href : isPathActive(pathname, href)
 
   return (
     <>
@@ -307,7 +305,6 @@ export function AdminMobileNav({ role, unreadIncidentCount = 0, navConfig = {}, 
                   )
                 }
 
-                const groupActive = isGroupActive(item.children)
                 return (
                   <div key={`${item.label}-${idx}`}>
                     <p className="px-3 pt-3 pb-1 text-[11px] font-bold text-text-tertiary uppercase tracking-widest">
@@ -315,7 +312,7 @@ export function AdminMobileNav({ role, unreadIncidentCount = 0, navConfig = {}, 
                     </p>
                     <div className="space-y-0.5 pl-2 border-l-2 border-border-subtle ml-3">
                       {item.children.map(child => {
-                        const active = pathname.startsWith(child.href)
+                        const active = isPathActive(pathname, child.href)
                         const childCount = getBadgeCount(child.badgeKey)
                         return (
                           <Link
