@@ -24,6 +24,7 @@ import {
 } from 'lucide-react'
 import { VisitDetailModal, type VisitDetailData } from './VisitDetailModal'
 import { BillingDetailModal, type BillingDetailData } from './BillingDetailModal'
+import { billingMethodChip } from '@/lib/billing-paid-method'
 import { MonthlyScheduleNotifyModal } from './MonthlyScheduleNotifyModal'
 import { BillingNotifyModal } from './BillingNotifyModal'
 import { VisitAddModal } from './VisitAddModal'
@@ -47,6 +48,10 @@ interface BillingItem {
   paymentUrl?: string
   /** 2026-11-18: 결제 페이지 정기결제(카드 자동결제) 선택지 표시 여부 (미지정이면 청구 종류 기본값) */
   allowAutopay?: boolean
+  /** 2026-11-25: 실제 결제수단·처리 경로·예정 수단 */
+  paidMethod?: string | null
+  paidVia?: string | null
+  expectedMethod?: string | null
 }
 
 interface VisitItem {
@@ -551,6 +556,9 @@ export default function RegularProgressFlow({
                           taxInvoiceIssued: b.taxInvoiceIssued ?? false,
                           paymentUrl: b.paymentUrl,
                           allowAutopay: b.allowAutopay,
+                          paidMethod: b.paidMethod ?? null,
+                          paidVia: b.paidVia ?? null,
+                          expectedMethod: b.expectedMethod ?? null,
                         })}
                       />
                     ))}
@@ -847,6 +855,10 @@ function SubSection({ icon, title, count, empty, children, action }: {
 
 function BillingRow({ item, onClick }: { item: BillingItem; onClick?: () => void }) {
   const color = BILLING_COLORS[item.status]
+  // 2026-11-25: 완료 건은 실제 수단(카드(앱)·계좌이체(수동)·카드 자동결제), 대기 건은 예정 수단
+  const chip = billingMethodChip({
+    status: item.status, paid_method: item.paidMethod, paid_via: item.paidVia, payment_method_snapshot: item.expectedMethod,
+  })
   const icon = item.status === 'paid'
     ? <Check size={12} />
     : item.status === 'overdue'
@@ -863,9 +875,18 @@ function BillingRow({ item, onClick }: { item: BillingItem; onClick?: () => void
       </span>
       <div className="flex-1 min-w-0">
         <p className="text-xs font-medium text-text-primary truncate">{item.label}</p>
-        <p className="text-[10px] text-text-tertiary">
-          기한 {item.dueDate}
-          {item.paidDate && ` · 완료 ${item.paidDate}`}
+        <p className="text-[10px] text-text-tertiary flex items-center gap-1.5 flex-wrap">
+          <span>기한 {item.dueDate}{item.paidDate && ` · 완료 ${item.paidDate}`}</span>
+          {chip && (
+            <span
+              title={chip.detail}
+              className={`inline-flex items-center px-1.5 py-px rounded-full text-[10px] font-medium ${
+                chip.kind === 'actual' ? 'bg-brand-100 text-brand-800' : 'bg-surface-sunken text-text-tertiary border border-border-subtle'
+              }`}
+            >
+              {chip.label}
+            </span>
+          )}
         </p>
       </div>
       <div className="text-right shrink-0">

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { resolvePaidPatch } from '@/lib/billing-paid-method'
 import { createServiceClient } from '@/lib/supabase/server'
 import { sendExtraBillingNotice, type ExtraNoticeResult } from '@/lib/extra-billing-notice'
 
@@ -125,6 +126,34 @@ export async function PATCH(request: NextRequest) {
   const updates: Record<string, unknown> = {}
   for (const key of ALLOWED) {
     if (key in rest) updates[key] = rest[key]
+  }
+
+  // 2026-11-25: 실제 결제수단(paid_method)·처리 경로(paid_via)
+  //   - 완료로 바꾸면 수단은 입력값 → 예정 수단(payment_method_snapshot) → 고객 마스터 순으로 기본값, 경로는 manual
+  //   - 대기·지연으로 되돌리면 두 칸을 비운다
+  if ('status' in rest || 'paid_method' in rest || 'paid_via' in rest) {
+    const { data: current, error: curErr } = await supabase
+      .from('service_billings')
+      .select('status, paid_method, paid_via, payment_method_snapshot, customer_id, customers(payment_method)')
+      .eq('id', id)
+      .maybeSingle()
+    if (curErr) return NextResponse.json({ error: curErr.message }, { status: 500 })
+    if (!current) return NextResponse.json({ error: '청구서를 찾을 수 없습니다.' }, { status: 404 })
+    const customer = current.customers as unknown as { payment_method: string | null } | null
+    const resolved = resolvePaidPatch({
+      status: typeof rest.status === 'string' ? rest.status : undefined,
+      paid_method: 'paid_method' in rest ? (rest.paid_method as string | null) : undefined,
+      paid_via: 'paid_via' in rest ? (rest.paid_via as string | null) : undefined,
+      current: {
+        status: current.status as string,
+        paid_method: (current.paid_method as string | null) ?? null,
+        paid_via: (current.paid_via as string | null) ?? null,
+        payment_method_snapshot: (current.payment_method_snapshot as string | null) ?? null,
+      },
+      customerMethod: customer?.payment_method ?? null,
+    })
+    if (!resolved.ok) return NextResponse.json({ error: resolved.error }, { status: 400 })
+    Object.assign(updates, resolved.patch)
   }
 
   const { error } = await supabase

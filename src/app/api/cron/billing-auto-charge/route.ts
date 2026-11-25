@@ -117,7 +117,7 @@ export async function POST(request: NextRequest) {
       continue
     }
 
-    let billingId = existing?.id as string | undefined
+    const billingId = existing?.id as string | undefined
     let paymentId = existing?.payment_portone_id as string | undefined
 
     if (!billingId) {
@@ -159,7 +159,7 @@ export async function POST(request: NextRequest) {
       const nowIso = new Date().toISOString()
       await supabase
         .from('service_billings')
-        .update({ status: 'paid', paid_date: iso })
+        .update({ status: 'paid', paid_date: iso, paid_method: 'credit_card', paid_via: 'autopay' })
         .eq('id', billingId)
 
       await supabase

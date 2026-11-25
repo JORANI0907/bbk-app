@@ -13,6 +13,8 @@
 import { useEffect, useState } from 'react'
 import toast from 'react-hot-toast'
 import { X, Save, Trash2, Check, FileCheck, Copy, Link as LinkIcon, Zap } from 'lucide-react'
+import { MANUAL_PAID_METHODS, PAID_VIA_LABEL, billingMethodChip, isPaidVia, paidMethodShortLabel } from '@/lib/billing-paid-method'
+import { PAYMENT_METHOD_META, normalizePaymentMethod } from '@/lib/payment-methods'
 
 export interface BillingDetailData {
   id: string
@@ -32,6 +34,10 @@ export interface BillingDetailData {
    * 미지정(undefined)이면 청구 종류 기본값 — 추가(onetime)는 숨김, 월간·연간은 표시.
    */
   allowAutopay?: boolean
+  /** 2026-11-25: 실제 결제수단(완료 시 기록) · 처리 경로 · 예정 수단(고객 마스터 복사본) */
+  paidMethod?: string | null
+  paidVia?: string | null
+  expectedMethod?: string | null
 }
 
 /** allowAutopay 미지정일 때의 기본값 (서버 resolveAllowAutopay 와 같은 규칙) */
@@ -120,6 +126,8 @@ export function BillingDetailModal({ open, onClose, data, onSave, onDelete, onCr
           payment_url: form.paymentUrl || null,
           notes: form.notes?.trim() || null,
           allow_autopay: form.allowAutopay ?? defaultAllowAutopay(form.billingType),
+          // 완료 건만 수단을 보낸다. 서버가 완료 전환 시 예정 수단·고객 마스터로 기본값을 채우고 경로를 정한다.
+          ...(form.status === 'paid' ? { paid_method: form.paidMethod ?? null } : {}),
         })
         toast.success('저장되었습니다')
       }
@@ -131,8 +139,13 @@ export function BillingDetailModal({ open, onClose, data, onSave, onDelete, onCr
     }
   }
 
-  const handleMarkPaid = () => update({ status: 'paid', paidDate: todayIso() })
-  const handleMarkPending = () => update({ status: 'pending', paidDate: undefined })
+  // 완료 처리: 수단 기본값은 예정 수단(고객 마스터 결제방식 복사본). 관리자가 바꿀 수 있다.
+  const handleMarkPaid = () => update({
+    status: 'paid', paidDate: todayIso(),
+    paidMethod: form?.paidMethod ?? normalizePaymentMethod(form?.expectedMethod) ?? null,
+    paidVia: form?.paidVia ?? 'manual',
+  })
+  const handleMarkPending = () => update({ status: 'pending', paidDate: undefined, paidMethod: null, paidVia: null })
 
   const handleCopyLink = async () => {
     if (!form?.paymentUrl) return
@@ -303,6 +316,39 @@ export function BillingDetailModal({ open, onClose, data, onSave, onDelete, onCr
               />
             </Field>
           </div>
+
+          {/* ─── 2026-11-25: 실제 결제수단 — 완료 건은 선택, 대기 건은 예정 수단 안내 ─────── */}
+          {form.status === 'paid' && !isCreateMode ? (
+            <Field label="결제수단">
+              <select
+                value={normalizePaymentMethod(form.paidMethod) ?? ''}
+                onChange={e => update({ paidMethod: e.target.value || null })}
+                disabled={saving}
+                className="w-full border border-gray-300 rounded-md px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-200"
+              >
+                <option value="">미기록</option>
+                {MANUAL_PAID_METHODS.map(m => (
+                  <option key={m} value={m}>{PAYMENT_METHOD_META[m].label}</option>
+                ))}
+              </select>
+              <p className="text-[10px] text-text-tertiary mt-1 leading-relaxed">
+                {isPaidVia(form.paidVia) && form.paidVia !== 'manual'
+                  ? `${PAID_VIA_LABEL[form.paidVia]}로 자동 기록된 수단입니다. 틀렸으면 고쳐서 저장하세요.`
+                  : form.paidMethod
+                    ? '수동 처리 건입니다. 저장하면 결제이력에 표시됩니다.'
+                    : form.expectedMethod
+                      ? `과거 완료 건이라 수단이 비어 있습니다. 고객 정보의 결제방식은 ${paidMethodShortLabel(form.expectedMethod) ?? form.expectedMethod}입니다.`
+                      : '과거 완료 건이라 수단이 비어 있습니다.'}
+              </p>
+            </Field>
+          ) : (!isCreateMode && (() => {
+            const chip = billingMethodChip({ status: form.status, payment_method_snapshot: form.expectedMethod })
+            return chip ? (
+              <p className="text-[11px] text-text-secondary bg-surface-sunken rounded-md px-2.5 py-2">
+                {chip.label} — {chip.detail}
+              </p>
+            ) : null
+          })())}
 
           {/* ─── 2026-11-18: 결제 페이지 정기결제(카드 자동결제) 선택지 ─────── */}
           <Field label="결제 페이지 · 정기결제(카드 자동결제) 선택지">

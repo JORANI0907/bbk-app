@@ -217,7 +217,12 @@ export async function handleTransactionPaid(paymentId: string): Promise<void> {
     const today = new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10)  // KST 날짜
     const { data: updated } = await supabase
       .from('service_billings')
-      .update({ status: 'paid', paid_date: today, ...(paid.method ? { payment_method_snapshot: paid.method } : {}) })
+      .update({
+        status: 'paid', paid_date: today,
+        // 2026-11-25: 실제 수단은 paid_method 에, 경로는 app_link. (스냅샷도 같이 맞춰 세금계산서 후보 등 기존 로직 유지)
+        paid_via: 'app_link',
+        ...(paid.method ? { payment_method_snapshot: paid.method, paid_method: paid.method } : {}),
+      })
       .eq('id', billingRow.id)
       .neq('status', 'paid')
       .select('id')

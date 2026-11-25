@@ -82,7 +82,7 @@ async function notifyCustomerPaid(supabase: Supabase, billing: BillingRow): Prom
 async function markPaid(supabase: Supabase, billing: BillingRow, customer: CustomerRow, paymentId: string) {
   await supabase
     .from('service_billings')
-    .update({ status: 'paid', paid_date: todayKstIso(), payment_portone_id: paymentId })
+    .update({ status: 'paid', paid_date: todayKstIso(), payment_portone_id: paymentId, paid_method: 'credit_card', paid_via: 'autopay' })
     .eq('id', billing.id)
     .neq('status', 'paid')
   await supabase
