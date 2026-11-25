@@ -156,8 +156,15 @@ export async function sendQuoteEmail(opts: {
   })
 }
 
+export interface EmailAttachment {
+  filename: string
+  content: Buffer
+  contentType: string
+}
+
 /**
- * 범용 HTML 메일 발송 (첨부 없음). 계약서 서명 요청 링크 등 짧은 안내 메일에 쓴다.
+ * 범용 HTML 메일 발송. 계약서 서명 요청 링크 등 짧은 안내 메일에 쓰고,
+ * 완료 계약서처럼 파일을 같이 보낼 때는 attachments 를 넘긴다.
  * @throws GMAIL 환경변수 미설정 또는 이메일 유효하지 않을 때
  */
 export async function sendHtmlEmail(opts: {
@@ -166,6 +173,7 @@ export async function sendHtmlEmail(opts: {
   html: string
   text?: string
   fromName?: string
+  attachments?: EmailAttachment[]
 }): Promise<void> {
   const transporter = createTransporter()
   if (!transporter) throw new Error('GMAIL_USER 또는 GMAIL_APP_PASSWORD 미설정')
@@ -178,5 +186,6 @@ export async function sendHtmlEmail(opts: {
     subject: opts.subject,
     html: opts.html,
     text: opts.text,
+    attachments: opts.attachments?.length ? opts.attachments : undefined,
   })
 }

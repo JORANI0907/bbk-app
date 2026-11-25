@@ -8,6 +8,7 @@ import { SectionHeader } from '@/components/ui'
 import SignaturePad, { type SignaturePadHandle } from '@/components/contracts/SignaturePad'
 import { StampUpload } from '@/components/contracts/StampUpload'
 import ContractEditor from '@/components/contracts/ContractEditor'
+import ContractDeliverModal from '@/components/contracts/ContractDeliverModal'
 import { generateContractPdf } from '@/lib/generateContractPdf'
 import { describeSendResult, formatMobile, normalizeMobile } from '@/lib/contract-send'
 
@@ -74,6 +75,7 @@ export default function AdminContractDetailPage() {
   const [contract, setContract] = useState<ContractDetail | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [showSendModal, setShowSendModal] = useState(false)
+  const [showDeliverModal, setShowDeliverModal] = useState(false)
   const [showAdminSignModal, setShowAdminSignModal] = useState(false)
   const [showVoidModal, setShowVoidModal] = useState(false)
   const [isSending, setIsSending] = useState(false)
@@ -509,6 +511,9 @@ export default function AdminContractDetailPage() {
                     최종 확인 완료
                   </Button>
                 )}
+                {!isVoided && contract.signing_status === 'completed' && contract.signed_pdf_url && (
+                  <Button className="w-full" onClick={() => setShowDeliverModal(true)}>계약서 발송</Button>
+                )}
                 {contract.signed_pdf_url && (
                   <a
                     href={contract.signed_pdf_url}
@@ -681,6 +686,14 @@ export default function AdminContractDetailPage() {
           </div>
         </div>
       </Modal>
+
+      <ContractDeliverModal
+        open={showDeliverModal} onClose={() => setShowDeliverModal(false)} contractId={contractId}
+        businessName={contract.customers?.business_name ?? ''} contactName={contract.customers?.contact_name ?? null}
+        defaultPhone={contract.customer_phone ?? contract.customers?.contact_phone ?? ''}
+        defaultEmail={contract.customer_email ?? contract.customers?.email ?? ''}
+        onSent={() => void fetchContract()}
+      />
 
       {/* 관리자 최종 확인 모달 */}
       <Modal

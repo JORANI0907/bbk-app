@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
-  buildSignRequestEmail, describeSendResult, formatMobile, isRealEmail, maskMobile, normalizeMobile, resolveSendTarget,
+  buildSignRequestEmail, buildContractDeliveryEmail, contractPdfFileName, describeDeliveryResult, describeSendResult,
+  formatMobile, isRealEmail, maskMobile, normalizeMobile, resolveSendTarget,
 } from '@/lib/contract-send'
 
 describe('normalizeMobile / formatMobile / maskMobile', () => {
@@ -98,5 +99,45 @@ describe('describeSendResult', () => {
     expect(describeSendResult({ email: 'sent' })).toContain('문자와 이메일')
     expect(describeSendResult({ email: 'skipped' })).toContain('이메일 없음')
     expect(describeSendResult({ email: 'failed', emailError: 'SMTP 오류' })).toContain('SMTP 오류')
+  })
+})
+
+describe('buildContractDeliveryEmail / contractPdfFileName / describeDeliveryResult', () => {
+  const base = { businessName: '루프제기031', contactName: '김세윤', pdfUrl: 'https://x.test/signed.pdf', completedAt: '2026-11-25T09:00:00.000Z' }
+
+  it('첨부했을 때와 링크만 보낼 때 안내 문구가 다르다', () => {
+    const a = buildContractDeliveryEmail({ ...base, attached: true })
+    const b = buildContractDeliveryEmail({ ...base, attached: false })
+    expect(a.subject).toBe('[범빌드코리아] 루프제기031 서비스 계약서 (서명 완료본)')
+    expect(a.text).toContain('PDF를 첨부해')
+    expect(b.text).toContain('내려받으실 수')
+    expect(a.html).toContain('https://x.test/signed.pdf')
+    expect(a.text).toContain('김세윤 님')
+  })
+
+  it('최종 확인 일시는 KST 로, 없으면 줄 자체를 뺀다', () => {
+    const a = buildContractDeliveryEmail({ ...base, attached: true })
+    expect(a.text).toMatch(/최종 확인 일시: 2026년 11월 25일 .*06:00/)
+    const b = buildContractDeliveryEmail({ ...base, completedAt: null, attached: true })
+    expect(b.text).not.toContain('최종 확인 일시')
+    expect(b.html).not.toContain('최종 확인 일시')
+  })
+
+  it('담당자 이름이 없으면 담당자님, HTML 은 이스케이프', () => {
+    const r = buildContractDeliveryEmail({ ...base, businessName: 'A&B <상사>', contactName: '  ', attached: true })
+    expect(r.text).toContain('담당자님')
+    expect(r.html).toContain('A&amp;B &lt;상사&gt;')
+  })
+
+  it('첨부 파일명은 업체명 기반, 금지 문자 제거', () => {
+    expect(contractPdfFileName('루프제기031')).toBe('루프제기031_서비스계약서.pdf')
+    expect(contractPdfFileName('A/B:C*?')).toBe('ABC_서비스계약서.pdf')
+    expect(contractPdfFileName('   ')).toBe('계약서_서비스계약서.pdf')
+  })
+
+  it('발송 결과 문구', () => {
+    expect(describeDeliveryResult({ email: 'sent' })).toContain('문자와 이메일로 계약서')
+    expect(describeDeliveryResult({ email: 'skipped' })).toContain('이메일 없음')
+    expect(describeDeliveryResult({ email: 'failed', emailError: 'boom' })).toContain('boom')
   })
 })
