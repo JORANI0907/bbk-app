@@ -124,7 +124,9 @@ export default function KgAuditPayPage() {
           ))}
         </div>
         <div className="px-5 py-3 bg-surface-sunken flex items-baseline justify-between">
-          <p className="text-sm font-medium text-text-secondary">{isBilling ? '월 결제 금액' : '총 결제 금액'}</p>
+          <p className="text-sm font-medium text-text-secondary">
+            {isBilling ? `${products[0]?.unit === '년' ? '연' : '월'} 결제 금액` : '총 결제 금액'}
+          </p>
           <p className="text-xl font-black text-brand-600">
             {totalAmount.toLocaleString('ko-KR')}<span className="text-xs font-medium">원</span>
           </p>
