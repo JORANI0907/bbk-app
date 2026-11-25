@@ -22,6 +22,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     .from('contracts')
     .select('id, signing_status, token_expires_at, otp_code, otp_expires_at, subscription_plan, contract_snapshot, customer_phone, customers(business_name, contact_name)')
     .eq('signing_token', params.token)
+    .is('deleted_at', null) // 2026-11-25: 삭제(파기)된 계약의 링크는 404 — 재발행 후 옛 링크로 서명되는 것 방지
     .single()
 
   if (error || !contract) {
