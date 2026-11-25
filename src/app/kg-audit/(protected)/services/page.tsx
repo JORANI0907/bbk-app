@@ -1,9 +1,10 @@
 import {
-  SUBSCRIPTION_PRODUCTS,
+  SUBSCRIPTION_MONTHLY_PRODUCTS,
   ONE_TIME_PRODUCTS,
   groupByCategory,
   SERVICE_PERIOD_ONE_TIME,
   SERVICE_PERIOD_SUBSCRIPTION,
+  SERVICE_PERIOD_SUBSCRIPTION_YEARLY,
 } from '@/lib/kg-audit/products'
 
 export default function KgAuditServicesPage() {
@@ -30,8 +31,12 @@ export default function KgAuditServicesPage() {
                 {SERVICE_PERIOD_ONE_TIME}
               </p>
               <p>
-                <span className="font-bold">· 정기 서비스 (정기 결제):</span>{' '}
+                <span className="font-bold">· 정기 서비스 (월 단위 정기 결제):</span>{' '}
                 {SERVICE_PERIOD_SUBSCRIPTION}
+              </p>
+              <p>
+                <span className="font-bold">· 정기 서비스 (연 단위 정기 결제):</span>{' '}
+                {SERVICE_PERIOD_SUBSCRIPTION_YEARLY}
               </p>
             </div>
             <p className="mt-3 text-xs text-text-secondary leading-relaxed break-keep">
@@ -44,21 +49,28 @@ export default function KgAuditServicesPage() {
 
       {/* 정기 서비스 */}
       <section className="bg-surface rounded-2xl border border-border-subtle shadow-soft p-5">
-        <h3 className="text-base font-bold text-text-primary mb-3">정기 서비스 (월 자동 결제)</h3>
+        <h3 className="text-base font-bold text-text-primary mb-3">정기 서비스 (월 / 연 자동 결제)</h3>
         <p className="text-xs text-text-secondary mb-2 leading-relaxed">
           매달 정해진 일자에 방문하여 정기적으로 청소를 진행합니다. 첫 결제 시 카드를 등록하시면 이후 자동으로 청구됩니다.
+          결제 주기는 월 단위 또는 연 단위(12개월분 선납) 중 선택할 수 있습니다.
+        </p>
+        <p className="text-xs font-semibold text-brand-600 mb-1">
+          월 단위 제공기간: {SERVICE_PERIOD_SUBSCRIPTION}
         </p>
         <p className="text-xs font-semibold text-brand-600 mb-4">
-          서비스 제공기간: {SERVICE_PERIOD_SUBSCRIPTION}
+          연 단위 제공기간: {SERVICE_PERIOD_SUBSCRIPTION_YEARLY}
         </p>
         <div className="grid gap-2">
-          {SUBSCRIPTION_PRODUCTS.map((p) => (
-            <div key={p.code} className="flex items-center justify-between border border-border-subtle rounded-lg px-4 py-3">
-              <div>
+          {SUBSCRIPTION_MONTHLY_PRODUCTS.map((p) => (
+            <div key={p.code} className="flex items-center justify-between gap-3 border border-border-subtle rounded-lg px-4 py-3">
+              <div className="min-w-0">
                 <p className="text-xs text-text-tertiary">{p.category}</p>
                 <p className="text-sm font-semibold text-text-primary mt-0.5">{p.label}</p>
               </div>
-              <p className="text-sm font-bold text-brand-600">{p.price.toLocaleString('ko-KR')}원 / {p.unit}</p>
+              <div className="text-right shrink-0">
+                <p className="text-sm font-bold text-brand-600">{p.price.toLocaleString('ko-KR')}원 / 월</p>
+                <p className="text-xs text-text-secondary mt-0.5">{(p.price * 12).toLocaleString('ko-KR')}원 / 년</p>
+              </div>
             </div>
           ))}
         </div>
