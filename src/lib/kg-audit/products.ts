@@ -1,7 +1,7 @@
 /**
  * KG이니시스 심사 전용 상품 카탈로그.
  *
- * 정기 상품 4개 + 1회성 상품 30개.
+ * 정기 상품 4개(월 단위) + 연 단위 변형 4개 + 1회성 상품 30개.
  * 실제 BBK 서비스 안내 요금표에서 카테고리별 대표 품목 큐레이션.
  *
  * 이 카탈로그는 심사관에게만 노출되며, 실제 고객 결제와 무관하다.
@@ -11,6 +11,7 @@
  */
 
 export type ProductBillingType = 'one-time' | 'subscription'
+export type BillingCycle       = 'monthly' | 'yearly'
 
 export type Product = {
   code:          string
@@ -21,26 +22,52 @@ export type Product = {
   price:         number
   billingType:   ProductBillingType
   servicePeriod: string
+  billingCycle?: BillingCycle   // 정기 상품만 사용
 }
 
 // 전자상거래법상 서비스 제공기간 표기 (PG 심사 필수)
 export const SERVICE_PERIOD_ONE_TIME     = '결제일로부터 1개월(30일) 이내 1회 시공 제공'
 export const SERVICE_PERIOD_SUBSCRIPTION = '월 자동청구 (매월 1회 방문 · 해지 시까지 지속)'
+export const SERVICE_PERIOD_SUBSCRIPTION_YEARLY = '연 자동청구 (12개월분 선납 · 매월 1회 방문 · 해지 시까지 지속)'
 
-// ─── 정기 상품 (5개, 테스트 1개 포함) ─────────────────────
-export const SUBSCRIPTION_PRODUCTS: readonly Product[] = [
-  { code: 'test-subscription', category: '결제 테스트', categoryIcon: '🧪', label: '결제 테스트 (정기)', unit: '월', price: 1000, billingType: 'subscription', servicePeriod: SERVICE_PERIOD_SUBSCRIPTION },
-  { code: 'sub-deep-1',  category: '정기딥케어',   categoryIcon: '🧽', label: '월 1회 기본형',   unit: '월', price: 150000, billingType: 'subscription', servicePeriod: SERVICE_PERIOD_SUBSCRIPTION },
-  { code: 'sub-deep-2',  category: '정기딥케어',   categoryIcon: '🧽', label: '월 2회 기본형',   unit: '월', price: 270000, billingType: 'subscription', servicePeriod: SERVICE_PERIOD_SUBSCRIPTION },
-  { code: 'sub-end-1',   category: '정기엔드케어', categoryIcon: '🌙', label: '기본형',          unit: '월', price: 100000, billingType: 'subscription', servicePeriod: SERVICE_PERIOD_SUBSCRIPTION },
-  { code: 'sub-end-2',   category: '정기엔드케어', categoryIcon: '🌙', label: '확장형',          unit: '월', price: 180000, billingType: 'subscription', servicePeriod: SERVICE_PERIOD_SUBSCRIPTION },
+// ─── 정기 상품 (월 단위 4개 + 연 단위 4개) ─────────────────
+const monthly = (p: Omit<Product, 'billingType' | 'servicePeriod' | 'billingCycle' | 'unit'>): Product => ({
+  ...p,
+  unit:          '월',
+  billingType:   'subscription',
+  servicePeriod: SERVICE_PERIOD_SUBSCRIPTION,
+  billingCycle:  'monthly',
+})
+
+export const SUBSCRIPTION_MONTHLY_PRODUCTS: readonly Product[] = [
+  monthly({ code: 'sub-deep-1', category: '정기딥케어',   categoryIcon: '🧽', label: '월 1회 기본형', price: 150000 }),
+  monthly({ code: 'sub-deep-2', category: '정기딥케어',   categoryIcon: '🧽', label: '월 2회 기본형', price: 270000 }),
+  monthly({ code: 'sub-end-1',  category: '정기엔드케어', categoryIcon: '🌙', label: '기본형',        price: 100000 }),
+  monthly({ code: 'sub-end-2',  category: '정기엔드케어', categoryIcon: '🌙', label: '확장형',        price: 180000 }),
 ] as const
 
-// ─── 1회성 상품 (31개, 테스트 1개 포함) ───────────────────
-export const ONE_TIME_PRODUCTS: readonly Product[] = [
-  // 결제 테스트 (1)
-  { code: 'test-onetime', category: '결제 테스트', categoryIcon: '🧪', label: '결제 테스트 (1회성)', unit: '1건',       price: 1000,   billingType: 'one-time', servicePeriod: SERVICE_PERIOD_ONE_TIME },
+// 연 단위: 월 상품 코드 + '-yr', 금액은 12개월분 선납
+export const YEARLY_CODE_SUFFIX = '-yr'
+export const SUBSCRIPTION_YEARLY_PRODUCTS: readonly Product[] = SUBSCRIPTION_MONTHLY_PRODUCTS.map((p) => ({
+  ...p,
+  code:          `${p.code}${YEARLY_CODE_SUFFIX}`,
+  unit:          '년',
+  price:         p.price * 12,
+  servicePeriod: SERVICE_PERIOD_SUBSCRIPTION_YEARLY,
+  billingCycle:  'yearly',
+}))
 
+export const SUBSCRIPTION_PRODUCTS: readonly Product[] = [
+  ...SUBSCRIPTION_MONTHLY_PRODUCTS,
+  ...SUBSCRIPTION_YEARLY_PRODUCTS,
+]
+
+export function getSubscriptionProducts(cycle: BillingCycle): readonly Product[] {
+  return cycle === 'yearly' ? SUBSCRIPTION_YEARLY_PRODUCTS : SUBSCRIPTION_MONTHLY_PRODUCTS
+}
+
+// ─── 1회성 상품 (30개) ─────────────────────────────────────
+export const ONE_TIME_PRODUCTS: readonly Product[] = [
   // 주방 후드/덕트 (5)
   { code: 'ot-hood-01',  category: '주방 후드·덕트', categoryIcon: '🍳', label: '후드 (스텐)',                  unit: '대당',      price: 170000, billingType: 'one-time', servicePeriod: SERVICE_PERIOD_ONE_TIME },
   { code: 'ot-hood-02',  category: '주방 후드·덕트', categoryIcon: '🍳', label: '후드 덕트 전기 집진기',        unit: '대당',      price: 240000, billingType: 'one-time', servicePeriod: SERVICE_PERIOD_ONE_TIME },
