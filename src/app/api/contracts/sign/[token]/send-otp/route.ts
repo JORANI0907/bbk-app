@@ -24,8 +24,14 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ success: false, error: '링크가 만료되었습니다.' }, { status: 410 })
   }
 
-  if (!['pending_customer', 'customer_signed'].includes(contract.signing_status as string)) {
-    return NextResponse.json({ success: false, error: '서명할 수 없는 상태입니다.' }, { status: 400 })
+  // 서명 대기 상태에서만 인증번호를 보낸다. 고객 서명이 끝난 뒤에는 서명 자체가 막혀 있으므로
+  // (agree 라우트 409) 인증번호도 보내지 않는다 (2026-11-25).
+  if (contract.signing_status !== 'pending_customer') {
+    const done = ['customer_signed', 'completed'].includes(contract.signing_status as string)
+    return NextResponse.json(
+      { success: false, error: done ? '이미 서명이 완료된 계약서입니다.' : '서명할 수 없는 상태입니다.' },
+      { status: done ? 409 : 400 },
+    )
   }
 
   // 요청 body 는 무시. OTP 수신 번호는 계약서 생성 시 관리자가 등록한

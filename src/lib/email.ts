@@ -155,3 +155,28 @@ export async function sendQuoteEmail(opts: {
     attachments,
   })
 }
+
+/**
+ * 범용 HTML 메일 발송 (첨부 없음). 계약서 서명 요청 링크 등 짧은 안내 메일에 쓴다.
+ * @throws GMAIL 환경변수 미설정 또는 이메일 유효하지 않을 때
+ */
+export async function sendHtmlEmail(opts: {
+  toEmail: string
+  subject: string
+  html: string
+  text?: string
+  fromName?: string
+}): Promise<void> {
+  const transporter = createTransporter()
+  if (!transporter) throw new Error('GMAIL_USER 또는 GMAIL_APP_PASSWORD 미설정')
+  if (!isValidRealEmail(opts.toEmail)) throw new Error(`유효하지 않은 이메일: ${opts.toEmail}`)
+
+  const fromEmail = process.env.GMAIL_USER!
+  await transporter.sendMail({
+    from: `${opts.fromName ?? 'BBK 공간케어'} <${fromEmail}>`,
+    to: opts.toEmail,
+    subject: opts.subject,
+    html: opts.html,
+    text: opts.text,
+  })
+}

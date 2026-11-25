@@ -3,13 +3,13 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import toast from 'react-hot-toast'
-import { Button } from '@/components/ui'
-import { Modal } from '@/components/ui'
+import { Button, Input, Modal } from '@/components/ui'
 import { SectionHeader } from '@/components/ui'
 import SignaturePad, { type SignaturePadHandle } from '@/components/contracts/SignaturePad'
 import { StampUpload } from '@/components/contracts/StampUpload'
 import ContractEditor from '@/components/contracts/ContractEditor'
 import { generateContractPdf } from '@/lib/generateContractPdf'
+import { describeSendResult, formatMobile, normalizeMobile } from '@/lib/contract-send'
 
 type SigningStatus = 'draft' | 'pending_customer' | 'customer_signed' | 'completed' | 'voided'
 
@@ -25,6 +25,7 @@ interface ContractDetail {
   customer_ip: string | null
   admin_signed_at: string | null
   customer_phone: string | null
+  customer_email: string | null
   signing_token: string | null
   token_expires_at: string | null
   article8_agree: boolean | null
@@ -76,6 +77,9 @@ export default function AdminContractDetailPage() {
   const [showAdminSignModal, setShowAdminSignModal] = useState(false)
   const [showVoidModal, setShowVoidModal] = useState(false)
   const [isSending, setIsSending] = useState(false)
+  // 발송 모달에서 확인·수정하는 대상 (휴대폰은 인증번호 수신 번호이기도 하다)
+  const [sendPhone, setSendPhone] = useState('')
+  const [sendEmail, setSendEmail] = useState('')
   const [isAdminSigning, setIsAdminSigning] = useState(false)
   const [isVoiding, setIsVoiding] = useState(false)
   const [voidReason, setVoidReason] = useState('')
@@ -111,17 +115,32 @@ export default function AdminContractDetailPage() {
 
   useEffect(() => { void fetchContract() }, [fetchContract])
 
-  const handleSendSMS = async () => {
+  const openSendModal = () => {
+    if (!contract) return
+    const phone = contract.customer_phone ?? contract.customers?.contact_phone ?? ''
+    const digits = normalizeMobile(phone)
+    setSendPhone(digits ? formatMobile(digits) : phone)
+    setSendEmail(contract.customer_email ?? contract.customers?.email ?? '')
+    setShowSendModal(true)
+  }
+
+  const handleSend = async () => {
     setIsSending(true)
     try {
-      const res = await fetch(`/api/admin/contracts/${contractId}/send`, { method: 'POST' })
+      const res = await fetch(`/api/admin/contracts/${contractId}/send`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: sendPhone, email: sendEmail }),
+      })
       const json = await res.json()
       if (json.success) {
-        toast.success('서명 링크 SMS가 발송되었습니다.')
+        const msg = describeSendResult(json)
+        if (json.email === 'failed') toast(msg, { icon: '⚠️', duration: 6000 })
+        else toast.success(msg)
         setShowSendModal(false)
         void fetchContract()
       } else {
-        toast.error(json.error ?? 'SMS 발송에 실패했습니다.')
+        toast.error(json.error ?? '발송에 실패했습니다.')
       }
     } catch {
       toast.error('오류가 발생했습니다.')
@@ -129,6 +148,12 @@ export default function AdminContractDetailPage() {
       setIsSending(false)
     }
   }
+
+  /** 마지막 발송 시각 — 발송 때마다 만료일을 7일 뒤로 다시 잡으므로 만료일에서 7일을 뺀 값 */
+  const lastSentAt = (() => {
+    if (!contract || contract.signing_status !== 'pending_customer' || !contract.token_expires_at) return null
+    return new Date(new Date(contract.token_expires_at).getTime() - 7 * 24 * 60 * 60 * 1000).toISOString()
+  })()
 
   const handleAdminSign = async () => {
     if (!sigPadRef.current || sigPadRef.current.isEmpty()) {
@@ -475,7 +500,7 @@ export default function AdminContractDetailPage() {
                 )}
                 {/* 3) 서명 요청 발송 / 재발송 / 최종 확인 / PDF */}
                 {!isVoided && (contract.signing_status === 'draft' || contract.signing_status === 'pending_customer') && (
-                  <Button className="w-full" onClick={() => setShowSendModal(true)}>
+                  <Button className="w-full" onClick={openSendModal}>
                     {contract.signing_status === 'draft' ? '서명 요청 발송' : '서명 링크 재발송'}
                   </Button>
                 )}
@@ -613,20 +638,46 @@ export default function AdminContractDetailPage() {
         </div>
       </div>
 
-      {/* 서명 요청 모달 */}
-      <Modal open={showSendModal} onClose={() => setShowSendModal(false)} title="서명 요청 발송">
+      {/* 서명 요청 모달 — 어디로 보내는지 확인하고, 필요하면 고쳐서 보낸다 */}
+      <Modal
+        open={showSendModal}
+        onClose={() => setShowSendModal(false)}
+        title={contract.signing_status === 'draft' ? '서명 요청 발송' : '서명 링크 재발송'}
+        description={`${contract.customers?.business_name ?? ''}${contract.customers?.contact_name ? ` · ${contract.customers.contact_name}` : ''}`}
+      >
         <div className="space-y-4">
-          <p className="text-sm text-text-secondary leading-normal">
-            <strong className="text-text-primary">{contract.customers?.business_name}</strong>({contract.customer_phone})에게
-            계약서 서명 링크 SMS를 발송합니다.
-          </p>
+          {lastSentAt && (
+            <p className="text-xs text-text-secondary bg-state-info-bg rounded-lg p-3 leading-relaxed">
+              마지막 발송 {formatDateTime(lastSentAt)}. 다시 보내면 같은 링크가 가고 유효기간이 오늘부터 7일로 다시 잡힙니다.
+            </p>
+          )}
+          <Input
+            label="휴대폰 번호 (문자)"
+            value={sendPhone}
+            onChange={(e) => setSendPhone(e.target.value)}
+            placeholder="010-0000-0000"
+            inputMode="tel"
+            fullWidth
+            hint="이 번호로 서명 링크 문자와 서명 시 인증번호가 발송됩니다. 바꾸면 계약서의 연락처도 함께 바뀝니다."
+          />
+          <Input
+            label="이메일 (선택)"
+            type="email"
+            value={sendEmail}
+            onChange={(e) => setSendEmail(e.target.value)}
+            placeholder="비워 두면 문자만 발송"
+            fullWidth
+            hint="같은 서명 링크를 이메일로도 보냅니다. 고객 정보에 이메일이 없으면 여기 적은 주소로 채워집니다."
+          />
           <p className="text-xs text-text-tertiary bg-surface-sunken rounded-lg p-3 leading-relaxed">
-            고객이 링크 접속 후 계약 내용 확인 → 조항 동의 → 서명 → OTP 인증 → 서명 완료 순으로 진행됩니다.
-            링크 유효기간은 7일입니다.
+            고객은 링크에서 계약 내용 확인 → 조항 동의 → 서명·직인 → 문자 인증번호 입력 순으로 진행합니다.
+            인증번호는 위 휴대폰 번호로만 가고, 서명이 끝난 링크로는 다시 서명할 수 없습니다. 링크 유효기간은 7일입니다.
           </p>
           <div className="flex gap-3 pt-2">
             <Button variant="secondary" className="flex-1" onClick={() => setShowSendModal(false)}>취소</Button>
-            <Button className="flex-1" onClick={handleSendSMS} isLoading={isSending}>SMS 발송</Button>
+            <Button className="flex-1" onClick={handleSend} isLoading={isSending} disabled={!normalizeMobile(sendPhone)}>
+              {sendEmail.trim() ? '문자·이메일 발송' : '문자 발송'}
+            </Button>
           </div>
         </div>
       </Modal>
