@@ -4,6 +4,7 @@ import { updateAuthUserEmail, customerEmail } from '@/lib/auth-helpers'
 import { generateBillingSchedule, computeBillingAmountFromCustomer, shouldAutoGenerateBillings } from '@/lib/billing-generator'
 import { getServerSession } from '@/lib/session'
 import { translateDbError } from '@/lib/db-error-translator'
+import { pickOneShotSyncTarget, describeSkipReason, type WorkerSyncResult } from '@/lib/one-shot-sync'
 
 
 /** 요일별(weekday_assignments)·일자별(monthly_date_assignments) 담당자·작업자 배정표에 값이 하나라도 있는지 */
@@ -822,51 +823,17 @@ export async function PATCH(request: NextRequest) {
   }
 
   // 마스터 → work_assignments 재구성 (양방향 sync).
-  // - 1회성/일반일정: 최근 open 상태 신청서 1건에 배정 (기존 정책 유지).
+  // - 1회성/일반일정: 최근 신청서 1건에 배정. 취소·환급 상태만 제외 (pickOneShotSyncTarget).
+  //   2026-11-26: 허용 목록 방식이라 '결제완료' 등 목록에 없는 상태는 조용히 건너뛰어
+  //   급여정산에 작업자가 누락되던 버그(팝성형외과 11/25) 수정. 결과는 응답 worker_sync 로 알린다.
   // - 정기딥/엔드: 미래 회차 전체에 배정 (완료된 회차는 스냅샷 보존).
-  //   그동안 정기케어는 스킵되어 마스터·회차별 배정이 어긋나던 광범위 버그 해결.
   //
   // next_visit_date(시공일자) 변경 시에도 실행 — 날짜가 바뀌면 기존 배정을 초기화해
   // 미배정 상태로 전환. 담당자까지 명시된 경우에만 새 날짜로 재배정.
   const constructionDateChanged = 'next_visit_date' in rest
+  let workerSync: WorkerSyncResult = { outcome: 'not_applicable', reason: null }
   if (oneShotSyncable && (normalizedWorkerIds !== null || constructionDateChanged)) {
-    try {
-      // 작업완료·결제 상태도 포함 — 이미 완료된 회차의 담당자 정정을 허용.
-      const { data: openApp } = await supabase
-        .from('service_applications')
-        .select('id, construction_date, business_name')
-        .eq('customer_id', id)
-        .is('deleted_at', null)
-        .in('status', ['신규', '예약확정', '예약1일전', '예약당일', '기존고객', '작업완료', '결제'])
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle()
-
-      if (openApp && openApp.construction_date && openApp.business_name) {
-        // 날짜·담당자 변경 어느 쪽이든 기존 배정은 무조건 삭제
-        await supabase
-          .from('work_assignments')
-          .delete()
-          .eq('application_id', openApp.id)
-
-        // 담당자가 명시된 경우에만 새 날짜로 재배정 (날짜만 변경 시 → 미배정 유지)
-        const workerIds = normalizedWorkerIds ?? []
-        if (workerIds.length > 0) {
-          const rows = workerIds.map(worker_id => ({
-            worker_id,
-            application_id: openApp.id,
-            construction_date: openApp.construction_date,
-            business_name: openApp.business_name,
-          }))
-          await supabase.from('work_assignments').insert(rows)
-        }
-      }
-    } catch (e) {
-      console.error(
-        '1회성/일반일정 worker_ids sync 실패:',
-        e instanceof Error ? e.message : e,
-      )
-    }
+    workerSync = await syncOneShotWorkAssignments(supabase, id, normalizedWorkerIds ?? [])
   }
 
   // 정기딥/엔드 마스터 → 미래 회차 work_assignments 재구성.
@@ -931,7 +898,60 @@ export async function PATCH(request: NextRequest) {
     }
   }
 
-  return NextResponse.json({ success: true, customer: updatedCustomer })
+  return NextResponse.json({
+    success: true,
+    customer: updatedCustomer,
+    worker_sync: workerSync.outcome,
+    worker_sync_reason: workerSync.reason,
+  })
+}
+
+/**
+ * 1회성/일반일정 고객의 마스터 작업자를 신청서 1건의 work_assignments 로 복사한다.
+ * 대상 신청서를 못 찾으면 로그를 남기고 skipped 를 돌려 화면에서 경고를 띄울 수 있게 한다.
+ */
+async function syncOneShotWorkAssignments(
+  supabase: ReturnType<typeof createServiceClient>,
+  customerId: string,
+  workerIds: string[],
+): Promise<WorkerSyncResult> {
+  try {
+    const { data: apps, error } = await supabase
+      .from('service_applications')
+      .select('id, status, construction_date, business_name')
+      .eq('customer_id', customerId)
+      .is('deleted_at', null)
+      .order('created_at', { ascending: false })
+      .limit(10)
+    if (error) throw new Error(error.message)
+
+    const target = pickOneShotSyncTarget(apps ?? [])
+    if (!target) {
+      const reason = describeSkipReason(apps ?? [])
+      console.warn('[CUSTOMER_PATCH] 작업자 → 일정 동기화 건너뜀', { customerId, reason, statuses: (apps ?? []).map(a => a.status) })
+      return { outcome: 'skipped', reason }
+    }
+
+    // 날짜·담당자 변경 어느 쪽이든 기존 배정은 무조건 삭제
+    const { error: delErr } = await supabase.from('work_assignments').delete().eq('application_id', target.id)
+    if (delErr) throw new Error(delErr.message)
+
+    // 담당자가 명시된 경우에만 새 날짜로 재배정 (날짜만 변경 시 → 미배정 유지)
+    if (workerIds.length === 0) return { outcome: 'cleared', reason: null }
+    const rows = workerIds.map(worker_id => ({
+      worker_id,
+      application_id: target.id,
+      construction_date: target.construction_date,
+      business_name: target.business_name,
+    }))
+    const { error: insErr } = await supabase.from('work_assignments').insert(rows)
+    if (insErr) throw new Error(insErr.message)
+    return { outcome: 'synced', reason: null }
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e)
+    console.error('1회성/일반일정 worker_ids sync 실패:', msg)
+    return { outcome: 'skipped', reason: `작업자를 일정에 반영하지 못했습니다: ${msg}` }
+  }
 }
 
 export async function DELETE(request: NextRequest) {

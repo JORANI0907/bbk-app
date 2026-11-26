@@ -1653,6 +1653,10 @@ export function CustomersManagementView({
         const data = await res.json()
         if (!res.ok) throw new Error(data.error || '저장 실패')
         toast.success('저장되었습니다.')
+        // 작업자는 마스터에 저장됐지만 일정(급여 기준)에 못 옮긴 경우 — 조용히 넘어가지 않고 알린다
+        if (data.worker_sync === 'skipped') {
+          toast(data.worker_sync_reason ?? '작업자가 일정에 반영되지 않았습니다.', { icon: '⚠️', duration: 7000 })
+        }
         // 캐시 무효화 — 저장 성공 후 새로고침 시 stale 데이터 안 뜨도록
         clearCache('customers-list-active')
         clearCache('customers-list-archived')
