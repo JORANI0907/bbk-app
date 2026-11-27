@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { renderContractForStorage, type ContractCustomerInfo } from '@/lib/contractTemplate'
+import { resolveTemplateRegulations } from '@/lib/contract-regulation-vars.server'
 
 /**
  * POST /api/admin/contracts/preview
@@ -43,6 +44,13 @@ export async function POST(request: NextRequest) {
   }
   if (rawInfo) customerInfo = { ...customerInfo, ...rawInfo }
 
+  // {{서비스유형}} 변수용 — 고객 유형(정기딥케어·정기엔드케어)
+  let serviceType: string | null = null
+  if (customerId) {
+    const { data: ct } = await supabase.from('customers').select('customer_type').eq('id', customerId).maybeSingle()
+    serviceType = (ct?.customer_type as string | null) ?? null
+  }
+
   if (customerId && (!rawInfo || Object.values(rawInfo).some(v => !v))) {
     const { data: c } = await supabase
       .from('customers')
@@ -66,7 +74,7 @@ export async function POST(request: NextRequest) {
 
   const { data: tmpl } = await supabase
     .from('contract_templates')
-    .select('html_body')
+    .select('html_body, var_config')
     .eq('id', templateId)
     .single()
 
@@ -78,6 +86,25 @@ export async function POST(request: NextRequest) {
   // preview 결과가 그대로 편집기 초기 콘텐츠 → 저장 페이로드로 흘러가므로,
   // 서명 변수({{공급사서명}} 등)를 dashed placeholder 로 치환하면 스냅샷에 박제되어 사라짐.
   // renderContractForStorage 는 인적사항표·오늘날짜만 채우고 서명 변수는 원본 유지.
-  const html = renderContractForStorage(tmpl.html_body as string, customerInfo)
-  return NextResponse.json({ success: true, data: { html } })
+  const rendered = renderContractForStorage(tmpl.html_body as string, customerInfo)
+
+  // 규정 변수({{규정:CP-03:9}} 등) 치환 — 미리보기는 발행본이 없으면 초안으로 채우고 그 사실을 알린다.
+  try {
+    const reg = await resolveTemplateRegulations(supabase, {
+      html: rendered, varConfig: tmpl.var_config, serviceType, allowDraft: true,
+    })
+    return NextResponse.json({
+      success: true,
+      data: {
+        html: reg.html,
+        regulation: {
+          docs: reg.docs.map(d => ({ code: d.code, title: d.title, version_no: d.version_no, status: d.status, effective_date: d.effective_date })),
+          unresolved: reg.unresolved, missing: reg.missing, used_draft: reg.usedDraft,
+        },
+      },
+    })
+  } catch (e) {
+    console.error('[CONTRACT_PREVIEW] 규정 변수 치환 실패:', e instanceof Error ? e.message : e)
+    return NextResponse.json({ success: false, error: '규정 본문을 불러오지 못해 미리보기를 만들 수 없습니다.' }, { status: 500 })
+  }
 }

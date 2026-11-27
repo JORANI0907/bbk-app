@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import toast from 'react-hot-toast'
+import { amountsFromSupply, amountsFromTotal, describePaymentTerms, describeVisitSchedule, parseWon } from '@/lib/contract-terms'
 import { Button } from '@/components/ui'
 import { Modal } from '@/components/ui'
 import { SectionHeader } from '@/components/ui'
@@ -36,6 +37,19 @@ interface CustomerOption {
   contract_start_date: string | null
   contract_end_date: string | null
   care_scope: string | null
+  // 계약 조건 기본값용 (고객 마스터)
+  supply_amount?: number | null
+  vat?: number | null
+  billing_amount?: number | null
+  visit_cycle_unit?: string | null
+  visit_cycle_value?: number | null
+  visit_cycle_config?: { weekdays?: number[]; dates?: number[]; month?: number; date?: number } | null
+  construction_time?: string | null
+  billing_trigger?: string | null
+  billing_timing?: string | null
+  billing_cycle?: string | null
+  payment_date?: number | null
+  payment_method?: string | null
 }
 
 interface TemplateOption {
@@ -80,6 +94,12 @@ interface ContractFormData {
   contract_end_date: string
   care_scope: string
   otp_phone: string   // OTP 수신용 (기본은 contact_phone 과 동일)
+  // 계약 조건 — 「계약 내용」 변수와 서명 화면 계약 정보에 들어간다
+  amount_supply: string
+  amount_vat: string
+  amount_total: string
+  visit_schedule: string
+  payment_terms: string
 }
 
 const EMPTY_FORM: ContractFormData = {
@@ -87,6 +107,7 @@ const EMPTY_FORM: ContractFormData = {
   address: '', business_number: '', email: '',
   contract_start_date: '', contract_end_date: '', care_scope: '',
   otp_phone: '',
+  amount_supply: '', amount_vat: '', amount_total: '', visit_schedule: '', payment_terms: '',
 }
 
 export default function AdminContractsPage() {
@@ -209,6 +230,12 @@ export default function AdminContractsPage() {
       contract_end_date:   c.contract_end_date   ?? '',
       care_scope:          c.care_scope          ?? '',
       otp_phone:           c.contact_phone       ?? '',
+      // 고객 마스터의 금액·주기·결제 설정을 기본값으로. 모달에서 고칠 수 있다.
+      amount_supply:       c.supply_amount != null ? String(c.supply_amount) : '',
+      amount_vat:          c.vat != null ? String(c.vat) : '',
+      amount_total:        c.billing_amount != null ? String(c.billing_amount) : '',
+      visit_schedule:      describeVisitSchedule(c),
+      payment_terms:       describePaymentTerms(c),
     })
     setCustomerInputValue(`${c.business_name} (${c.contact_name})`)
     setShowCustomerDropdown(false)
@@ -216,6 +243,20 @@ export default function AdminContractsPage() {
 
   const setField = <K extends keyof ContractFormData>(k: K) => (v: string) =>
     setFormData(prev => ({ ...prev, [k]: v }))
+
+  // 공급가액을 고치면 부가세 10%·총액을 같이 계산. 총액을 직접 고치면 역산.
+  const setSupply = (v: string) => {
+    const n = parseWon(v)
+    if (n === null) { setFormData(prev => ({ ...prev, amount_supply: v, amount_vat: '', amount_total: '' })); return }
+    const a = amountsFromSupply(n)
+    setFormData(prev => ({ ...prev, amount_supply: String(a.supply), amount_vat: String(a.vat), amount_total: String(a.total) }))
+  }
+  const setTotal = (v: string) => {
+    const n = parseWon(v)
+    if (n === null) { setFormData(prev => ({ ...prev, amount_total: v })); return }
+    const a = amountsFromTotal(n)
+    setFormData(prev => ({ ...prev, amount_supply: String(a.supply), amount_vat: String(a.vat), amount_total: String(a.total) }))
+  }
 
   const buildPayload = () => ({
     customer_id: selectedCustomerId,
@@ -231,6 +272,11 @@ export default function AdminContractsPage() {
       contract_start_date: formData.contract_start_date,
       contract_end_date:   formData.contract_end_date,
       care_scope:          formData.care_scope.trim(),
+      amount_supply:       formData.amount_supply.trim(),
+      amount_vat:          formData.amount_vat.trim(),
+      amount_total:        formData.amount_total.trim(),
+      visit_schedule:      formData.visit_schedule.trim(),
+      payment_terms:       formData.payment_terms.trim(),
     },
   })
 
@@ -249,6 +295,10 @@ export default function AdminContractsPage() {
       const json = await res.json()
       if (json.success) {
         setPreviewHtml(json.data.html)
+        // 규정 변수를 초안 규정으로 채운 경우 알린다 (발행 전에는 초안 기준으로 계약서가 만들어짐)
+        if (json.data.regulation?.used_draft) {
+          toast('참조 규정이 아직 초안이라 초안 내용으로 채웠습니다. 계약서에는 "초안 제N판"으로 표시됩니다.', { icon: 'ℹ️', duration: 6000 })
+        }
         setShowCreateModal(false)
         setCreateStep('preview')
       } else {
@@ -586,6 +636,18 @@ export default function AdminContractsPage() {
           <div className="grid grid-cols-2 gap-3">
             <LabeledInput label="계약 시작일" value={formData.contract_start_date} onChange={setField('contract_start_date')} type="date" />
             <LabeledInput label="계약 종료일" value={formData.contract_end_date} onChange={setField('contract_end_date')} type="date" />
+          </div>
+
+          {/* 4-2) 계약 조건 — 별지 「계약 내용」과 서명 화면 계약 정보에 그대로 들어간다 */}
+          <div className="rounded-xl border border-border-subtle bg-surface-sunken p-3 space-y-3">
+            <p className="text-xs font-medium text-text-secondary">계약 조건 <span className="text-text-tertiary font-normal">(고객 정보에서 불러옴 · 수정 가능)</span></p>
+            <div className="grid grid-cols-3 gap-3">
+              <LabeledInput label="회당 공급가액" value={formData.amount_supply} onChange={setSupply} placeholder="1840000" />
+              <LabeledInput label="부가세 (자동)" value={formData.amount_vat} onChange={setField('amount_vat')} />
+              <LabeledInput label="회당 총액 (VAT 포함)" value={formData.amount_total} onChange={setTotal} placeholder="2024000" />
+            </div>
+            <LabeledInput label="방문 주기 · 요일 · 시간" value={formData.visit_schedule} onChange={setField('visit_schedule')} placeholder="예: 6개월마다 1일 21:00 / 매주 월·수·금 22:00" />
+            <LabeledInput label="결제 방식 · 기일" value={formData.payment_terms} onChange={setField('payment_terms')} placeholder="예: 회차 후불 — 작업 완료 후 7일 이내 가상계좌" />
           </div>
 
           {/* 5) 케어범위 */}

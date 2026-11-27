@@ -3,6 +3,7 @@ import { createServiceClient } from '@/lib/supabase/server'
 import { otpStore } from '@/lib/otp-store'
 import { sendSlack } from '@/lib/slack'
 import { renderTemplateWithVars } from '@/lib/contractTemplate'
+import { findMissingAgreements, normalizeKeyClauses } from '@/lib/contract-regulation-vars'
 
 type RouteParams = { params: { token: string } }
 
@@ -44,6 +45,10 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     otp?: string
     article8Agree?: boolean
     article14Agree?: boolean
+    /** 새 방식: 계약서가 요구한 확인 항목 key 목록 */
+    agreements?: string[]
+    /** 새 방식: 끝까지 읽고 확인한 준거 문서 코드 목록 */
+    readDocs?: string[]
     customerSignature?: string
     customerSignerName?: string
     customerStamp?: string
@@ -70,8 +75,24 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     )
   }
 
-  if (!article8Agree || !article14Agree) {
+  // 확인 항목: 스냅샷에 agreements_required 가 있으면 그 목록 전부 체크됐는지 확인(새 방식),
+  // 없으면 옛 계약서라 제8조·제14조 두 항목으로 확인한다.
+  const prevSnapshot = (contract.contract_snapshot as Record<string, unknown> | null) ?? {}
+  const requiredClauses = normalizeKeyClauses(prevSnapshot.agreements_required)
+  const checkedKeys = Array.isArray(body.agreements) ? body.agreements.filter((k): k is string => typeof k === 'string') : []
+  if (requiredClauses.length > 0) {
+    if (findMissingAgreements(requiredClauses, checkedKeys).length > 0) {
+      return NextResponse.json({ success: false, error: '중요 내용 확인 항목에 모두 체크해야 합니다.' }, { status: 400 })
+    }
+  } else if (!article8Agree || !article14Agree) {
     return NextResponse.json({ success: false, error: '모든 조항에 동의해야 합니다.' }, { status: 400 })
+  }
+  // 준거 문서: 스냅샷에 들어 있는 규정은 모두 열람(끝까지 읽고 확인)해야 한다
+  const regulationDocs = (Array.isArray(prevSnapshot.regulation_docs) ? prevSnapshot.regulation_docs : []) as Array<{ code: string; title: string }>
+  const readDocs = Array.isArray(body.readDocs) ? body.readDocs.filter((k): k is string => typeof k === 'string') : []
+  const unreadDocs = regulationDocs.filter(d => !readDocs.includes(d.code))
+  if (unreadDocs.length > 0) {
+    return NextResponse.json({ success: false, error: `준거 문서를 모두 열람해야 합니다: ${unreadDocs.map(d => d.code).join(', ')}` }, { status: 400 })
   }
 
   // 서명·성명·직인은 모든 계약서에서 필수 (템플릿에 플레이스홀더가 없어도 별도 서명 블록으로 첨부됨)
@@ -159,9 +180,11 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
   // 확약 사항 박스: 고객이 체크한 3개 항목(제8조, 제14조, 대표자 본인 확약) 을 계약서 본문 하단에 박제.
   // 변조 방지를 위해 문구는 서버 상수로 고정. 서명일시·IP 도 함께 기록.
+  const clauseStatements = requiredClauses.length > 0
+    ? requiredClauses.map(c => `${c.label} — 확인하였습니다.`)
+    : ['제8조 (서비스 제공 장소 및 환경) 조항에 동의합니다.', '제14조 (개인정보 보호) 조항에 동의합니다.']
   const agreementStatements = [
-    '제8조 (서비스 제공 장소 및 환경) 조항에 동의합니다.',
-    '제14조 (개인정보 보호) 조항에 동의합니다.',
+    ...clauseStatements,
     '계약 대표자 본인이 직접 서명, 직인 하였습니다. (대표자가 아닌 경우 계약은 무효처리되며 모든 책임은 계약자 본인에게 있습니다)',
   ]
   const agreementBoxHtml = `
@@ -180,9 +203,19 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
   const finalHtml = `${htmlAfterVars}\n${agreementBoxHtml}`
 
+  // 스냅샷은 병합 저장 — 예전엔 { html } 만 써서 customer_info 가 사라졌다. 규정 문서·확인 기록도 함께 보존.
   await supabase
     .from('contracts')
-    .update({ contract_snapshot: { html: finalHtml } })
+    .update({
+      contract_snapshot: {
+        ...prevSnapshot,
+        html: finalHtml,
+        agreements: [
+          ...requiredClauses.map(c => ({ key: c.key, label: c.label, checked_at: now, ip: clientIp })),
+          ...regulationDocs.map(d => ({ key: `doc:${d.code}`, label: `${d.code} ${d.title} 열람`, checked_at: now, ip: clientIp })),
+        ],
+      },
+    })
     .eq('id', contract.id as string)
 
   // Slack 알림

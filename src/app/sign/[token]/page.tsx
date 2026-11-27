@@ -5,9 +5,13 @@ import { useParams } from 'next/navigation'
 import { Button } from '@/components/ui'
 import { Modal } from '@/components/ui'
 import SignaturePad, { type SignaturePadHandle } from '@/components/contracts/SignaturePad'
-import { Clock, CheckCircle, AlertTriangle, Maximize2, X } from 'lucide-react'
+import { Clock, CheckCircle, AlertTriangle, BookOpen } from 'lucide-react'
 import { injectProcessFieldPlaceholders } from '@/lib/contractTemplate'
 import { StampUpload } from '@/components/contracts/StampUpload'
+import SignReadStatus from '@/components/contracts/SignReadStatus'
+import SignReadModal from '@/components/contracts/SignReadModal'
+import SignRegulationPanel, { type SignRegulationDoc } from '@/components/contracts/SignRegulationPanel'
+import type { KeyClause } from '@/lib/contract-regulation-vars'
 
 interface ContractData {
   id: string
@@ -18,9 +22,24 @@ interface ContractData {
   contractStartDate: string | null
   contractEndDate: string | null
   businessName: string | null
+  contactName?: string | null
+  /** "2,024,000원 (공급 1,840,000원 + 부가세 184,000원)" */
+  amountText?: string | null
+  visitSchedule?: string | null
+  paymentTerms?: string | null
   /** 관리자가 계약서 생성 시 등록한 OTP 수신 번호 (편집 불가) */
   customerPhone: string | null
+  /** 계약서가 참조한 규정 (서명 당시 판) */
+  regulationDocs?: SignRegulationDoc[]
+  /** 서명 전 확인 항목. 비어 있으면 옛 계약서 → 제8조·제14조 */
+  agreementsRequired?: KeyClause[]
 }
+
+/** 양식에 확인 항목 설정이 없는 옛 계약서용 */
+const LEGACY_CLAUSES: KeyClause[] = [
+  { key: 'article8', label: '제8조 (서비스 제공 장소 및 환경) 동의' },
+  { key: 'article14', label: '제14조 (개인정보 보호) 동의' },
+]
 
 type PageState = 'loading' | 'ready' | 'signed' | 'error' | 'expired'
 type ModalStep = 'signature' | 'otp'
@@ -33,10 +52,10 @@ export default function SignContractPage() {
   const [errorMessage, setErrorMessage] = useState('')
   const [contractData, setContractData] = useState<ContractData | null>(null)
 
-  // 동의 체크박스
-  const [allChecked, setAllChecked] = useState(false)
-  const [article8, setArticle8] = useState(false)
-  const [article14, setArticle14] = useState(false)
+  // 읽기 확인 — 손으로 체크할 수 없고, 읽기 창에서 끝까지 읽고 확인을 눌러야 채워진다
+  const [contractRead, setContractRead] = useState(false)
+  const [readDocs, setReadDocs] = useState<string[]>([])
+  const [reader, setReader] = useState<{ kind: 'contract' } | { kind: 'doc'; doc: SignRegulationDoc } | null>(null)
 
   // 서명 + OTP 모달
   const [showModal, setShowModal] = useState(false)
@@ -48,7 +67,6 @@ export default function SignContractPage() {
   const sigPadRef = useRef<SignaturePadHandle | null>(null)
   const signerNamePadRef = useRef<SignaturePadHandle | null>(null)
   const [signatureDataUrl, setSignatureDataUrl] = useState('')
-  const [showContractFull, setShowContractFull] = useState(false)
 
   // OTP
   const [phone, setPhone] = useState('')
@@ -92,16 +110,6 @@ export default function SignContractPage() {
     }
     void fetchContract()
   }, [token])
-
-  useEffect(() => {
-    setAllChecked(article8 && article14)
-  }, [article8, article14])
-
-  const handleAllCheck = (checked: boolean) => {
-    setAllChecked(checked)
-    setArticle8(checked)
-    setArticle14(checked)
-  }
 
   useEffect(() => {
     if (cooldown <= 0) return
@@ -190,6 +198,9 @@ export default function SignContractPage() {
           otp,
           article8Agree: true,
           article14Agree: true,
+          // 계약서 본문을 끝까지 읽고 확인하면 중요 내용 항목 전체가 확인된 것으로 보낸다
+          agreements: clauses.map(c => c.key),
+          readDocs,
           customerSignature: signatureDataUrl,
           customerSignerName: signerName.trim(),
           customerStamp: customerStamp ?? undefined,
@@ -265,7 +276,22 @@ export default function SignContractPage() {
   }
 
   // ── 서명 메인 화면 ─────────────────────────────────────────
-  const canSign = article8 && article14
+  const clauses = contractData?.agreementsRequired?.length ? contractData.agreementsRequired : LEGACY_CLAUSES
+  const regulationDocs = contractData?.regulationDocs ?? []
+  const canSign = contractRead && regulationDocs.every(d => readDocs.includes(d.code))
+  const handleReadConfirm = () => {
+    if (reader?.kind === 'doc') {
+      const code = reader.doc.code
+      setReadDocs(prev => (prev.includes(code) ? prev : [...prev, code]))
+    } else if (reader?.kind === 'contract') {
+      setContractRead(true)
+    }
+    setReader(null)
+  }
+  const readStatusItems = [
+    { key: 'contract', label: '계약서 전문 확인', done: contractRead },
+    ...regulationDocs.map(d => ({ key: d.code, label: `${d.code} ${d.title} 열람`, done: readDocs.includes(d.code) })),
+  ]
   const rawContractHtml = contractData?.html ?? ''
   const contractDisplayHtml = injectProcessFieldPlaceholders(rawContractHtml)
 
@@ -289,24 +315,36 @@ export default function SignContractPage() {
         <div className="bg-surface rounded-2xl shadow-soft border border-border-subtle p-5">
           <p className="text-sm font-semibold text-text-primary mb-3">계약 정보</p>
           <div className="space-y-1.5 text-sm">
-            <div className="flex justify-between">
-              <span className="text-text-tertiary">고객사</span>
-              <span className="text-text-primary font-medium">{contractData?.businessName ?? '-'}</span>
+            <div className="flex justify-between gap-4">
+              <span className="text-text-tertiary shrink-0">업체명</span>
+              <span className="text-text-primary font-medium text-right break-keep">{contractData?.businessName ?? '-'}</span>
             </div>
-            <div className="flex justify-between">
-              <span className="text-text-tertiary">서비스 플랜</span>
-              <span className="text-text-primary font-medium">{contractData?.servicePlan ?? '-'}</span>
+            <div className="flex justify-between gap-4">
+              <span className="text-text-tertiary shrink-0">성함</span>
+              <span className="text-text-primary font-medium text-right">{contractData?.contactName || '-'}</span>
             </div>
-            <div className="flex justify-between">
-              <span className="text-text-tertiary">방문 주기</span>
-              <span className="text-text-primary font-medium">{contractData?.visitOption ?? '-'}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-text-tertiary">계약 기간</span>
-              <span className="text-text-primary font-medium">
+            <div className="flex justify-between gap-4">
+              <span className="text-text-tertiary shrink-0">계약 기간</span>
+              <span className="text-text-primary font-medium text-right">
                 {contractData?.contractStartDate ?? '-'} ~ {contractData?.contractEndDate ?? '-'}
               </span>
             </div>
+            <div className="flex justify-between gap-4">
+              <span className="text-text-tertiary shrink-0">계약 금액</span>
+              <span className="text-text-primary font-medium text-right break-keep">{contractData?.amountText || '-'}</span>
+            </div>
+            {contractData?.visitSchedule && (
+              <div className="flex justify-between gap-4">
+                <span className="text-text-tertiary shrink-0">방문 주기</span>
+                <span className="text-text-primary font-medium text-right break-keep">{contractData.visitSchedule}</span>
+              </div>
+            )}
+            {contractData?.paymentTerms && (
+              <div className="flex justify-between gap-4">
+                <span className="text-text-tertiary shrink-0">결제 방식</span>
+                <span className="text-text-primary font-medium text-right break-keep">{contractData.paymentTerms}</span>
+              </div>
+            )}
           </div>
         </div>
 
@@ -315,79 +353,55 @@ export default function SignContractPage() {
           <div className="p-4 border-b border-border-subtle flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-text-secondary">계약서 전문</p>
-              <p className="text-xs text-text-tertiary mt-0.5">아래 내용을 끝까지 읽어주세요</p>
+              <p className="text-xs text-text-tertiary mt-0.5">아무 곳이나 누르면 전문을 읽을 수 있습니다</p>
             </div>
-            <button
-              type="button"
-              onClick={() => setShowContractFull(true)}
-              className="flex items-center gap-1 text-xs text-brand-600 font-medium hover:underline flex-shrink-0 ml-3"
+            <span
+              className={`flex items-center gap-1 text-xs font-medium flex-shrink-0 ml-3 px-3 py-1.5 rounded-full shadow-soft ${contractRead ? 'bg-state-success-bg text-state-success' : 'bg-brand-50 text-brand-700'}`}
             >
-              <Maximize2 size={13} />
-              전체 보기
-            </button>
+              <BookOpen size={13} />
+              {contractRead ? '확인 완료' : '미확인'}
+            </span>
           </div>
-          <div
-            className="overflow-y-auto p-4"
-            style={{ maxHeight: '50vh' }}
-            dangerouslySetInnerHTML={{ __html: contractDisplayHtml }}
-          />
+          {/* 미리보기 전체가 클릭 영역 — 어디를 눌러도 읽기 창으로 */}
+          <button
+            type="button"
+            onClick={() => setReader({ kind: 'contract' })}
+            className="relative block w-full text-left cursor-pointer hover:bg-surface-sunken/40 transition-colors"
+            aria-label="계약서 전문 읽기"
+          >
+            <div
+              className="overflow-hidden p-4 select-none pointer-events-none"
+              style={{ maxHeight: '36vh' }}
+              dangerouslySetInnerHTML={{ __html: contractDisplayHtml }}
+            />
+            <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-surface via-surface/80 to-transparent pointer-events-none" />
+            <span className="absolute left-1/2 -translate-x-1/2 bottom-4 inline-flex items-center gap-1 text-xs font-medium px-3 py-1.5 rounded-full bg-brand-100 text-brand-800 shadow-card">
+              <BookOpen size={13} /> 전문 읽기
+            </span>
+          </button>
         </div>
 
-        {/* 동의 체크박스 */}
-        <div className="bg-surface rounded-2xl shadow-soft border border-border-subtle p-5 space-y-3">
-          <p className="text-sm font-semibold text-text-primary">동의 사항</p>
-          <label className="flex items-start gap-3 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={allChecked}
-              onChange={(e) => handleAllCheck(e.target.checked)}
-              className="mt-0.5 w-4 h-4 accent-brand-600 flex-shrink-0"
-            />
-            <span className="text-sm font-medium text-text-primary">
-              위 계약 내용을 모두 확인하였으며, 전체 조항에 동의합니다.
-            </span>
-          </label>
-          <div className="border-t border-border-subtle pt-3 space-y-2.5">
-            <label className="flex items-start gap-3 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={article8}
-                onChange={(e) => setArticle8(e.target.checked)}
-                className="mt-0.5 w-4 h-4 accent-brand-600 flex-shrink-0"
-              />
-              <span className="text-sm text-text-secondary">
-                <span className="font-medium text-text-primary">[필수]</span> 제8조 (서비스 제공 장소 및 환경) 동의
-              </span>
-            </label>
-            <label className="flex items-start gap-3 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={article14}
-                onChange={(e) => setArticle14(e.target.checked)}
-                className="mt-0.5 w-4 h-4 accent-brand-600 flex-shrink-0"
-              />
-              <span className="text-sm text-text-secondary">
-                <span className="font-medium text-text-primary">[필수]</span> 제14조 (개인정보 보호) 동의
-              </span>
-            </label>
-          </div>
-        </div>
+        {/* 준거 문서 — 계약서가 참조한 규정(서명 당시 판). 공개 페이지 없이 이 링크에서만, 끝까지 읽어야 확인 */}
+        <SignRegulationPanel docs={regulationDocs} readCodes={readDocs} onOpen={(doc) => setReader({ kind: 'doc', doc })} />
+
+        {/* 확인 현황 — 읽기 창에서 확인을 누른 항목만 자동 체크 */}
+        <SignReadStatus items={readStatusItems} />
       </main>
 
       {/* 하단 고정 서명 버튼 */}
       <div className="fixed bottom-0 left-0 right-0 bg-surface border-t border-border-subtle p-4 safe-area-inset-bottom">
         <div className="max-w-2xl mx-auto">
-          <Button
-            className="w-full"
-            size="lg"
+          <button
+            type="button"
             disabled={!canSign}
             onClick={() => { setModalStep('signature'); setShowModal(true) }}
+            className="w-full h-12 rounded-xl text-sm font-semibold bg-brand-100 text-brand-800 shadow-card hover:bg-brand-200 hover:shadow-pop active:shadow-pressed active:scale-[0.99] transition-all duration-150 disabled:opacity-40 disabled:shadow-flat disabled:cursor-not-allowed"
           >
-            서명하기
-          </Button>
+            계약서 내용 확인 완료 · 서명과 직인 넣기
+          </button>
           {!canSign && (
             <p className="text-xs text-text-tertiary text-center mt-2">
-              모든 동의 항목을 체크해야 서명할 수 있습니다.
+              계약서 본문과 준거 문서를 모두 열어 끝까지 읽어야 서명할 수 있습니다.
             </p>
           )}
         </div>
@@ -487,8 +501,8 @@ export default function SignContractPage() {
           </div>
         ) : (
           <div className="space-y-4 pt-1">
-            {/* 성명 + 서명 미리보기 */}
-            {(signerName || signatureDataUrl) && (
+            {/* 성명 + 서명 + 직인 미리보기 — 앞 단계에서 넣은 세 가지를 모두 보여 준다 */}
+            {(signerName || signatureDataUrl || customerStamp) && (
               <div className="border border-border rounded-xl p-3 bg-surface-sunken space-y-2">
                 {signerName && (
                   <div className="flex items-center gap-2">
@@ -500,6 +514,12 @@ export default function SignContractPage() {
                   <div className="flex items-center gap-2">
                     <span className="text-xs text-text-tertiary w-10 shrink-0">서명</span>
                     <img src={signatureDataUrl} alt="서명" className="max-h-12 object-contain" />
+                  </div>
+                )}
+                {customerStamp && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-text-tertiary w-10 shrink-0">직인</span>
+                    <img src={customerStamp} alt="직인" className="h-16 w-16 object-contain bg-white border border-border-subtle rounded-md" />
                   </div>
                 )}
               </div>
@@ -580,31 +600,16 @@ export default function SignContractPage() {
         )}
       </Modal>
 
-      {/* 계약서 전체 보기 풀스크린 */}
-      {showContractFull && (
-        <div className="fixed inset-0 z-50 bg-surface flex flex-col">
-          <div className="flex items-center justify-between px-4 py-3 border-b border-border-subtle bg-surface sticky top-0">
-            <p className="text-sm font-semibold text-text-primary">계약서 전문</p>
-            <button
-              type="button"
-              onClick={() => setShowContractFull(false)}
-              className="p-2 rounded-lg hover:bg-surface-sunken text-text-secondary"
-              aria-label="닫기"
-            >
-              <X size={20} />
-            </button>
-          </div>
-          <div
-            className="flex-1 overflow-auto p-4"
-            dangerouslySetInnerHTML={{ __html: contractDisplayHtml }}
-          />
-          <div className="p-4 border-t border-border-subtle bg-surface">
-            <Button className="w-full" onClick={() => setShowContractFull(false)}>
-              확인했습니다
-            </Button>
-          </div>
-        </div>
-      )}
+      {/* 읽기 창 — 계약서 본문·준거 문서 모두 끝까지 읽어야 확인 가능 */}
+      <SignReadModal
+        open={reader !== null}
+        title={reader?.kind === 'doc' ? reader.doc.title : '계약서 전문'}
+        subtitle={reader?.kind === 'doc' ? reader.doc.label : (contractData?.businessName ?? null)}
+        html={reader?.kind === 'doc' ? reader.doc.html : contractDisplayHtml}
+        confirmLabel="확인"
+        onConfirm={handleReadConfirm}
+        onClose={() => setReader(null)}
+      />
     </div>
   )
 }

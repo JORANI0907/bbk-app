@@ -7,6 +7,8 @@ export interface GeneratePdfOptions {
   businessName: string
   customerAgreedAt: string | null
   adminSignedAt: string
+  /** 서명 섹션 뒤에 붙일 별첨 HTML (참조 규정 전문). 없으면 생략 */
+  appendixHtml?: string
 }
 
 function fmt(iso: string | null): string {
@@ -38,7 +40,7 @@ export async function generateContractPdf(opts: GeneratePdfOptions): Promise<str
     import('html2canvas').then(m => m.default),
   ])
 
-  const { contractHtml, customerSignature, adminSignature, businessName, customerAgreedAt, adminSignedAt } = opts
+  const { contractHtml, customerSignature, adminSignature, businessName, customerAgreedAt, adminSignedAt, appendixHtml } = opts
 
   // 서명 변수 치환: v2 한글 변수 + v1 옛 영문 변수(하위 호환)
   const sigImg = (src: string) => src
@@ -90,6 +92,13 @@ export async function generateContractPdf(opts: GeneratePdfOptions): Promise<str
     const sigDiv = document.createElement('div')
     sigDiv.innerHTML = sigHtml
     container.appendChild(sigDiv)
+  }
+
+  // 별첨: 참조 규정 전문 — 계약서 본문은 짧게, 약관은 뒤에 붙여 교부한다
+  if (appendixHtml) {
+    const appendixDiv = document.createElement('div')
+    appendixDiv.innerHTML = appendixHtml
+    container.appendChild(appendixDiv)
   }
 
   document.body.appendChild(container)

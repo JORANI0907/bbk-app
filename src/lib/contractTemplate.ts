@@ -17,6 +17,8 @@
  * 모달에서 수집하는 계약 정보 스냅샷
  * — customers 테이블 자동 채움 + 관리자 수정본
  */
+import { applyContractTermVars } from '@/lib/contract-terms'
+
 export interface ContractCustomerInfo {
   business_name: string       // 업체명
   contact_name: string        // 고객명
@@ -27,6 +29,12 @@ export interface ContractCustomerInfo {
   contract_start_date: string // 계약 시작일 (YYYY-MM-DD)
   contract_end_date: string   // 계약 종료일 (YYYY-MM-DD)
   care_scope: string          // 케어범위 (자유 텍스트)
+  // 2026-11-27 계약 조건 (모달 입력 → 「계약 내용」 변수 + 서명 화면 계약 정보). 옛 계약엔 없을 수 있어 선택.
+  amount_supply?: string      // 회당 공급가액
+  amount_vat?: string         // 회당 부가세
+  amount_total?: string       // 회당 총액(부가세 포함)
+  visit_schedule?: string     // 방문 주기·요일·시간
+  payment_terms?: string      // 결제 방식·기일
 }
 
 /** 서명·직인 자산 (렌더 시 이미지로 치환) */
@@ -231,6 +239,9 @@ export function renderContractForStorage(
 
   // 오늘날짜만 치환. 서명·직인·성명 변수는 손대지 않는다.
   rendered = rendered.replace(/\{\{\s*오늘날짜\s*\}\}/g, escapeHtml(formatToday(today)))
+
+  // 「계약 내용」 변수 ({{계약기간}} {{회당총액}} …) — 모달 입력값으로 채우고, 비면 "(계약 체결 시 기재)" 유지
+  rendered = applyContractTermVars(rendered, customerInfo)
 
   // 옛 v1 영문 변수 중 서명·직인 관련이 아닌 것만 빈 문자열로 (하위 호환).
   // {{CUSTOMER_SIGNATURE}}, {{CUSTOMER_STAMP}}, {{ADMIN_SIGNATURE}}, {{SUPPLIER_STAMP}},

@@ -9,6 +9,8 @@ import SignaturePad, { type SignaturePadHandle } from '@/components/contracts/Si
 import { StampUpload } from '@/components/contracts/StampUpload'
 import ContractEditor from '@/components/contracts/ContractEditor'
 import ContractDeliverModal from '@/components/contracts/ContractDeliverModal'
+import ContractRegulationRefs, { type ContractSnapshotMeta } from '@/components/contracts/ContractRegulationRefs'
+import { buildRegulationAppendixHtml } from '@/lib/contract-regulation-vars'
 import { generateContractPdf } from '@/lib/generateContractPdf'
 import { describeSendResult, formatMobile, normalizeMobile } from '@/lib/contract-send'
 
@@ -31,7 +33,7 @@ interface ContractDetail {
   token_expires_at: string | null
   article8_agree: boolean | null
   article14_agree: boolean | null
-  contract_snapshot: { html?: string } | null
+  contract_snapshot: ContractSnapshotMeta | null
   customer_signature: string | null
   customer_signer_name: string | null
   customer_stamp: string | null
@@ -208,6 +210,7 @@ export default function AdminContractDetailPage() {
         businessName,
         customerAgreedAt: contract?.customer_agreed_at ?? null,
         adminSignedAt: new Date().toISOString(),
+        appendixHtml: buildRegulationAppendixHtml(contract?.contract_snapshot?.regulation_docs ?? []),
       })
 
       toast.loading('저장 중...', { id: tid })
@@ -515,12 +518,7 @@ export default function AdminContractDetailPage() {
                   <Button className="w-full" onClick={() => setShowDeliverModal(true)}>계약서 발송</Button>
                 )}
                 {contract.signed_pdf_url && (
-                  <a
-                    href={contract.signed_pdf_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="block"
-                  >
+                  <a href={contract.signed_pdf_url} target="_blank" rel="noopener noreferrer" className="block">
                     <Button variant="secondary" className="w-full">PDF 다운로드</Button>
                   </a>
                 )}
@@ -560,6 +558,8 @@ export default function AdminContractDetailPage() {
               </div>
             )}
           </div>
+
+          <ContractRegulationRefs snapshot={contract.contract_snapshot} />
 
           {/* 서명 이력 */}
           <div className="bg-surface rounded-2xl shadow-soft border border-border-subtle p-5 space-y-3">
