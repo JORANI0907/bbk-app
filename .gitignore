@@ -64,3 +64,4 @@ scripts/_*.json
 scripts/_contract-v4-out/
 scripts/seed-itfirst-franchise.mjs
 scripts/contract-templates-deepcare-v4.mjs
+scripts/_contract-v5-out/
