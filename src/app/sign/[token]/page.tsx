@@ -290,7 +290,7 @@ export default function SignContractPage() {
   }
   const readStatusItems = [
     { key: 'contract', label: '계약서 전문 확인', done: contractRead },
-    ...regulationDocs.map(d => ({ key: d.code, label: `${d.code} ${d.title} 열람`, done: readDocs.includes(d.code) })),
+    ...regulationDocs.map(d => ({ key: d.code, label: `${d.title} 열람`, done: readDocs.includes(d.code) })),
   ]
   const rawContractHtml = contractData?.html ?? ''
   const contractDisplayHtml = injectProcessFieldPlaceholders(rawContractHtml)

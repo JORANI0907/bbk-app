@@ -44,7 +44,6 @@ export default function SignRegulationPanel({ docs, readCodes, onOpen }: SignReg
                 className="w-full flex items-center justify-between gap-3 px-4 py-3 text-left hover:bg-surface-sunken/60 transition-colors"
               >
                 <span className="min-w-0">
-                  <span className="inline-block text-xs px-2 py-0.5 rounded-full bg-brand-100 text-brand-800 font-medium mr-2">{d.code}</span>
                   <span className="text-sm text-text-primary font-medium break-keep">{d.title}</span>
                   <span className="block text-xs text-text-tertiary mt-0.5">{d.label}</span>
                 </span>

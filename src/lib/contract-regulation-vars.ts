@@ -90,11 +90,33 @@ export function collectRequiredCodes(
   return ordered
 }
 
-/** "CP-03 예약 취소·변경 및 환불 정책 (제1판, 2026-12-01 시행)" — 초안이면 "(초안 제1판)" */
-export function formatRegulationLabel(doc: Pick<RegulationDocSnapshot, 'code' | 'title' | 'version_no' | 'status' | 'effective_date'>): string {
+type LabelDoc = Pick<RegulationDocSnapshot, 'code' | 'title' | 'version_no' | 'status' | 'effective_date'>
+
+function editionText(doc: LabelDoc): string {
   const edition = doc.status === 'draft' ? `초안 제${doc.version_no}판` : `제${doc.version_no}판`
   const date = doc.effective_date ? `, ${doc.effective_date} 시행` : ''
-  return `${doc.code} ${doc.title} (${edition}${date})`
+  return `(${edition}${date})`
+}
+
+/** 관리자용 — "CP-03 예약 취소·변경 및 환불 정책 (제1판, 2026-12-01 시행)". 초안이면 "(초안 제1판)" */
+export function formatRegulationLabel(doc: LabelDoc): string {
+  return `${doc.code} ${doc.title} ${editionText(doc)}`
+}
+
+/** 고객용 — 코드 없이 "예약 취소·변경 및 환불 정책 (제1판, 2026-12-01 시행)". 고객에게 CP-03 같은 내부 코드는 보이지 않는다 */
+export function formatRegulationTitle(doc: LabelDoc): string {
+  return `${doc.title} ${editionText(doc)}`
+}
+
+/**
+ * 고객에게 보여 줄 HTML/문장에서 내부 규정 코드를 지운다.
+ * 규정 원문은 "「CP-03 예약 취소…」" 처럼 코드로 서로를 가리키지만(단일 출처 추적용),
+ * 고객 화면·PDF 에서는 제목만 보이게 한다. 코드 뒤에 한글 제목이 이어지는 경우만 지운다.
+ */
+export function stripRegulationCodes(text: string): string {
+  return text
+    .replace(/(?:CP|OP|HR)-\d{2,3}\s+(?=[가-힣])/g, '')
+    .replace(/\((?:예|예시):\s*(?:CP|OP|HR)-\d{2,3}\)/g, '')
 }
 
 /** 규정 본문에서 "제N조" 블록(제목 <p> 부터 다음 조 직전까지)을 찾는다 */
@@ -115,7 +137,7 @@ export function buildReferenceTable(docs: RegulationDocSnapshot[]): string {
   const rows = docs.map((d) => {
     const edition = d.status === 'draft' ? `초안 제${d.version_no}판` : `제${d.version_no}판`
     const date = d.effective_date ? ` · ${formatKoreanDate(d.effective_date)} 시행` : ''
-    return `<tr><td><p>${escapeHtml(`${d.code} ${d.title}`)}</p></td><td><p>${edition}${date}</p></td><td><p>${VIEW_METHOD}</p></td></tr>`
+    return `<tr><td><p>${escapeHtml(d.title)}</p></td><td><p>${edition}${date}</p></td><td><p>${VIEW_METHOD}</p></td></tr>`
   }).join('')
   return `<table><tbody><tr>${head}</tr>${rows}</tbody></table>`
 }
@@ -129,14 +151,14 @@ export function applyRegulationVars(input: ApplyRegulationVarsInput): ApplyRegul
     const doc = byCode.get(code)
     const article = doc ? extractArticleHtml(doc.html, no, doc.effective_date) : null
     if (!doc || !article) { unresolved.push(raw); return raw }
-    const caption = `<p style="font-size:12px;color:#666;margin:0 0 4px;">[${escapeHtml(formatRegulationLabel(doc))} 인용]</p>`
-    return `<blockquote>${caption}${article}</blockquote>`
+    const caption = `<p style="font-size:12px;color:#666;margin:0 0 4px;">[${escapeHtml(formatRegulationTitle(doc))} 인용]</p>`
+    return `<blockquote>${caption}${stripRegulationCodes(article)}</blockquote>`
   })
 
   html = html.replace(new RegExp(REGULATION_VERSION_VAR_RE.source, 'g'), (raw, code: string) => {
     const doc = byCode.get(code)
     if (!doc) { unresolved.push(raw); return raw }
-    return escapeHtml(formatRegulationLabel(doc))
+    return escapeHtml(formatRegulationTitle(doc))
   })
 
   html = html.replace(REFERENCE_TABLE_VAR_RE, () => (
@@ -180,8 +202,8 @@ export function buildRegulationAppendixHtml(docs: RegulationDocSnapshot[]): stri
   const sections = docs.map((d, i) => `
 <div style="page-break-before:always;">
   <h2 style="font-size:15px;margin:0 0 4px;">별첨 ${i + 1}. ${escapeHtml(d.title)}</h2>
-  <p style="font-size:11px;color:#666;margin:0 0 12px;">${escapeHtml(formatRegulationLabel(d))} · 계약서 서명 당시 판</p>
-  <div style="font-size:12px;line-height:1.7;">${renderRegulationHtml(d.html, d.effective_date)}</div>
+  <p style="font-size:11px;color:#666;margin:0 0 12px;">${escapeHtml(formatRegulationTitle(d))} · 계약서 서명 당시 판</p>
+  <div style="font-size:12px;line-height:1.7;">${stripRegulationCodes(renderRegulationHtml(d.html, d.effective_date))}</div>
 </div>`).join('')
   return `<!-- BBK_BLOCK_START:regulation-appendix -->${sections}<!-- BBK_BLOCK_END:regulation-appendix -->`
 }

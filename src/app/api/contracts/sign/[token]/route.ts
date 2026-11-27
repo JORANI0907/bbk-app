@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { renderRegulationHtml } from '@/lib/regulations/articles'
-import { formatRegulationLabel, normalizeKeyClauses, type RegulationDocSnapshot } from '@/lib/contract-regulation-vars'
+import { formatRegulationTitle, normalizeKeyClauses, stripRegulationCodes, type RegulationDocSnapshot } from '@/lib/contract-regulation-vars'
 import { describeAmount } from '@/lib/contract-terms'
 import type { ContractCustomerInfo } from '@/lib/contractTemplate'
 
@@ -44,8 +44,9 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
   const info = snapshot?.customer_info ?? {}
   const rawHtml = snapshot?.html ?? ''
   // 준거 문서: 계약 생성 시점에 스냅샷에 고정한 규정 본문. 공개 페이지 없이 이 토큰으로만 열람한다.
+  // 고객에게는 내부 코드(CP-03 등)를 보이지 않는다 — 제목만. 본문 안의 상호 참조 코드도 지운다.
   const regulationDocs = (snapshot?.regulation_docs ?? []).map(d => ({
-    code: d.code, title: d.title, label: formatRegulationLabel(d), html: renderRegulationHtml(d.html, d.effective_date),
+    code: d.code, title: d.title, label: formatRegulationTitle(d), html: stripRegulationCodes(renderRegulationHtml(d.html, d.effective_date)),
   }))
 
   return NextResponse.json({

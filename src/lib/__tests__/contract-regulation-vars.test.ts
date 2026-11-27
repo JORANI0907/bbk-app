@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest'
 import {
   applyRegulationVars, buildReferenceTable, buildRegulationAppendixHtml, collectRequiredCodes,
-  extractArticleHtml, findMissingAgreements, findRegulationCodes, formatRegulationLabel,
-  hasRegulationVars, normalizeKeyClauses, type RegulationDocSnapshot,
+  extractArticleHtml, findMissingAgreements, findRegulationCodes, formatRegulationLabel, formatRegulationTitle,
+  hasRegulationVars, normalizeKeyClauses, stripRegulationCodes, type RegulationDocSnapshot,
 } from '../contract-regulation-vars'
 
 const CP03_HTML =
@@ -56,9 +56,17 @@ describe('조문 추출과 라벨', () => {
     expect(extractArticleHtml(CP03_HTML, '99', null)).toBeNull()
   })
 
-  it('라벨은 코드·제목·판·시행일, 초안은 표시한다', () => {
+  it('관리자 라벨은 코드 포함, 고객 라벨은 제목만', () => {
     expect(formatRegulationLabel(cp03)).toBe('CP-03 예약 취소·변경 및 환불 정책 (제1판, 2026-12-01 시행)')
     expect(formatRegulationLabel(cp01)).toBe('CP-01 서비스 이용약관 (초안 제2판)')
+    expect(formatRegulationTitle(cp03)).toBe('예약 취소·변경 및 환불 정책 (제1판, 2026-12-01 시행)')
+  })
+
+  it('고객용 본문에서 내부 코드를 지운다 (한글 제목 앞의 코드만)', () => {
+    expect(stripRegulationCodes('「CP-03 예약 취소·변경 및 환불 정책」에 따릅니다')).toBe('「예약 취소·변경 및 환불 정책」에 따릅니다')
+    expect(stripRegulationCodes('문서 코드(예: CP-03)로 가리킨다')).toBe('문서 코드로 가리킨다')
+    expect(stripRegulationCodes('OP-08 결제 방법 안내는 폐지')).toBe('결제 방법 안내는 폐지')
+    expect(stripRegulationCodes('모델명 CP-03X 는 그대로')).toBe('모델명 CP-03X 는 그대로')
   })
 })
 
@@ -69,7 +77,8 @@ describe('applyRegulationVars', () => {
     const r = applyRegulationVars({ html, docs: [cp01, cp03], serviceType: '정기딥케어' })
     expect(r.unresolved).toEqual([])
     expect(r.html).toContain('<h1>정기딥케어 계약서</h1>')
-    expect(r.html).toContain('CP-03 예약 취소·변경 및 환불 정책 (제1판, 2026-12-01 시행)')
+    expect(r.html).toContain('예약 취소·변경 및 환불 정책 (제1판, 2026-12-01 시행)')
+    expect(r.html).not.toContain('CP-03 예약')
     expect(r.html).toContain('<blockquote>')
     expect(r.html).toContain('제9조 (해약 시 정산)')
     expect(r.html).toContain('서명 화면에서 열람')
