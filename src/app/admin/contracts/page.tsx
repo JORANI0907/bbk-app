@@ -642,9 +642,9 @@ export default function AdminContractsPage() {
           <div className="rounded-xl border border-border-subtle bg-surface-sunken p-3 space-y-3">
             <p className="text-xs font-medium text-text-secondary">계약 조건 <span className="text-text-tertiary font-normal">(고객 정보에서 불러옴 · 수정 가능)</span></p>
             <div className="grid grid-cols-3 gap-3">
-              <LabeledInput label="회당 공급가액" value={formData.amount_supply} onChange={setSupply} placeholder="1840000" />
+              <LabeledInput label="계약 금액 · 공급가액" value={formData.amount_supply} onChange={setSupply} placeholder="1840000" />
               <LabeledInput label="부가세 (자동)" value={formData.amount_vat} onChange={setField('amount_vat')} />
-              <LabeledInput label="회당 총액 (VAT 포함)" value={formData.amount_total} onChange={setTotal} placeholder="2024000" />
+              <LabeledInput label="총액 (VAT 포함)" value={formData.amount_total} onChange={setTotal} placeholder="2024000" />
             </div>
             <LabeledInput label="방문 주기 · 요일 · 시간" value={formData.visit_schedule} onChange={setField('visit_schedule')} placeholder="예: 6개월마다 1일 21:00 / 매주 월·수·금 22:00" />
             <LabeledInput label="결제 방식 · 기일" value={formData.payment_terms} onChange={setField('payment_terms')} placeholder="예: 회차 후불 — 작업 완료 후 7일 이내 가상계좌" />

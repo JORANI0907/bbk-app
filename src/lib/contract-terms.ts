@@ -75,9 +75,12 @@ export function describeVisitSchedule(c: {
   const cfg = c.visit_cycle_config ?? {}
   const time = c.construction_time ? ` ${c.construction_time.slice(0, 5)}` : ''
   if (unit === 'week') {
-    const days = (cfg.weekdays ?? []).map((d) => WEEKDAY_KO[d]).filter(Boolean).join('·')
+    const wd = Array.from(new Set(cfg.weekdays ?? [])).sort()
     const every = n === 1 ? '매주' : n === 2 ? '격주' : `${n}주마다`
-    return days ? `${every} ${days}요일${time}` : `${every}${time}`
+    if (n === 1 && wd.length === 7) return `매일 (주 7회)${time}`
+    if (n === 1 && wd.length === 5 && [1, 2, 3, 4, 5].every((d) => wd.includes(d))) return `평일 매일 (월~금)${time}`
+    const days = wd.map((d) => WEEKDAY_KO[d]).filter(Boolean).join('·')
+    return days ? `${every} ${days}요일 (주 ${wd.length}회)${time}` : `${every}${time}`
   }
   if (unit === 'month') {
     const dates = (cfg.dates ?? []).map((d) => `${d}일`).join('·')
@@ -98,14 +101,17 @@ export function describePaymentTerms(c: {
   payment_date?: number | null
   payment_method?: string | null
 }): string {
-  const method = c.payment_method === 'virtual_account' ? '가상계좌' : c.payment_method === 'card' ? '카드' : ''
+  const method = c.payment_method === 'virtual_account' ? '가상계좌'
+    : (c.payment_method === 'card' || c.payment_method === 'credit_card') ? '카드'
+    : c.payment_method === 'bank_transfer' ? '계좌이체' : ''
   const via = method ? ` · ${method}` : ''
   if (c.billing_trigger === 'per_visit') return `회차 후불 — 작업 완료 후 청구${via}`
   if (c.billing_cycle === '연간') return `기간 선납 — 계약 체결 시 1년분 일괄${via}`
   if (c.billing_cycle) {
     const when = c.billing_timing === 'postpaid' ? '후납' : '선납'
-    const day = c.payment_date ? ` 매 ${c.payment_date}일` : ''
-    return `주기 ${when} — ${c.billing_cycle}${day}${via}`
+    const unit = c.billing_cycle === '월간' ? '월' : c.billing_cycle
+    const day = c.payment_date ? ` — 매월 ${c.payment_date}일 결제` : ''
+    return `${unit} ${when}${day}${via}`
   }
   return ''
 }

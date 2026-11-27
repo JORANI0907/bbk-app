@@ -310,7 +310,7 @@ export default function SignContractPage() {
         </div>
       </header>
 
-      <main className="max-w-2xl mx-auto px-4 py-6 space-y-6 pb-32">
+      <main className="max-w-2xl mx-auto px-4 py-6 space-y-6">
         {/* 계약 정보 요약 */}
         <div className="bg-surface rounded-2xl shadow-soft border border-border-subtle p-5">
           <p className="text-sm font-semibold text-text-primary mb-3">계약 정보</p>
@@ -388,8 +388,8 @@ export default function SignContractPage() {
         <SignReadStatus items={readStatusItems} />
       </main>
 
-      {/* 하단 고정 서명 버튼 */}
-      <div className="fixed bottom-0 left-0 right-0 bg-surface border-t border-border-subtle p-4 safe-area-inset-bottom">
+      {/* 하단 서명 버튼 — 스크롤 중엔 화면 아래에 붙어 따라오고, 끝까지 내리면 제자리(푸터 위)에 놓여 본문·푸터를 가리지 않는다 */}
+      <div className="sticky bottom-0 bg-surface/95 backdrop-blur border-t border-border-subtle p-4 safe-area-inset-bottom">
         <div className="max-w-2xl mx-auto">
           <button
             type="button"

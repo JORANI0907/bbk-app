@@ -28,7 +28,9 @@ describe('금액', () => {
 describe('고객 마스터 → 기본 문장', () => {
   it('방문 주기', () => {
     expect(describeVisitSchedule({ visit_cycle_unit: 'month', visit_cycle_value: 6, visit_cycle_config: { dates: [1] }, construction_time: '21:00' })).toBe('6개월마다 1일 21:00')
-    expect(describeVisitSchedule({ visit_cycle_unit: 'week', visit_cycle_value: 1, visit_cycle_config: { weekdays: [1, 3, 5] }, construction_time: '22:00:00' })).toBe('매주 월·수·금요일 22:00')
+    expect(describeVisitSchedule({ visit_cycle_unit: 'week', visit_cycle_value: 1, visit_cycle_config: { weekdays: [1, 3, 5] }, construction_time: '22:00:00' })).toBe('매주 월·수·금요일 (주 3회) 22:00')
+    expect(describeVisitSchedule({ visit_cycle_unit: 'week', visit_cycle_value: 1, visit_cycle_config: { weekdays: [0, 1, 2, 4, 3, 5, 6] } })).toBe('매일 (주 7회)')
+    expect(describeVisitSchedule({ visit_cycle_unit: 'week', visit_cycle_value: 1, visit_cycle_config: { weekdays: [1, 2, 3, 4, 5] } })).toBe('평일 매일 (월~금)')
     expect(describeVisitSchedule({ visit_cycle_unit: 'week', visit_cycle_value: 2, visit_cycle_config: {} })).toBe('격주')
     expect(describeVisitSchedule({ visit_cycle_unit: 'month', visit_cycle_value: 1, visit_cycle_config: { dates: [15, 30] } })).toBe('매월 15일·30일')
     expect(describeVisitSchedule({ visit_cycle_unit: null })).toBe('')
@@ -36,7 +38,8 @@ describe('고객 마스터 → 기본 문장', () => {
   it('결제 방식', () => {
     expect(describePaymentTerms({ billing_trigger: 'per_visit', payment_method: 'virtual_account' })).toBe('회차 후불 — 작업 완료 후 청구 · 가상계좌')
     expect(describePaymentTerms({ billing_cycle: '연간', billing_timing: 'prepaid' })).toBe('기간 선납 — 계약 체결 시 1년분 일괄')
-    expect(describePaymentTerms({ billing_cycle: '월간', billing_timing: 'postpaid', payment_date: 30, payment_method: 'card' })).toBe('주기 후납 — 월간 매 30일 · 카드')
+    expect(describePaymentTerms({ billing_cycle: '월간', billing_timing: 'postpaid', payment_date: 30, payment_method: 'card' })).toBe('월 후납 — 매월 30일 결제 · 카드')
+    expect(describePaymentTerms({ billing_cycle: '월간', billing_timing: 'prepaid', payment_date: 7, payment_method: 'credit_card' })).toBe('월 선납 — 매월 7일 결제 · 카드')
     expect(describePaymentTerms({})).toBe('')
   })
   it('기간', () => {
