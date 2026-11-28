@@ -4,8 +4,8 @@ import { getServerSession } from '@/lib/session'
 
 // ── 공급자 fallback (tax_invoice_suppliers 조회 실패 시) ──────
 const SUPPLIER_FALLBACK = {
-  registration_number: '2987800455',
-  company_name: '범빌드코리아',
+  registration_number: '3988104260',
+  company_name: '범빌드코리아 주식회사',
   representative: '조동환',
   address: '경기도 성남시 중원구 둔촌대로268번길22, 201호',
   business_type: '사업시설 관리, 사업지원 및 임대 서비스업',

@@ -74,6 +74,13 @@ interface Candidate {
   deposit_transferred_at?: string | null
   /** 잔금 결제 완료 시각 — 5-step 진행흐름 기준 */
   balance_paid_at?: string | null
+  /** 정기 청구서 입금일 (service_billings.paid_date) — 작성일자 기본값 (2026-11-28) */
+  paid_date?: string | null
+  /** 볼타 발행 추적 (tax_invoice_drafts.issue_status 등, 2026-11-28) */
+  draft_issue_status: 'draft' | 'requested' | 'issued' | 'failed' | null
+  draft_failure_message: string | null
+  draft_tax_invoice_url: string | null
+  draft_requested_at: string | null
 }
 
 interface DraftData {
@@ -89,6 +96,10 @@ interface DraftData {
   items: DraftItem[] | null
   invoice_kind: string | null
   bill_receipt_type: string | null
+  issue_status: string | null
+  failure_message: string | null
+  tax_invoice_url: string | null
+  requested_at: string | null
 }
 
 interface DraftRow {
@@ -106,6 +117,10 @@ interface DraftRow {
   items: unknown
   invoice_kind: string | null
   bill_receipt_type: string | null
+  issue_status: string | null
+  failure_message: string | null
+  tax_invoice_url: string | null
+  requested_at: string | null
 }
 
 function checkValidity(row: { business_number: string | null; business_name: string; owner_name: string }): {
@@ -238,7 +253,8 @@ export async function GET(request: NextRequest) {
       'receiver_business_number, receiver_business_name, receiver_owner_name, ' +
       'receiver_address, receiver_email, receiver_email_2, ' +
       'receiver_business_type, receiver_business_item, ' +
-      'items, invoice_kind, bill_receipt_type'
+      'items, invoice_kind, bill_receipt_type, ' +
+      'issue_status, failure_message, tax_invoice_url, requested_at'
     )
 
   const draftMap = new Map<string, DraftData>()
@@ -256,8 +272,20 @@ export async function GET(request: NextRequest) {
       items: Array.isArray(d.items) ? d.items as DraftItem[] : null,
       invoice_kind: d.invoice_kind ?? null,
       bill_receipt_type: d.bill_receipt_type ?? null,
+      issue_status: d.issue_status ?? null,
+      failure_message: d.failure_message ?? null,
+      tax_invoice_url: d.tax_invoice_url ?? null,
+      requested_at: d.requested_at ?? null,
     })
   }
+
+  type IssueStatus = Candidate['draft_issue_status']
+  const draftIssueFields = (draft: DraftData | undefined) => ({
+    draft_issue_status: (draft?.issue_status as IssueStatus) ?? null,
+    draft_failure_message: draft?.failure_message ?? null,
+    draft_tax_invoice_url: draft?.tax_invoice_url ?? null,
+    draft_requested_at: draft?.requested_at ?? null,
+  })
 
   // ── 소스 1: 1회성케어 — service_applications ─────────────────
   if (!skipOneTime) {
@@ -478,6 +506,7 @@ export async function GET(request: NextRequest) {
           draft_receiver_email_2: draft?.receiver_email_2 ?? null,
           draft_receipt_type: draft?.bill_receipt_type ?? null,
           draft_invoice_kind: draft?.invoice_kind ?? null,
+          ...draftIssueFields(draft),
           application_status: sa.status ?? null,
           payment_status_detail: sa.payment_status_detail ?? null,
           balance_paid_at: sa.balance_paid_at ?? null,
@@ -503,6 +532,7 @@ export async function GET(request: NextRequest) {
       due_date: string | null
       tax_invoice_issued: boolean
       tax_invoice_issued_date: string | null
+      paid_date: string | null
       created_at: string | null
     }
     interface PeriodicCust {
@@ -529,7 +559,7 @@ export async function GET(request: NextRequest) {
       customer_type, payment_method, created_at, account_number,
       billing_contact_name, billing_email, billing_address, billing_business_number,
       service_billings (
-        id, billing_period, billing_type, amount, status, due_date,
+        id, billing_period, billing_type, amount, status, due_date, paid_date,
         tax_invoice_issued, tax_invoice_issued_date, created_at
       )
     `
@@ -537,7 +567,7 @@ export async function GET(request: NextRequest) {
       id, business_name, business_number, contact_name, address, email, contact_phone,
       customer_type, payment_method, created_at, account_number,
       service_billings (
-        id, billing_period, billing_type, amount, status, due_date,
+        id, billing_period, billing_type, amount, status, due_date, paid_date,
         tax_invoice_issued, tax_invoice_issued_date, created_at
       )
     `
@@ -627,6 +657,7 @@ export async function GET(request: NextRequest) {
           display_period,
           effective_month,
           billing_status: b.status as 'pending' | 'paid' | 'overdue',
+          paid_date: b.paid_date ?? null,
           construction_date: null,
           created_at: b.created_at ?? new Date().toISOString(),
           tax_invoice_issued: isIssued,
@@ -640,6 +671,7 @@ export async function GET(request: NextRequest) {
           draft_receiver_email_2: draft?.receiver_email_2 ?? null,
           draft_receipt_type: draft?.bill_receipt_type ?? null,
           draft_invoice_kind: draft?.invoice_kind ?? null,
+          ...draftIssueFields(draft),
           account_number: c.account_number ?? null,
         })
       }
