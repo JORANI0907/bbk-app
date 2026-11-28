@@ -7,7 +7,7 @@ import Link from 'next/link'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { DraftEditor } from './DraftEditor'
-import { buildHometaxCsv, todayYmdKst, type HometaxRow, type HometaxItem } from '@/lib/hometax-csv'
+import { IssueModeModal } from './IssueModeModal'
 
 type Source = 'application' | 'billing'
 
@@ -54,6 +54,13 @@ interface Candidate {
   account_number?: string | null
   /** 예약금 이체 완료 시각 (신규 컬럼, 미이체이면 null) */
   deposit_transferred_at?: string | null
+  /** 정기 청구서 입금일 — 작성일자 기본값 (2026-11-28) */
+  paid_date?: string | null
+  /** 볼타 발행 추적 (2026-11-28) */
+  draft_issue_status: 'draft' | 'requested' | 'issued' | 'failed' | null
+  draft_failure_message: string | null
+  draft_tax_invoice_url: string | null
+  draft_requested_at: string | null
 }
 
 const SERVICE_TYPES_FIXED = ['1회성케어', '정기딥케어', '정기엔드케어']
@@ -74,8 +81,8 @@ interface Supplier {
 const FALLBACK_SUPPLIER: Supplier = {
   id: '',
   label: '기본',
-  registration_number: '2987800455',
-  company_name: '범빌드코리아',
+  registration_number: '3988104260',
+  company_name: '범빌드코리아 주식회사',
   representative: '조동환',
   address: '경기도 성남시 중원구 둔촌대로268번길22, 201호',
   business_type: '사업시설 관리, 사업지원 및 임대 서비스업',
@@ -112,6 +119,7 @@ export default function TaxInvoiceDashboardPage() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [editingCandidate, setEditingCandidate] = useState<Candidate | null>(null)
   const [markingIssued, setMarkingIssued] = useState(false)
+  const [issueModalOpen, setIssueModalOpen] = useState(false)
 
   const [suppliers, setSuppliers] = useState<Supplier[]>([])
   const [selectedSupplierId, setSelectedSupplierId] = useState<string>('')
@@ -454,114 +462,14 @@ export default function TaxInvoiceDashboardPage() {
   }
 
   // ── CSV → Google Drive ────────────────────────────────────────
-  const handleDownloadCsv = async () => {
-    const selected = filteredCandidates.filter(c => selectedIds.has(rowKey(c)))
-    if (selected.length === 0) { toast.error('먼저 발행 대상을 선택하세요.'); return }
-    const invalidSelected = selected.filter(c => !c.is_valid)
-    if (invalidSelected.length > 0) {
-      toast.error(`필수 정보 누락 ${invalidSelected.length}건 — 편집 후 다시 시도`)
-      return
-    }
-
-    const yyyymmdd = todayYmdKst()
-    const rows: HometaxRow[] = selected.map(c => {
-      const rowSupplier = c.draft_supplier_id
-        ? (suppliers.find(s => s.id === c.draft_supplier_id) ?? supplier)
-        : supplier
-
-      const periodLabel = c.display_period ?? c.construction_date?.slice(0, 10) ?? ''
-      const items: HometaxItem[] = (c.draft_items && c.draft_items.length > 0)
-        ? c.draft_items.slice(0, 4).map(it => ({
-            name: it.name,
-            spec: it.spec ?? null,
-            qty: it.qty ?? 1,
-            unit_price: it.unit_price ?? Number(it.supply_amount ?? 0),
-            supply_amount: Number(it.supply_amount ?? 0),
-            vat: Number(it.vat ?? 0),
-            remark: it.remark ?? null,
-          }))
-        : [{
-            name: `${c.service_type ?? '청소 서비스'}${periodLabel ? ` - ${periodLabel}` : ''}`,
-            qty: 1,
-            unit_price: c.supply_amount,
-            supply_amount: c.supply_amount,
-            vat: c.vat,
-          }]
-
-      return {
-        invoice_kind: (c.draft_invoice_kind === '02' ? '02' : '01'),
-        written_date: yyyymmdd,
-        supplier: {
-          registration_number: rowSupplier.registration_number,
-          company_name: rowSupplier.company_name,
-          representative: rowSupplier.representative,
-          address: rowSupplier.address,
-          business_type: rowSupplier.business_type,
-          business_item: rowSupplier.business_item,
-          email: rowSupplier.email,
-        },
-        receiver: {
-          registration_number: c.business_number,
-          business_name: c.business_name,
-          owner_name: c.owner_name,
-          address: c.address,
-          business_type: c.draft_receiver_business_type,
-          business_item: c.draft_receiver_business_item,
-          email: c.email,
-          email_2: c.draft_receiver_email_2,
-        },
-        items,
-        receipt_type: (c.draft_receipt_type === '02' ? '02' : '01'),
-      }
-    })
-
-    let csv: string
-    try {
-      csv = buildHometaxCsv(rows)
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'CSV 생성 실패')
-      return
-    }
-
-    const filename = `홈택스_세금계산서_${yyyymmdd}_${rows.length}건.csv`
-    const downloadLocally = () => {
-      const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' })
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url; a.download = filename; a.click()
-      URL.revokeObjectURL(url)
-    }
-
-    const uploadingToast = toast.loading('Google Sheets로 저장 중...')
-    try {
-      const res = await fetch('/api/admin/tax-invoice/upload-csv', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ filename, csv }),
-      })
-      const json = await res.json()
-      toast.dismiss(uploadingToast)
-      if (!res.ok) throw new Error(json.error ?? '업로드 실패')
-      toast.success(
-        (t) => (
-          <span className="flex items-center gap-2">
-            <span>{rows.length}건 Google Sheets 저장 완료</span>
-            {json.webViewLink && (
-              <a href={json.webViewLink} target="_blank" rel="noreferrer"
-                onClick={() => toast.dismiss(t.id)}
-                className="text-brand-600 underline text-xs">
-                시트 열기
-              </a>
-            )}
-          </span>
-        ),
-        { duration: 8000 },
-      )
-    } catch (e) {
-      toast.dismiss(uploadingToast)
-      downloadLocally()
-      toast.error(`Sheets 저장 실패 — 로컬 CSV로 다운로드: ${e instanceof Error ? e.message : String(e)}`, { duration: 6000 })
-    }
+  // ── "계산서" 버튼 → 발행 방식 선택 모달 (CSV 생성 / 볼타 발행). 2026-11-28 ─
+  const selectedCandidates = useMemo(
+    () => filteredCandidates.filter(c => selectedIds.has(rowKey(c))),
+    [filteredCandidates, selectedIds],
+  )
+  const openIssueModal = () => {
+    if (selectedCandidates.length === 0) { toast.error('먼저 발행 대상을 선택하세요.'); return }
+    setIssueModalOpen(true)
   }
 
   return (
@@ -601,10 +509,10 @@ export default function TaxInvoiceDashboardPage() {
 
           {/* 세트 1: 계산서 3버튼 그룹 (저장 · 발행완료 · 발행취소) */}
           <div className="inline-flex items-center gap-1 rounded-lg border border-border-subtle bg-surface-sunken/60 p-1">
-            <Button size="sm" onClick={handleDownloadCsv}
+            <Button size="sm" onClick={openIssueModal}
               disabled={selectedIds.size === 0}
               className="flex items-center gap-1.5 h-7"
-              title="Google Drive '세금계산서' 폴더에 Google Sheets로 저장 (실패 시 로컬 CSV 다운로드 fallback)">
+              title="발행 방식 선택: 홈택스 CSV 생성(Google Sheets 저장) 또는 볼타로 즉시 발행">
               <Download size={13} />계산서{selectedIds.size > 0 ? ` (${selectedIds.size})` : ''}
             </Button>
             <Button size="sm" variant="secondary" onClick={handleMarkIssued}
@@ -856,6 +764,16 @@ export default function TaxInvoiceDashboardPage() {
         />
       )}
 
+      {/* 발행 방식 선택 모달 */}
+      <IssueModeModal
+        open={issueModalOpen}
+        onClose={() => setIssueModalOpen(false)}
+        candidates={selectedCandidates}
+        suppliers={suppliers}
+        supplier={supplier}
+        onIssued={() => void load()}
+      />
+
       {/* 공급자 상세 */}
       <details className="bg-surface border border-border-subtle rounded-2xl">
         <summary className="cursor-pointer px-4 py-3 text-xs font-medium text-text-secondary flex items-center justify-between">
@@ -991,6 +909,26 @@ function RowStatus({ c }: { c: Candidate }) {
         {c.tax_invoice_issued_at && (
           <span className="text-text-tertiary">({fmtDate(c.tax_invoice_issued_at)})</span>
         )}
+        {c.draft_tax_invoice_url && (
+          <a href={c.draft_tax_invoice_url} target="_blank" rel="noreferrer"
+            className="text-brand-600 hover:text-brand-700 underline">볼타</a>
+        )}
+      </span>
+    )
+  }
+  if (c.draft_issue_status === 'requested') {
+    return (
+      <span className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-md bg-state-warning-bg text-state-warning whitespace-nowrap"
+        title={c.draft_requested_at ? `볼타 요청 ${fmtDate(c.draft_requested_at)} · 결과 대기` : '볼타 요청됨 · 결과 대기'}>
+        볼타 요청됨
+      </span>
+    )
+  }
+  if (c.draft_issue_status === 'failed') {
+    return (
+      <span className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-md bg-state-danger-bg text-state-danger whitespace-nowrap"
+        title={c.draft_failure_message ?? '발행 실패'}>
+        <AlertCircle size={11} />발행 실패
       </span>
     )
   }
